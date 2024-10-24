@@ -1,11 +1,6 @@
 {
-<<<<<<<< HEAD:noir/noir-repo/docs/versioned_docs/version-v0.36.0/noir/standard_library/_category_.json
-    "label": "Standard Library",
-|||||||| ab0c80d749:noir/noir-repo/docs/docs/getting_started/backend/_category_.json
-========
-    "label": "Debugger",
->>>>>>>> master:noir/noir-repo/docs/versioned_docs/version-v0.36.0/reference/debugger/_category_.json
-    "position": 1,
-    "collapsible": true,
-    "collapsed": true
+  "label": "Standard Library",
+  "position": 1,
+  "collapsible": true,
+  "collapsed": true
 }
