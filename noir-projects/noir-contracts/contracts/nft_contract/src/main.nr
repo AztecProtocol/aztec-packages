@@ -7,6 +7,7 @@ use dep::aztec::macros::aztec;
 // and private.
 #[aztec]
 contract NFT {
+    use crate::types::nft_note::NFTNote;
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
         compute_authwit_nullifier,
