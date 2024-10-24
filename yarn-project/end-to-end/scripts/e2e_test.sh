@@ -53,11 +53,8 @@ run_docker_compose() {
 test_config=$(load_test_config "$TEST")
 
 # Determine the test path
-test_directory=$(echo "$test_config" | yq e '.directory // ""' -)
-
-if [ -n "$test_directory" ]; then
-  test_path="${test_directory}/${TEST}.test.ts"
-else
+test_path=$(echo "$test_config" | yq e '.test_path // ""' -)
+if [ -z "$test_path" ]; then
   test_path="${TEST}.test.ts"
 fi
 

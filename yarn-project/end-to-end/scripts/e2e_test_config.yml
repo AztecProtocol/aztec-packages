@@ -29,7 +29,6 @@ tests:
     use_compose: true
   e2e_card_game: {}
   e2e_cheat_codes: {}
-  e2e_cli_wallet: {}
   e2e_cross_chain_messaging: {}
   e2e_crowdfunding_and_claim: {}
   e2e_deploy_contract: {}
@@ -37,24 +36,24 @@ tests:
   e2e_docs_examples:
     use_compose: true
   e2e_escrow_contract: {}
-  account_init:
-    directory: "e2e_fees"
-  dapp_subscription:
-    directory: "e2e_fees"
-  failures:
-    directory: "e2e_fees"
-  fee_juice_payments:
-    directory: "e2e_fees"
-  gas_estimation:
-    directory: "e2e_fees"
-  private_payments:
-    directory: "e2e_fees"
-  private_refunds:
-    directory: "e2e_fees"
+  e2e_fees_account_init:
+    test_path: "e2e_fees/account_init.test.ts"
+  e2e_fees_dapp_subscription:
+    test_path: "e2e_fees/dapp_subscription.test.ts"
+  e2e_fees_failures:
+    test_path: "e2e_fees/failures.test.ts"
+  e2e_fees_fee_juice_payments:
+    test_path: "e2e_fees/fee_juice_payments.test.ts"
+  e2e_fees_gas_estimation:
+    test_path: "e2e_fees/gas_estimation.test.ts"
+  e2e_fees_private_payments:
+    test_path: "e2e_fees/private_payments.test.ts"
+  e2e_fees_private_refunds:
+    test_path: "e2e_fees/private_refunds.test.ts"
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}
-  e2e_logs: {}
+  e2e_event_logs: {}
   e2e_max_block_number: {}
   e2e_multiple_accounts_1_enc_key: {}
   e2e_nested_contract: {}
@@ -67,9 +66,11 @@ tests:
   e2e_private_voting_contract: {}
   e2e_prover_coordination: {}
   e2e_prover_fake_proofs:
+    test_path: "e2e_prover/full.test.ts"
     env:
       FAKE_PROOFS: "1"
   e2e_prover_full:
+    test_path: "e2e_prover/full.test.ts"
     env:
       HARDWARE_CONCURRENCY: "32"
   e2e_public_testnet: {}
@@ -79,7 +80,9 @@ tests:
   e2e_static_calls: {}
   e2e_synching: {}
   e2e_token_contract: {}
-  flakey_e2e_tests: {}
+  flakey_e2e_tests:
+    test_path: "./src/flakey"
+    command: "./scripts/e2e_test.sh ./src/flakey || true"
   guides_dapp_testing:
     use_compose: true
   guides_sample_dapp:
