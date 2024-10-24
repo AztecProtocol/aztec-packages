@@ -5,6 +5,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  BlobPublicInputs,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -78,6 +79,7 @@ import {
   PartialStateReference,
   type PendingReadHint,
   Point,
+  Poseidon2Sponge,
   type PreviousRollupBlockData,
   type PreviousRollupData,
   PrivateAccumulatedData,
@@ -130,6 +132,7 @@ import {
   ScopedNullifier,
   ScopedReadRequest,
   type SettledReadHint,
+  SpongeBlob,
   type StateDiffHints,
   StateReference,
   type TransientDataIndexHint,
@@ -140,7 +143,7 @@ import {
   VMCircuitPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import type {
@@ -148,6 +151,8 @@ import type {
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
+  BigNum,
+  BlobPublicInputs as BlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
@@ -201,6 +206,7 @@ import type {
   RootParityInput as ParityRootParityInputNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PendingReadHint as PendingReadHintNoir,
+  Poseidon2 as Poseidon2SpongeNoir,
   PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
@@ -248,6 +254,7 @@ import type {
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
+  SpongeBlob as SpongeBlobNoir,
   StateDiffHints as StateDiffHintsNoir,
   StateReference as StateReferenceNoir,
   StorageRead as StorageReadNoir,
@@ -302,6 +309,25 @@ export function mapNumberFromNoir(number: NoirField): number {
 
 export function mapNumberToNoir(number: number): NoirField {
   return new Fr(BigInt(number)).toString();
+}
+
+/**
+ * Maps a BigNum coming to/from noir.
+ * TODO(): Is BigInt the best way to represent this?
+ * @param number - The BigNum representing the number.
+ * @returns The number
+ */
+export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
+  // TODO(Miranda): there's gotta be a better way to convert this
+  // Try toBigIntBE
+  return BigInt(bignum.limbs[2].concat(bignum.limbs[1].substring(2), bignum.limbs[0].substring(2)));
+}
+
+export function mapBLS12BigNumToNoir(number: bigint): BigNum {
+  const hex = toHex(number, true);
+  return {
+    limbs: ['0x' + hex.substring(36), '0x' + hex.substring(6, 36), hex.substring(0, 6)],
+  };
 }
 
 /**
@@ -1924,6 +1950,86 @@ export function mapFeeRecipientFromNoir(feeRecipient: FeeRecipientNoir): FeeReci
 }
 
 /**
+ * Maps poseidon sponge to noir.
+ * @param sponge - The circuits.js poseidon sponge.
+ * @returns The noir poseidon sponge.
+ */
+export function mapPoseidon2SpongeToNoir(sponge: Poseidon2Sponge): Poseidon2SpongeNoir {
+  return {
+    cache: mapTuple(sponge.cache, mapFieldToNoir),
+    state: mapTuple(sponge.state, mapFieldToNoir),
+    cache_size: mapNumberToNoir(sponge.cacheSize),
+    squeeze_mode: sponge.squeezeMode,
+  };
+}
+
+/**
+ * Maps poseidon sponge from noir.
+ * @param sponge - The noir poseidon sponge.
+ * @returns The circuits.js poseidon sponge.
+ */
+export function mapPoseidon2SpongeFromNoir(sponge: Poseidon2SpongeNoir): Poseidon2Sponge {
+  return new Poseidon2Sponge(
+    mapTupleFromNoir(sponge.cache, 3, mapFieldFromNoir),
+    mapTupleFromNoir(sponge.state, 4, mapFieldFromNoir),
+    mapNumberFromNoir(sponge.cache_size),
+    sponge.squeeze_mode,
+  );
+}
+
+/**
+ * Maps sponge blob to noir.
+ * @param spongeBlob - The circuits.js sponge blob.
+ * @returns The noir sponge blob.
+ */
+export function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
+  return {
+    sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
+    fields: mapNumberToNoir(spongeBlob.fields),
+    expected_fields: mapNumberToNoir(spongeBlob.expectedFields),
+  };
+}
+
+/**
+ * Maps sponge blob from noir.
+ * @param spongeBlob - The noir sponge blob.
+ * @returns The circuits.js sponge blob.
+ */
+export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
+  return new SpongeBlob(
+    mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
+    mapNumberFromNoir(spongeBlob.fields),
+    mapNumberFromNoir(spongeBlob.expected_fields),
+  );
+}
+
+/**
+ * Maps blob public inputs to noir.
+ * @param blobPublicInputs - The circuits.js blob public inputs.
+ * @returns The noir blob public inputs.
+ */
+export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): BlobPublicInputsNoir {
+  return {
+    z: mapFieldToNoir(blobPublicInputs.z),
+    y: mapBLS12BigNumToNoir(blobPublicInputs.y),
+    kzg_commitment: mapTuple(blobPublicInputs.kzgCommitment, mapFieldToNoir),
+  };
+}
+
+/**
+ * Maps blob public inputs from noir.
+ * @param blobPublicInputs - The noir blob public inputs.
+ * @returns The circuits.js blob public inputs.
+ */
+export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNoir): BlobPublicInputs {
+  return new BlobPublicInputs(
+    mapFieldFromNoir(blobPublicInputs.z),
+    mapBLS12BigNumFromNoir(blobPublicInputs.y),
+    mapTupleFromNoir(blobPublicInputs.kzg_commitment, 2, mapFieldFromNoir),
+  );
+}
+
+/**
  * Maps a constant rollup data to a noir constant rollup data.
  * @param constantRollupData - The circuits.js constant rollup data.
  * @returns The noir constant rollup data.
@@ -2002,7 +2108,8 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
-    txs_effects_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.txsEffectsHash),
+    start_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.startSpongeBlob),
+    end_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.endSpongeBlob),
     out_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.outHash),
     accumulated_fees: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedFees),
   };
@@ -2028,6 +2135,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
+    blob_public_inputs: mapTuple(blockRootOrBlockMergePublicInputs.blobPublicInputs, mapBlobPublicInputsToNoir),
   };
 }
 
@@ -2103,7 +2211,8 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash),
+    mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.start_sponge_blob),
+    mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.end_sponge_blob),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.out_hash),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_fees),
   );
@@ -2129,6 +2238,11 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
+    mapTupleFromNoir(
+      blockRootOrBlockMergePublicInputs.blob_public_inputs,
+      AZTEC_EPOCH_DURATION,
+      mapBlobPublicInputsFromNoir,
+    ),
   );
 }
 
@@ -2228,6 +2342,9 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
+    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+    tx_effects: mapTuple(rootRollupInputs.txEffects, mapFieldToNoir),
+    blob_commitment: mapTuple(rootRollupInputs.blobCommitment, mapFieldToNoir),
   };
 }
 
@@ -2306,6 +2423,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
+    mapTupleFromNoir(rootRollupPublicInputs.blob_public_inputs, AZTEC_EPOCH_DURATION, mapBlobPublicInputsFromNoir),
   );
 }
 
@@ -2359,7 +2477,6 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
     num_txs: mapFieldToNoir(contentCommitment.numTxs),
-    txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
   };
@@ -2372,7 +2489,6 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
     mapFieldFromNoir(contentCommitment.num_txs),
-    mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),
   );
@@ -2557,19 +2673,15 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
   return {
     kernel_data: mapKernelDataToNoir(inputs.kernelData),
     start: mapPartialStateReferenceToNoir(inputs.start),
+    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     state_diff_hints: mapStateDiffHintsToNoir(inputs.stateDiffHints),
-
     sorted_public_data_writes: mapTuple(inputs.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
-
     sorted_public_data_writes_indexes: mapTuple(inputs.sortedPublicDataWritesIndexes, mapNumberToNoir),
-
     low_public_data_writes_preimages: mapTuple(inputs.lowPublicDataWritesPreimages, mapPublicDataTreePreimageToNoir),
-
     low_public_data_writes_witnesses: mapTuple(
       inputs.lowPublicDataWritesMembershipWitnesses,
       (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
     ),
-
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.constants),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.feePayerFeeJuiceBalanceReadHint),

@@ -1,5 +1,7 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, Header, Proof, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS } from '@aztec/circuits.js';
+import { Blob } from '@aztec/foundation/blob';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -139,10 +141,34 @@ async function getBlockFromRollupTx(
   if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
+  const [headerHex, archiveRootHex, , , , bodyHex, blobInputs] = args! as readonly [
+    Hex,
+    Hex,
+    Hex,
+    Hex[],
+    ViemSignature[],
+    Hex,
+    Hex,
+  ];
 
   const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
+  // either a beacon chain client or link to some blob store. Web2 is ok because we will
+  // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
+
+  const blockFields = blockBody.toFields();
+  // TODO(Miranda): Remove padding below once not using zero value tx effects, just use body.toFields()
+  const blobCheck = new Blob(
+    padArrayEnd(blockFields, Fr.ZERO, header.contentCommitment.numTxs.toNumber() * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
+  );
+  if (blobCheck.getEthBlobEvaluationInputs() !== blobInputs) {
+    // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
+    // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.
+    throw new Error(
+      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${blobCheck.getEthBlobEvaluationInputs()} \nGot: ${blobInputs}`,
+    );
+  }
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 

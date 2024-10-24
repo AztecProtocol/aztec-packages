@@ -5,13 +5,21 @@ import {
   type ProcessedTx,
   type ServerCircuitProver,
   makeEmptyProcessedTx,
+  toNumTxsEffects,
+  toTxEffect,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  AZTEC_EPOCH_DURATION,
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
+  BlobPublicInputs,
+  BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
+  EthAddress,
+  FIELDS_PER_BLOB,
+  FeeRecipient,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -26,12 +34,16 @@ import {
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
+  SpongeBlob,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import {
@@ -184,7 +196,9 @@ describe('LightBlockBuilder', () => {
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     const txCount = Math.max(2, txs.length);
-    await builder.startNewBlock(txCount, globals, l1ToL2Messages);
+    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+    const numTxsEffects = Math.max(toNumTxsEffects(txs, globals.gasFees), TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * txCount);
+    await builder.startNewBlock(txCount, numTxsEffects, globals, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
@@ -224,7 +238,7 @@ describe('LightBlockBuilder', () => {
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
-    const rootOutput = await getBlockRootOutput(mergeLeft, mergeRight, parityOutput, l1ToL2Snapshot);
+    const rootOutput = await getBlockRootOutput(mergeLeft, mergeRight, parityOutput, l1ToL2Snapshot, txs);
     const expectedHeader = buildHeaderFromCircuitOutputs(
       [mergeLeft, mergeRight],
       parityOutput,
@@ -252,8 +266,9 @@ describe('LightBlockBuilder', () => {
 
   const getRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
+    const spongeBlobState = SpongeBlob.init(toNumTxsEffects(txs, globals.gasFees));
     for (const tx of txs) {
-      const inputs = await buildBaseRollupInput(tx, emptyProof, globals, expectsFork, TubeVk);
+      const inputs = await buildBaseRollupInput(tx, emptyProof, globals, expectsFork, spongeBlobState, TubeVk);
       const result = await simulator.getBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
     }
@@ -298,6 +313,7 @@ describe('LightBlockBuilder', () => {
       newL1ToL2MessageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>;
       messageTreeSnapshot: AppendOnlyTreeSnapshot;
     },
+    txs: ProcessedTx[],
   ) => {
     const mergeRollupVk = ProtocolCircuitVks['MergeRollupArtifact'].keyAsFields;
     const mergeRollupVkWitness = getVkMembershipWitness(mergeRollupVk);
@@ -308,7 +324,8 @@ describe('LightBlockBuilder', () => {
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const previousBlockHashLeafIndex = BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1);
     const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
-
+    const txEffectsFields = txs.map(tx => toTxEffect(tx, left.constants.globalVariables.gasFees).toFields()).flat();
+    const blob = new Blob(txEffectsFields);
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
     const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
 
@@ -329,10 +346,49 @@ describe('LightBlockBuilder', () => {
       newArchiveSiblingPath,
       previousBlockHash,
       proverId: Fr.ZERO,
+      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      txEffects: padArrayEnd(txEffectsFields, Fr.ZERO, FIELDS_PER_BLOB),
+      blobCommitment: blob.commitmentToFields(),
     });
 
-    const result = await simulator.getBlockRootRollupProof(inputs);
-    return result.inputs;
+    // TODO(Miranda): the wasm simulator can't run block root due to the bignum-based blob lib (stack too deep).
+    // For this test only I'm building outputs in ts. For other tests, I force the simulator to use native ACVM (not wasm).
+    // const result = await simulator.getBlockRootRollupProof(inputs);
+
+    const newArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, fork);
+    const newBlockHash = await fork.getLeafValue(
+      MerkleTreeId.ARCHIVE,
+      BigInt(newArchiveSnapshot.nextAvailableLeafIndex - 1),
+    );
+    const fees = [
+      new FeeRecipient(
+        rollupLeft.baseOrMergeRollupPublicInputs.constants.globalVariables.coinbase,
+        rollupLeft.baseOrMergeRollupPublicInputs.accumulatedFees.add(
+          rollupRight.baseOrMergeRollupPublicInputs.accumulatedFees,
+        ),
+      ),
+    ];
+
+    const blobPublicInputs = [BlobPublicInputs.fromBlob(blob)];
+    const outputs = new BlockRootOrBlockMergePublicInputs(
+      inputs.startArchiveSnapshot,
+      newArchiveSnapshot,
+      previousBlockHash,
+      newBlockHash!,
+      rollupLeft.baseOrMergeRollupPublicInputs.constants.globalVariables,
+      rollupLeft.baseOrMergeRollupPublicInputs.constants.globalVariables,
+      sha256ToField([
+        rollupLeft.baseOrMergeRollupPublicInputs.outHash,
+        rollupRight.baseOrMergeRollupPublicInputs.outHash,
+      ]),
+      padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), AZTEC_EPOCH_DURATION),
+      rollupLeft.baseOrMergeRollupPublicInputs.constants.vkTreeRoot,
+      rollupLeft.baseOrMergeRollupPublicInputs.constants.protocolContractTreeRoot,
+      inputs.proverId,
+      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), AZTEC_EPOCH_DURATION),
+    );
+
+    return outputs;
   };
 
   function getVkMembershipWitness(vk: VerificationKeyAsFields) {

@@ -49,6 +49,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   struct BlockLog {
     bytes32 archive;
     bytes32 blockHash;
+    // TODO(Miranda): Is this the best place to store some blob info?
+    bytes32 blobHash;
     Slot slotNumber;
   }
 
@@ -75,6 +77,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   //
   //        More direct approach would be storing keccak256(header) as well
   mapping(uint256 blockNumber => BlockLog log) public blocks;
+
+  // TODO(Miranda): Below are temp solutions to get blobs working.
+  // Blob public inputs are stored when we publish blocks to link DA to a L1 blob. They are read and used
+  // when verifying an epoch proof to link DA to our L2 blocks.
+  struct BlobPublicInputs {
+    bytes32 z;
+    bytes32 y;
+    bytes32[2] c;
+  }
+
+  mapping(uint256 blockNumber => BlobPublicInputs) public blobPublicInputs;
 
   bytes32 public vkTreeRoot;
   bytes32 public protocolContractTreeRoot;
@@ -104,6 +117,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     blocks[0] = BlockLog({
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(0), // TODO(palla/prover): The first block does not have hash zero
+      blobHash: bytes32(0), // TODO(Miranda): think about whether having 0 here is insecure
       slotNumber: Slot.wrap(0)
     });
     for (uint256 i = 0; i < _validators.length; i++) {
@@ -208,7 +222,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
+   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
    * @param _body - The body of the L2 block
+   * @param blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function proposeAndClaim(
     bytes calldata _header,
@@ -217,9 +233,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
+    bytes calldata blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
-    propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
+    propose(_header, _archive, _blockHash, _txHashes, _signatures, _body, blobInput);
     claimEpochProofRight(_quote);
   }
 
@@ -272,6 +289,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       }
     }
 
+    for (uint256 i = 0; i < _epochSize; i++) {
+      // free up gas (hopefully)
+      delete blobPublicInputs[previousBlockNumber + i + 1];
+    }
     if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
@@ -355,11 +376,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
     HeaderLib.Header memory header = HeaderLib.decode(_header);
-    _validateHeader(header, _signatures, _digest, _currentTime, _txsEffectsHash, _flags);
+    _validateHeader(header, _signatures, _digest, _currentTime, _flags);
   }
 
   /**
@@ -425,7 +445,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
+   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
    * @param _body - The body of the L2 block
+   * @param blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function propose(
     bytes calldata _header,
@@ -433,12 +455,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _blockHash,
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body
+    // TODO(#9101): Extract blobs from beacon chain => remove below body input
+    bytes calldata _body,
+    bytes calldata blobInput
   ) public override(IRollup) {
     if (canPrune()) {
       _prune();
     }
-    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
+
+    bytes32 blobHash = _validateBlob(blobInput);
 
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
@@ -450,7 +475,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       _signatures: _signatures,
       _digest: digest,
       _currentTime: Timestamp.wrap(block.timestamp),
-      _txEffectsHash: txsEffectsHash,
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
     });
 
@@ -459,7 +483,23 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     blocks[blockNumber] = BlockLog({
       archive: _archive,
       blockHash: _blockHash,
+      blobHash: blobHash,
       slotNumber: Slot.wrap(header.globalVariables.slotNumber)
+    });
+
+    //  Blob public inputs structure:
+    //  * input[32:64]   - z
+    //  * input[64:96]   - y
+    //  * input[96:144]  - commitment C
+    blobPublicInputs[blockNumber] = BlobPublicInputs({
+      z: bytes32(blobInput[32:64]),
+      y: bytes32(blobInput[64:96]),
+      // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+      // I don't know best to left pad, sorry, am tired
+      c: [
+        bytes32(uint256(uint248(bytes31(blobInput[96:127])))),
+        bytes32(uint256(uint136(bytes17(blobInput[127:144]))))
+      ]
     });
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
@@ -568,7 +608,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
-    //   prover_id: Field
+    //   prover_id: Field,
+    //   blob_public_inputs: [BlobPublicInputs; Constants.AZTEC_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
     // }
 
     // previous_archive.root: the previous archive tree root
@@ -616,6 +657,16 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // prover_id: id of current epoch's prover
     publicInputs[feesEnd + 2] = _args[6];
 
+    // blob_public_inputs
+    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
+      uint256 j = feesEnd + 3 + i * 6;
+      publicInputs[j] = blobPublicInputs[previousBlockNumber + i + 1].z;
+      (publicInputs[j + 1], publicInputs[j + 2], publicInputs[j + 3]) =
+        bytes32ToBigNum(blobPublicInputs[previousBlockNumber + i + 1].y);
+      publicInputs[j + 4] = blobPublicInputs[previousBlockNumber + i + 1].c[0];
+      publicInputs[j + 5] = blobPublicInputs[previousBlockNumber + i + 1].c[1];
+    }
+
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
     // it also guards against empty _aggregationObject used with mocked proofs
@@ -625,7 +676,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + feesEnd + 3] = part;
+      publicInputs[i + Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH] = part;
     }
 
     return publicInputs;
@@ -799,14 +850,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _txEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber =
       _canPruneAt(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
-    _validateHeaderForSubmissionBase(
-      _header, _currentTime, _txEffectsHash, pendingBlockNumber, _flags
-    );
+    _validateHeaderForSubmissionBase(_header, _currentTime, pendingBlockNumber, _flags);
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );
@@ -863,7 +911,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    *          - The last archive root in the header MUST match the current archive
    *          - The slot MUST be larger than the slot of the previous block (ensures single block per slot)
    *          - The timestamp MUST be equal to GENESIS_TIME + slot * SLOT_DURATION
-   *          - The `txsEffectsHash` of the header must match the computed `_txsEffectsHash`
+   *          - The `blobHash` of the block must match the computed `_blobHash`
    *            - This can be relaxed to happen at the time of `submitProof` instead
    *
    * @param _header - The header to validate
@@ -871,7 +919,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function _validateHeaderForSubmissionBase(
     HeaderLib.Header memory _header,
     Timestamp _currentTime,
-    bytes32 _txsEffectsHash,
     uint256 _pendingBlockNumber,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
@@ -917,9 +964,52 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     require(timestamp <= _currentTime, Errors.Rollup__TimestampInFuture(_currentTime, timestamp));
 
     // Check if the data is available
+    // TODO(Miranda): either add blobhash to the header or find a way of validating it here
     require(
-      _flags.ignoreDA || _header.contentCommitment.txsEffectsHash == _txsEffectsHash,
-      Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash)
+      _flags.ignoreDA || 1 == 1, // _header.blobHash == _blobHash,
+      Errors.Rollup__UnavailableTxs(bytes32(_header.globalVariables.blockNumber))
     );
+  }
+
+  /**
+   * @notice  Validate an L2 block's blob. TODO: edit for multiple blobs per block
+   * Input bytes:
+   * input[:32]     - versioned_hash
+   * input[32:64]   - z
+   * input[64:96]   - y
+   * input[96:144]  - commitment C
+   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
+   *  - This can be relaxed to happen at the time of `submitProof` instead
+   *
+   * @param blobInput - The above bytes to verify a blob
+   */
+  function _validateBlob(bytes calldata blobInput) internal view returns (bytes32 blobHash) {
+    assembly {
+      blobHash := blobhash(0)
+    }
+    require(blobHash == bytes32(blobInput[0:32]), Errors.Rollup__InvalidBlobHash(blobHash));
+
+    // Staticcall the point eval precompile https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile :
+    (bool success,) = address(0x0a).staticcall(blobInput);
+    require(success, Errors.Rollup__InvalidBlobProof(blobHash));
+  }
+
+  /**
+   * @notice  Converts a BLS12 field element from bytes32 to a nr BigNum type
+   * The nr bignum type for BLS12 fields is encoded as 3 nr fields - see blob_public_inputs.ts:
+   * firstLimb = last 15 bytes;
+   * secondLimb = bytes 2 -> 17;
+   * thirdLimb = first 2 bytes;
+   * Used when verifying epoch proofs to gather public inputs.
+   * @param input - The field in bytes32
+   */
+  function bytes32ToBigNum(bytes32 input)
+    internal
+    pure
+    returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
+  {
+    firstLimb = bytes32(uint256(uint120(bytes15(input << 136))));
+    secondLimb = bytes32(uint256(uint120(bytes15(input << 16))));
+    thirdLimb = bytes32(uint256(uint16(bytes2(input))));
   }
 }

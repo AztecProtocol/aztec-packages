@@ -134,7 +134,7 @@ global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
-global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
+global FIELDS_PER_BLOB: u32 = 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
 global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
@@ -145,7 +145,7 @@ global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field =
-    0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
+    0x234e13471e10c9cf5e8d6aee4c62952f6ea211d06c2b6912b13da2578e2c1ec7;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
@@ -260,7 +260,7 @@ global GAS_FEES_LENGTH: u32 = 2;
 global GAS_LENGTH: u32 = 2;
 global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH + /* inclusion_fee */ 1;
 global CALL_CONTEXT_LENGTH: u32 = 4;
-global CONTENT_COMMITMENT_LENGTH: u32 = 4;
+global CONTENT_COMMITMENT_LENGTH: u32 = 3;
 global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
@@ -269,6 +269,9 @@ global FUNCTION_DATA_LENGTH: u32 = 2;
 global FUNCTION_LEAF_PREIMAGE_LENGTH: u32 = 5;
 global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
+global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
+global SPONGE_BLOB_LENGTH: u32 = 11;
+global BLOB_PUBLIC_INPUTS: u32 = 6;
 global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 global L2_TO_L1_MESSAGE_LENGTH: u32 = 3;
 global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
@@ -306,6 +309,13 @@ global HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + STATE_REFERENCE_LENGTH
     + GLOBAL_VARIABLES_LENGTH
     + TOTAL_FEES_LENGTH;
+// Global variables are all 32 bytes, apart from coinbase which is 20, hence -12. A state reference is just 4 snapshots.
+global HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES
+    + 32 * CONTENT_COMMITMENT_LENGTH
+    + 4 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES
+    + 32 * GLOBAL_VARIABLES_LENGTH
+    - 12
+    + 32 * TOTAL_FEES_LENGTH;
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
@@ -344,6 +354,8 @@ global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + /* revert_code */ 1
     + 2 * GAS_LENGTH
     + /* transaction_fee */ 1;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u32 =
+    AZTEC_ADDRESS_LENGTH + FUNCTION_DATA_LENGTH + PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 =
     CALL_CONTEXT_LENGTH + HEADER_LENGTH + TX_CONTEXT_LENGTH + 1;
 global PUBLIC_CONTEXT_INPUTS_LENGTH: u32 =
@@ -441,22 +453,34 @@ global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
 
-// + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees
+// + 4 for rollup_type, num_txs, out_hash, accumulated_fees
 global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH
-    + 5;
+    + 2 * SPONGE_BLOB_LENGTH
+    + 4;
+// + 5 for previous_block_hash, end_block_hash, out_hash, vk_tree_root, protocol_contract_tree_root + 1 temporarily for prover_id
 global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
-    + 1 /* previous_block_hash */
-    + 1 /* end_block_hash */
     + 2 * GLOBAL_VARIABLES_LENGTH
-    + 1 /* out_hash */
     + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */;
-global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 =
-    2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
+    + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS
+    + 6;
+// + 8 for previous_block_hash, end_block_hash, end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
+global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+    + 8
+    + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+    + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
+// TODO(Miranda): REMOVE BELOW - this is just while we still use empty tx effects in blobs to get padding txs to work and match. This shouldn't survive merging w master.
+global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
+    + 1
+    + MAX_NOTE_HASHES_PER_TX
+    + MAX_NULLIFIERS_PER_TX
+    + 1
+    + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
+    + 3
+    + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    + MAX_ENCRYPTED_LOGS_PER_TX
+    + MAX_UNENCRYPTED_LOGS_PER_TX;
 
 global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;

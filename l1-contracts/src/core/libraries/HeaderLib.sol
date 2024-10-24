@@ -5,6 +5,8 @@ pragma solidity >=0.8.27;
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
+// TODO(Miranda): Update below spec before merging, once structure finalised
+
 /**
  * @title Header Library
  * @author Aztec Labs
@@ -91,7 +93,6 @@ library HeaderLib {
 
   struct ContentCommitment {
     uint256 numTxs;
-    bytes32 txsEffectsHash;
     bytes32 inHash;
     bytes32 outHash;
   }
@@ -104,7 +105,7 @@ library HeaderLib {
     uint256 totalFees;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x268; // Header byte length
+  uint256 private constant HEADER_LENGTH = Constants.HEADER_LENGTH_BYTES; // Header byte length
 
   /**
    * @notice Decodes the header
@@ -123,78 +124,76 @@ library HeaderLib {
     header.lastArchive = AppendOnlyTreeSnapshot(
       bytes32(_header[0x0000:0x0020]), uint32(bytes4(_header[0x0020:0x0024]))
     );
-
     // Reading ContentCommitment
     header.contentCommitment.numTxs = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.txsEffectsHash = bytes32(_header[0x0044:0x0064]);
-    header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
-    header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
+    header.contentCommitment.inHash = bytes32(_header[0x0044:0x0064]);
+    header.contentCommitment.outHash = bytes32(_header[0x0064:0x0084]);
 
     // Reading StateReference
     header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00a4:0x00c4]), uint32(bytes4(_header[0x00c4:0x00c8]))
+      bytes32(_header[0x0084:0x00a4]), uint32(bytes4(_header[0x00a4:0x00a8]))
     );
     header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00c8:0x00e8]), uint32(bytes4(_header[0x00e8:0x00ec]))
+      bytes32(_header[0x00a8:0x00c8]), uint32(bytes4(_header[0x00c8:0x00cc]))
     );
     header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00ec:0x010c]), uint32(bytes4(_header[0x010c:0x0110]))
+      bytes32(_header[0x00cc:0x00ec]), uint32(bytes4(_header[0x00ec:0x00f0]))
     );
     header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x0110:0x0130]), uint32(bytes4(_header[0x0130:0x0134]))
+      bytes32(_header[0x00f0:0x0110]), uint32(bytes4(_header[0x0110:0x0114]))
     );
 
     // Reading GlobalVariables
-    header.globalVariables.chainId = uint256(bytes32(_header[0x0134:0x0154]));
-    header.globalVariables.version = uint256(bytes32(_header[0x0154:0x0174]));
-    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
-    header.globalVariables.slotNumber = uint256(bytes32(_header[0x0194:0x01b4]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b4:0x01d4]));
-    header.globalVariables.coinbase = address(bytes20(_header[0x01d4:0x01e8]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01e8:0x0208]);
-    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x0208:0x0228]));
-    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0228:0x0248]));
+    header.globalVariables.chainId = uint256(bytes32(_header[0x0114:0x0134]));
+    header.globalVariables.version = uint256(bytes32(_header[0x0134:0x0154]));
+    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0154:0x0174]));
+    header.globalVariables.slotNumber = uint256(bytes32(_header[0x0174:0x0194]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x0194:0x01b4]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x01b4:0x01c8]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
+    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
+    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
 
     // Reading totalFees
-    header.totalFees = uint256(bytes32(_header[0x0248:0x0268]));
+    header.totalFees = uint256(bytes32(_header[0x0228:0x0248]));
 
     return header;
   }
 
+  // TODO(Miranda): remove this? appears to be unused
   function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
-    bytes32[] memory fields = new bytes32[](24);
+    bytes32[] memory fields = new bytes32[](23);
 
     // must match the order in the Header.getFields
     fields[0] = _header.lastArchive.root;
     fields[1] = bytes32(uint256(_header.lastArchive.nextAvailableLeafIndex));
     fields[2] = bytes32(_header.contentCommitment.numTxs);
-    fields[3] = _header.contentCommitment.txsEffectsHash;
-    fields[4] = _header.contentCommitment.inHash;
-    fields[5] = _header.contentCommitment.outHash;
-    fields[6] = _header.stateReference.l1ToL2MessageTree.root;
-    fields[7] = bytes32(uint256(_header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex));
-    fields[8] = _header.stateReference.partialStateReference.noteHashTree.root;
-    fields[9] = bytes32(
+    fields[3] = _header.contentCommitment.inHash;
+    fields[4] = _header.contentCommitment.outHash;
+    fields[5] = _header.stateReference.l1ToL2MessageTree.root;
+    fields[6] = bytes32(uint256(_header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex));
+    fields[7] = _header.stateReference.partialStateReference.noteHashTree.root;
+    fields[8] = bytes32(
       uint256(_header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex)
     );
-    fields[10] = _header.stateReference.partialStateReference.nullifierTree.root;
-    fields[11] = bytes32(
+    fields[9] = _header.stateReference.partialStateReference.nullifierTree.root;
+    fields[10] = bytes32(
       uint256(_header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex)
     );
-    fields[12] = _header.stateReference.partialStateReference.publicDataTree.root;
-    fields[13] = bytes32(
+    fields[11] = _header.stateReference.partialStateReference.publicDataTree.root;
+    fields[12] = bytes32(
       uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex)
     );
-    fields[14] = bytes32(_header.globalVariables.chainId);
-    fields[15] = bytes32(_header.globalVariables.version);
-    fields[16] = bytes32(_header.globalVariables.blockNumber);
-    fields[17] = bytes32(_header.globalVariables.slotNumber);
-    fields[18] = bytes32(_header.globalVariables.timestamp);
-    fields[19] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
-    fields[20] = bytes32(_header.globalVariables.feeRecipient);
-    fields[21] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
-    fields[22] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
-    fields[23] = bytes32(_header.totalFees);
+    fields[13] = bytes32(_header.globalVariables.chainId);
+    fields[14] = bytes32(_header.globalVariables.version);
+    fields[15] = bytes32(_header.globalVariables.blockNumber);
+    fields[16] = bytes32(_header.globalVariables.slotNumber);
+    fields[17] = bytes32(_header.globalVariables.timestamp);
+    fields[18] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
+    fields[19] = bytes32(_header.globalVariables.feeRecipient);
+    fields[20] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
+    fields[21] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
+    fields[22] = bytes32(_header.totalFees);
 
     // fail if the header structure has changed without updating this function
     require(

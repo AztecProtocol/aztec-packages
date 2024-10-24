@@ -4,8 +4,8 @@ import {
   TxEffect,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
+import { type Fr } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 
@@ -36,24 +36,23 @@ export class Body {
     return new this(reader.readVector(TxEffect));
   }
 
+  /**
+   * Returns a flat array of fields of all tx effects - used for blobs.
+   * TODO(Miranda): Remove 0s and tightly pack to fill blobs.
+   */
+  toFields() {
+    let flattened: Fr[] = [];
+    this.txEffects.forEach((effect: TxEffect) => {
+      flattened = flattened.concat(effect.toFields());
+    });
+    return flattened;
+  }
+
   [inspect.custom]() {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
   emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
-  emptyTxEffectHash: ${TxEffect.empty().hash().toString('hex')},
-  txsEffectsHash: ${this.getTxsEffectsHash().toString('hex')},
 }`;
-  }
-
-  /**
-   * Computes the transactions effects hash for the L2 block
-   * This hash is also computed in the `TxDecoder`.
-   * @returns The txs effects hash.
-   */
-  getTxsEffectsHash() {
-    const emptyTxEffectHash = TxEffect.empty().hash();
-    const leaves: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    return computeUnbalancedMerkleRoot(leaves, emptyTxEffectHash);
   }
 
   get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {

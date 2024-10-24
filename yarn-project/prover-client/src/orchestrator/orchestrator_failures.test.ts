@@ -1,4 +1,4 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver, toNumTxsEffects } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -68,7 +68,12 @@ describe('prover/orchestrator/failures', () => {
         const msgs = [new Fr(i + 100)];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(txs.length, makeGlobals(i + 1), msgs);
+          await orchestrator.startNewBlock(
+            txs.length,
+            toNumTxsEffects(txs, context.globalVariables.gasFees),
+            makeGlobals(i + 1),
+            msgs,
+          );
           let allTxsAdded = true;
           for (const tx of txs) {
             try {

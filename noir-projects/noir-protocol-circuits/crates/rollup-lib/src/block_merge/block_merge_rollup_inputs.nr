@@ -44,6 +44,12 @@ impl BlockMergeRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
+        // For now, we do them individually
+        // How we accumulate is being worked on by @Mike
+        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
+        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
+
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,
@@ -56,6 +62,7 @@ impl BlockMergeRollupInputs {
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+            blob_public_inputs,
         }
     }
 }

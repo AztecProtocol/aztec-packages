@@ -4,18 +4,18 @@ use crate::{
         block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
     }, components,
 };
+use blob::{blob::evaluate_blob, blob_public_inputs::BlobPublicInputs};
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
         AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX,
-        MERGE_ROLLUP_INDEX,
+        FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT,
+        BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX,
     }, header::Header, content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
     traits::Empty,
 };
-use types::debug_log::debug_log_format;
 
 global ALLOWED_PREVIOUS_CIRCUITS = [BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX];
 
@@ -41,6 +41,11 @@ pub struct BlockRootRollupInputs {
     previous_block_hash: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
+    // Fields for blob verification - will likely change to be accumulated and sent up to the final root
+    // TODO(Miranda): Temporarily working with one blob to ensure things are working - will move to 3 before merging
+    tx_effects: [Field; FIELDS_PER_BLOB],
+    // see blob/src/main.nr -> main() - this is used for creating the challenge z
+    blob_commitment: [Field; 2],
 }
 
 impl BlockRootRollupInputs {
@@ -64,6 +69,7 @@ impl BlockRootRollupInputs {
         components::assert_txs_filled_from_left(left, right);
         components::assert_equal_constants(left, right);
         components::assert_prev_rollups_follow_on_from_each_other(left, right);
+        components::assert_first_sponge_blob_empty(left);
 
         // Insert subtree into the l1 to l2 data tree
         let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
@@ -84,30 +90,12 @@ impl BlockRootRollupInputs {
 
         let content_commitment = ContentCommitment {
             num_txs: (left.num_txs + right.num_txs) as Field,
-            txs_effects_hash: components::compute_txs_effects_hash(self.previous_rollup_data),
             in_hash: self.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: components::compute_out_hash(self.previous_rollup_data),
         };
 
         let total_fees = components::accumulate_fees(left, right);
 
-        // unsafe {
-        //     debug_log_format("Assembling header in block root rollup", []);
-        //     debug_log_format(
-        //         "header.last_archive={}",
-        //         left.constants.last_archive.serialize()
-        //     );
-        //     debug_log_format(
-        //         "header.content_commitment={}",
-        //         content_commitment.serialize()
-        //     );
-        //     debug_log_format("header.state={}", state.serialize());
-        //     debug_log_format(
-        //         "header.global_variables={}",
-        //         left.constants.global_variables.serialize()
-        //     );
-        //     debug_log_format("header.total_fees={0}", [total_fees]);
-        // }
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
@@ -132,6 +120,10 @@ impl BlockRootRollupInputs {
         fee_arr[0] =
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
+        let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION];
+        blob_public_inputs[0] =
+            evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
+
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
             new_archive: archive, // archive once this block was added
@@ -144,6 +136,7 @@ impl BlockRootRollupInputs {
             vk_tree_root: left.constants.vk_tree_root,
             protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: self.prover_id,
+            blob_public_inputs,
         }
     }
 }
@@ -160,6 +153,8 @@ impl Empty for BlockRootRollupInputs {
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
             prover_id: 0,
+            tx_effects: [0; FIELDS_PER_BLOB],
+            blob_commitment: [0; 2],
         }
     }
 }

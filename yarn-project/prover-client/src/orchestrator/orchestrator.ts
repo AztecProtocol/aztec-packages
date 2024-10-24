@@ -23,9 +23,11 @@ import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
+  BlobPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
+  FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   type Header,
@@ -44,6 +46,7 @@ import {
   RootParityInputs,
   TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   TubeInputs,
   type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
@@ -52,6 +55,7 @@ import {
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -151,16 +155,22 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Starts off a new block
    * @param numTxs - The total number of transactions in the block.
+   * @param numTxsEffects - The total number of transaction effects in the block
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
-  @trackSpan('ProvingOrchestrator.startNewBlock', (numTxs, globalVariables) => ({
+  @trackSpan('ProvingOrchestrator.startNewBlock', (numTxs, _, globalVariables) => ({
     [Attributes.BLOCK_SIZE]: numTxs,
     [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
   }))
-  public async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]) {
+  public async startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ) {
     if (!this.provingState) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting a block`);
     }
@@ -188,7 +198,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     logger.info(
-      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions`,
+      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions and ${numTxsEffects} effects`,
     );
 
     // we start the block by enqueueing all of the base parity circuits
@@ -217,6 +227,8 @@ export class ProvingOrchestrator implements EpochProver {
         i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO,
       0,
     );
+    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+    numTxsEffects = numTxs == 2 ? 2 * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS : numTxsEffects;
 
     // Update the local trees to include the new l1 to l2 messages
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
@@ -232,6 +244,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     this.provingState!.startNewBlock(
       numTxs,
+      numTxsEffects,
       globalVariables,
       l1ToL2MessagesPadded,
       messageTreeSnapshot,
@@ -257,7 +270,7 @@ export class ProvingOrchestrator implements EpochProver {
   }))
   public async addNewTx(tx: ProcessedTx): Promise<void> {
     const provingState = this?.provingState?.currentBlock;
-    if (!provingState) {
+    if (!provingState || !provingState.spongeBlobState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
 
@@ -455,14 +468,6 @@ export class ProvingOrchestrator implements EpochProver {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
     const l2Block = new L2Block(newArchive, header, body);
 
-    if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
-      throw new Error(
-        `Txs effects hash mismatch, ${l2Block.body
-          .getTxsEffectsHash()
-          .toString('hex')} == ${header.contentCommitment.txsEffectsHash.toString('hex')} `,
-      );
-    }
-
     logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
     provingState.block = l2Block;
   }
@@ -571,6 +576,23 @@ export class ProvingOrchestrator implements EpochProver {
       provingState.messageTreeSnapshotAfterInsertion,
       logger,
     );
+  }
+
+  /**
+   * Collect all new nullifiers, commitments, and contracts from all txs in a block
+   * @returns The array of non empty tx effects.
+   */
+  private extractTxEffects(provingState: BlockProvingState) {
+    // Note: this check should ensure that we have all txs and their effects ready.
+    if (!provingState.finalRootParityInput?.publicInputs.shaRoot) {
+      throw new Error(`Invalid proving state, a block must be ready to be proven before its effects can be extracted.`);
+    }
+    const gasFees = provingState.globalVariables.gasFees;
+    const nonEmptyTxEffects: TxEffect[] = provingState.allTxs
+      .map(txProvingState => toTxEffect(txProvingState.processedTx, gasFees))
+      .filter(txEffect => !txEffect.isEmpty());
+
+    return nonEmptyTxEffects;
   }
 
   /**
@@ -702,7 +724,7 @@ export class ProvingOrchestrator implements EpochProver {
     provingState: BlockProvingState | undefined,
     tx: ProcessedTx,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
-    if (!provingState?.verifyState()) {
+    if (!provingState?.verifyState() || !provingState.spongeBlobState) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
@@ -715,6 +737,7 @@ export class ProvingOrchestrator implements EpochProver {
         makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
         provingState.globalVariables,
         this.db,
+        provingState.spongeBlobState,
         TubeVk,
       ),
     );
@@ -817,7 +840,7 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  // Enqueues the tub circuit for a given transaction index
+  // Enqueues the tube circuit for a given transaction index
   // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
   private enqueueTube(provingState: BlockProvingState, txIndex: number) {
     if (!provingState?.verifyState()) {
@@ -907,6 +930,15 @@ export class ProvingOrchestrator implements EpochProver {
     provingState.blockRootRollupStarted = true;
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
+    let txEffectsFields = this.extractTxEffects(provingState)
+      .map(tx => tx.toFields())
+      .flat();
+    if (txEffectsFields.length < provingState.spongeBlobState!.expectedFields) {
+      // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+      txEffectsFields = padArrayEnd(txEffectsFields, Fr.ZERO, provingState.spongeBlobState!.expectedFields);
+    }
+
+    const blob = new Blob(txEffectsFields);
 
     logger.debug(
       `Enqueuing block root rollup for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs`,
@@ -930,6 +962,9 @@ export class ProvingOrchestrator implements EpochProver {
       newArchiveSiblingPath: provingState.archiveTreeRootSiblingPath,
       previousBlockHash: provingState.previousBlockHash,
       proverId: this.proverId,
+      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      txEffects: padArrayEnd(txEffectsFields, Fr.ZERO, FIELDS_PER_BLOB),
+      blobCommitment: blob.commitmentToFields(),
     });
 
     this.deferredProving(
@@ -954,6 +989,17 @@ export class ProvingOrchestrator implements EpochProver {
 
         provingState.blockRootRollupPublicInputs = result.inputs;
         provingState.finalProof = result.proof.binaryProof;
+        const blobOutputs = result.inputs.blobPublicInputs[0];
+
+        // TODO(Miranda): Move the below checks to wherever the ts blob struct will live
+        if (!blobOutputs.equals(BlobPublicInputs.fromBlob(blob))) {
+          throw new Error(
+            `Rollup circuits produced mismatched blob evaluation:
+            z: ${blobOutputs.z} == ${blob.challengeZ},
+            y: ${blobOutputs.y.toString(16)} == ${blob.evaluationY.toString('hex')},
+            C: ${blobOutputs.kzgCommitment} == ${blob.commitmentToFields()}`,
+          );
+        }
 
         logger.debug(`Completed proof for block root rollup for ${provingState.block?.number}`);
         // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)

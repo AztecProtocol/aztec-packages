@@ -4,6 +4,7 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
+import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
@@ -57,6 +58,10 @@ export class BlockRootOrBlockMergePublicInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
+    /**
+     * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p())
+     */
+    public blobPublicInputs: Tuple<BlobPublicInputs, typeof AZTEC_EPOCH_DURATION>,
   ) {}
 
   /**
@@ -78,6 +83,7 @@ export class BlockRootOrBlockMergePublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readArray(AZTEC_EPOCH_DURATION, BlobPublicInputs),
     );
   }
 
@@ -98,6 +104,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.vkTreeRoot,
       this.protocolContractTreeRoot,
       this.proverId,
+      this.blobPublicInputs,
     );
   }
 

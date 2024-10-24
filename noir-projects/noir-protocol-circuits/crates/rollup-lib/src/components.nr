@@ -1,8 +1,6 @@
 use crate::abis::{
     base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-};
-use crate::abis::{
     previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData,
 };
 use dep::types::{
@@ -13,13 +11,15 @@ use dep::types::{
     constants::{
         AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
     }, utils::arrays::{array_length, array_merge},
     abis::{
         accumulated_data::CombinedAccumulatedData,
         public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
+        sponge_blob::SpongeBlob,
     },
 };
+use blob::blob_public_inputs::BlobPublicInputs;
 
 /**
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
@@ -62,7 +62,7 @@ pub fn assert_equal_constants(
 }
 
 // asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they
-// follow on from one-another). Ensures that right uses the tres that was updated by left.
+// follow on from one-another). Ensures that right uses the tree that was updated by left.
 pub fn assert_prev_rollups_follow_on_from_each_other(
     left: BaseOrMergeRollupPublicInputs,
     right: BaseOrMergeRollupPublicInputs,
@@ -78,6 +78,10 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     assert(
         left.end.public_data_tree.eq(right.start.public_data_tree),
         "input proofs have different public data tree snapshots",
+    );
+    assert(
+        left.end_sponge_blob.eq(right.start_sponge_blob),
+        "input proofs have different blob data sponges",
     );
 }
 
@@ -153,6 +157,22 @@ pub fn accumulate_blocks_fees(
     array_merge(left.fees, right.fees)
 }
 
+// TODO: This fn will be obselete once we have integrated accumulation of blob PIs
+// The goal is to acc. the commitments and openings s.t. one set verifies the opening of many blobs
+// How we accumulate is being worked on by @Mike
+pub fn accumulate_blob_public_inputs(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs,
+) -> [BlobPublicInputs; AZTEC_EPOCH_DURATION] {
+    let left_len = array_length(left.fees);
+    let right_len = array_length(right.fees);
+    assert(
+        left_len + right_len <= AZTEC_EPOCH_DURATION,
+        "too many blob public input structs accumulated in rollup",
+    );
+    array_merge(left.blob_public_inputs, right.blob_public_inputs)
+}
+
 /**
  * @brief From two previous rollup data, compute a single out hash
  *
@@ -183,19 +203,6 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
     merkle_tree.get_root()
 }
 
-/**
- * @brief From two previous rollup data, compute a single txs effects hash
- *
- * @param previous_rollup_data
- * @return The hash of the transaction effects stored in 2 fields
- */
-pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256([
-        previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash,
-    ])
-}
-
 fn silo_and_hash_unencrypted_logs(
     unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 ) -> Field {
@@ -210,7 +217,7 @@ fn silo_and_hash_unencrypted_logs(
 }
 
 fn silo_and_hash_encrypted_logs(
-    encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
 ) -> Field {
     let siloed_encrypted_logs = encrypted_logs_hashes.map(|log: ScopedLogHash| {
         LogHash {
@@ -220,6 +227,18 @@ fn silo_and_hash_encrypted_logs(
         }
     });
     compute_tx_logs_hash(siloed_encrypted_logs)
+}
+
+/**
+ * Asserts that the first sponge blob was empty to begin with.
+ * This prevents injecting unchecked tx effects in the first base of a rollup.
+ */
+pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
+    let expected_sponge_blob = SpongeBlob::new(left.start_sponge_blob.expected_fields);
+    assert(
+        left.start_sponge_blob.eq(expected_sponge_blob),
+        "block's first blob sponge was not empty",
+    );
 }
 
 // Tx effects hash consists of
@@ -237,24 +256,29 @@ fn silo_and_hash_encrypted_logs(
 // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1
+
+// TODO(Miranda): For now just absorbing effects to poseidon sponge in the same structure as the old tx_effects hash
+// Idea is to recreate all below effects in block_root, then add to a blob
+
+global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + 1
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
     + 3
-    + 3;
-
-// Computes the tx effects hash for a base rollup (a single transaction)
-pub fn compute_tx_effects_hash(
+    + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    + MAX_ENCRYPTED_LOGS_PER_TX
+    + MAX_UNENCRYPTED_LOGS_PER_TX;
+pub fn append_tx_effects_for_blob(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     out_hash: Field,
-) -> Field {
-    let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
+    start_sponge_blob: SpongeBlob,
+) -> SpongeBlob {
+    let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
 
     let note_hashes = combined.note_hashes;
     let nullifiers = combined.nullifiers;
@@ -266,9 +290,11 @@ pub fn compute_tx_effects_hash(
     let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
-    let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
-    let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
-    let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
+    let note_encrypted_logs = combined.note_encrypted_logs_hashes.map(|log: LogHash| log.value);
+    let encrypted_logs =
+        combined.encrypted_logs_hashes.map(|log: ScopedLogHash| silo_encrypted_log_hash(log));
+    let unencrypted_logs =
+        combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
 
     let mut offset = 0;
 
@@ -316,30 +342,31 @@ pub fn compute_tx_effects_hash(
     tx_effects_hash_input[offset] = unencrypted_logs_length;
     offset += 1;
 
-    // NOTE ENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = note_encrypted_logs_hash;
-    offset += 1;
+    // NOTE ENCRYPTED LOGS
+    for j in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+        tx_effects_hash_input[offset + j] = note_encrypted_logs[j];
+    }
+    offset += MAX_NOTE_ENCRYPTED_LOGS_PER_TX;
 
-    // ENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = encrypted_logs_hash;
-    offset += 1;
+    // ENCRYPTED LOGS
+    for j in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        tx_effects_hash_input[offset + j] = encrypted_logs[j];
+    }
+    offset += MAX_ENCRYPTED_LOGS_PER_TX;
 
     // UNENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = unencrypted_logs_hash;
-    offset += 1;
-
-    assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
-    let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
-    for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
-        // TODO: This is not checking that the decomposition is smaller than P
-        let input_as_bytes: [u8; 32] = tx_effects_hash_input[offset].to_be_radix(256);
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
+    for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
+        tx_effects_hash_input[offset + j] = unencrypted_logs[j];
     }
+    offset += MAX_UNENCRYPTED_LOGS_PER_TX;
 
-    let sha_digest = dep::types::hash::sha256_to_field(hash_input_flattened);
-    sha_digest
+    assert_eq(offset, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS); // Sanity check
+    // NB: using start.absorb & returning start caused issues in ghost values appearing in
+    // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
+    let mut out_sponge = start_sponge_blob;
+
+    out_sponge.absorb(tx_effects_hash_input, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
+    out_sponge
 }
 
 fn get_all_update_requests_for_tx_effects(
@@ -353,20 +380,4 @@ fn get_all_update_requests_for_tx_effects(
         }
     }
     all_update_requests.storage
-}
-
-#[test]
-fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
-    let expected_size = 1 // revert code
-    + 1 // transaction fee
-        + MAX_NOTE_HASHES_PER_TX
-        + MAX_NULLIFIERS_PER_TX
-        + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-        + 1 // out hash
-        + 3 // logs lengths
-        + 3; // logs hashes
-    assert(
-        TX_EFFECTS_HASH_INPUT_FIELDS == expected_size,
-        "tx effects hash input size is incorrect",
-    );
 }

@@ -15,6 +15,8 @@ import {
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  SpongeBlob,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -29,6 +31,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
  */
 export class LightweightBlockBuilder implements BlockBuilder {
   private numTxs?: number;
+  private spongeBlobState?: SpongeBlob;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
 
@@ -38,9 +41,17 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
 
-  async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
+  async startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ): Promise<void> {
     this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
     this.numTxs = numTxs;
+    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+    numTxsEffects = numTxs == 2 ? 2 * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS : numTxsEffects;
+    this.spongeBlobState = SpongeBlob.init(numTxsEffects);
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
@@ -56,6 +67,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       this.globalVariables!,
       this.db,
+      this.spongeBlobState!,
       TubeVk,
     );
   }

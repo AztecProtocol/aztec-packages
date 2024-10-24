@@ -9,10 +9,16 @@ export interface BlockBuilder extends ProcessedTxHandler {
   /**
    * Prepares to build a new block. Updates the L1 to L2 message tree.
    * @param numTxs - The complete size of the block.
+   * @param numTxsEffects - The total number of transaction effects in the block
    * @param globalVariables - The global variables for this block.
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this block.
    */
-  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void>;
+  startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ): Promise<void>;
 
   /**
    * Adds a processed tx to the block. Updates world state with the effects from this tx.

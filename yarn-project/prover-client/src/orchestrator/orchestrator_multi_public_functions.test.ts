@@ -1,4 +1,5 @@
 import { mockTx } from '@aztec/circuit-types';
+import { TX_EFFECTS_BLOB_HASH_INPUT_FIELDS } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -41,7 +42,13 @@ describe('prover/orchestrator/public-functions', () => {
         }
 
         context.orchestrator.startNewEpoch(1, 1);
-        await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
+        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+        await context.orchestrator.startNewBlock(
+          numTransactions,
+          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * numTransactions,
+          context.globalVariables,
+          [],
+        );
 
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
         expect(processed.length).toBe(numTransactions);

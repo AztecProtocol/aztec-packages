@@ -71,8 +71,8 @@ export class BlockStore {
         block.data.body.txEffects.forEach((tx, i) => {
           void this.#txIndex.set(tx.txHash.toString(), [block.data.number, i]);
         });
-
-        void this.#blockBodies.set(block.data.body.getTxsEffectsHash().toString('hex'), block.data.body.toBuffer());
+        // NB: With blobs, we no longer have a txsEffectsHash, so storing blocks by header.hash() (=blockHash)
+        void this.#blockBodies.set(block.data.header.hash().toString(), block.data.body.toBuffer());
       }
 
       void this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
@@ -106,7 +106,7 @@ export class BlockStore {
         block.data.body.txEffects.forEach(tx => {
           void this.#txIndex.delete(tx.txHash.toString());
         });
-        void this.#blockBodies.delete(block.data.body.getTxsEffectsHash().toString('hex'));
+        void this.#blockBodies.delete(block.data.header.hash().toString());
       }
 
       return true;
@@ -155,7 +155,7 @@ export class BlockStore {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
 
-    const blockBodyBuffer = this.#blockBodies.get(header.contentCommitment.txsEffectsHash.toString('hex'));
+    const blockBodyBuffer = this.#blockBodies.get(header.hash().toString());
     if (blockBodyBuffer === undefined) {
       throw new Error('Body could not be retrieved');
     }

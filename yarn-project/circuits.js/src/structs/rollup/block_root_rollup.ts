@@ -4,6 +4,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
+  FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -53,6 +54,18 @@ export class BlockRootRollupInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
+    /**
+     * Flat list of all tx effects which will be added to the blob.
+     * TODO(Miranda): Account for tightly packing nr fields into BLS fields
+     * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+     * Tuple<Fr, FIELDS_PER_BLOB>
+     */
+    public txEffects: Array<Fr>,
+    /**
+     * KZG commitment representing the blob (precomputed in ts, injected to use inside circuit).
+     * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
+     */
+    public blobCommitment: Tuple<Fr, 2>,
   ) {}
 
   /**
@@ -96,6 +109,8 @@ export class BlockRootRollupInputs {
       fields.newArchiveSiblingPath,
       fields.previousBlockHash,
       fields.proverId,
+      fields.txEffects,
+      fields.blobCommitment,
     ] as const;
   }
 
@@ -116,6 +131,10 @@ export class BlockRootRollupInputs {
       reader.readArray(ARCHIVE_HEIGHT, Fr),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      // reader.readArray(FIELDS_PER_BLOB, Fr),
+      Array.from({ length: FIELDS_PER_BLOB }, () => Fr.fromBuffer(reader)),
+      reader.readArray(2, Fr),
     );
   }
 

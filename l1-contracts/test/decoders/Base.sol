@@ -43,7 +43,6 @@ contract DecoderBase is TestBase {
     // decoder changes
     uint32 numTxs;
     bytes32 publicInputsHash;
-    bytes32 txsEffectsHash;
   }
 
   struct DecodedHeader {
@@ -78,7 +77,6 @@ contract DecoderBase is TestBase {
     bytes32 inHash;
     uint256 numTxs;
     bytes32 outHash;
-    bytes32 txsEffectsHash;
   }
 
   struct PartialStateReference {

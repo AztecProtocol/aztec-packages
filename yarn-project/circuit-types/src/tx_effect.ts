@@ -7,10 +7,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -140,44 +143,6 @@ export class TxEffect {
   }
 
   /**
-   * Computes the hash of the TxEffect object.
-   * @returns The hash of the TxEffect object.
-   * @dev This function must correspond with compute_tx_effects_hash() in Noir and TxsDecoder.sol decode().
-   */
-  hash() {
-    const padBuffer = (buf: Buffer, length: number) => Buffer.concat([buf, Buffer.alloc(length - buf.length)]);
-
-    const noteHashesBuffer = padBuffer(serializeToBuffer(this.noteHashes), Fr.SIZE_IN_BYTES * MAX_NOTE_HASHES_PER_TX);
-    const nullifiersBuffer = padBuffer(serializeToBuffer(this.nullifiers), Fr.SIZE_IN_BYTES * MAX_NULLIFIERS_PER_TX);
-    const outHashBuffer = this.txOutHash();
-    const publicDataWritesBuffer = padBuffer(
-      serializeToBuffer(this.publicDataWrites),
-      PublicDataWrite.SIZE_IN_BYTES * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
-
-    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
-    const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
-    const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
-
-    const inputValue = Buffer.concat([
-      this.revertCode.toHashPreimage(),
-      this.transactionFee.toBuffer(),
-      noteHashesBuffer,
-      nullifiersBuffer,
-      outHashBuffer,
-      publicDataWritesBuffer,
-      this.noteEncryptedLogsLength.toBuffer(),
-      this.encryptedLogsLength.toBuffer(),
-      this.unencryptedLogsLength.toBuffer(),
-      noteEncryptedLogsHashKernel0,
-      encryptedLogsHashKernel0,
-      unencryptedLogsHashKernel0,
-    ]);
-
-    return sha256Trunc(inputValue);
-  }
-
-  /**
    * Computes txOutHash of this tx effect.
    * TODO(#7218): Revert to fixed height tree for outbox
    * @dev Follows computeTxOutHash in TxsDecoder.sol and new_sha in variable_merkle_tree.nr
@@ -258,10 +223,53 @@ export class TxEffect {
     return this.toBuffer().toString('hex');
   }
 
+  /**
+   * Returns a flat array of fields of all tx effects.
+   * TODO(Miranda): Remove 0s and tightly pack to fill blobs.
+   */
+  toFields(): Fr[] {
+    const flattened: Fr[] = [];
+    flattened.push(this.revertCode.toField());
+    flattened.push(this.transactionFee);
+    flattened.push(...padArrayEnd(this.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX));
+    flattened.push(...padArrayEnd(this.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX));
+    flattened.push(Fr.fromBuffer(this.txOutHash()));
+    flattened.push(
+      ...padArrayEnd(this.publicDataWrites, PublicDataWrite.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+        .map(w => [w.leafIndex, w.newValue])
+        .flat(),
+    );
+    flattened.push(this.noteEncryptedLogsLength);
+    flattened.push(this.encryptedLogsLength);
+    flattened.push(this.unencryptedLogsLength);
+    flattened.push(
+      ...padArrayEnd(
+        this.noteEncryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.hash())),
+        Fr.ZERO,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+      ),
+    );
+    flattened.push(
+      ...padArrayEnd(
+        this.encryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())),
+        Fr.ZERO,
+        MAX_ENCRYPTED_LOGS_PER_TX,
+      ),
+    );
+    flattened.push(
+      ...padArrayEnd(
+        this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())),
+        Fr.ZERO,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+      ),
+    );
+    return flattened;
+  }
+
   [inspect.custom]() {
     // print out the non-empty fields
 
-    return `TxEffect { 
+    return `TxEffect {
       revertCode: ${this.revertCode},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],

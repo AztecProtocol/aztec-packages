@@ -655,7 +655,6 @@ bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_r
                               0,
                               0,
                               0,
-                              0,
                               // state reference - the initial state for all the trees (accept the archive tree)
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,

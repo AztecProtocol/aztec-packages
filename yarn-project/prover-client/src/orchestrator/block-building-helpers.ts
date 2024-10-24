@@ -5,6 +5,7 @@ import {
   type ProcessedTx,
   TxEffect,
   getTreeHeight,
+  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
@@ -46,6 +47,7 @@ import {
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   RootRollupInputs,
+  type SpongeBlob,
   StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
@@ -80,6 +82,7 @@ export async function buildBaseRollupInput(
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeWriteOperations,
+  startSpongeBlob: SpongeBlob,
   kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
@@ -175,18 +178,21 @@ export async function buildBaseRollupInput(
     db,
   );
 
+  // Append new data to startSpongeBlob
+  const inputSpongeBlob = startSpongeBlob.clone();
+  startSpongeBlob.absorb(toTxEffect(tx, globalVariables.gasFees).toFields());
+
   return BaseRollupInputs.from({
     kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
+    startSpongeBlob: inputSpongeBlob,
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
     sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-
     archiveRootMembershipWitness,
-
     constants,
   });
 }
@@ -230,9 +236,6 @@ export function buildHeaderFromCircuitOutputs(
 ) {
   const contentCommitment = new ContentCommitment(
     new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-    sha256Trunc(
-      Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
-    ),
     parityPublicInputs.shaRoot.toBuffer(),
     sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
   );
@@ -284,12 +287,7 @@ export async function buildHeaderFromTxEffects(
     l1ToL2Messages.map(msg => msg.toBuffer()),
   );
 
-  const contentCommitment = new ContentCommitment(
-    new Fr(body.numberOfTxsIncludingPadded),
-    body.getTxsEffectsHash(),
-    parityShaRoot,
-    outHash,
-  );
+  const contentCommitment = new ContentCommitment(new Fr(body.numberOfTxsIncludingPadded), parityShaRoot, outHash);
 
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   return new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees);

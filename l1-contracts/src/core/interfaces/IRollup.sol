@@ -42,7 +42,8 @@ interface IRollup {
     bytes32 _blockHash,
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
-    bytes calldata _body
+    bytes calldata _body,
+    bytes calldata blobInput
   ) external;
 
   function proposeAndClaim(
@@ -52,6 +53,7 @@ interface IRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
+    bytes calldata blobInput,
     EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
   ) external;
 
@@ -70,7 +72,6 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _txsEffecstHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 

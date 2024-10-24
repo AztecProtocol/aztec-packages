@@ -16,6 +16,7 @@ import {
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
+  toNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   ETHEREUM_SLOT_DURATION,
@@ -32,10 +33,13 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
   ScopedLogHash,
+  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
+import { Blob } from '@aztec/foundation/blob';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -273,13 +277,11 @@ describe('L1Publisher integration', () => {
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         blockHash: `0x${block.hash().toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),
-            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -333,7 +335,12 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    await builder.startNewBlock(
+      txs.length,
+      toNumTxsEffects(txs, globalVariables.gasFees),
+      globalVariables,
+      l1ToL2Messages,
+    );
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
@@ -417,6 +424,22 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
+
+        // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+        const txEffectsInBlob = padArrayEnd(
+          block.body.toFields(),
+          Fr.ZERO,
+          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+        );
+        const blob = new Blob(txEffectsInBlob);
+
+        const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
+        const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
+        expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
+        expect(z).toEqual(blob.challengeZ.toString());
+        expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -426,13 +449,12 @@ describe('L1Publisher integration', () => {
             `0x${block.header.hash().toBuffer().toString('hex')}`,
             [],
             [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            blob.getEthBlobEvaluationInputs(),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
-
-        const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
-
         const tree = new StandardTree(
           openTmpStore(true),
           new SHA256Trunc(),
@@ -514,6 +536,20 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+        const txEffectsInBlob = padArrayEnd(
+          block.body.toFields(),
+          Fr.ZERO,
+          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+        );
+        const blob = new Blob(txEffectsInBlob);
+
+        const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
+        const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
+        expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
+        expect(z).toEqual(blob.challengeZ.toString());
+        expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -523,7 +559,9 @@ describe('L1Publisher integration', () => {
             `0x${block.header.hash().toBuffer().toString('hex')}`,
             [],
             [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            blob.getEthBlobEvaluationInputs(),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
