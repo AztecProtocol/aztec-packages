@@ -632,7 +632,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: network-test-${{ matrix.test }}
-      - name: "Prover Client Tests"
+      - name: "Setup and Local Network Tests"
         timeout-minutes: 40
         # Only allow transfer test to run on every (non-network-all) PR
         if: matrix.test == 'transfer.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, matrix.test) || contains(github.event.pull_request.labels.*.name, 'network-all')
