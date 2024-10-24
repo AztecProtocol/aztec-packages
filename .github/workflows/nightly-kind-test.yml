@@ -42,6 +42,10 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-x86
+      # override slot time to use prod 36s standard
+      - name: "Set 32s slot time"
+        run: |
+          sed -i 's/global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;/global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3;/g' ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
