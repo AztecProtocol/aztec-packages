@@ -1,7 +1,7 @@
 use crate::{
     abis::{public_call_stack_item_compressed::PublicCallStackItemCompressed, side_effect::Ordered},
     constants::PUBLIC_INNER_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    utils::reader::Reader,
 };
 
 // TODO(#7124): To be deprecated.
@@ -45,7 +45,10 @@ impl Deserialize<PUBLIC_INNER_CALL_REQUEST_LENGTH> for PublicInnerCallRequest {
     fn deserialize(fields: [Field; PUBLIC_INNER_CALL_REQUEST_LENGTH]) -> PublicInnerCallRequest {
         let mut reader = Reader::new(fields);
 
-        let request = PublicInnerCallRequest { item: reader.read_struct(PublicCallStackItemCompressed::deserialize), counter: reader.read_u32() };
+        let request = PublicInnerCallRequest {
+            item: reader.read_struct(PublicCallStackItemCompressed::deserialize),
+            counter: reader.read_u32(),
+        };
         reader.finish();
         request
     }

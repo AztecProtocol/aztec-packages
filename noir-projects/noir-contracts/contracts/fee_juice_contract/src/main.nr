@@ -7,7 +7,7 @@ contract FeeJuice {
     use dep::aztec::{
         protocol_types::{address::{AztecAddress, EthAddress}, constants::FEE_JUICE_INITIAL_MINT},
         state_vars::{SharedImmutable, PublicMutable, Map},
-        macros::{storage::storage, functions::{private, public, view, internal}}
+        macros::{storage::storage, functions::{private, public, view, internal}},
     };
 
     use crate::lib::get_bridge_gas_msg_hash;
@@ -28,7 +28,9 @@ contract FeeJuice {
         let self = context.this_address();
 
         // Increase self balance and set as fee payer, and end setup
-        FeeJuice::at(self)._increase_public_balance(self, FEE_JUICE_INITIAL_MINT).enqueue(&mut context);
+        FeeJuice::at(self)._increase_public_balance(self, FEE_JUICE_INITIAL_MINT).enqueue(
+            &mut context,
+        );
         context.set_as_fee_payer();
         context.end_setup();
 
@@ -56,8 +58,9 @@ contract FeeJuice {
 
         // TODO(palla/gas) Emit an unencrypted log to announce which L1 to L2 message has been claimed
         // Otherwise, we cannot trace L1 deposits to their corresponding claims on L2
-
-        FeeJuice::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+        FeeJuice::at(context.this_address())._increase_public_balance(to, amount).enqueue(
+            &mut context,
+        );
     }
 
     #[public]

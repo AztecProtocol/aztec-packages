@@ -245,7 +245,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_sload{};
     FF main_sel_op_sstore{};
     FF main_sel_op_static_call{};
-    FF main_sel_op_storage_address{};
     FF main_sel_op_sub{};
     FF main_sel_op_timestamp{};
     FF main_sel_op_transaction_fee{};
@@ -573,6 +572,27 @@ template <typename FF> struct AvmFullRow {
     FF poseidon2_b_2{};
     FF poseidon2_b_3{};
     FF poseidon2_clk{};
+    FF poseidon2_full_a_0{};
+    FF poseidon2_full_a_1{};
+    FF poseidon2_full_a_2{};
+    FF poseidon2_full_a_3{};
+    FF poseidon2_full_b_0{};
+    FF poseidon2_full_b_1{};
+    FF poseidon2_full_b_2{};
+    FF poseidon2_full_b_3{};
+    FF poseidon2_full_clk{};
+    FF poseidon2_full_end_poseidon{};
+    FF poseidon2_full_execute_poseidon_perm{};
+    FF poseidon2_full_input_0{};
+    FF poseidon2_full_input_1{};
+    FF poseidon2_full_input_2{};
+    FF poseidon2_full_input_len{};
+    FF poseidon2_full_num_perm_rounds_rem{};
+    FF poseidon2_full_num_perm_rounds_rem_inv{};
+    FF poseidon2_full_output{};
+    FF poseidon2_full_padding{};
+    FF poseidon2_full_sel_poseidon{};
+    FF poseidon2_full_start_poseidon{};
     FF poseidon2_input_addr{};
     FF poseidon2_mem_addr_read_a{};
     FF poseidon2_mem_addr_read_b{};
@@ -584,6 +604,8 @@ template <typename FF> struct AvmFullRow {
     FF poseidon2_mem_addr_write_d{};
     FF poseidon2_output_addr{};
     FF poseidon2_sel_poseidon_perm{};
+    FF poseidon2_sel_poseidon_perm_immediate{};
+    FF poseidon2_sel_poseidon_perm_mem_op{};
     FF poseidon2_space_id{};
     FF range_check_alu_rng_chk{};
     FF range_check_clk{};
@@ -656,6 +678,7 @@ template <typename FF> struct AvmFullRow {
     FF perm_pos_mem_write_b_inv{};
     FF perm_pos_mem_write_c_inv{};
     FF perm_pos_mem_write_d_inv{};
+    FF perm_pos2_fixed_pos2_perm_inv{};
     FF perm_slice_mem_inv{};
     FF perm_main_alu_inv{};
     FF perm_main_bin_inv{};
@@ -717,7 +740,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 703;
+    static constexpr size_t SIZE = 726;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
