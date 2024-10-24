@@ -404,10 +404,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
-    const noteLogs = tags.map(tag => {
-      const noteLogs = this.taggedNoteEncryptedLogs.get(tag.toString());
-      return noteLogs ? noteLogs : [];
-    });
+    const noteLogs = tags.map(tag => 
+      this.taggedNoteEncryptedLogs.get(tag.toString()) || []
+    );
     return Promise.resolve(noteLogs);
   }
 
