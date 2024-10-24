@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729793477621,
+  "lastUpdate": 1729798491421,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41f393443396cae77e09a09df07d42e6d5ff5618",
-          "message": "feat: new world state (#8776)\n\nThis PR enables a new WorldState implementation written in C++. This\r\nbrings huge performance benefits.\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
-          "timestamp": "2024-10-08T11:50:50+01:00",
-          "tree_id": "81c7e61087f1df3ef47219e0aca4ff67e0a91808",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/41f393443396cae77e09a09df07d42e6d5ff5618"
-        },
-        "date": 1728387132138,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31434.155544999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29005.590862999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5543.888069000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5170.902692000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93094.40584200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93094408000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15820.047713000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15820048000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8283113151,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8283113151 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153126336,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153126336 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6728643109,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6728643109 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126046456,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126046456 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3324,6 +3252,66 @@ window.BENCHMARK_DATA = {
             "value": 127090385,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127090385 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "07d6dc29db2eb04154b8f0c66bd1efa74c0e8b9d",
+          "message": "feat(avm): avm replace zeromorph pcs by shplemini (#9389)\n\nResolves #9349 \r\n\r\nNative proving and verification time did not change significantly on\r\nbulk tests. Before and after this PR, we get\r\n\r\n- pcs step proving time: 2.1 sec\r\n- pcs verification step time: 50 ms\r\n\r\nRecursive verifier num of gates decreased of about 6.5%:\r\n5312325 --> 4971289",
+          "timestamp": "2024-10-24T20:53:32+02:00",
+          "tree_id": "0b0d18b47d6f02dbceba7e49cf9e2928a2c8f8fa",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/07d6dc29db2eb04154b8f0c66bd1efa74c0e8b9d"
+        },
+        "date": 1729798484431,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30889.758760000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29138.890123 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5377.372792000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5064.886341 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92767.986846,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92767988000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15213.389192,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15213388000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2705592999,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2705592999 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126087037,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126087037 ns\nthreads: 1"
           }
         ]
       }
