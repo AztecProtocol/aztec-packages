@@ -2,36 +2,32 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IRollup, ITestRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
-import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
-import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
-import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {Math} from "@oz/utils/math/Math.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
-import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
-import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
+import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @title Rollup

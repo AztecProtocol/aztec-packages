@@ -3,8 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 /**
  * @title Txs Decoder Library

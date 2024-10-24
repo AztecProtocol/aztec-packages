@@ -34,6 +34,8 @@
     "strict-override": "error",
     "ordering": "error",
     "comprehensive-interface": "error",
-    "no-unused-import": "error"
+    "no-unused-import": "error",
+    "imports-order": "error",
+    "check-send-result": "error"
   }
 }

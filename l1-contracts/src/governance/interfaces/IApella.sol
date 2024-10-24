@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 interface IApella {
   event Proposed(uint256 indexed proposalId, address indexed proposal);

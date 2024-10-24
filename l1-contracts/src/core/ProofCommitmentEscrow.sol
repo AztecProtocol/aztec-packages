@@ -2,13 +2,12 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 contract ProofCommitmentEscrow is IProofCommitmentEscrow {
   using SafeERC20 for IERC20;

@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
-
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
