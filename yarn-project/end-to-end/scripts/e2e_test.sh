@@ -52,6 +52,15 @@ run_docker_compose() {
 # Load test configuration
 test_config=$(load_test_config "$TEST")
 
+# Determine the test path
+test_directory=$(echo "$test_config" | yq e '.directory // ""' -)
+
+if [ -n "$test_directory" ]; then
+  test_path="${test_directory}/${TEST}.test.ts"
+else
+  test_path="${TEST}.test.ts"
+fi
+
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
   run_docker_compose "$TEST" "$@"
@@ -79,6 +88,6 @@ else
       -e FAKE_PROOFS="$FAKE_PROOFS" \
       $env_args \
       --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
-      "$TEST" "$@"
+      "$test_path" "$@"
   fi
 fi

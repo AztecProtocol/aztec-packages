@@ -37,13 +37,20 @@ tests:
   e2e_docs_examples:
     use_compose: true
   e2e_escrow_contract: {}
-  e2e_fees_account_init: {}
-  e2e_fees_dapp_subscription: {}
-  e2e_fees_failures: {}
-  e2e_fees_fee_juice_payments: {}
-  e2e_fees_gas_estimation: {}
-  e2e_fees_private_payments: {}
-  e2e_fees_private_refunds: {}
+  account_init:
+    directory: "e2e_fees"
+  dapp_subscription:
+    directory: "e2e_fees"
+  failures:
+    directory: "e2e_fees"
+  fee_juice_payments:
+    directory: "e2e_fees"
+  gas_estimation:
+    directory: "e2e_fees"
+  private_payments:
+    directory: "e2e_fees"
+  private_refunds:
+    directory: "e2e_fees"
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}
