@@ -1,7 +1,7 @@
 use crate::{test::utils, types::nft_note::NFTNote, NFT};
 use dep::aztec::{
     keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader}, oracle::random::random,
-    protocol_types::storage::map::derive_storage_slot_in_map
+    protocol_types::storage::map::derive_storage_slot_in_map,
 };
 use std::test::OracleMock;
 
@@ -29,7 +29,8 @@ unconstrained fn transfer_to_private_internal_orchestration() {
 #[test]
 unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, nft_contract_address, _, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, nft_contract_address, _, recipient, token_id) =
+        utils::setup_and_mint( /* with_account_contracts */ false);
 
     let note_randomness = random();
 
@@ -37,8 +38,9 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
-    let hiding_point_slot: Field = NFT::at(nft_contract_address).prepare_transfer_to_private(recipient).call(&mut env.private());
-
+    let hiding_point_slot: Field = NFT::at(nft_contract_address)
+        .prepare_transfer_to_private(recipient)
+        .call(&mut env.private());
 
     // Finalize the transfer of the NFT (message sender owns the NFT in public)
     NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot).call(
@@ -93,7 +95,9 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the NFT owner check is before we use the value but that would made the test less robust against changes
     // in the contract.)
-    let hiding_point_slot: Field = NFT::at(nft_contract_address).prepare_transfer_to_private(not_owner).call(&mut env.private());
+    let hiding_point_slot: Field = NFT::at(nft_contract_address)
+        .prepare_transfer_to_private(not_owner)
+        .call(&mut env.private());
 
     // Try transferring someone else's public NFT
     env.impersonate(not_owner);

@@ -12,7 +12,7 @@ contract NFT {
         oracle::random::random,
         prelude::{
             NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
-            AztecAddress, PrivateContext, PublicContext
+            AztecAddress, PrivateContext, PublicContext,
         },
         encrypted_logs::encrypted_note_emission::{
             encode_and_encrypt_note, encrypt_and_emit_partial_log,
@@ -154,7 +154,9 @@ contract NFT {
 
         // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
-        nft._finalize_transfer_to_private_unsafe(from, token_id, hiding_point_slot).enqueue(&mut context);
+        nft._finalize_transfer_to_private_unsafe(from, token_id, hiding_point_slot).enqueue(
+            &mut context,
+        );
     }
 
     /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
@@ -173,7 +175,7 @@ contract NFT {
     fn _prepare_transfer_to_private(
         to: AztecAddress,
         context: &mut PrivateContext,
-        storage: Storage<&mut PrivateContext>
+        storage: Storage<&mut PrivateContext>,
     ) -> Field {
         let to_keys = get_public_keys(to);
         let to_npk_m_hash = to_keys.npk_m.hash();
@@ -205,7 +207,12 @@ contract NFT {
         // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
         // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
         // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
-        NFT::at(context.this_address())._store_point_in_transient_storage_unsafe(hiding_point_slot, note_setup_payload.hiding_point).enqueue(context);
+        NFT::at(context.this_address())
+            ._store_point_in_transient_storage_unsafe(
+                hiding_point_slot,
+                note_setup_payload.hiding_point,
+            )
+            .enqueue(context);
 
         hiding_point_slot
     }
@@ -227,7 +234,11 @@ contract NFT {
 
     #[public]
     #[internal]
-    fn _finalize_transfer_to_private_unsafe(from: AztecAddress, token_id: Field, hiding_point_slot: Field) {
+    fn _finalize_transfer_to_private_unsafe(
+        from: AztecAddress,
+        token_id: Field,
+        hiding_point_slot: Field,
+    ) {
         _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
     }
 
@@ -237,7 +248,7 @@ contract NFT {
         token_id: Field,
         hiding_point_slot: Field,
         context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>
+        storage: Storage<&mut PublicContext>,
     ) {
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from), "invalid NFT owner");
