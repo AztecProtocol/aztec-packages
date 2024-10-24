@@ -499,9 +499,10 @@ class AvmFlavor {
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
-        Commitment zm_pi_comm;
+        std::vector<Commitment> gemini_fold_comms;
+        std::vector<FF> gemini_fold_evals;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
 
         Transcript() = default;
 
