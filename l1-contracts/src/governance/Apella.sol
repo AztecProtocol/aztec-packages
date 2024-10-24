@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
-
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -181,12 +178,27 @@ contract Apella is IApella {
     for (uint256 i = 0; i < actions.length; i++) {
       require(actions[i].target != address(ASSET), Errors.Apella__CannotCallAsset());
       // We allow calls to EOAs. If you really want be my guest.
+      // solhint-disable-next-line avoid-low-level-calls
       (bool success,) = actions[i].target.call(actions[i].data);
       require(success, Errors.Apella__CallFailed(actions[i].target));
     }
 
     emit ProposalExecuted(_proposalId);
 
+    return true;
+  }
+
+  function dropProposal(uint256 _proposalId) external override(IApella) returns (bool) {
+    DataStructures.Proposal storage self = proposals[_proposalId];
+    require(
+      self.state != DataStructures.ProposalState.Dropped, Errors.Apella__ProposalAlreadyDropped()
+    );
+    require(
+      getProposalState(_proposalId) == DataStructures.ProposalState.Dropped,
+      Errors.Apella__ProposalCannotBeDropped()
+    );
+
+    self.state = DataStructures.ProposalState.Dropped;
     return true;
   }
 
@@ -204,34 +216,31 @@ contract Apella is IApella {
     return total.powerAt(_ts);
   }
 
-  function getConfiguration() external view returns (DataStructures.Configuration memory) {
+  function getConfiguration()
+    external
+    view
+    override(IApella)
+    returns (DataStructures.Configuration memory)
+  {
     return configuration;
   }
 
-  function getProposal(uint256 _proposalId) external view returns (DataStructures.Proposal memory) {
+  function getProposal(uint256 _proposalId)
+    external
+    view
+    override(IApella)
+    returns (DataStructures.Proposal memory)
+  {
     return proposals[_proposalId];
   }
 
   function getWithdrawal(uint256 _withdrawalId)
     external
     view
+    override(IApella)
     returns (DataStructures.Withdrawal memory)
   {
     return withdrawals[_withdrawalId];
-  }
-
-  function dropProposal(uint256 _proposalId) external returns (bool) {
-    DataStructures.Proposal storage self = proposals[_proposalId];
-    require(
-      self.state != DataStructures.ProposalState.Dropped, Errors.Apella__ProposalAlreadyDropped()
-    );
-    require(
-      getProposalState(_proposalId) == DataStructures.ProposalState.Dropped,
-      Errors.Apella__ProposalCannotBeDropped()
-    );
-
-    self.state = DataStructures.ProposalState.Dropped;
-    return true;
   }
 
   /**

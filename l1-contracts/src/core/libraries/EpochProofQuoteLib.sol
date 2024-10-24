@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 library EpochProofQuoteLib {
   /**
@@ -36,15 +36,15 @@ library EpochProofQuoteLib {
     "EpochProofQuote(uint256 epochToProve,uint256 validUntilSlot,uint256 bondAmount,address prover,uint32 basisPointFee)"
   );
 
-  function hash(EpochProofQuote memory quote) internal pure returns (bytes32) {
+  function hash(EpochProofQuote memory _quote) internal pure returns (bytes32) {
     return keccak256(
       abi.encode(
         EPOCH_PROOF_QUOTE_TYPEHASH,
-        quote.epochToProve,
-        quote.validUntilSlot,
-        quote.bondAmount,
-        quote.prover,
-        quote.basisPointFee
+        _quote.epochToProve,
+        _quote.validUntilSlot,
+        _quote.bondAmount,
+        _quote.prover,
+        _quote.basisPointFee
       )
     );
   }

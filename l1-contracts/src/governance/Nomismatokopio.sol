@@ -2,10 +2,10 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Ownable} from "@oz/access/Ownable.sol";
-import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {INomismatokopio} from "@aztec/governance/interfaces/INomismatokopio.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 contract Nomismatokopio is INomismatokopio, Ownable {
   IMintableERC20 public immutable ASSET;
