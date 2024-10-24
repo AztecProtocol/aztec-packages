@@ -13,7 +13,6 @@ import {
   type DeployL1Contracts,
   EncryptedNoteL2BlockL2Logs,
   EthCheatCodes,
-  type L1ContractArtifactsForDeployment,
   LogType,
   NoFeePaymentMethod,
   type PXE,
@@ -33,20 +32,6 @@ import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { type EthAddress, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
-import {
-  FeeJuicePortalAbi,
-  FeeJuicePortalBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-  TestERC20Abi,
-  TestERC20Bytecode,
-} from '@aztec/l1-artifacts';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -110,34 +95,7 @@ export const setupL1Contracts = async (
   },
   chain: Chain = foundry,
 ) => {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: TestERC20Abi,
-      contractBytecode: TestERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
-
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,

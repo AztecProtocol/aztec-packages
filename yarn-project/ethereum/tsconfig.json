@@ -5,10 +5,15 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "references": [
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../l1-artifacts"
     }
   ]
 }
