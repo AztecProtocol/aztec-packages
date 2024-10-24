@@ -10,9 +10,12 @@ import {
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
+import { encrypt } from './encryption_util.js';
+import { derivePoseidonAESSecret } from './shared_secret_derivation.js';
 
 // placeholder value until tagging is implemented
 const PLACEHOLDER_TAG = new Fr(33);
@@ -57,6 +60,48 @@ describe('EncryptedLogPayload', () => {
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
+  });
+
+  it('outgoing ciphertest matches Noir', () => {
+    const ephSk = GrumpkinScalar.fromHighLow(
+      new Fr(0x000000000000000000000000000000000f096b423017226a18461115fa8d34bbn),
+      new Fr(0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fen),
+    );
+
+    const senderOvskApp = GrumpkinScalar.fromHighLow(
+      new Fr(0x00000000000000000000000000000000089c6887cb1446d86c64e81afc78048bn),
+      new Fr(0x0000000000000000000000000000000074d2e28c6bc5176ac02cf7c7d36a444en),
+    );
+
+    const ephPk = derivePublicKeyFromSecretKey(ephSk);
+
+    const recipient = AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn);
+
+    const outgoingBodyPlaintext = serializeToBuffer(
+      ephSk.hi,
+      ephSk.lo,
+      recipient,
+      computePoint(recipient).toCompressedBuffer(),
+    );
+    const outgoingBodyCiphertext = encrypt(
+      outgoingBodyPlaintext,
+      senderOvskApp,
+      ephPk,
+      derivePoseidonAESSecret,
+    ).toString('hex');
+
+    expect(outgoingBodyCiphertext).toMatchInlineSnapshot(
+      `"7fb6e34bc0c5362fa886e994fb2e560c4932ee321fae1bca6e4da1c5f47c11648f96e80e9cf82bb11052f467584a54c80f41bb0ea33c5b16681fd3be7c794f5ceeb6c2e1224743741be744a1935e35c353edac34ade51aea6b2b52441069257d75568532155c4ae5698d53e5fffb153dea3da8dd6ae70849d03cfb2efbe49490bbc32612df990879b254ed94fedb3b3e"`,
+    );
+
+    const byteArrayString = `[${outgoingBodyCiphertext.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
+      'outgoing_body_ciphertext_from_typescript',
+      byteArrayString,
+    );
   });
 
   it('encrypted tagged log matches Noir', () => {
