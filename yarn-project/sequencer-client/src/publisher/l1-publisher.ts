@@ -149,10 +149,10 @@ export class L1Publisher {
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
-  private gerousiaContract: GetContractReturnType<
+  private gerousiaContract?: GetContractReturnType<
     typeof GerousiaAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
-  >;
+  > = undefined;
 
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
@@ -188,11 +188,13 @@ export class L1Publisher {
       client: this.walletClient,
     });
 
-    this.gerousiaContract = getContract({
-      address: getAddress(l1Contracts.gerousiaAddress.toString()),
-      abi: GerousiaAbi,
-      client: this.walletClient,
-    });
+    if (l1Contracts.gerousiaAddress) {
+      this.gerousiaContract = getContract({
+        address: getAddress(l1Contracts.gerousiaAddress.toString()),
+        abi: GerousiaAbi,
+        client: this.walletClient,
+      });
+    }
   }
 
   public getPayLoad() {
@@ -376,6 +378,10 @@ export class L1Publisher {
 
   public async castVote(slotNumber: bigint, timestamp: bigint): Promise<boolean> {
     if (this.payload.equals(EthAddress.ZERO)) {
+      return false;
+    }
+
+    if (!this.gerousiaContract) {
       return false;
     }
 
