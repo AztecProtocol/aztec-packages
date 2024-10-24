@@ -10,22 +10,22 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   type KernelCircuitPublicInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   type PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   type VMCircuitPublicInputs,
   VerificationKeyData,
-  makeEmptyProof,
+  makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
   makeKernelCircuitPublicInputs,
+  makeParityPublicInputs,
   makePublicKernelCircuitPublicInputs,
-  makeRootParityInput,
   makeRootRollupPublicInputs,
   makeVMCircuitPublicInputs,
 } from '@aztec/circuits.js/testing';
@@ -36,18 +36,30 @@ export class MockProver implements ServerCircuitProver {
   getAvmProof() {
     return Promise.resolve(
       makeProofAndVerificationKey(
-        makeEmptyProof(),
+        makeEmptyRecursiveProof<number>(0),
         VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       ),
     );
   }
 
   getBaseParityProof() {
-    return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeParityPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
   }
 
   getRootParityProof() {
-    return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeParityPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      ),
+    );
   }
 
   getBaseRollupProof() {
@@ -160,7 +172,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getTubeProof(): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  getTubeProof(): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return Promise.resolve(
       makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFake()),
     );

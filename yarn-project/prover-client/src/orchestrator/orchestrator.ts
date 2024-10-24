@@ -40,7 +40,7 @@ import {
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput,
+  RootParityInput,
   RootParityInputs,
   TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
@@ -48,7 +48,6 @@ import {
   type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
-  makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -982,8 +981,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
       ),
-      rootInput => {
-        provingState.setRootParityInputs(rootInput, index);
+      provingOutput => {
+        const rootParityInput = new RootParityInput(
+          provingOutput.proof,
+          provingOutput.verificationKey.keyAsFields,
+          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+          provingOutput.inputs,
+        );
+        provingState.setRootParityInputs(rootParityInput, index);
         if (provingState.areRootParityInputsReady()) {
           const rootParityInputs = new RootParityInputs(
             provingState.rootParityInput as Tuple<
@@ -1011,8 +1016,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
       ),
-      rootInput => {
-        provingState!.finalRootParityInput = rootInput;
+      provingOutput => {
+        const rootParityInput = new RootParityInput(
+          provingOutput.proof,
+          provingOutput.verificationKey.keyAsFields,
+          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+          provingOutput.inputs,
+        );
+        provingState!.finalRootParityInput = rootParityInput;
         this.checkAndEnqueueBlockRootRollup(provingState);
       },
     );
@@ -1239,7 +1250,7 @@ export class ProvingOrchestrator implements EpochProver {
                 `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
               );
               return {
-                proof: makeEmptyProof(),
+                proof: makeEmptyRecursiveProof(0),
                 verificationKey: VerificationKeyData.makeFakeHonk(),
               };
             }
@@ -1248,7 +1259,7 @@ export class ProvingOrchestrator implements EpochProver {
       );
       this.deferredProving(provingState, doAvmProving, proofAndVk => {
         logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
-        this.checkAndEnqueuePublicKernelFromVMProof(provingState, txIndex, functionIndex, proofAndVk.proof);
+        this.checkAndEnqueuePublicKernelFromVMProof(provingState, txIndex, functionIndex, proofAndVk.proof.binaryProof);
       });
     }
   }

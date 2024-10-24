@@ -10,15 +10,13 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
-  type Proof,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelTailCircuitPrivateInputs,
   type RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
-  type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -42,7 +40,7 @@ export interface ServerCircuitProver {
     inputs: BaseParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>;
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -52,7 +50,7 @@ export interface ServerCircuitProver {
     inputs: RootParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -72,7 +70,7 @@ export interface ServerCircuitProver {
     tubeInput: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>>;
+  ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -166,7 +164,7 @@ export interface ServerCircuitProver {
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<Proof>>;
+  ): Promise<ProofAndVerificationKey<number>>;
 }
 
 /**

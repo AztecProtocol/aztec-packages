@@ -23,6 +23,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   Proof,
@@ -32,7 +33,6 @@ import {
   type PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
-  RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -47,7 +47,6 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
@@ -75,7 +74,6 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
-  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -150,7 +148,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The public inputs of the parity circuit.
    */
   @trackSpan('BBNativeRollupProver.getBaseParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' })
-  public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
+  public async getBaseParityProof(
+    inputs: BaseParityInputs,
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'BaseParityArtifact',
@@ -160,15 +160,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseParityArtifact');
-
     await this.verifyProof('BaseParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(
-      proof,
-      verificationKey.keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
-      circuitOutput,
-    );
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -179,7 +173,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getRootParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' })
   public async getRootParityProof(
     inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'RootParityArtifact',
@@ -189,15 +183,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootParityArtifact');
-
     await this.verifyProof('RootParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(
-      proof,
-      verificationKey.keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes.RootParityArtifact),
-      circuitOutput,
-    );
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -208,9 +196,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
     [Attributes.APP_CIRCUIT_NAME]: inputs.functionName,
   }))
-  public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
+  public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<number>> {
     const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey);
     return proofAndVk;
   }
 
@@ -677,8 +665,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
-  private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
-    const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey<Proof>> => {
+  private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey<number>> {
+    const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey<number>> => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       const rawProof = await fs.readFile(provingResult.proofPath!);
@@ -709,14 +697,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         } satisfies CircuitProvingStats,
       );
 
-      return makeProofAndVerificationKey(proof, verificationKey);
+      return makeProofAndVerificationKey(makeRecursiveProofFromBinary<number>(proof, 0), verificationKey);
     };
     return await this.runInDirectory(operation);
   }
 
-  public async getTubeProof(
-    input: TubeInputs,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  public async getTubeProof(input: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
