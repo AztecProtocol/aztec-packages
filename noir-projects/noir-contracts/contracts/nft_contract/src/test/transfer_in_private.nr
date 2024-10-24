@@ -1,8 +1,8 @@
+use crate::NFT;
 use crate::test::utils;
+use dep::authwit::cheatcodes as authwit_cheatcodes;
 use dep::aztec::test::helpers::cheatcodes;
 use aztec::oracle::random::random;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::NFT;
 
 #[test]
 unconstrained fn transfer_in_private() {

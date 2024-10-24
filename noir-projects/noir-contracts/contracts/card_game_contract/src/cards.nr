@@ -1,11 +1,15 @@
-use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteGetterOptions, NoteViewerOptions};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    keys::getters::get_public_keys,
+    note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{
-        traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    }, encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-    keys::getters::get_public_keys, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE,
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        traits::{FromField, Serialize, ToField},
+    },
+    state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
 

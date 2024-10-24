@@ -7,29 +7,33 @@ use dep::aztec::macros::aztec;
 // and private.
 #[aztec]
 contract NFT {
-    use dep::compressed_string::FieldCompressedString;
-    use dep::aztec::{
-        oracle::random::random,
-        prelude::{
-            NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
-            AztecAddress,
-        },
-        encrypted_logs::encrypted_note_emission::{
-            encode_and_encrypt_note, encrypt_and_emit_partial_log,
-        }, hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
-        protocol_types::traits::is_empty, utils::comparison::Comparator,
-        protocol_types::{point::Point, traits::Serialize},
-        macros::{
-            storage::storage, events::event,
-            functions::{private, public, view, internal, initializer},
-        },
-    };
+    use crate::types::nft_note::NFTNote;
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
         compute_authwit_nullifier,
     };
+    use dep::aztec::{
+        encrypted_logs::encrypted_note_emission::{
+            encode_and_encrypt_note, encrypt_and_emit_partial_log,
+        },
+        hash::pedersen_hash,
+        keys::getters::get_public_keys,
+        macros::{
+            events::event,
+            functions::{initializer, internal, private, public, view},
+            storage::storage,
+        },
+        note::constants::MAX_NOTES_PER_PAGE,
+        oracle::random::random,
+        prelude::{
+            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateSet, PublicMutable,
+            SharedImmutable,
+        },
+        protocol_types::{point::Point, traits::{is_empty, Serialize}},
+        utils::comparison::Comparator,
+    };
+    use dep::compressed_string::FieldCompressedString;
     use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
-    use crate::types::nft_note::NFTNote;
 
     global TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX = 3;
 

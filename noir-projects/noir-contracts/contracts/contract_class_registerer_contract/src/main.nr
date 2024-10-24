@@ -6,28 +6,29 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
-        contract_class_id::ContractClassId,
+        abis::log_hash::LogHash,
         constants::{
             ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
             MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-        }, abis::log_hash::LogHash,
+        },
+        contract_class_id::ContractClassId,
     };
 
     use dep::aztec::{
-        context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private,
-        macros::functions::private,
+        context::PrivateContext, macros::functions::private,
+        oracle::logs::emit_contract_class_unencrypted_log_private,
     };
 
     use crate::events::{
         class_registered::ContractClassRegistered,
         private_function_broadcasted::{
-            ClassPrivateFunctionBroadcasted, PrivateFunction, InnerPrivateFunction,
+            ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
         },
         unconstrained_function_broadcasted::{
-            ClassUnconstrainedFunctionBroadcasted, UnconstrainedFunction,
-            InnerUnconstrainedFunction,
+            ClassUnconstrainedFunctionBroadcasted, InnerUnconstrainedFunction,
+            UnconstrainedFunction,
         },
     };
 

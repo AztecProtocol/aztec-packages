@@ -2,7 +2,8 @@ use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    }, utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
+    },
+    utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
 };
 
 pub struct TailToPublicOutputHints {

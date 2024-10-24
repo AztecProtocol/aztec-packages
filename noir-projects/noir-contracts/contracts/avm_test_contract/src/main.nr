@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
 pub struct Note {
     a: Field,
@@ -29,22 +29,24 @@ contract AvmTest {
         0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
-    use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
-    use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
-    use dep::aztec::prelude::Map;
-    use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::protocol_types::{
-        address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar,
-    };
+    use dep::aztec::context::gas::GasOpts;
+    use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_avm, get_contract_instance_internal_avm,
     };
+    use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map,
     };
+    use dep::aztec::protocol_types::{
+        address::{AztecAddress, EthAddress},
+        point::Point,
+        scalar::Scalar,
+    };
+    use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
+    use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
-    use dep::aztec::macros::{storage::storage, functions::{public, private}};
-    use dep::aztec::context::gas::GasOpts;
+    use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
     #[storage]
     struct Storage<Context> {

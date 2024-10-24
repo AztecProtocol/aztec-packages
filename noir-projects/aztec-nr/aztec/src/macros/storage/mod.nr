@@ -1,5 +1,6 @@
 use std::{
-    collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+    collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
     meta::unquote,
 };
 

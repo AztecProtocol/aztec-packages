@@ -13,8 +13,8 @@ where
 
 mod tests {
     use crate::merkle_tree::{
-        leaf_preimage::IndexedTreeLeafPreimage,
         indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
+        leaf_preimage::IndexedTreeLeafPreimage,
     };
 
     struct TestLeafPreimage {

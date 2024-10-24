@@ -1,6 +1,6 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::random::random, hash::compute_secret_hash};
-use crate::{types::transparent_note::TransparentNote, Token};
+use crate::{Token, types::transparent_note::TransparentNote};
+use dep::aztec::{hash::compute_secret_hash, oracle::random::random, test::helpers::cheatcodes};
 
 #[test]
 unconstrained fn mint_public_success() {

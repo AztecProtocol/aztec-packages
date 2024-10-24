@@ -2,14 +2,14 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract TestLog {
-    use std::meta::derive;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
+    use dep::aztec::keys::getters::get_public_keys;
+    use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
-    use dep::aztec::keys::getters::get_public_keys;
-    use dep::value_note::value_note::ValueNote;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
-    use dep::aztec::macros::{storage::storage, events::event, functions::{private, public}};
+    use dep::value_note::value_note::ValueNote;
+    use std::meta::derive;
 
     use std::embedded_curve_ops::EmbeddedCurveScalar;
 

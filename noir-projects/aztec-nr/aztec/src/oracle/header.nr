@@ -1,5 +1,5 @@
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::{constants::HEADER_LENGTH, header::Header};
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,

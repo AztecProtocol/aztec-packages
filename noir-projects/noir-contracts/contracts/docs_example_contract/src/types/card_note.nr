@@ -1,11 +1,13 @@
-use dep::aztec::prelude::{NullifiableNote, PrivateContext, NoteHeader};
 use dep::aztec::{
-    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app,
+    keys::getters::get_nsk_app,
+    macros::notes::note,
+    note::utils::compute_note_hash_for_nullify,
     protocol_types::{
-        traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
-    }, macros::notes::note,
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+        traits::Serialize,
+    },
 };
+use dep::aztec::prelude::{NoteHeader, NullifiableNote, PrivateContext};
 
 // docs:start:state_vars-CardNote
 global CARD_NOTE_LEN: u32 = 3; // 3 plus a header.

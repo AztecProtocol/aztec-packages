@@ -3,9 +3,14 @@ use dep::types::{
         combined_constant_data::CombinedConstantData,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
-        }, max_block_number::MaxBlockNumber, nullifier::{Nullifier, ScopedNullifier},
+        },
+        max_block_number::MaxBlockNumber,
+        nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    }, address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
+    },
+    address::AztecAddress,
+    traits::is_empty,
+    transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };
 

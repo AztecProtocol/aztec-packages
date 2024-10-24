@@ -14,13 +14,14 @@ use dep::aztec::macros::aztec;
 contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        hash::compute_secret_hash,
-        prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         encrypted_logs::encrypted_note_emission::{
-            encode_and_encrypt_note_unconstrained, encode_and_encrypt_note,
-        }, utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public, initializer, view, internal}},
+            encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
+        },
+        hash::compute_secret_hash,
         keys::getters::get_public_keys,
+        macros::{functions::{initializer, internal, private, public, view}, storage::storage},
+        prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
+        utils::comparison::Comparator,
     };
 
     use dep::authwit::auth::{
@@ -28,8 +29,8 @@ contract TokenBlacklist {
     };
 
     use crate::types::{
-        transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap,
-        roles::UserFlags,
+        balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
+        transparent_note::TransparentNote,
     };
 
     // Changing an address' roles has a certain block delay before it goes into effect.

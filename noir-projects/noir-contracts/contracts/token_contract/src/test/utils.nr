@@ -1,13 +1,16 @@
 use dep::aztec::{
-    hash::compute_secret_hash, prelude::AztecAddress,
-    test::helpers::{cheatcodes, test_environment::TestEnvironment},
-    protocol_types::storage::map::derive_storage_slot_in_map,
+    hash::compute_secret_hash,
     oracle::{
-        execution::{get_block_number, get_contract_address}, random::random, storage::storage_read,
+        execution::{get_block_number, get_contract_address},
+        random::random,
+        storage::storage_read,
     },
+    prelude::AztecAddress,
+    protocol_types::storage::map::derive_storage_slot_in_map,
+    test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
 
-use crate::{types::transparent_note::TransparentNote, Token};
+use crate::{Token, types::transparent_note::TransparentNote};
 
 pub unconstrained fn setup(
     with_account_contracts: bool,

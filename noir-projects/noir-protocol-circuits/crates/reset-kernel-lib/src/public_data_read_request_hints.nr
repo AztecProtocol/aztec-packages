@@ -1,7 +1,8 @@
 use crate::reset::{mutable_data_read_request::ReadIndexHint, read_request::ReadRequestStatus};
 use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_write::OverridablePublicDataWrite},
-    data::OverridablePublicDataTreeLeaf, utils::arrays::find_index_hint,
+    data::OverridablePublicDataTreeLeaf,
+    utils::arrays::find_index_hint,
 };
 
 pub struct PublicDataReadRequestHints<let NUM_READS: u32> {

@@ -4,11 +4,12 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract SchnorrHardcodedAccount {
-    use dep::aztec::prelude::PrivateContext;
     use dep::authwit::{
-        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
+        account::AccountActions,
         auth_witness::get_auth_witness,
+        entrypoint::{app::AppPayload, fee::FeePayload},
     };
+    use dep::aztec::prelude::PrivateContext;
 
     use dep::aztec::macros::functions::{private, view};
 
