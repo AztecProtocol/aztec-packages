@@ -230,7 +230,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
     const noteTagsToDelete = blocks.flatMap(block => this.noteEncryptedLogTagsPerBlock.get(block.number));
     noteTagsToDelete
-      .filter(tag => tag)
+      .filter(tag => tag != undefined)
       .forEach(tag => {
         this.taggedNoteEncryptedLogs.delete(tag!.toString());
       });
