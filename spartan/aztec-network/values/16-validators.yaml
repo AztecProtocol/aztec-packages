@@ -52,7 +52,7 @@ validator:
     disabled: false
 
 bot:
-  txIntervalSeconds: 2
+  txIntervalSeconds: 1
   privateTransfersPerTx: 2
   publicTransfersPerTx: 2
 
