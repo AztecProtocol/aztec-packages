@@ -26,8 +26,8 @@ contract NFT {
         note::constants::MAX_NOTES_PER_PAGE,
         oracle::random::random,
         prelude::{
-            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateSet, PublicMutable,
-            SharedImmutable,
+            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
+            PublicContext, PublicMutable, SharedImmutable,
         },
         protocol_types::{point::Point, traits::{is_empty, Serialize}},
         utils::comparison::Comparator,
