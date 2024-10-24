@@ -25,20 +25,20 @@ function patchFn(
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
 ): { address: AztecAddress; selector: FunctionSelector } {
   const fn = tx.enqueuedPublicFunctionCalls.at(-1 * index - 1)!;
-  fn.contractAddress = overrides.address ?? fn.contractAddress;
+  fn.callContext.contractAddress = overrides.address ?? fn.callContext.contractAddress;
   fn.callContext.functionSelector = overrides.selector;
   fn.args = overrides.args ?? fn.args;
   fn.callContext.msgSender = overrides.msgSender ?? fn.callContext.msgSender;
   tx.enqueuedPublicFunctionCalls[index] = fn;
 
   const request = tx.data.forPublic![where].publicCallStack[index];
-  request.contractAddress = fn.contractAddress;
+  request.callContext.contractAddress = fn.callContext.contractAddress;
   request.callContext = fn.callContext;
   request.argsHash = computeVarArgsHash(fn.args);
   tx.data.forPublic![where].publicCallStack[index] = request;
 
   return {
-    address: fn.contractAddress,
+    address: fn.callContext.contractAddress,
     selector: fn.callContext.functionSelector,
   };
 }

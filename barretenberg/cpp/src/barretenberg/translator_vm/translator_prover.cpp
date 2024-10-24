@@ -1,7 +1,7 @@
 #include "translator_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -13,7 +13,7 @@ TranslatorProver::TranslatorProver(CircuitBuilder& circuit_builder, const std::s
     , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
     , transcript(transcript)
 {
-    BB_OP_COUNT_TIME();
+    PROFILE_THIS();
 
     // Compute total number of gates, dyadic circuit size, etc.
     key = std::make_shared<ProvingKey>(circuit_builder);
@@ -170,19 +170,18 @@ void TranslatorProver::execute_relation_check_rounds()
 void TranslatorProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim =
-        ZeroMorph::prove(key->circuit_size,
-                         key->polynomials.get_unshifted_without_concatenated(),
-                         key->polynomials.get_to_be_shifted(),
-                         sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
-                         sumcheck_output.claimed_evaluations.get_shifted(),
-                         sumcheck_output.challenge,
-                         key->commitment_key,
-                         transcript,
-                         key->polynomials.get_concatenated(),
-                         sumcheck_output.claimed_evaluations.get_concatenated(),
-                         key->polynomials.get_groups_to_be_concatenated());
+
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    const OpeningClaim prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(key->circuit_size,
+                                       key->polynomials.get_unshifted_without_concatenated(),
+                                       key->polynomials.get_to_be_shifted(),
+                                       sumcheck_output.challenge,
+                                       key->commitment_key,
+                                       transcript,
+                                       key->polynomials.get_concatenated(),
+                                       key->polynomials.get_groups_to_be_concatenated());
     PCS::compute_opening_proof(key->commitment_key, prover_opening_claim, transcript);
 }
 
@@ -194,7 +193,7 @@ HonkProof TranslatorProver::export_proof()
 
 HonkProof TranslatorProver::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("TranslatorProver::construct_proof");
+    PROFILE_THIS_NAME("TranslatorProver::construct_proof");
 
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

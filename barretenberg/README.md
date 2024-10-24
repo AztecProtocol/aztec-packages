@@ -1,3 +1,9 @@
+> [!WARNING]
+> :warning: This is not an actively developed repository, it is a mirror. See <https://github.com/AztecProtocol/aztec-packages> :warning:
+
+> [!WARNING]
+> :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
+
 ![banner](../.github/img/bb_banner.png)
 
 # Barretenberg
@@ -31,12 +37,6 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [Debugging Verifification Failures](#debugging-verifification-failures)
     - [Improving LLDB Debugging](#improving-lldb-debugging)
     - [Using Tracy to Profile Memory/CPU](#using-tracy-to-profile-memorycpu)
-
-> [!WARNING]
-> :warning: This is not an actively developed repository, it is a mirror. See <https://github.com/AztecProtocol/aztec-packages> :warning:
-
-> [!WARNING]
-> :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
 > [!CAUTION]
 > **This code is highly experimental, use at your own risk!**
@@ -477,4 +477,4 @@ See Tracy manual linked here <https://github.com/wolfpld/tracy> for in-depth Tra
 The basic use of Tracy is to run a benchmark with the `cmake --preset tracy` build type, create a capture file, then
 transfer it to a local machine for interactive UI introspection.
 
-All the steps to do this effectively are included in cpp/scripts/benchmark_tracy.sh
+All the steps to do this effectively are included in various scripts in cpp/scripts/.

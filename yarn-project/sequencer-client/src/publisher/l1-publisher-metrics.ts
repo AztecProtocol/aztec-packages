@@ -83,6 +83,7 @@ export class L1PublisherMetrics {
   private recordTx(txType: L1TxType, durationMs: number, stats: Omit<L1PublishProofStats, 'eventName'>) {
     const attributes = {
       [Attributes.L1_TX_TYPE]: txType,
+      [Attributes.L1_SENDER]: stats.sender,
     } as const;
 
     this.txCount.add(1, {

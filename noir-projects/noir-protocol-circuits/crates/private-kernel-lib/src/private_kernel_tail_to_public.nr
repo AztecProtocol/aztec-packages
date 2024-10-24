@@ -1,22 +1,19 @@
 use crate::components::{
     previous_kernel_validator::PreviousKernelValidator,
     tail_to_public_output_composer::TailToPublicOutputComposer,
-    tail_to_public_output_validator::TailToPublicOutputValidator
+    tail_to_public_output_validator::TailToPublicOutputValidator,
 };
 use dep::types::{
     abis::{
-    private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs
-},
+        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
-    PrivateKernelCircuitPublicInputs
+    PrivateKernelCircuitPublicInputs,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_INIT_INDEX,
-    PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
@@ -25,9 +22,11 @@ pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
     pub fn new(
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
-        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs
+        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> Self {
-        Self { previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs) }
+        Self {
+            previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
+        }
     }
 
     unconstrained fn generate_output(self) -> PublicKernelCircuitPublicInputs {
@@ -36,9 +35,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
         // Generate output.
-        let output = unsafe {
-            self.generate_output()
-        };
+        let output = unsafe { self.generate_output() };
 
         // Validate inputs.
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
@@ -55,20 +52,21 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_tail_to_public::{PrivateKernelTailToPublicCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
+    use crate::private_kernel_tail_to_public::{
+        PrivateKernelTailToPublicCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
+    };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, FIXED_AVM_STARTUP_L2_GAS
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, FIXED_AVM_STARTUP_L2_GAS,
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
-        note_hash::ScopedNoteHash, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{LogHash, NoteLogHash}
-    },
-        address::{AztecAddress, EthAddress},
+            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
+            note_hash::ScopedNoteHash, nullifier::{Nullifier, ScopedNullifier},
+            log_hash::{LogHash, NoteLogHash},
+        }, address::{AztecAddress, EthAddress},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, point::Point,
-        constants::PRIVATE_KERNEL_INNER_INDEX
+        constants::PRIVATE_KERNEL_INNER_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -89,7 +87,10 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_output_note_hashes<let N: u32>(_self: Self, note_hashes: [ScopedNoteHash; N]) -> [ScopedNoteHash; N] {
+        pub fn compute_output_note_hashes<let N: u32>(
+            _self: Self,
+            note_hashes: [ScopedNoteHash; N],
+        ) -> [ScopedNoteHash; N] {
             let mut output = [ScopedNoteHash::empty(); N];
             for i in 0..N {
                 output[i].note_hash.value = note_hashes[i].value();
@@ -97,7 +98,10 @@ mod tests {
             output
         }
 
-        pub fn compute_output_nullifiers<let N: u32>(_self: Self, nullifiers: [ScopedNullifier; N]) -> [Nullifier; N] {
+        pub fn compute_output_nullifiers<let N: u32>(
+            _self: Self,
+            nullifiers: [ScopedNullifier; N],
+        ) -> [Nullifier; N] {
             let mut output = [Nullifier::empty(); N];
             for i in 0..N {
                 output[i].value = nullifiers[i].value();
@@ -105,7 +109,10 @@ mod tests {
             output
         }
 
-        pub fn compute_output_note_logs<let N: u32>(_self: Self, logs: [NoteLogHash; N]) -> [LogHash; N] {
+        pub fn compute_output_note_logs<let N: u32>(
+            _self: Self,
+            logs: [NoteLogHash; N],
+        ) -> [LogHash; N] {
             let mut output = [LogHash::empty(); N];
             for i in 0..N {
                 if logs[i].value != 0 {
@@ -116,7 +123,9 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
-            let kernel = PrivateKernelTailToPublicCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data() };
+            let kernel = PrivateKernelTailToPublicCircuitPrivateInputs {
+                previous_kernel: self.previous_kernel.to_private_kernel_data(),
+            };
             kernel.execute()
         }
 
@@ -186,26 +195,28 @@ mod tests {
 
         assert_array_eq(
             public_inputs.end_non_revertible.nullifiers,
-            [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]]
+            [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]],
         );
 
         assert_array_eq(
             public_inputs.end.nullifiers,
-            [output_nullifiers[3], output_nullifiers[4]]
+            [output_nullifiers[3], output_nullifiers[4]],
         );
 
         assert_eq(
-            public_inputs.end.gas_used, Gas::new(
+            public_inputs.end.gas_used,
+            Gas::new(
                 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
-                2 * L2_GAS_PER_NULLIFIER
-            )
+                2 * L2_GAS_PER_NULLIFIER,
+            ),
         );
         assert_eq(
-            public_inputs.end_non_revertible.gas_used, Gas::new(
-            3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
-            FIXED_AVM_STARTUP_L2_GAS + 3 * L2_GAS_PER_NULLIFIER
-        )
-            + Gas::tx_overhead()
+            public_inputs.end_non_revertible.gas_used,
+            Gas::new(
+                3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
+                FIXED_AVM_STARTUP_L2_GAS + 3 * L2_GAS_PER_NULLIFIER,
+            )
+                + Gas::tx_overhead(),
         );
     }
 
@@ -227,26 +238,28 @@ mod tests {
 
         assert_array_eq(
             public_inputs.end_non_revertible.note_hashes,
-            [exposed_note_hashes[0], exposed_note_hashes[1]]
+            [exposed_note_hashes[0], exposed_note_hashes[1]],
         );
 
         assert_array_eq(
             public_inputs.end.note_hashes,
-            [exposed_note_hashes[2], exposed_note_hashes[3]]
+            [exposed_note_hashes[2], exposed_note_hashes[3]],
         );
 
         assert_eq(
-            public_inputs.end.gas_used, Gas::new(
+            public_inputs.end.gas_used,
+            Gas::new(
                 (2 * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE,
-                2 * L2_GAS_PER_NOTE_HASH
-            )
+                2 * L2_GAS_PER_NOTE_HASH,
+            ),
         );
         assert_eq(
-            public_inputs.end_non_revertible.gas_used, Gas::new(
-            (3 * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE,
-            FIXED_AVM_STARTUP_L2_GAS + L2_GAS_PER_NULLIFIER + 2 * L2_GAS_PER_NOTE_HASH
-        )
-            + Gas::tx_overhead()
+            public_inputs.end_non_revertible.gas_used,
+            Gas::new(
+                (3 * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE,
+                FIXED_AVM_STARTUP_L2_GAS + L2_GAS_PER_NULLIFIER + 2 * L2_GAS_PER_NOTE_HASH,
+            )
+                + Gas::tx_overhead(),
         );
     }
 
@@ -272,7 +285,7 @@ mod tests {
         let _void = builder.previous_kernel.add_request_for_key_validation(
             Point { x: 1, y: 2, is_infinite: false },
             27,
-            GENERATOR_INDEX__TSK_M as Field
+            GENERATOR_INDEX__TSK_M as Field,
         );
         builder.failed();
     }
@@ -287,9 +300,10 @@ mod tests {
         let expected_revertible_gas_used = Gas::new(300, 300);
         assert_eq(public_inputs.end.gas_used, expected_revertible_gas_used);
 
-        let expected_non_revertible_gas_used = Gas::tx_overhead() + Gas::new(
+        let expected_non_revertible_gas_used = Gas::tx_overhead()
+            + Gas::new(
                 DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE * 1,
-                L2_GAS_PER_NULLIFIER * 1 + FIXED_AVM_STARTUP_L2_GAS
+                L2_GAS_PER_NULLIFIER * 1 + FIXED_AVM_STARTUP_L2_GAS,
             );
 
         assert_eq(public_inputs.end_non_revertible.gas_used, expected_non_revertible_gas_used);
@@ -308,9 +322,10 @@ mod tests {
         let expected_revertible_gas_used = Gas::new(0, 3 * FIXED_AVM_STARTUP_L2_GAS);
         assert_eq(public_inputs.end.gas_used, expected_revertible_gas_used);
 
-        let expected_non_revertible_gas_used = Gas::tx_overhead() + Gas::new(
+        let expected_non_revertible_gas_used = Gas::tx_overhead()
+            + Gas::new(
                 DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE * 1,
-                L2_GAS_PER_NULLIFIER * 1 + 2 * FIXED_AVM_STARTUP_L2_GAS
+                L2_GAS_PER_NULLIFIER * 1 + 2 * FIXED_AVM_STARTUP_L2_GAS,
             );
 
         assert_eq(public_inputs.end_non_revertible.gas_used, expected_non_revertible_gas_used);
@@ -327,12 +342,17 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq(Gas::new(1 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0), public_inputs.end.gas_used);
         assert_eq(
-            Gas::tx_overhead() + Gas::new(
-                3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
-                FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER
-            ), public_inputs.end_non_revertible.gas_used
+            Gas::new(1 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0),
+            public_inputs.end.gas_used,
+        );
+        assert_eq(
+            Gas::tx_overhead()
+                + Gas::new(
+                    3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
+                    FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER,
+                ),
+            public_inputs.end_non_revertible.gas_used,
         );
     }
 
@@ -348,13 +368,18 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq(Gas::new(13 * DA_GAS_PER_BYTE, 13 * L2_GAS_PER_LOG_BYTE), public_inputs.end.gas_used);
+        assert_eq(
+            Gas::new(13 * DA_GAS_PER_BYTE, 13 * L2_GAS_PER_LOG_BYTE),
+            public_inputs.end.gas_used,
+        );
 
         assert_eq(
-            Gas::tx_overhead() + Gas::new(
-                (1 * DA_BYTES_PER_FIELD + 12) * DA_GAS_PER_BYTE ,
-                FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER + 12 * L2_GAS_PER_LOG_BYTE
-            ), public_inputs.end_non_revertible.gas_used
+            Gas::tx_overhead()
+                + Gas::new(
+                    (1 * DA_BYTES_PER_FIELD + 12) * DA_GAS_PER_BYTE,
+                    FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER + 12 * L2_GAS_PER_LOG_BYTE,
+                ),
+            public_inputs.end_non_revertible.gas_used,
         );
     }
 
@@ -385,12 +410,13 @@ mod tests {
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.previous_kernel =
+                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
 
             let _res = builder.execute();
         }
     }
-    // #[test(should_fail_with="Invalid vk index")]
+    // #[test(should_fail_with = "Invalid vk index")]
     // fn invalid_previous_kernel() {
     //     let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
     //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);

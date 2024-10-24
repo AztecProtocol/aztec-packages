@@ -19,8 +19,8 @@ use rustc_hash::FxHashMap as HashMap;
 use crate::{
     ast::{
         ArrayLiteral, BlockExpression, ConstrainKind, Expression, ExpressionKind, ForRange,
-        FunctionKind, FunctionReturnType, Ident, IntegerBitSize, LValue, Literal, Pattern,
-        Signedness, Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
+        FunctionKind, FunctionReturnType, Ident, IntegerBitSize, ItemVisibility, LValue, Literal,
+        Pattern, Signedness, Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
         Visibility,
     },
     hir::{
@@ -34,8 +34,9 @@ use crate::{
     },
     hir_def::expr::{HirExpression, HirLiteral},
     hir_def::function::FunctionBody,
+    hir_def::{self},
     node_interner::{DefinitionKind, NodeInterner, TraitImplKind},
-    parser::Parser,
+    parser::{Parser, StatementOrExpressionOrLValue},
     token::{Attribute, SecondaryAttribute, Token},
     Kind, QuotedType, ResolvedGeneric, Shared, Type, TypeVariable,
 };
@@ -62,6 +63,9 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "as_slice" => as_slice(interner, arguments, location),
             "ctstring_eq" => ctstring_eq(arguments, location),
             "ctstring_hash" => ctstring_hash(arguments, location),
+            "derive_pedersen_generators" => {
+                derive_generators(interner, arguments, return_type, location)
+            }
             "expr_as_array" => expr_as_array(interner, arguments, return_type, location),
             "expr_as_assert" => expr_as_assert(interner, arguments, return_type, location),
             "expr_as_assert_eq" => expr_as_assert_eq(interner, arguments, return_type, location),
@@ -317,7 +321,7 @@ fn str_as_bytes(
 
     let bytes: im::Vector<Value> = string.bytes().map(Value::U8).collect();
     let byte_array_type = Type::Array(
-        Box::new(Type::Constant(bytes.len() as u32, Kind::u32())),
+        Box::new(Type::Constant(bytes.len().into(), Kind::u32())),
         Box::new(Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight)),
     );
     Ok(Value::Array(bytes, byte_array_type))
@@ -499,9 +503,9 @@ fn struct_def_fields(
 
     let mut fields = im::Vector::new();
 
-    for (name, typ) in struct_def.get_fields_as_written() {
-        let name = Value::Quoted(Rc::new(vec![Token::Ident(name)]));
-        let typ = Value::Type(typ);
+    for field in struct_def.get_fields_as_written() {
+        let name = Value::Quoted(Rc::new(vec![Token::Ident(field.name.to_string())]));
+        let typ = Value::Type(field.typ);
         fields.push_back(Value::Tuple(vec![name, typ]));
     }
 
@@ -568,7 +572,11 @@ fn struct_def_set_fields(
 
                 match name_tokens.first() {
                     Some(Token::Ident(name)) if name_tokens.len() == 1 => {
-                        Ok((Ident::new(name.clone(), field_location.span), typ))
+                        Ok(hir_def::types::StructField {
+                            visibility: ItemVisibility::Public,
+                            name: Ident::new(name.clone(), field_location.span),
+                            typ,
+                        })
                     }
                     _ => {
                         let value = name_value.display(interner).to_string();
@@ -688,23 +696,20 @@ fn quoted_as_expr(
     let argument = check_one_argument(arguments, location)?;
 
     let result =
-        parse(interner, argument.clone(), Parser::parse_expression_or_error, "an expression");
-    if let Ok(expr) = result {
-        return option(return_type, Some(Value::expression(expr.kind)));
-    }
+        parse(interner, argument, Parser::parse_statement_or_expression_or_lvalue, "an expression");
 
-    let result =
-        parse(interner, argument.clone(), Parser::parse_statement_or_error, "an expression");
-    if let Ok(stmt) = result {
-        return option(return_type, Some(Value::statement(stmt.kind)));
-    }
+    let value =
+        result.ok().map(
+            |statement_or_expression_or_lvalue| match statement_or_expression_or_lvalue {
+                StatementOrExpressionOrLValue::Expression(expr) => Value::expression(expr.kind),
+                StatementOrExpressionOrLValue::Statement(statement) => {
+                    Value::statement(statement.kind)
+                }
+                StatementOrExpressionOrLValue::LValue(lvalue) => Value::lvalue(lvalue),
+            },
+        );
 
-    let result = parse(interner, argument, Parser::parse_lvalue_or_error, "an expression");
-    if let Ok(lvalue) = result {
-        return option(return_type, Some(Value::lvalue(lvalue)));
-    }
-
-    option(return_type, None)
+    option(return_type, value)
 }
 
 // fn as_module(quoted: Quoted) -> Option<Module>
@@ -749,7 +754,7 @@ fn quoted_as_trait_constraint(
     )?;
     let bound = interpreter
         .elaborate_in_function(interpreter.current_function, |elaborator| {
-            elaborator.resolve_trait_bound(&trait_bound, Type::Unit)
+            elaborator.resolve_trait_bound(&trait_bound)
         })
         .ok_or(InterpreterError::FailedToResolveTraitBound { trait_bound, location })?;
 
@@ -806,8 +811,12 @@ fn to_le_radix(
     let value = get_field(value)?;
     let radix = get_u32(radix)?;
     let limb_count = if let Type::Array(length, _) = return_type {
-        if let Type::Constant(limb_count, _kind) = *length {
-            limb_count
+        if let Type::Constant(limb_count, kind) = *length {
+            if kind.unifies(&Kind::u32()) {
+                limb_count
+            } else {
+                return Err(InterpreterError::TypeAnnotationsNeededForMethodCall { location });
+            }
         } else {
             return Err(InterpreterError::TypeAnnotationsNeededForMethodCall { location });
         }
@@ -817,10 +826,11 @@ fn to_le_radix(
 
     // Decompose the integer into its radix digits in little endian form.
     let decomposed_integer = compute_to_radix_le(value, radix);
-    let decomposed_integer = vecmap(0..limb_count as usize, |i| match decomposed_integer.get(i) {
-        Some(digit) => Value::U8(*digit),
-        None => Value::U8(0),
-    });
+    let decomposed_integer =
+        vecmap(0..limb_count.to_u128() as usize, |i| match decomposed_integer.get(i) {
+            Some(digit) => Value::U8(*digit),
+            None => Value::U8(0),
+        });
     Ok(Value::Array(
         decomposed_integer.into(),
         Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight),
@@ -2245,7 +2255,10 @@ fn function_def_add_attribute(
         }
     }
 
-    if let Attribute::Secondary(SecondaryAttribute::Custom(attribute)) = attribute {
+    if let Attribute::Secondary(
+        SecondaryAttribute::Tag(attribute) | SecondaryAttribute::Meta(attribute),
+    ) = attribute
+    {
         let func_meta = interpreter.elaborator.interner.function_meta_mut(&func_id);
         func_meta.custom_attributes.push(attribute);
     }
@@ -2458,7 +2471,6 @@ fn function_def_set_parameters(
                 DefinitionKind::Local(None),
                 &mut parameter_idents,
                 true, // warn_if_unused
-                None,
             )
         });
 
@@ -2746,7 +2758,7 @@ fn trait_def_as_trait_constraint(
     let trait_id = get_trait_def(argument)?;
     let constraint = interner.get_trait(trait_id).as_constraint(location.span);
 
-    Ok(Value::TraitConstraint(trait_id, constraint.trait_generics))
+    Ok(Value::TraitConstraint(trait_id, constraint.trait_bound.trait_generics))
 }
 
 /// Creates a value that holds an `Option`.
@@ -2783,4 +2795,57 @@ fn ctstring_eq(arguments: Vec<(Value, Location)>, location: Location) -> IResult
 
 fn ctstring_hash(arguments: Vec<(Value, Location)>, location: Location) -> IResult<Value> {
     hash_item(arguments, location, get_ctstring)
+}
+
+fn derive_generators(
+    interner: &mut NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    let (domain_separator_string, starting_index) = check_two_arguments(arguments, location)?;
+
+    let domain_separator_location = domain_separator_string.1;
+    let (domain_separator_string, _) = get_array(interner, domain_separator_string)?;
+    let starting_index = get_u32(starting_index)?;
+
+    let domain_separator_string =
+        try_vecmap(domain_separator_string, |byte| get_u8((byte, domain_separator_location)))?;
+
+    let (size, elements) = match return_type.clone() {
+        Type::Array(size, elements) => (size, elements),
+        _ => panic!("ICE: Should only have an array return type"),
+    };
+
+    let Some(num_generators) = size.evaluate_to_u32() else {
+        return Err(InterpreterError::UnknownArrayLength { length: *size, location });
+    };
+
+    let generators = bn254_blackbox_solver::derive_generators(
+        &domain_separator_string,
+        num_generators,
+        starting_index,
+    );
+
+    let is_infinite = FieldElement::zero();
+    let x_field_name: Rc<String> = Rc::new("x".to_owned());
+    let y_field_name: Rc<String> = Rc::new("y".to_owned());
+    let is_infinite_field_name: Rc<String> = Rc::new("is_infinite".to_owned());
+    let mut results = Vector::new();
+    for gen in generators {
+        let x_big: BigUint = gen.x.into();
+        let x = FieldElement::from_be_bytes_reduce(&x_big.to_bytes_be());
+        let y_big: BigUint = gen.y.into();
+        let y = FieldElement::from_be_bytes_reduce(&y_big.to_bytes_be());
+        let mut embedded_curve_point_fields = HashMap::default();
+        embedded_curve_point_fields.insert(x_field_name.clone(), Value::Field(x));
+        embedded_curve_point_fields.insert(y_field_name.clone(), Value::Field(y));
+        embedded_curve_point_fields
+            .insert(is_infinite_field_name.clone(), Value::Field(is_infinite));
+        let embedded_curve_point_struct =
+            Value::Struct(embedded_curve_point_fields, *elements.clone());
+        results.push_back(embedded_curve_point_struct);
+    }
+
+    Ok(Value::Array(results, return_type))
 }

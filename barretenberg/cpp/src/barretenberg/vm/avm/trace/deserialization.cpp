@@ -148,7 +148,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Control Flow - Contract Calls
     { OpCode::CALL, external_call_format },
     { OpCode::STATICCALL, external_call_format },
-    // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     // REVERT,
     { OpCode::REVERT_8, { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT8 } },
@@ -160,13 +159,10 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     // Gadgets
     // Gadgets - Hashing
-    { OpCode::KECCAK, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::POSEIDON2, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::POSEIDON2PERM, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::SHA256COMPRESSION,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::PEDERSEN,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     // TEMP ECADD without relative memory
     { OpCode::ECADD,
       { OperandType::INDIRECT16,
@@ -179,8 +175,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT16 } }, // dst_offset
     { OpCode::MSM,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::PEDERSENCOMMITMENT,
-      { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Gadget - Conversion
     { OpCode::TORADIXLE,
       { OperandType::INDIRECT8,
@@ -189,10 +183,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT16,
         OperandType::UINT16,
         OperandType::UINT8 } },
-    // Gadgets - Unused for now
-    { OpCode::SHA256COMPRESSION,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
@@ -247,7 +237,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
             switch (opType) {
             case OperandType::TAG: {
                 uint8_t tag_u8 = bytecode.at(pos);
-                if (tag_u8 == static_cast<uint8_t>(AvmMemoryTag::U0) || tag_u8 > MAX_MEM_TAG) {
+                if (tag_u8 > MAX_MEM_TAG) {
                     throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
                                    " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
                 }

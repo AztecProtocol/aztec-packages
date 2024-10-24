@@ -800,7 +800,6 @@ fn handle_getter_instruction(
 ) {
     enum EnvironmentVariable {
         ADDRESS,
-        STORAGEADDRESS,
         SENDER,
         FUNCTIONSELECTOR,
         TRANSACTIONFEE,
@@ -827,7 +826,6 @@ fn handle_getter_instruction(
 
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
-        "avmOpcodeStorageAddress" => EnvironmentVariable::STORAGEADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
         "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
         "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,
@@ -963,7 +961,7 @@ fn generate_mov_instruction(
     }
 }
 
-/// Black box functions, for the meantime only covers pedersen operations as the blackbox function api suits our current needs.
+/// Black box functions
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
@@ -985,32 +983,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AvmOperand::U16 { value: output_offset as u16 },
                     AvmOperand::U16 { value: state_offset as u16 },
                     AvmOperand::U16 { value: inputs_offset as u16 },
-                ],
-                ..Default::default()
-            });
-        }
-        BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
-            let message_offset = inputs.pointer.to_usize();
-            let message_size_offset = inputs.size.to_usize();
-
-            let index_offset = domain_separator.to_usize();
-            let dest_offset = output.to_usize();
-
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .direct_operand(domain_separator)
-                        .direct_operand(output)
-                        .indirect_operand(&inputs.pointer)
-                        .direct_operand(&inputs.size)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U32 { value: index_offset as u32 },
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
                 ],
                 ..Default::default()
             });
@@ -1040,9 +1012,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::Keccakf1600 { message, output } => {
-            let message_offset = message.pointer.to_usize();
-            let message_size_offset = message.size.to_usize();
+        BlackBoxOp::Keccakf1600 { input, output } => {
+            let input_offset = input.pointer.to_usize();
+            assert_eq!(input.size, 25, "Keccakf1600 input size must be 25!");
             let dest_offset = output.pointer.to_usize();
             assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
 
@@ -1051,14 +1023,12 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
-                        .indirect_operand(&message.pointer)
-                        .direct_operand(&message.size)
+                        .indirect_operand(&input.pointer)
                         .build(),
                 ),
                 operands: vec![
                     AvmOperand::U16 { value: dest_offset as u16 },
-                    AvmOperand::U16 { value: message_offset as u16 },
-                    AvmOperand::U16 { value: message_size_offset as u16 },
+                    AvmOperand::U16 { value: input_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1147,31 +1117,6 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                     AvmOperand::U16 { value: scalars_offset as u16 },
                     AvmOperand::U16 { value: outputs_offset as u16 },
                     AvmOperand::U16 { value: num_points as u16 },
-                ],
-                ..Default::default()
-            });
-        }
-        // Temporary while we dont have efficient noir implementations (again)
-        BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
-            let input_offset = inputs.pointer.to_usize();
-            let input_size_offset = inputs.size.to_usize();
-            let index_offset = domain_separator.to_usize();
-            let output_offset = output.pointer.to_usize();
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::PEDERSENCOMMITMENT,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .indirect_operand(&inputs.pointer)
-                        .indirect_operand(&output.pointer)
-                        .direct_operand(&inputs.size)
-                        .direct_operand(domain_separator)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U32 { value: input_offset as u32 },
-                    AvmOperand::U32 { value: output_offset as u32 },
-                    AvmOperand::U32 { value: input_size_offset as u32 },
-                    AvmOperand::U32 { value: index_offset as u32 },
                 ],
                 ..Default::default()
             });
@@ -1497,6 +1442,5 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
         BitSize::Integer(IntegerBitSize::U64) => AvmTypeTag::UINT64,
         BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
         BitSize::Field => AvmTypeTag::FIELD,
-        _ => panic!("The AVM doesn't support integer bit size {:?}", bit_size),
     }
 }

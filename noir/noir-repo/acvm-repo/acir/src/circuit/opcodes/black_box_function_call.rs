@@ -42,6 +42,10 @@ impl<F> FunctionInput<F> {
     pub fn witness(witness: Witness, num_bits: u32) -> FunctionInput<F> {
         FunctionInput { input: ConstantOrWitnessEnum::Witness(witness), num_bits }
     }
+
+    pub fn is_constant(&self) -> bool {
+        matches!(self.input, ConstantOrWitnessEnum::Constant(_))
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Error)]
@@ -111,18 +115,6 @@ pub enum BlackBoxFuncCall<F> {
         )]
         signature: Box<[FunctionInput<F>; 64]>,
         message: Vec<FunctionInput<F>>,
-        output: Witness,
-    },
-    /// Will be deprecated
-    PedersenCommitment {
-        inputs: Vec<FunctionInput<F>>,
-        domain_separator: u32,
-        outputs: (Witness, Witness),
-    },
-    /// Will be deprecated
-    PedersenHash {
-        inputs: Vec<FunctionInput<F>>,
-        domain_separator: u32,
         output: Witness,
     },
     EcdsaSecp256k1 {
@@ -255,8 +247,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             BlackBoxFuncCall::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
             BlackBoxFuncCall::Poseidon2Permutation { .. } => BlackBoxFunc::Poseidon2Permutation,
             BlackBoxFuncCall::Sha256Compression { .. } => BlackBoxFunc::Sha256Compression,
-            BlackBoxFuncCall::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
-            BlackBoxFuncCall::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
         }
     }
 
@@ -270,8 +260,6 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
             | BlackBoxFuncCall::BigIntFromLeBytes { inputs, .. }
-            | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
-            | BlackBoxFuncCall::PedersenHash { inputs, .. }
             | BlackBoxFuncCall::Poseidon2Permutation { inputs, .. } => inputs.to_vec(),
 
             BlackBoxFuncCall::Keccakf1600 { inputs, .. } => inputs.to_vec(),
@@ -384,9 +372,7 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::XOR { output, .. }
             | BlackBoxFuncCall::SchnorrVerify { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256k1 { output, .. }
-            | BlackBoxFuncCall::PedersenHash { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256r1 { output, .. } => vec![*output],
-            BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
             BlackBoxFuncCall::MultiScalarMul { outputs, .. }
             | BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => {
                 vec![outputs.0, outputs.1, outputs.2]
@@ -459,14 +445,6 @@ fn get_outputs_string(outputs: &[Witness]) -> String {
 
 impl<F: std::fmt::Display + Copy> std::fmt::Display for BlackBoxFuncCall<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlackBoxFuncCall::PedersenCommitment { .. } => {
-                return write!(f, "BLACKBOX::Deprecated")
-            }
-            BlackBoxFuncCall::PedersenHash { .. } => return write!(f, "BLACKBOX::Deprecated"),
-            _ => (),
-        }
-
         let uppercase_name = self.name().to_uppercase();
         write!(f, "BLACKBOX::{uppercase_name} ")?;
         // INPUTS

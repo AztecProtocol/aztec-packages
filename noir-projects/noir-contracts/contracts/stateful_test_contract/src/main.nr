@@ -7,7 +7,7 @@ contract StatefulTest {
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
         initializer::assert_is_initialized_private,
-        macros::{storage::storage, functions::{private, public, initializer, noinitcheck, view}}
+        macros::{storage::storage, functions::{private, public, initializer, noinitcheck, view}},
     };
 
     #[storage]
@@ -19,7 +19,9 @@ contract StatefulTest {
     #[private]
     #[initializer]
     fn constructor(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
-        StatefulTest::at(context.this_address()).create_note_no_init_check(owner, outgoing_viewer, value).call(&mut context);
+        StatefulTest::at(context.this_address())
+            .create_note_no_init_check(owner, outgoing_viewer, value)
+            .call(&mut context);
     }
 
     #[private]
@@ -34,7 +36,9 @@ contract StatefulTest {
     #[public]
     #[initializer]
     fn public_constructor(owner: AztecAddress, _ignored_arg: AztecAddress, value: Field) {
-        StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
+        StatefulTest::at(context.this_address())
+            .increment_public_value_no_init_check(owner, value)
+            .call(&mut context);
     }
 
     #[private]

@@ -9,6 +9,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Fr,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
@@ -40,7 +41,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-  verificationKey: VerificationKeyAsFields.makeEmpty(),
+  verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   outputWitness: new Map(),
   bytecode: Buffer.from([]),
 };
@@ -113,8 +114,8 @@ export class KernelProver {
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
 
       const functionName = await this.oracle.getDebugFunctionName(
-        currentExecution.callStackItem.contractAddress,
-        currentExecution.callStackItem.functionData.selector,
+        currentExecution.publicInputs.callContext.contractAddress,
+        currentExecution.publicInputs.callContext.functionSelector,
       );
 
       const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
@@ -200,14 +201,14 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ callStackItem }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
-    const { contractAddress, functionData } = callStackItem;
+  private async createPrivateCallData({ publicInputs }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
+    const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      functionData.selector,
+      functionSelector,
     );
-    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
       contractAddress,
     );
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
@@ -222,9 +223,9 @@ export class KernelProver {
       : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
 
     return PrivateCallData.from({
-      callStackItem,
+      publicInputs,
       vk,
-      publicKeysHash,
+      publicKeys,
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,

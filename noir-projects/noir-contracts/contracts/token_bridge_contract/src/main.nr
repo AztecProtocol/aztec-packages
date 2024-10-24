@@ -11,11 +11,15 @@ use dep::aztec::macros::aztec;
 contract TokenBridge {
     use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, SharedImmutable};
 
-    use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
+    use dep::token_portal_content_hash_lib::{
+        get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash,
+    };
 
     use dep::token::Token;
 
-    use dep::aztec::macros::{storage::storage, functions::{public, initializer, private, internal}};
+    use dep::aztec::macros::{
+        storage::storage, functions::{public, initializer, private, internal, view},
+    };
     // docs:end:token_bridge_imports
 
     // docs:start:token_bridge_storage_and_constructor
@@ -56,7 +60,7 @@ contract TokenBridge {
             content_hash,
             secret,
             storage.portal_address.read_public(),
-            message_leaf_index
+            message_leaf_index,
         );
 
         // Mint tokens
@@ -72,14 +76,16 @@ contract TokenBridge {
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
+        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
         context.message_portal(storage.portal_address.read_public(), content);
 
         // Burn tokens
-        Token::at(storage.token.read()).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
+        Token::at(storage.token.read()).burn_public(context.msg_sender(), amount, nonce).call(
+            &mut context,
+        );
     }
     // docs:end:exit_to_l1_public
     // docs:start:claim_private
@@ -90,21 +96,24 @@ contract TokenBridge {
     fn claim_private(
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         amount: Field,
-        secret_for_L1_to_L2_message_consumption: Field // secret used to consume the L1 to L2 message
+        secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
+        let content_hash =
+            get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
-            storage.portal_address.read_private()
+            storage.portal_address.read_private(),
         );
 
         // Mint tokens on L2
         // `mint_private` on token is public. So we call an internal public function
         // which then calls the public method on the token contract.
         // Since the secret_hash is passed, no secret is leaked.
-        TokenBridge::at(context.this_address())._call_mint_on_token(amount, secret_hash_for_redeeming_minted_notes).enqueue(&mut context);
+        TokenBridge::at(context.this_address())
+            ._call_mint_on_token(amount, secret_hash_for_redeeming_minted_notes)
+            .enqueue(&mut context);
     }
     // docs:end:claim_private
 
@@ -117,7 +126,7 @@ contract TokenBridge {
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
+        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
@@ -127,7 +136,6 @@ contract TokenBridge {
         // Assert that user provided token address is same as seen in storage.
         TokenBridge::at(context.this_address())._assert_token_is_same(token).enqueue(&mut context);
         // docs:end:call_assert_token_is_same
-
         // Burn tokens
         Token::at(token).burn(context.msg_sender(), amount, nonce).call(&mut context);
     }

@@ -4,12 +4,12 @@ use std::panic;
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
     let functions = m.functions();
-    let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
+    let functions =
+        functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
 
     let unit = get_type::<()>();
 
-    let ifs = functions.map(
-        |function: FunctionDefinition| {
+    let ifs = functions.map(|function: FunctionDefinition| {
         let name = function.name();
         let parameters = function.parameters();
         let return_type = function.return_type();
@@ -78,8 +78,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             }
         };
         if_
-    }
-    );
+    });
 
     if ifs.len() == 0 {
         // No dispatch function if there are no public functions
@@ -93,7 +92,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // functions having this attribute. However, the public MACRO will
             // handle the public_dispatch function specially and do nothing.
             #[public]
-            unconstrained pub fn public_dispatch(selector: Field) {
+            pub unconstrained fn public_dispatch(selector: Field) {
                 $dispatch
             }
         };
@@ -119,14 +118,10 @@ comptime fn size_in_fields(typ: Type) -> u32 {
 }
 
 comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_array().and_then(
-        |typ: (Type, Type)| {
-            let (typ, element_size) = typ;
-            element_size.as_constant().map(|x: u32| {
-                x * size_in_fields(typ)
-            })
-        }
-    )
+    typ.as_array().and_then(|typ: (Type, Type)| {
+        let (typ, element_size) = typ;
+        element_size.as_constant().map(|x: u32| { x * size_in_fields(typ) })
+    })
 }
 
 comptime fn bool_size_in_fields(typ: Type) -> Option<u32> {
@@ -162,28 +157,24 @@ comptime fn str_size_in_fields(typ: Type) -> Option<u32> {
 }
 
 comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_struct().map(
-        |typ: (StructDefinition, [Type])| {
-            let struct_type = typ.0;
-            let mut size = 0;
-            for field in struct_type.fields() {
-                size += size_in_fields(field.1);
-            }
-            size
+    typ.as_struct().map(|typ: (StructDefinition, [Type])| {
+        let struct_type = typ.0;
+        let mut size = 0;
+        for field in struct_type.fields() {
+            size += size_in_fields(field.1);
         }
-    )
+        size
+    })
 }
 
 comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_tuple().map(
-        |types: [Type]| {
-            let mut size = 0;
-            for typ in types {
-                size += size_in_fields(typ);
-            }
-            size
+    typ.as_tuple().map(|types: [Type]| {
+        let mut size = 0;
+        for typ in types {
+            size += size_in_fields(typ);
         }
-    )
+        size
+    })
 }
 
 comptime fn get_type<T>() -> Type {

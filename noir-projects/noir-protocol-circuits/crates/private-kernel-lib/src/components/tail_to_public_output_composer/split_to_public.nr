@@ -1,14 +1,12 @@
-use dep::types::abis::{
-    accumulated_data::{
+use dep::types::abis::accumulated_data::{
     private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
     public_accumulated_data::PublicAccumulatedData,
-    public_accumulated_data_builder::PublicAccumulatedDataBuilder
-}
+    public_accumulated_data_builder::PublicAccumulatedDataBuilder,
 };
 
-unconstrained pub fn split_to_public(
+pub unconstrained fn split_to_public(
     data: PrivateAccumulatedDataBuilder,
-    min_revertible_side_effect_counter: u32
+    min_revertible_side_effect_counter: u32,
 ) -> (PublicAccumulatedData, PublicAccumulatedData) {
     let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
     let mut revertible_builder = PublicAccumulatedDataBuilder::empty();

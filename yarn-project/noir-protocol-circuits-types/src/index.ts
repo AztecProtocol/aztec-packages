@@ -100,6 +100,7 @@ export * from './artifacts.js';
 export { maxPrivateKernelResetDimensions, privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
 export * from './utils/private_kernel_reset.js';
 export * from './vks.js';
+export { hashVk } from './utils/vk_json.js';
 
 /* eslint-disable camelcase */
 
@@ -131,7 +132,7 @@ export async function executeInit(
     mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
-    mapPrivateCircuitPublicInputsToNoir(privateKernelInitCircuitPrivateInputs.privateCall.callStackItem.publicInputs),
+    mapPrivateCircuitPublicInputsToNoir(privateKernelInitCircuitPrivateInputs.privateCall.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -151,7 +152,7 @@ export async function executeInner(
     mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
     mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs),
     mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
-    mapPrivateCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.privateCall.callStackItem.publicInputs),
+    mapPrivateCircuitPublicInputsToNoir(privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs),
     SimulatedClientCircuitArtifacts.PrivateKernelInnerArtifact as CompiledCircuit,
     foreignCallHandler,
   );
@@ -245,7 +246,7 @@ export function convertPrivateKernelInitInputsToWitnessMap(
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
-      privateKernelInitCircuitPrivateInputs.privateCall.callStackItem.publicInputs,
+      privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
   });
   return initialWitnessMap;
@@ -266,7 +267,7 @@ export function convertPrivateKernelInnerInputsToWitnessMap(
     ),
     private_call: mapPrivateCallDataToNoir(privateKernelInnerCircuitPrivateInputs.privateCall),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
-      privateKernelInnerCircuitPrivateInputs.privateCall.callStackItem.publicInputs,
+      privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs,
     ),
   });
   return initialWitnessMap;

@@ -144,7 +144,10 @@ impl Deserialize<I64_SERIALIZED_LEN> for i64 {
     }
 }
 
-impl <T, let N: u32, let M: u32> Serialize<N * M> for [T; N] where T: Serialize<M> {
+impl<T, let N: u32, let M: u32> Serialize<N * M> for [T; N]
+where
+    T: Serialize<M>,
+{
     fn serialize(self) -> [Field; N * M] {
         let mut result: [Field; N * M] = std::mem::zeroed();
         let mut serialized: [Field; M] = std::mem::zeroed();
@@ -158,7 +161,10 @@ impl <T, let N: u32, let M: u32> Serialize<N * M> for [T; N] where T: Serialize<
     }
 }
 
-impl <T, let N: u32, let M: u32> Deserialize<N * M> for [T; N] where T: Deserialize<M> {
+impl<T, let N: u32, let M: u32> Deserialize<N * M> for [T; N]
+where
+    T: Deserialize<M>,
+{
     fn deserialize(fields: [Field; N * M]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
         let mut result: [T; N] = std::mem::zeroed();

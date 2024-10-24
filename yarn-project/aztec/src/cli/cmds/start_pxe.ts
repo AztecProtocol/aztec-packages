@@ -2,6 +2,7 @@ import {
   type ContractArtifact,
   type ContractInstanceWithAddress,
   Fr,
+  PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { type AztecNode, createAztecNodeClient } from '@aztec/circuit-types';
@@ -104,7 +105,7 @@ export async function addPXE(
         address,
         deployer: AztecAddress.ZERO,
         contractClassId: getContractClassFromArtifact(artifact!).id,
-        publicKeysHash: Fr.ZERO,
+        publicKeys: PublicKeys.empty(),
       };
       userLog(`Registering ${name} at ${address.toString()}`);
       await pxe.registerContract({ artifact, instance });

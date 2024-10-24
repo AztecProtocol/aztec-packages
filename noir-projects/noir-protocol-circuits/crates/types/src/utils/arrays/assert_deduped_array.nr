@@ -1,10 +1,11 @@
 use crate::{abis::side_effect::{Inner, Overridable}, traits::{Empty, is_empty}};
 
 // Check that deduped_array contains values that are not being overriden, i.e. override_counter == 0.
-pub fn assert_deduped_array<S, T, let N: u32>(
-    original_array: [S; N],
-    deduped_array: [T; N]
-) where S: Overridable + Inner<T>, T: Eq + Empty {
+pub fn assert_deduped_array<S, T, let N: u32>(original_array: [S; N], deduped_array: [T; N])
+where
+    S: Overridable + Inner<T>,
+    T: Eq + Empty,
+{
     let mut num_added = 0;
     for i in 0..original_array.len() {
         let original = original_array[i];
@@ -22,7 +23,10 @@ pub fn assert_deduped_array<S, T, let N: u32>(
     }
 }
 
-unconstrained pub fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
+pub unconstrained fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N]
+where
+    S: Overridable + Inner<T>,
+{
     let mut deduped = BoundedVec::new();
     for i in 0..original_array.len() {
         let original = original_array[i];
@@ -36,7 +40,7 @@ unconstrained pub fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [
 mod tests {
     use crate::{
         abis::side_effect::{Inner, Overridable}, tests::{types::TestValue, utils::pad_end},
-        traits::Empty, utils::arrays::assert_deduped_array::{assert_deduped_array, dedupe_array}
+        traits::Empty, utils::arrays::assert_deduped_array::{assert_deduped_array, dedupe_array},
     };
 
     struct TestItem {
@@ -89,23 +93,18 @@ mod tests {
                 TestValue { value: 44, counter: 4 },
                 TestValue { value: 11, counter: 6 },
                 TestValue { value: 11, counter: 3 },
-                TestValue { value: 33, counter: 5 }
+                TestValue { value: 33, counter: 5 },
             ];
             let mut original_array = pad_end(
                 values.map(|value: TestValue| TestItem { value, override_by: TestValue::empty() }),
-                TestItem::empty()
+                TestItem::empty(),
             );
             original_array[1].override_by = values[4];
             original_array[4].override_by = values[3];
 
             let deduped_array = pad_end(
-                [
-                values[0],
-                values[2],
-                values[3],
-                values[5]
-            ],
-                TestValue::empty()
+                [values[0], values[2], values[3], values[5]],
+                TestValue::empty(),
             );
 
             TestBuilder { original_array, deduped_array }
@@ -116,9 +115,7 @@ mod tests {
         }
 
         pub fn check_and_execute(self) {
-            let deduped = unsafe {
-                dedupe_array(self.original_array)
-            };
+            let deduped = unsafe { dedupe_array(self.original_array) };
             assert_eq(self.deduped_array, deduped);
 
             self.execute();

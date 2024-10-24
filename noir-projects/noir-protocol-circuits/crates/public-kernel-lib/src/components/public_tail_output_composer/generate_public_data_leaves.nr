@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest},
     data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint, PublicDataTreeLeaf}, traits::Empty,
-    utils::arrays::{get_sorted_result, SortedResult}
+    utils::arrays::{get_sorted_result, SortedResult},
 };
 
 pub struct SlotIndex {
@@ -34,10 +34,10 @@ fn compare_by_index(a: SlotIndex, b: SlotIndex) -> bool {
     (a.slot != 0) & ((b.slot == 0) | (a.index < b.index))
 }
 
-unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_HINTS: u32>(
+pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_HINTS: u32>(
     reads: [PublicDataRead; NUM_READS],
     writes: [PublicDataUpdateRequest; NUM_WRITES],
-    hints: [PublicDataLeafHint; NUM_HINTS]
+    hints: [PublicDataLeafHint; NUM_HINTS],
 ) -> ([OverridablePublicDataTreeLeaf; NUM_HINTS], SortedResult<Field, NUM_HINTS>) {
     // Combine reads and writes. The combined data has the slots and original indexes.
     // Original indexes for writes are modified to have an offset of NUM_READS, ensuring that writes are placed after reads.
@@ -51,7 +51,9 @@ unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
     for i in 0..writes.len() {
         let write = writes[i];
         if write.leaf_slot != 0 {
-            combined_data.push(SlotIndex { slot: write.leaf_slot, index: i + NUM_READS, counter: write.counter });
+            combined_data.push(
+                SlotIndex { slot: write.leaf_slot, index: i + NUM_READS, counter: write.counter },
+            );
         }
     }
 
@@ -74,7 +76,8 @@ unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
             // If it's the first write, update the override_counter of the data with the same slot.
             if (override_counter == 0) | (data.counter < override_counter) {
                 override_counter = data.counter;
-                data_with_unique_slot.storage[data_with_unique_slot.len() - 1].counter = override_counter;
+                data_with_unique_slot.storage[data_with_unique_slot.len() - 1].counter =
+                    override_counter;
             }
         }
     }
@@ -89,12 +92,18 @@ unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
         let hint = hints[i];
         let exists = hint.preimage.slot == sorted.slot;
         let value = if exists { hint.preimage.value } else { 0 };
-        leaves[i] = OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: sorted.slot, value  }, override_counter: sorted.counter };
+        leaves[i] = OverridablePublicDataTreeLeaf {
+            leaf: PublicDataTreeLeaf { slot: sorted.slot, value },
+            override_counter: sorted.counter,
+        };
     }
 
-    (leaves, SortedResult {
-        sorted_array: sorted_unique_slots,
-        sorted_index_hints: sorted_result.original_index_hints, // We sort the sorted_unique_slots to get the hints so original_index_hints becomes the sorted_index_hints and vice versa.
-        original_index_hints: sorted_result.sorted_index_hints
-    })
+    (
+        leaves,
+        SortedResult {
+            sorted_array: sorted_unique_slots,
+            sorted_index_hints: sorted_result.original_index_hints, // We sort the sorted_unique_slots to get the hints so original_index_hints becomes the sorted_index_hints and vice versa.
+            original_index_hints: sorted_result.sorted_index_hints,
+        },
+    )
 }
