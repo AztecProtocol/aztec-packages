@@ -282,7 +282,7 @@ prover-client-test:
 # NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
 # Running this inside the main builder as the point is not to run this through dockerization.
 network-test:
-    ARG test=src/spartan/transfer.test.ts
+    ARG test=./test-transfer.sh
     FROM +build
     WORKDIR /usr/src/
     # Bare minimum git setup to run 'git rev-parse --show-toplevel'
