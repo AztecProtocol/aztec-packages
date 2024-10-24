@@ -136,7 +136,7 @@ export class PXEService implements PXE {
       }
 
       count++;
-      await this.synchronizer.addAccount(address, this.keyStore, this.config.l2StartingBlock);
+      this.synchronizer.addAccount(address, this.keyStore, this.config.l2StartingBlock);
     }
 
     if (count > 0) {
@@ -195,7 +195,7 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      await this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
+      this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
