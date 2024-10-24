@@ -51,9 +51,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
 
     // Derivation of circuit size based on the proof
     // Here, we should always get CONST_PROOF_SIZE_LOG_N.
-    auto log_circuit_size = (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-                             (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
-                            (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
+    const auto log_circuit_size =
+        (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
+         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
+        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
     /***************************************************************************
      *                  Construct Dummy Verification Key

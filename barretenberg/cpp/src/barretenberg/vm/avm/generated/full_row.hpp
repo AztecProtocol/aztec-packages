@@ -740,11 +740,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-<<<<<<< HEAD
     static constexpr size_t SIZE = 726;
-=======
-    static constexpr size_t SIZE = 702;
->>>>>>> e89fbe81cb (Rebase on master and run codegen)
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
