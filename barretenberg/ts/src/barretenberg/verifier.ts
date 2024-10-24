@@ -1,5 +1,6 @@
 import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
+import { flattenFieldsAsArray, ProofData, reconstructHonkProof, reconstructUltraPlonkProof } from '../proof/index.js';
 
 // TODO: once UP is removed we can just roll this into the bas `Barretenberg` class.
 
@@ -27,19 +28,21 @@ export class BarretenbergVerifier {
   }
 
   /** @description Verifies a proof */
-  async verifyUltraplonkProof(proof: Uint8Array, verificationKey: Uint8Array): Promise<boolean> {
+  async verifyUltraPlonkProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
     await this.instantiate();
     // The verifier can be used for a variety of ACIR programs so we should not assume that it
     // is preloaded with the correct verification key.
     await this.api.acirLoadVerificationKey(this.acirComposer, new RawBuffer(verificationKey));
 
+    const proof = reconstructUltraPlonkProof(proofData);
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
 
   /** @description Verifies a proof */
-  async verifyUltrahonkProof(proof: Uint8Array, verificationKey: Uint8Array): Promise<boolean> {
+  async verifyUltraHonkProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
     await this.instantiate();
 
+    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
     return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(verificationKey));
   }
 

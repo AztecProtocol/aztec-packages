@@ -107,7 +107,7 @@ void AvmBinaryTraceBuilder::entry_builder(
  */
 FF AvmBinaryTraceBuilder::op_and(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
-    if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
+    if (instr_tag == AvmMemoryTag::FF) {
         return FF::zero();
     }
     // Cast to bits and perform AND operation
@@ -131,7 +131,7 @@ FF AvmBinaryTraceBuilder::op_and(FF const& a, FF const& b, AvmMemoryTag instr_ta
  */
 FF AvmBinaryTraceBuilder::op_or(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
-    if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
+    if (instr_tag == AvmMemoryTag::FF) {
         return FF::zero();
     }
     // Cast to bits and perform OR operation
@@ -155,7 +155,7 @@ FF AvmBinaryTraceBuilder::op_or(FF const& a, FF const& b, AvmMemoryTag instr_tag
  */
 FF AvmBinaryTraceBuilder::op_xor(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
-    if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
+    if (instr_tag == AvmMemoryTag::FF) {
         return FF::zero();
     }
     // Cast to bits and perform XOR operation

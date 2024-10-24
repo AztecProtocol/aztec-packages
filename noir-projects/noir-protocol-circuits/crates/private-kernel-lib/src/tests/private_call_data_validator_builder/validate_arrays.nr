@@ -33,7 +33,9 @@ fn validate_arrays_malformed_key_validation_requests_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_key_validation_requests(1);
-    unshift_empty_item(&mut builder.private_call.scoped_key_validation_requests_and_generators);
+    unshift_empty_item(
+        &mut builder.private_call.scoped_key_validation_requests_and_generators,
+    );
 
     builder.validate();
 }

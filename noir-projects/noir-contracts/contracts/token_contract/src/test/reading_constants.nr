@@ -7,11 +7,10 @@ use crate::Token;
 #[test]
 unconstrained fn check_decimals_private() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, _) = utils::setup( /* with_account_contracts */ false);
 
     // Check decimals
-    let private_get_decimals_call_interface = Token::at(token_contract_address).private_get_decimals();
-    let result = env.call_private(private_get_decimals_call_interface);
+    let result = Token::at(token_contract_address).private_get_decimals().view(&mut env.private());
 
     assert(result == 18);
 }
@@ -19,11 +18,10 @@ unconstrained fn check_decimals_private() {
 #[test]
 unconstrained fn check_decimals_public() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, _) = utils::setup( /* with_account_contracts */ false);
 
     // Check decimals
-    let public_get_decimals_call_interface = Token::at(token_contract_address).public_get_decimals();
-    let result = env.call_public(public_get_decimals_call_interface);
+    let result = Token::at(token_contract_address).public_get_decimals().view(&mut env.public());
 
-    assert(result == 18 as u8);
+    assert(result == 18);
 }

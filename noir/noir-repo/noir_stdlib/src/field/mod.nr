@@ -45,7 +45,7 @@ impl Field {
     /// (e.g. 254 for the BN254 field) allow for multiple bit decompositions. This is due to how the `Field` will
     /// wrap around due to overflow when verifying the decomposition.
     #[builtin(to_be_bits)]
-     // docs:start:to_be_bits
+    // docs:start:to_be_bits
     pub fn to_be_bits<let N: u32>(self: Self) -> [u1; N] {}
     // docs:end:to_be_bits
 
@@ -66,7 +66,7 @@ impl Field {
 
         if !is_unconstrained() {
             // Ensure that the byte decomposition does not overflow the modulus
-            let  p = modulus_le_bytes();
+            let p = modulus_le_bytes();
             assert(bytes.len() <= p.len());
             let mut ok = bytes.len() != p.len();
             for i in 0..N {
@@ -99,7 +99,7 @@ impl Field {
 
         if !is_unconstrained() {
             // Ensure that the byte decomposition does not overflow the modulus
-            let  p = modulus_be_bytes();
+            let p = modulus_be_bytes();
             assert(bytes.len() <= p.len());
             let mut ok = bytes.len() != p.len();
             for i in 0..N {
@@ -151,7 +151,7 @@ impl Field {
 
         for i in 1..33 {
             r *= r;
-            r = (b[32-i] as Field) * (r * self) + (1 - b[32-i] as Field) * r;
+            r = (b[32 - i] as Field) * (r * self) + (1 - b[32 - i] as Field) * r;
         }
         r
     }
@@ -189,7 +189,7 @@ impl Field {
         let mut result = 0;
 
         for i in 0..N {
-            result += (bytes[N-1-i] as Field) * v;
+            result += (bytes[N - 1 - i] as Field) * v;
             v = v * 256;
         }
         result

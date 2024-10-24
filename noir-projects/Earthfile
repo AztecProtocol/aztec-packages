@@ -95,6 +95,19 @@ build:
   SAVE ARTIFACT mock-protocol-circuits
 
 test:
+  BUILD +test-protocol-circuits
+  BUILD +test-aztec-nr
+  BUILD +test-contracts
+
+test-protocol-circuits:
+  FROM +build
+
+  # Install nargo
+  COPY ../noir/+nargo/nargo /usr/bin/nargo
+
+  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
+
+test-aztec-nr:
   FROM ../yarn-project/+txe
 
   # Install nargo
@@ -102,13 +115,19 @@ test:
 
   COPY +build/. /usr/src/noir-projects
 
-  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
-
   RUN cd /usr/src/yarn-project/txe && yarn start & \
       # Wait for TXE to initialize
       sleep 5 && \
       cd /usr/src/noir-projects/aztec-nr && \
       NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
+
+test-contracts:
+  FROM ../yarn-project/+txe
+
+  # Install nargo
+  COPY ../noir/+nargo/nargo /usr/bin/nargo
+
+  COPY +build/. /usr/src/noir-projects
 
   RUN cd /usr/src/yarn-project/txe && yarn start & \
       # Wait for TXE to initialize

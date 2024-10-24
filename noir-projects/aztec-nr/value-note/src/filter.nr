@@ -3,7 +3,7 @@ use crate::value_note::ValueNote;
 
 pub fn filter_notes_min_sum(
     notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    min_sum: Field
+    min_sum: Field,
 ) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 

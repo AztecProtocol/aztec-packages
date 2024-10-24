@@ -5,9 +5,9 @@ describe('ContractInstanceDeployedEvent', () => {
   it('parses an event as emitted by the ClassInstanceDeployer', () => {
     const data = getSampleContractInstanceDeployedEventPayload();
     const event = ContractInstanceDeployedEvent.fromLogData(data);
-    expect(event.address.toString()).toEqual('0x173b1e288f0f29f945ffa7b4ec2b69393e32b78501d0f193288e4a886a9f6e18');
+    expect(event.address.toString()).toEqual('0x011870b273ea9661b2893efeb641df4136b3f67b24fc79aed1d5bd779d35e3cd');
     expect(event.contractClassId.toString()).toEqual(
-      '0x0798434d6f2adf997c4fe3d14cb8468aa3cbf7a70d8c499c3c775fc8feff6796',
+      '0x23ced3716a04d81b58822bc3e1843626aa2884888b1a2d2250e79fb7d41a365e',
     );
   });
 });

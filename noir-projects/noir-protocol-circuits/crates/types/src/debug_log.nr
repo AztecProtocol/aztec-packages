@@ -12,12 +12,13 @@ pub fn debug_log<let N: u32>(msg: str<N>) {
 ///   debug_log_format("whole array: {}", [e1, e2, e3, e4]);
 pub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
-    unsafe {
-        debug_log_oracle_wrapper(msg, args)
-    };
+    unsafe { debug_log_oracle_wrapper(msg, args) };
 }
 
-unconstrained pub fn debug_log_oracle_wrapper<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
+pub unconstrained fn debug_log_oracle_wrapper<let M: u32, let N: u32>(
+    msg: str<M>,
+    args: [Field; N],
+) {
     debug_log_oracle(msg, args.as_slice());
 }
 

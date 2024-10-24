@@ -11,7 +11,7 @@ import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddres
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
 
 import { beforeAll } from '@jest/globals';
@@ -22,9 +22,13 @@ import {
   type HttpTransport,
   type PublicClient,
   type WalletClient,
+  createWalletClient,
   getAddress,
   getContract,
+  http,
 } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import {
   type ISnapshotManager,
@@ -42,6 +46,14 @@ describe('e2e_prover_coordination', () => {
   let publicClient: PublicClient;
   let cc: EthCheatCodes;
   let publisherAddress: EthAddress;
+  let feeJuiceContract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
+  let escrowContract: GetContractReturnType<
+    typeof ProofCommitmentEscrowAbi,
+    WalletClient<HttpTransport, Chain, Account>
+  >;
+
+  let proverSigner: Secp256k1Signer;
+  let proverWallet: WalletClient<HttpTransport, Chain, Account>;
 
   let logger: DebugLogger;
   let snapshotManager: ISnapshotManager;
@@ -78,6 +90,7 @@ describe('e2e_prover_coordination', () => {
 
     ctx = await snapshotManager.setup();
 
+    // Don't run the prover node work loop - we manually control within this test
     await ctx.proverNode!.stop();
 
     cc = new EthCheatCodes(ctx.aztecNodeConfig.l1RpcUrl);
@@ -87,6 +100,27 @@ describe('e2e_prover_coordination', () => {
     rollupContract = getContract({
       address: getAddress(ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString()),
       abi: RollupAbi,
+      client: ctx.deployL1ContractsValues.walletClient,
+    });
+    feeJuiceContract = getContract({
+      address: getAddress(ctx.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString()),
+      abi: TestERC20Abi,
+      client: ctx.deployL1ContractsValues.walletClient,
+    });
+
+    // Create a prover wallet
+    const proverKey = Buffer32.random();
+    proverSigner = new Secp256k1Signer(proverKey);
+    proverWallet = createWalletClient({
+      account: privateKeyToAccount(proverKey.to0xString()),
+      chain: foundry,
+      transport: http(ctx.aztecNodeConfig.l1RpcUrl),
+    });
+
+    const escrowAddress = await rollupContract.read.PROOF_COMMITMENT_ESCROW();
+    escrowContract = getContract({
+      address: getAddress(escrowAddress.toString()),
+      abi: ProofCommitmentEscrowAbi,
       client: ctx.deployL1ContractsValues.walletClient,
     });
   });
@@ -104,6 +138,23 @@ describe('e2e_prover_coordination', () => {
     expect(bondAmount).toEqual(expected.bondAmount);
     expect(prover).toEqual(expected.prover.toChecksumString());
     expect(proposer).toEqual(expected.proposer.toChecksumString());
+  };
+
+  const performEscrow = async (amount: bigint) => {
+    // Fund with ether
+    await cc.setBalance(proverSigner.address, 10_000n * 10n ** 18n);
+    // Fund with fee juice
+    await feeJuiceContract.write.mint([proverWallet.account.address, amount]);
+
+    // Approve the escrow contract to spend our funds
+    await feeJuiceContract.write.approve([escrowContract.address, amount], {
+      account: proverWallet.account,
+    });
+
+    // Deposit the funds into the escrow contract
+    await escrowContract.write.deposit([amount], {
+      account: proverWallet.account,
+    });
   };
 
   const getL1Timestamp = async () => {
@@ -157,14 +208,12 @@ describe('e2e_prover_coordination', () => {
     epochToProve,
     validUntilSlot,
     bondAmount,
-    prover,
     basisPointFee,
     signer,
   }: {
     epochToProve: bigint;
     validUntilSlot?: bigint;
     bondAmount?: bigint;
-    prover?: EthAddress;
     basisPointFee?: number;
     signer?: Secp256k1Signer;
   }) => {
@@ -173,10 +222,11 @@ describe('e2e_prover_coordination', () => {
       epochToProve,
       validUntilSlot ?? randomBigInt(10000n),
       bondAmount ?? randomBigInt(10000n) + 1000n,
-      prover ?? EthAddress.fromString('0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826'),
+      signer.address,
       basisPointFee ?? randomInt(100),
     );
     const digest = await rollupContract.read.quoteToDigest([quotePayload.toViemArgs()]);
+
     return EpochProofQuote.new(Buffer32.fromString(digest), quotePayload, signer);
   };
 
@@ -184,12 +234,16 @@ describe('e2e_prover_coordination', () => {
     // We want to create a set of proving quotes, some valid and some invalid
     // The sequencer should select the cheapest valid quote when it proposes the block
 
-    // Here we are creating a proof quote for epoch 0, this will NOT get used yet
+    // Ensure the prover has enough funds to in escrow
+    await performEscrow(10000000n);
+
+    // Here we are creating a proof quote for epoch 0
     const quoteForEpoch0 = await makeEpochProofQuote({
       epochToProve: 0n,
       validUntilSlot: BigInt(AZTEC_EPOCH_DURATION + 10),
       bondAmount: 10000n,
       basisPointFee: 1,
+      signer: proverSigner,
     });
 
     // Send in the quote
@@ -202,15 +256,8 @@ describe('e2e_prover_coordination', () => {
 
     const epoch0BlockNumber = await getPendingBlockNumber();
 
-    // Verify that the claim state on L1 is unitialised
-    // The rollup contract should have an uninitialised proof claim struct
-    await expectProofClaimOnL1({
-      epochToProve: 0n,
-      basisPointFee: 0,
-      bondAmount: 0n,
-      prover: EthAddress.ZERO,
-      proposer: EthAddress.ZERO,
-    });
+    // Verify that we can claim the current epoch
+    await expectProofClaimOnL1({ ...quoteForEpoch0.payload, proposer: publisherAddress });
 
     // Now go to epoch 1
     await advanceToNextEpoch();
@@ -243,6 +290,7 @@ describe('e2e_prover_coordination', () => {
           validUntilSlot: currentSlot + 2n,
           bondAmount: 10000n,
           basisPointFee: 10 + i,
+          signer: proverSigner,
         }),
       ),
     );
@@ -252,13 +300,15 @@ describe('e2e_prover_coordination', () => {
       validUntilSlot: 3n,
       bondAmount: 10000n,
       basisPointFee: 1,
+      signer: proverSigner,
     });
 
     const proofQuoteInvalidEpoch = await makeEpochProofQuote({
-      epochToProve: 2n,
+      epochToProve: 4n,
       validUntilSlot: currentSlot + 4n,
       bondAmount: 10000n,
       basisPointFee: 2,
+      signer: proverSigner,
     });
 
     const proofQuoteInsufficientBond = await makeEpochProofQuote({
@@ -266,6 +316,7 @@ describe('e2e_prover_coordination', () => {
       validUntilSlot: currentSlot + 4n,
       bondAmount: 0n,
       basisPointFee: 3,
+      signer: proverSigner,
     });
 
     const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes, proofQuoteInsufficientBond];

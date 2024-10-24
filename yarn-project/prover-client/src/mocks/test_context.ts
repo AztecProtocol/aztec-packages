@@ -171,7 +171,7 @@ export class TestContext {
           ? tx.enqueuedPublicFunctionCalls
           : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
         for (const request of allCalls) {
-          if (execution.contractAddress.equals(request.contractAddress)) {
+          if (execution.callContext.equals(request.callContext)) {
             const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build({
               startGasLeft: availableGas,
               endGasLeft: availableGas,

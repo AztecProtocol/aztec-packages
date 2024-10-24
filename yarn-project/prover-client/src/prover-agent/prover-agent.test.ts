@@ -40,7 +40,7 @@ describe('ProverAgent', () => {
   it('takes jobs from the queue', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake();
+    const vk = VerificationKeyAsFields.makeFakeHonk();
     prover.getBaseParityProof.mockResolvedValue(
       new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
     );
@@ -69,7 +69,7 @@ describe('ProverAgent', () => {
   it('continues to process jobs', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFake();
+    const vk = VerificationKeyAsFields.makeFakeHonk();
     prover.getBaseParityProof.mockResolvedValue(
       new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, makeTuple(VK_TREE_HEIGHT, Fr.zero), publicInputs),
     );

@@ -22,10 +22,10 @@ import { type ContractInstance } from './interfaces/contract_instance.js';
 export function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
+    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): AztecAddress {
   const partialAddress = computePartialAddress(instance);
-  const publicKeysHash = instance.publicKeysHash;
+  const publicKeysHash = instance.publicKeys.hash();
   return computeAddress(publicKeysHash, partialAddress);
 }
 

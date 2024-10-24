@@ -151,9 +151,9 @@ bool AvmMemTraceBuilder::load_from_mem_trace(uint8_t space_id,
                                              MemOpOwner mem_op_owner)
 {
     auto& mem_space = memory.at(space_id);
-    AvmMemoryTag m_tag = mem_space.contains(addr) ? mem_space.at(addr).tag : AvmMemoryTag::U0;
+    AvmMemoryTag m_tag = mem_space.contains(addr) ? mem_space.at(addr).tag : AvmMemoryTag::FF;
 
-    if (m_tag == AvmMemoryTag::U0 || m_tag == r_in_tag) {
+    if (m_tag == r_in_tag) {
         insert_in_mem_trace(space_id, clk, sub_clk, addr, val, m_tag, r_in_tag, w_in_tag, false, mem_op_owner);
         return true;
     }
@@ -380,7 +380,7 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::indirect_read_and_load_from_memo
 
     auto& mem_space = memory.at(space_id);
     FF val = mem_space.contains(addr) ? mem_space.at(addr).val : 0;
-    bool tagMatch = load_from_mem_trace(space_id, clk, sub_clk, addr, val, AvmMemoryTag::U32, AvmMemoryTag::U0);
+    bool tagMatch = load_from_mem_trace(space_id, clk, sub_clk, addr, val, AvmMemoryTag::U32, AvmMemoryTag::FF);
 
     return MemRead{
         .tag_match = tagMatch,
@@ -448,7 +448,7 @@ std::vector<FF> AvmMemTraceBuilder::read_return_opcode(uint32_t clk,
         auto addr = direct_ret_offset + i;
         auto& mem_space = memory.at(space_id);
         FF val = mem_space.contains(addr) ? mem_space.at(addr).val : 0;
-        AvmMemoryTag tag = mem_space.contains(addr) ? mem_space.at(addr).tag : AvmMemoryTag::U0;
+        AvmMemoryTag tag = mem_space.contains(addr) ? mem_space.at(addr).tag : AvmMemoryTag::FF;
 
         // No tag checking is performed for RETURN opcode.
         insert_in_mem_trace(space_id,

@@ -1,5 +1,5 @@
 import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
-import { type PublicKeys } from '@aztec/circuits.js';
+import { PublicKeys } from '@aztec/circuits.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
@@ -37,7 +37,7 @@ export async function deploy(
     );
   }
 
-  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);
+  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
 
   let args = [];
   if (rawArgs.length > 0) {

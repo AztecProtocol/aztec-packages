@@ -48,11 +48,7 @@ function collectNestedReadRequests(
   return collectNested(executionStack, executionResult => {
     const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
     return nonEmptyReadRequests.map(
-      readRequest =>
-        new ScopedReadRequest(
-          readRequest,
-          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
-        ),
+      readRequest => new ScopedReadRequest(readRequest, executionResult.publicInputs.callContext.contractAddress),
     );
   });
 }
@@ -117,7 +113,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       MAX_NULLIFIERS_PER_TX,
       () => new TransientDataIndexHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
     );
-    this.nextIteration = executionStack[this.executionStack.length - 1]?.callStackItem.publicInputs;
+    this.nextIteration = executionStack[this.executionStack.length - 1]?.publicInputs;
   }
 
   needsReset(): boolean {
@@ -244,10 +240,9 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const futureNoteHashes = collectNested(this.executionStack, executionResult => {
-      const nonEmptyNoteHashes = getNonEmptyItems(executionResult.callStackItem.publicInputs.noteHashes);
+      const nonEmptyNoteHashes = getNonEmptyItems(executionResult.publicInputs.noteHashes);
       return nonEmptyNoteHashes.map(
-        noteHash =>
-          new ScopedNoteHash(noteHash, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
+        noteHash => new ScopedNoteHash(noteHash, executionResult.publicInputs.callContext.contractAddress),
       );
     });
 
@@ -297,10 +292,9 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const futureNullifiers = collectNested(this.executionStack, executionResult => {
-      const nonEmptyNullifiers = getNonEmptyItems(executionResult.callStackItem.publicInputs.nullifiers);
+      const nonEmptyNullifiers = getNonEmptyItems(executionResult.publicInputs.nullifiers);
       return nonEmptyNullifiers.map(
-        nullifier =>
-          new ScopedNullifier(nullifier, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
+        nullifier => new ScopedNullifier(nullifier, executionResult.publicInputs.callContext.contractAddress),
       );
     });
 
@@ -376,11 +370,11 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     const futureNoteHashReads = collectNestedReadRequests(
       this.executionStack,
-      executionResult => executionResult.callStackItem.publicInputs.noteHashReadRequests,
+      executionResult => executionResult.publicInputs.noteHashReadRequests,
     );
     const futureNullifierReads = collectNestedReadRequests(
       this.executionStack,
-      executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
+      executionResult => executionResult.publicInputs.nullifierReadRequests,
     );
     if (this.nextIteration) {
       // If it's not the final reset, only one dimension will be reset at a time.

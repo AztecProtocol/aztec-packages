@@ -9,12 +9,12 @@ export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
-  tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr): void;
-  traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
-  traceNewNoteHash(storageAddress: Fr, noteHash: Fr): void;
-  traceNullifierCheck(storageAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
-  traceNewNullifier(storageAddress: Fr, nullifier: Fr): void;
+  tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
+  tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr): void;
+  traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
+  traceNewNoteHash(contractAddress: Fr, noteHash: Fr): void;
+  traceNullifierCheck(contractAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
+  traceNewNullifier(contractAddress: Fr, nullifier: Fr): void;
   traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
   traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr): void;
   traceUnencryptedLog(contractAddress: Fr, log: Fr[]): void;

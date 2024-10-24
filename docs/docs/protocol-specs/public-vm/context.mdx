@@ -26,7 +26,6 @@ A context's **execution environment** remains constant throughout a contract cal
 | Field               | Type                         | Description                                                                                                                                                                                                            |
 | ------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | address             | `AztecAddress`               |                                                                                                                                                                                                                        |
-| storageAddress      | `AztecAddress`               |                                                                                                                                                                                                                        |
 | sender              | `AztecAddress`               |                                                                                                                                                                                                                        |
 | functionSelector    | `u32`                        |                                                                                                                                                                                                                        |
 | transactionFee      | `field`                      | Computed transaction fee based on gas fees, inclusion fee, and gas usage. Zero in all phases but teardown.                                                                                                             |
@@ -34,7 +33,6 @@ A context's **execution environment** remains constant throughout a contract cal
 | contractCallPointer | `field`                      | Uniquely identifies each contract call processed by an AVM session. An initial call is assigned pointer value of 1 (expanded on in the AVM circuit section's ["Call Pointer"](./avm-circuit#call-pointer) subsection). |
 | globals             | `PublicGlobalVariables`      |                                                                                                                                                                                                                        |
 | isStaticCall        | `boolean`                    |                                                                                                                                                                                                                        |
-| isDelegateCall      | `boolean`                    |                                                                                                                                                                                                                        |
 | calldata            | `[field; <calldata-length>]` |                                                                                                                                                                                                                        |
 
 ## Contract Call Results
@@ -72,14 +70,12 @@ Given a [`PublicCallRequest`](../transactions/tx-object#public-call-request) and
 ```
 INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
     address: PublicCallRequest.contractAddress,
-    storageAddress: PublicCallRequest.CallContext.storageContractAddress,
     sender: PublicCallRequest.CallContext.msgSender,
     functionelector: PublicCallRequest.functionSelector,
     contractCallDepth: 0,
     contractCallPointer: 1,
     globals: <current block's global variables>
     isStaticCall: PublicCallRequest.CallContext.isStaticCall,
-    isDelegateCall: PublicCallRequest.CallContext.isDelegateCall,
     calldata: PublicCallRequest.args,
 }
 
@@ -97,7 +93,6 @@ INITIAL_WORLD_STATE_ACCESS_TRACE = WorldStateAccessTrace {
         TracedContractCall {
             callPointer: nestedContext.environment.callPointer,
             address: nestedContext.address,
-            storageAddress: nestedContext.storageAddress,
             counter: 0,
             endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
         }

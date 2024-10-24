@@ -31,14 +31,16 @@ import {
   waitForPXE,
 } from "@aztec/aztec.js";
 import { createAccount } from "@aztec/accounts/testing";
-import { TokenContractArtifact } from "@aztec/noir-contracts.js/Token";
+import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const {
   PXE_URL = "http://localhost:8080",
   ETHEREUM_HOST = "http://localhost:8545",
 } = process.env;
 
-describe("token contract", () => {});
+describe("token contract", () => {
+  // <tests go here>
+});
 ```
 
 Let's set up our test suite. We'll make sure the Sandbox is running, create two fresh accounts to test with, and deploy an instance of our contract. `aztec.js` provides the helper functions we need to do this:

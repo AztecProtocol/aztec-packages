@@ -377,9 +377,17 @@ impl fmt::Display for Token {
             }
             Token::Keyword(k) => write!(f, "{k}"),
             Token::Attribute(ref a) => write!(f, "{a}"),
-            Token::InnerAttribute(ref a) => write!(f, "#![{a}]"),
-            Token::LineComment(ref s, _style) => write!(f, "//{s}"),
-            Token::BlockComment(ref s, _style) => write!(f, "/*{s}*/"),
+            Token::InnerAttribute(ref a) => write!(f, "#![{}]", a.contents()),
+            Token::LineComment(ref s, style) => match style {
+                Some(DocStyle::Inner) => write!(f, "//!{s}"),
+                Some(DocStyle::Outer) => write!(f, "///{s}"),
+                None => write!(f, "//{s}"),
+            },
+            Token::BlockComment(ref s, style) => match style {
+                Some(DocStyle::Inner) => write!(f, "/*!{s}*/"),
+                Some(DocStyle::Outer) => write!(f, "/**{s}*/"),
+                None => write!(f, "/*{s}*/"),
+            },
             Token::Quote(ref stream) => {
                 write!(f, "quote {{")?;
                 for token in stream.0.iter() {
@@ -456,6 +464,7 @@ pub enum TokenKind {
     InternedUnresolvedTypeData,
     InternedPattern,
     UnquoteMarker,
+    Comment,
     OuterDocComment,
     InnerDocComment,
 }
@@ -477,6 +486,7 @@ impl fmt::Display for TokenKind {
             TokenKind::InternedUnresolvedTypeData => write!(f, "interned unresolved type"),
             TokenKind::InternedPattern => write!(f, "interned pattern"),
             TokenKind::UnquoteMarker => write!(f, "macro result"),
+            TokenKind::Comment => write!(f, "comment"),
             TokenKind::OuterDocComment => write!(f, "outer doc comment"),
             TokenKind::InnerDocComment => write!(f, "inner doc comment"),
         }
@@ -503,6 +513,7 @@ impl Token {
             Token::InternedLValue(_) => TokenKind::InternedLValue,
             Token::InternedUnresolvedTypeData(_) => TokenKind::InternedUnresolvedTypeData,
             Token::InternedPattern(_) => TokenKind::InternedPattern,
+            Token::LineComment(_, None) | Token::BlockComment(_, None) => TokenKind::Comment,
             Token::LineComment(_, Some(DocStyle::Outer))
             | Token::BlockComment(_, Some(DocStyle::Outer)) => TokenKind::OuterDocComment,
             Token::LineComment(_, Some(DocStyle::Inner))
@@ -635,8 +646,8 @@ impl fmt::Display for TestScope {
         match self {
             TestScope::None => write!(f, ""),
             TestScope::ShouldFailWith { reason } => match reason {
-                Some(failure_reason) => write!(f, "(should_fail_with = ({failure_reason}))"),
-                None => write!(f, "should_fail"),
+                Some(failure_reason) => write!(f, "(should_fail_with = {failure_reason:?})"),
+                None => write!(f, "(should_fail)"),
             },
         }
     }
@@ -738,6 +749,7 @@ impl Attribute {
         word: &str,
         span: Span,
         contents_span: Span,
+        is_tag: bool,
     ) -> Result<Attribute, LexerErrorKind> {
         let word_segments: Vec<&str> = word
             .split(|c| c == '(' || c == ')')
@@ -757,6 +769,14 @@ impl Attribute {
 
             is_valid.ok_or(LexerErrorKind::MalformedFuncAttribute { span, found: word.to_owned() })
         };
+
+        if is_tag {
+            return Ok(Attribute::Secondary(SecondaryAttribute::Tag(CustomAttribute {
+                contents: word.to_owned(),
+                span,
+                contents_span,
+            })));
+        }
 
         let attribute = match &word_segments[..] {
             // Primary Attributes
@@ -814,7 +834,7 @@ impl Attribute {
             ["allow", tag] => Attribute::Secondary(SecondaryAttribute::Allow(tag.to_string())),
             tokens => {
                 tokens.iter().try_for_each(|token| validate(token))?;
-                Attribute::Secondary(SecondaryAttribute::Custom(CustomAttribute {
+                Attribute::Secondary(SecondaryAttribute::Meta(CustomAttribute {
                     contents: word.to_owned(),
                     span,
                     contents_span,
@@ -933,7 +953,13 @@ pub enum SecondaryAttribute {
     ContractLibraryMethod,
     Export,
     Field(String),
-    Custom(CustomAttribute),
+
+    /// A custom tag attribute: #['foo]
+    Tag(CustomAttribute),
+
+    /// An attribute expected to run a comptime function of the same name: #[foo]
+    Meta(CustomAttribute),
+
     Abi(String),
 
     /// A variable-argument comptime function.
@@ -950,7 +976,7 @@ pub enum SecondaryAttribute {
 
 impl SecondaryAttribute {
     pub(crate) fn as_custom(&self) -> Option<&CustomAttribute> {
-        if let Self::Custom(attribute) = self {
+        if let Self::Tag(attribute) = self {
             Some(attribute)
         } else {
             None
@@ -965,7 +991,8 @@ impl SecondaryAttribute {
             }
             SecondaryAttribute::Export => Some("export".to_string()),
             SecondaryAttribute::Field(_) => Some("field".to_string()),
-            SecondaryAttribute::Custom(custom) => custom.name(),
+            SecondaryAttribute::Tag(custom) => custom.name(),
+            SecondaryAttribute::Meta(custom) => custom.name(),
             SecondaryAttribute::Abi(_) => Some("abi".to_string()),
             SecondaryAttribute::Varargs => Some("varargs".to_string()),
             SecondaryAttribute::UseCallersScope => Some("use_callers_scope".to_string()),
@@ -979,24 +1006,33 @@ impl SecondaryAttribute {
             _ => false,
         }
     }
+
+    pub(crate) fn is_abi(&self) -> bool {
+        matches!(self, SecondaryAttribute::Abi(_))
+    }
+
+    pub(crate) fn contents(&self) -> String {
+        match self {
+            SecondaryAttribute::Deprecated(None) => "deprecated".to_string(),
+            SecondaryAttribute::Deprecated(Some(ref note)) => {
+                format!("deprecated({note:?})")
+            }
+            SecondaryAttribute::Tag(ref attribute) => format!("'{}", attribute.contents),
+            SecondaryAttribute::Meta(ref attribute) => attribute.contents.to_string(),
+            SecondaryAttribute::ContractLibraryMethod => "contract_library_method".to_string(),
+            SecondaryAttribute::Export => "export".to_string(),
+            SecondaryAttribute::Field(ref k) => format!("field({k})"),
+            SecondaryAttribute::Abi(ref k) => format!("abi({k})"),
+            SecondaryAttribute::Varargs => "varargs".to_string(),
+            SecondaryAttribute::UseCallersScope => "use_callers_scope".to_string(),
+            SecondaryAttribute::Allow(ref k) => format!("allow({k})"),
+        }
+    }
 }
 
 impl fmt::Display for SecondaryAttribute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SecondaryAttribute::Deprecated(None) => write!(f, "#[deprecated]"),
-            SecondaryAttribute::Deprecated(Some(ref note)) => {
-                write!(f, r#"#[deprecated("{note}")]"#)
-            }
-            SecondaryAttribute::Custom(ref attribute) => write!(f, "#[{}]", attribute.contents),
-            SecondaryAttribute::ContractLibraryMethod => write!(f, "#[contract_library_method]"),
-            SecondaryAttribute::Export => write!(f, "#[export]"),
-            SecondaryAttribute::Field(ref k) => write!(f, "#[field({k})]"),
-            SecondaryAttribute::Abi(ref k) => write!(f, "#[abi({k})]"),
-            SecondaryAttribute::Varargs => write!(f, "#[varargs]"),
-            SecondaryAttribute::UseCallersScope => write!(f, "#[use_callers_scope]"),
-            SecondaryAttribute::Allow(ref k) => write!(f, "#[allow(#{k})]"),
-        }
+        write!(f, "#[{}]", self.contents())
     }
 }
 
@@ -1041,7 +1077,8 @@ impl AsRef<str> for SecondaryAttribute {
         match self {
             SecondaryAttribute::Deprecated(Some(string)) => string,
             SecondaryAttribute::Deprecated(None) => "",
-            SecondaryAttribute::Custom(attribute) => &attribute.contents,
+            SecondaryAttribute::Tag(attribute) => &attribute.contents,
+            SecondaryAttribute::Meta(attribute) => &attribute.contents,
             SecondaryAttribute::Field(string)
             | SecondaryAttribute::Abi(string)
             | SecondaryAttribute::Allow(string) => string,

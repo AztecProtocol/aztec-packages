@@ -97,7 +97,7 @@ describe('prover/bb_prover/parity', () => {
 
     const defectiveVerificationKey = new RootParityInput(
       validProof,
-      VerificationKeyAsFields.makeFake(),
+      VerificationKeyAsFields.makeFakeHonk(),
       baseParityVkPath,
       validPublicInputs,
     );

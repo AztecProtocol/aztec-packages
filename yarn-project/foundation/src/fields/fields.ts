@@ -47,7 +47,7 @@ abstract class BaseField {
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
-    if (value instanceof Buffer) {
+    if (Buffer.isBuffer(value)) {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
@@ -379,6 +379,10 @@ export class Fq extends BaseField {
 
   static fromHighLow(high: Fr, low: Fr): Fq {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
+  }
+
+  add(rhs: Fq) {
+    return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
   }
 
   toJSON() {

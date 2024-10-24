@@ -21,13 +21,13 @@ template <typename FF_> class aluImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        const auto constants_MEM_TAG_FF = FF(0);
         const auto constants_MEM_TAG_U1 = FF(1);
         const auto constants_MEM_TAG_U8 = FF(2);
         const auto constants_MEM_TAG_U16 = FF(3);
         const auto constants_MEM_TAG_U32 = FF(4);
         const auto constants_MEM_TAG_U64 = FF(5);
         const auto constants_MEM_TAG_U128 = FF(6);
-        const auto constants_MEM_TAG_FF = FF(7);
         const auto alu_MAX_BITS =
             ((((((new_term.alu_u1_tag * FF(1)) + (new_term.alu_u8_tag * FF(8))) + (new_term.alu_u16_tag * FF(16))) +
                (new_term.alu_u32_tag * FF(32))) +

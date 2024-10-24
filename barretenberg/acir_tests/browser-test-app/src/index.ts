@@ -14,8 +14,8 @@ createDebug.enable("*");
 const debug = createDebug("browser-test-app");
 
 async function runTest(
-  acirs: Uint8Array[],
-  witnesses: Uint8Array[],
+  bytecode: string,
+  witness: Uint8Array,
   threads?: number
 ) {
   const { AztecClientBackend } = await import("@aztec/bb.js");
@@ -28,6 +28,15 @@ async function runTest(
   await backend.destroy();
 
   return false;
+  debug(`verifying...`);
+  const verifier = new BarretenbergVerifier({ threads });
+  const verified = await verifier.verifyUltraHonkProof(proof, verificationKey);
+  debug(`verified: ${verified}`);
+
+  await verifier.destroy();
+
+  debug("test complete.");
+  return verified;
 }
 
 (window as any).runTest = runTest;
@@ -41,7 +50,6 @@ function base64ToUint8Array(base64: string) {
   }
   return bytes;
 }
-
 
 document.addEventListener("DOMContentLoaded", function () {
   const button = document.createElement("button");

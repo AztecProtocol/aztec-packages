@@ -4,8 +4,11 @@ pub fn assert_sorted_array<T, let N: u32, Env>(
     original_array: [T; N],
     sorted_array: [T; N],
     sorted_indexes: [u32; N],
-    ordering: fn[Env](T, T) -> bool
-) where T: Eq + Empty {
+    ordering: fn[Env](T, T) -> bool,
+)
+where
+    T: Eq + Empty,
+{
     let mut seen_empty = false;
     for i in 0..N {
         let original_value = original_array[i];

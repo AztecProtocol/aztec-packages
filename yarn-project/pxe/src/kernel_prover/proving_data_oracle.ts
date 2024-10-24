@@ -7,6 +7,7 @@ import {
   type MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
+  type PublicKeys,
   type VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
@@ -20,7 +21,7 @@ export interface ProvingDataOracle {
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
   getContractAddressPreimage(
     address: AztecAddress,
-  ): Promise<{ saltedInitializationHash: Fr; publicKeysHash: Fr; contractClassId: Fr }>;
+  ): Promise<{ saltedInitializationHash: Fr; publicKeys: PublicKeys; contractClassId: Fr }>;
 
   /** Retrieves the preimage of a contract class id from the contract classes db. */
   getContractClassIdPreimage(

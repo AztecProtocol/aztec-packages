@@ -28,18 +28,9 @@ using FF = Flavor::FF;
  */
 AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key)
     : key(std::move(input_key))
+    , prover_polynomials(*key)
     , commitment_key(std::move(commitment_key))
-{
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
-        ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) == bb::flavor_get_label(*key, key_poly));
-        prover_poly = key_poly.share();
-    }
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
-        ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) ==
-               bb::flavor_get_label(*key, key_poly) + "_shift");
-        prover_poly = key_poly.shifted();
-    }
-}
+{}
 
 /**
  * @brief Add circuit size, public input size, and public inputs to transcript
@@ -69,11 +60,9 @@ void AvmProver::execute_wire_commitments_round()
 
 void AvmProver::execute_log_derivative_inverse_round()
 {
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
-
-    auto prover_polynomials = ProverPolynomials(*key);
+    relation_parameters.gamma = gamma;
     std::vector<std::function<void()>> tasks;
 
     bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {

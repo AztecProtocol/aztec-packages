@@ -1,6 +1,6 @@
 # Nested Contract Calls
 
-A **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction**. The AVM [instruction set](./instruction-set) includes three contract call instructions: [`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-staticcall), and [`DELEGATECALL`](./instruction-set#isa-section-delegatecall).
+A **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction**. The AVM [instruction set](./instruction-set) includes three contract call instructions: [`CALL`](./instruction-set#isa-section-call), and [`STATICCALL`](./instruction-set#isa-section-staticcall).
 
 A nested contract call performs the following operations:
 
@@ -16,18 +16,12 @@ Or, in pseudocode:
 // instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
 
 isStaticCall = instr.opcode == STATICCALL;
-isDelegateCall = instr.opcode == DELEGATECALL;
 l2GasCost = min(M[instr.args.gasOffset], context.machineState.l2GasLeft);
 daGasCost = min(M[instr.args.gasOffset + 1], context.machineState.daGasLeft);
 
 chargeGas(context, l2GasCost, daGasCost);
 traceNestedCall(context, instr.args.addrOffset);
-nestedContext = deriveContext(
-  context,
-  instr.args,
-  isStaticCall,
-  isDelegateCall
-);
+nestedContext = deriveContext(context, instr.args, isStaticCall);
 execute(nestedContext);
 updateContextAfterNestedCall(context, instr.args, nestedContext);
 ```
@@ -45,7 +39,6 @@ context.worldStateAccessTrace.contractCalls.append(
     TracedContractCall {
         callPointer: context.worldStateAccessTrace.contractCalls.length + 1,
         address: M[addrOffset],
-        storageAddress: M[addrOffset],
         counter: ++context.worldStateAccessTrace.accessCounter,
         endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
     }

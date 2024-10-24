@@ -69,21 +69,17 @@ export enum Opcode {
   // External calls
   CALL,
   STATICCALL,
-  DELEGATECALL,
   RETURN,
   REVERT_8,
   REVERT_16,
   // Misc
   DEBUGLOG,
   // Gadgets
-  KECCAK,
   POSEIDON2,
   SHA256COMPRESSION,
   KECCAKF1600,
-  PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
-  PEDERSENCOMMITMENT,
   // Conversion
   TORADIXLE,
 }
@@ -158,7 +154,7 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
   const argValues = [];
-  if (cursor instanceof Buffer) {
+  if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 

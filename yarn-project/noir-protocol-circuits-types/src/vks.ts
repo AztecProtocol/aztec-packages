@@ -19,6 +19,7 @@ import {
   PUBLIC_KERNEL_TAIL_INDEX,
   ROOT_PARITY_INDEX,
   ROOT_ROLLUP_INDEX,
+  TUBE_INDEX,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -43,9 +44,13 @@ import BlockRootRollupVkJson from '../artifacts/keys/rollup_block_root.vk.data.j
 import EmptyBlockRootRollupVkJson from '../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
 import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
 import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
+import TubeVkJson from '../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
 import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts.js';
 import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from './private_kernel_reset_data.js';
 import { keyJsonToVKData } from './utils/vk_json.js';
+
+// TODO Include this in the normal maps when the tube is implemented in noir
+export const TubeVk = keyJsonToVKData(TubeVkJson);
 
 export const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   EmptyNestedArtifact: keyJsonToVKData(EmptyNestedVkJson),
@@ -108,6 +113,8 @@ function buildVKTree() {
     vkHashes[index] = value.keyAsFields.hash.toBuffer();
   }
 
+  vkHashes[TUBE_INDEX] = TubeVk.keyAsFields.hash.toBuffer();
+
   return calculator.computeTree(vkHashes);
 }
 
@@ -136,8 +143,7 @@ export function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | F
 
   const index = getVKTree().getIndex(hash.toBuffer());
   if (index < 0) {
-    //throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
-    return 0; // faked for now
+    throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
   }
   return index;
 }

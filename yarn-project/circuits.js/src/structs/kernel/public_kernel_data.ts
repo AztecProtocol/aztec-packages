@@ -57,7 +57,7 @@ export class PublicKernelData {
     return new this(
       PublicKernelCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFakeHonk(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
       ClientIvcProof.empty(),

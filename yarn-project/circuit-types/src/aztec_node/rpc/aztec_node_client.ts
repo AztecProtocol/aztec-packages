@@ -1,4 +1,4 @@
-import { FunctionSelector, Header } from '@aztec/circuits.js';
+import { FunctionSelector, Header, PublicKeys } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -42,6 +42,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       L2Block,
       LogId,
       PublicDataWitness,
+      PublicKeys,
       SiblingPath,
       TxEffect,
       TxHash,

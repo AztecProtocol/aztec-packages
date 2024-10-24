@@ -12,18 +12,18 @@ unconstrained fn get_chain_id_oracle() -> Field {}
 #[oracle(getVersion)]
 unconstrained fn get_version_oracle() -> Field {}
 
-unconstrained pub fn get_contract_address() -> AztecAddress {
+pub unconstrained fn get_contract_address() -> AztecAddress {
     get_contract_address_oracle()
 }
 
-unconstrained pub fn get_block_number() -> u32 {
+pub unconstrained fn get_block_number() -> u32 {
     get_block_number_oracle()
 }
 
-unconstrained pub fn get_chain_id() -> Field {
+pub unconstrained fn get_chain_id() -> Field {
     get_chain_id_oracle()
 }
 
-unconstrained pub fn get_version() -> Field {
+pub unconstrained fn get_version() -> Field {
     get_version_oracle()
 }

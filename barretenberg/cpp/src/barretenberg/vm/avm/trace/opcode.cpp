@@ -147,8 +147,6 @@ std::string to_string(OpCode opcode)
         return "CALL";
     case OpCode::STATICCALL:
         return "STATICCALL";
-    case OpCode::DELEGATECALL:
-        return "DELEGATECALL";
     case OpCode::RETURN:
         return "RETURN";
     case OpCode::REVERT_8:
@@ -159,16 +157,12 @@ std::string to_string(OpCode opcode)
     case OpCode::DEBUGLOG:
         return "DEBUGLOG";
     // Gadgets
-    case OpCode::KECCAK:
-        return "KECCAK";
-    case OpCode::POSEIDON2:
+    case OpCode::POSEIDON2PERM:
         return "POSEIDON2";
     case OpCode::SHA256COMPRESSION:
         return "SHA256COMPRESSION";
     case OpCode::KECCAKF1600:
         return "KECCAKF1600";
-    case OpCode::PEDERSEN:
-        return "PEDERSEN";
     case OpCode::ECADD:
         return "ECADD";
     case OpCode::MSM:

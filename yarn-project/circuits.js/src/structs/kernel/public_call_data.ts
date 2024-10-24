@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { Proof } from '../proof.js';
-import { PublicCallStackItem } from '../public_call_stack_item.js';
+import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 
 /**
  * Public calldata assembled from the kernel execution result and proof.
@@ -10,9 +10,9 @@ import { PublicCallStackItem } from '../public_call_stack_item.js';
 export class PublicCallData {
   constructor(
     /**
-     * Call stack item being processed by the current iteration of the kernel.
+     * Public inputs of the public function.
      */
-    public readonly callStackItem: PublicCallStackItem,
+    public publicInputs: PublicCircuitPublicInputs,
     /**
      * Proof of the call stack item execution.
      */
@@ -24,11 +24,15 @@ export class PublicCallData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.callStackItem, this.proof, this.bytecodeHash);
+    return serializeToBuffer(this.publicInputs, this.proof, this.bytecodeHash);
   }
 
   static fromBuffer(buffer: BufferReader | Buffer) {
     const reader = BufferReader.asReader(buffer);
-    return new PublicCallData(reader.readObject(PublicCallStackItem), reader.readObject(Proof), reader.readObject(Fr));
+    return new PublicCallData(
+      reader.readObject(PublicCircuitPublicInputs),
+      reader.readObject(Proof),
+      reader.readObject(Fr),
+    );
   }
 }

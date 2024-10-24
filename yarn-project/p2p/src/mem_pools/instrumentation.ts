@@ -10,8 +10,12 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   /** Tracks tx size */
   private objectSize: Histogram;
 
+  private defaultAttributes;
+
   constructor(telemetry: TelemetryClient, name: string) {
     const meter = telemetry.getMeter(name);
+    this.defaultAttributes = { [Attributes.POOL_NAME]: name };
+
     this.objectsInMempool = meter.createUpDownCounter(Metrics.MEMPOOL_TX_COUNT, {
       description: 'The current number of transactions in the mempool',
     });
@@ -48,7 +52,12 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
     if (count === 0) {
       return;
     }
-    const attributes = status ? { [Attributes.STATUS]: status } : {};
+    const attributes = status
+      ? {
+          ...this.defaultAttributes,
+          [Attributes.STATUS]: status,
+        }
+      : this.defaultAttributes;
 
     this.objectsInMempool.add(count, attributes);
   }
@@ -65,7 +74,12 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       return;
     }
 
-    const attributes = status ? { [Attributes.STATUS]: status } : {};
+    const attributes = status
+      ? {
+          ...this.defaultAttributes,
+          [Attributes.STATUS]: status,
+        }
+      : this.defaultAttributes;
     this.objectsInMempool.add(-1 * count, attributes);
   }
 }

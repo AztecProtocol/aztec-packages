@@ -39,8 +39,6 @@ uint8_t mem_tag_bits(AvmMemoryTag in_tag)
         return 128;
     case AvmMemoryTag::FF:
         return 254;
-    case AvmMemoryTag::U0:
-        return 0;
     }
     return 0;
 }
@@ -61,11 +59,9 @@ FF cast_to_mem_tag(uint256_t input, AvmMemoryTag in_tag)
     case AvmMemoryTag::U64:
         return FF{ static_cast<uint64_t>(input) };
     case AvmMemoryTag::U128:
-        return FF{ uint256_t::from_uint128(uint128_t(input)) };
+        return FF{ uint256_t::from_uint128(static_cast<uint128_t>(input)) };
     case AvmMemoryTag::FF:
         return input;
-    case AvmMemoryTag::U0:
-        return FF{ 0 };
     }
     // Need this for gcc compilation even though we fully handle the switch cases
     // We should never reach this point

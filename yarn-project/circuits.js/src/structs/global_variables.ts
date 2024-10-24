@@ -136,6 +136,20 @@ export class GlobalVariables {
     };
   }
 
+  /**
+   * A trimmed version of the JSON representation of the global variables,
+   * tailored for human consumption.
+   */
+  toFriendlyJSON() {
+    return {
+      blockNumber: this.blockNumber.toNumber(),
+      slotNumber: this.slotNumber.toNumber(),
+      timestamp: this.timestamp.toString(),
+      coinbase: this.coinbase.toString(),
+      gasFees: this.gasFees.toJSON(),
+    };
+  }
+
   clone(): GlobalVariables {
     return GlobalVariables.fromBuffer(this.toBuffer());
   }

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -24,7 +23,6 @@ class ECCVMProver {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
-    using ZeroMorph = ZeroMorphProver_<PCS>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     explicit ECCVMProver(CircuitBuilder& builder,

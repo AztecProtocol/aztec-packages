@@ -133,6 +133,24 @@ barretenberg-acir-tests-bb:
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
     - noir-compile-acir-tests
+barretenberg-acir-tests-bb-ultra-plonk:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+    - noir-compile-acir-tests
+barretenberg-acir-tests-bb-ultra-plonk:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+    - noir-compile-acir-tests
+barretenberg-acir-tests-bb-mega-honk:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+    - noir-compile-acir-tests
 
 # Uses bb to compute a l1 verifier contract for each acir test, and verifies a test proof on chain.
 barretenberg-acir-tests-bb-sol:

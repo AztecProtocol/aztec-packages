@@ -1,7 +1,13 @@
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    note::{note_header::NoteHeader, note_interface::NullifiableNote, utils::compute_note_hash_for_nullify},
-    oracle::random::random, keys::getters::get_nsk_app, context::PrivateContext, macros::notes::note
+    protocol_types::{
+        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator,
+    },
+    note::{
+        note_header::NoteHeader, note_interface::NullifiableNote,
+        utils::compute_note_hash_for_nullify,
+    }, oracle::random::random, keys::getters::get_nsk_app, context::PrivateContext,
+    macros::notes::note,
 };
 
 // docs:start:address_note_def
@@ -18,14 +24,15 @@ pub struct AddressNote {
 
 impl NullifiableNote for AddressNote {
 
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(
+        self,
+        context: &mut PrivateContext,
+        note_hash_for_nullify: Field,
+    ) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            [note_hash_for_nullify, secret],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 
@@ -33,11 +40,8 @@ impl NullifiableNote for AddressNote {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            [note_hash_for_nullify, secret],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 }
@@ -48,9 +52,7 @@ impl AddressNote {
         // malicious sender could use non-random values to make the note less private. But they already know the full
         // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
         // therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe {
-            random()
-        };
+        let randomness = unsafe { random() };
         AddressNote { address, npk_m_hash, randomness, header: NoteHeader::empty() }
     }
     // docs:end:address_note_def

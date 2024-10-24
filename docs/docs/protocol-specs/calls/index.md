@@ -17,7 +17,7 @@ Functions in the Aztec Network can call other functions. There are several types
 - [Enqueued calls](./enqueued-calls.md): when a private function calls a public function.
 - [Batched calls](./batched-calls.md): when multiple calls to the same function are enqueued and processed as a single call on a concatenation of the arguments.
 
-The protocol also supports alternative call methods, such as [static](./static-calls.md), [delegate](./delegate-calls.md), and [unconstrained](./unconstrained-calls.md) calls.
+The protocol also supports alternative call methods, such as [static](./static-calls.md), and [unconstrained](./unconstrained-calls.md) calls.
 
 In addition to function calls, the protocol allows for communication via message-passing back-and-forth between L1 and L2, as well as from public to private functions.
 

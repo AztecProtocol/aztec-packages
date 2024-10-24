@@ -1,0 +1,11 @@
+PowerAtTest
+├── when time not in past
+│   └── it revert
+└── when time in past
+    ├── given no checkpoints
+    │   └── it return 0
+    └── given user have checkpoints
+        ├── when time lt first checkpoint
+        │   └── it return 0
+        └── when time ge first checkpoint
+            └── it return power at last checkpoint with time < time

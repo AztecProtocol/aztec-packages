@@ -22,13 +22,13 @@ until curl -s -X POST -H 'content-type: application/json' \
   sleep 1
 done
 echo "Waiting for l2 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/l2-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ] ; do
   sleep 1
 done
 echo "Done waiting."
 
 export DEBUG="aztec:*"
-export LOG_LEVEL=debug
+export LOG_LEVEL=${LOG_LEVEL:-"debug"}
 export PXE_URL=http://localhost:8079
 cd $(git rev-parse --show-toplevel)/yarn-project/end-to-end
 yarn test src/spartan/transfer.test.ts

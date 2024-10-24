@@ -63,6 +63,7 @@ async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, 
 async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
   const api = await Barretenberg.new({ threads });
 
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraPlonk function
   const circuitSize = await getGatesUltra(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
@@ -73,11 +74,8 @@ async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSiz
   debug(`circuit size: ${circuitSize}`);
   debug(`subgroup size: ${subgroupSize}`);
   debug('loading crs...');
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
-  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
-  // Needed here for initUltraPlonk because MegaHonk currently uses this function.
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(subgroupSize + Math.floor((subgroupSize * 6) / 10) + 1, crsPath);
+  const crs = await Crs.new(subgroupSize + 1, crsPath);
 
   // // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
@@ -93,6 +91,7 @@ async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSiz
 async function initUltraHonk(bytecodePath: string, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraHonk function
   const circuitSize = await getGatesUltra(bytecodePath, /*honkRecursion=*/ true, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const dyadicCircuitSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
@@ -100,10 +99,7 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   debug(`circuit size: ${circuitSize}`);
   debug(`dyadic circuit size size: ${dyadicCircuitSize}`);
   debug('loading crs...');
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
-  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
-  // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(dyadicCircuitSize + Math.floor((dyadicCircuitSize * 6) / 10) + 1, crsPath);
+  const crs = await Crs.new(dyadicCircuitSize + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -114,12 +110,9 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
 async function initClientIVC(crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
-  console.log('loading BN254 and Grumpkin crs...');
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
-  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
-  // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(2 ** 21 + 1, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
+  debug('loading BN254 and Grumpkin crs...');
+  const crs = await Crs.new(2 ** 21 + 1, crsPath); // WORKTODO: size?
+  const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.

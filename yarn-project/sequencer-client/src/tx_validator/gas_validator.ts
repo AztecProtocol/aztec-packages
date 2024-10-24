@@ -61,14 +61,13 @@ export class GasTxValidator implements TxValidator<Tx> {
     const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
     const claimFunctionCall = setupFns.find(
       fn =>
-        fn.contractAddress.equals(this.#feeJuiceAddress) &&
+        fn.callContext.contractAddress.equals(this.#feeJuiceAddress) &&
         fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
         fn.args.length > 2 &&
         // Public functions get routed through the dispatch function, whose first argument is the target function selector.
         fn.args[0].equals(FunctionSelector.fromSignature('_increase_public_balance((Field),Field)').toField()) &&
         fn.args[1].equals(feePayer) &&
-        !fn.callContext.isStaticCall &&
-        !fn.callContext.isDelegateCall,
+        !fn.callContext.isStaticCall,
     );
 
     const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;

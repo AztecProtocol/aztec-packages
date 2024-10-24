@@ -113,19 +113,15 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.GETCONTRACTINSTANCE]: makeCost(c.AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, 0),
   [Opcode.CALL]: makeCost(c.AVM_CALL_BASE_L2_GAS, 0),
   [Opcode.STATICCALL]: makeCost(c.AVM_STATICCALL_BASE_L2_GAS, 0),
-  [Opcode.DELEGATECALL]: makeCost(c.AVM_DELEGATECALL_BASE_L2_GAS, 0),
   [Opcode.RETURN]: makeCost(c.AVM_RETURN_BASE_L2_GAS, 0),
   [Opcode.REVERT_8]: makeCost(c.AVM_REVERT_BASE_L2_GAS, 0),
   [Opcode.REVERT_16]: makeCost(c.AVM_REVERT_BASE_L2_GAS, 0),
   [Opcode.DEBUGLOG]: makeCost(c.AVM_DEBUGLOG_BASE_L2_GAS, 0),
-  [Opcode.KECCAK]: makeCost(c.AVM_KECCAK_BASE_L2_GAS, 0),
   [Opcode.POSEIDON2]: makeCost(c.AVM_POSEIDON2_BASE_L2_GAS, 0),
   [Opcode.SHA256COMPRESSION]: makeCost(c.AVM_SHA256COMPRESSION_BASE_L2_GAS, 0),
   [Opcode.KECCAKF1600]: makeCost(c.AVM_KECCAKF1600_BASE_L2_GAS, 0),
-  [Opcode.PEDERSEN]: makeCost(c.AVM_PEDERSEN_BASE_L2_GAS, 0),
   [Opcode.ECADD]: makeCost(c.AVM_ECADD_BASE_L2_GAS, 0),
   [Opcode.MSM]: makeCost(c.AVM_MSM_BASE_L2_GAS, 0),
-  [Opcode.PEDERSENCOMMITMENT]: makeCost(c.AVM_PEDERSENCOMMITMENT_BASE_L2_GAS, 0),
   [Opcode.TORADIXLE]: makeCost(c.AVM_TORADIXLE_BASE_L2_GAS, 0),
 };
 
@@ -134,13 +130,10 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.EMITUNENCRYPTEDLOG, makeCost(c.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
   [Opcode.CALL, makeCost(c.AVM_CALL_DYN_L2_GAS, 0)],
   [Opcode.STATICCALL, makeCost(c.AVM_STATICCALL_DYN_L2_GAS, 0)],
-  [Opcode.DELEGATECALL, makeCost(c.AVM_DELEGATECALL_DYN_L2_GAS, 0)],
   [Opcode.RETURN, makeCost(c.AVM_RETURN_DYN_L2_GAS, 0)],
   [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
-  [Opcode.PEDERSEN, makeCost(c.AVM_PEDERSEN_DYN_L2_GAS, 0)],
   [Opcode.MSM, makeCost(c.AVM_MSM_DYN_L2_GAS, 0)],
-  [Opcode.PEDERSENCOMMITMENT, makeCost(c.AVM_PEDERSENCOMMITMENT_DYN_L2_GAS, 0)],
   [Opcode.TORADIXLE, makeCost(c.AVM_TORADIXLE_DYN_L2_GAS, 0)],
 ]);
 
@@ -180,6 +173,7 @@ export function getGasCostForTypeTag(tag: TypeTag, baseCost: Gas) {
 function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8
+      return 1;
     case TypeTag.UINT8:
       return 1;
     case TypeTag.UINT16:
@@ -193,7 +187,6 @@ function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
     case TypeTag.FIELD:
       return 32;
     case TypeTag.INVALID:
-    case TypeTag.UNINITIALIZED:
       throw new InstructionExecutionError(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
   }
 }

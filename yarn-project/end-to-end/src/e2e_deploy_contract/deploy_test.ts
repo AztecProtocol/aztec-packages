@@ -8,6 +8,7 @@ import {
   type DebugLogger,
   Fr,
   type PXE,
+  type PublicKeys,
   type Wallet,
   createDebugLogger,
   getContractInstanceFromDeployParams,
@@ -61,18 +62,18 @@ export class DeployTest {
     contractArtifact: ContractArtifactClass<T>,
     opts: {
       salt?: Fr;
-      publicKeysHash?: Fr;
+      publicKeys?: PublicKeys;
       initArgs?: any[];
       constructorName?: string;
       deployer?: AztecAddress;
     } = {},
   ): Promise<T> {
-    const { salt, publicKeysHash, initArgs, constructorName, deployer } = opts;
+    const { salt, publicKeys, initArgs, constructorName, deployer } = opts;
     const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,
-      publicKeysHash,
+      publicKeys,
       deployer,
     });
     await wallet.registerContract({ artifact: contractArtifact.artifact, instance });

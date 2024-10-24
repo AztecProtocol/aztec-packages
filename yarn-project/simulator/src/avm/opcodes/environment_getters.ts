@@ -6,7 +6,6 @@ import { Instruction } from './instruction.js';
 
 export enum EnvironmentVariable {
   ADDRESS,
-  STORAGEADDRESS,
   SENDER,
   FUNCTIONSELECTOR,
   TRANSACTIONFEE,
@@ -25,8 +24,6 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
   switch (e) {
     case EnvironmentVariable.ADDRESS:
       return new Field(ctx.environment.address.toField());
-    case EnvironmentVariable.STORAGEADDRESS:
-      return new Field(ctx.environment.storageAddress.toField());
     case EnvironmentVariable.SENDER:
       return new Field(ctx.environment.sender.toField());
     case EnvironmentVariable.FUNCTIONSELECTOR:

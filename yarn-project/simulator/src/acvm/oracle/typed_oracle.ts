@@ -221,7 +221,6 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
     throw new OracleMethodNotAvailableError('callPrivateFunction');
   }
@@ -232,7 +231,6 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
   ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
@@ -243,7 +241,6 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
   ): Promise<Fr> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }

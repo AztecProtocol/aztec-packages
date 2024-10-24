@@ -19,6 +19,7 @@ namespace bb {
 template <typename FF_> class ECCVMPointTableRelationImpl {
   public:
     using FF = FF_;
+    static constexpr size_t ZK_RELATION_LENGTH = 11;
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6 };
     /**

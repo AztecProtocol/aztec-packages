@@ -320,4 +320,12 @@ export class PrivateCircuitPublicInputs {
     }
     return fields;
   }
+
+  public toJSON() {
+    return this.toBuffer().toString('hex');
+  }
+
+  public static fromJSON(value: any) {
+    return PrivateCircuitPublicInputs.fromBuffer(Buffer.from(value, 'hex'));
+  }
 }

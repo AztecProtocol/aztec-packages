@@ -35,9 +35,7 @@ mod public_kernel_data;
 mod public_kernel_inner_data;
 
 mod private_call_request;
-mod private_call_stack_item;
 mod public_call_request;
-mod public_call_stack_item;
 mod public_call_stack_item_compressed;
 mod public_inner_call_request;
 mod call_context;

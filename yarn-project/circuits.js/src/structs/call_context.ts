@@ -16,19 +16,13 @@ export class CallContext {
      */
     public msgSender: AztecAddress,
     /**
-     * The contract address against which all state changes will be stored. Not called `contractAddress` because during
-     * delegate call the contract whose code is being executed may be different from the contract whose state is being
-     * modified.
+     * The contract address being called.
      */
-    public storageContractAddress: AztecAddress,
+    public contractAddress: AztecAddress,
     /**
      * Function selector of the function being called.
      */
     public functionSelector: FunctionSelector,
-    /**
-     * Determines whether the call is a delegate call (see Ethereum's delegate call opcode for more information).
-     */
-    public isDelegateCall: boolean,
     /**
      * Determines whether the call is modifying state.
      */
@@ -40,16 +34,12 @@ export class CallContext {
    * @returns A new instance of CallContext with zero msg sender, storage contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false);
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false);
   }
 
   isEmpty() {
     return (
-      this.msgSender.isZero() &&
-      this.storageContractAddress.isZero() &&
-      this.functionSelector.isEmpty() &&
-      !this.isDelegateCall &&
-      !this.isStaticCall
+      this.msgSender.isZero() && this.contractAddress.isZero() && this.functionSelector.isEmpty() && !this.isStaticCall
     );
   }
 
@@ -58,13 +48,7 @@ export class CallContext {
   }
 
   static getFields(fields: FieldsOf<CallContext>) {
-    return [
-      fields.msgSender,
-      fields.storageContractAddress,
-      fields.functionSelector,
-      fields.isDelegateCall,
-      fields.isStaticCall,
-    ] as const;
+    return [fields.msgSender, fields.contractAddress, fields.functionSelector, fields.isStaticCall] as const;
   }
 
   /**
@@ -97,7 +81,6 @@ export class CallContext {
       reader.readObject(AztecAddress),
       reader.readObject(FunctionSelector),
       reader.readBoolean(),
-      reader.readBoolean(),
     );
   }
 
@@ -108,16 +91,14 @@ export class CallContext {
       reader.readObject(AztecAddress),
       reader.readObject(FunctionSelector),
       reader.readBoolean(),
-      reader.readBoolean(),
     );
   }
 
   equals(callContext: CallContext) {
     return (
       callContext.msgSender.equals(this.msgSender) &&
-      callContext.storageContractAddress.equals(this.storageContractAddress) &&
+      callContext.contractAddress.equals(this.contractAddress) &&
       callContext.functionSelector.equals(this.functionSelector) &&
-      callContext.isDelegateCall === this.isDelegateCall &&
       callContext.isStaticCall === this.isStaticCall
     );
   }

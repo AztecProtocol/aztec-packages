@@ -106,6 +106,23 @@ contract RollupTest is DecoderBase {
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
   }
 
+  function testClaimableEpoch(uint256 epochForMixedBlock) public setUpFor("mixed_block_1") {
+    epochForMixedBlock = bound(epochForMixedBlock, 1, 10);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    assertEq(rollup.getClaimableEpoch(), 0, "Invalid claimable epoch");
+
+    quote.epochToProve = Epoch.wrap(epochForMixedBlock);
+    quote.validUntilSlot = Slot.wrap(epochForMixedBlock * Constants.AZTEC_EPOCH_DURATION + 1);
+    signedQuote = _quoteToSignedQuote(quote);
+
+    _testBlock("mixed_block_1", false, epochForMixedBlock * Constants.AZTEC_EPOCH_DURATION);
+    assertEq(rollup.getClaimableEpoch(), Epoch.wrap(epochForMixedBlock), "Invalid claimable epoch");
+
+    rollup.claimEpochProofRight(signedQuote);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.getClaimableEpoch();
+  }
+
   function testClaimWithNothingToProve() public setUpFor("mixed_block_1") {
     assertEq(rollup.getCurrentSlot(), 0, "genesis slot should be zero");
 
@@ -184,10 +201,58 @@ contract RollupTest is DecoderBase {
     assertEq(epochToProve, signedQuote.quote.epochToProve, "Invalid epoch to prove");
     assertEq(basisPointFee, signedQuote.quote.basisPointFee, "Invalid basis point fee");
     assertEq(bondAmount, signedQuote.quote.bondAmount, "Invalid bond amount");
-    // TODO #8573
-    // This will be fixed with proper escrow
     assertEq(bondProvider, quote.prover, "Invalid bond provider");
     assertEq(proposerClaimant, address(this), "Invalid proposer claimant");
+    assertEq(
+      proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 9, "Invalid escrow balance"
+    );
+  }
+
+  function testProofReleasesBond() public setUpFor("mixed_block_1") {
+    DecoderBase.Data memory data = load("mixed_block_1").block;
+    bytes memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes32 blockHash = data.blockHash;
+    bytes32 proverId = bytes32(uint256(42));
+    bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
+
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    rollup.propose(header, archive, blockHash, txHashes, signatures, body);
+
+    quote.epochToProve = Epoch.wrap(1);
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
+    rollup.claimEpochProofRight(signedQuote);
+    (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
+
+    assertEq(
+      proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 9, "Invalid escrow balance"
+    );
+
+    _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
+
+    assertEq(
+      proofCommitmentEscrow.deposits(quote.prover), quote.bondAmount * 10, "Invalid escrow balance"
+    );
+  }
+
+  function testMissingProofSlashesBond(uint256 slotsToJump) public setUpFor("mixed_block_1") {
+    // @note, this gives a an overflow if bounding to type(uint256).max
+    // Tracked by https://github.com/AztecProtocol/aztec-packages/issues/9362
+    slotsToJump =
+      bound(slotsToJump, 2 * Constants.AZTEC_EPOCH_DURATION, 1e20 * Constants.AZTEC_EPOCH_DURATION);
+    _testBlock("mixed_block_1", false, 1);
+    rollup.claimEpochProofRight(signedQuote);
+    warpToL2Slot(slotsToJump);
+    rollup.prune();
+    _testBlock("mixed_block_1", true, slotsToJump);
+
+    assertEq(
+      proofCommitmentEscrow.deposits(quote.prover), 9 * quote.bondAmount, "Invalid escrow balance"
+    );
   }
 
   function testClaimTwice() public setUpFor("mixed_block_1") {

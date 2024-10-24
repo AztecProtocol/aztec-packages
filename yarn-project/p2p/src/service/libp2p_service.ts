@@ -435,6 +435,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
     if (attestation != undefined) {
+      this.logger.verbose(`Broadcasting attestation ${attestation.p2pMessageIdentifier()}`);
       this.broadcastAttestation(attestation);
     }
   }
@@ -463,7 +464,10 @@ export class LibP2PService extends WithTracer implements P2PService {
    * @param message - The message to propagate.
    */
   public propagate<T extends Gossipable>(message: T): void {
-    void this.jobQueue.put(() => Promise.resolve(this.sendToPeers(message)));
+    this.logger.debug(`[${message.p2pMessageIdentifier()}] queued`);
+    void this.jobQueue.put(async () => {
+      await this.sendToPeers(message);
+    });
   }
 
   private async processTxFromPeer(tx: Tx, peerId: PeerId): Promise<void> {
@@ -587,10 +591,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     const parent = message.constructor as typeof Gossipable;
 
     const identifier = message.p2pMessageIdentifier().toString();
-    this.logger.verbose(`Sending message ${identifier} to peers`);
+    this.logger.verbose(`[${identifier}] sending`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.verbose(`Sent message ${identifier} to ${recipientsNum} peers`);
+    this.logger.verbose(`[${identifier}] sent to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

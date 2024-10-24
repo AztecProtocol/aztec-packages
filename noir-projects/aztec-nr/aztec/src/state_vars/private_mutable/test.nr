@@ -1,17 +1,22 @@
 use crate::{
     context::PrivateContext, state_vars::private_mutable::PrivateMutable,
-    oracle::execution::get_contract_address
+    oracle::execution::get_contract_address,
 };
-use crate::test::{mocks::mock_note::MockNote, helpers::{test_environment::TestEnvironment}};
+use crate::test::{mocks::mock_note::MockNote, helpers::test_environment::TestEnvironment};
 use std::test::OracleMock;
 
 global storage_slot = 17;
 
 unconstrained fn setup() -> TestEnvironment {
-    TestEnvironment::new()
+    let mut env = TestEnvironment::new();
+    // Advance 1 block so we can read historic state from private
+    env.advance_block_by(1);
+    env
 }
 
-unconstrained fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(
+    env: &mut TestEnvironment,
+) -> PrivateMutable<MockNote, &mut PrivateContext> {
     let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
 
     // This oracle is called for its side effects alone - it's always expected to return 0.
@@ -26,7 +31,10 @@ unconstrained fn test_initialize_or_replace_without_nullifier() {
     let state_var = in_private(&mut env);
 
     let value = 42;
-    let mut note = MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build();
+    let mut note = MockNote::new(value)
+        .contract_address(get_contract_address())
+        .storage_slot(storage_slot)
+        .build();
 
     let _ = OracleMock::mock("checkNullifierExists").returns(0);
     state_var.initialize_or_replace(&mut note).discard();

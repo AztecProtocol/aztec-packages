@@ -19,7 +19,7 @@ describe('Storage Instructions', () => {
     persistableState = mock<AvmPersistableStateManager>();
     context = initContext({
       persistableState: persistableState,
-      env: initExecutionEnvironment({ address, storageAddress: address }),
+      env: initExecutionEnvironment({ address }),
     });
   });
 
@@ -52,7 +52,7 @@ describe('Storage Instructions', () => {
     it('Should not be able to write to storage in a static call', async () => {
       context = initContext({
         persistableState: persistableState,
-        env: initExecutionEnvironment({ address, storageAddress: address, isStaticCall: true }),
+        env: initExecutionEnvironment({ address, isStaticCall: true }),
       });
 
       const a = new Field(1n);

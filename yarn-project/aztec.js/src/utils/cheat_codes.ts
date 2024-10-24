@@ -125,7 +125,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger.verbose(`Mined ${numberOfBlocks} blocks`);
+    this.logger.verbose(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   /**
@@ -150,7 +150,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    this.logger.verbose(`Set block interval to ${interval}`);
+    this.logger.verbose(`Set L1 block interval to ${interval}`);
   }
 
   /**
@@ -162,7 +162,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     }
-    this.logger.verbose(`Set next block timestamp to ${timestamp}`);
+    this.logger.verbose(`Set L1 next block timestamp to ${timestamp}`);
   }
 
   /**
@@ -175,7 +175,7 @@ export class EthCheatCodes {
       throw new Error(`Error warping: ${res.error.message}`);
     }
     await this.mine();
-    this.logger.verbose(`Warped to ${timestamp}`);
+    this.logger.verbose(`Warped L1 timestamp to ${timestamp}`);
   }
 
   /**
@@ -228,7 +228,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     }
-    this.logger.verbose(`Set storage for contract ${contract} at ${slot} to ${value}`);
+    this.logger.verbose(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**
@@ -319,6 +319,20 @@ export class RollupCheatCodes {
     return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
+  /**
+   * Returns the pending and proven chain tips
+   * @returns The pending and proven chain tips
+   */
+  public async getTips(): Promise<{
+    /** The pending chain tip */
+    pending: bigint;
+    /** The proven chain tip */
+    proven: bigint;
+  }> {
+    const [pending, proven] = await this.rollup.read.tips();
+    return { pending, proven };
+  }
+
   /** Warps time in L1 until the next epoch */
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();
@@ -327,6 +341,18 @@ export class RollupCheatCodes {
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
     await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch));
     this.logger.verbose(`Advanced to next epoch`);
+  }
+
+  /**
+   * Warps time in L1 equivalent to however many slots.
+   * @param howMany - The number of slots to advance.
+   */
+  public async advanceSlots(howMany: number) {
+    const l1Timestamp = Number((await this.client.getBlock()).timestamp);
+    const timeToWarp = howMany * AZTEC_SLOT_DURATION;
+    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp);
+    const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
+    this.logger.verbose(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
   }
 
   /** Returns the current proof claim (if any) */
@@ -361,8 +387,7 @@ export class RollupCheatCodes {
       : await this.rollup.read.tips().then(([pending]) => pending);
 
     await this.asOwner(async account => {
-      // TODO: Figure out proper typing for viem
-      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account } as any);
+      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
       this.logger.verbose(`Marked ${blockNumber} as proven`);
     });
   }

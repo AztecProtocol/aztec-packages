@@ -58,6 +58,55 @@ export async function addL1Validator({
   await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
 }
 
+export async function removeL1Validator({
+  rpcUrl,
+  chainId,
+  privateKey,
+  mnemonic,
+  validatorAddress,
+  rollupAddress,
+  log,
+  debugLogger,
+}: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const publicClient = getPublicClient(rpcUrl, chainId);
+  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: walletClient,
+  });
+
+  dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
+  const txHash = await rollup.write.removeValidator([validatorAddress.toString()]);
+  dualLog(`Transaction hash: ${txHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+}
+
+export async function pruneRollup({
+  rpcUrl,
+  chainId,
+  privateKey,
+  mnemonic,
+  rollupAddress,
+  log,
+  debugLogger,
+}: RollupCommandArgs & LoggerArgs) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const publicClient = getPublicClient(rpcUrl, chainId);
+  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: walletClient,
+  });
+
+  dualLog(`Trying prune`);
+  const txHash = await rollup.write.prune();
+  dualLog(`Transaction hash: ${txHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+}
+
 export async function fastForwardEpochs({
   rpcUrl,
   chainId,

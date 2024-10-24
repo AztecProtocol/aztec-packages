@@ -2,13 +2,13 @@ global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
 
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable}, hash::compute_siloed_nullifier,
-    merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{Empty, Hash}
+    merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{Empty, Hash},
 };
 
 pub struct NullifierLeafPreimage {
-    nullifier : Field,
-    next_nullifier :Field,
-    next_index : u32,
+    nullifier: Field,
+    next_nullifier: Field,
+    next_index: u32,
 }
 
 impl Empty for NullifierLeafPreimage {
@@ -53,8 +53,13 @@ impl IndexedTreeLeafPreimage for NullifierLeafPreimage {
 
 impl Readable<ScopedReadRequest> for NullifierLeafPreimage {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
-        let siloed_value = compute_siloed_nullifier(read_request.contract_address, read_request.value());
-        assert_eq(self.nullifier, siloed_value, "Value of the nullifier leaf does not match read request");
+        let siloed_value =
+            compute_siloed_nullifier(read_request.contract_address, read_request.value());
+        assert_eq(
+            self.nullifier,
+            siloed_value,
+            "Value of the nullifier leaf does not match read request",
+        );
     }
 }
 

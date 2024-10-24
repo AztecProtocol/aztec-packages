@@ -16,7 +16,6 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
-  FunctionData,
   Gas,
   type GlobalVariables,
   type Header,
@@ -42,7 +41,6 @@ import {
   PublicAccumulatedDataArrayLengths,
   PublicCallData,
   type PublicCallRequest,
-  PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
   type PublicKernelCircuitPublicInputs,
@@ -157,7 +155,7 @@ export class EnqueuedCallSimulator {
     );
 
     const callStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
-    callStack[0].item.contractAddress = callRequest.contractAddress;
+    callStack[0].item.contractAddress = callRequest.callContext.contractAddress;
     callStack[0].item.callContext = callRequest.callContext;
     callStack[0].item.argsHash = callRequest.argsHash;
 
@@ -197,22 +195,19 @@ export class EnqueuedCallSimulator {
       // Accumulate gas used in this enqueued call.
       gasUsed = gasUsed.add(Gas.from(result.startGasLeft).sub(Gas.from(result.endGasLeft)));
 
+      const { contractAddress, functionSelector } = result.executionRequest.callContext;
+
       // Sanity check for a current upstream assumption.
       // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
-      const functionSelector = result.executionRequest.callContext.functionSelector.toString();
       if (result.reverted && !result.revertReason) {
         throw new Error(
-          `Simulation of ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
-            result.functionName
-          }) reverted with no reason.`,
+          `Simulation of ${contractAddress}:${functionSelector}(${result.functionName}) reverted with no reason.`,
         );
       }
 
       // Simulate the public kernel circuit.
       this.log.debug(
-        `Running public kernel inner circuit for ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
-          result.functionName
-        })`,
+        `Running public kernel inner circuit for ${contractAddress}:${functionSelector}(${result.functionName})`,
       );
 
       const callData = await this.getPublicCallData(result);
@@ -226,9 +221,7 @@ export class EnqueuedCallSimulator {
       // TODO(@leila) we shouldn't drop everything when it reverts. The tail kernel needs the data to prove that it's reverted for the correct reason.
       if (result.reverted) {
         this.log.debug(
-          `Reverting on ${result.executionRequest.contractAddress.toString()}:${functionSelector}(${
-            result.functionName
-          }) with reason: ${result.revertReason}`,
+          `Reverting on ${contractAddress}:${functionSelector}(${result.functionName}) with reason: ${result.revertReason}`,
         );
         // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
 
@@ -278,15 +271,15 @@ export class EnqueuedCallSimulator {
    */
   private async getPublicCallData(result: PublicExecutionResult) {
     const bytecodeHash = await this.getBytecodeHash(result);
-    const callStackItem = await this.getPublicCallStackItem(result);
-    return new PublicCallData(callStackItem, makeEmptyProof(), bytecodeHash);
+    const publicInputs = await this.getPublicCircuitPublicInputs(result);
+    return new PublicCallData(publicInputs, makeEmptyProof(), bytecodeHash);
   }
 
-  private async getPublicCallStackItem(result: PublicExecutionResult) {
+  private async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
     this.historicalHeader.state.partial.publicDataTree.root = Fr.fromBuffer(publicDataTreeInfo.root);
 
-    const publicCircuitPublicInputs = PublicCircuitPublicInputs.from({
+    return PublicCircuitPublicInputs.from({
       callContext: result.executionRequest.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.executionRequest.args),
@@ -340,12 +333,6 @@ export class EnqueuedCallSimulator {
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
     });
-
-    return new PublicCallStackItem(
-      result.executionRequest.contractAddress,
-      new FunctionData(result.executionRequest.callContext.functionSelector, false),
-      publicCircuitPublicInputs,
-    );
   }
 
   private getBytecodeHash(_result: PublicExecutionResult) {

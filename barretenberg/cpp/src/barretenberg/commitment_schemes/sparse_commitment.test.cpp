@@ -95,6 +95,90 @@ using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 
 TYPED_TEST_SUITE(CommitmentKeyTest, Curves);
 
+// Check that commit for a structured polynomial and the same polynomial but full return the same results
+TYPED_TEST(CommitmentKeyTest, CommitFull)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 1 << 5; // large enough to ensure normal pippenger logic is used
+    const size_t start_index = 13;    // random start index
+    const size_t num_nonzero = 13;    // random size
+
+    // Construct a random structured polynomial
+    Polynomial poly{ num_nonzero, num_points, start_index };
+    for (size_t i = start_index; i < start_index + num_nonzero; ++i) {
+        poly.at(i) = Fr::random_element();
+    }
+
+    // Commit to the polynomial and the same polynomial but full
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    auto full_poly = poly.full();
+    G1 full_commit_result = key->commit(full_poly);
+
+    EXPECT_EQ(commit_result, full_commit_result);
+}
+
+// Check that commit for a structured polynomial and the same polynomial but full return the same results
+TYPED_TEST(CommitmentKeyTest, CommitFullMedium)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 4096;  // large enough to ensure normal pippenger logic is used
+    const size_t start_index = 1402; // random start index
+    const size_t num_nonzero = 1392; // random size
+
+    // Construct a random structured polynomial
+    Polynomial poly{ num_nonzero, num_points, start_index };
+    for (size_t i = start_index; i < start_index + num_nonzero; ++i) {
+        poly.at(i) = Fr::random_element();
+    }
+
+    // Commit to the polynomial and the same polynomial but full
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    auto full_poly = poly.full();
+    G1 full_commit_result = key->commit(full_poly);
+
+    EXPECT_EQ(commit_result, full_commit_result);
+}
+
+// Check that commit for a structured polynomial doesn't require more SRS points beyond the size of the polynomial
+TYPED_TEST(CommitmentKeyTest, CommitSRSCheck)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 32;  // large enough to ensure normal pippenger logic is used
+    const size_t start_index = 15; // just slightly less than half
+    const size_t num_nonzero = 17; // fill to the end of the size
+
+    // Construct a random structured polynomial
+    Polynomial poly{ num_nonzero, num_points, start_index };
+    for (size_t i = start_index; i < start_index + num_nonzero; ++i) {
+        poly.at(i) = Fr::random_element();
+    }
+
+    // Commit to the polynomial and the same polynomial but full
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    auto full_poly = poly.full();
+    G1 full_commit_result = key->commit(full_poly);
+
+    EXPECT_EQ(commit_result, full_commit_result);
+}
+
 // Check that commit and commit_sparse return the same result for a random sparse polynomial
 TYPED_TEST(CommitmentKeyTest, CommitSparse)
 {
@@ -234,9 +318,11 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredWire)
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
 
+    auto full_poly = polynomial.full();
+    G1 actual_expected_result = key->commit(full_poly);
     G1 expected_result = key->commit(polynomial);
     G1 result = key->commit_structured(polynomial, active_range_endpoints);
-
+    EXPECT_EQ(actual_expected_result, expected_result);
     EXPECT_EQ(result, expected_result);
 }
 

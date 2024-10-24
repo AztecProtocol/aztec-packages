@@ -25,36 +25,77 @@ barretenberg-acir-tests-bb:
 
     ENV TEST_SRC /usr/src/acir_artifacts
     ENV VERBOSE=1
-    # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
-    # This ensures we test independent pk construction through real/garbage witness data paths.
-    RUN FLOW=prove_then_verify ./run_acir_tests.sh
 
-    # Run the acir test through native bb build prove_then_verify_ultra_honk flow
-    # Note that the script will skip the Plonk related tests
-    RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
-
-    # Construct and separately verify a MegaHonk proof for all acir programs
-    RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
-    # Construct and verify a UltraHonk proof for a single program
-    RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash
-    # Construct and verify a MegaHonk proof for a single arbitrary program
-    RUN FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
-    # Construct and verify a MegaHonk proof on one non-recursive program using the new witness stack workflow
-    RUN FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh merkle_insert
-    # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
-    RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
     # Fold and verify an ACIR program stack using ClientIvc
     RUN FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, then natively verify the ClientIVC proof.
     RUN FLOW=prove_then_verify_client_ivc ./run_acir_tests.sh fold_basic
     # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
     RUN FLOW=prove_then_verify_tube ./run_acir_tests.sh fold_basic
+    # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
+    RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
+
+barretenberg-acir-tests-bb-ultra-plonk:
+    FROM ../build-images/+from-registry
+
+    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
+
+    WORKDIR /usr/src/barretenberg/acir_tests
+    RUN rm -rf ./acir_tests
+
+    ENV TEST_SRC /usr/src/acir_artifacts
+    ENV VERBOSE=1
+    # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
+    # This ensures we test independent pk construction through real/garbage witness data paths.
+    RUN FLOW=prove_then_verify ./run_acir_tests.sh
+
+barretenberg-acir-tests-bb-ultra-honk:
+    FROM ../build-images/+from-registry
+
+    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
+
+    WORKDIR /usr/src/barretenberg/acir_tests
+    RUN rm -rf ./acir_tests
+
+    ENV TEST_SRC /usr/src/acir_artifacts
+    ENV VERBOSE=1
+
+    # Run the acir test through native bb build prove_then_verify_ultra_honk flow
+    # Note that the script will skip the Plonk related tests
+    RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
+
+    # Construct and verify a UltraHonk proof for a single program
+    RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash
+    # Construct and verify a MegaHonk proof on one non-recursive program using the new witness stack workflow
+    RUN FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh merkle_insert
     # Construct and separately verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
     # Construct and verify a UltraHonk proof for a single program that recursively verifies a Honk proof
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh verify_honk_proof
-    # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
-    RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
+
+barretenberg-acir-tests-bb-mega-honk:
+    FROM ../build-images/+from-registry
+
+    COPY ./cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY +acir-tests/ /usr/src/barretenberg/acir_tests
+    COPY ../noir/+build-acir-tests/ /usr/src/acir_artifacts
+
+    WORKDIR /usr/src/barretenberg/acir_tests
+    RUN rm -rf ./acir_tests
+
+    ENV TEST_SRC /usr/src/acir_artifacts
+    ENV VERBOSE=1
+
+    # Construct and separately verify a MegaHonk proof for all acir programs
+    RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
+    # Construct and verify a MegaHonk proof for a single arbitrary program
+    RUN FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
+    # Construct and verify a MegaHonk proof for all ACIR programs using the new witness stack workflow
+    RUN FLOW=prove_and_verify_mega_honk_program ./run_acir_tests.sh
 
 barretenberg-acir-tests-sol:
     FROM ../build-images/+from-registry

@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     abis::nullifier_leaf_preimage::{NullifierLeafPreimage, NULLIFIER_LEAF_PREIMAGE_LENGTH},
-    constants::NULLIFIER_TREE_HEIGHT, utils::arr_copy_slice
+    constants::NULLIFIER_TREE_HEIGHT, utils::arr_copy_slice,
 };
 
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT
@@ -21,8 +21,8 @@ impl NullifierMembershipWitness {
             path: arr_copy_slice(
                 fields,
                 [0; NULLIFIER_TREE_HEIGHT],
-                1 + NULLIFIER_LEAF_PREIMAGE_LENGTH
-            )
+                1 + NULLIFIER_LEAF_PREIMAGE_LENGTH,
+            ),
         }
     }
 }
@@ -30,12 +30,15 @@ impl NullifierMembershipWitness {
 #[oracle(getLowNullifierMembershipWitness)]
 unconstrained fn get_low_nullifier_membership_witness_oracle(
     _block_number: u32,
-    _nullifier: Field
+    _nullifier: Field,
 ) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
-unconstrained pub fn get_low_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
+pub unconstrained fn get_low_nullifier_membership_witness(
+    block_number: u32,
+    nullifier: Field,
+) -> NullifierMembershipWitness {
     let fields = get_low_nullifier_membership_witness_oracle(block_number, nullifier);
     NullifierMembershipWitness::deserialize(fields)
 }
@@ -43,12 +46,15 @@ unconstrained pub fn get_low_nullifier_membership_witness(block_number: u32, nul
 #[oracle(getNullifierMembershipWitness)]
 unconstrained fn get_nullifier_membership_witness_oracle(
     _block_number: u32,
-    _nullifier: Field
+    _nullifier: Field,
 ) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
-unconstrained pub fn get_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
+pub unconstrained fn get_nullifier_membership_witness(
+    block_number: u32,
+    nullifier: Field,
+) -> NullifierMembershipWitness {
     let fields = get_nullifier_membership_witness_oracle(block_number, nullifier);
     NullifierMembershipWitness::deserialize(fields)
 }

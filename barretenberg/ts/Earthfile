@@ -22,7 +22,7 @@ deps:
     RUN yarn --immutable
 
     # other source files
-    COPY --dir src *.json *.js *.cjs .
+    COPY --dir src *.json *.js *.cjs *.md .
 
     # copy over wasm builds from cpp folder
     COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm

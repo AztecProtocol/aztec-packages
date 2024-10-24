@@ -11,9 +11,9 @@ import {
 } from './avm_memory_types.js';
 
 describe('TaggedMemory', () => {
-  it('Elements should be undefined after construction', () => {
+  it('Elements should be Field(0) after construction', () => {
     const mem = new TaggedMemory();
-    expect(mem.get(10)).toBe(undefined);
+    expect(mem.get(10)).toStrictEqual(new Field(0));
   });
 
   it(`Should set and get integral types`, () => {

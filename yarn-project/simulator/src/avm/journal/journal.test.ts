@@ -154,11 +154,11 @@ describe('journal', () => {
       expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: true, ...contractInstance });
     });
     it('Can get undefined contract instance', async () => {
-      const emptyContractInstance = SerializableContractInstance.empty().withAddress(address);
+      const defaultContractInstance = SerializableContractInstance.default().withAddress(address);
       await persistableState.getContractInstance(address);
 
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: false, ...emptyContractInstance });
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: false, ...defaultContractInstance });
     });
   });
 

@@ -28,8 +28,7 @@ function formatAndPrintLog(message: string): void {
 
     if (colorValue === "inherit" || !colorValue) {
       formattedMessage += parts[i];
-    } else if (colorValue.startsWith("#")) {
-      formattedMessage += chalk.hex(colorValue)(parts[i]);
+    } else if (colorValue.startsWit
     } else {
       formattedMessage += parts[i];
     }
@@ -54,6 +53,17 @@ function readStack(bytecodePath: string, numToDrop: number) {
   const decompressed = unpacked.map((arr: Uint8Array) => ungzip(arr));
   return decompressed;
 }
+
+const readBytecodeFile = (path: string): string => {
+  const encodedCircuit = JSON.parse(fs.readFileSync(path, "utf8"));
+  return encodedCircuit.bytecode;
+};
+
+const readWitnessFile = (path: string): Uint8Array => {
+  const buffer = fs.readFileSync(path);
+  return buffer;
+};
+
 // Set up the command-line interface
 const program = new Command("headless_test");
 program.option("-v, --verbose", "verbose logging");
@@ -66,8 +76,8 @@ program
   )
   .option(
     "-b, --bytecode-path <path>",
-    "Specify the path to the gzip encoded ACIR bytecode",
-    "./target/acir.gz"
+    "Specify the path to the ACIR artifact json file",
+    "./target/acir.json"
   )
   .option(
     "-w, --witness-path <path>",
@@ -101,11 +111,18 @@ program
       console.log('went to page');
 
       const result: boolean = await page.evaluate(
-        ([acirData, witnessData, threads]) => {
-          console.log("calling runTest");
-          return (window as any).runTest(acirData, witnessData, threads);
+        ([acir, witnessData, threads]: [string, number[], number]) => {
+          // Convert the input data to Uint8Arrays within the browser context
+          const witnessUint8Array = new Uint8Array(witnessData);
+
+          // Call the desired function and return the result
+          return (window as any).runTest(
+            acir,
+            witnessUint8Array,
+            threads
+          );
         },
-        [acir, witness, threads]
+        [acir, Array.from(witness), threads] // WORKTODO: not an array?
       );
 
       await browser.close();

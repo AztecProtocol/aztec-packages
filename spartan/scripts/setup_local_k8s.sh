@@ -35,3 +35,5 @@ if kind get clusters | grep -q "^kind$"; then
 else
   kind create cluster
 fi
+
+kubectl config use-context kind-kind

@@ -58,14 +58,12 @@ export function initPersistableStateManager(overrides?: {
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
-    overrides?.storageAddress ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
     overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
-    overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
   );
 }
@@ -148,4 +146,11 @@ export function resolveAvmTestContractAssertionMessage(
   }
 
   return resolveAssertionMessage(revertReason.noirCallStack, debugMetadata);
+}
+
+export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
+  const params = artifact.parameters;
+  return FunctionSelector.fromNameAndParameters(artifact.name, params);
 }

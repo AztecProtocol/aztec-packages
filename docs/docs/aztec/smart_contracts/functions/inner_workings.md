@@ -8,11 +8,11 @@ Below, we go more into depth of what is happening under the hood when you create
 
 If you are looking for a reference of function macros, go [here](../../../reference/developer_references/smart_contract_reference/macros.md).
 
-## Private functions #[aztec(private)]
+## Private functions #[private]
 
-A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[aztec(private)]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
+A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[private]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#aztec(private)` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/circuits/kernels/private_kernel.md).
+`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -107,7 +107,7 @@ Beyond using them inside your other functions, they are convenient for providing
 Note, that unconstrained functions can have access to both public and private data when executed on the user's device. This is possible since it is not actually part of the circuits that are executed in contract execution.
 :::
 
-## `Public` Functions #[aztec(public)]
+## `Public` Functions #[public]
 
 A public function is executed by the sequencer and has access to a state model that is very similar to that of the EVM and Ethereum. Even though they work in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
 
@@ -115,7 +115,7 @@ A public function is executed by the sequencer and has access to a state model t
 All data inserted into private storage from a public function will be publicly viewable (not private).
 :::
 
-To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the public context available within the function's execution scope.
+To create a public function you can annotate it with the `#[public]` attribute. This will make the public context available within the function's execution scope.
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -139,17 +139,17 @@ let storage = Storage::init(&mut context);
 - Visibility Control: The function is marked as pub, making it accessible from outside the contract.
 - Unconstrained Execution: Public functions are marked as unconstrained, meaning they don't generate proofs and are executed directly by the sequencer.
 
-## Constrained `view` Functions #[aztec(view)]
+## Constrained `view` Functions #[view]
 
-The `#[aztec(view)]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions-aztecunconstrained) keyword but are executed in a constrained environment. It is not possible to update state within an `#[aztec(view)]` function.
+The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions-aztecunconstrained) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
 
 This means the results of these functions are verifiable and can be trusted, as they are part of the proof generation and verification process. This is unlike unconstrained functions, where results are provided by the PXE and are not verified.
 
-This makes `#[aztec(view)]` functions suitable for critical read-only operations where the integrity of the result is crucial. Unconstrained functions, on the other hand, are executed entirely client-side without generating any proofs. It is better to use `#[aztec(view)]` if the result of the function will be used in another function that will affect state, and they can be used for cross-contract calls.
+This makes `#[view]` functions suitable for critical read-only operations where the integrity of the result is crucial. Unconstrained functions, on the other hand, are executed entirely client-side without generating any proofs. It is better to use `#[view]` if the result of the function will be used in another function that will affect state, and they can be used for cross-contract calls.
 
-`#[aztec(view)]` functions can be combined with other Aztec attributes like `#[aztec(private)]` or `#[aztec(public)]`.
+`#[view]` functions can be combined with other Aztec attributes like `#[private]` or `#[public]`.
 
-## `Initializer` Functions #[aztec(initializer)]
+## `Initializer` Functions #[initializer]
 
 This is used to designate functions as initializers (or constructors) for an Aztec contract. These functions are responsible for setting up the initial state of the contract when it is first deployed. The macro does two important things:
 
@@ -159,18 +159,18 @@ This is used to designate functions as initializers (or constructors) for an Azt
 Key things to keep in mind:
 
 - A contract can have multiple initializer functions defined, but only one initializer function should be called for the lifetime of a contract instance
-- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[aztec(noinitcheck)]`](#aztecnoinitcheck)
+- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#aztecnoinitcheck)
 
-## #[aztec(noinitcheck)]
+## #[noinitcheck]
 
-In normal circumstances, all functions in an Aztec contract (except initializers) have an initialization check inserted at the beginning of the function body. This check ensures that the contract has been initialized before any other function can be called. However, there may be scenarios where you want a function to be callable regardless of the contract's initialization state. This is when you would use `#[aztec(noinitcheck)]`.
+In normal circumstances, all functions in an Aztec contract (except initializers) have an initialization check inserted at the beginning of the function body. This check ensures that the contract has been initialized before any other function can be called. However, there may be scenarios where you want a function to be callable regardless of the contract's initialization state. This is when you would use `#[noinitcheck]`.
 
-When a function is annotated with `#[aztec(noinitcheck)]`:
+When a function is annotated with `#[noinitcheck]`:
 
 - The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-aztecinitializer) for this specific function
 - The function can be called at any time, even if the contract hasn't been initialized yet
 
-## `Internal` functions #[aztec(internal)]
+## `Internal` functions #[internal]
 
 This macro inserts a check at the beginning of the function to ensure that the caller is the contract itself. This is done by adding the following assertion:
 
@@ -178,11 +178,11 @@ This macro inserts a check at the beginning of the function to ensure that the c
 assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
 ```
 
-## Custom notes #[aztec(note)]
+## Custom notes #[note]
 
-The `#[aztec(note)]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
+The `#[note]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
-When a struct is annotated with `#[aztec(note)]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
+When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
 1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
 
@@ -208,7 +208,7 @@ When a struct is annotated with `#[aztec(note)]`, the Aztec macro applies a seri
 Here is how you could define a custom note:
 
 ```rust
-#[aztec(note)]
+#[note]
 struct CustomNote {
     data: Field,
     owner: Address,
@@ -293,11 +293,11 @@ Key things to keep in mind:
 - Developers can override any of the auto-generated methods by specifying a note interface
 - The note's fields are automatically serialized and deserialized in the order they are defined in the struct
 
-## Storage struct #[aztec(storage)]
+## Storage struct #[storage]
 
-The `#[aztec(storage)]` attribute is used to define the storage structure for an Aztec contract.
+The `#[storage]` attribute is used to define the storage structure for an Aztec contract.
 
-When a struct is annotated with `#[aztec(storage)]`, the macro does this under the hood:
+When a struct is annotated with `#[storage]`, the macro does this under the hood:
 
 1. **Context Injection**: injects a `Context` generic parameter into the storage struct and all its fields. This allows the storage to interact with the Aztec context, eg when using `context.msg_sender()`
 
@@ -310,7 +310,7 @@ When a struct is annotated with `#[aztec(storage)]`, the macro does this under t
 ### Before expansion
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
     balance: PublicMutable<Field>,
     owner: PublicMutable<Address>,

@@ -13,7 +13,7 @@ namespace alu(256);
     pol commit ic;
     pol commit sel_alu; // Predicate to activate the copy of intermediate registers to ALU table.
 
-    // Instruction tag (1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7: field) copied from Main table
+    // Instruction tag copied from Main table (MEM_TAG enum defined in constants)
     pol commit in_tag;
 
     // Flattened boolean instruction tags

@@ -39,12 +39,13 @@ export class GetContractInstance extends Instruction {
       instance.deployer.toField(),
       instance.contractClassId,
       instance.initializationHash,
-      instance.publicKeysHash,
+      // This this okay ?
+      ...instance.publicKeys.toFields(),
     ].map(f => new Field(f));
 
     memory.setSlice(dstOffset, data);
 
-    memory.assert({ reads: 1, writes: 6, addressing });
+    memory.assert({ reads: 1, writes: 17, addressing });
     context.machineState.incrementPc();
   }
 }
