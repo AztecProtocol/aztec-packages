@@ -42,7 +42,9 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+          .as(Opcode.ADD_16, Add.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -68,7 +70,9 @@ describe('Arithmetic Instructions', () => {
         /*aOffset=*/ 10,
         /*bOffset=*/ 11,
         /*dstOffset=*/ 2, // We expect the result to be stored at MEM[30 + 2] = 5
-      ).execute(context);
+      )
+        .as(Opcode.ADD_16, Add.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(5);
       expect(actual).toEqual(new Field(3n));
@@ -85,7 +89,9 @@ describe('Arithmetic Instructions', () => {
       it(`${TypeTag[tag]}`, async () => {
         context.machineState.memory.set(0, a);
 
-        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 2).execute(context);
+        await new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 2)
+          .as(Opcode.ADD_16, Add.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -123,7 +129,9 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+          .as(Opcode.SUB_16, Sub.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -147,7 +155,9 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+          .as(Opcode.SUB_16, Sub.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -185,7 +195,9 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+          .as(Opcode.MUL_16, Mul.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -204,7 +216,9 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+          .as(Opcode.MUL_16, Mul.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -242,7 +256,9 @@ describe('Arithmetic Instructions', () => {
         context.machineState.memory.set(0, a);
         context.machineState.memory.set(1, b);
 
-        await new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+        await new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+          .as(Opcode.DIV_16, Div.wireFormat16)
+          .execute(context);
 
         const actual = context.machineState.memory.get(2);
         expect(actual).toEqual(expected);
@@ -275,7 +291,9 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new FieldDiv(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new FieldDiv(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.FDIV_16, FieldDiv.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Field(2));

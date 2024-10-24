@@ -92,8 +92,8 @@ export class AvmMachineState {
   /**
    * Most instructions just increment PC before they complete
    */
-  public incrementPc() {
-    this.pc++;
+  public incrementPc(instrSize: number) {
+    this.pc += instrSize;
   }
 
   /**

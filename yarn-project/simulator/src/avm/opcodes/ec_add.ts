@@ -92,6 +92,6 @@ export class EcAdd extends Instruction {
     memory.set(dstOffset + 2, new Field(dest.equals(Point.ZERO) ? 1 : 0));
 
     memory.assert({ reads: 6, writes: 3, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }

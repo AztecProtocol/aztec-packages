@@ -139,12 +139,10 @@ const INSTRUCTION_SET = () =>
     [EcAdd.opcode, Instruction.deserialize.bind(EcAdd)],
     [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
     [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
+    [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
     [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
     // Conversions
     [ToRadixLE.opcode, Instruction.deserialize.bind(ToRadixLE)],
-    // Future Gadgets -- pending changes in noir
-    // SHA256COMPRESSION,
-    [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
   ]);
 
 /**
@@ -180,4 +178,25 @@ export function decodeFromBytecode(
   }
 
   return instructions;
+}
+
+export function decodeInstructionFromBytecode(
+  bytecode: Buffer,
+  pc: number,
+  instructionSet: InstructionSet = INSTRUCTION_SET(),
+): Instruction {
+  if (pc >= bytecode.length) {
+    throw new Error(`pc ${pc} is out of bounds for bytecode of length ${bytecode.length}`);
+  }
+
+  const cursor = new BufferCursor(bytecode, pc);
+
+  const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
+  const instructionDeserializerOrUndef = instructionSet.get(opcode);
+  if (instructionDeserializerOrUndef === undefined) {
+    throw new Error(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
+  }
+
+  const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
+  return instructionDeserializer(cursor);
 }

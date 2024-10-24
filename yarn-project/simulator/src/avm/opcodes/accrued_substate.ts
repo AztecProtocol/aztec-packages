@@ -43,7 +43,7 @@ export class NoteHashExists extends Instruction {
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
 
@@ -74,7 +74,7 @@ export class EmitNoteHash extends Instruction {
     context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
 
@@ -115,7 +115,7 @@ export class NullifierExists extends Instruction {
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
 
@@ -157,7 +157,7 @@ export class EmitNullifier extends Instruction {
     }
 
     memory.assert({ reads: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
 
@@ -201,7 +201,7 @@ export class L1ToL2MessageExists extends Instruction {
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
 
@@ -236,7 +236,7 @@ export class EmitUnencryptedLog extends Instruction {
     context.persistableState.writeUnencryptedLog(contractAddress, log);
 
     memory.assert({ reads: 1 + logSize, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
 
@@ -267,6 +267,6 @@ export class SendL2ToL1Message extends Instruction {
     context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
 
     memory.assert({ reads: 2, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }

@@ -78,6 +78,6 @@ export class GetEnvVar extends Instruction {
     memory.set(dstOffset, getValue(this.varEnum, context));
 
     memory.assert({ writes: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
