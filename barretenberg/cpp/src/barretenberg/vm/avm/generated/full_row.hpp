@@ -745,6 +745,7 @@ template <typename FF> struct AvmFullRow {
 
     static std::vector<std::string> names();
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t SIZE = 730;
 =======
 <<<<<<< HEAD
@@ -753,6 +754,9 @@ template <typename FF> struct AvmFullRow {
     static constexpr size_t SIZE = 702;
 >>>>>>> e89fbe81cb (Rebase on master and run codegen)
 >>>>>>> eb84583b4d (Rebase on master and run codegen)
+=======
+    static constexpr size_t SIZE = 726;
+>>>>>>> 3d279e3a98 (Rebase on master)
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

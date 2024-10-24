@@ -70,9 +70,9 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                     col_size = num_rows;
                 } else {
                     // We process each column from bottom and stops as soon as we encounter a non-zero entry.
-                    for (size_t j = num_rows; j > 0; --j) {
-                        if (!rows[j - 1].as_vector()[col_idx].is_zero()) {
-                            col_size = j;
+                    for (size_t j = 0; j < num_rows; j++) {
+                        if (!rows[num_rows - j - 1].as_vector()[col_idx].is_zero()) {
+                            col_size = num_rows - j;
                             break;
                         }
                     }
