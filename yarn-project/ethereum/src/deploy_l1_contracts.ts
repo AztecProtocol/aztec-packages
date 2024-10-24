@@ -43,7 +43,6 @@ import {
   http,
   numberToHex,
   padHex,
-  zeroAddress,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
