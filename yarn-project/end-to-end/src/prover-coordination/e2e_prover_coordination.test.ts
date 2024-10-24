@@ -122,7 +122,7 @@ describe('e2e_prover_coordination', () => {
       client: ctx.deployL1ContractsValues.walletClient,
     });
 
-    // Ensure the prover has enough funds to in escrow
+    // Ensure the prover has enough funds to put in escrow
     await performEscrow(10000000n);
   });
 
