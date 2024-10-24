@@ -1,18 +1,19 @@
 use std::{
     meta::{unquote, type_of}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
 };
-use crate::macros::utils::{get_fn_visibility, is_fn_view, is_fn_private, add_to_field_slice, compute_fn_selector, is_fn_public};
+use crate::macros::utils::{
+    get_fn_visibility, is_fn_view, is_fn_private, add_to_field_slice, compute_fn_selector,
+    is_fn_public,
+};
 
-comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
+    UHashMap::default();
 
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
-    let mut parameters = f.parameters().map(
-        | (name, typ): (Quoted, Type) | {
-        quote { $name: $typ }
-    }
-    ).join(quote{,});
+    let mut parameters =
+        f.parameters().map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
@@ -76,7 +77,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
                 $args_hasher
                 $appended_arg
             }
-        }
+        },
     );
 
     let args_hash_name = if fn_visibility == quote { private } {
@@ -94,31 +95,21 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         args_acc
     };
 
-    let fn_parameters_list = fn_parameters.map(
-        | (name, typ): (Quoted, Type) | {
-            quote { $name: $typ }
-        }
-    ).join(quote{,});
+    let fn_parameters_list =
+        fn_parameters.map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
 
     let fn_name_str = fn_name.as_str_quote();
 
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
 
-    let arg_types_list: Quoted = fn_parameters.map(|(_, typ): (_, Type)| quote { $typ }).join(quote {,});
-    let arg_types = if fn_parameters.len() == 1 {
-        // Extra colon to avoid it being interpreted as a parenthesized expression instead of a tuple
-        quote { ($arg_types_list,) }
-    } else {
-        quote { ($arg_types_list) }
-    };
-
     let call_interface_generics = if is_void {
-        quote { $fn_name_len, $arg_types }
+        quote { $fn_name_len }
     } else {
-        quote { $fn_name_len, $fn_return_type, $arg_types }
+        quote { $fn_name_len, $fn_return_type }
     };
 
-    let call_interface_name = f"dep::aztec::context::call_interfaces::{fn_visibility_capitalized}{is_static_call_capitalized}{is_void_capitalized}CallInterface".quoted_contents();
+    let call_interface_name = f"dep::aztec::context::call_interfaces::{fn_visibility_capitalized}{is_static_call_capitalized}{is_void_capitalized}CallInterface"
+        .quoted_contents();
 
     let fn_selector: Field = compute_fn_selector(f);
 
@@ -126,38 +117,6 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote { gas_opts: dep::aztec::context::gas::GasOpts::default() }
     } else {
         quote {}
-    };
-
-    let input_type = if is_fn_private(f) {
-        quote { crate::context::inputs::PrivateContextInputs }.as_type()
-    } else {
-        quote { () }.as_type()
-    };
-
-    let return_type_hint = if is_fn_private(f) {
-        quote { protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
-    } else {
-        fn_return_type
-    };
-
-    let mut parameter_names_list = fn_parameters.map(|(name, _): (Quoted, _)| name);
-    let parameter_names = if is_fn_private(f) {
-        &[quote {inputs}].append(parameter_names_list).join(quote{,})
-    } else {
-        parameter_names_list.join(quote {,})
-    };
-    let original = if is_fn_private(f) {
-        quote {
-            | inputs: $input_type  | -> $return_type_hint {
-                $fn_name($parameter_names)
-            }
-        }
-    } else {
-        quote {
-            | _: $input_type | -> $return_type_hint {
-                unsafe { $fn_name($parameter_names) }
-            }
-        }
     };
 
     let args_hash = if fn_visibility == quote { private } {
@@ -176,7 +135,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
                 name: $fn_name_str,
                 $args_hash
                 args: $args_acc_name,
-                original: $original,
+                return_type: std::mem::zeroed(),
                 is_static: $is_static_call,
                 $gas_opts
             }

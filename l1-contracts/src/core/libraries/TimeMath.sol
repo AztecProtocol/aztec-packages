@@ -131,6 +131,22 @@ function addEpoch(Epoch a, Epoch b) pure returns (Epoch) {
   return Epoch.wrap(Epoch.unwrap(a) + Epoch.unwrap(b));
 }
 
+function gteEpoch(Epoch a, Epoch b) pure returns (bool) {
+  return Epoch.unwrap(a) >= Epoch.unwrap(b);
+}
+
+function gtEpoch(Epoch a, Epoch b) pure returns (bool) {
+  return Epoch.unwrap(a) > Epoch.unwrap(b);
+}
+
+function lteEpoch(Epoch a, Epoch b) pure returns (bool) {
+  return Epoch.unwrap(a) <= Epoch.unwrap(b);
+}
+
+function ltEpoch(Epoch a, Epoch b) pure returns (bool) {
+  return Epoch.unwrap(a) < Epoch.unwrap(b);
+}
+
 using {
   addTimestamp as +,
   subTimestamp as -,
@@ -142,7 +158,16 @@ using {
   eqTimestamp as ==
 } for Timestamp global;
 
-using {addEpoch as +, subEpoch as -, eqEpoch as ==, neqEpoch as !=} for Epoch global;
+using {
+  addEpoch as +,
+  subEpoch as -,
+  eqEpoch as ==,
+  neqEpoch as !=,
+  gteEpoch as >=,
+  gtEpoch as >,
+  lteEpoch as <=,
+  ltEpoch as <
+} for Epoch global;
 
 using {
   eqSlot as ==,

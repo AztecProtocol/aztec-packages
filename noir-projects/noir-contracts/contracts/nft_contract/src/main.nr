@@ -11,17 +11,24 @@ contract NFT {
     use dep::aztec::{
         oracle::random::random,
         prelude::{
-        NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateContext,
-        PrivateSet, AztecAddress, PublicContext
-    },
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note, encrypt_and_emit_partial_log}},
-        keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
+            NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
+            AztecAddress,
+        },
+        encrypted_logs::encrypted_note_emission::{
+            encode_and_encrypt_note, encrypt_and_emit_partial_log,
+        }, hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator,
         protocol_types::{point::Point, traits::Serialize},
-        macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}}
+        macros::{
+            storage::storage, events::event,
+            functions::{private, public, view, internal, initializer},
+        },
     };
-    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
-    use std::meta::derive;
+    use dep::authwit::auth::{
+        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+        compute_authwit_nullifier,
+    };
+    use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
     use crate::types::nft_note::NFTNote;
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
@@ -175,10 +182,9 @@ contract NFT {
         // We create a setup payload with unpopulated/zero token id for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
-        let note_randomness = unsafe {
-            random()
-        };
-        let note_setup_payload = NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+        let note_randomness = unsafe { random() };
+        let note_setup_payload =
+            NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
         // We encrypt and emit the partial note log
         encrypt_and_emit_partial_log(context, note_setup_payload.log_plaintext, to_keys, to);
@@ -278,16 +284,21 @@ contract NFT {
 
         let nfts = storage.private_nfts;
 
-        let notes = nfts.at(from).pop_notes(
-            NoteGetterOptions::new().select(NFTNote::properties().token_id, Comparator.EQ, token_id).set_limit(1)
-        );
+        let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
+            .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+            .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
         let from_ovpk_m = get_public_keys(from).ovpk_m;
         let to_keys = get_public_keys(to);
 
         let mut new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
-        nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, from_ovpk_m, to_keys.ivpk_m, to));
+        nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(
+            &mut context,
+            from_ovpk_m,
+            to_keys.ivpk_m,
+            to,
+        ));
     }
 
     #[private]
@@ -298,12 +309,14 @@ contract NFT {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let notes = storage.private_nfts.at(from).pop_notes(
-            NoteGetterOptions::new().select(NFTNote::properties().token_id, Comparator.EQ, token_id).set_limit(1)
-        );
+        let notes = storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new()
+            .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
+            .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring to public");
 
-        NFT::at(context.this_address())._finish_transfer_to_public(to, token_id).enqueue(&mut context);
+        NFT::at(context.this_address())._finish_transfer_to_public(to, token_id).enqueue(
+            &mut context,
+        );
     }
 
     #[public]
@@ -323,7 +336,10 @@ contract NFT {
     /// Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was
     /// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
     /// values for non-existing notes.
-    unconstrained fn get_private_nfts(owner: AztecAddress, page_index: u32) -> pub ([Field; MAX_NOTES_PER_PAGE], bool) {
+    unconstrained fn get_private_nfts(
+        owner: AztecAddress,
+        page_index: u32,
+    ) -> pub ([Field; MAX_NOTES_PER_PAGE], bool) {
         let offset = page_index * MAX_NOTES_PER_PAGE;
         let mut options = NoteViewerOptions::new();
         let notes = storage.private_nfts.at(owner).view_notes(options.set_offset(offset));

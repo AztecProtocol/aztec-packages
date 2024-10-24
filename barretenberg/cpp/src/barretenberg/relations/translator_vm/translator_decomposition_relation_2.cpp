@@ -10,9 +10,10 @@ template void TranslatorDecompositionRelationImpl<TranslatorFlavor::FF>::accumul
     RelationParameters<TranslatorFlavor::FF> const&,
     TranslatorFlavor::FF const&);
 template void TranslatorDecompositionRelationImpl<TranslatorFlavor::FF>::accumulate<
-    bb::Relation<TranslatorDecompositionRelationImpl<TranslatorFlavor::FF>>::SumcheckTupleOfUnivariatesOverSubrelations,
+    bb::Relation<
+        TranslatorDecompositionRelationImpl<TranslatorFlavor::FF>>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
     TranslatorFlavor::ExtendedEdges>(bb::Relation<TranslatorDecompositionRelationImpl<TranslatorFlavor::FF>>::
-                                         SumcheckTupleOfUnivariatesOverSubrelations&,
+                                         ZKSumcheckTupleOfUnivariatesOverSubrelations&,
                                      TranslatorFlavor::ExtendedEdges const&,
                                      RelationParameters<TranslatorFlavor::FF> const&,
                                      TranslatorFlavor::FF const&);

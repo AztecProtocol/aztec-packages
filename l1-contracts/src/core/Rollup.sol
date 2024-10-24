@@ -272,6 +272,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       }
     }
 
+    if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
+      PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
+    }
+
     emit L2ProofVerified(endBlockNumber, _args[6]);
   }
 
@@ -358,12 +362,23 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     _validateHeader(header, _signatures, _digest, _currentTime, _txsEffectsHash, _flags);
   }
 
-  function nextEpochToClaim() external view override(IRollup) returns (Epoch) {
-    Epoch epochClaimed = proofClaim.epochToProve;
-    if (proofClaim.proposerClaimant == address(0) && epochClaimed == Epoch.wrap(0)) {
-      return Epoch.wrap(0);
-    }
-    return Epoch.wrap(1) + epochClaimed;
+  /**
+   * @notice  Get the next epoch that can be claimed
+   * @dev     Will revert if the epoch has already been claimed or if there is no epoch to prove
+   */
+  function getClaimableEpoch() external view override(IRollup) returns (Epoch) {
+    Epoch epochToProve = getEpochToProve();
+    require(
+      // If the epoch has been claimed, it cannot be claimed again
+      proofClaim.epochToProve != epochToProve
+      // Edge case for if no claim has been made yet.
+      // We know that the bondProvider is always set,
+      // Since otherwise the claimEpochProofRight would have reverted,
+      // because the zero address cannot have deposited funds into escrow.
+      || proofClaim.bondProvider == address(0),
+      Errors.Rollup__ProofRightAlreadyClaimed()
+    );
+    return epochToProve;
   }
 
   function computeTxsEffectsHash(bytes calldata _body)

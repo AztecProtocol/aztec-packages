@@ -96,12 +96,7 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
-            BrilligOpcode::BinaryIntOp { destination, op, bit_size, lhs, rhs } => {
-                assert!(
-                    is_integral_bit_size(*bit_size),
-                    "BinaryIntOp bit size should be integral: {:?}",
-                    brillig_instr
-                );
+            BrilligOpcode::BinaryIntOp { destination, op, lhs, rhs, .. } => {
                 let bits_needed =
                     [*lhs, *rhs, *destination].iter().map(bits_needed_for).max().unwrap();
                 assert!(
@@ -189,12 +184,7 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
-            BrilligOpcode::Not { destination, source, bit_size } => {
-                assert!(
-                    is_integral_bit_size(*bit_size),
-                    "Not bit size should be integral: {:?}",
-                    brillig_instr
-                );
+            BrilligOpcode::Not { destination, source, .. } => {
                 let bits_needed =
                     [*source, *destination].iter().map(bits_needed_for).max().unwrap();
                 assert!(
@@ -1012,9 +1002,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::Keccakf1600 { message, output } => {
-            let message_offset = message.pointer.to_usize();
-            let message_size_offset = message.size.to_usize();
+        BlackBoxOp::Keccakf1600 { input, output } => {
+            let input_offset = input.pointer.to_usize();
+            assert_eq!(input.size, 25, "Keccakf1600 input size must be 25!");
             let dest_offset = output.pointer.to_usize();
             assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
 
@@ -1023,14 +1013,12 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
-                        .indirect_operand(&message.pointer)
-                        .direct_operand(&message.size)
+                        .indirect_operand(&input.pointer)
                         .build(),
                 ),
                 operands: vec![
                     AvmOperand::U16 { value: dest_offset as u16 },
-                    AvmOperand::U16 { value: message_offset as u16 },
-                    AvmOperand::U16 { value: message_size_offset as u16 },
+                    AvmOperand::U16 { value: input_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1421,18 +1409,6 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
         pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
     }
     pc_map
-}
-
-fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
-    matches!(
-        bit_size,
-        IntegerBitSize::U1
-            | IntegerBitSize::U8
-            | IntegerBitSize::U16
-            | IntegerBitSize::U32
-            | IntegerBitSize::U64
-            | IntegerBitSize::U128
-    )
 }
 
 fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
