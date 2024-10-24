@@ -1,6 +1,9 @@
 use crate::{context::PrivateContext, oracle::get_contract_instance::get_contract_instance};
 
-use dep::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector, constants::DEPLOYER_CONTRACT_ADDRESS};
+use dep::protocol_types::{
+    address::AztecAddress, abis::function_selector::FunctionSelector,
+    constants::DEPLOYER_CONTRACT_ADDRESS,
+};
 
 // Calls `deploy` on the deployer contract to deploy a new instance.
 pub fn deploy_contract(context: &mut PrivateContext, target: AztecAddress) {
@@ -9,7 +12,8 @@ pub fn deploy_contract(context: &mut PrivateContext, target: AztecAddress) {
     let universal_deploy = instance.deployer.is_zero();
     if !universal_deploy {
         assert(
-            instance.deployer == context.this_address(), "Deployer address does not match current address"
+            instance.deployer == context.this_address(),
+            "Deployer address does not match current address",
         );
     }
 
@@ -32,10 +36,10 @@ pub fn deploy_contract(context: &mut PrivateContext, target: AztecAddress) {
     let _call_result = context.call_private_function(
         DEPLOYER_CONTRACT_ADDRESS,
         comptime {
-        FunctionSelector::from_signature(
-            "deploy(Field,(Field),Field,(((Field,Field,bool)),((Field,Field,bool)),((Field,Field,bool)),((Field,Field,bool))),bool)"
-        )
-    },
-        serialized_args
+            FunctionSelector::from_signature(
+                "deploy(Field,(Field),Field,(((Field,Field,bool)),((Field,Field,bool)),((Field,Field,bool)),((Field,Field,bool))),bool)",
+            )
+        },
+        serialized_args,
     );
 }

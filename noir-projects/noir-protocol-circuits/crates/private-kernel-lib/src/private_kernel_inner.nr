@@ -1,26 +1,22 @@
-use crate::{
-    components::{
+use crate::components::{
     previous_kernel_validator::PreviousKernelValidator,
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
-}
+    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
-    private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
-    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-    private_circuit_public_inputs::PrivateCircuitPublicInputs
-},
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX}
+        kernel_circuit_public_inputs::{
+            PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
+        }, private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
+        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    },
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_INIT_INDEX,
-    PRIVATE_KERNEL_INNER_INDEX,
-    PRIVATE_KERNEL_RESET_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
@@ -32,37 +28,44 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
         private_call: PrivateCallDataWithoutPublicInputs,
-        app_public_inputs: PrivateCircuitPublicInputs
+        app_public_inputs: PrivateCircuitPublicInputs,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
-            private_call: private_call.to_private_call_data(app_public_inputs)
+            private_call: private_call.to_private_call_data(app_public_inputs),
         }
     }
 
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
-        PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).pop_top_call_request().with_private_call(self.private_call.public_inputs).finish()
+        PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(
+            self.previous_kernel.public_inputs,
+        )
+            .pop_top_call_request()
+            .with_private_call(self.private_call.public_inputs)
+            .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // Generate output.
-        let output = unsafe {
-            self.generate_output()
-        };
+        let output = unsafe { self.generate_output() };
 
         // Validate inputs.
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
-        let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
+        let previous_kernel_array_lengths =
+            PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
         let private_call_stack_size = previous_kernel_array_lengths.private_call_stack;
-        let call_request = self.previous_kernel.public_inputs.end.private_call_stack[private_call_stack_size - 1];
+        let call_request =
+            self.previous_kernel.public_inputs.end.private_call_stack[private_call_stack_size - 1];
         private_call_data_validator.validate_against_call_request(call_request);
-        private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
+        private_call_data_validator.validate_against_previous_kernel(
+            self.previous_kernel.public_inputs,
+        );
         private_call_data_validator.validate(
             output.end.note_hashes,
-            self.previous_kernel.public_inputs.constants.protocol_contract_tree_root
+            self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
         );
 
         // Validate output.
@@ -71,7 +74,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
                 self.private_call.public_inputs,
-                private_call_data_validator.array_lengths
+                private_call_data_validator.array_lengths,
             );
         }
         output
@@ -79,11 +82,13 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
+    use crate::private_kernel_inner::{
+        PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
+    };
     use dep::types::{
-        abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
+        abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         constants::{PRIVATE_KERNEL_INIT_INDEX, BASE_ROLLUP_INDEX},
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
     struct PrivateKernelInnerInputsBuilder {
@@ -93,7 +98,9 @@ mod tests {
 
     impl PrivateKernelInnerInputsBuilder {
         pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new_from_counter(15).in_vk_tree(PRIVATE_KERNEL_INIT_INDEX).as_parent_contract();
+            let mut previous_kernel = FixtureBuilder::new_from_counter(15)
+                .in_vk_tree(PRIVATE_KERNEL_INIT_INDEX)
+                .as_parent_contract();
             let private_call = FixtureBuilder::new_from_counter(200);
 
             // 0th nullifier must be non-zero.
@@ -133,12 +140,18 @@ mod tests {
         assert_array_eq(
             public_inputs.validation_requests.note_hash_read_requests,
             [
-            prev_note_hash_read_requests[0], curr_note_hash_read_requests[0], curr_note_hash_read_requests[1]
-        ]
+                prev_note_hash_read_requests[0],
+                curr_note_hash_read_requests[0],
+                curr_note_hash_read_requests[1],
+            ],
         );
         assert_array_eq(
             public_inputs.end.encrypted_logs_hashes,
-            [prev_encrypted_log_hashes[0], prev_encrypted_log_hashes[1], curr_encrypted_log_hashes[0]]
+            [
+                prev_encrypted_log_hashes[0],
+                prev_encrypted_log_hashes[1],
+                curr_encrypted_log_hashes[0],
+            ],
         );
     }
 
@@ -146,7 +159,8 @@ mod tests {
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PrivateKernelInnerInputsBuilder::new();
-            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.previous_kernel =
+                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
 
             let _res = builder.execute();
         }

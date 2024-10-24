@@ -1,7 +1,5 @@
 import { keccakf1600, poseidon2Permutation, sha256Compression } from '@aztec/foundation/crypto';
 
-import { strict as assert } from 'assert';
-
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint32, Uint64 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -56,39 +54,30 @@ export class KeccakF1600 extends Instruction {
     OperandType.UINT8,
     OperandType.UINT16,
     OperandType.UINT16,
-    OperandType.UINT16,
   ];
 
-  constructor(
-    private indirect: number,
-    private dstOffset: number,
-    private stateOffset: number,
-    // This is here for compatibility with the CPP side. Should be removed in both.
-    private stateSizeOffset: number,
-  ) {
+  constructor(private indirect: number, private dstOffset: number, private inputOffset: number) {
     super();
   }
 
   // pub fn keccakf1600(input: [u64; 25]) -> [u64; 25]
   public async execute(context: AvmContext): Promise<void> {
+    const inputSize = 25;
     const memory = context.machineState.memory.track(this.type);
-    const operands = [this.dstOffset, this.stateOffset, this.stateSizeOffset];
+    const operands = [this.dstOffset, this.inputOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [dstOffset, stateOffset, stateSizeOffset] = addressing.resolve(operands, memory);
-    memory.checkTag(TypeTag.UINT32, stateSizeOffset);
-    const stateSize = memory.get(stateSizeOffset).toNumber();
-    assert(stateSize === 25, 'Invalid state size for keccakf1600');
+    const [dstOffset, inputOffset] = addressing.resolve(operands, memory);
     context.machineState.consumeGas(this.gasCost());
 
-    memory.checkTagsRange(TypeTag.UINT64, stateOffset, stateSize);
+    memory.checkTagsRange(TypeTag.UINT64, inputOffset, inputSize);
 
-    const stateData = memory.getSlice(stateOffset, stateSize).map(word => word.toBigInt());
+    const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     const updatedState = keccakf1600(stateData);
 
     const res = updatedState.map(word => new Uint64(word));
     memory.setSlice(dstOffset, res);
 
-    memory.assert({ reads: stateSize + 1, writes: 25, addressing });
+    memory.assert({ reads: inputSize, writes: inputSize, addressing });
     context.machineState.incrementPc();
   }
 }

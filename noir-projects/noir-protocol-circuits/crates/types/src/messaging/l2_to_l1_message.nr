@@ -2,7 +2,7 @@ use crate::{
     address::{AztecAddress, EthAddress},
     constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH},
     abis::side_effect::{Ordered, Scoped}, traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader}
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
@@ -40,7 +40,11 @@ impl Serialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
 
 impl Deserialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
     fn deserialize(values: [Field; L2_TO_L1_MESSAGE_LENGTH]) -> Self {
-        Self { recipient: EthAddress::from_field(values[0]), content: values[1], counter: values[2] as u32 }
+        Self {
+            recipient: EthAddress::from_field(values[0]),
+            content: values[1],
+            counter: values[2] as u32,
+        }
     }
 }
 
@@ -59,8 +63,12 @@ impl ScopedL2ToL1Message {
     pub fn expose_to_public(self) -> Self {
         // Hide the counter when exposing to public.
         Self {
-            message: L2ToL1Message { recipient: self.message.recipient, content: self.message.content, counter: 0 },
-            contract_address: self.contract_address
+            message: L2ToL1Message {
+                recipient: self.message.recipient,
+                content: self.message.content,
+                counter: 0,
+            },
+            contract_address: self.contract_address,
         }
     }
 }
@@ -88,7 +96,10 @@ impl Eq for ScopedL2ToL1Message {
 
 impl Empty for ScopedL2ToL1Message {
     fn empty() -> Self {
-        ScopedL2ToL1Message { message: L2ToL1Message::empty(), contract_address: AztecAddress::empty() }
+        ScopedL2ToL1Message {
+            message: L2ToL1Message::empty(),
+            contract_address: AztecAddress::empty(),
+        }
     }
 }
 
@@ -103,7 +114,7 @@ impl Deserialize<SCOPED_L2_TO_L1_MESSAGE_LENGTH> for ScopedL2ToL1Message {
         let mut reader = Reader::new(values);
         let res = Self {
             message: reader.read_struct(L2ToL1Message::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize)
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
