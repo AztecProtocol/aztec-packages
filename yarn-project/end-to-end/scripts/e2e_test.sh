@@ -55,7 +55,7 @@ test_config=$(load_test_config "$TEST")
 # Determine the test path
 test_path=$(echo "$test_config" | yq e '.test_path // ""' -)
 if [ -z "$test_path" ]; then
-  test_path="${TEST}.test.ts"
+  test_path="${TEST}"
 fi
 
 # Check if the test uses docker compose
