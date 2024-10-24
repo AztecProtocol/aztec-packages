@@ -221,11 +221,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
             this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
             return;
           }
-          const tag = new Fr(noteLog.data.subarray(0, 32));
-          const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
-          this.taggedNoteEncryptedLogs.set(tag.toString(), [...currentNoteLogs, noteLog]);
-          const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
-          this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+          try {
+            const tag = new Fr(noteLog.data.subarray(0, 32));
+            const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
+            this.taggedNoteEncryptedLogs.set(tag.toString(), [...currentNoteLogs, noteLog]);
+            const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
+            this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+          } catch (err) {
+            this.#log.error(`Failed to add tagged note log to store: ${err}`);
+          }
         });
       });
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);

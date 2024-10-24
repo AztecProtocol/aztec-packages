@@ -60,15 +60,19 @@ export class LogStore {
               this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
               return;
             }
-            const tag = new Fr(noteLog.data.subarray(0, 32));
-            const hexHash = noteLog.hash().toString('hex');
-            // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't doesn't
-            // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
-            // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
-            // instead the hashes of the logs.
-            void this.#noteEncryptedLogHashesByTag.set(tag.toString(), hexHash);
-            void this.#noteEncryptedLogsByHash.set(hexHash, noteLog.toBuffer());
-            void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
+            try {
+              const tag = new Fr(noteLog.data.subarray(0, 32));
+              const hexHash = noteLog.hash().toString('hex');
+              // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't doesn't
+              // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
+              // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
+              // instead the hashes of the logs.
+              void this.#noteEncryptedLogHashesByTag.set(tag.toString(), hexHash);
+              void this.#noteEncryptedLogsByHash.set(hexHash, noteLog.toBuffer());
+              void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
+            } catch (err) {
+              this.#log.error(`Failed to add tagged note log to store: ${err}`);
+            }
           });
         });
         void this.#encryptedLogsByBlock.set(block.number, block.body.encryptedLogs.toBuffer());
