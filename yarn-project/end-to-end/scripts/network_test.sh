@@ -97,9 +97,9 @@ NAMESPACE=${NAMESPACE:-default}
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-ethereum $ANVIL_PORT:8545 2>/dev/null >/dev/null || true) &
 
 docker run --rm --network=host \
-  -e PXE_URL=http://127.0.0.1:9082 \
+  -e PXE_URL=http://127.0.0.1:$PXE_PORT \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \
-  -e ETHEREUM_HOST=http://127.0.0.1:9545 \
+  -e ETHEREUM_HOST=http://127.0.0.1:$ANVIL_PORT \
   -e LOG_JSON=1 \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
