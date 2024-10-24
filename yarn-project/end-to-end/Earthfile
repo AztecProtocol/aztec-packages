@@ -31,7 +31,7 @@ e2e-prover-fake-proofs:
 
 e2e-prover-coordination:
   LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/prover_coordination
+  RUN ./scripts/e2e_test.sh ./src/prover-coordination
 
 e2e-account-contracts:
   LOCALLY
