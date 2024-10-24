@@ -30,7 +30,7 @@ where
 
     let plaintext = note.to_be_bytes(storage_slot);
     let encrypted_log: [u8; 416 + N * 32] =
-        compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+        compute_encrypted_log(contract_address, ovsk_app, ovpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
@@ -122,7 +122,6 @@ pub fn encrypt_and_emit_partial_log<let M: u32>(
         context.this_address(),
         ovsk_app,
         recipient_keys.ovpk_m,
-        recipient_keys.ivpk_m,
         recipient,
         log_plaintext,
     );

@@ -24,6 +24,7 @@ use std::{
     ec::{sqrt, pow},
     embedded_curve_ops::{fixed_base_scalar_mul as derive_public_key, EmbeddedCurveScalar},
 };
+use crate::public_keys::AddressPoint;
 
 // Aztec address
 pub struct AztecAddress {
@@ -66,8 +67,12 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
-impl ToPoint for AztecAddress {
-    fn to_point(self) -> Point {
+impl AztecAddress {
+    pub fn zero() -> Self {
+        Self { inner: 0 }
+    }
+
+    pub fn to_address_point(self) -> AddressPoint {
         // Calculate y^2 = x^3 - 17
         let y_squared = pow(self.inner, 3) - 17;
 
@@ -84,13 +89,7 @@ impl ToPoint for AztecAddress {
             y = (BN254_FR_MODULUS_DIV_2 + BN254_FR_MODULUS_DIV_2 + 1) - y;
         }
 
-        Point { x: self.inner, y, is_infinite: false }
-    }
-}
-
-impl AztecAddress {
-    pub fn zero() -> Self {
-        Self { inner: 0 }
+        AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } }
     }
 
     pub fn compute_preaddress(
