@@ -11,6 +11,8 @@ inputs:
   run:
     # command to run once builder/tester available
     required: false
+  spot_strategy:
+    default: BestEffort
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -21,7 +23,7 @@ runs:
       run: |
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
-        echo "spot_strategy=BestEffort" >> $GITHUB_OUTPUT
+        echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types, aws chooses for us based on capacity
