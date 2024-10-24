@@ -82,7 +82,7 @@ tests:
   e2e_token_contract: {}
   flakey_e2e_tests:
     test_path: "./src/flakey"
-    command: "./scripts/e2e_test.sh ./src/flakey || true"
+    ignore_failures: true
   guides_dapp_testing:
     use_compose: true
   guides_sample_dapp:
@@ -100,7 +100,8 @@ tests:
       NAMESPACE: "smoke"
       FRESH_INSTALL: "true"
       VALUES_FILE: "$-default.yaml"
-    command: "./scripts/network_test.sh ./src/spartan/4epochs.test.ts || true"
+    command: "./scripts/network_test.sh ./src/spartan/4epochs.test.ts"
+    ignore_failures: true
   kind_network_smoke:
     env:
       NAMESPACE: "smoke"

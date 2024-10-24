@@ -58,9 +58,15 @@ if [ -z "$test_path" ]; then
   test_path="${TEST}"
 fi
 
+# Check for ignore_failures
+ignore_failures=$(echo "$test_config" | yq e '.ignore_failures // false' -)
+if [ "$ignore_failures" = "true" ]; then
+  echo "Ignoring failures for test $TEST"
+fi
+
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
-  run_docker_compose "$TEST" "$@"
+  run_docker_compose "$TEST" "$@" || [ "$ignore_failures" = "true" ]
 else
   # Set environment variables
   while IFS='=' read -r key value; do
@@ -77,7 +83,7 @@ else
       -e FAKE_PROOFS="$FAKE_PROOFS" \
       $env_args \
       --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
-      /bin/bash -c "$custom_command"
+      /bin/bash -c "$custom_command" || [ "$ignore_failures" = "true" ]
   else
     # Run the default docker command
     docker run \
@@ -85,6 +91,6 @@ else
       -e FAKE_PROOFS="$FAKE_PROOFS" \
       $env_args \
       --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
-      "$test_path" "$@"
+      "$test_path" "$@" || [ "$ignore_failures" = "true" ]
   fi
 fi
