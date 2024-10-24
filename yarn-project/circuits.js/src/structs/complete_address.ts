@@ -1,10 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { Grumpkin } from '../barretenberg/index.js';
 import { computePartialAddress } from '../contract/contract_address.js';
-import { computePreaddress, deriveKeys, derivePublicKeyFromSecretKey } from '../keys/index.js';
+import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
 import { type PartialAddress } from '../types/partial_address.js';
 import { PublicKeys } from '../types/public_keys.js';
 
@@ -36,14 +35,10 @@ export class CompleteAddress {
   }
 
   static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
-    const { publicKeys, masterIncomingViewingSecretKey } = deriveKeys(secretKey);
-    const preaddress = computePreaddress(publicKeys.hash(), partialAddress);
+    const { publicKeys } = deriveKeys(secretKey);
+    const address = computeAddress(publicKeys, partialAddress);
 
-    const addressSecret = masterIncomingViewingSecretKey.add(new Fq(preaddress.toBigInt()));
-
-    const addressPoint = derivePublicKeyFromSecretKey(addressSecret);
-
-    return new CompleteAddress(AztecAddress.fromField(addressPoint.x), publicKeys, partialAddress);
+    return new CompleteAddress(address, publicKeys, partialAddress);
   }
 
   getPreaddress() {
@@ -60,12 +55,9 @@ export class CompleteAddress {
 
   /** Throws if the address is not correctly derived from the public key and partial address.*/
   public validate() {
-    const expectedPreAddress = computePreaddress(this.publicKeys.hash(), this.partialAddress);
-    const expectedPreAddressPoint = derivePublicKeyFromSecretKey(new Fq(expectedPreAddress.toBigInt()));
+    const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
 
-    const expectedAddress = new Grumpkin().add(expectedPreAddressPoint, this.publicKeys.masterIncomingViewingPublicKey);
-
-    if (!AztecAddress.fromField(expectedAddress.x).equals(this.address)) {
+    if (!AztecAddress.fromField(expectedAddress).equals(this.address)) {
       throw new Error(
         `Address cannot be derived from public keys and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
       );

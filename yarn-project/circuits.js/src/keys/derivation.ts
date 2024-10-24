@@ -59,18 +59,31 @@ export function computeAddressFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Poin
 }
 
 export function computeAddressPointFromPreaddressAndIvpkM(preaddress: Fr, ivpkM: Point) {
+  // Given h, our preaddress, and our ivpk_m, we can derive our address point.
+  // All we need to do is:
+  // First, take our preaddress, and multiply it by the generator G
   const preaddressPoint = derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt()));
+  // Then we add our ivpk_m to it. Tada !
   const addressPoint = new Grumpkin().add(preaddressPoint, ivpkM);
 
   return addressPoint;
 }
 
 export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
+  // TLDR; (h + ivsk) * G = P1
+  // if P1.y is pos
+  //   S = (h + ivsk)
+  // else
+  //   S = Fq.MODULUS - (h + ivsk)
+  //
+  // Given h, our preaddress, and our ivsk, we have two different addressSecret candidates. One encodes to a point with a positive y-coordinate
+  // and the other encodes to a point with a negative y-coordinate. We take the addressSecret candidate that is a simple addition of the two Scalars.
   const addressSecretCandidate = ivsk.add(new Fq(preaddress.toBigInt()));
+  // We then multiply this secretCandidate by the generator G to create an addressPoint candidate.
   const addressPointCandidate = derivePublicKeyFromSecretKey(addressSecretCandidate);
 
-  // If our secret computes a point with a negative y-coordinate, we then negate the secret to produce the secret
-  // that can decrypt payloads encrypted with the point having a positive y-coordinate.
+  // Because all encryption to addresses is done using a point with the positive y-coordinate, if our addressSecret candidate derives a point with a
+  // negative y-coordinate, we use the other candidate by negating the secret. This transformation of the secret simply flips the y-coordinate of the derived point while keeping the x-coordinate the same.
   if (!(addressPointCandidate.y.toBigInt() <= (Fr.MODULUS - 1n) / 2n)) {
     return new Fq(Fq.MODULUS - addressSecretCandidate.toBigInt());
   }
