@@ -20,9 +20,6 @@ build:
     # yarn-project has the entry point to Aztec
     BUILD ./yarn-project/+build
 
-test-end-to-end:
-    BUILD ./yarn-project/end-to-end+e2e-tests
-
 release-meta:
     COPY .release-please-manifest.json /usr/src/.release-please-manifest.json
     SAVE ARTIFACT /usr/src /usr/src
@@ -46,7 +43,7 @@ UPLOAD_LOGS:
     ENV BRANCH=$BRANCH
     ENV COMMIT_HASH=$COMMIT_HASH
     RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
-    
+
 base-log-uploader:
     # Install awscli on a fresh ubuntu, and copy the repo "scripts" folder, which we'll use to upload logs
     # Note that we cannot do this LOCALLY because Earthly does not support using secrets locally
