@@ -13,8 +13,8 @@ template <typename FF_> class ECCVMSetRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        21, // grand product construction sub-relation
-        21  // left-shiftable polynomial sub-relation
+        22, // grand product construction sub-relation
+        3   // left-shiftable polynomial sub-relation
     };
     /**
      * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
@@ -23,9 +23,12 @@ polynomials,
      * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
      */
     static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        20, // grand product construction sub-relation
-        20  // left-shiftable polynomial sub-relation
+        21, // grand product construction sub-relation
+        1   // left-shiftable polynomial sub-relation
     };
+
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 43;
 
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {
