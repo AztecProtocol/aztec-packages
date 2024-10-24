@@ -15,8 +15,6 @@ get_test_names() {
 # Read the full list from the YAML file
 full_list=$(get_test_names)
 
-echo "Full list: $full_list"
-
 # Define the jobs that will run on every PR
 allow_list=(
   "e2e_2_pxes"

@@ -170,7 +170,6 @@ jobs:
           fi
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-          echo "compose_list=$(./scripts/ci/get_e2e_compose_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: |
