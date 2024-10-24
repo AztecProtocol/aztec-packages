@@ -14,7 +14,6 @@ import {
   type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
   type RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
@@ -73,7 +72,7 @@ export interface ServerCircuitProver {
     tubeInput: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>>;
+  ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -139,7 +138,7 @@ export interface ServerCircuitProver {
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>>;
+  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
 }
 
 /**

@@ -12,7 +12,6 @@ import {
   type BlockRootOrBlockMergePublicInputs,
   type KernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   VerificationKeyData,
@@ -127,7 +126,7 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getTubeProof(): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  getTubeProof(): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return Promise.resolve(
       makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFake()),
     );

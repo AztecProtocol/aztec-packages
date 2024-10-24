@@ -25,7 +25,6 @@ import {
   type Proof,
   type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
@@ -168,9 +167,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public async getTubeProof(
-    _tubeInput: TubeInputs,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
+  public async getTubeProof(_tubeInput: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     await this.delay();
     return makeProofAndVerificationKey(makeEmptyRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeHonk());
   }
@@ -293,7 +290,7 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getAvmProof(
     _inputs: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');

@@ -96,7 +96,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 export class ProvingOrchestrator implements EpochProver {
   private provingState: EpochProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
-  private paddingTxProof?: ProofAndVerificationKey<RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
+  private paddingTxProof?: ProofAndVerificationKey<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
@@ -511,7 +511,7 @@ export class ProvingOrchestrator implements EpochProver {
   private provePaddingTransactions(
     txInputs: Array<{ hints: BaseRollupHints; snapshot: TreeSnapshots }>,
     paddingTx: ProcessedTx,
-    proofAndVk: ProofAndVerificationKey<RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>>,
+    proofAndVk: ProofAndVerificationKey<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
     provingState: BlockProvingState,
   ) {
     // The padding tx contains the proof and vk, generated separately from the base inputs
