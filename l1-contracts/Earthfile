@@ -8,7 +8,7 @@ src:
 
 lint:
     FROM +src
-    RUN solhint --config ./.solhint.json --fix "src/**/*.sol"
+    RUN solhint --config ./.solhint.json "src/**/*.sol"
     RUN forge clean && forge fmt --check
 
 build:

@@ -16,15 +16,20 @@ contract MockFeeJuicePortal is IFeeJuicePortal {
     UNDERLYING = new TestERC20();
   }
 
-  function initialize() external override {}
+  function initialize() external override(IFeeJuicePortal) {}
 
-  function distributeFees(address, uint256) external override {}
+  function distributeFees(address, uint256) external override(IFeeJuicePortal) {}
 
-  function depositToAztecPublic(bytes32, uint256, bytes32) external pure override returns (bytes32) {
+  function depositToAztecPublic(bytes32, uint256, bytes32)
+    external
+    pure
+    override(IFeeJuicePortal)
+    returns (bytes32)
+  {
     return bytes32(0);
   }
 
-  function canonicalRollup() external pure override returns (address) {
+  function canonicalRollup() external pure override(IFeeJuicePortal) returns (address) {
     return address(0);
   }
 }

@@ -139,7 +139,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
-    return getCommitteeAt(Timestamp.wrap(block.timestamp));
+    return _getCommitteeAt(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -339,7 +339,7 @@ contract Leonidas is Ownable, ILeonidas {
     validatorSet.add(_validator);
   }
 
-  function getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
+  function _getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
     Epoch epochNumber = getEpochAt(_ts);
     EpochData storage epoch = epochs[epochNumber];
 
@@ -403,7 +403,7 @@ contract Leonidas is Ownable, ILeonidas {
       return;
     }
 
-    address[] memory committee = getCommitteeAt(ts);
+    address[] memory committee = _getCommitteeAt(ts);
 
     uint256 needed = committee.length * 2 / 3 + 1;
     require(

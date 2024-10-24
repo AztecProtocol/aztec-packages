@@ -104,7 +104,7 @@ contract FeeJuicePortal is IFeeJuicePortal {
     emit FeesDistributed(_to, _amount);
   }
 
-  function canonicalRollup() public view returns (address) {
+  function canonicalRollup() public view override(IFeeJuicePortal) returns (address) {
     return REGISTRY.getRollup();
   }
 }

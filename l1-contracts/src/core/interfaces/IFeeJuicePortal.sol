@@ -16,7 +16,10 @@ interface IFeeJuicePortal {
     returns (bytes32);
   function canonicalRollup() external view returns (address);
 
+  // solhint-disable-next-line func-name-mixedcase
   function UNDERLYING() external view returns (IERC20);
+  // solhint-disable-next-line func-name-mixedcase
   function L2_TOKEN_ADDRESS() external view returns (bytes32);
+  // solhint-disable-next-line func-name-mixedcase
   function REGISTRY() external view returns (IRegistry);
 }

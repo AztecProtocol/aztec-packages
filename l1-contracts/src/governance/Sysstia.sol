@@ -25,7 +25,7 @@ contract Sysstia is ISysstia, Ownable {
     registry = _registry;
   }
 
-  function updateRegistry(IRegistry _registry) external onlyOwner {
+  function updateRegistry(IRegistry _registry) external override(ISysstia) onlyOwner {
     registry = _registry;
     emit RegistryUpdated(_registry);
   }
@@ -53,7 +53,7 @@ contract Sysstia is ISysstia, Ownable {
     return reward;
   }
 
-  function canonicalRollup() public view returns (address) {
+  function canonicalRollup() public view override(ISysstia) returns (address) {
     return registry.getRollup();
   }
 }
