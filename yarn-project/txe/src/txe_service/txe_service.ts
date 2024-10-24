@@ -118,7 +118,7 @@ export class TXEService {
       skipArgsDecoding: true,
       salt: Fr.ONE,
       // TODO: Modify this to allow for passing public keys.
-      publicKeys: PublicKeys.empty(),
+      publicKeys: PublicKeys.default(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });

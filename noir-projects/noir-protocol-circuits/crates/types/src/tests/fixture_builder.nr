@@ -1330,7 +1330,7 @@ impl Empty for FixtureBuilder {
             returns_hash: 0,
             function_leaf_membership_witness: MembershipWitness::empty(),
             salted_initialization_hash: SaltedInitializationHash::from_field(0),
-            public_keys: PublicKeys::empty(),
+            public_keys: PublicKeys::default(),
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
             acir_hash: 0,
