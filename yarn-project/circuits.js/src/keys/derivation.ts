@@ -71,7 +71,7 @@ export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
 
   // If our secret computes a point with a negative y-coordinate, we then negate the secret to produce the secret
   // that can decrypt payloads encrypted with the point having a positive y-coordinate.
-  if (!addressPointCandidate.y.lt(new Fr((Fr.MODULUS - 1n) / 2n))) {
+  if (!(addressPointCandidate.y.toBigInt() <= (Fr.MODULUS - 1n) / 2n)) {
     return new Fq(Fq.MODULUS - addressSecretCandidate.toBigInt());
   }
 

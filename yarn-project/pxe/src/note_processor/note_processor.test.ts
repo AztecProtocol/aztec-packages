@@ -218,14 +218,7 @@ describe('Note Processor', () => {
 
   it('should store multiple notes that belong to us', async () => {
     const requests = [
-      new MockNoteRequest(
-        getRandomNoteLogPayload(app),
-        1,
-        1,
-        1,
-        computePoint(account.address),
-        ownerOvKeys,
-      ),
+      new MockNoteRequest(getRandomNoteLogPayload(app), 1, 1, 1, computePoint(account.address), ownerOvKeys),
       new MockNoteRequest(getRandomNoteLogPayload(app), 2, 3, 0, Point.random(), ownerOvKeys),
       new MockNoteRequest(
         getRandomNoteLogPayload(app),
@@ -236,14 +229,7 @@ describe('Note Processor', () => {
         KeyValidationRequest.random(),
       ),
       new MockNoteRequest(getRandomNoteLogPayload(app), 9, 3, 2, Point.random(), KeyValidationRequest.random()),
-      new MockNoteRequest(
-        getRandomNoteLogPayload(app),
-        12,
-        3,
-        2,
-        computePoint(account.address),
-        ownerOvKeys,
-      ),
+      new MockNoteRequest(getRandomNoteLogPayload(app), 12, 3, 2, computePoint(account.address), ownerOvKeys),
     ];
 
     const blocks = mockBlocks(requests);

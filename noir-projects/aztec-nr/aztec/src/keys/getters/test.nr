@@ -26,7 +26,9 @@ unconstrained fn test_get_public_keys_unknown() {
         bad_response[i] = original_keys[i];
     }
 
-    let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns(bad_response.serialize()).times(1);
+    let _ = OracleMock::mock("getPublicKeysAndPartialAddress")
+        .returns(bad_response.serialize())
+        .times(1);
     let _ = get_public_keys(account.address);
 }
 

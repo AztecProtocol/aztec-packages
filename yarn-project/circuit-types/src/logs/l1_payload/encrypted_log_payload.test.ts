@@ -9,7 +9,7 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
@@ -41,12 +41,7 @@ describe('EncryptedLogPayload', () => {
 
       const ephSk = GrumpkinScalar.random();
 
-      encrypted = original.encrypt(
-        ephSk,
-        completeAddress.address,
-        computePoint(completeAddress.address),
-        ovKeys,
-      );
+      encrypted = original.encrypt(ephSk, completeAddress.address, computePoint(completeAddress.address), ovKeys);
     });
 
     it('decrypt a log as incoming', () => {
@@ -83,12 +78,7 @@ describe('EncryptedLogPayload', () => {
     );
 
     const encrypted = log
-      .encrypt(
-        ephSk,
-        recipientCompleteAddress.address,
-        computePoint(recipientCompleteAddress.address),
-        ovKeys,
-      )
+      .encrypt(ephSk, recipientCompleteAddress.address, computePoint(recipientCompleteAddress.address), ovKeys)
       .toString('hex');
     expect(encrypted).toMatchInlineSnapshot(
       `"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d93de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97fc6cbcf61f6c2af9b8ebc8f78537ab23fd0c5e818e4d42d459d265adb77c2ef829bf68f87f2c47b478bb57ae7e41a07643f65c353083d557b94e31da4a2a13127498d2eb3f0346da5eed2e9bc245aaf022a954ed0b09132b498f537702899b44e3666776238ebf633b3562d7f124dbba82918e871958a94218fd796bc6983feecc7ce382c82861d63fe45999244ea9494b226ddb694b2640dce005b473acf1ae3be158f558ad1ca228e9f793d09390230a2597e0e53ad28f7aa9a700ccc302607ad6c26ea1410735b6a8c793f6317f7009409a3912b15ee2f28ccf17cf6c94b720301e5c5826de39e85bc7db3dc33aa79afcaf325670d1b359d08b10bd07840d394c9f038"`,
