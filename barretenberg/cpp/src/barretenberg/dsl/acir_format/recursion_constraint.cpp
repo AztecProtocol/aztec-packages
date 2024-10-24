@@ -1,4 +1,5 @@
 #include "recursion_constraint.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
@@ -381,6 +382,55 @@ G1AsFields export_g1_affine_element_as_fields(const g1::affine_element& group_el
     const fr y_hi = y.slice(TWO_LIMBS_BITS_IN_FIELD_SIMULATION, FOUR_LIMBS_BITS_IN_FIELD_SIMULATION);
 
     return G1AsFields{ x_lo, x_hi, y_lo, y_hi };
+}
+
+/**
+ * @brief Construct a genuine but arbitrary proof/vk pair of a given type
+ * @details This is needed e.g. to pre-compute VKs for kernel circuits which include recursive verifications,
+ * the inputs of which (proofs, vks) are not known at the time of VK generation. The proofs/vks do not have to
+ * verify but they do have to have a particular structure. The easisest and most robust way to do this is to
+ * genuinely construct them for as-small-as-possible circuits for efficiency.
+ *
+ * WORKTODO: maybe this method belongs in ivc_recursion_constraint.hpp?
+ *
+ * @param proof_type
+ */
+std::vector<bb::fr> construct_dummy_proof_for_ivc(uint32_t proof_type, bb::DatabusPropagationData propagation_data)
+{
+    using Builder = MegaCircuitBuilder;
+
+    // This method only supports mock OINK or PG proofs
+    if (proof_type != PROOF_TYPE::OINK && proof_type != PROOF_TYPE::PG) {
+        info("Invalid type in dummy proof construction!");
+    }
+
+    // Construct a dummy circuit with the correct number of public inputs according to the databus propagation data
+    auto construct_dummy_circuit = [](bb::DatabusPropagationData propagation_data) {
+        Builder dummy_circuit;
+        uint32_t num_pub_inputs_to_add = 0;
+        num_pub_inputs_to_add += 8 * static_cast<uint32_t>(propagation_data.contains_app_return_data_commitment);
+        num_pub_inputs_to_add += 8 * static_cast<uint32_t>(propagation_data.contains_kernel_return_data_commitment);
+        for (size_t i = 0; i < num_pub_inputs_to_add; ++i) {
+            dummy_circuit.add_public_variable(0);
+        }
+
+        // WORKTODO: do I need to add PI corresponding to an aggregation object here?
+
+        return dummy_circuit;
+    };
+
+    // Construct a mock OINK/PG proof by performing the corresponding number of IVC accumulations of the mock circuit.
+    // One accumulation produces an oink proof, two produces a PG proof.
+    ClientIVC ivc;
+    size_t num_ivc_accumulations = (proof_type == PROOF_TYPE::OINK) ? 1 : 2;
+    for (size_t i = 0; i < num_ivc_accumulations; ++i) {
+        Builder dummy_circuit = construct_dummy_circuit(propagation_data);
+        ivc.accumulate(dummy_circuit);
+    }
+
+    std::vector<bb::fr> proof = ivc.verification_queue.back().proof;
+
+    return proof;
 }
 
 } // namespace acir_format
