@@ -58,6 +58,7 @@ tests:
   e2e_outbox: {}
   e2e_pending_note_hashes_contract: {}
   e2e_private_voting_contract: {}
+  e2e_prover_coordination: {}
   e2e_prover_fake_proofs:
     env:
       FAKE_PROOFS: "1"

@@ -7,7 +7,7 @@ Smart contracts rely on storage, acting as the persistent memory on the blockcha
 To learn how to define a storage struct, read [this guide](../../../../guides/developer_guides/smart_contracts/writing_contracts/storage/index.md).
 To learn more about storage slots, read [this explainer in the Concepts section](../../../../aztec/concepts/storage/index.md).
 
-You control this storage in Aztec using a struct annotated with `#[aztec(storage)]`. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
+You control this storage in Aztec using a struct annotated with `#[storage]`. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
 
 These state variables come in two forms: [public](./public_state.md) and [private](./private_state.md). Public variables are visible to anyone, and private variables remain hidden within the contract. A state variable with both public and private components is said to be [shared](./shared_state.md).
 
@@ -35,19 +35,19 @@ Aztec.nr prevents developers from calling functions unavailable in the current e
 All state variables are generic over this `Context` type, and expose different methods in each execution mode. In the example above, `PublicImmutable`'s `initialize` function is only available with a public execution context, and so the following code results in a compilation error:
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
   variable: PublicImmutable<Field>,
 }
 
-#[aztec(private)]
+#[private]
 fn some_private_function() {
   storage.variable.initialize(0);
   // ^ ERROR: Expected type PublicImmutable<_, &mut PublicContext>, found type PublicImmutable<Field, &mut PrivateContext>
 }
 ```
 
-The `Context` generic type parameter is not visible in the code above as it is automatically injected by the `#[aztec(storage)]` macro, in order to reduce boilerplate. Similarly, all state variables in that struct (e.g. `PublicImmutable`) similarly have that same type parameter automatically passed to them.
+The `Context` generic type parameter is not visible in the code above as it is automatically injected by the `#[storage]` macro, in order to reduce boilerplate. Similarly, all state variables in that struct (e.g. `PublicImmutable`) similarly have that same type parameter automatically passed to them.
 
 ## Map
 

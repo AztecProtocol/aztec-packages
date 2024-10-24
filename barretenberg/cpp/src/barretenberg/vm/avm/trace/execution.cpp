@@ -710,8 +710,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::KECCAKF1600:
             trace_builder.op_keccakf1600(std::get<uint8_t>(inst.operands.at(0)),
                                          std::get<uint16_t>(inst.operands.at(1)),
-                                         std::get<uint16_t>(inst.operands.at(2)),
-                                         std::get<uint16_t>(inst.operands.at(3)));
+                                         std::get<uint16_t>(inst.operands.at(2)));
 
             break;
 

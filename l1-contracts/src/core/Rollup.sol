@@ -272,6 +272,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       }
     }
 
+    if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
+      PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
+    }
+
     emit L2ProofVerified(endBlockNumber, _args[6]);
   }
 
@@ -365,8 +369,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function getClaimableEpoch() external view override(IRollup) returns (Epoch) {
     Epoch epochToProve = getEpochToProve();
     require(
+      // If the epoch has been claimed, it cannot be claimed again
       proofClaim.epochToProve != epochToProve
-        || (proofClaim.proposerClaimant == address(0) && proofClaim.epochToProve == Epoch.wrap(0)),
+      // Edge case for if no claim has been made yet.
+      // We know that the bondProvider is always set,
+      // Since otherwise the claimEpochProofRight would have reverted,
+      // because the zero address cannot have deposited funds into escrow.
+      || proofClaim.bondProvider == address(0),
       Errors.Rollup__ProofRightAlreadyClaimed()
     );
     return epochToProve;

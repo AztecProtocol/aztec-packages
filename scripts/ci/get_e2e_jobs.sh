@@ -33,6 +33,7 @@ allow_list=(
   "integration_l1_publisher"
   "e2e_cheat_codes"
   "e2e_prover_fake_proofs"
+  "e2e_prover_coordination"
   "e2e_lending_contract"
   "kind_network_smoke"
 )
