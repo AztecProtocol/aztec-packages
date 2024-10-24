@@ -569,7 +569,7 @@ impl<'block> BrilligBlock<'block> {
                         source,
                         target_array,
                         radix,
-                        matches!(endianness, Endian::Big),
+                        matches!(endianness, Endian::Little),
                         false,
                     );
                 }
@@ -594,7 +594,7 @@ impl<'block> BrilligBlock<'block> {
                         source,
                         target_array,
                         two,
-                        matches!(endianness, Endian::Big),
+                        matches!(endianness, Endian::Little),
                         true,
                     );
 

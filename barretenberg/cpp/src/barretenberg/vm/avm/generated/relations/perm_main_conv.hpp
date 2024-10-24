@@ -15,15 +15,15 @@ class perm_main_conv_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_op_radix_le == 1 || in.conversion_sel_to_radix_le == 1);
+        return (in.main_sel_op_radix_be == 1 || in.conversion_sel_to_radix_be == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
         return std::forward_as_tuple(in.perm_main_conv_inv,
-                                     in.main_sel_op_radix_le,
-                                     in.main_sel_op_radix_le,
-                                     in.conversion_sel_to_radix_le,
+                                     in.main_sel_op_radix_be,
+                                     in.main_sel_op_radix_be,
+                                     in.conversion_sel_to_radix_be,
                                      in.main_clk,
                                      in.main_ia,
                                      in.main_ib,
@@ -39,9 +39,9 @@ class perm_main_conv_permutation_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
         return std::forward_as_tuple(in.perm_main_conv_inv,
-                                     in.main_sel_op_radix_le,
-                                     in.main_sel_op_radix_le,
-                                     in.conversion_sel_to_radix_le,
+                                     in.main_sel_op_radix_be,
+                                     in.main_sel_op_radix_be,
+                                     in.conversion_sel_to_radix_be,
                                      in.main_clk,
                                      in.main_ia,
                                      in.main_ib,

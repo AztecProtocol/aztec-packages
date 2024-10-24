@@ -176,7 +176,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::MSM,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     // Gadget - Conversion
-    { OpCode::TORADIXLE,
+    { OpCode::TORADIXBE,
       { OperandType::INDIRECT8,
         OperandType::UINT16,
         OperandType::UINT16,
