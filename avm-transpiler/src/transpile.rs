@@ -316,29 +316,11 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Trap { revert_data } => {
-                let bits_needed =
-                    *[bits_needed_for(&revert_data.pointer), bits_needed_for(&revert_data.size)]
-                        .iter()
-                        .max()
-                        .unwrap();
-                let avm_opcode = match bits_needed {
-                    8 => AvmOpcode::REVERT_8,
-                    16 => AvmOpcode::REVERT_16,
-                    _ => panic!("REVERT only support 8 or 16 bit encodings, got: {}", bits_needed),
-                };
-                avm_instrs.push(AvmInstruction {
-                    opcode: avm_opcode,
-                    indirect: Some(
-                        AddressingModeBuilder::default()
-                            .indirect_operand(&revert_data.pointer)
-                            .build(),
-                    ),
-                    operands: vec![
-                        make_operand(bits_needed, &revert_data.pointer.to_usize()),
-                        make_operand(bits_needed, &revert_data.size),
-                    ],
-                    ..Default::default()
-                });
+                generate_revert_instruction(
+                    &mut avm_instrs,
+                    &revert_data.pointer,
+                    &revert_data.size,
+                );
             }
             BrilligOpcode::Cast { destination, source, bit_size } => {
                 handle_cast(&mut avm_instrs, source, destination, *bit_size);
@@ -418,6 +400,7 @@ fn handle_foreign_call(
         }
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
+        "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
@@ -929,6 +912,35 @@ fn generate_cast_instruction(
     }
 }
 
+/// Generates an AVM REVERT instruction.
+fn generate_revert_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    revert_data_pointer: &MemoryAddress,
+    revert_data_size_offset: &MemoryAddress,
+) {
+    let bits_needed =
+        *[revert_data_pointer, revert_data_size_offset].map(bits_needed_for).iter().max().unwrap();
+    let avm_opcode = match bits_needed {
+        8 => AvmOpcode::REVERT_8,
+        16 => AvmOpcode::REVERT_16,
+        _ => panic!("REVERT only support 8 or 16 bit encodings, got: {}", bits_needed),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: avm_opcode,
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .indirect_operand(revert_data_pointer)
+                .direct_operand(revert_data_size_offset)
+                .build(),
+        ),
+        operands: vec![
+            make_operand(bits_needed, &revert_data_pointer.to_usize()),
+            make_operand(bits_needed, &revert_data_size_offset.to_usize()),
+        ],
+        ..Default::default()
+    });
+}
+
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(
     indirect: Option<AvmOperand>,
@@ -1214,7 +1226,6 @@ fn handle_return(
     assert!(inputs.len() == 1);
     assert!(destinations.len() == 0);
 
-    // First arg is the size, which is ignored because it's redundant.
     let (return_data_offset, return_data_size) = match inputs[0] {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
         _ => panic!("Return instruction's args input should be a HeapArray"),
@@ -1231,6 +1242,25 @@ fn handle_return(
         ],
         ..Default::default()
     });
+}
+
+// #[oracle(avmOpcodeRevert)]
+// unconstrained fn revert_opcode(revertdata: [Field]) {}
+fn handle_revert(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 2);
+    assert!(destinations.len() == 0);
+
+    // First arg is the size, which is ignored because it's redundant.
+    let (revert_data_offset, revert_data_size_offset) = match inputs[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
+        _ => panic!("Revert instruction's args input should be a HeapVector"),
+    };
+
+    generate_revert_instruction(avm_instrs, &revert_data_offset, &revert_data_size_offset);
 }
 
 /// Emit a storage write opcode

@@ -204,22 +204,24 @@ export class Revert extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private returnOffset: number, private retSize: number) {
+  constructor(private indirect: number, private returnOffset: number, private retSizeOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(this.retSize));
 
-    const operands = [this.returnOffset];
+    const operands = [this.returnOffset, this.retSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [returnOffset] = addressing.resolve(operands, memory);
+    const [returnOffset, retSizeOffset] = addressing.resolve(operands, memory);
 
-    const output = memory.getSlice(returnOffset, this.retSize).map(word => word.toFr());
+    memory.checkTag(TypeTag.UINT32, retSizeOffset);
+    const retSize = memory.get(retSizeOffset).toNumber();
+    context.machineState.consumeGas(this.gasCost(retSize));
+    const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
 
     context.machineState.revert(output);
-    memory.assert({ reads: this.retSize, addressing });
+    memory.assert({ reads: retSize + 1, addressing });
   }
 }
 

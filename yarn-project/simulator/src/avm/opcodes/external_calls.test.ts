@@ -290,9 +290,9 @@ describe('External Calls', () => {
         Opcode.REVERT_16, // opcode
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // returnOffset
-        ...Buffer.from('a234', 'hex'), // retSize
+        ...Buffer.from('a234', 'hex'), // retSizeOffset
       ]);
-      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*retSize=*/ 0xa234).as(
+      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*retSizeOffset=*/ 0xa234).as(
         Opcode.REVERT_16,
         Revert.wireFormat16,
       );
@@ -305,9 +305,10 @@ describe('External Calls', () => {
       const returnData = [...'assert message'].flatMap(c => new Field(c.charCodeAt(0)));
       returnData.unshift(new Field(0n)); // Prepend an error selector
 
-      context.machineState.memory.setSlice(0, returnData);
+      context.machineState.memory.set(0, new Uint32(returnData.length));
+      context.machineState.memory.setSlice(10, returnData);
 
-      const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
+      const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 10, /*retSizeOffset=*/ 0);
       await instruction.execute(context);
 
       expect(context.machineState.getHalted()).toBe(true);
