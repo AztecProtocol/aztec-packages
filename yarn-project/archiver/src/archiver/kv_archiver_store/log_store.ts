@@ -71,7 +71,7 @@ export class LogStore {
               void this.#noteEncryptedLogsByHash.set(hexHash, noteLog.toBuffer());
               void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
             } catch (err) {
-              this.#log.error(`Failed to add tagged note log to store: ${err}`);
+              this.#log.warn(`Failed to add tagged note log to store: ${err}`);
             }
           });
         });

@@ -228,7 +228,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
             const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
             this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
           } catch (err) {
-            this.#log.error(`Failed to add tagged note log to store: ${err}`);
+            this.#log.warn(`Failed to add tagged note log to store: ${err}`);
           }
         });
       });
