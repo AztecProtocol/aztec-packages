@@ -1,5 +1,5 @@
 #!/bin/bash
-# NOTE! currently does not work with 'cannot validate constraint' on tx simulate via pxe
+# Targets a running cluster and tests 5 slots worth of transfers against it.
 set -eu
 set -o pipefail
 
@@ -16,16 +16,10 @@ fi
 
 echo "Note: Repo should be bootstrapped with ./bootstrap.sh fast."
 
-# Fetch the service URLs based on the namespace
+# Fetch the service URLs based on the namespace for injection in the test-transfer.sh
 export BOOTNODE_URL=http://$(kubectl get svc -n $NAMESPACE -o jsonpath="{.items[?(@.metadata.name=='$NAMESPACE-aztec-network-boot-node-lb-tcp')].status.loadBalancer.ingress[0].hostname}"):8080
 export PXE_URL=http://$(kubectl get svc -n $NAMESPACE -o jsonpath="{.items[?(@.metadata.name=='$NAMESPACE-aztec-network-pxe-lb')].status.loadBalancer.ingress[0].hostname}"):8080
 export ETHEREUM_HOST=http://$(kubectl get svc -n $NAMESPACE -o jsonpath="{.items[?(@.metadata.name=='$NAMESPACE-aztec-network-ethereum-lb')].status.loadBalancer.ingress[0].hostname}"):8545
-
-# Validate that the URLs were fetched correctly
-if [ -z "$BOOTNODE_URL" ] || [ -z "$PXE_URL" ] || [ -z "$ETHEREUM_HOST" ]; then
-  echo "Error: Failed to retrieve one or more URLs from Kubernetes services."
-  exit 1
-fi
 
 echo "BOOTNODE_URL: $BOOTNODE_URL"
 echo "PXE_URL: $PXE_URL"
