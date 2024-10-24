@@ -68,16 +68,14 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
 
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = MegaFlavor::TO_BE_SHIFTED_WITNESSES_START;
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = MegaFlavor::TO_BE_SHIFTED_WITNESSES_END;
 
     static constexpr size_t SHIFTED_WITNESSES_START = MegaFlavor::SHIFTED_WITNESSES_START;
-    static constexpr size_t SHIFTED_WITNESSES_END = MegaFlavor::SHIFTED_WITNESSES_END;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = MegaFlavor::NUM_SHIFTED_WITNESSES;
 
     static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = MegaFlavor::TO_BE_SHIFTED_PRECOMPUTED_START;
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = MegaFlavor::TO_BE_SHIFTED_PRECOMPUTED_END;
 
     static constexpr size_t SHIFTED_PRECOMPUTED_START = MegaFlavor::SHIFTED_PRECOMPUTED_START;
-    static constexpr size_t SHIFTED_PRECOMPUTED_END = MegaFlavor::SHIFTED_PRECOMPUTED_END;
+    static constexpr size_t NUM_PRECOMPUTED_SHIFTS = MegaFlavor::NUM_PRECOMPUTED_SHIFTS;
 
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 

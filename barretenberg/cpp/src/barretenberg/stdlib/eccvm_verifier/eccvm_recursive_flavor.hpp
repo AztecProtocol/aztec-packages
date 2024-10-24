@@ -47,16 +47,10 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     static constexpr size_t NUM_WITNESS_ENTITIES = ECCVMFlavor::NUM_WITNESS_ENTITIES;
 
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = ECCVMFlavor::TO_BE_SHIFTED_WITNESSES_START;
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = ECCVMFlavor::TO_BE_SHIFTED_WITNESSES_END;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = ECCVMFlavor::NUM_SHIFTED_WITNESSES;
 
     static constexpr size_t SHIFTED_WITNESSES_START = ECCVMFlavor::SHIFTED_WITNESSES_START;
-    static constexpr size_t SHIFTED_WITNESSES_END = ECCVMFlavor::SHIFTED_WITNESSES_END;
 
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = ECCVMFlavor::TO_BE_SHIFTED_PRECOMPUTED_START;
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = ECCVMFlavor::TO_BE_SHIFTED_PRECOMPUTED_END;
-
-    static constexpr size_t SHIFTED_PRECOMPUTED_START = ECCVMFlavor::SHIFTED_PRECOMPUTED_START;
-    static constexpr size_t SHIFTED_PRECOMPUTED_END = ECCVMFlavor::SHIFTED_PRECOMPUTED_END;
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;

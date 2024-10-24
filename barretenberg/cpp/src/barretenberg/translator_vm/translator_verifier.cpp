@@ -109,9 +109,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;
     }
-    info("sumcheck verified ", sumcheck_verified.value());
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
-    // unrolled protocol.
+    // Execute Shplemini
 
     BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -124,13 +122,13 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                transcript,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
-    Shplemini::remove_shifted_commitments_refactor(opening_claim,
-                                                   Flavor::TO_BE_SHIFTED_WITNESSES_START + 1,
-                                                   Flavor::SHIFTED_WITNESSES_START + 1,
-                                                   Flavor::NUM_SHIFTED_WITNESSES,
-                                                   Flavor::TO_BE_CONCATENATED_START + 1,
-                                                   Flavor::CONCATENATED_START + 1,
-                                                   Flavor::NUM_CONCATENATED);
+    Shplemini::remove_shifted_commitments(opening_claim,
+                                          Flavor::TO_BE_SHIFTED_WITNESSES_START,
+                                          Flavor::SHIFTED_WITNESSES_START,
+                                          Flavor::NUM_SHIFTED_WITNESSES,
+                                          Flavor::TO_BE_CONCATENATED_START,
+                                          Flavor::CONCATENATED_START,
+                                          Flavor::NUM_CONCATENATED);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

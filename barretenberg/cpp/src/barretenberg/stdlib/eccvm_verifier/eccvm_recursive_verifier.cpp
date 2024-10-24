@@ -75,7 +75,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    info("before shpl ", builder->num_gates);
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
@@ -85,21 +84,14 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript);
-    info("accumulator size before removing shifted: ", sumcheck_batch_opening_claims.commitments.size());
     Shplemini::remove_shifted_commitments(sumcheck_batch_opening_claims,
-                                          Flavor::TO_BE_SHIFTED_WITNESSES_START + 1,
-                                          Flavor::TO_BE_SHIFTED_WITNESSES_END + 1,
-                                          Flavor::SHIFTED_WITNESSES_START + 1,
-                                          Flavor::SHIFTED_WITNESSES_END + 1,
-                                          Flavor::TO_BE_SHIFTED_PRECOMPUTED_START + 1,
-                                          Flavor::TO_BE_SHIFTED_PRECOMPUTED_END + 1,
-                                          Flavor::SHIFTED_PRECOMPUTED_START + 1,
-                                          Flavor::SHIFTED_PRECOMPUTED_END + 1);
+                                          Flavor::TO_BE_SHIFTED_WITNESSES_START,
+                                          Flavor::SHIFTED_WITNESSES_START,
+                                          Flavor::NUM_SHIFTED_WITNESSES);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
-    info("after shpl ", builder->num_gates);
 
     const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -115,7 +107,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                transcript->template receive_from_prover<FF>("Translation:Py"),
                                                transcript->template receive_from_prover<FF>("Translation:z1"),
                                                transcript->template receive_from_prover<FF>("Translation:z2") };
-    info("accumulator size after removing shifted: ", sumcheck_batch_opening_claims.commitments.size());
 
     // Get the batching challenge for commitments and evaluations
     const FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");

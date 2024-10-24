@@ -52,16 +52,14 @@ class MegaFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 30;
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 35;
 
     static constexpr size_t SHIFTED_WITNESSES_START = 58;
-    static constexpr size_t SHIFTED_WITNESSES_END = 63;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
 
     static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 22;
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 26;
 
     static constexpr size_t SHIFTED_PRECOMPUTED_START = 54;
-    static constexpr size_t SHIFTED_PRECOMPUTED_END = 58;
+    static constexpr size_t NUM_PRECOMPUTED_SHIFTS = 4;
 
     using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
 

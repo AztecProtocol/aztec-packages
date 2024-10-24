@@ -72,18 +72,11 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript);
-    info("accumulator size before removing shifted: ", sumcheck_batch_opening_claims.commitments.size());
 
     Shplemini::remove_shifted_commitments(sumcheck_batch_opening_claims,
-                                          Flavor::TO_BE_SHIFTED_WITNESSES_START + 1,
-                                          Flavor::TO_BE_SHIFTED_WITNESSES_END + 1,
-                                          Flavor::SHIFTED_WITNESSES_START + 1,
-                                          Flavor::SHIFTED_WITNESSES_END + 1,
-                                          Flavor::TO_BE_SHIFTED_PRECOMPUTED_START + 1,
-                                          Flavor::TO_BE_SHIFTED_PRECOMPUTED_END + 1,
-                                          Flavor::SHIFTED_PRECOMPUTED_START + 1,
-                                          Flavor::SHIFTED_PRECOMPUTED_END + 1);
-    info("accumulator size after removing shifted: ", sumcheck_batch_opening_claims.commitments.size());
+                                          Flavor::TO_BE_SHIFTED_WITNESSES_START,
+                                          Flavor::SHIFTED_WITNESSES_START,
+                                          Flavor::NUM_SHIFTED_WITNESSES);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

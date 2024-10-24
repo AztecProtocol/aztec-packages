@@ -82,12 +82,17 @@ class TranslatorFlavor {
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 177;
 
+    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
+    // get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 8;
+    // The index of the shift of the first unshifted witness
+    static constexpr size_t SHIFTED_WITNESSES_START = 94;
     static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
 
-    static constexpr size_t SHIFTED_WITNESSES_START = 94;
-
+    // The index of the first unshifted witness that is contained in the groups to be concatenated, when AllEntities are
+    // partitioned into get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
     static constexpr size_t TO_BE_CONCATENATED_START = 24;
+    // The index of the first concatenation groups element inside AllEntities
     static constexpr size_t CONCATENATED_START = 180;
     static constexpr size_t NUM_CONCATENATED = 64;
 

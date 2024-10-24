@@ -53,16 +53,15 @@ class UltraFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 27;
-    static constexpr size_t TO_BE_SHIFTED_WITNESSES_END = 32;
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
 
     static constexpr size_t SHIFTED_WITNESSES_START = 39;
-    static constexpr size_t SHIFTED_WITNESSES_END = 44;
 
     static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 21;
-    static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_END = 25;
 
     static constexpr size_t SHIFTED_PRECOMPUTED_START = 35;
-    static constexpr size_t SHIFTED_PRECOMPUTED_END = 39;
+    static constexpr size_t NUM_PRECOMPUTED_SHIFTS = 4;
+
     using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
