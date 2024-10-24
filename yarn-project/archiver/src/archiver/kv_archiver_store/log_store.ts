@@ -34,12 +34,12 @@ export class LogStore {
   #log = createDebugLogger('aztec:archiver:log_store');
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
-    this.#noteEncryptedLogsByBlock = db.openMap('archiver_note_encrypted_logs');
+    this.#noteEncryptedLogsByBlock = db.openMap('archiver_note_encrypted_logs_by_block');
     this.#noteEncryptedLogsByHash = db.openMap('archiver_note_encrypted_logs_by_hash');
-    this.#noteEncryptedLogHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_logs');
+    this.#noteEncryptedLogHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_log_hashes_by_tag');
     this.#noteEncryptedLogTagsByBlock = db.openMultiMap('archiver_note_encrypted_log_tags_by_block');
-    this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs');
-    this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs');
+    this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs_by_block');
+    this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs_by_block');
 
     this.#logsMaxPageSize = logsMaxPageSize;
   }
@@ -56,6 +56,10 @@ export class LogStore {
         block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
           const noteLogs = txLogs.unrollLogs();
           noteLogs.forEach(noteLog => {
+            if (noteLog.data.length < 32) {
+              this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
+              return;
+            }
             const tag = new Fr(noteLog.data.subarray(0, 32));
             const hexHash = noteLog.hash().toString('hex');
             // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't doesn't
@@ -142,6 +146,12 @@ export class LogStore {
     }
   }
 
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
   getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
     return this.db.transaction(() => {
       return tags.map(tag => {
@@ -150,7 +160,7 @@ export class LogStore {
           logHashes
             .map(hash => this.#noteEncryptedLogsByHash.get(hash))
             // filter out undefined values, since we should never store the hashes of non-existing logs (the addLogs transaction ensures this)
-            .filter(noteLogBuffer => noteLogBuffer)
+            .filter(noteLogBuffer => noteLogBuffer != undefined)
             .map(noteLogBuffer => EncryptedL2NoteLog.fromBuffer(noteLogBuffer!))
         );
       });

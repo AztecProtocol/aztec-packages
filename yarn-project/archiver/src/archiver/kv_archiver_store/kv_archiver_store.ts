@@ -240,6 +240,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     }
   }
 
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
   getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
     try {
       return this.#logStore.getLogsByTags(tags);

@@ -28,6 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -78,6 +79,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private lastProvenL2BlockNumber: number = 0;
   private lastProvenL2EpochNumber: number = 0;
+
+  #log = createDebugLogger('aztec:archiver:data-store');
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -214,6 +217,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
         const noteLogs = txLogs.unrollLogs();
         noteLogs.forEach(noteLog => {
+          if (noteLog.data.length < 32) {
+            this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
+            return;
+          }
           const tag = new Fr(noteLog.data.subarray(0, 32));
           const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
           this.taggedNoteEncryptedLogs.set(tag.toString(), [...currentNoteLogs, noteLog]);
@@ -403,10 +410,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(l);
   }
 
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
   getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
-    const noteLogs = tags.map(tag => 
-      this.taggedNoteEncryptedLogs.get(tag.toString()) || []
-    );
+    const noteLogs = tags.map(tag => this.taggedNoteEncryptedLogs.get(tag.toString()) || []);
     return Promise.resolve(noteLogs);
   }
 
