@@ -623,6 +623,7 @@ jobs:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
+      max-parallel: 1
       fail-fast: false
       matrix:
         test: [test-transfer.sh, test-4epochs.sh]
@@ -659,7 +660,7 @@ jobs:
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
-          runner_type: 8core-tester-x86
+          runner_type: 16core-tester-x86
           spot_strategy: None # use on-demand machines
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
