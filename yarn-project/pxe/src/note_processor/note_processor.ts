@@ -7,7 +7,7 @@ import {
   type PublicKey,
   computeAddressSecret,
 } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
