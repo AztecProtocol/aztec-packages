@@ -18,7 +18,9 @@ unconstrained fn test_get_public_keys_unknown() {
 
     // Instead of querying for some unknown account, which would result in the oracle erroring out, we mock a bad oracle
     // response to check that the circuit properly checks the address derivation.
-    let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns([0; KEY_ORACLE_RESPONSE_LENGTH]).times(1);
+    let _ = OracleMock::mock("getPublicKeysAndPartialAddress")
+        .returns([0; KEY_ORACLE_RESPONSE_LENGTH])
+        .times(1);
     let _ = get_public_keys(account.address);
 }
 

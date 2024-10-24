@@ -1,23 +1,19 @@
-use crate::components::{reset_output_composer::ResetOutputHints};
-use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataIndexHint, verify_squashed_transient_data};
+use crate::components::reset_output_composer::ResetOutputHints;
+use dep::reset_kernel_lib::{
+    PrivateValidationRequestProcessor, TransientDataIndexHint, verify_squashed_transient_data,
+};
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier
-},
-    hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, traits::is_empty,
-    utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+    }, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, traits::is_empty,
+    utils::arrays::{
+        assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
+    },
 };
 
-pub struct ResetOutputValidator<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32,
-    let NUM_TRANSIENT_DATA_INDEX_HINTS: u32
-> {
+pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
     output: PrivateKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
@@ -28,14 +24,7 @@ pub struct ResetOutputValidator<
     hints: ResetOutputHints,
 }
 
-impl<
-    let NH_RR_PENDING: u32,
-    let NH_RR_SETTLED: u32,
-    let NLL_RR_PENDING: u32,
-    let NLL_RR_SETTLED: u32,
-    let KEY_VALIDATION_REQUESTS: u32,
-    let NUM_TRANSIENT_DATA_INDEX_HINTS: u32
-> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
+impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, NUM_TRANSIENT_DATA_INDEX_HINTS> {
     pub fn new(
         output: PrivateKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
@@ -44,7 +33,7 @@ impl<
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
         encrypted_log_siloing_amount: u32,
-        hints: ResetOutputHints
+        hints: ResetOutputHints,
     ) -> Self {
         ResetOutputValidator {
             output,
@@ -54,7 +43,7 @@ impl<
             note_hash_siloing_amount,
             nullifier_siloing_amount,
             encrypted_log_siloing_amount,
-            hints
+            hints,
         }
     }
 
@@ -72,27 +61,41 @@ impl<
         assert_eq(self.output.constants, self.previous_kernel.constants);
 
         assert_eq(
-            self.output.min_revertible_side_effect_counter, self.previous_kernel.min_revertible_side_effect_counter
+            self.output.min_revertible_side_effect_counter,
+            self.previous_kernel.min_revertible_side_effect_counter,
         );
 
-        assert_eq(self.output.public_teardown_call_request, self.previous_kernel.public_teardown_call_request);
+        assert_eq(
+            self.output.public_teardown_call_request,
+            self.previous_kernel.public_teardown_call_request,
+        );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer);
 
         // accumulated_data
         assert_eq(self.output.end.l2_to_l1_msgs, self.previous_kernel.end.l2_to_l1_msgs);
-        assert_eq(self.output.end.unencrypted_logs_hashes, self.previous_kernel.end.unencrypted_logs_hashes);
-        assert_eq(self.output.end.public_call_requests, self.previous_kernel.end.public_call_requests);
+        assert_eq(
+            self.output.end.unencrypted_logs_hashes,
+            self.previous_kernel.end.unencrypted_logs_hashes,
+        );
+        assert_eq(
+            self.output.end.public_call_requests,
+            self.previous_kernel.end.public_call_requests,
+        );
         assert_eq(self.output.end.private_call_stack, self.previous_kernel.end.private_call_stack);
     }
 
     fn validate_transient_data(self) {
         if NUM_TRANSIENT_DATA_INDEX_HINTS == 0 {
             assert_eq(
-                self.hints.kept_note_hashes, self.previous_kernel.end.note_hashes, "mismatch kept note hashes"
+                self.hints.kept_note_hashes,
+                self.previous_kernel.end.note_hashes,
+                "mismatch kept note hashes",
             );
             assert_eq(
-                self.hints.kept_nullifiers, self.previous_kernel.end.nullifiers, "mismatch kept nullifiers"
+                self.hints.kept_nullifiers,
+                self.previous_kernel.end.nullifiers,
+                "mismatch kept nullifiers",
             );
         } else {
             verify_squashed_transient_data(
@@ -104,7 +107,7 @@ impl<
                 self.hints.kept_note_encrypted_log_hashes,
                 self.transient_data_index_hints,
                 self.hints.transient_or_propagated_note_hash_indexes_for_logs,
-                self.output.validation_requests.split_counter.unwrap_unchecked()
+                self.output.validation_requests.split_counter.unwrap_unchecked(),
             );
         }
     }
@@ -113,9 +116,15 @@ impl<
         // note_hashes
         // note_encrypted_logs_hashes
         if self.note_hash_siloing_amount == 0 {
-            assert_eq(self.output.end.note_hashes, self.hints.kept_note_hashes, "output note hashes mismatch");
             assert_eq(
-                self.output.end.note_encrypted_logs_hashes, self.hints.kept_note_encrypted_log_hashes, "output note logs mismatch"
+                self.output.end.note_hashes,
+                self.hints.kept_note_hashes,
+                "output note hashes mismatch",
+            );
+            assert_eq(
+                self.output.end.note_encrypted_logs_hashes,
+                self.hints.kept_note_encrypted_log_hashes,
+                "output note logs mismatch",
             );
         } else {
             self.validate_sorted_siloed_note_hashes();
@@ -124,7 +133,11 @@ impl<
 
         // nullifiers
         if self.nullifier_siloing_amount == 0 {
-            assert_eq(self.output.end.nullifiers, self.hints.kept_nullifiers, "output nullifiers mismatch");
+            assert_eq(
+                self.output.end.nullifiers,
+                self.hints.kept_nullifiers,
+                "output nullifiers mismatch",
+            );
         } else {
             self.validate_sorted_siloed_nullifiers();
         }
@@ -132,7 +145,9 @@ impl<
         // encrypted_logs_hashes
         if self.encrypted_log_siloing_amount == 0 {
             assert_eq(
-                self.output.end.encrypted_logs_hashes, self.previous_kernel.end.encrypted_logs_hashes, "output encrypted logs mismatch"
+                self.output.end.encrypted_logs_hashes,
+                self.previous_kernel.end.encrypted_logs_hashes,
+                "output encrypted logs mismatch",
             );
         } else {
             self.validate_sorted_masked_encrypted_logs();
@@ -146,7 +161,8 @@ impl<
         // The first item should either be empty or not siloed (contract_address != 0).
         let note_hash = self.previous_kernel.end.note_hashes[0];
         assert(
-            is_empty(note_hash) | !note_hash.contract_address.is_zero(), "note hashes have been siloed in a previous reset"
+            is_empty(note_hash) | !note_hash.contract_address.is_zero(),
+            "note hashes have been siloed in a previous reset",
         );
 
         // Check siloing.
@@ -171,9 +187,11 @@ impl<
         assert_sorted_transformed_value_array_capped_size(
             kept_note_hashes,
             siloed_note_hashes,
-            |prev: ScopedNoteHash, out: ScopedNoteHash| out.contract_address.is_zero() & (out.counter() == prev.counter()),
+            |prev: ScopedNoteHash, out: ScopedNoteHash| {
+                out.contract_address.is_zero() & (out.counter() == prev.counter())
+            },
             sorted_indexes,
-            self.note_hash_siloing_amount
+            self.note_hash_siloing_amount,
         );
     }
 
@@ -183,13 +201,14 @@ impl<
         assert_sorted_transformed_value_array_capped_size(
             self.hints.kept_nullifiers,
             self.output.end.nullifiers,
-            |prev: ScopedNullifier, out: ScopedNullifier|
-                (out.value() == silo_nullifier(prev)) &
-                (out.counter() == prev.counter()) &
-                (out.nullifier.note_hash == prev.nullifier.note_hash) &
-                out.contract_address.is_zero(),
+            |prev: ScopedNullifier, out: ScopedNullifier| {
+                (out.value() == silo_nullifier(prev))
+                    & (out.counter() == prev.counter())
+                    & (out.nullifier.note_hash == prev.nullifier.note_hash)
+                    & out.contract_address.is_zero()
+            },
             self.hints.sorted_nullifier_indexes,
-            self.nullifier_siloing_amount
+            self.nullifier_siloing_amount,
         );
     }
 
@@ -199,22 +218,21 @@ impl<
         // This is fine because we don't allow emitting logs for notes emitted in another function at the moment.
         // All the note logs emitted in a function call must link to note hashes emitted in the same call.
         // This is checked in PrivateCallDataValidator > validate_note_logs.
-
         // note_hash_counter was used when squashing the note log along with its corresponding note hash.
         // It won't be used later on, so we can set it to 0 here.
         // It serves as a clue for the tail circuit to check that all the note logs are sorted in a reset circuit.
-
         // This is not capped because we don't know how many logs there are. There can be any number of logs for each note hash.
         // Consider adding a constant for it only when this becomes too costly.
         assert_sorted_transformed_value_array(
             self.hints.kept_note_encrypted_log_hashes,
             self.output.end.note_encrypted_logs_hashes,
-            |prev: NoteLogHash, out: NoteLogHash|
-                (out.value == prev.value) &
-                (out.length == prev.length) &
-                (out.counter == prev.counter) &
-                (out.note_hash_counter == 0),
-            self.hints.sorted_note_encrypted_log_hash_indexes
+            |prev: NoteLogHash, out: NoteLogHash| {
+                (out.value == prev.value)
+                    & (out.length == prev.length)
+                    & (out.counter == prev.counter)
+                    & (out.note_hash_counter == 0)
+            },
+            self.hints.sorted_note_encrypted_log_hash_indexes,
         );
     }
 
@@ -224,14 +242,15 @@ impl<
         assert_sorted_transformed_value_array_capped_size(
             self.previous_kernel.end.encrypted_logs_hashes,
             self.output.end.encrypted_logs_hashes,
-            |prev: ScopedEncryptedLogHash, out: ScopedEncryptedLogHash|
-                (out.contract_address == mask_encrypted_log_hash(prev)) &
-                (out.log_hash.value == prev.log_hash.value) &
-                (out.log_hash.length == prev.log_hash.length) &
-                (out.log_hash.counter == prev.log_hash.counter) &
-                (out.log_hash.randomness == 0),
+            |prev: ScopedEncryptedLogHash, out: ScopedEncryptedLogHash| {
+                (out.contract_address == mask_encrypted_log_hash(prev))
+                    & (out.log_hash.value == prev.log_hash.value)
+                    & (out.log_hash.length == prev.log_hash.length)
+                    & (out.log_hash.counter == prev.log_hash.counter)
+                    & (out.log_hash.randomness == 0)
+            },
             self.hints.sorted_encrypted_log_hash_indexes,
-            self.encrypted_log_siloing_amount
+            self.encrypted_log_siloing_amount,
         );
     }
 }

@@ -27,7 +27,8 @@ fn validate_public_call_requests_incorrect_msg_sender_for_regular_call_fails() {
 
     builder.private_call.append_public_call_requests(1);
     // Change the msg_sender to be the caller's msg_sender.
-    builder.private_call.public_call_requests.storage[0].call_context.msg_sender = builder.private_call.msg_sender;
+    builder.private_call.public_call_requests.storage[0].call_context.msg_sender =
+        builder.private_call.msg_sender;
 
     builder.validate();
 }
@@ -70,7 +71,8 @@ fn validate_teardown_call_request_incorrect_msg_sender_for_regular_call_fails() 
 
     builder.private_call.set_public_teardown_call_request();
     // Change the msg_sender to be the caller's msg_sender.
-    builder.private_call.public_teardown_call_request.call_context.msg_sender = builder.private_call.msg_sender;
+    builder.private_call.public_teardown_call_request.call_context.msg_sender =
+        builder.private_call.msg_sender;
 
     builder.validate();
 }

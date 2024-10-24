@@ -1,26 +1,36 @@
 use crate::{
     context::PrivateContext, generators::Ga1 as G_val,
-    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_nullify}
+    note::{
+        note_header::NoteHeader, note_interface::NoteInterface,
+        utils::compute_note_hash_for_nullify,
+    },
 };
 
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 use crate::note::note_interface::NullifiableNote;
 
 global MOCK_NOTE_LENGTH: u32 = 1;
 
 pub(crate) struct MockNote {
-  header: NoteHeader,
-  value: Field,
+    header: NoteHeader,
+    value: Field,
 }
 
 impl NullifiableNote for MockNote {
-    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(
+        _self: Self,
+        _context: &mut PrivateContext,
+        note_hash_for_nullify: Field,
+    ) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 
@@ -30,7 +40,7 @@ impl NullifiableNote for MockNote {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 }
@@ -80,7 +90,10 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     }
 
     fn compute_note_hash(self: Self) -> Field {
-        assert(self.header.storage_slot != 0, "Storage slot must be set before computing note hash");
+        assert(
+            self.header.storage_slot != 0,
+            "Storage slot must be set before computing note hash",
+        );
         // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
         let value_scalar = from_field_unsafe(self.value);
         multi_scalar_mul([G_val], [value_scalar]).x

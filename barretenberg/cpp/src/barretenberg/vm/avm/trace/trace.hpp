@@ -142,7 +142,6 @@ class AvmTraceBuilder {
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
 
     // Gadgets
-    void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
     void op_ec_add(uint16_t indirect,
                    uint32_t lhs_x_offset,
@@ -167,7 +166,7 @@ class AvmTraceBuilder {
 
     // Future Gadgets -- pending changes in noir
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t state_offset, uint32_t inputs_offset);
-    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
+    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset);
 
     std::vector<Row> finalize();
     void reset();
