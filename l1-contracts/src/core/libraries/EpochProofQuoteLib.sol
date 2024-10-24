@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 library EpochProofQuoteLib {
   /**

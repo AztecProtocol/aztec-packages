@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 library UserLib {
