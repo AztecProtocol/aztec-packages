@@ -67,7 +67,9 @@ export class PublicExecutor {
     const selector = executionRequest.callContext.functionSelector;
     const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
-    PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}@${address}.`);
+    PublicExecutor.log.verbose(
+      `[AVM] Executing public external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+    );
     const timer = new Timer();
 
     const innerCallTrace = new PublicSideEffectTrace(startSideEffectCounter);
@@ -130,6 +132,12 @@ export class PublicExecutor {
       /*startGasLeft=*/ allocatedGas,
       /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
       avmResult,
+    );
+
+    PublicExecutor.log.verbose(
+      `[AVM] ${fnName} simulation complete. Reverted=${avmResult.reverted}. Consumed ${
+        allocatedGas.l2Gas - avmContext.machineState.gasLeft.l2Gas
+      } L2 gas, ending with ${avmContext.machineState.gasLeft.l2Gas} L2 gas left.`,
     );
 
     return publicExecutionResult;

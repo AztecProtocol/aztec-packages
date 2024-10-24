@@ -217,7 +217,7 @@ export class AvmPersistableStateManager {
     const aztecAddress = AztecAddress.fromField(contractAddress);
     let instance = await this.worldStateDB.getContractInstance(aztecAddress);
     if (instance === undefined) {
-      instance = SerializableContractInstance.empty().withAddress(aztecAddress);
+      instance = SerializableContractInstance.default().withAddress(aztecAddress);
       exists = false;
     }
     this.log.debug(
