@@ -11,7 +11,12 @@ pub struct NoteHeader {
 
 impl Empty for NoteHeader {
     fn empty() -> Self {
-        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, note_hash_counter: 0 }
+        NoteHeader {
+            contract_address: AztecAddress::zero(),
+            nonce: 0,
+            storage_slot: 0,
+            note_hash_counter: 0,
+        }
     }
 }
 
@@ -39,7 +44,10 @@ impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
         // (Serialize trait needs to be implemented for a note when it's passed as an argument to a contract function
         // --> then it's used when computing args hash.)
         [
-            self.contract_address.to_field(), self.nonce, self.storage_slot, self.note_hash_counter as Field
+            self.contract_address.to_field(),
+            self.nonce,
+            self.storage_slot,
+            self.note_hash_counter as Field,
         ]
     }
 }
