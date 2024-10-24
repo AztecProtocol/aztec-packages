@@ -1,7 +1,4 @@
-use std::{
-    collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
-    meta::unquote,
-};
+use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}, meta::unquote};
 
 use super::utils::get_serialized_size;
 use super::utils::is_note;
@@ -30,8 +27,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     //let context_generic = s.add_generic("Context");
     for field in s.fields() {
         let (name, typ) = field;
-        let (storage_field_constructor, serialized_size) =
-            generate_storage_field_constructor(typ, quote { $slot }, false);
+        let (storage_field_constructor, serialized_size) = generate_storage_field_constructor(typ, quote { $slot }, false);
         storage_vars_constructors =
             storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
@@ -101,22 +97,16 @@ pub comptime fn storage_no_init(_s: StructDefinition) {
 
 /// Returns the expression required to initialize a state variable with a given slot, along with its serialization size,
 /// i.e. how many contiguous storage slots the variable requires.
-comptime fn generate_storage_field_constructor(
-    typ: Type,
-    slot: Quoted,
-    parent_is_map: bool,
-) -> (Quoted, u32) {
+comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, parent_is_map: bool) -> (Quoted, u32) {
     assert(
-        typ.as_struct().is_some(),
-        "Storage containers must be generic structs of the form `Container<_, Context>`, or Map<Key, _, Context>",
+        typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<_, Context>`, or Map<Key, _, Context>"
     );
     let (container_struct, generics) = typ.as_struct().unwrap();
     let struct_name = container_struct.name();
 
     if is_storage_map(typ) {
         // Map state variables recursively initialize their contents - this includes nested maps.
-        let (value_constructor, _) =
-            generate_storage_field_constructor(generics[1], quote { slot }, true);
+        let (value_constructor, _) = generate_storage_field_constructor(generics[1], quote { slot }, true);
         (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
     } else {
         let (container_struct, container_struct_generics) = typ.as_struct().unwrap();
@@ -163,9 +153,7 @@ comptime fn is_storage_map(typ: Type) -> bool {
 }
 
 comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
-    let (def, mut generics) = typ.as_struct().expect(
-        f"Storage containers must be generic structs of the form `Container<..., Context>`",
-    );
+    let (def, mut generics) = typ.as_struct().expect(f"Storage containers must be generic structs of the form `Container<..., Context>`");
     let name = def.name();
 
     if is_storage_map(typ) {

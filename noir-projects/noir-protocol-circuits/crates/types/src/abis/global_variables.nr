@@ -1,7 +1,6 @@
 use crate::{
-    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees,
-    constants::GLOBAL_VARIABLES_LENGTH, traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees, constants::GLOBAL_VARIABLES_LENGTH,
+    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader
 };
 
 // docs:start:global-variables
@@ -58,7 +57,7 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
             timestamp: reader.read() as u64,
             coinbase: EthAddress::from_field(reader.read()),
             fee_recipient: AztecAddress::from_field(reader.read()),
-            gas_fees: reader.read_struct(GasFees::deserialize),
+            gas_fees: reader.read_struct(GasFees::deserialize)
         }
     }
 }
@@ -86,7 +85,7 @@ impl Empty for GlobalVariables {
             timestamp: 0,
             coinbase: EthAddress::empty(),
             fee_recipient: AztecAddress::empty(),
-            gas_fees: GasFees::empty(),
+            gas_fees: GasFees::empty()
         }
     }
 }

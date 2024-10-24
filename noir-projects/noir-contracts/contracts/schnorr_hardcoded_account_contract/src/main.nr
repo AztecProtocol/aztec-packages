@@ -7,7 +7,7 @@ contract SchnorrHardcodedAccount {
     use dep::aztec::prelude::PrivateContext;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
-        auth_witness::get_auth_witness,
+        auth_witness::get_auth_witness
     };
 
     use dep::aztec::macros::functions::{private, view};
@@ -33,7 +33,9 @@ contract SchnorrHardcodedAccount {
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load auth witness and format as an u8 array
-        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
+        let witness: [Field; 64] = unsafe {
+            get_auth_witness(outer_hash)
+        };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {
             signature[i] = witness[i] as u8;
@@ -44,7 +46,7 @@ contract SchnorrHardcodedAccount {
             public_key_x,
             public_key_y,
             signature,
-            outer_hash.to_be_bytes::<32>(),
+            outer_hash.to_be_bytes::<32>()
         )
     }
     // docs:end:is-valid

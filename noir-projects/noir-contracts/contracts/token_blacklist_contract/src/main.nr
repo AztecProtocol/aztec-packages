@@ -16,21 +16,15 @@ contract TokenBlacklist {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::{
-            encode_and_encrypt_note_unconstrained, encode_and_encrypt_note,
-        }, utils::comparison::Comparator,
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note_unconstrained, encode_and_encrypt_note},
+        utils::comparison::Comparator,
         macros::{storage::storage, functions::{private, public, initializer, view, internal}},
-        keys::getters::get_public_keys,
+        keys::getters::get_public_keys
     };
 
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-    };
+    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public};
 
-    use crate::types::{
-        transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap,
-        roles::UserFlags,
-    };
+    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap, roles::UserFlags};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
@@ -190,12 +184,7 @@ contract TokenBlacklist {
         // Add the token note to user's balances set
         let msg_sender_keys = get_public_keys(context.msg_sender());
         let to_keys = get_public_keys(to);
-        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(
-            &mut context,
-            msg_sender_keys.ovpk_m,
-            to_keys.ivpk_m,
-            to,
-        ));
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, to_keys.ivpk_m, to));
     }
 
     #[private]
@@ -212,16 +201,9 @@ contract TokenBlacklist {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
-            &mut context,
-            from_keys.ovpk_m,
-            from_keys.ivpk_m,
-            from,
-        ));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
 
-        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
-            &mut context,
-        );
+        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
 
     // docs:start:transfer_private
@@ -242,18 +224,10 @@ contract TokenBlacklist {
         let to_keys = get_public_keys(to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            from_keys.ovpk_m,
-            from_keys.ivpk_m,
-            from,
-        ));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            from_keys.ovpk_m,
-            to_keys.ivpk_m,
-            to,
-        ));
+        storage.balances.sub(from, amount).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
+        );
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
 
     #[private]
@@ -268,12 +242,7 @@ contract TokenBlacklist {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
-            &mut context,
-            from_keys.ovpk_m,
-            from_keys.ivpk_m,
-            from,
-        ));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

@@ -1,12 +1,10 @@
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
-};
+use dep::protocol_types::{constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
     lifecycle::create_note, note_getter::{get_note, view_notes},
     note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
-    note_emission::NoteEmission,
+    note_emission::NoteEmission
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
@@ -37,17 +35,19 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
             [self.storage_slot],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+            GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
     }
 }
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
+    pub fn initialize<let N: u32>(
+        self,
+        note: &mut Note
+    ) -> NoteEmission<Note>
     where
-        Note: NoteInterface<N> + NullifiableNote,
-    {
+        Note: NoteInterface<N> + NullifiableNote, {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_nullifier(nullifier);
@@ -59,8 +59,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
-    {
+        Note: NoteInterface<N> + NullifiableNote, {
         let storage_slot = self.storage_slot;
         get_note(self.context, storage_slot).0
     }
@@ -79,8 +78,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
-    {
+        Note: NoteInterface<N> + NullifiableNote, {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

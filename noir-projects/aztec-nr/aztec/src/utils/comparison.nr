@@ -59,17 +59,11 @@ mod test {
 
         let lhs = 10;
         let rhs = 10;
-        assert(
-            compare(lhs, Comparator.GTE, rhs),
-            "Expected lhs to be greater than or equal to rhs",
-        );
+        assert(compare(lhs, Comparator.GTE, rhs), "Expected lhs to be greater than or equal to rhs");
 
         let lhs = 11;
         let rhs = 10;
-        assert(
-            compare(lhs, Comparator.GTE, rhs),
-            "Expected lhs to be greater than or equal to rhs",
-        );
+        assert(compare(lhs, Comparator.GTE, rhs), "Expected lhs to be greater than or equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
@@ -85,10 +79,7 @@ mod test {
 
         let lhs = 11;
         let rhs = 10;
-        assert(
-            !compare(lhs, Comparator.LTE, rhs),
-            "Expected lhs to not be less than or equal to rhs",
-        );
+        assert(!compare(lhs, Comparator.LTE, rhs), "Expected lhs to not be less than or equal to rhs");
 
         let lhs = 10;
         let rhs = 10;
@@ -96,16 +87,10 @@ mod test {
 
         let lhs = 10;
         let rhs = 11;
-        assert(
-            !compare(lhs, Comparator.GTE, rhs),
-            "Expected lhs to not be greater than or equal to rhs",
-        );
+        assert(!compare(lhs, Comparator.GTE, rhs), "Expected lhs to not be greater than or equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        assert(
-            !compare(lhs, Comparator.GTE, rhs),
-            "Expected lhs to not be greater than or equal to rhs",
-        );
+        assert(!compare(lhs, Comparator.GTE, rhs), "Expected lhs to not be greater than or equal to rhs");
     }
 }

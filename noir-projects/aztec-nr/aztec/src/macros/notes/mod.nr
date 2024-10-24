@@ -1,6 +1,6 @@
 use std::{
     meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
 };
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
 use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
@@ -25,7 +25,7 @@ comptime fn compute_note_type_id(name: Quoted) -> Field {
             let hash = protocol_types::hash::poseidon2_hash_bytes(bytes);
             let hash_bytes = hash.to_be_bytes::<4>();
             protocol_types::utils::field::field_from_bytes(hash_bytes, true)
-        },
+        }
     )
 }
 
@@ -65,15 +65,14 @@ comptime fn generate_note_interface(
     s: StructDefinition,
     note_type_id: Field,
     indexed_fixed_fields: [(Quoted, Type, u32)],
-    indexed_nullable_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, Type, u32)]
 ) -> (Quoted, u32) {
     let name = s.name();
     let typ = s.as_type();
 
     // First we compute note content serialization. We do that by passing the whole note struct
     // to the `flatten_to_fields(...)` and omitting the header.
-    let (content_fields_list, content_aux_vars_list) =
-        flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
+    let (content_fields_list, content_aux_vars_list) = flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let content_aux_vars = if content_aux_vars_list.len() > 0 {
@@ -90,27 +89,24 @@ comptime fn generate_note_interface(
         typ,
         quote { value },
         0,
-        &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })],
+        &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })]
     );
 
     // Second we compute quotes for MSM
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
     let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
     // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
-    let prefixed_merged_fields = merged_fields.map(|(name, typ, index): (Quoted, Type, u32)| {
+    let prefixed_merged_fields = merged_fields.map(
+        |(name, typ, index): (Quoted, Type, u32)| {
         (quote { self.$name }, typ, index)
-    });
-    let (new_generators_list, new_scalars_list, _, new_aux_vars) =
-        generate_multi_scalar_mul(prefixed_merged_fields);
+    }
+    );
+    let (new_generators_list, new_scalars_list, _, new_aux_vars) = generate_multi_scalar_mul(prefixed_merged_fields);
 
-    let new_generators =
-        new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
-    let new_scalars = new_scalars_list
-        .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
-        .join(quote {,});
+    let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) }).join(quote {,});
 
-    (
-        quote {
+    (quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
             fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
                 let serialized_note = self.serialize_content();
@@ -164,9 +160,7 @@ comptime fn generate_note_interface(
                 point.x
             }
         }
-    },
-        content_len,
-    )
+    }, content_len)
 }
 
 /// Generates note properties struct for a given note struct `s`.
@@ -199,9 +193,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
 
     let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
-    let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } })
-        .join(quote {,});
+    let properties_types = non_header_fields.map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } }).join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = &[];
@@ -254,7 +246,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
 pub(crate) comptime fn generate_note_export(
     s: StructDefinition,
     note_type_id: Field,
-    fields: [(Quoted, u32, bool)],
+    fields: [(Quoted, u32, bool)]
 ) -> Quoted {
     let name = s.name();
     let mut hasher = Poseidon2Hasher::default();
@@ -302,9 +294,7 @@ pub(crate) comptime fn generate_note_export(
 /// ]
 /// args_list: [amount: U128, npk_m_hash: Field, randomness: Field]
 /// aux_vars: []
-comptime fn generate_multi_scalar_mul(
-    indexed_fields: [(Quoted, Type, u32)],
-) -> ([Quoted], [Quoted], [Quoted], Quoted) {
+comptime fn generate_multi_scalar_mul(indexed_fields: [(Quoted, Type, u32)]) -> ([Quoted], [Quoted], [Quoted], Quoted) {
     let mut generators_list = &[];
     let mut scalars_list = &[];
     let mut args_list = &[];
@@ -388,31 +378,22 @@ comptime fn generate_multi_scalar_mul(
 comptime fn generate_setup_payload(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
-    indexed_nullable_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, Type, u32)]
 ) -> (Quoted, Quoted) {
     let name = s.name();
     let setup_payload_name = f"{name}SetupPayload".quoted_contents();
 
     // First we get the MSM related quotes
-    let (new_generators_list, new_scalars_list, new_args_list, new_aux_vars) =
-        generate_multi_scalar_mul(indexed_fixed_fields);
-    let new_args = &[quote {mut self}]
-        .append(new_args_list)
-        .push_back(quote { storage_slot: Field })
-        .join(quote {,});
-    let new_generators =
-        new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
-    let new_scalars = new_scalars_list
-        .push_back(quote { std::hash::from_field_unsafe(storage_slot) })
-        .join(quote {,});
+    let (new_generators_list, new_scalars_list, new_args_list, new_aux_vars) = generate_multi_scalar_mul(indexed_fixed_fields);
+    let new_args = &[quote {mut self}].append(new_args_list).push_back(quote { storage_slot: Field }).join(quote {,});
+    let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(storage_slot) }).join(quote {,});
 
     // Then the log plaintext ones
     let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_plaintext =
-        get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
+    let setup_log_plaintext = get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
-    (
-        quote {
+    (quote {
         struct $setup_payload_name {
             log_plaintext: [u8; $log_plaintext_length],
             hiding_point: aztec::protocol_types::point::Point
@@ -439,9 +420,7 @@ comptime fn generate_setup_payload(
                 Self { log_plaintext: [0; $log_plaintext_length], hiding_point: aztec::protocol_types::point::Point::empty() }
             }
         }
-    },
-        setup_payload_name,
-    )
+    }, setup_payload_name)
 }
 
 /// Generates setup log plaintext for a given note struct `s`. The setup log plaintext is computed by serializing
@@ -451,15 +430,13 @@ comptime fn generate_setup_payload(
 comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
     log_plaintext_length: u32,
-    indexed_nullable_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, Type, u32)]
 ) -> Quoted {
     let name = s.name();
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
     // to the flatten_to_fields function but we omit the NoteHeader and the nullable fields.
-    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(quote { header });
     let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
@@ -529,7 +506,7 @@ comptime fn get_setup_log_plaintext_body(
 comptime fn generate_finalization_payload(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
-    indexed_nullable_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, Type, u32)]
 ) -> (Quoted, Quoted) {
     let name = s.name();
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
@@ -537,9 +514,7 @@ comptime fn generate_finalization_payload(
     // We compute serialization of the nullable fields which are to be emitted as an unencrypted log. We do that by
     // passing the whole note struct to the `flatten_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
-    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(quote { header });
     let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
@@ -555,15 +530,13 @@ comptime fn generate_finalization_payload(
     let fields = fields_list.join(quote {,});
 
     // Now we compute quotes relevant to the multi-scalar multiplication.
-    let (generators_list, scalars_list, args_list, msm_aux_vars) =
-        generate_multi_scalar_mul(indexed_nullable_fields);
+    let (generators_list, scalars_list, args_list, msm_aux_vars) = generate_multi_scalar_mul(indexed_nullable_fields);
 
     let generators = generators_list.join(quote {,});
     let scalars = scalars_list.join(quote {,});
     let args = args_list.join(quote {,});
 
-    (
-        quote {
+    (quote {
         struct $finalization_payload_name {
             log: [Field; $log_length],
             note_hash: Field,
@@ -590,9 +563,7 @@ comptime fn generate_finalization_payload(
                 Self { log: [0; $log_length], note_hash: 0 }
             }
         }
-    },
-        finalization_payload_name,
-    )
+    }, finalization_payload_name)
 }
 
 /// Generates `PartialNote` implementation for a given note struct `s`.
@@ -609,11 +580,7 @@ comptime fn generate_finalization_payload(
 ///     }
 /// }
 /// ```
-comptime fn generate_partial_note_impl(
-    s: StructDefinition,
-    setup_payload_name: Quoted,
-    finalization_payload_name: Quoted,
-) -> Quoted {
+comptime fn generate_partial_note_impl(s: StructDefinition, setup_payload_name: Quoted, finalization_payload_name: Quoted) -> Quoted {
     let name = s.name();
     quote {
         impl aztec::note::note_interface::PartialNote<$setup_payload_name, $finalization_payload_name> for $name {
@@ -635,7 +602,7 @@ comptime fn register_note(
     note_serialized_len: u32,
     note_type_id: Field,
     fixed_fields: [(Quoted, Type, u32)],
-    nullable_fields: [(Quoted, Type, u32)],
+    nullable_fields: [(Quoted, Type, u32)]
 ) {
     let mut fields = &[];
     for field in fixed_fields {
@@ -647,7 +614,10 @@ comptime fn register_note(
         fields = fields.push_back((name, index, true));
     }
 
-    NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id, fields));
+    NOTES.insert(
+        note.as_type(),
+        (note, note_serialized_len, note_type_id, fields)
+    );
 }
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
@@ -655,7 +625,7 @@ comptime fn register_note(
 /// An example of a struct member occupying multiple fields is `amount` in `TokenNote` that uses `U128` type.
 comptime fn index_note_fields(
     s: StructDefinition,
-    nullable_fields: [Quoted],
+    nullable_fields: [Quoted]
 ) -> ([(Quoted, Type, u32)], [(Quoted, Type, u32)]) {
     let mut indexed_fixed_fields: [(Quoted, Type, u32)] = &[];
     let mut indexed_nullable_fields = &[];
@@ -706,24 +676,16 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 
     let note_properties = generate_note_properties(s);
     let note_type_id = compute_note_type_id(s.name());
-    let (setup_payload_impl, setup_payload_name) =
-        generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let (finalization_payload_impl, finalization_payload_name) =
-        generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
-        s,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
-    let partial_note_impl =
-        generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
+    let (setup_payload_impl, setup_payload_name) = generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
+    let (finalization_payload_impl, finalization_payload_name) = generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
+    let partial_note_impl = generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
     register_note(
         s,
         note_serialized_len,
         note_type_id,
         indexed_fixed_fields,
-        indexed_nullable_fields,
+        indexed_nullable_fields
     );
 
     quote {
@@ -749,18 +711,13 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 
     let note_properties = generate_note_properties(s);
     let note_type_id = compute_note_type_id(s.name());
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
-        s,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, indexed_fixed_fields, indexed_nullable_fields);
     register_note(
         s,
         note_serialized_len,
         note_type_id,
         indexed_fixed_fields,
-        indexed_nullable_fields,
+        indexed_nullable_fields
     );
 
     quote {
@@ -780,17 +737,10 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let note_properties = generate_note_properties(s);
     let note_type_id = compute_note_type_id(s.name());
     let serialized_len_type = fresh_type_variable();
-    let note_interface_impl = s.as_type().get_trait_impl(
-        quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }
-            .as_trait_constraint(),
-    );
+    let note_interface_impl = s.as_type().get_trait_impl(quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }.as_trait_constraint());
     let name = s.name();
 
-    let note_serialized_len = note_interface_impl
-        .expect(f"Note {name} must implement NoteInterface trait")
-        .trait_generic_args()[0]
-        .as_constant()
-        .unwrap();
+    let note_serialized_len = note_interface_impl.expect(f"Note {name} must implement NoteInterface trait").trait_generic_args()[0].as_constant().unwrap();
 
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
     register_note(
@@ -798,7 +748,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
         note_serialized_len,
         note_type_id,
         indexed_fixed_fields,
-        indexed_nullable_fields,
+        indexed_nullable_fields
     );
 
     quote {

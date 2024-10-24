@@ -1,12 +1,10 @@
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
-};
+use dep::protocol_types::{constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_note, view_notes},
     note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
-    note_emission::NoteEmission,
+    note_emission::NoteEmission
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
@@ -41,15 +39,14 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
             [self.storage_slot],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+            GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
     }
 }
 
 impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     // docs:start:initialize
     pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
@@ -62,8 +59,7 @@ where
 
     // docs:start:replace
     pub fn replace(self, new_note: &mut Note) -> NoteEmission<Note> {
-        let (prev_note, note_hash_for_read_request): (Note, Field) =
-            get_note(self.context, self.storage_slot);
+        let (prev_note, note_hash_for_read_request): (Note, Field) = get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
         destroy_note_unsafe(self.context, prev_note, note_hash_for_read_request);
@@ -84,8 +80,9 @@ where
         //    an inclusion proof for the current note
         // This means that an honest oracle will assist the prover to produce a valid proof, while a malicious oracle
         // (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce a proof.
-        let is_initialized =
-            unsafe { check_nullifier_exists(self.compute_initialization_nullifier()) };
+        let is_initialized = unsafe {
+            check_nullifier_exists(self.compute_initialization_nullifier())
+        };
 
         if (!is_initialized) {
             self.initialize(note)
@@ -110,8 +107,7 @@ where
 
 impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)

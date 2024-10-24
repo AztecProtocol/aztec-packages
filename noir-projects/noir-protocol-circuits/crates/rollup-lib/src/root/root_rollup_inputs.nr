@@ -1,10 +1,10 @@
 use crate::{
     abis::previous_rollup_block_data::PreviousRollupBlockData, components,
-    root::root_rollup_public_inputs::RootRollupPublicInputs,
+    root::root_rollup_public_inputs::RootRollupPublicInputs
 };
 use types::{
     traits::Empty,
-    constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX},
+    constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX}
 };
 // TODO(#7346): Currently unused! Will be used when batch rollup circuits are integrated.
 global ALLOWED_PREVIOUS_CIRCUITS =
@@ -17,10 +17,7 @@ pub struct RootRollupInputs {
 
 impl Empty for RootRollupInputs {
     fn empty() -> Self {
-        RootRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2],
-            prover_id: 0,
-        }
+        RootRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2], prover_id: 0 }
     }
 }
 
@@ -62,7 +59,7 @@ impl RootRollupInputs {
             fees,
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
-            prover_id: self.prover_id,
+            prover_id: self.prover_id
         }
     }
 }

@@ -5,7 +5,7 @@ contract Claim {
     use dep::aztec::{
         note::utils::compute_note_hash_for_nullify, protocol_types::address::AztecAddress,
         state_vars::SharedImmutable,
-        macros::{storage::storage, functions::{private, public, initializer}},
+        macros::{storage::storage, functions::{private, public, initializer}}
     };
     use dep::value_note::value_note::ValueNote;
     use token::Token;
@@ -30,8 +30,7 @@ contract Claim {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read_private();
         assert(
-            target_address == proof_note.header.contract_address,
-            "Note does not correspond to the target contract",
+            target_address == proof_note.header.contract_address, "Note does not correspond to the target contract"
         );
 
         // 2) Prove that the note hash exists in the note hash tree
@@ -50,8 +49,6 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(storage.reward_token.read_private())
-            .mint_public(recipient, proof_note.value)
-            .enqueue(&mut context);
+        Token::at(storage.reward_token.read_private()).mint_public(recipient, proof_note.value).enqueue(&mut context);
     }
 }

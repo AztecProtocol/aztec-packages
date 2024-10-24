@@ -9,17 +9,11 @@ pub fn notify_created_note<let N: u32>(
     note_type_id: Field,
     serialized_note: [Field; N],
     note_hash: Field,
-    counter: u32,
+    counter: u32
 ) {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
     unsafe {
-        notify_created_note_oracle_wrapper(
-            storage_slot,
-            note_type_id,
-            serialized_note,
-            note_hash,
-            counter,
-        )
+        notify_created_note_oracle_wrapper(storage_slot, note_type_id, serialized_note, note_hash, counter)
     };
 }
 
@@ -28,7 +22,9 @@ pub fn notify_created_note<let N: u32>(
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
-    unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
+    unsafe {
+        notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter)
+    };
 }
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
@@ -36,15 +32,9 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     note_type_id: Field,
     serialized_note: [Field; N],
     note_hash: Field,
-    counter: u32,
+    counter: u32
 ) {
-    let _ = notify_created_note_oracle(
-        storage_slot,
-        note_type_id,
-        serialized_note,
-        note_hash,
-        counter,
-    );
+    let _ = notify_created_note_oracle(storage_slot, note_type_id, serialized_note, note_hash, counter);
 }
 
 #[oracle(notifyCreatedNote)]
@@ -53,23 +43,19 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
     _note_type_id: Field,
     _serialized_note: [Field; N],
     _note_hash: Field,
-    _counter: u32,
+    _counter: u32
 ) -> Field {}
 
 unconstrained fn notify_nullified_note_oracle_wrapper(
     nullifier: Field,
     note_hash: Field,
-    counter: u32,
+    counter: u32
 ) {
     let _ = notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
 #[oracle(notifyNullifiedNote)]
-unconstrained fn notify_nullified_note_oracle(
-    _nullifier: Field,
-    _note_hash: Field,
-    _counter: u32,
-) -> Field {}
+unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) -> Field {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
@@ -88,7 +74,7 @@ unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
     _offset: u32,
     _status: u8,
     _return_size: u32,
-    _placeholder_fields: [Field; S],
+    _placeholder_fields: [Field; S]
 ) -> [Field; S] {}
 
 unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
@@ -106,7 +92,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
     limit: u32,
     offset: u32,
     status: u8,
-    mut placeholder_fields: [Field; S],
+    mut placeholder_fields: [Field; S]
 ) -> [Field; S] {
     let return_size = placeholder_fields.len() as u32;
     get_notes_oracle(
@@ -125,7 +111,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
         offset,
         status,
         return_size,
-        placeholder_fields,
+        placeholder_fields
     )
 }
 
@@ -146,11 +132,10 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     status: u8,
     mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
-    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
+    _placeholder_note_length: [Field; N] // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
 ) -> [Option<Note>; S]
 where
-    Note: NoteInterface<N>,
-{
+    Note: NoteInterface<N>, {
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -166,7 +151,7 @@ where
         limit,
         offset,
         status,
-        placeholder_fields,
+        placeholder_fields
     );
     let num_notes = fields[0] as u32;
     let contract_address = AztecAddress::from_field(fields[1]);

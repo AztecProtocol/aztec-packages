@@ -1,7 +1,5 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
-use types::abis::{
-    append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
-};
+use types::abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables};
 use types::constants::AZTEC_EPOCH_DURATION;
 use crate::abis::block_root_or_block_merge_public_inputs::FeeRecipient;
 
@@ -28,7 +26,7 @@ impl EmptyBlockRootRollupInputs {
             fees: [FeeRecipient::empty(); AZTEC_EPOCH_DURATION],
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
-            prover_id: self.prover_id,
+            prover_id: self.prover_id
         }
     }
 }

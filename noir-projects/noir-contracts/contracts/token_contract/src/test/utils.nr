@@ -2,16 +2,12 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    oracle::{
-        execution::{get_block_number, get_contract_address}, random::random, storage::storage_read,
-    },
+    oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
 
 use crate::{types::transparent_note::TransparentNote, Token};
 
-pub unconstrained fn setup(
-    with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
@@ -32,18 +28,15 @@ pub unconstrained fn setup(
         owner,
         "TestToken0000000000000000000000",
         "TT00000000000000000000000000000",
-        18,
+        18
     );
-    let token_contract =
-        env.deploy_self("Token").with_public_void_initializer(initializer_call_interface);
+    let token_contract = env.deploy_self("Token").with_public_void_initializer(initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.advance_block_by(1);
     (&mut env, token_contract_address, owner, recipient)
 }
 
-pub unconstrained fn setup_and_mint(
-    with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
@@ -61,13 +54,11 @@ pub unconstrained fn setup_and_mint(
     env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
         Token::storage_layout().pending_shields.slot,
-        token_contract_address,
+        token_contract_address
     );
     // docs:end:txe_test_add_note
     // Redeem our shielded tokens
-    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(
-        &mut env.private(),
-    );
+    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(&mut env.private());
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
@@ -76,7 +67,7 @@ pub unconstrained fn setup_and_mint(
 pub unconstrained fn check_public_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
-    address_amount: Field,
+    address_amount: Field
 ) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
@@ -94,7 +85,7 @@ pub unconstrained fn check_public_balance(
 pub unconstrained fn check_private_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
-    address_amount: Field,
+    address_amount: Field
 ) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);

@@ -37,13 +37,16 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
 /// Takes a function body as a collection of expressions, and alters it by prepending and appending quoted values.
 pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
     // We need to quote the body before we can alter its contents, so we fold it by quoting each expression.
-    let mut body_quote = body.fold(quote {}, |full_quote: Quoted, expr: Expr| {
+    let mut body_quote = body.fold(
+        quote {},
+        |full_quote: Quoted, expr: Expr| {
         let expr_quote = expr.quoted();
         quote {
                 $full_quote
                 $expr_quote
             }
-    });
+    }
+    );
     body_quote = quote {
         {
             $prepend
@@ -74,9 +77,7 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
             $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
         }
     } else {
-        panic(
-            f"Cannot add to slice: unsupported type {typ} variable {name}",
-        )
+        panic(f"Cannot add to slice: unsupported type {typ} variable {name}")
     }
 }
 
@@ -100,9 +101,7 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
             $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
         }
     } else {
-        panic(
-            f"Cannot add to hasher: unsupported type {typ} of variable {name}",
-        )
+        panic(f"Cannot add to hasher: unsupported type {typ} of variable {name}")
     }
 }
 
@@ -129,8 +128,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_struct().is_some() {
         let (s, _) = typ.as_struct().unwrap();
-        let field_signatures =
-            s.fields().map(|(_, typ): (Quoted, Type)| { signature_of_type(typ) }).join(quote {,});
+        let field_signatures = s.fields().map(|(_, typ): (Quoted, Type)| { signature_of_type(typ) }).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -164,7 +162,7 @@ impl<let N: u32, Env> AsStrQuote for Quoted {
             quote {
                 let signature_as_array: [u8; $total_len] = $acc.as_array();
                 signature_as_array.as_str_unchecked()
-            },
+            }
         );
         quote { $result }
     }
@@ -178,8 +176,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     //
     // The signature will be "foo(Field,AztecAddress)".
     let fn_name = f.name();
-    let args_signatures =
-        f.parameters().map(|(_, typ): (Quoted, Type)| { signature_of_type(typ) }).join(quote {,});
+    let args_signatures = f.parameters().map(|(_, typ): (Quoted, Type)| { signature_of_type(typ) }).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
     let signature_str_quote = signature_quote.as_str_quote();
 
@@ -200,12 +197,11 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     //
     // The signature will be "Foo(Field,AztecAddress)".
     let event_name = s.name();
-    let args_signatures = s
-        .fields()
-        .map(|(_, typ): (Quoted, Type)| {
+    let args_signatures = s.fields().map(
+        |(_, typ): (Quoted, Type)| {
             signature_of_type(typ) // signature_of_type can handle structs, so this supports nested structs
-        })
-        .join(quote {,});
+        }
+    ).join(quote {,});
     let signature_quote = quote { $event_name($args_signatures) };
     let signature_str_quote = signature_quote.as_str_quote();
 
@@ -217,22 +213,17 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
 
 pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
     let any = fresh_type_variable();
-    let maybe_serialize_impl =
-        typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
+    let maybe_serialize_impl = typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
 
-    maybe_serialize_impl
-        .expect(
-            f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait",
-        )
-        .trait_generic_args()[0]
-        .as_constant()
-        .unwrap()
+    maybe_serialize_impl.expect(f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait").trait_generic_args()[0].as_constant().unwrap()
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(|s: StructDefinition| {
+    m.structs().any(
+        |s: StructDefinition| {
         s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
-    })
+    }
+    )
 }
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
@@ -240,10 +231,13 @@ pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
 }
 
 pub(crate) comptime fn is_note(typ: Type) -> bool {
-    typ.as_struct().map_or(false, |struc: (StructDefinition, [Type])| {
+    typ.as_struct().map_or(
+        false,
+        |struc: (StructDefinition, [Type])| {
         let (def, _) = struc;
         def.has_named_attribute("note")
             | def.has_named_attribute("partial_note")
             | def.has_named_attribute("note_custom_interface")
-    })
+    }
+    )
 }

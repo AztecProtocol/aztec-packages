@@ -50,15 +50,13 @@ impl Empty for U128 {
 
 pub fn is_empty<T>(item: T) -> bool
 where
-    T: Empty + Eq,
-{
+    T: Empty + Eq, {
     item.eq(T::empty())
 }
 
 pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
 where
-    T: Empty + Eq,
-{
+    T: Empty + Eq, {
     array.all(|elem| is_empty(elem))
 }
 

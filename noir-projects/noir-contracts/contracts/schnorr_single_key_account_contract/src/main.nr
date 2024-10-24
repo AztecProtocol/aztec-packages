@@ -29,7 +29,9 @@ contract SchnorrSingleKeyAccount {
 
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
-        let witness = unsafe { get_auth_witness(outer_hash) };
+        let witness = unsafe {
+            get_auth_witness(outer_hash)
+        };
         recover_address(outer_hash, witness).eq(context.this_address())
     }
 }

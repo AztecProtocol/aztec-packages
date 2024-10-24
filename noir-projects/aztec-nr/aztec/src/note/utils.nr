@@ -1,22 +1,22 @@
 use crate::{
     context::PrivateContext,
-    note::{note_header::NoteHeader, note_interface::{NullifiableNote, NoteInterface}},
+    note::{note_header::NoteHeader, note_interface::{NullifiableNote, NoteInterface}}
 };
 
 use dep::protocol_types::{
     hash::{
-        compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
-        compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-    }, utils::arr_copy_slice,
+    compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
+    compute_siloed_nullifier as compute_siloed_nullifier_from_preimage
+},
+    utils::arr_copy_slice
 };
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(
     note_with_header: Note,
-    context: &mut PrivateContext,
+    context: &mut PrivateContext
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let header = note_with_header.get_header();
     let note_hash_for_nullify = compute_note_hash_for_nullify(note_with_header);
     let inner_nullifier = note_with_header.compute_nullifier(context, note_hash_for_nullify);
@@ -27,8 +27,7 @@ where
 // TODO(#7775): make this not impossible to understand
 pub fn compute_note_hash_for_read_request<Note, let N: u32>(note: Note) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let note_hash = note.compute_note_hash();
     let nonce = note.get_header().nonce;
     let counter = note.get_header().note_hash_counter;
@@ -43,11 +42,10 @@ where
 // TODO(#7775): make this not impossible to understand
 pub fn compute_note_hash_for_nullify_internal<Note, let N: u32>(
     note: Note,
-    note_hash_for_read_request: Field,
+    note_hash_for_read_request: Field
 ) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let header = note.get_header();
 
     if header.note_hash_counter != 0 {
@@ -56,8 +54,7 @@ where
             note_hash_for_read_request
         } else {
             // Case 2: Non-revertible note, nullified by a revertible nullifier
-            let unique_note_hash =
-                compute_unique_note_hash(header.nonce, note_hash_for_read_request);
+            let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash_for_read_request);
             compute_siloed_note_hash(header.contract_address, unique_note_hash)
         }
     } else {
@@ -111,8 +108,7 @@ where
 
 pub fn compute_note_hash_for_nullify<Note, let N: u32>(note: Note) -> Field
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
     compute_note_hash_for_nullify_internal(note, note_hash_for_read_request)
 }
@@ -121,11 +117,10 @@ pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32,
     deserialize_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
     compute_nullifier: bool,
-    serialized_note: [Field; S],
+    serialized_note: [Field; S]
 ) -> [Field; 4]
 where
-    T: NoteInterface<N> + NullifiableNote,
-{
+    T: NoteInterface<N> + NullifiableNote, {
     let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     note.set_header(note_header);
 

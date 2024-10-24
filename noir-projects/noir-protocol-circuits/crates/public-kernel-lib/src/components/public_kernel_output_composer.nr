@@ -2,16 +2,15 @@ mod propagate_accumulated_data;
 
 use crate::{
     components::public_kernel_output_composer::propagate_accumulated_data::propagate_accumulated_data,
-    public_kernel_phase::PublicKernelPhase,
+    public_kernel_phase::PublicKernelPhase
 };
 use dep::types::{
     abis::{
-        accumulated_data::PublicAccumulatedDataBuilder,
-        kernel_circuit_public_inputs::{
-            PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder,
-            VMCircuitPublicInputs,
-        }, public_call_request::PublicCallRequest,
-    }, traits::is_empty,
+    accumulated_data::PublicAccumulatedDataBuilder,
+    kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder, VMCircuitPublicInputs},
+    public_call_request::PublicCallRequest
+},
+    traits::is_empty
 };
 
 pub struct PublicKernelOutputComposer {
@@ -37,11 +36,7 @@ impl PublicKernelOutputComposer {
         *self
     }
 
-    pub fn propagate_from_enqueued_call(
-        &mut self,
-        enqueued_call: VMCircuitPublicInputs,
-        phase: u8,
-    ) -> Self {
+    pub fn propagate_from_enqueued_call(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) -> Self {
         self.output_builder.constants.global_variables = enqueued_call.constants.global_variables;
         self.propagate_revert_code(enqueued_call, phase);
         self.propagate_validation_requests(enqueued_call);
@@ -100,9 +95,7 @@ impl PublicKernelOutputComposer {
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
-                self.output_builder.validation_requests.nullifier_non_existent_read_requests.push(
-                    request,
-                );
+                self.output_builder.validation_requests.nullifier_non_existent_read_requests.push(request);
             }
         }
 

@@ -1,13 +1,12 @@
 use crate::{
-    abis::{
-        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
-        gas::Gas,
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    abis::{public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}, gas::Gas},
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
-        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    }, utils::reader::Reader, traits::{Empty, Serialize, Deserialize},
+    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX
+},
+    utils::reader::Reader, traits::{Empty, Serialize, Deserialize}
 };
 
 pub struct CombinedAccumulatedData {
@@ -42,10 +41,8 @@ impl Empty for CombinedAccumulatedData {
             note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
-            public_data_update_requests: [
-                PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-            ],
-            gas_used: Gas::empty(),
+            public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            gas_used: Gas::empty()
         }
     }
 }
@@ -93,28 +90,28 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
             nullifiers: reader.read_array([0; MAX_NULLIFIERS_PER_TX]),
             l2_to_l1_msgs: reader.read_struct_array(
                 ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX]
             ),
             note_encrypted_logs_hashes: reader.read_struct_array(
                 LogHash::deserialize,
-                [LogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+                [LogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
             ),
             encrypted_logs_hashes: reader.read_struct_array(
                 ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
+                [ScopedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX]
             ),
             unencrypted_logs_hashes: reader.read_struct_array(
                 ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+                [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]
             ),
             note_encrypted_log_preimages_length: reader.read(),
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             public_data_update_requests: reader.read_struct_array(
                 PublicDataUpdateRequest::deserialize,
-                [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
             ),
-            gas_used: reader.read_struct(Gas::deserialize),
+            gas_used: reader.read_struct(Gas::deserialize)
         };
         reader.finish();
         item
@@ -129,13 +126,14 @@ impl Eq for CombinedAccumulatedData {
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
             & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
-            & (
-                self.note_encrypted_log_preimages_length
-                    == other.note_encrypted_log_preimages_length
-            )
-            & (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length)
-            & (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length)
-            & (self.public_data_update_requests == other.public_data_update_requests)
+            & (self.note_encrypted_log_preimages_length
+                                    == other.note_encrypted_log_preimages_length)
+            & (self.encrypted_log_preimages_length
+                                        == other.encrypted_log_preimages_length)
+            & (self.unencrypted_log_preimages_length
+                                            == other.unencrypted_log_preimages_length)
+            & (self.public_data_update_requests
+                                                == other.public_data_update_requests)
             & (self.gas_used == other.gas_used)
     }
 }

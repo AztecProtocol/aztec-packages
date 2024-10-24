@@ -18,12 +18,14 @@ impl Hash for PublicDataTreeLeafPreimage {
         if self.is_empty() {
             0
         } else {
-            crate::hash::poseidon2_hash([
+            crate::hash::poseidon2_hash(
+                [
                 self.slot,
                 self.value,
                 (self.next_index as Field),
-                self.next_slot,
-            ])
+                self.next_slot
+            ]
+            )
         }
     }
 }

@@ -2,7 +2,7 @@ use dep::types::abis::accumulated_data::{PublicAccumulatedData, PublicAccumulate
 
 pub fn propagate_accumulated_data(
     data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData,
+    from_data: PublicAccumulatedData
 ) -> PublicAccumulatedDataBuilder {
     propagate_note_hashes(data, from_data);
     propagate_nullifiers(data, from_data);
@@ -12,10 +12,7 @@ pub fn propagate_accumulated_data(
     *data
 }
 
-fn propagate_note_hashes(
-    data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData,
-) {
+fn propagate_note_hashes(data: &mut PublicAccumulatedDataBuilder, from_data: PublicAccumulatedData) {
     let note_hashes = from_data.note_hashes;
     for i in 0..note_hashes.len() {
         let note_hash = note_hashes[i];
@@ -37,7 +34,7 @@ fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, from_data: Publ
 
 fn propagate_l2_to_l1_messages(
     data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData,
+    from_data: PublicAccumulatedData
 ) {
     let msgs = from_data.l2_to_l1_msgs;
     for i in 0..msgs.len() {
@@ -50,7 +47,7 @@ fn propagate_l2_to_l1_messages(
 
 fn propagate_unencrypted_logs(
     data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData,
+    from_data: PublicAccumulatedData
 ) {
     let logs = from_data.unencrypted_logs_hashes;
     for i in 0..logs.len() {
@@ -63,7 +60,7 @@ fn propagate_unencrypted_logs(
 
 fn propagate_public_data_writes(
     data: &mut PublicAccumulatedDataBuilder,
-    from_data: PublicAccumulatedData,
+    from_data: PublicAccumulatedData
 ) {
     let writes = from_data.public_data_update_requests;
     for i in 0..writes.len() {

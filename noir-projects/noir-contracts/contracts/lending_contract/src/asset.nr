@@ -23,7 +23,7 @@ impl Serialize<SERIALIZED_LEN> for Asset {
             Asset.last_updated_ts as Field,
             Asset.loan_to_value.lo,
             Asset.loan_to_value.hi,
-            Asset.oracle.to_field(),
+            Asset.oracle.to_field()
         ]
     }
 }

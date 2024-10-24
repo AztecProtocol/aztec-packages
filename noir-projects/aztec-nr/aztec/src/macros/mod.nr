@@ -19,14 +19,15 @@ use dispatch::generate_public_dispatch;
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-    let unconstrained_functions = m.functions().filter(|f: FunctionDefinition| {
+    let unconstrained_functions = m.functions().filter(
+        |f: FunctionDefinition| {
         f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
-    });
+    }
+    );
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }
-    let compute_note_hash_and_optionally_a_nullifier =
-        generate_compute_note_hash_and_optionally_a_nullifier();
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     quote {
@@ -167,9 +168,9 @@ comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
     // Second value in each tuple is `note_serialized_len` and that is ignored here because it's only used when
     // generating the `compute_note_hash_and_optionally_a_nullifier` function.
-    notes
-        .map(|(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
+    notes.map(
+        |(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
             generate_note_export(s, note_type_id, fields)
-        })
-        .join(quote {})
+        }
+    ).join(quote {})
 }

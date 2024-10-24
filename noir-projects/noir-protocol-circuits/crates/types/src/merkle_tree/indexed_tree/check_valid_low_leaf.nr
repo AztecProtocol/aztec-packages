@@ -1,9 +1,11 @@
 use crate::merkle_tree::leaf_preimage::IndexedTreeLeafPreimage;
 
-pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(key: Field, low_leaf_preimage: LEAF_PREIMAGE)
+pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(
+    key: Field,
+    low_leaf_preimage: LEAF_PREIMAGE
+)
 where
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
-{
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage, {
     let low_key = low_leaf_preimage.get_key();
     let next_key = low_leaf_preimage.get_next_key();
 
@@ -14,7 +16,7 @@ where
 mod tests {
     use crate::merkle_tree::{
         leaf_preimage::IndexedTreeLeafPreimage,
-        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
+        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf
     };
 
     struct TestLeafPreimage {

@@ -2,9 +2,8 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::header::Header;
 
 use crate::{
-    context::PrivateContext,
-    oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
-    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote}},
+    context::PrivateContext, oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
+    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote}}
 };
 
 trait ProveNullifierInclusion {
@@ -22,19 +21,14 @@ impl ProveNullifierInclusion for Header {
         // the leaf that contains the nullifier we're proving inclusion for.
         assert(
             self.state.partial.nullifier_tree.root
-                == root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path)
-                ,
-                "Proving nullifier inclusion failed",
-            );
+            == root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path), "Proving nullifier inclusion failed"
+        );
 
-            // 3) Then we simply check that the value in the leaf is the expected one. Note that we don't need to perform
-            // any checks on the rest of the values in the leaf preimage (the next index or next nullifier), since all we
-            // care about is showing that the tree contains an entry with the expected nullifier.
-            assert(
-                witness.leaf_preimage.nullifier == nullifier,
-                "Nullifier does not match value in witness",
-            );
-        }
+        // 3) Then we simply check that the value in the leaf is the expected one. Note that we don't need to perform
+        // any checks on the rest of the values in the leaf preimage (the next index or next nullifier), since all we
+        // care about is showing that the tree contains an entry with the expected nullifier.
+        assert(witness.leaf_preimage.nullifier == nullifier, "Nullifier does not match value in witness");
+    }
 }
 
 trait ProveNoteIsNullified {
@@ -49,10 +43,13 @@ trait ProveNoteIsNullified {
 
 impl ProveNoteIsNullified for Header {
     // docs:start:prove_note_is_nullified
-    fn prove_note_is_nullified<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_is_nullified<Note, let N: u32>(
+        self,
+        note: Note,
+        context: &mut PrivateContext
+    )
     where
-        Note: NoteInterface<N> + NullifiableNote,
-    {
+        Note: NoteInterface<N> + NullifiableNote, {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_inclusion(nullifier);

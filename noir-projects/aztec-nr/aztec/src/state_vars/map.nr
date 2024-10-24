@@ -16,7 +16,7 @@ impl<K, V, Context> Map<K, V, Context> {
     pub fn new(
         context: Context,
         storage_slot: Field,
-        state_var_constructor: fn(Context, Field) -> V,
+        state_var_constructor: fn(Context, Field) -> V
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Map { context, storage_slot, state_var_constructor }
@@ -26,8 +26,7 @@ impl<K, V, Context> Map<K, V, Context> {
     // docs:start:at
     pub fn at(self, key: K) -> V
     where
-        K: ToField,
-    {
+        K: ToField, {
         // TODO(#1204): use a generator index for the storage slot
         let derived_storage_slot = derive_storage_slot_in_map(self.storage_slot, key);
 

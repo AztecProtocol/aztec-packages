@@ -4,24 +4,21 @@ pub fn validate_split_ranges<T, let N: u32>(
     min_revertible_side_effect_counter: u32,
     first_revertible_item_index: u32,
     items: [T; N],
-    num_items: u32,
+    num_items: u32
 )
 where
-    T: RangeOrdered,
-{
+    T: RangeOrdered, {
     if first_revertible_item_index != 0 {
         let last_non_revertible_item_index = first_revertible_item_index - 1;
         let item = items[last_non_revertible_item_index];
         assert(
-            min_revertible_side_effect_counter > item.counter_end(),
-            "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item",
+            min_revertible_side_effect_counter > item.counter_end(), "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item"
         );
     }
     if first_revertible_item_index != num_items {
         let item = items[first_revertible_item_index];
         assert(
-            min_revertible_side_effect_counter <= item.counter_start(),
-            "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item",
+            min_revertible_side_effect_counter <= item.counter_start(), "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible item"
         );
     }
 }
@@ -62,7 +59,7 @@ mod tests {
                 self.private_call.min_revertible_side_effect_counter,
                 self.first_revertible_private_call_request_index,
                 self.private_call.private_call_requests.storage,
-                self.private_call.private_call_requests.len(),
+                self.private_call.private_call_requests.len()
             );
         }
     }

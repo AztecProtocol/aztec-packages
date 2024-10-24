@@ -1,9 +1,10 @@
 use crate::{
     abis::{
-        accumulated_data::PrivateAccumulatedData, combined_constant_data::CombinedConstantData,
-        public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequests,
-    }, address::AztecAddress, constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader},
+    accumulated_data::PrivateAccumulatedData, combined_constant_data::CombinedConstantData,
+    public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequests
+},
+    address::AztecAddress, constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader}
 };
 
 pub struct PrivateKernelCircuitPublicInputsArrayLengths {
@@ -23,15 +24,9 @@ pub struct PrivateKernelCircuitPublicInputsArrayLengths {
 impl PrivateKernelCircuitPublicInputsArrayLengths {
     pub fn new(public_inputs: PrivateKernelCircuitPublicInputs) -> Self {
         PrivateKernelCircuitPublicInputsArrayLengths {
-            note_hash_read_requests: array_length(
-                public_inputs.validation_requests.note_hash_read_requests,
-            ),
-            nullifier_read_requests: array_length(
-                public_inputs.validation_requests.nullifier_read_requests,
-            ),
-            scoped_key_validation_requests_and_generators: array_length(
-                public_inputs.validation_requests.scoped_key_validation_requests_and_generators,
-            ),
+            note_hash_read_requests: array_length(public_inputs.validation_requests.note_hash_read_requests),
+            nullifier_read_requests: array_length(public_inputs.validation_requests.nullifier_read_requests),
+            scoped_key_validation_requests_and_generators: array_length(public_inputs.validation_requests.scoped_key_validation_requests_and_generators),
             note_hashes: array_length(public_inputs.end.note_hashes),
             nullifiers: array_length(public_inputs.end.nullifiers),
             l2_to_l1_msgs: array_length(public_inputs.end.l2_to_l1_msgs),
@@ -39,7 +34,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
             unencrypted_logs_hashes: array_length(public_inputs.end.unencrypted_logs_hashes),
             public_call_requests: array_length(public_inputs.end.public_call_requests),
-            private_call_stack: array_length(public_inputs.end.private_call_stack),
+            private_call_stack: array_length(public_inputs.end.private_call_stack)
         }
     }
 
@@ -55,7 +50,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             encrypted_logs_hashes: 0,
             unencrypted_logs_hashes: 0,
             public_call_requests: 0,
-            private_call_stack: 0,
+            private_call_stack: 0
         }
     }
 }
@@ -64,16 +59,15 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
     fn eq(self, other: Self) -> bool {
         (self.note_hash_read_requests == other.note_hash_read_requests)
             & (self.nullifier_read_requests == other.nullifier_read_requests)
-            & (
-                self.scoped_key_validation_requests_and_generators
-                    == other.scoped_key_validation_requests_and_generators
-            )
+            & (self.scoped_key_validation_requests_and_generators
+                    == other.scoped_key_validation_requests_and_generators)
             & (self.note_hashes == other.note_hashes)
             & (self.nullifiers == other.nullifiers)
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
-            & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
+            & (self.unencrypted_logs_hashes
+                                            == other.unencrypted_logs_hashes)
             & (self.public_call_requests == other.public_call_requests)
             & (self.private_call_stack == other.private_call_stack)
     }
@@ -90,8 +84,7 @@ pub struct PrivateKernelCircuitPublicInputs {
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
-            BoundedVec::new();
+        let mut fields: BoundedVec<Field, PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
         fields.push(self.min_revertible_side_effect_counter as Field);
         fields.extend_from_array(self.validation_requests.serialize());
@@ -107,9 +100,7 @@ impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCir
 }
 
 impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
-    fn deserialize(
-        fields: [Field; PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
-    ) -> PrivateKernelCircuitPublicInputs {
+    fn deserialize(fields: [Field; PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> PrivateKernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
             min_revertible_side_effect_counter: reader.read() as u32,
@@ -117,7 +108,7 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
             end: reader.read_struct(PrivateAccumulatedData::deserialize),
             constants: reader.read_struct(CombinedConstantData::deserialize),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
-            fee_payer: reader.read_struct(AztecAddress::deserialize),
+            fee_payer: reader.read_struct(AztecAddress::deserialize)
         };
 
         reader.finish();
@@ -143,7 +134,7 @@ impl Empty for PrivateKernelCircuitPublicInputs {
             end: PrivateAccumulatedData::empty(),
             constants: CombinedConstantData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
-            fee_payer: AztecAddress::empty(),
+            fee_payer: AztecAddress::empty()
         }
     }
 }

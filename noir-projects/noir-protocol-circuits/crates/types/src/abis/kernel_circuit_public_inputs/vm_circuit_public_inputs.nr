@@ -1,11 +1,12 @@
 use crate::{
     abis::{
-        accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
-        combined_constant_data::CombinedConstantData, gas::Gas,
-        public_call_request::PublicCallRequest, public_inner_call_request::PublicInnerCallRequest,
-        validation_requests::{PublicValidationRequests, PublicValidationRequestArrayLengths},
-    }, constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, VM_CIRCUIT_PUBLIC_INPUTS_LENGTH},
-    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
+    accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
+    combined_constant_data::CombinedConstantData, gas::Gas, public_call_request::PublicCallRequest,
+    public_inner_call_request::PublicInnerCallRequest,
+    validation_requests::{PublicValidationRequests, PublicValidationRequestArrayLengths}
+},
+    constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, VM_CIRCUIT_PUBLIC_INPUTS_LENGTH},
+    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader
 };
 
 pub struct VMCircuitPublicInputs {
@@ -31,9 +32,7 @@ impl Empty for VMCircuitPublicInputs {
         VMCircuitPublicInputs {
             constants: CombinedConstantData::empty(),
             call_request: PublicCallRequest::empty(),
-            public_call_stack: [
-                PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
-            ],
+            public_call_stack: [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
             previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
             validation_requests: PublicValidationRequests::empty(),
             previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
@@ -42,7 +41,7 @@ impl Empty for VMCircuitPublicInputs {
             end_side_effect_counter: 0,
             start_gas_left: Gas::empty(),
             transaction_fee: 0,
-            reverted: false,
+            reverted: false
         }
     }
 }
@@ -52,18 +51,16 @@ impl Eq for VMCircuitPublicInputs {
         (self.constants == other.constants)
             & (self.call_request == other.call_request)
             & (self.public_call_stack == other.public_call_stack)
-            & (
-                self.previous_validation_request_array_lengths
-                    == other.previous_validation_request_array_lengths
-            )
+            & (self.previous_validation_request_array_lengths
+                        == other.previous_validation_request_array_lengths)
             & (self.validation_requests == other.validation_requests)
-            & (
-                self.previous_accumulated_data_array_lengths
-                    == other.previous_accumulated_data_array_lengths
-            )
+            & (self.previous_accumulated_data_array_lengths
+                                == other.previous_accumulated_data_array_lengths)
             & (self.accumulated_data == other.accumulated_data)
-            & (self.start_side_effect_counter == other.start_side_effect_counter)
-            & (self.end_side_effect_counter == other.end_side_effect_counter)
+            & (self.start_side_effect_counter
+                                        == other.start_side_effect_counter)
+            & (self.end_side_effect_counter
+                                            == other.end_side_effect_counter)
             & (self.start_gas_left == other.start_gas_left)
             & (self.transaction_fee == other.transaction_fee)
             & (self.reverted == other.reverted)
@@ -103,21 +100,17 @@ impl Deserialize<VM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for VMCircuitPublicInputs {
             call_request: reader.read_struct(PublicCallRequest::deserialize),
             public_call_stack: reader.read_struct_array(
                 PublicInnerCallRequest::deserialize,
-                [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+                [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
             ),
-            previous_validation_request_array_lengths: reader.read_struct(
-                PublicValidationRequestArrayLengths::deserialize,
-            ),
+            previous_validation_request_array_lengths: reader.read_struct(PublicValidationRequestArrayLengths::deserialize),
             validation_requests: reader.read_struct(PublicValidationRequests::deserialize),
-            previous_accumulated_data_array_lengths: reader.read_struct(
-                PublicAccumulatedDataArrayLengths::deserialize,
-            ),
+            previous_accumulated_data_array_lengths: reader.read_struct(PublicAccumulatedDataArrayLengths::deserialize),
             accumulated_data: reader.read_struct(PublicAccumulatedData::deserialize),
             start_side_effect_counter: reader.read_u32(),
             end_side_effect_counter: reader.read_u32(),
             start_gas_left: reader.read_struct(Gas::deserialize),
             transaction_fee: reader.read(),
-            reverted: reader.read() as bool,
+            reverted: reader.read() as bool
         };
         reader.finish();
         item

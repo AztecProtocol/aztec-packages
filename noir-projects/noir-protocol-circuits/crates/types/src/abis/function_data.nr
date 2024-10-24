@@ -1,6 +1,6 @@
 use crate::{
     abis::function_selector::FunctionSelector, constants::FUNCTION_DATA_LENGTH,
-    traits::{Serialize, Deserialize, Empty},
+    traits::{Serialize, Deserialize, Empty}
 };
 
 pub struct FunctionData {
@@ -25,10 +25,7 @@ impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
 
 impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn deserialize(serialized: [Field; FUNCTION_DATA_LENGTH]) -> Self {
-        Self {
-            selector: FunctionSelector::from_field(serialized[0]),
-            is_private: serialized[1] as bool,
-        }
+        Self { selector: FunctionSelector::from_field(serialized[0]), is_private: serialized[1] as bool }
     }
 }
 

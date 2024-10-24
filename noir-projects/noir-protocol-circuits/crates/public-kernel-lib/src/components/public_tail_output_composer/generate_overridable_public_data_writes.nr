@@ -1,9 +1,6 @@
 use dep::types::{
-    abis::{
-        public_data_update_request::PublicDataUpdateRequest,
-        public_data_write::OverridablePublicDataWrite,
-    }, data::OverridablePublicDataTreeLeaf, traits::Empty,
-    utils::arrays::{array_length, find_index_hint},
+    abis::{public_data_update_request::PublicDataUpdateRequest, public_data_write::OverridablePublicDataWrite},
+    data::OverridablePublicDataTreeLeaf, traits::Empty, utils::arrays::{array_length, find_index_hint}
 };
 
 pub struct LinkedIndexHint {
@@ -19,7 +16,7 @@ impl Empty for LinkedIndexHint {
 
 pub unconstrained fn generate_overridable_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     public_data_writes: [PublicDataUpdateRequest; NUM_WRITES],
-    public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES],
+    public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES]
 ) -> ([OverridablePublicDataWrite; NUM_WRITES], [LinkedIndexHint; NUM_WRITES]) {
     let mut overridable_public_data_writes = [OverridablePublicDataWrite::empty(); NUM_WRITES];
     let mut hints = [LinkedIndexHint::empty(); NUM_WRITES];

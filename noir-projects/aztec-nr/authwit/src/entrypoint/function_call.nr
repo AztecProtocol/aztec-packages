@@ -1,6 +1,4 @@
-use dep::aztec::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
-};
+use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize};
 
 // 1 (ARGS_HASH) + 1 (FUNCTION_SELECTOR) + 1 (TARGET_ADDRESS) + 1 (IS_PUBLIC) + 1 (IS_STATIC)
 global FUNCTION_CALL_SIZE: u32 = 5;
@@ -22,7 +20,7 @@ impl Serialize<FUNCTION_CALL_SIZE> for FunctionCall {
             self.function_selector.to_field(),
             self.target_address.to_field(),
             self.is_public as Field,
-            self.is_static as Field,
+            self.is_static as Field
         ]
     }
 }

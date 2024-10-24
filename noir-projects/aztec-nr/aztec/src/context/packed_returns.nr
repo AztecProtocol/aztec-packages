@@ -21,15 +21,16 @@ impl PackedReturns {
     pub fn unpack<let N: u32>(self) -> [Field; N] {
         // We verify that the value returned by `unpack_returns` is the preimage of `packed_returns`, fully constraining
         // it.
-        let unpacked: [Field; N] = unsafe { unpack_returns(self.packed_returns) };
+        let unpacked: [Field; N] = unsafe {
+            unpack_returns(self.packed_returns)
+        };
         assert_eq(self.packed_returns, hash_args_array(unpacked));
         unpacked
     }
 
     pub fn unpack_into<T, let N: u32>(self) -> T
     where
-        T: Deserialize<N>,
-    {
+        T: Deserialize<N>, {
         let unpacked: [Field; N] = self.unpack();
         Deserialize::deserialize(unpacked)
     }

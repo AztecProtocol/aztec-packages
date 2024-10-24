@@ -119,7 +119,7 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
 
             min(
                 self.pre.unwrap_or(INITIAL_DELAY),
-                blocks_until_change + self.post.unwrap_or(INITIAL_DELAY),
+                blocks_until_change + self.post.unwrap_or(INITIAL_DELAY)
             )
         }
     }
@@ -130,8 +130,7 @@ impl<let INITIAL_DELAY: u32> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY
         // We pack all three u32 values into a single U128, which is made up of two u64 limbs.
         // Low limb: [ pre_inner: u32 | post_inner: u32 ]
         // High limb: [ empty | pre_is_some: u8 |  post_is_some: u8 | block_of_change: u32 ]
-        let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32))
-            + (self.post.unwrap_unchecked() as u64);
+        let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32)) + (self.post.unwrap_unchecked() as u64);
 
         let hi = (self.pre.is_some() as u64) * (1 << 33)
             + (self.post.is_some() as u64 * (1 << 32))
@@ -167,7 +166,7 @@ impl<let INITIAL_DELAY: u32> Deserialize<1> for ScheduledDelayChange<INITIAL_DEL
             } else {
                 Option::none()
             },
-            block_of_change,
+            block_of_change
         }
     }
 }

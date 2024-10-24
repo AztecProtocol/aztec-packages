@@ -2,10 +2,9 @@ use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteGetterOptions, NoteV
 
 use dep::aztec::{
     context::UnconstrainedContext,
-    protocol_types::{
-        traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    }, encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-    keys::getters::get_public_keys, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE,
+    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, keys::getters::get_public_keys,
+    state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::value_note::value_note::ValueNote;
 
@@ -71,7 +70,7 @@ pub struct Deck<Context> {
 
 pub fn filter_cards<let N: u32>(
     notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    desired_cards: [Card; N],
+    desired_cards: [Card; N]
 ) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
@@ -113,12 +112,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
-            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
-                self.set.context,
-                msg_sender_ovpk_m,
-                owner_ivpk_m,
-                owner,
-            ));
+            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(self.set.context, msg_sender_ovpk_m, owner_ivpk_m, owner));
             inserted_cards = inserted_cards.push_back(card_note);
         }
 
@@ -154,7 +148,7 @@ global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 pub fn get_pack_cards(
     seed: Field,
     owner: AztecAddress,
-    context: &mut PrivateContext,
+    context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
     let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 

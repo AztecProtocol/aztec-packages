@@ -1,9 +1,10 @@
 use dep::types::{
     abis::{accumulated_data::PublicAccumulatedData, gas::Gas, log_hash::{LogHash, ScopedLogHash}},
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE,
-    }, utils::arrays::array_length,
+    DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
+    L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE
+},
+    utils::arrays::array_length
 };
 
 fn meter_gas_used(data: PublicAccumulatedData) -> Gas {
@@ -20,18 +21,15 @@ fn meter_gas_used(data: PublicAccumulatedData) -> Gas {
 
     metered_da_bytes += array_length(data.l2_to_l1_msgs) * DA_BYTES_PER_FIELD;
 
-    let note_encrypted_log_preimages_length =
-        data.note_encrypted_logs_hashes.fold(0, |len, l: LogHash| len + l.length);
+    let note_encrypted_log_preimages_length = data.note_encrypted_logs_hashes.fold(0, |len, l: LogHash| len + l.length);
     metered_da_bytes += note_encrypted_log_preimages_length as u32;
     metered_l2_gas += note_encrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
-    let encrypted_log_preimages_length =
-        data.encrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
+    let encrypted_log_preimages_length = data.encrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
     metered_da_bytes += encrypted_log_preimages_length as u32;
     metered_l2_gas += encrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
-    let unencrypted_log_preimages_length =
-        data.unencrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
+    let unencrypted_log_preimages_length = data.unencrypted_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
     metered_da_bytes += unencrypted_log_preimages_length as u32;
     metered_l2_gas += unencrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 

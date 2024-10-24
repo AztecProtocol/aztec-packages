@@ -1,17 +1,18 @@
 use crate::{
     components::{
-        enqueued_call_data_validator::EnqueuedCallDataValidator,
-        previous_kernel_validator::PreviousKernelValidator,
-        public_kernel_output_composer::PublicKernelOutputComposer,
-        public_kernel_output_validator::PublicKernelOutputValidator,
-    }, public_kernel_phase::PublicKernelPhase,
+    enqueued_call_data_validator::EnqueuedCallDataValidator,
+    previous_kernel_validator::PreviousKernelValidator,
+    public_kernel_output_composer::PublicKernelOutputComposer,
+    public_kernel_output_validator::PublicKernelOutputValidator
+},
+    public_kernel_phase::PublicKernelPhase
 };
 use dep::types::{
     abis::{
-        enqueued_call_data::EnqueuedCallData,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        public_kernel_data::PublicKernelData,
-    }, constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX},
+    enqueued_call_data::EnqueuedCallData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    public_kernel_data::PublicKernelData
+},
+    constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX}
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX];
@@ -32,12 +33,8 @@ impl PublicKernelMergeCircuitPrivateInputs {
 
     fn get_phase(self) -> u8 {
         let public_inputs = self.previous_kernel.public_inputs;
-        let needs_setup = !public_inputs.end_non_revertible.public_call_stack[0]
-            .call_context
-            .contract_address
-            .is_zero();
-        let needs_app_logic =
-            !public_inputs.end.public_call_stack[0].call_context.contract_address.is_zero();
+        let needs_setup = !public_inputs.end_non_revertible.public_call_stack[0].call_context.contract_address.is_zero();
+        let needs_app_logic = !public_inputs.end.public_call_stack[0].call_context.contract_address.is_zero();
         if needs_setup {
             PublicKernelPhase.SETUP
         } else if needs_app_logic {
@@ -50,26 +47,27 @@ impl PublicKernelMergeCircuitPrivateInputs {
     fn execute(self) -> PublicKernelCircuitPublicInputs {
         let phase = self.get_phase();
 
-        let output = unsafe { self.generate_output(phase) };
+        let output = unsafe {
+            self.generate_output(phase)
+        };
 
         let output_validator = PublicKernelOutputValidator::new(
             output,
             self.previous_kernel.public_inputs,
             self.enqueued_call.data,
-            phase,
+            phase
         );
 
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
-        let enqueued_call_data_validator =
-            EnqueuedCallDataValidator::new(self.enqueued_call, phase);
+        let enqueued_call_data_validator = EnqueuedCallDataValidator::new(self.enqueued_call, phase);
         enqueued_call_data_validator.validate_proof();
         enqueued_call_data_validator.validate_against_previous_kernel(
             self.previous_kernel.public_inputs,
             output_validator.previous_validation_request_array_lengths,
             output_validator.previous_non_revertible_data_array_lengths,
-            output_validator.previous_revertible_data_array_lengths,
+            output_validator.previous_revertible_data_array_lengths
         );
 
         output_validator.validate();
@@ -81,16 +79,16 @@ impl PublicKernelMergeCircuitPrivateInputs {
 mod tests {
     use crate::{
         public_kernel_phase::PublicKernelPhase,
-        public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs},
+        public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs}
     };
     use dep::types::{
         abis::{
-            accumulated_data::PublicAccumulatedDataArrayLengths, gas::Gas,
-            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber,
-            validation_requests::PublicValidationRequestArrayLengths,
-        }, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+        accumulated_data::PublicAccumulatedDataArrayLengths, gas::Gas,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
+        validation_requests::PublicValidationRequestArrayLengths
+    },
+        constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
 
     struct PublicKernelMergeCircuitPrivateInputsBuilder {
@@ -102,9 +100,7 @@ mod tests {
 
     impl PublicKernelMergeCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(
-                PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-            );
+            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
             let mut previous_revertible = FixtureBuilder::new();
             let mut enqueued_call = FixtureBuilder::new().is_public_function();
             // Add an offset so that the mock data won't be the same as the values in previous_kernel.
@@ -114,12 +110,7 @@ mod tests {
 
             let phase = PublicKernelPhase.SETUP;
 
-            PublicKernelMergeCircuitPrivateInputsBuilder {
-                previous_kernel,
-                previous_revertible,
-                enqueued_call,
-                phase,
-            }
+            PublicKernelMergeCircuitPrivateInputsBuilder { previous_kernel, previous_revertible, enqueued_call, phase }
         }
 
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
@@ -207,17 +198,17 @@ mod tests {
 
         assert_array_eq(
             public_inputs.validation_requests.public_data_reads,
-            [prev_reads[0], prev_reads[1], curr_reads[0]],
+            [prev_reads[0], prev_reads[1], curr_reads[0]]
         );
 
         assert_array_eq(
             public_inputs.end_non_revertible.note_hashes,
-            [prev_note_hashes[0], curr_note_hashes[0], curr_note_hashes[1]],
+            [prev_note_hashes[0], curr_note_hashes[0], curr_note_hashes[1]]
         );
 
         assert_array_eq(
             public_inputs.end_non_revertible.public_call_stack,
-            [prev_calls[0]], // Public call requests can only be propagated from previous kernel.
+            [prev_calls[0]] // Public call requests can only be propagated from previous kernel.
         );
     }
 

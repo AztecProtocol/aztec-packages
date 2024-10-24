@@ -13,10 +13,13 @@ trait ProveNoteValidity {
 }
 
 impl ProveNoteValidity for Header {
-    fn prove_note_validity<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_validity<Note, let N: u32>(
+        self,
+        note: Note,
+        context: &mut PrivateContext
+    )
     where
-        Note: NoteInterface<N> + NullifiableNote,
-    {
+        Note: NoteInterface<N> + NullifiableNote, {
         self.prove_note_inclusion(note);
         self.prove_note_not_nullified(note, context);
     }

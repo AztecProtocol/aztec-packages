@@ -67,7 +67,7 @@ impl Serialize<GAME_SERIALIZED_LEN> for Game {
             game.finished as Field,
             game.claimed as Field,
             game.current_player as Field,
-            game.current_round as Field,
+            game.current_round as Field
         ]
     }
 }
@@ -82,7 +82,7 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
             Card::from_field(fields[6]),
             Card::from_field(fields[7]),
             Card::from_field(fields[8]),
-            Card::from_field(fields[9]),
+            Card::from_field(fields[9])
         ];
         Game {
             players,
@@ -91,7 +91,7 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
             finished: fields[11] as bool,
             claimed: fields[12] as bool,
             current_player: fields[13] as u32,
-            current_round: fields[14] as u32,
+            current_round: fields[14] as u32
         }
     }
 }
@@ -119,9 +119,11 @@ impl Game {
             let entry = self.players[i];
             assert(entry.is_initialized(), "Game not full");
         }
-        let sorted_by_deck_strength = self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| {
+        let sorted_by_deck_strength = self.players.sort_via(
+            |a: PlayerEntry, b: PlayerEntry| {
             a.deck_strength < b.deck_strength
-        });
+        }
+        );
         self.players = sorted_by_deck_strength;
         self.started = true;
     }

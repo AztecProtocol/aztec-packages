@@ -5,14 +5,15 @@
 //   collapsed: [3, 1]
 pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N>
 where
-    T: Eq,
-{
+    T: Eq, {
     // Computing the collpased BoundedVec would result in a very large number of constraints, since we'd need to loop
     // over the input array and conditionally write to a dynamic vec index, which is a very unfriendly pattern to the
     // proving backend.
     // Instead, we use an unconstrained function to produce the final collapsed array, along with some hints, and then
     // verify that the input and collapsed arrays are equivalent.
-    let (collapsed, collapsed_to_input_index_mapping) = unsafe { get_collapse_hints(input) };
+    let (collapsed, collapsed_to_input_index_mapping) = unsafe {
+        get_collapse_hints(input)
+    };
     verify_collapse_hints(input, collapsed, collapsed_to_input_index_mapping);
     collapsed
 }
@@ -20,11 +21,10 @@ where
 pub(crate) fn verify_collapse_hints<T, let N: u32>(
     input: [Option<T>; N],
     collapsed: BoundedVec<T, N>,
-    collapsed_to_input_index_mapping: BoundedVec<u32, N>,
+    collapsed_to_input_index_mapping: BoundedVec<u32, N>
 )
 where
-    T: Eq,
-{
+    T: Eq, {
     // collapsed should be a BoundedVec with all the non-none elements in input, in the same order. We need to lay down
     // multiple constraints to guarantee this.
     // First we check that the number of elements is correct
@@ -44,11 +44,7 @@ where
     //  - collapsed: [3, 1]
     //  - collapsed_to_input_index_mapping: [0, 2]
     // These two arrays should therefore have the same length.
-    assert_eq(
-        collapsed.len(),
-        collapsed_to_input_index_mapping.len(),
-        "Collapse hint vec length mismatch",
-    );
+    assert_eq(collapsed.len(), collapsed_to_input_index_mapping.len(), "Collapse hint vec length mismatch");
 
     // We now look at each collapsed entry and check that there is a valid equal entry in the input array.
     let mut last_index = Option::none();
@@ -57,11 +53,7 @@ where
             let input_index = collapsed_to_input_index_mapping.get_unchecked(i);
             assert(input_index < N, "Out of bounds index hint");
 
-            assert_eq(
-                collapsed.get_unchecked(i),
-                input[input_index].unwrap(),
-                "Wrong collapsed vec content",
-            );
+            assert_eq(collapsed.get_unchecked(i), input[input_index].unwrap(), "Wrong collapsed vec content");
 
             // By requiring increasing input indices, we both guarantee that we're not looking at the same input
             // element more than once, and that we're going over them in the original order.
@@ -72,11 +64,7 @@ where
         } else {
             // BoundedVec assumes that the unused parts of the storage are zeroed out (e.g. in the Eq impl), so we make
             // sure that this property holds.
-            assert_eq(
-                collapsed.get_unchecked(i),
-                std::mem::zeroed(),
-                "Dirty collapsed vec storage",
-            );
+            assert_eq(collapsed.get_unchecked(i), std::mem::zeroed(), "Dirty collapsed vec storage");
         }
     }
     // We now know that:
@@ -87,9 +75,7 @@ where
     // Therefore, the collapsed array is correct.
 }
 
-unconstrained fn get_collapse_hints<T, let N: u32>(
-    input: [Option<T>; N],
-) -> (BoundedVec<T, N>, BoundedVec<u32, N>) {
+unconstrained fn get_collapse_hints<T, let N: u32>(input: [Option<T>; N]) -> (BoundedVec<T, N>, BoundedVec<u32, N>) {
     let mut collapsed: BoundedVec<T, N> = BoundedVec::new();
     let mut collapsed_to_input_index_mapping: BoundedVec<u32, N> = BoundedVec::new();
 

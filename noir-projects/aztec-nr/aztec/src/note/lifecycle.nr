@@ -2,18 +2,17 @@ use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote},
     utils::{compute_note_hash_for_read_request, compute_note_hash_for_nullify_internal},
-    note_emission::NoteEmission,
+    note_emission::NoteEmission
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
 pub fn create_note<Note, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    note: &mut Note,
+    note: &mut Note
 ) -> NoteEmission<Note>
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
@@ -27,7 +26,7 @@ where
         Note::get_note_type_id(),
         serialized_note,
         note_hash,
-        note_hash_counter,
+        note_hash_counter
     );
 
     context.push_note_hash(note_hash);
@@ -38,11 +37,10 @@ where
 pub fn create_note_hash_from_public<Note, let N: u32>(
     context: &mut PublicContext,
     storage_slot: Field,
-    note: &mut Note,
+    note: &mut Note
 )
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let contract_address = (*context).this_address();
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };
@@ -53,10 +51,12 @@ where
 }
 
 // Note: This function is currently totally unused.
-pub fn destroy_note<Note, let N: u32>(context: &mut PrivateContext, note: Note)
+pub fn destroy_note<Note, let N: u32>(
+    context: &mut PrivateContext,
+    note: Note
+)
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
+    Note: NoteInterface<N> + NullifiableNote, {
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
 
     destroy_note_unsafe(context, note, note_hash_for_read_request)
@@ -65,13 +65,11 @@ where
 pub fn destroy_note_unsafe<Note, let N: u32>(
     context: &mut PrivateContext,
     note: Note,
-    note_hash_for_read_request: Field,
+    note_hash_for_read_request: Field
 )
 where
-    Note: NoteInterface<N> + NullifiableNote,
-{
-    let note_hash_for_nullify =
-        compute_note_hash_for_nullify_internal(note, note_hash_for_read_request);
+    Note: NoteInterface<N> + NullifiableNote, {
+    let note_hash_for_nullify = compute_note_hash_for_nullify_internal(note, note_hash_for_read_request);
     let nullifier = note.compute_nullifier(context, note_hash_for_nullify);
 
     let note_hash_counter = note.get_header().note_hash_counter;

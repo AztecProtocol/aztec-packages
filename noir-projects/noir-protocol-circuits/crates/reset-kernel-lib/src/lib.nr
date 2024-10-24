@@ -15,5 +15,5 @@ pub use public_validation_request_processor::PublicValidationRequestProcessor;
 pub use reset::{
     key_validation_hint::KeyValidationHint,
     transient_data::{TransientDataIndexHint, verify_squashed_transient_data},
-    tree_leaf_read_request::TreeLeafReadRequestHint,
+    tree_leaf_read_request::TreeLeafReadRequestHint
 };

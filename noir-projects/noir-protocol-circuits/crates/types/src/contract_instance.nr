@@ -1,9 +1,7 @@
 use crate::{
-    address::{
-        aztec_address::AztecAddress, partial_address::PartialAddress,
-        public_keys_hash::PublicKeysHash,
-    }, public_keys::PublicKeys, contract_class_id::ContractClassId,
-    constants::CONTRACT_INSTANCE_LENGTH, traits::{Deserialize, Hash, Serialize},
+    address::{aztec_address::AztecAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
+    public_keys::PublicKeys, contract_class_id::ContractClassId, constants::CONTRACT_INSTANCE_LENGTH,
+    traits::{Deserialize, Hash, Serialize}
 };
 
 pub struct ContractInstance {
@@ -42,7 +40,7 @@ impl Serialize<CONTRACT_INSTANCE_LENGTH> for ContractInstance {
             public_keys_serialized[8],
             public_keys_serialized[9],
             public_keys_serialized[10],
-            public_keys_serialized[11],
+            public_keys_serialized[11]
         ]
     }
 }
@@ -54,7 +52,8 @@ impl Deserialize<CONTRACT_INSTANCE_LENGTH> for ContractInstance {
             deployer: AztecAddress::from_field(serialized[1]),
             contract_class_id: ContractClassId::from_field(serialized[2]),
             initialization_hash: serialized[3],
-            public_keys: PublicKeys::deserialize([
+            public_keys: PublicKeys::deserialize(
+                [
                 serialized[4],
                 serialized[5],
                 serialized[6],
@@ -66,8 +65,9 @@ impl Deserialize<CONTRACT_INSTANCE_LENGTH> for ContractInstance {
                 serialized[12],
                 serialized[13],
                 serialized[14],
-                serialized[15],
-            ]),
+                serialized[15]
+            ]
+            )
         }
     }
 }
@@ -86,8 +86,8 @@ impl ContractInstance {
                 self.contract_class_id,
                 self.salt,
                 self.initialization_hash,
-                self.deployer,
-            ),
+                self.deployer
+            )
         )
     }
 }

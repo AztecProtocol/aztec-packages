@@ -4,18 +4,17 @@ pub fn assert_sorted_transformed_value_array<T, S, let N: u32, Env>(
     original_array: [T; N],
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
-    sorted_indexes: [u32; N],
+    sorted_indexes: [u32; N]
 )
 where
     T: Eq + Empty,
-    S: Ordered + Eq + Empty,
-{
+    S: Ordered + Eq + Empty, {
     assert_sorted_transformed_value_array_capped_size(
         original_array,
         sorted_transformed_value_array,
         is_transformed,
         sorted_indexes,
-        N,
+        N
     );
 }
 
@@ -26,12 +25,11 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
     sorted_transformed_value_array: [S; N],
     is_transformed: fn[Env](T, S) -> bool,
     sorted_indexes: [u32; N],
-    capped_size: u32,
+    capped_size: u32
 )
 where
     T: Eq + Empty,
-    S: Ordered + Eq + Empty,
-{
+    S: Ordered + Eq + Empty, {
     let num_non_empty_items = array_length(original_array);
     let mut should_be_empty = false;
     for i in 0..N {
@@ -50,8 +48,7 @@ where
                 assert(is_mapped_item_empty, "unexpected non-empty item");
             } else if i != 0 {
                 assert(
-                    mapped_item.counter() > sorted_transformed_value_array[i - 1].counter(),
-                    "value array must be sorted by counter in ascending order",
+                    mapped_item.counter() > sorted_transformed_value_array[i - 1].counter(), "value array must be sorted by counter in ascending order"
                 );
             }
         } else {
@@ -63,10 +60,7 @@ where
 mod tests {
     use crate::{
         tests::types::{is_summed_from_two_values, TestTwoValues, TestValue},
-        utils::arrays::assert_sorted_transformed_value_array::{
-            assert_sorted_transformed_value_array,
-            assert_sorted_transformed_value_array_capped_size,
-        },
+        utils::arrays::assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
     };
 
     struct TestDataBuilder<let N: u32> {
@@ -83,7 +77,7 @@ mod tests {
                 TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
                 TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
                 TestTwoValues::empty(),
-                TestTwoValues::empty(),
+                TestTwoValues::empty()
             ];
 
             let sorted_transformed_value_array = [
@@ -92,7 +86,7 @@ mod tests {
                 TestValue { value: 48, counter: 33 },
                 TestValue { value: 15, counter: 44 },
                 TestValue::empty(),
-                TestValue::empty(),
+                TestValue::empty()
             ];
 
             let sorted_indexes = [3, 1, 0, 2, 4, 5];
@@ -105,7 +99,7 @@ mod tests {
                 self.original_array,
                 self.sorted_transformed_value_array,
                 is_summed_from_two_values,
-                self.sorted_indexes,
+                self.sorted_indexes
             );
         }
 
@@ -115,7 +109,7 @@ mod tests {
                 self.sorted_transformed_value_array,
                 is_summed_from_two_values,
                 self.sorted_indexes,
-                capped_size,
+                capped_size
             );
         }
     }

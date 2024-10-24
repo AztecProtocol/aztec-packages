@@ -2,7 +2,7 @@ use dep::aztec::{
     hash::poseidon2_hash_with_separator, note::utils::compute_note_hash_for_nullify,
     keys::getters::get_nsk_app, oracle::random::random,
     prelude::{PrivateContext, NoteHeader, NullifiableNote},
-    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER, macros::notes::note,
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER, macros::notes::note
 };
 
 #[note]
@@ -16,15 +16,11 @@ pub struct SubscriptionNote {
 }
 
 impl NullifiableNote for SubscriptionNote {
-    fn compute_nullifier(
-        self,
-        context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
-    ) -> Field {
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
@@ -33,7 +29,7 @@ impl NullifiableNote for SubscriptionNote {
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 }
@@ -44,13 +40,9 @@ impl SubscriptionNote {
         // malicious sender could use non-random values to make the note less private. But they already know the full
         // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
         // therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe { random() };
-        Self {
-            npk_m_hash,
-            expiry_block_number,
-            remaining_txs,
-            randomness,
-            header: NoteHeader::empty(),
-        }
+        let randomness = unsafe {
+            random()
+        };
+        Self { npk_m_hash, expiry_block_number, remaining_txs, randomness, header: NoteHeader::empty() }
     }
 }

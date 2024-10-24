@@ -9,7 +9,7 @@ pub fn recover_address(message_hash: Field, witness: AuthWitness) -> AztecAddres
         witness.keys.ivpk_m.inner.x,
         witness.keys.ivpk_m.inner.y,
         witness.signature,
-        message_bytes,
+        message_bytes
     );
     assert(verification == true);
 

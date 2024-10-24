@@ -6,13 +6,10 @@ use crate::Token;
 #[test]
 unconstrained fn public_transfer() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
-    Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0).call(
-        &mut env.public(),
-    );
+    Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0).call(&mut env.public());
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount - transfer_amount);
@@ -22,14 +19,11 @@ unconstrained fn public_transfer() {
 #[test]
 unconstrained fn public_transfer_to_self() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
     // docs:start:call_public
-    Token::at(token_contract_address).transfer_public(owner, owner, transfer_amount, 0).call(
-        &mut env.public(),
-    );
+    Token::at(token_contract_address).transfer_public(owner, owner, transfer_amount, 0).call(&mut env.public());
     // docs:end:call_public
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
@@ -38,16 +32,10 @@ unconstrained fn public_transfer_to_self() {
 #[test]
 unconstrained fn public_transfer_on_behalf_of_other() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let transfer_amount = mint_amount / 10;
-    let public_transfer_from_call_interface =
-        Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        owner,
-        recipient,
-        public_transfer_from_call_interface,
-    );
+    let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
+    authwit_cheatcodes::add_public_authwit_from_call_interface(owner, recipient, public_transfer_from_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer tokens
@@ -60,12 +48,10 @@ unconstrained fn public_transfer_on_behalf_of_other() {
 #[test(should_fail_with = "attempt to subtract with underflow")]
 unconstrained fn public_transfer_failure_more_than_balance() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + 1;
-    let public_transfer_call_interface =
-        Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0);
+    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 0);
     // Try to transfer tokens
     public_transfer_call_interface.call(&mut env.public());
 }
@@ -73,21 +59,11 @@ unconstrained fn public_transfer_failure_more_than_balance() {
 #[test(should_fail_with = "invalid nonce")]
 unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
-    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(
-        owner,
-        recipient,
-        transfer_amount,
-        random(),
-    );
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        owner,
-        recipient,
-        public_transfer_call_interface,
-    );
+    let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, random());
+    authwit_cheatcodes::add_public_authwit_from_call_interface(owner, recipient, public_transfer_call_interface);
     // Try to transfer tokens
     public_transfer_call_interface.call(&mut env.public());
 }
@@ -95,11 +71,9 @@ unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
 #[test(should_fail_with = "unauthorized")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let transfer_amount = mint_amount / 10;
-    let public_transfer_from_call_interface =
-        Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
+    let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens
@@ -109,17 +83,11 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
 #[test(should_fail_with = "attempt to subtract with underflow")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let transfer_amount = mint_amount + 1;
     // docs:start:public_authwit
-    let public_transfer_from_call_interface =
-        Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        owner,
-        recipient,
-        public_transfer_from_call_interface,
-    );
+    let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
+    authwit_cheatcodes::add_public_authwit_from_call_interface(owner, recipient, public_transfer_from_call_interface);
     // docs:end:public_authwit
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
@@ -130,16 +98,10 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
 #[test(should_fail_with = "unauthorized")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
     let transfer_amount = mint_amount / 10;
-    let public_transfer_from_call_interface =
-        Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        owner,
-        owner,
-        public_transfer_from_call_interface,
-    );
+    let public_transfer_from_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, 1);
+    authwit_cheatcodes::add_public_authwit_from_call_interface(owner, owner, public_transfer_from_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens

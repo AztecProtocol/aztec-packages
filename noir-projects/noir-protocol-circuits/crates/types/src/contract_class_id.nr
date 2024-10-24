@@ -39,11 +39,11 @@ impl ContractClassId {
     pub fn compute(
         artifact_hash: Field,
         private_functions_root: Field,
-        public_bytecode_commitment: Field,
+        public_bytecode_commitment: Field
     ) -> Self {
         let hash = crate::hash::poseidon2_hash_with_separator(
             [artifact_hash, private_functions_root, public_bytecode_commitment],
-            GENERATOR_INDEX__CONTRACT_LEAF,
+            GENERATOR_INDEX__CONTRACT_LEAF
         ); // TODO(@spalladino): Update generator index
         ContractClassId::from_field(hash)
     }

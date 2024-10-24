@@ -49,15 +49,14 @@ impl Empty for PublicCallStackItemCompressed {
             returns_hash: 0,
             revert_code: 0,
             start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty(),
+            end_gas_left: Gas::empty()
         }
     }
 }
 
 impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItemCompressed {
     fn serialize(self) -> [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> =
-            BoundedVec::new();
+        let mut fields: BoundedVec<Field, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> = BoundedVec::new();
 
         fields.push(self.contract_address.to_field());
         fields.extend_from_array(self.call_context.serialize());
@@ -74,9 +73,7 @@ impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItem
 }
 
 impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItemCompressed {
-    fn deserialize(
-        fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH],
-    ) -> PublicCallStackItemCompressed {
+    fn deserialize(fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH]) -> PublicCallStackItemCompressed {
         let mut reader = Reader::new(fields);
 
         let item = PublicCallStackItemCompressed {
@@ -86,7 +83,7 @@ impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackIt
             returns_hash: reader.read(),
             revert_code: reader.read() as u8,
             start_gas_left: reader.read_struct(Gas::deserialize),
-            end_gas_left: reader.read_struct(Gas::deserialize),
+            end_gas_left: reader.read_struct(Gas::deserialize)
         };
         reader.finish();
         item

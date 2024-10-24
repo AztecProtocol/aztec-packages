@@ -1,6 +1,4 @@
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY, scalar::Scalar, point::Point, utils::arr_copy_slice,
-};
+use dep::protocol_types::{constants::GENERATOR_INDEX__SYMMETRIC_KEY, scalar::Scalar, point::Point, utils::arr_copy_slice};
 use crate::utils::point::point_to_bytes;
 use std::{hash::sha256, embedded_curve_ops::multi_scalar_mul};
 
@@ -21,12 +19,12 @@ unconstrained fn test_point_to_symmetric_key_matches_noir() {
     // Value taken from "derive shared secret" test in encrypt_buffer.test.ts
     let secret = Scalar {
         lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
-        hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
+        hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
     };
     let point = Point {
         x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
         y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
-        is_infinite: false,
+        is_infinite: false
     };
 
     let key = point_to_symmetric_key(secret, point);
@@ -35,7 +33,7 @@ unconstrained fn test_point_to_symmetric_key_matches_noir() {
     // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
     let key_from_typescript = [
         251, 232, 177, 34, 2, 174, 35, 92, 165, 118, 168, 3, 153, 140, 46, 210, 203, 154, 184, 158,
-        236, 33, 95, 77, 93, 120, 72, 88, 190, 209, 64, 159,
+        236, 33, 95, 77, 93, 120, 72, 88, 190, 209, 64, 159
     ];
     assert_eq(key, key_from_typescript);
 }

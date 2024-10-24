@@ -1,9 +1,10 @@
 use crate::{
     abis::{
-        accumulated_data::PublicAccumulatedData, combined_constant_data::CombinedConstantData,
-        public_call_request::PublicCallRequest, validation_requests::PublicValidationRequests,
-    }, address::AztecAddress, constants::PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader,
+    accumulated_data::PublicAccumulatedData, combined_constant_data::CombinedConstantData,
+    public_call_request::PublicCallRequest, validation_requests::PublicValidationRequests
+},
+    address::AztecAddress, constants::PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
 
 pub struct PublicKernelCircuitPublicInputs {
@@ -27,15 +28,14 @@ impl Empty for PublicKernelCircuitPublicInputs {
             end_side_effect_counter: 0,
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
-            revert_code: 0,
+            revert_code: 0
         }
     }
 }
 
 impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircuitPublicInputs {
     fn serialize(self) -> [Field; PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
-            BoundedVec::new();
+        let mut fields: BoundedVec<Field, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
         fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.validation_requests.serialize());
@@ -53,9 +53,7 @@ impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircu
 }
 
 impl Deserialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircuitPublicInputs {
-    fn deserialize(
-        fields: [Field; PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
-    ) -> PublicKernelCircuitPublicInputs {
+    fn deserialize(fields: [Field; PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> PublicKernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
 
         let item = PublicKernelCircuitPublicInputs {
@@ -66,7 +64,7 @@ impl Deserialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCir
             end_side_effect_counter: reader.read_u32(),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
-            revert_code: reader.read() as u8,
+            revert_code: reader.read() as u8
         };
         reader.finish();
         item

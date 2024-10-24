@@ -1,10 +1,11 @@
 use crate::{
     address::AztecAddress,
     abis::validation_requests::{
-        key_validation_request::KeyValidationRequest,
-        scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
-    }, constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-    traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader},
+    key_validation_request::KeyValidationRequest,
+    scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator
+},
+    constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH, traits::{Empty, Serialize, Deserialize},
+    utils::{arrays::array_concat, reader::Reader}
 };
 
 pub struct KeyValidationRequestAndGenerator {
@@ -20,10 +21,7 @@ impl Eq for KeyValidationRequestAndGenerator {
 
 impl Empty for KeyValidationRequestAndGenerator {
     fn empty() -> Self {
-        KeyValidationRequestAndGenerator {
-            request: KeyValidationRequest::empty(),
-            sk_app_generator: 0,
-        }
+        KeyValidationRequestAndGenerator { request: KeyValidationRequest::empty(), sk_app_generator: 0 }
     }
 }
 
@@ -36,10 +34,7 @@ impl Serialize<KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for KeyValidationReq
 impl Deserialize<KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for KeyValidationRequestAndGenerator {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH]) -> Self {
         let mut reader = Reader::new(fields);
-        let res = Self {
-            request: reader.read_struct(KeyValidationRequest::deserialize),
-            sk_app_generator: reader.read(),
-        };
+        let res = Self { request: reader.read_struct(KeyValidationRequest::deserialize), sk_app_generator: reader.read() };
         reader.finish();
         res
     }

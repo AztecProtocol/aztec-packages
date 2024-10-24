@@ -16,7 +16,7 @@ impl<T, Context> PublicMutable<T, Context> {
     pub fn new(
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         context: Context,
-        storage_slot: Field,
+        storage_slot: Field
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicMutable { context, storage_slot }
@@ -26,8 +26,7 @@ impl<T, Context> PublicMutable<T, Context> {
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, &mut PublicContext>
 where
-    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>,
-{
+    T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN>, {
     // docs:start:public_mutable_struct_read
     pub fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
@@ -43,8 +42,7 @@ where
 
 impl<T, let T_SERIALIZED_LEN: u32> PublicMutable<T, UnconstrainedContext>
 where
-    T: Deserialize<T_SERIALIZED_LEN>,
-{
+    T: Deserialize<T_SERIALIZED_LEN>, {
     pub unconstrained fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }

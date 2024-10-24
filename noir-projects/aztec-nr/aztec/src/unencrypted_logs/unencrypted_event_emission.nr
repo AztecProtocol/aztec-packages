@@ -1,12 +1,14 @@
 use crate::{context::PublicContext, event::event_interface::EventInterface};
 use dep::protocol_types::traits::Serialize;
 
-fn emit<Event, let N: u32, let M: u32>(context: &mut PublicContext, event: Event)
+fn emit<Event, let N: u32, let M: u32>(
+    context: &mut PublicContext,
+    event: Event
+)
 where
     Event: EventInterface<N>,
     Event: Serialize<N>,
-    [Field; N]: LensForEventSelector<N, M>,
-{
+    [Field; N]: LensForEventSelector<N, M>, {
     let selector = Event::get_event_type_id();
 
     let serialized_event = event.serialize();
@@ -22,14 +24,11 @@ where
     context.emit_unencrypted_log(emitted_log);
 }
 
-pub fn encode_event<Event, let N: u32, let M: u32>(
-    context: &mut PublicContext,
-) -> fn[(&mut PublicContext,)](Event) -> ()
+pub fn encode_event<Event, let N: u32, let M: u32>(context: &mut PublicContext) -> fn[(&mut PublicContext,)](Event) -> ()
 where
     Event: EventInterface<N>,
     Event: Serialize<N>,
-    [Field; N]: LensForEventSelector<N, M>,
-{
+    [Field; N]: LensForEventSelector<N, M>, {
     |e: Event| { emit(context, e); }
 }
 

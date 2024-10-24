@@ -7,8 +7,9 @@ pub fn default_root_rollup_parity_input() -> RootRollupParityInput {
     let mut input = RootRollupParityInput::empty();
 
     let vk_index = ROOT_PARITY_INDEX;
-    let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-        comptime { fixtures::vk_tree::get_vk_merkle_tree() };
+    let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
+        fixtures::vk_tree::get_vk_merkle_tree()
+    };
     let vk_path = vk_tree.get_sibling_path(vk_index);
     let vk_tree_root = vk_tree.get_root();
 

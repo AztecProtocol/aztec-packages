@@ -1,34 +1,28 @@
 use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
 
 #[oracle(storageRead)]
-unconstrained fn storage_read_oracle<let N: u32>(
-    address: Field,
-    storage_slot: Field,
-    block_number: Field,
-    length: Field,
-) -> [Field; N] {}
+unconstrained fn storage_read_oracle<let N: u32>(address: Field, storage_slot: Field, block_number: Field, length: Field) -> [Field; N] {}
 
 pub unconstrained fn raw_storage_read<let N: u32>(
     address: AztecAddress,
     storage_slot: Field,
-    block_number: u32,
+    block_number: u32
 ) -> [Field; N] {
     storage_read_oracle(
         address.to_field(),
         storage_slot,
         block_number as Field,
-        N as Field,
+        N as Field
     )
 }
 
 pub unconstrained fn storage_read<T, let N: u32>(
     address: AztecAddress,
     storage_slot: Field,
-    block_number: u32,
+    block_number: u32
 ) -> T
 where
-    T: Deserialize<N>,
-{
+    T: Deserialize<N>, {
     T::deserialize(raw_storage_read(address, storage_slot, block_number))
 }
 

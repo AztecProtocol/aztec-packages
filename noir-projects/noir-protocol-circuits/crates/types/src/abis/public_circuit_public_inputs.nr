@@ -1,20 +1,21 @@
 use crate::{
     abis::{
-        call_context::CallContext, note_hash::NoteHash, nullifier::Nullifier,
-        read_request::ReadRequest, tree_leaf_read_request::TreeLeafReadRequest, gas::Gas,
-        global_variables::GlobalVariables, log_hash::LogHash,
-        public_inner_call_request::PublicInnerCallRequest,
-    }, address::AztecAddress,
+    call_context::CallContext, note_hash::NoteHash, nullifier::Nullifier, read_request::ReadRequest,
+    tree_leaf_read_request::TreeLeafReadRequest, gas::Gas, global_variables::GlobalVariables,
+    log_hash::LogHash, public_inner_call_request::PublicInnerCallRequest
+},
+    address::AztecAddress,
     constants::{
-        MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NULLIFIERS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-        MAX_UNENCRYPTED_LOGS_PER_CALL,
-    }, contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Serialize, Deserialize, Empty}, utils::reader::Reader,
+    MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+    MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    MAX_UNENCRYPTED_LOGS_PER_CALL
+},
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message, traits::{Serialize, Deserialize, Empty},
+    utils::reader::Reader
 };
 
 // Public inputs to public app circuit.
@@ -128,49 +129,49 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             returns_hash: reader.read(),
             note_hash_read_requests: reader.read_struct_array(
                 TreeLeafReadRequest::deserialize,
-                [TreeLeafReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+                [TreeLeafReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
             ),
             nullifier_read_requests: reader.read_struct_array(
                 ReadRequest::deserialize,
-                [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+                [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]
             ),
             nullifier_non_existent_read_requests: reader.read_struct_array(
                 ReadRequest::deserialize,
-                [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+                [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL]
             ),
             l1_to_l2_msg_read_requests: reader.read_struct_array(
                 TreeLeafReadRequest::deserialize,
-                [TreeLeafReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
+                [TreeLeafReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL]
             ),
             contract_storage_update_requests: reader.read_struct_array(
                 StorageUpdateRequest::deserialize,
-                [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]
             ),
             contract_storage_reads: reader.read_struct_array(
                 StorageRead::deserialize,
-                [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
+                [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL]
             ),
             public_call_requests: reader.read_struct_array(
                 PublicInnerCallRequest::deserialize,
-                [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+                [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]
             ),
             note_hashes: reader.read_struct_array(
                 NoteHash::deserialize,
-                [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL],
+                [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL]
             ),
             nullifiers: reader.read_struct_array(
                 Nullifier::deserialize,
-                [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL],
+                [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL]
             ),
             l2_to_l1_msgs: reader.read_struct_array(
                 L2ToL1Message::deserialize,
-                [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
+                [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL]
             ),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
             unencrypted_logs_hashes: reader.read_struct_array(
                 LogHash::deserialize,
-                [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
+                [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]
             ),
             historical_header: reader.read_struct(Header::deserialize),
             global_variables: reader.read_struct(GlobalVariables::deserialize),
@@ -178,7 +179,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             revert_code: reader.read() as u8,
             start_gas_left: reader.read_struct(Gas::deserialize),
             end_gas_left: reader.read_struct(Gas::deserialize),
-            transaction_fee: reader.read(),
+            transaction_fee: reader.read()
         };
 
         reader.finish();
@@ -192,23 +193,13 @@ impl Empty for PublicCircuitPublicInputs {
             call_context: CallContext::empty(),
             args_hash: 0,
             returns_hash: 0,
-            note_hash_read_requests: [
-                TreeLeafReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
-            ],
+            note_hash_read_requests: [TreeLeafReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-            nullifier_non_existent_read_requests: [
-                ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL
-            ],
-            l1_to_l2_msg_read_requests: [
-                TreeLeafReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL
-            ],
-            contract_storage_update_requests: [
-                StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
-            ],
+            nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+            l1_to_l2_msg_read_requests: [TreeLeafReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
+            contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-            public_call_requests: [
-                PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
-            ],
+            public_call_requests: [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
             note_hashes: [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL],
             nullifiers: [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL],
             l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
@@ -221,7 +212,7 @@ impl Empty for PublicCircuitPublicInputs {
             revert_code: 0 as u8,
             start_gas_left: Gas::empty(),
             end_gas_left: Gas::empty(),
-            transaction_fee: 0,
+            transaction_fee: 0
         }
     }
 }

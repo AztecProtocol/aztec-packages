@@ -1,9 +1,9 @@
 use crate::{
     merkle_tree::{
-        leaf_preimage::IndexedTreeLeafPreimage,
-        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
-        root::root_from_sibling_path,
-    }, traits::Empty,
+    leaf_preimage::IndexedTreeLeafPreimage,
+    indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf, root::root_from_sibling_path
+},
+    traits::Empty
 };
 
 pub struct MembershipWitness<let N: u32> {
@@ -17,22 +17,12 @@ impl<let N: u32> Empty for MembershipWitness<N> {
     }
 }
 
-pub fn check_membership<let N: u32>(
-    leaf: Field,
-    index: Field,
-    sibling_path: [Field; N],
-    root: Field,
-) -> bool {
+pub fn check_membership<let N: u32>(leaf: Field, index: Field, sibling_path: [Field; N], root: Field) -> bool {
     let calculated_root = root_from_sibling_path(leaf, index, sibling_path);
     calculated_root == root
 }
 
-pub fn assert_check_membership<let TREE_HEIGHT: u32>(
-    leaf: Field,
-    index: Field,
-    sibling_path: [Field; TREE_HEIGHT],
-    root: Field,
-) {
+pub fn assert_check_membership<let TREE_HEIGHT: u32>(leaf: Field, index: Field, sibling_path: [Field; TREE_HEIGHT], root: Field) {
     assert(check_membership(leaf, index, sibling_path, root), "membership check failed");
 }
 
@@ -40,18 +30,17 @@ pub fn assert_check_non_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
     key: Field,
     low_leaf_preimage: LEAF_PREIMAGE,
     low_leaf_membership_witness: MembershipWitness<TREE_HEIGHT>,
-    tree_root: Field,
+    tree_root: Field
 )
 where
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
-{
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage, {
     assert_check_valid_low_leaf(key, low_leaf_preimage);
 
     let low_leaf_exists = check_membership(
         low_leaf_preimage.as_leaf(),
         low_leaf_membership_witness.leaf_index,
         low_leaf_membership_witness.sibling_path,
-        tree_root,
+        tree_root
     );
     assert(low_leaf_exists, "Low leaf does not exist");
 }
@@ -63,11 +52,10 @@ pub fn conditionally_assert_check_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE
     exists: bool,
     leaf_preimage: LEAF_PREIMAGE,
     membership_witness: MembershipWitness<TREE_HEIGHT>,
-    tree_root: Field,
+    tree_root: Field
 )
 where
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
-{
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage, {
     if exists {
         assert(key == leaf_preimage.get_key(), "Key does not match the key of the leaf preimage");
     } else {
@@ -78,19 +66,20 @@ where
         leaf_preimage.as_leaf(),
         membership_witness.leaf_index,
         membership_witness.sibling_path,
-        tree_root,
+        tree_root
     );
 }
 
 mod tests {
     use crate::{
         merkle_tree::{
-            leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
-            membership::{
-                assert_check_membership, assert_check_non_membership, check_membership,
-                conditionally_assert_check_membership, MembershipWitness,
-            },
-        }, tests::merkle_tree_utils::NonEmptyMerkleTree,
+        leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
+        membership::{
+        assert_check_membership, assert_check_non_membership, check_membership,
+        conditionally_assert_check_membership, MembershipWitness
+    }
+    },
+        tests::merkle_tree_utils::NonEmptyMerkleTree
     };
     use std::hash::pedersen_hash;
 
@@ -135,7 +124,7 @@ mod tests {
             leaf_preimages.map(|leaf_preimage: TestLeafPreimage| leaf_preimage.as_leaf()),
             [0; 3],
             [0; 1],
-            [0; 2],
+            [0; 2]
         )
     }
 
@@ -147,7 +136,7 @@ mod tests {
             leaf,
             leaf_index,
             tree.get_sibling_path(leaf_index as u32),
-            tree_root,
+            tree_root
         )
     }
 
@@ -159,7 +148,7 @@ mod tests {
             leaf,
             leaf_index,
             tree.get_sibling_path(leaf_index as u32),
-            tree_root,
+            tree_root
         );
     }
 
@@ -175,19 +164,12 @@ mod tests {
         assert_check_non_membership(
             key,
             leaf_preimage,
-            MembershipWitness {
-                leaf_index: low_leaf_index as Field,
-                sibling_path: tree.get_sibling_path(low_leaf_index),
-            },
-            tree_root,
+            MembershipWitness { leaf_index: low_leaf_index as Field, sibling_path: tree.get_sibling_path(low_leaf_index) },
+            tree_root
         );
     }
 
-    fn conditionally_assert_check_membership_at_index(
-        exists: bool,
-        low_leaf_index: u32,
-        key: Field,
-    ) {
+    fn conditionally_assert_check_membership_at_index(exists: bool, low_leaf_index: u32, key: Field) {
         let tree = build_tree();
         let tree_root = tree.get_root();
         let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
@@ -200,11 +182,8 @@ mod tests {
             key,
             exists,
             leaf_preimage,
-            MembershipWitness {
-                leaf_index: low_leaf_index as Field,
-                sibling_path: tree.get_sibling_path(low_leaf_index),
-            },
-            tree_root,
+            MembershipWitness { leaf_index: low_leaf_index as Field, sibling_path: tree.get_sibling_path(low_leaf_index) },
+            tree_root
         );
     }
 
@@ -240,7 +219,7 @@ mod tests {
             leaf_preimages[0].as_leaf(),
             0,
             tree.get_sibling_path(0),
-            tree_root,
+            tree_root
         );
         assert_eq(res, false);
     }
@@ -254,7 +233,7 @@ mod tests {
             leaf_preimages[0].as_leaf(),
             0,
             tree.get_sibling_path(0),
-            tree_root,
+            tree_root
         );
     }
 
@@ -288,7 +267,7 @@ mod tests {
             55,
             fake_leaf,
             MembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
-            tree_root,
+            tree_root
         );
     }
 
@@ -328,7 +307,7 @@ mod tests {
             exists,
             fake_leaf,
             MembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
-            tree_root,
+            tree_root
         );
     }
 
@@ -343,7 +322,7 @@ mod tests {
             exists,
             fake_leaf,
             MembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
-            tree_root,
+            tree_root
         );
     }
 }

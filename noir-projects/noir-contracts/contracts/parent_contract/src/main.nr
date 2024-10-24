@@ -16,47 +16,41 @@ contract Parent {
     fn pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        init_value: Field,
+        init_value: Field
     ) -> Field {
-        context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [init_value].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.call_public_function(
+            target_contract,
+            target_selector,
+            [init_value].as_slice(),
+            GasOpts::default()
+        ).deserialize_into()
     }
     // Same as pub_entry_point, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
     #[public]
     fn pub_entry_point_twice(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        init_value: Field,
+        init_value: Field
     ) -> Field {
-        let return_value: Field = context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [init_value].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into();
-        context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [return_value].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        let return_value: Field = context.call_public_function(
+            target_contract,
+            target_selector,
+            [init_value].as_slice(),
+            GasOpts::default()
+        ).deserialize_into();
+        context.call_public_function(
+            target_contract,
+            target_selector,
+            [return_value].as_slice(),
+            GasOpts::default()
+        ).deserialize_into()
     }
     // Private function to enqueue a call to the target_contract address using the selector and argument provided
     #[private]
     fn enqueue_call_to_child(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        target_value: Field,
+        target_value: Field
     ) {
         context.call_public_function(target_contract, target_selector, [target_value]);
     }
@@ -66,7 +60,7 @@ contract Parent {
     #[private]
     fn enqueue_calls_to_child_with_nested_first(
         target_contract: AztecAddress,
-        target_selector: FunctionSelector,
+        target_selector: FunctionSelector
     ) {
         let enqueue_call_to_child_selector = comptime {
             FunctionSelector::from_signature("enqueue_call_to_child((Field),(u32),Field)")
@@ -74,7 +68,7 @@ contract Parent {
         let _ret = context.call_private_function(
             context.this_address(),
             enqueue_call_to_child_selector,
-            [target_contract.to_field(), target_selector.to_field(), 10],
+            [target_contract.to_field(), target_selector.to_field(), 10]
         );
         context.call_public_function(target_contract, target_selector, [20]);
     }
@@ -84,7 +78,7 @@ contract Parent {
     #[private]
     fn enqueue_calls_to_child_with_nested_last(
         target_contract: AztecAddress,
-        target_selector: FunctionSelector,
+        target_selector: FunctionSelector
     ) {
         context.call_public_function(target_contract, target_selector, [20]);
         let enqueue_call_to_child_selector = comptime {
@@ -93,7 +87,7 @@ contract Parent {
         let _ret = context.call_private_function(
             context.this_address(),
             enqueue_call_to_child_selector,
-            [target_contract.to_field(), target_selector.to_field(), 10],
+            [target_contract.to_field(), target_selector.to_field(), 10]
         );
     }
     // Private function to enqueue a call to the target_contract address using the selector and argument provided
@@ -101,7 +95,7 @@ contract Parent {
     fn enqueue_call_to_child_twice(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        target_value: Field,
+        target_value: Field
     ) {
         // Enqueue the first public call
         context.call_public_function(target_contract, target_selector, [target_value]);
@@ -113,15 +107,16 @@ contract Parent {
     fn enqueue_call_to_pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        target_value: Field,
+        target_value: Field
     ) {
-        let pub_entry_point_selector =
-            comptime { FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)") };
+        let pub_entry_point_selector = comptime {
+            FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)")
+        };
         let this_address = context.this_address();
         let _void = context.call_public_function(
             this_address,
             pub_entry_point_selector,
-            [target_contract.to_field(), target_selector.to_field(), target_value],
+            [target_contract.to_field(), target_selector.to_field(), target_value]
         );
     }
     // Private function to enqueue two calls to the pub_entry_point function of this same contract, passing the target arguments provided
@@ -129,27 +124,28 @@ contract Parent {
     fn enqueue_calls_to_pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        target_value: Field,
+        target_value: Field
     ) {
-        let pub_entry_point_selector =
-            comptime { FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)") };
+        let pub_entry_point_selector = comptime {
+            FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)")
+        };
         let this_address = context.this_address();
         context.call_public_function(
             this_address,
             pub_entry_point_selector,
-            [target_contract.to_field(), target_selector.to_field(), target_value],
+            [target_contract.to_field(), target_selector.to_field(), target_value]
         );
         context.call_public_function(
             this_address,
             pub_entry_point_selector,
-            [target_contract.to_field(), target_selector.to_field(), target_value + 1],
+            [target_contract.to_field(), target_selector.to_field(), target_value + 1]
         );
     }
     #[private]
     fn private_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 2],
+        args: [Field; 2]
     ) -> Field {
         // Call the target private function
         context.static_call_private_function(target_contract, target_selector, args).unpack_into()
@@ -158,7 +154,7 @@ contract Parent {
     fn private_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 2],
+        args: [Field; 2]
     ) -> Field {
         // Call the target private function
         context.call_private_function(target_contract, target_selector, args).unpack_into()
@@ -168,19 +164,16 @@ contract Parent {
     fn private_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 2],
+        args: [Field; 2]
     ) -> Field {
         // Call the target private function statically
-        let private_call_selector =
-            FunctionSelector::from_signature("private_call((Field),(u32),[Field;2])");
+        let private_call_selector = FunctionSelector::from_signature("private_call((Field),(u32),[Field;2])");
         let this_address = context.this_address();
-        let return_value: Field = context
-            .static_call_private_function(
-                this_address,
-                private_call_selector,
-                [target_contract.to_field(), target_selector.to_field(), args[0], args[1]],
-            )
-            .unpack_into();
+        let return_value: Field = context.static_call_private_function(
+            this_address,
+            private_call_selector,
+            [target_contract.to_field(), target_selector.to_field(), args[0], args[1]]
+        ).unpack_into();
         // Copy the return value from the call to this function's return values
         return_value
     }
@@ -189,52 +182,46 @@ contract Parent {
     fn public_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 1],
+        args: [Field; 1]
     ) -> Field {
-        context
-            .static_call_public_function(
-                target_contract,
-                target_selector,
-                args.as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.static_call_public_function(
+            target_contract,
+            target_selector,
+            args.as_slice(),
+            GasOpts::default()
+        ).deserialize_into()
     }
     // Public function to set a static context and verify correct propagation for nested public calls
     #[public]
     fn public_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 1],
+        args: [Field; 1]
     ) -> Field {
         // Call the target public function through the pub entrypoint statically
-        let pub_entry_point_selector =
-            FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
+        let pub_entry_point_selector = FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
         let this_address = context.this_address();
-        context
-            .static_call_public_function(
-                this_address,
-                pub_entry_point_selector,
-                [target_contract.to_field(), target_selector.to_field(), args[0]].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.static_call_public_function(
+            this_address,
+            pub_entry_point_selector,
+            [target_contract.to_field(), target_selector.to_field(), args[0]].as_slice(),
+            GasOpts::default()
+        ).deserialize_into()
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
     #[private]
     fn enqueue_static_nested_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 1],
+        args: [Field; 1]
     ) {
         // Call the target public function through the pub entrypoint statically
-        let pub_entry_point_selector =
-            FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
+        let pub_entry_point_selector = FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
         let this_address = context.this_address();
         context.static_call_public_function(
             this_address,
             pub_entry_point_selector,
-            [target_contract.to_field(), target_selector.to_field(), args[0]],
+            [target_contract.to_field(), target_selector.to_field(), args[0]]
         );
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
@@ -242,7 +229,7 @@ contract Parent {
     fn enqueue_static_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
-        args: [Field; 1],
+        args: [Field; 1]
     ) {
         // Call the target private function
         context.static_call_public_function(target_contract, target_selector, args);
@@ -267,13 +254,13 @@ contract Parent {
         cheatcodes::advance_blocks_by(1);
         // Set value in child through parent
         let value_to_set = 7;
-        let result = Parent::at(parent_contract_address)
-            .private_call(
-                child_contract_address,
-                comptime { FunctionSelector::from_signature("private_set_value(Field,(Field))") },
-                [value_to_set, owner.to_field()],
-            )
-            .call(&mut env.private());
+        let result = Parent::at(parent_contract_address).private_call(
+            child_contract_address,
+            comptime {
+            FunctionSelector::from_signature("private_set_value(Field,(Field))")
+        },
+            [value_to_set, owner.to_field()]
+        ).call(&mut env.private());
         assert(result == value_to_set);
         // Read the stored value in the note. We have to change the contract address to the child contract in order to read its notes
         env.impersonate(child_contract_address);
@@ -285,13 +272,13 @@ contract Parent {
         assert(note_value == value_to_set);
         assert(note_value == result);
         // Get value from child through parent
-        let read_result = Parent::at(parent_contract_address)
-            .private_call(
-                child_contract_address,
-                comptime { FunctionSelector::from_signature("private_get_value(Field,(Field))") },
-                [7, owner.to_field()],
-            )
-            .call(&mut env.private());
+        let read_result = Parent::at(parent_contract_address).private_call(
+            child_contract_address,
+            comptime {
+            FunctionSelector::from_signature("private_get_value(Field,(Field))")
+        },
+            [7, owner.to_field()]
+        ).call(&mut env.private());
         assert(note_value == read_result);
     }
 }

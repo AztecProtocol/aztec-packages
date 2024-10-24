@@ -3,7 +3,7 @@ mod interfaces;
 use std::meta::type_of;
 use super::utils::{
     modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
-    fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer,
+    fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer
 };
 use protocol_types::meta::flatten_to_fields;
 
@@ -64,8 +64,7 @@ pub comptime fn noinitcheck(_f: FunctionDefinition) {
 
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
-        .quoted_contents()
+    f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);".quoted_contents()
 }
 
 comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
@@ -75,8 +74,7 @@ comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
 
 comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);"
-        .quoted_contents()
+    f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);".quoted_contents()
 }
 
 /// Private functions are executed client-side and preserve privacy.
@@ -93,11 +91,13 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     // First we change the function signature so that it also receives `PrivateContextInputs`, which contain information
     // about the execution context (e.g. the caller).
     let original_params = f.parameters();
-    f.set_parameters(&[(
-        quote { inputs },
-        quote { crate::context::inputs::private_context_inputs::PrivateContextInputs }.as_type(),
-    )]
-        .append(original_params));
+    f.set_parameters(
+        &[
+        (
+            quote { inputs }, quote { crate::context::inputs::private_context_inputs::PrivateContextInputs }.as_type()
+        )
+    ].append(original_params)
+    );
 
     let mut body = f.body().as_block().unwrap();
 
@@ -116,7 +116,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
                 $args_hasher
                 $appended_arg
             }
-        },
+        }
     );
 
     let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
@@ -164,11 +164,9 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         // The original return value is passed to a second args hasher which the context receives.
         let (body_without_return, last_body_expr) = body.pop_back();
         let return_value = last_body_expr.quoted();
-        let return_value_assignment =
-            quote { let $return_value_var_name: $return_value_type = $return_value; };
+        let return_value_assignment = quote { let $return_value_var_name: $return_value_type = $return_value; };
         let return_hasher_name = quote { return_hasher };
-        let return_value_into_hasher =
-            add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);
+        let return_value_into_hasher = add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);
 
         body = body_without_return;
 
@@ -215,8 +213,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     f.set_body(modified_body);
     f.add_attribute("recursive");
     f.set_return_type(
-        quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }
-            .as_type(),
+        quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
     );
     f.set_return_data();
 
@@ -243,9 +240,7 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
-    let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len())
-        .fold(0, |acc: u32, val: u32| acc + val);
+    let args_len = original_params.map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len()).fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(|| {

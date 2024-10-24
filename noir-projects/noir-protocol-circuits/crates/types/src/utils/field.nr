@@ -49,7 +49,7 @@ unconstrained fn bytes_field_test() {
     // Bytes representing 0x543e0a6642ffeb8039296861765a53407bba62bd1c97ca43374de950bbe0a7
     let inputs = [
         84, 62, 10, 102, 66, 255, 235, 128, 57, 41, 104, 97, 118, 90, 83, 64, 123, 186, 98, 189, 28,
-        151, 202, 67, 55, 77, 233, 80, 187, 224, 167,
+        151, 202, 67, 55, 77, 233, 80, 187, 224, 167
     ];
     let field = field_from_bytes(inputs, true);
     let return_bytes: [u8; 31] = field.to_be_bytes();
@@ -57,7 +57,7 @@ unconstrained fn bytes_field_test() {
     // 32 bytes - we remove the final byte, and check it matches the field
     let inputs2 = [
         84, 62, 10, 102, 66, 255, 235, 128, 57, 41, 104, 97, 118, 90, 83, 64, 123, 186, 98, 189, 28,
-        151, 202, 67, 55, 77, 233, 80, 187, 224, 167, 158,
+        151, 202, 67, 55, 77, 233, 80, 187, 224, 167, 158
     ];
     let field2 = field_from_bytes_32_trunc(inputs2);
     let return_bytes2: [u8; 31] = field.to_be_bytes();

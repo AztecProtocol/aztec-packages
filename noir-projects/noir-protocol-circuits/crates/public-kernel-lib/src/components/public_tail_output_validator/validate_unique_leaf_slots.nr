@@ -3,7 +3,7 @@ use dep::types::{data::OverridablePublicDataTreeLeaf, utils::arrays::SortedResul
 // Validate that every non-zero slot in leaves is unique.
 pub fn validate_unique_leaf_slots<let N: u32>(
     leaves: [OverridablePublicDataTreeLeaf; N],
-    unique_slot_index_hints: SortedResult<Field, N>,
+    unique_slot_index_hints: SortedResult<Field, N>
 ) {
     let sorted_leaf_slots = unique_slot_index_hints.sorted_array;
     let sorted_leaf_slot_indexes = unique_slot_index_hints.sorted_index_hints;
@@ -31,7 +31,7 @@ mod tests {
     use crate::components::public_tail_output_validator::validate_unique_leaf_slots::validate_unique_leaf_slots;
     use dep::types::{
         data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf}, tests::utils::pad_end,
-        utils::arrays::SortedResult,
+        utils::arrays::SortedResult
     };
 
     global NUM_TEST_LEAVES = 10;
@@ -56,12 +56,14 @@ mod tests {
         }
 
         pub fn update_leaves<let N: u32>(&mut self, slots: [Field; N]) {
-            let leaves = slots.map(|slot: Field| {
+            let leaves = slots.map(
+                |slot: Field| {
                 OverridablePublicDataTreeLeaf {
                     leaf: PublicDataTreeLeaf { slot, value: 1 },
                     override_counter: 0,
                 }
-            });
+            }
+            );
             self.leaves = pad_end(leaves, OverridablePublicDataTreeLeaf::empty());
         }
 
@@ -85,7 +87,7 @@ mod tests {
             let hints = SortedResult {
                 sorted_array: self.sorted_array,
                 sorted_index_hints: self.sorted_index_hints,
-                original_index_hints: self.original_index_hints,
+                original_index_hints: self.original_index_hints
             };
             validate_unique_leaf_slots(self.leaves, hints);
         }
