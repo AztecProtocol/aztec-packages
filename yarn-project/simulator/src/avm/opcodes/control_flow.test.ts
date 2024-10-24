@@ -76,7 +76,7 @@ describe('Control Flow Opcodes', () => {
 
       const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
       await instruction.execute(context);
-      expect(context.machineState.pc).toBe(1);
+      expect(context.machineState.pc).toBe(instruction.getSize());
     });
   });
 
@@ -104,7 +104,7 @@ describe('Control Flow Opcodes', () => {
       expect(context.machineState.pc).toBe(jumpLocation);
 
       await returnInstruction.execute(context);
-      expect(context.machineState.pc).toBe(1);
+      expect(context.machineState.pc).toBe(instruction.getSize());
     });
 
     it('Should error if Internal Return is called without a corresponding Internal Call', async () => {
@@ -121,8 +121,10 @@ describe('Control Flow Opcodes', () => {
 
       const aloneJumpLocation = 420;
 
+      const internalCallInstrSize = new InternalCall(jumpLocation0).getSize();
+
       const instructions = [
-        // pc  |  internal call stack
+        // pc  |  internal call stack (counting instructions here for simplicity instead of bytes)
         new InternalCall(jumpLocation0), // 22  | [1]
         new InternalCall(jumpLocation1), // 69  | [1, 23]
         new InternalReturn(), // 23  | [1]
@@ -136,11 +138,11 @@ describe('Control Flow Opcodes', () => {
       const expectedPcs = [
         jumpLocation0,
         jumpLocation1,
-        jumpLocation0 + 1,
+        jumpLocation0 + internalCallInstrSize,
         aloneJumpLocation,
         jumpLocation2,
-        aloneJumpLocation + 1,
-        1,
+        aloneJumpLocation + internalCallInstrSize,
+        internalCallInstrSize,
       ];
 
       for (let i = 0; i < instructions.length; i++) {

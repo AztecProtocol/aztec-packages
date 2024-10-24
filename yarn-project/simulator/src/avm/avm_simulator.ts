@@ -14,8 +14,7 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
-import type { Instruction } from './opcodes/index.js';
-import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
+import { decodeInstructionFromBytecode } from './serialization/bytecode_serialization.js';
 
 export class AvmSimulator {
   private log: DebugLogger;
@@ -60,23 +59,14 @@ export class AvmSimulator {
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
     assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
-
+    assert(bytecode!.length > 0, "AVM simulator can't execute empty bytecode");
     this.bytecode = bytecode;
-    return await this.executeInstructions(decodeFromBytecode(bytecode));
-  }
-
-  /**
-   * Executes the provided instructions in the current context.
-   * This method is useful for testing and debugging.
-   */
-  public async executeInstructions(instructions: Instruction[]): Promise<AvmContractCallResult> {
-    assert(instructions.length > 0);
     const { machineState } = this.context;
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
       while (!machineState.getHalted()) {
-        const instruction = instructions[machineState.pc];
+        const instruction = decodeInstructionFromBytecode(bytecode, machineState.pc);
         assert(
           !!instruction,
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
@@ -89,9 +79,9 @@ export class AvmSimulator {
         // "Exceptional halts" will throw.
         await instruction.execute(this.context);
 
-        if (machineState.pc >= instructions.length) {
+        if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
-          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ instructions.length);
+          throw new InvalidProgramCounterError(machineState.pc, /*max=*/ bytecode.length);
         }
       }
 

@@ -46,6 +46,6 @@ export class GetContractInstance extends Instruction {
     memory.setSlice(dstOffset, data);
 
     memory.assert({ reads: 1, writes: 17, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }

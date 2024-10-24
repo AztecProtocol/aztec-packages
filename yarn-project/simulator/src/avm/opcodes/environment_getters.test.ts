@@ -76,7 +76,7 @@ describe('Environment getters', () => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {
       const instruction = new GetEnvVar(/*indirect=*/ 0, envVar, /*dstOffset=*/ 0);
 
-      await instruction.execute(context);
+      await instruction.as(Opcode.GETENVVAR_16, GetEnvVar.wireFormat16).execute(context);
 
       expect(context.machineState.memory.getTag(0)).toBe(tag);
       const actual = context.machineState.memory.get(0).toFr();

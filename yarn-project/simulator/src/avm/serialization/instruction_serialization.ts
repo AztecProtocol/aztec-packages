@@ -100,6 +100,25 @@ export enum OperandType {
 type OperandNativeType = number | bigint;
 type OperandWriter = (value: any) => void;
 
+// Number of bytes that each operand takes up in an instruction
+export const OPERAND_SIZE_BYTES = new Map<OperandType, number>([
+  [OperandType.UINT8, 1],
+  [OperandType.UINT16, 2],
+  [OperandType.UINT32, 4],
+  [OperandType.UINT64, 8],
+  [OperandType.UINT128, 16],
+  [OperandType.FF, 32],
+]);
+
+export function getInstructionSize(operandTypes: OperandType[]): number {
+  let instructionBytes = 0;
+  for (const operandType of operandTypes) {
+    const operandBytes = OPERAND_SIZE_BYTES.get(operandType)!;
+    instructionBytes += operandBytes;
+  }
+  return instructionBytes;
+}
+
 // Specifies how to read and write each operand type.
 const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, OperandWriter]>([
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],

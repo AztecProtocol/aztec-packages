@@ -34,9 +34,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Uint32(1), new Uint32(2), new Uint32(3), new Uint32(1)]);
 
       const ops = [
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).as(Opcode.EQ_16, Eq.wireFormat16),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11).as(Opcode.EQ_16, Eq.wireFormat16),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12).as(Opcode.EQ_16, Eq.wireFormat16),
       ];
 
       for (const op of ops) {
@@ -51,9 +51,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(3), new Field(1)]);
 
       const ops = [
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).as(Opcode.EQ_16, Eq.wireFormat16),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 11).as(Opcode.EQ_16, Eq.wireFormat16),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 3, /*dstOffset=*/ 12).as(Opcode.EQ_16, Eq.wireFormat16),
       ];
 
       for (const op of ops) {
@@ -68,9 +68,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
       const ops = [
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
-        new Eq(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).as(Opcode.EQ_16, Eq.wireFormat16),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10).as(Opcode.EQ_16, Eq.wireFormat16),
+        new Eq(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10).as(Opcode.EQ_16, Eq.wireFormat16),
       ];
 
       for (const o of ops) {
@@ -101,9 +101,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Uint32(1), new Uint32(2), new Uint32(0)]);
 
       const ops = [
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10).as(Opcode.LT_16, Lt.wireFormat16),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11).as(Opcode.LT_16, Lt.wireFormat16),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12).as(Opcode.LT_16, Lt.wireFormat16),
       ];
 
       for (const op of ops) {
@@ -118,9 +118,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(0)]);
 
       const ops = [
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10).as(Opcode.LT_16, Lt.wireFormat16),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11).as(Opcode.LT_16, Lt.wireFormat16),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12).as(Opcode.LT_16, Lt.wireFormat16),
       ];
 
       for (const op of ops) {
@@ -135,9 +135,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
       const ops = [
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
-        new Lt(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).as(Opcode.LT_16, Lt.wireFormat16),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10).as(Opcode.LT_16, Lt.wireFormat16),
+        new Lt(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10).as(Opcode.LT_16, Lt.wireFormat16),
       ];
 
       for (const o of ops) {
@@ -168,9 +168,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Uint32(1), new Uint32(2), new Uint32(0)]);
 
       const ops = [
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10).as(Opcode.LTE_16, Lte.wireFormat16),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11).as(Opcode.LTE_16, Lte.wireFormat16),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12).as(Opcode.LTE_16, Lte.wireFormat16),
       ];
 
       for (const op of ops) {
@@ -185,9 +185,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(0)]);
 
       const ops = [
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10).as(Opcode.LTE_16, Lte.wireFormat16),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11).as(Opcode.LTE_16, Lte.wireFormat16),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12).as(Opcode.LTE_16, Lte.wireFormat16),
       ];
 
       for (const op of ops) {
@@ -202,9 +202,9 @@ describe('Comparators', () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
       const ops = [
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10),
-        new Lte(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).as(Opcode.LTE_16, Lte.wireFormat16),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 10).as(Opcode.LTE_16, Lte.wireFormat16),
+        new Lte(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 10).as(Opcode.LTE_16, Lte.wireFormat16),
       ];
 
       for (const o of ops) {

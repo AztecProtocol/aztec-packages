@@ -126,7 +126,9 @@ describe('Memory instructions', () => {
     });
 
     it('should correctly set value and tag (uninitialized)', async () => {
-      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*value=*/ 1234n, /*offset=*/ 1).execute(context);
+      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*value=*/ 1234n, /*offset=*/ 1)
+        .as(Opcode.SET_16, Set.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -138,7 +140,9 @@ describe('Memory instructions', () => {
     it('should correctly set value and tag (overwriting)', async () => {
       context.machineState.memory.set(1, new Field(27));
 
-      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1234n, /*offset=*/ 1).execute(context);
+      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1234n, /*offset=*/ 1)
+        .as(Opcode.SET_16, Set.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -148,7 +152,9 @@ describe('Memory instructions', () => {
     });
 
     it('should correctly set value and tag (truncating)', async () => {
-      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x12345678n, /*offset=*/ 1).execute(context);
+      await new Set(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x12345678n, /*offset=*/ 1)
+        .as(Opcode.SET_16, Set.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -186,11 +192,26 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Uint128(1n << 100n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 0, /*dstOffset=*/ 10).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 1, /*dstOffset=*/ 11).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 2, /*dstOffset=*/ 12).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 3, /*dstOffset=*/ 13).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 4, /*dstOffset=*/ 14).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
       ];
 
       for (const op of ops) {
@@ -217,11 +238,26 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Uint128((1n << 100n) - 1n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 0, /*dstOffset=*/ 10).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 1, /*dstOffset=*/ 11).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 2, /*dstOffset=*/ 12).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 3, /*dstOffset=*/ 13).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 4, /*dstOffset=*/ 14).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
       ];
 
       for (const op of ops) {
@@ -248,11 +284,26 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Uint128(1n << 100n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0, /*dstOffset=*/ 10).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 1, /*dstOffset=*/ 11).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 2, /*dstOffset=*/ 12).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 3, /*dstOffset=*/ 13).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 4, /*dstOffset=*/ 14).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
       ];
 
       for (const op of ops) {
@@ -279,11 +330,26 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(4, new Field((1n << 200n) - 1n));
 
       const ops = [
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 0, /*dstOffset=*/ 10),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 1, /*dstOffset=*/ 11),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 2, /*dstOffset=*/ 12),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 3, /*dstOffset=*/ 13),
-        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 4, /*dstOffset=*/ 14),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT8, /*aOffset=*/ 0, /*dstOffset=*/ 10).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT16, /*aOffset=*/ 1, /*dstOffset=*/ 11).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT32, /*aOffset=*/ 2, /*dstOffset=*/ 12).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT64, /*aOffset=*/ 3, /*dstOffset=*/ 13).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
+        new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.UINT128, /*aOffset=*/ 4, /*dstOffset=*/ 14).as(
+          Opcode.CAST_16,
+          Cast.wireFormat16,
+        ),
       ];
 
       for (const op of ops) {
@@ -305,7 +371,9 @@ describe('Memory instructions', () => {
     it('Should cast between field elements', async () => {
       context.machineState.memory.set(0, new Field(12345678n));
 
-      await new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Cast(/*indirect=*/ 0, /*dstTag=*/ TypeTag.FIELD, /*aOffset=*/ 0, /*dstOffset=*/ 1)
+        .as(Opcode.CAST_16, Cast.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(1);
       expect(actual).toEqual(new Field(12345678n));
@@ -333,7 +401,9 @@ describe('Memory instructions', () => {
 
     it('Should move integrals on different memory cells', async () => {
       context.machineState.memory.set(0, new Uint16(27));
-      await new Mov(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Mov(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1)
+        .as(Opcode.MOV_16, Mov.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);
@@ -346,7 +416,9 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint16(55));
       context.machineState.memory.set(10, new Uint32(20));
       const addressing = new Addressing([/*srcOffset*/ AddressingMode.DIRECT, /*dstOffset*/ AddressingMode.INDIRECT]);
-      await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10).execute(context);
+      await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10)
+        .as(Opcode.MOV_16, Mov.wireFormat16)
+        .execute(context);
 
       expect(context.machineState.memory.get(1)).toEqual(new Field(0));
       expect(context.machineState.memory.get(20)).toEqual(new Uint16(55n));
@@ -354,7 +426,9 @@ describe('Memory instructions', () => {
 
     it('Should move field elements on different memory cells', async () => {
       context.machineState.memory.set(0, new Field(27));
-      await new Mov(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Mov(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1)
+        .as(Opcode.MOV_16, Mov.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(1);
       const tag = context.machineState.memory.getTag(1);

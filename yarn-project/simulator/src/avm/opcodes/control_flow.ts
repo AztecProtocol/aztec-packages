@@ -50,7 +50,7 @@ export class JumpI extends Instruction {
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     if (condition.toBigInt() == 0n) {
-      context.machineState.incrementPc();
+      context.machineState.incrementPc(this.getSize());
     } else {
       context.machineState.pc = this.loc;
     }
@@ -72,7 +72,7 @@ export class InternalCall extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    context.machineState.internalCallStack.push(context.machineState.pc + 1);
+    context.machineState.internalCallStack.push(context.machineState.pc + this.getSize());
     context.machineState.pc = this.loc;
 
     context.machineState.memory.assert({});

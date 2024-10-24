@@ -114,6 +114,6 @@ export class MultiScalarMul extends Instruction {
       writes: 3 /* output triplet */,
       addressing,
     });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }

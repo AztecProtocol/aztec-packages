@@ -33,7 +33,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, new Uint32(0b11111110010011100100n));
       context.machineState.memory.set(1, new Uint32(0b11100100111001001111n));
 
-      await new And(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new And(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.AND_16, And.wireFormat16)
+        .execute(context);
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Uint32(0b11100100010001000100n));
@@ -65,7 +67,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Or(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Or(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.OR_16, Or.wireFormat16)
+        .execute(context);
 
       const expected = new Uint32(0b11111110111011101111n);
       const actual = context.machineState.memory.get(2);
@@ -98,7 +102,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Xor(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Xor(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.XOR_16, Xor.wireFormat16)
+        .execute(context);
 
       const expected = new Uint32(0b00011010101010101011n);
       const actual = context.machineState.memory.get(2);
@@ -132,7 +138,10 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(1, b);
 
       await expect(
-        async () => await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+        async () =>
+          await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+            .as(Opcode.SHR_16, Shr.wireFormat16)
+            .execute(context),
       ).rejects.toThrow(/got UINT32, expected UINT8/);
     });
 
@@ -143,7 +152,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHR_16, Shr.wireFormat16)
+        .execute(context);
 
       const expected = a;
       const actual = context.machineState.memory.get(2);
@@ -157,7 +168,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHR_16, Shr.wireFormat16)
+        .execute(context);
 
       const expected = new Uint32(0b00111111100100111001n);
       const actual = context.machineState.memory.get(2);
@@ -171,7 +184,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHR_16, Shr.wireFormat16)
+        .execute(context);
 
       const expected = new Uint32(0b01n);
       const actual = context.machineState.memory.get(2);
@@ -205,7 +220,10 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(1, b);
 
       await expect(
-        async () => await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+        async () =>
+          await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+            .as(Opcode.SHL_16, Shl.wireFormat16)
+            .execute(context),
       ).rejects.toThrow(/got UINT32, expected UINT8/);
     });
 
@@ -216,7 +234,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHL_16, Shl.wireFormat16)
+        .execute(context);
 
       const expected = a;
       const actual = context.machineState.memory.get(2);
@@ -230,7 +250,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHL_16, Shl.wireFormat16)
+        .execute(context);
 
       const expected = new Uint32(0b1111111001001110010000n);
       const actual = context.machineState.memory.get(2);
@@ -244,7 +266,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHL_16, Shl.wireFormat16)
+        .execute(context);
 
       const expected = new Uint16(0n);
       const actual = context.machineState.memory.get(2);
@@ -258,7 +282,9 @@ describe('Bitwise instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2)
+        .as(Opcode.SHL_16, Shl.wireFormat16)
+        .execute(context);
 
       const expected = new Uint16(0b1001001110011100n);
       const actual = context.machineState.memory.get(2);
@@ -288,7 +314,9 @@ describe('Bitwise instructions', () => {
 
       context.machineState.memory.set(0, a);
 
-      await new Not(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Not(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 1)
+        .as(Opcode.NOT_16, Not.wireFormat16)
+        .execute(context);
 
       const expected = new Uint16(0b1001101100011011n); // high bits!
       const actual = context.machineState.memory.get(1);

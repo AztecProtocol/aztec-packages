@@ -133,7 +133,7 @@ abstract class ExternalCall extends Instruction {
     );
 
     memory.assert({ reads: calldataSize + 5, writes: 1 + this.retSize, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 
   public abstract override get type(): 'CALL' | 'STATICCALL';

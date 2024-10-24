@@ -4,7 +4,13 @@ import type { AvmContext } from '../avm_context.js';
 import { type Gas, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import { type BufferCursor } from '../serialization/buffer_cursor.js';
 import { type Serializable } from '../serialization/bytecode_serialization.js';
-import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
+import {
+  Opcode,
+  type OperandType,
+  deserialize,
+  getInstructionSize,
+  serializeAs,
+} from '../serialization/instruction_serialization.js';
 
 type InstructionConstructor = {
   new (...args: any[]): Instruction;
@@ -44,6 +50,13 @@ export abstract class Instruction {
     return this.as(this.wireFormat).deserialize(buf);
   }
 
+  // Default size getter which uses Class.wireFormat.
+  public getSize(): number {
+    const klass = this.constructor as any;
+    assert(klass.wireFormat !== undefined && klass.wireFormat !== null);
+    return getInstructionSize(klass.wireFormat);
+  }
+
   // Default serialization which uses Class.opcode and Class.wireFormat.
   public serialize(): Buffer {
     const klass = this.constructor as any;
@@ -59,9 +72,16 @@ export abstract class Instruction {
    * @returns The new instruction instance.
    */
   public as(opcode: Opcode, wireFormat: OperandType[]): Instruction & Serializable {
-    return Object.defineProperty(this, 'serialize', {
-      value: (): Buffer => {
-        return serializeAs(wireFormat, opcode, this);
+    return Object.defineProperties(this, {
+      serialize: {
+        value: (): Buffer => {
+          return serializeAs(wireFormat, opcode, this);
+        },
+      },
+      getSize: {
+        value: (): number => {
+          return getInstructionSize(wireFormat);
+        },
       },
       enumerable: false,
     });
@@ -78,7 +98,16 @@ export abstract class Instruction {
       deserialize: (buf: BufferCursor | Buffer): Instruction => {
         const res = deserialize(buf, wireFormat);
         const args = res.slice(1); // Remove opcode.
-        return new this(...args);
+        const instance = new this(...args);
+        // Need to make sure that deserialized instances can getSize
+        return Object.defineProperties(instance, {
+          getSize: {
+            value: (): number => {
+              return getInstructionSize(wireFormat);
+            },
+            enumerable: false,
+          },
+        });
       },
     });
   }

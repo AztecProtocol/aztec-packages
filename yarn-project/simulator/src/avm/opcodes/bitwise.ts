@@ -22,7 +22,7 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     memory.set(dstOffset, res);
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 
   protected abstract compute(a: IntegralValue, b: IntegralValue): IntegralValue;
@@ -110,6 +110,6 @@ export class Not extends Instruction {
     memory.set(dstOffset, res);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
+    context.machineState.incrementPc(this.getSize());
   }
 }
