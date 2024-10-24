@@ -54,7 +54,7 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    Sysstia sysstia = new Sysstia(DAI, registry);
+    Sysstia sysstia = new Sysstia(DAI, registry, address(this));
     rollup = new Rollup(
       new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
     );

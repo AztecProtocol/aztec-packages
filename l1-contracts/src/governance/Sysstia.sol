@@ -9,19 +9,25 @@ import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
 
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
-contract Sysstia is ISysstia {
+contract Sysstia is ISysstia, Ownable {
   using SafeERC20 for IERC20;
 
   // This value is pulled out my ass. Don't take it seriously
   uint256 public constant BLOCK_REWARD = 50e18;
 
   IERC20 public immutable ASSET;
-  IRegistry public immutable REGISTRY;
+  IRegistry public registry;
 
-  constructor(IERC20 _asset, IRegistry _registry) {
+  constructor(IERC20 _asset, IRegistry _registry, address _owner) Ownable(_owner) {
     ASSET = _asset;
-    REGISTRY = _registry;
+    registry = _registry;
+  }
+
+  function updateRegistry(IRegistry _registry) external onlyOwner {
+    registry = _registry;
+    emit RegistryUpdated(_registry);
   }
 
   /**
@@ -48,6 +54,6 @@ contract Sysstia is ISysstia {
   }
 
   function canonicalRollup() public view returns (address) {
-    return REGISTRY.getRollup();
+    return registry.getRollup();
   }
 }

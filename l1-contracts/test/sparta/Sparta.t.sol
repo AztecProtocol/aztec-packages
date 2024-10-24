@@ -76,7 +76,7 @@ contract SpartaTest is DecoderBase {
 
     testERC20 = new TestERC20();
     Registry registry = new Registry(address(this));
-    sysstia = new Sysstia(testERC20, registry);
+    sysstia = new Sysstia(testERC20, registry, address(this));
     rollup = new Rollup(
       new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), initialValidators
     );
