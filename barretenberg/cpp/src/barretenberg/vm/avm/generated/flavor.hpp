@@ -240,8 +240,8 @@ class AvmFlavor {
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
     // to see its value and then update `AVM_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
-        (NUM_WITNESS_ENTITIES + 2) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
-        CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH);
+        (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
+        CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
     static_assert(AVM_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
                   "\nUnexpected AVM proof length. This might be due to some changes in the\n"
