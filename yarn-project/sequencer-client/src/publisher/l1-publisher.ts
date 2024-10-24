@@ -25,7 +25,7 @@ import { areArraysEqual, compactArray, padArrayEnd, times } from '@aztec/foundat
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -220,13 +220,31 @@ export class L1Publisher {
    * @return blockNumber - The L2 block number of the next L2 block
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
+    // FIXME: This should not throw if unable to propose but return a falsey value, so
+    // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
+    // which may require a retry, vs actually not being the turn for proposing.
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
   }
 
-  public async nextEpochToClaim(): Promise<bigint> {
-    return await this.rollupContract.read.nextEpochToClaim();
+  public async getClaimableEpoch(): Promise<bigint | undefined> {
+    try {
+      return await this.rollupContract.read.getClaimableEpoch();
+    } catch (err: any) {
+      const errorName = tryGetCustomErrorName(err);
+      // getting the error name from the abi is redundant,
+      // but it enforces that the error name is correct.
+      // That is, if the error name is not found, this will not compile.
+      const acceptedErrors = (['Rollup__NoEpochToProve', 'Rollup__ProofRightAlreadyClaimed'] as const).map(
+        name => getAbiItem({ abi: RollupAbi, name }).name,
+      );
+
+      if (errorName && acceptedErrors.includes(errorName as any)) {
+        return undefined;
+      }
+      throw err;
+    }
   }
 
   public async getEpochForSlotNumber(slotNumber: bigint): Promise<bigint> {
@@ -272,7 +290,6 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
-      this.log.verbose(toFriendlyJSON(err as object));
       let errorName = tryGetCustomErrorName(err);
       if (!errorName) {
         errorName = this.tryGetErrorFromRevertedTx(err, {
@@ -816,7 +833,7 @@ function getCalldataGasUsage(data: Uint8Array) {
 function tryGetCustomErrorName(err: any) {
   try {
     // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
-    if (err.name === 'ViemError') {
+    if (err.name === 'ViemError' || err.name === 'ContractFunctionExecutionError') {
       const baseError = err as BaseError;
       const revertError = baseError.walk(err => (err as Error).name === 'ContractFunctionRevertedError');
       if (revertError) {

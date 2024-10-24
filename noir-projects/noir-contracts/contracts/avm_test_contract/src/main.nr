@@ -25,16 +25,23 @@ contract AvmTest {
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
-    global big_field_254_bits: Field = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+    global big_field_254_bits: Field =
+        0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
     use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
-    use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
+    use dep::aztec::protocol_types::{
+        address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar,
+    };
+    use dep::aztec::oracle::get_contract_instance::{
+        get_contract_instance_avm, get_contract_instance_internal_avm,
+    };
+    use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map,
+    };
     use dep::compressed_string::CompressedString;
     use dep::aztec::macros::{storage::storage, functions::{public, private}};
     use dep::aztec::context::gas::GasOpts;
@@ -152,7 +159,11 @@ contract AvmTest {
 
     #[public]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+        let g = Point {
+            x: 1,
+            y: 17631683881184975370165255887551781615748388533673675138860,
+            is_infinite: false,
+        };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -161,7 +172,11 @@ contract AvmTest {
 
     #[public]
     fn variable_base_msm() -> Point {
-        let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+        let g = Point {
+            x: 1,
+            y: 17631683881184975370165255887551781615748388533673675138860,
+            is_infinite: false,
+        };
         let scalar = Scalar { lo: 3, hi: 0 };
         let scalar2 = Scalar { lo: 20, hi: 0 };
         let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
@@ -193,7 +208,7 @@ contract AvmTest {
 
     #[public]
     fn to_radix_le(input: Field) -> [u8; 10] {
-        input.to_le_radix(/*base=*/ 2)
+        input.to_le_radix( /*base=*/ 2)
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
@@ -267,7 +282,7 @@ contract AvmTest {
 
     #[public]
     fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
+        std::hash::pedersen_hash_with_separator(data, /*index=*/  20)
     }
 
     /************************************************************************
@@ -309,11 +324,6 @@ contract AvmTest {
     #[public]
     fn get_address() -> AztecAddress {
         context.this_address()
-    }
-
-    #[public]
-    fn get_storage_address() -> AztecAddress {
-        context.storage_address()
     }
 
     #[public]
@@ -380,9 +390,8 @@ contract AvmTest {
     #[public]
     fn check_selector() {
         assert(
-            context.selector() == comptime {
-                FunctionSelector::from_signature("check_selector()")
-            }, "Unexpected selector!"
+            context.selector() == comptime { FunctionSelector::from_signature("check_selector()") },
+            "Unexpected selector!",
         );
     }
 
@@ -393,10 +402,11 @@ contract AvmTest {
 
     #[public]
     fn emit_unencrypted_log() {
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
-        let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log(/*message=*/ s);
+        context.emit_unencrypted_log( /*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log( /*message=*/ "Hello, world!");
+        let s: CompressedString<2, 44> =
+            CompressedString::from_string("A long time ago, in a galaxy far far away...");
+        context.emit_unencrypted_log( /*message=*/ s);
     }
 
     #[public]
@@ -419,19 +429,22 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[public]
     fn nullifier_exists(nullifier: Field) -> bool {
-        context.nullifier_exists(nullifier, context.storage_address())
+        context.nullifier_exists(nullifier, context.this_address())
     }
 
     #[public]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.storage_address()), "Nullifier doesn't exist!");
+        assert(
+            context.nullifier_exists(nullifier, context.this_address()),
+            "Nullifier doesn't exist!",
+        );
     }
 
     // Use the standard context interface to emit a new nullifier
     #[public]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_nullifier(nullifier);
-        let exists = context.nullifier_exists(nullifier, context.storage_address());
+        let exists = context.nullifier_exists(nullifier, context.this_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 
@@ -461,9 +474,12 @@ contract AvmTest {
         arg_a: Field,
         arg_b: Field,
         l2_gas: Field,
-        da_gas: Field
+        da_gas: Field,
     ) -> pub Field {
-        AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(l2_gas, da_gas)).call(&mut context)
+        AvmTest::at(context.this_address())
+            .add_args_return(arg_a, arg_b)
+            .with_gas(GasOpts::new(l2_gas, da_gas))
+            .call(&mut context)
     }
 
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
@@ -542,8 +558,6 @@ contract AvmTest {
         test_get_contract_instance();
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
-        dep::aztec::oracle::debug_log::debug_log("get_storage_address");
-        let _ = get_storage_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
         let _ = get_sender();
         dep::aztec::oracle::debug_log::debug_log("get_function_selector");

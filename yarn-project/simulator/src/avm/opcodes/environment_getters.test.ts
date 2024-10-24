@@ -13,7 +13,6 @@ import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
 describe('Environment getters', () => {
   const address = AztecAddress.random();
-  const storageAddress = AztecAddress.random();
   const sender = AztecAddress.random();
   const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
@@ -34,7 +33,6 @@ describe('Environment getters', () => {
   });
   const env = initExecutionEnvironment({
     address,
-    storageAddress,
     sender,
     functionSelector,
     transactionFee,
@@ -64,7 +62,6 @@ describe('Environment getters', () => {
 
   describe.each([
     [EnvironmentVariable.ADDRESS, address.toField()],
-    [EnvironmentVariable.STORAGEADDRESS, storageAddress.toField()],
     [EnvironmentVariable.SENDER, sender.toField()],
     [EnvironmentVariable.FUNCTIONSELECTOR, functionSelector.toField(), TypeTag.UINT32],
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],

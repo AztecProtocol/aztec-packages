@@ -141,7 +141,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
   function prune() external override(IRollup) {
-    require(_canPrune(), Errors.Rollup__NothingToPrune());
+    require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
   }
 
@@ -293,6 +293,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       // free up gas (hopefully)
       delete blobPublicInputs[previousBlockNumber + i + 1];
     }
+    if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
+      PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
+    }
 
     emit L2ProofVerified(endBlockNumber, _args[6]);
   }
@@ -337,12 +340,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   {
     Slot slot = getSlotAt(_ts);
 
-    Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
+    // Consider if a prune will hit in this slot
+    uint256 pendingBlockNumber = _canPruneAt(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+
+    Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    // Make sure that the proposer is up to date
-    bytes32 tipArchive = archive();
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     SignatureLib.Signature[] memory sigs = new SignatureLib.Signature[](0);
@@ -350,7 +356,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
     _validateLeonidas(slot, sigs, _archive, flags);
 
-    return (slot, tips.pendingBlockNumber + 1);
+    return (slot, pendingBlockNumber + 1);
   }
 
   /**
@@ -376,12 +382,23 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     _validateHeader(header, _signatures, _digest, _currentTime, _flags);
   }
 
-  function nextEpochToClaim() external view override(IRollup) returns (Epoch) {
-    Epoch epochClaimed = proofClaim.epochToProve;
-    if (proofClaim.proposerClaimant == address(0) && epochClaimed == Epoch.wrap(0)) {
-      return Epoch.wrap(0);
-    }
-    return Epoch.wrap(1) + epochClaimed;
+  /**
+   * @notice  Get the next epoch that can be claimed
+   * @dev     Will revert if the epoch has already been claimed or if there is no epoch to prove
+   */
+  function getClaimableEpoch() external view override(IRollup) returns (Epoch) {
+    Epoch epochToProve = getEpochToProve();
+    require(
+      // If the epoch has been claimed, it cannot be claimed again
+      proofClaim.epochToProve != epochToProve
+      // Edge case for if no claim has been made yet.
+      // We know that the bondProvider is always set,
+      // Since otherwise the claimEpochProofRight would have reverted,
+      // because the zero address cannot have deposited funds into escrow.
+      || proofClaim.bondProvider == address(0),
+      Errors.Rollup__ProofRightAlreadyClaimed()
+    );
+    return epochToProve;
   }
 
   function computeTxsEffectsHash(bytes calldata _body)
@@ -442,7 +459,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes calldata _body,
     bytes calldata blobInput
   ) public override(IRollup) {
-    if (_canPrune()) {
+    if (canPrune()) {
       _prune();
     }
 
@@ -785,7 +802,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     emit PrunedPending(tips.provenBlockNumber, pending);
   }
 
-  function _canPrune() internal view returns (bool) {
+  function canPrune() public view returns (bool) {
+    return _canPruneAt(Timestamp.wrap(block.timestamp));
+  }
+
+  function _canPruneAt(Timestamp _ts) internal view returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
@@ -793,7 +814,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       return false;
     }
 
-    Slot currentSlot = getCurrentSlot();
+    Slot currentSlot = getSlotAt(_ts);
     Epoch oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
     Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
 
@@ -831,7 +852,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Timestamp _currentTime,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
+    uint256 pendingBlockNumber =
+      _canPruneAt(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+    _validateHeaderForSubmissionBase(
+      _header, _currentTime, pendingBlockNumber, _flags
+    );
     _validateHeaderForSubmissionSequencerSelection(
       Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
     );
@@ -896,6 +921,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   function _validateHeaderForSubmissionBase(
     HeaderLib.Header memory _header,
     Timestamp _currentTime,
+    uint256 _pendingBlockNumber,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     require(
@@ -909,20 +935,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     );
 
     require(
-      _header.globalVariables.blockNumber == tips.pendingBlockNumber + 1,
+      _header.globalVariables.blockNumber == _pendingBlockNumber + 1,
       Errors.Rollup__InvalidBlockNumber(
-        tips.pendingBlockNumber + 1, _header.globalVariables.blockNumber
+        _pendingBlockNumber + 1, _header.globalVariables.blockNumber
       )
     );
 
-    bytes32 tipArchive = archive();
+    bytes32 tipArchive = blocks[_pendingBlockNumber].archive;
     require(
       tipArchive == _header.lastArchive.root,
       Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root)
     );
 
     Slot slot = Slot.wrap(_header.globalVariables.slotNumber);
-    Slot lastSlot = blocks[tips.pendingBlockNumber].slotNumber;
+    Slot lastSlot = blocks[_pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Timestamp timestamp = getTimestampForSlot(slot);

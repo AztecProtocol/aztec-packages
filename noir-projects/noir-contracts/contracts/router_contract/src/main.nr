@@ -15,7 +15,9 @@ contract Router {
     /// to the `value.
     #[private]
     fn check_timestamp(operation: u8, value: u64) {
-        Router::at(context.this_address())._check_timestamp(operation, value).enqueue_view(&mut context);
+        Router::at(context.this_address())._check_timestamp(operation, value).enqueue_view(
+            &mut context,
+        );
     }
 
     #[public]
@@ -32,7 +34,9 @@ contract Router {
     /// to the `value.
     #[private]
     fn check_block_number(operation: u8, value: Field) {
-        Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(&mut context);
+        Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(
+            &mut context,
+        );
     }
 
     #[public]

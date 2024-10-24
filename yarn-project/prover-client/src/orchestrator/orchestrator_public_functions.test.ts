@@ -76,7 +76,7 @@ describe('prover/orchestrator/public-functions', () => {
       const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
       const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
       const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
-      const mockNestedRequest = () => new PublicExecutionRequest(AztecAddress.random(), makeCallContext(1), []);
+      const mockNestedRequest = () => new PublicExecutionRequest(makeCallContext(1), []);
 
       const simulatorResults: PublicExecutionResult[] = [
         // Setup

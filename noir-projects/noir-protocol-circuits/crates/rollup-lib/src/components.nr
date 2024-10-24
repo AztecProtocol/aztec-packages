@@ -5,10 +5,9 @@ use crate::abis::{
 };
 use dep::types::{
     hash::{
-    accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
-    compute_tx_note_logs_hash
-},
-    merkle_tree::VariableMerkleTree,
+        accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
+        compute_tx_note_logs_hash,
+    }, merkle_tree::VariableMerkleTree,
     constants::{
     AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -28,7 +27,7 @@ use blob::blob_public_inputs::BlobPublicInputs;
  */
 pub fn assert_txs_filled_from_left(
     left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
+    right: BaseOrMergeRollupPublicInputs,
 ) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
@@ -36,14 +35,17 @@ pub fn assert_txs_filled_from_left(
         let right_txs = right.num_txs;
         // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
         assert(
-            (left_txs) & (left_txs - 1) == 0, "The rollup should be filled greedily from L to R, but received an unbalanced left subtree"
+            (left_txs) & (left_txs - 1) == 0,
+            "The rollup should be filled greedily from L to R, but received an unbalanced left subtree",
         );
         assert(
-            right_txs <= left_txs, "The rollup should be filled greedily from L to R, but received a L txs < R txs"
+            right_txs <= left_txs,
+            "The rollup should be filled greedily from L to R, but received a L txs < R txs",
         );
     } else {
         assert(
-            right.rollup_type == 0, "The rollup should be filled greedily from L to R, but received a L base and R merge"
+            right.rollup_type == 0,
+            "The rollup should be filled greedily from L to R, but received a L base and R merge",
         );
     }
 }
@@ -54,7 +56,7 @@ pub fn assert_txs_filled_from_left(
  */
 pub fn assert_equal_constants(
     left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
+    right: BaseOrMergeRollupPublicInputs,
 ) {
     assert(left.constants.eq(right.constants), "input proofs have different constants");
 }
@@ -63,16 +65,19 @@ pub fn assert_equal_constants(
 // follow on from one-another). Ensures that right uses the tree that was updated by left.
 pub fn assert_prev_rollups_follow_on_from_each_other(
     left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
+    right: BaseOrMergeRollupPublicInputs,
 ) {
     assert(
-        left.end.note_hash_tree.eq(right.start.note_hash_tree), "input proofs have different note hash tree snapshots"
+        left.end.note_hash_tree.eq(right.start.note_hash_tree),
+        "input proofs have different note hash tree snapshots",
     );
     assert(
-        left.end.nullifier_tree.eq(right.start.nullifier_tree), "input proofs have different nullifier tree snapshots"
+        left.end.nullifier_tree.eq(right.start.nullifier_tree),
+        "input proofs have different nullifier tree snapshots",
     );
     assert(
-        left.end.public_data_tree.eq(right.start.public_data_tree), "input proofs have different public data tree snapshots"
+        left.end.public_data_tree.eq(right.start.public_data_tree),
+        "input proofs have different public data tree snapshots",
     );
     assert(
         left.end_sponge_blob.eq(right.start_sponge_blob), "input proofs have different blob data sponges"
@@ -82,54 +87,67 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
 // TODO(Miranda): split out?
 pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs
+    right: BlockRootOrBlockMergePublicInputs,
 ) {
     assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
     assert(
-        left.protocol_contract_tree_root == right.protocol_contract_tree_root, "input blocks have different protocol contract tree roots"
+        left.protocol_contract_tree_root == right.protocol_contract_tree_root,
+        "input blocks have different protocol contract tree roots",
     );
     assert(
-        left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
+        left.new_archive.eq(right.previous_archive),
+        "input blocks have different archive tree snapshots",
     );
     assert(
-        left.end_block_hash.eq(right.previous_block_hash), "input block hashes do not follow on from each other"
+        left.end_block_hash.eq(right.previous_block_hash),
+        "input block hashes do not follow on from each other",
     );
     assert(
-        left.end_global_variables.chain_id == right.start_global_variables.chain_id, "input blocks have different chain id"
+        left.end_global_variables.chain_id == right.start_global_variables.chain_id,
+        "input blocks have different chain id",
     );
     assert(
-        left.end_global_variables.version == right.start_global_variables.version, "input blocks have different chain version"
+        left.end_global_variables.version == right.start_global_variables.version,
+        "input blocks have different chain version",
     );
 
     if right.is_padding() {
         assert(
-            left.end_global_variables.block_number == right.start_global_variables.block_number, "input block numbers do not match"
+            left.end_global_variables.block_number == right.start_global_variables.block_number,
+            "input block numbers do not match",
         );
         assert(
-            left.end_global_variables.timestamp == right.start_global_variables.timestamp, "input block timestamps do not match"
+            left.end_global_variables.timestamp == right.start_global_variables.timestamp,
+            "input block timestamps do not match",
         );
     } else {
         assert(
-            left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
+            left.end_global_variables.block_number + 1 == right.start_global_variables.block_number,
+            "input block numbers do not follow on from each other",
         );
         assert(
-            left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
+            left.end_global_variables.timestamp < right.start_global_variables.timestamp,
+            "input block timestamps do not follow on from each other",
         );
     }
 }
 
-pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) -> Field {
+pub fn accumulate_fees(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs,
+) -> Field {
     left.accumulated_fees + right.accumulated_fees
 }
 
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs
+    right: BlockRootOrBlockMergePublicInputs,
 ) -> [FeeRecipient; AZTEC_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
     assert(
-        left_len + right_len <= AZTEC_EPOCH_DURATION, "too many fee payment structs accumulated in rollup"
+        left_len + right_len <= AZTEC_EPOCH_DURATION,
+        "too many fee payment structs accumulated in rollup",
     );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
@@ -160,24 +178,20 @@ pub fn accumulate_blob_public_inputs(
  * @return out hash stored in 2 fields
  */
 pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256(
-        [
+    accumulate_sha256([
         previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash
-    ]
-    )
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
+    ])
 }
 // TODO(Miranda): combine fns?
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
     if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
         previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
     } else {
-        accumulate_sha256(
-            [
+        accumulate_sha256([
             previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
-            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
-        ]
-        )
+            previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash,
+        ])
     }
 }
 
@@ -193,10 +207,9 @@ fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_U
         LogHash {
             value: silo_unencrypted_log_hash(log),
             counter: log.log_hash.counter,
-            length: log.log_hash.length
+            length: log.log_hash.length,
         }
-    }
-    );
+    });
     compute_tx_logs_hash(siloed_logs)
 }
 
@@ -206,10 +219,9 @@ fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRY
         LogHash {
             value: silo_encrypted_log_hash(log),
             counter: log.log_hash.counter,
-            length: log.log_hash.length
+            length: log.log_hash.length,
         }
-    }
-    );
+    });
     compute_tx_logs_hash(siloed_encrypted_logs)
 }
 
@@ -257,7 +269,8 @@ pub fn append_tx_effects_for_blob(
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
-    let public_data_update_requests = get_all_update_requests_for_tx_effects(all_public_data_update_requests);
+    let public_data_update_requests =
+        get_all_update_requests_for_tx_effects(all_public_data_update_requests);
     let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
@@ -280,13 +293,13 @@ pub fn append_tx_effects_for_blob(
     for j in 0..MAX_NOTE_HASHES_PER_TX {
         tx_effects_hash_input[offset + j] = note_hashes[j];
     }
-    offset += MAX_NOTE_HASHES_PER_TX ;
+    offset += MAX_NOTE_HASHES_PER_TX;
 
     // NULLIFIERS
     for j in 0..MAX_NULLIFIERS_PER_TX {
         tx_effects_hash_input[offset + j] = nullifiers[j];
     }
-    offset += MAX_NULLIFIERS_PER_TX ;
+    offset += MAX_NULLIFIERS_PER_TX;
 
     // L2 TO L1 MESSAGES
     tx_effects_hash_input[offset] = out_hash;
@@ -294,10 +307,8 @@ pub fn append_tx_effects_for_blob(
 
     // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        tx_effects_hash_input[offset + j * 2] =
-                public_data_update_requests[j].leaf_slot;
-        tx_effects_hash_input[offset + j * 2 + 1] =
-                public_data_update_requests[j].new_value;
+        tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
+        tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
     }
     offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
@@ -341,8 +352,11 @@ pub fn append_tx_effects_for_blob(
     out_sponge
 }
 
-fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new();
+fn get_all_update_requests_for_tx_effects(
+    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
+        BoundedVec::new();
     for update_request in all_public_data_update_requests {
         if !update_request.is_empty() {
             all_update_requests.push(update_request);

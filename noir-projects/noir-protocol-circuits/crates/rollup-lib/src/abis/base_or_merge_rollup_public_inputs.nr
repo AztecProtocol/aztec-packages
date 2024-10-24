@@ -11,9 +11,9 @@ global MERGE_ROLLUP_TYPE = 1;
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
-    rollup_type : u32,
-    num_txs : u32,
-    constants : ConstantRollupData,
+    rollup_type: u32,
+    num_txs: u32,
+    constants: ConstantRollupData,
 
     start: PartialStateReference,
     end: PartialStateReference,
@@ -29,7 +29,7 @@ pub struct BaseOrMergeRollupPublicInputs {
 
     out_hash : Field,
 
-    accumulated_fees: Field
+    accumulated_fees: Field,
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {
@@ -43,7 +43,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             start_sponge_blob: SpongeBlob::empty(),
             end_sponge_blob: SpongeBlob::empty(),
             out_hash: 0,
-            accumulated_fees: 0
+            accumulated_fees: 0,
         }
     }
 }
@@ -83,7 +83,9 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
 }
 
 impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
-    fn deserialize(fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH]) -> BaseOrMergeRollupPublicInputs {
+    fn deserialize(
+        fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH],
+    ) -> BaseOrMergeRollupPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
             rollup_type: reader.read() as u32,
@@ -94,7 +96,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
             start_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
             end_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
             out_hash: reader.read(),
-            accumulated_fees: reader.read()
+            accumulated_fees: reader.read(),
         };
 
         reader.finish();

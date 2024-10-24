@@ -9,6 +9,7 @@ import {
   type L2BlockSource,
   MerkleTreeId,
   type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
@@ -54,6 +55,7 @@ describe('sequencer', () => {
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
+  let fork: MockProxy<MerkleTreeWriteOperations>;
   let blockBuilder: MockProxy<BlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
@@ -62,6 +64,7 @@ describe('sequencer', () => {
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
 
   let lastBlockNumber: number;
+  let hash: string;
 
   let sequencer: TestSubject;
 
@@ -93,6 +96,7 @@ describe('sequencer', () => {
 
   beforeEach(() => {
     lastBlockNumber = 0;
+    hash = Fr.ZERO.toString();
 
     block = L2Block.random(lastBlockNumber + 1);
 
@@ -121,12 +125,20 @@ describe('sequencer', () => {
     blockBuilder = mock<BlockBuilder>();
 
     p2p = mock<P2P>({
-      getStatus: mockFn().mockResolvedValue({ state: P2PClientState.IDLE, syncedToL2Block: lastBlockNumber }),
+      getStatus: mockFn().mockResolvedValue({
+        state: P2PClientState.IDLE,
+        syncedToL2Block: { number: lastBlockNumber, hash },
+      }),
     });
 
+    fork = mock<MerkleTreeWriteOperations>();
     worldState = mock<WorldStateSynchronizer>({
+      fork: () => Promise.resolve(fork),
       getCommitted: () => merkleTreeOps,
-      status: mockFn().mockResolvedValue({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
+      status: mockFn().mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncedToL2Block: { number: lastBlockNumber, hash },
+      }),
     });
 
     publicProcessor = mock<PublicProcessor>({
@@ -143,6 +155,7 @@ describe('sequencer', () => {
 
     l2BlockSource = mock<L2BlockSource>({
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -192,7 +205,6 @@ describe('sequencer', () => {
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
-    await sequencer.initialSync();
     await sequencer.work();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -222,7 +234,6 @@ describe('sequencer', () => {
     publisher.canProposeAtNextEthBlock.mockRejectedValue(new Error());
     publisher.validateBlockForSubmission.mockRejectedValue(new Error());
 
-    await sequencer.initialSync();
     await sequencer.work();
     expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
 
@@ -273,7 +284,6 @@ describe('sequencer', () => {
       );
     });
 
-    await sequencer.initialSync();
     await sequencer.work();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -304,7 +314,6 @@ describe('sequencer', () => {
     // We make the chain id on the invalid tx not equal to the configured chain id
     invalidChainTx.data.constants.txContext.chainId = new Fr(1n + chainId.value);
 
-    await sequencer.initialSync();
     await sequencer.work();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -337,7 +346,6 @@ describe('sequencer', () => {
     (txs[invalidTransactionIndex].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data =
       randomBytes(1024 * 1022);
 
-    await sequencer.initialSync();
     await sequencer.work();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -361,8 +369,6 @@ describe('sequencer', () => {
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
-
-    await sequencer.initialSync();
 
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
@@ -406,8 +412,6 @@ describe('sequencer', () => {
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
-    await sequencer.initialSync();
-
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
@@ -449,8 +453,6 @@ describe('sequencer', () => {
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
-
-    await sequencer.initialSync();
 
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
@@ -505,8 +507,6 @@ describe('sequencer', () => {
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
-    await sequencer.initialSync();
-
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
     publisher.validateBlockForSubmission
       .mockResolvedValueOnce()
@@ -539,11 +539,11 @@ describe('sequencer', () => {
 
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
-        syncedToL2Block: block.header.globalVariables.blockNumber.toNumber() - 1,
+        syncedToL2Block: { number: block.header.globalVariables.blockNumber.toNumber() - 1, hash },
       });
 
       p2p.getStatus.mockResolvedValue({
-        syncedToL2Block: block.header.globalVariables.blockNumber.toNumber() - 1,
+        syncedToL2Block: { number: block.header.globalVariables.blockNumber.toNumber() - 1, hash },
         state: P2PClientState.IDLE,
       });
 
@@ -587,9 +587,8 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
     });
@@ -610,10 +609,8 @@ describe('sequencer', () => {
       publisher.proposeL2Block.mockResolvedValueOnce(true);
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
-      // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(0n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(undefined));
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     });
@@ -636,9 +633,8 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     });
@@ -659,10 +655,8 @@ describe('sequencer', () => {
       publisher.proposeL2Block.mockResolvedValueOnce(true);
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
-      // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockResolvedValue(currentEpoch);
+      publisher.getClaimableEpoch.mockResolvedValue(undefined);
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     });
@@ -686,9 +680,8 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation(_ => Promise.resolve(undefined));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     });
@@ -742,9 +735,8 @@ describe('sequencer', () => {
       );
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validProofQuote);
     });
@@ -802,9 +794,8 @@ describe('sequencer', () => {
       );
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
-      await sequencer.initialSync();
       await sequencer.work();
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validQuotes[0]);
     });
@@ -814,9 +805,5 @@ describe('sequencer', () => {
 class TestSubject extends Sequencer {
   public override work() {
     return super.work();
-  }
-
-  public override initialSync(): Promise<void> {
-    return super.initialSync();
   }
 }
