@@ -104,7 +104,7 @@ $$
 
 We also need to create a point for the owner of the FPC (whom we call Bob) to receive the transaction fee, which will also need randomness.
 
-So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg_sender})$.
+So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg sender})$.
 
 :::warning
 We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L491) of `setup_refund` function)
@@ -116,7 +116,7 @@ $$
 
 Here, the $P'$s "partially encode" the notes that we are _going to create_ for Alice and Bob. So we can use points as "Partial Notes".
 
-We pass these points and the funded amount to public, and at the end of public execution, we compute tx fee point $P_{fee} := (\text{transaction fee}) * G_{amount}$ and refund point $P_{refund} := (\text{funded_amount - transaction_fee}) * G_{amount}$
+We pass these points and the funded amount to public, and at the end of public execution, we compute tx fee point $P_{fee} := (\text{transaction fee}) * G_{amount}$ and refund point $P_{refund} := (\text{funded amount} - \text{transaction fee}) * G_{amount}$
 
 Then, we arrive at the point that corresponds to the complete note by
 
