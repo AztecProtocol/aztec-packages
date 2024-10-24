@@ -1,10 +1,16 @@
 use crate::{
-    address::public_keys_hash::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-    hash::poseidon2_hash_with_separator, point::POINT_LENGTH,
-    traits::{Deserialize, Serialize, Empty, is_empty, Hash},
+    address::public_keys_hash::PublicKeysHash,
+    constants::{
+        GENERATOR_INDEX__PUBLIC_KEYS_HASH, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_IVPK_M_X,
+        DEFAULT_IVPK_M_Y, DEFAULT_OVPK_M_X, DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y,
+    }, hash::poseidon2_hash_with_separator, point::POINT_LENGTH,
+    traits::{Deserialize, Serialize, Hash},
 };
 
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+use dep::std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+use std::embedded_curve_ops::EmbeddedCurveScalar;
+use std::default::Default;
 
 pub global PUBLIC_KEYS_LENGTH: u32 = 12;
 
@@ -96,13 +102,21 @@ impl Serialize<POINT_LENGTH> for TpkM {
     }
 }
 
-impl Empty for PublicKeys {
-    fn empty() -> Self {
+impl Default for PublicKeys {
+    fn default() -> Self {
         PublicKeys {
-            npk_m: NpkM { inner: Point::empty() },
-            ivpk_m: IvpkM { inner: Point::empty() },
-            ovpk_m: OvpkM { inner: Point::empty() },
-            tpk_m: TpkM { inner: Point::empty() },
+            npk_m: NpkM {
+                inner: Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y, is_infinite: false },
+            },
+            ivpk_m: IvpkM {
+                inner: Point { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y, is_infinite: false },
+            },
+            ovpk_m: OvpkM {
+                inner: Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y, is_infinite: false },
+            },
+            tpk_m: TpkM {
+                inner: Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y, is_infinite: false },
+            },
         }
     }
 }
@@ -118,16 +132,10 @@ impl Eq for PublicKeys {
 
 impl PublicKeys {
     pub fn hash(self) -> PublicKeysHash {
-        PublicKeysHash::from_field(
-            if is_empty(self) {
-                0
-            } else {
-                poseidon2_hash_with_separator(
-                    self.serialize(),
-                    GENERATOR_INDEX__PUBLIC_KEYS_HASH as Field,
-                )
-            },
-        )
+        PublicKeysHash::from_field(poseidon2_hash_with_separator(
+            self.serialize(),
+            GENERATOR_INDEX__PUBLIC_KEYS_HASH as Field,
+        ))
     }
 }
 
@@ -202,13 +210,13 @@ unconstrained fn compute_public_keys_hash() {
 }
 
 #[test]
-unconstrained fn compute_empty_hash() {
-    let keys = PublicKeys::empty();
+unconstrained fn compute_default_hash() {
+    let keys = PublicKeys::default();
 
     let actual = keys.hash();
-    let test_data_empty_hash = 0x0000000000000000000000000000000000000000000000000000000000000000;
+    let test_data_default_hash = 0x1d3bf1fb93ae0e9cda83b203dd91c3bfb492a9aecf30ec90e1057eced0f0e62d;
 
-    assert(actual.to_field() == test_data_empty_hash);
+    assert(actual.to_field() == test_data_default_hash);
 }
 
 #[test]

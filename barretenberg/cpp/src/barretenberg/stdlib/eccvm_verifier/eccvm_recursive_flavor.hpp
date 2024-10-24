@@ -34,7 +34,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using PCS = IPA<Curve>;
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
-    static constexpr bool HasZK = false;
+    static constexpr bool HasZK = true;
     static constexpr size_t NUM_WIRES = ECCVMFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -45,6 +45,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = ECCVMFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = ECCVMFlavor::NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = ECCVMFlavor::NUM_ALL_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
@@ -53,7 +54,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // think these two are not needed for recursive verifier land
     // using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // using LookupRelation = ECCVMLookupRelation<FF>;
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, true>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation

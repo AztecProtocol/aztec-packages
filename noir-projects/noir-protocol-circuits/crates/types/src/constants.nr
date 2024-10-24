@@ -238,6 +238,22 @@ global MULTI_CALL_ENTRYPOINT_ADDRESS = AztecAddress::from_field(4);
 global FEE_JUICE_ADDRESS = AztecAddress::from_field(5);
 global ROUTER_ADDRESS = AztecAddress::from_field(6);
 
+// CANONICAL DEFAULT KEYS
+// This below are:
+// "az_null_npk"
+// "az_null_ivpk"
+// "az_null_ovpk"
+// "az_null_tpk"
+// as bytes, hashed to curve using grumpkin::g1::affine_element::hash_to_curve(<X>, 0);
+global DEFAULT_NPK_M_X = 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd;
+global DEFAULT_NPK_M_Y = 0x170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e344;
+global DEFAULT_IVPK_M_X = 0x00c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c;
+global DEFAULT_IVPK_M_Y = 0x1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb151;
+global DEFAULT_OVPK_M_X = 0x1b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287;
+global DEFAULT_OVPK_M_Y = 0x080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833;
+global DEFAULT_TPK_M_X = 0x019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb;
+global DEFAULT_TPK_M_Y = 0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
+
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH: u32 = 1;
 global GAS_FEES_LENGTH: u32 = 2;
