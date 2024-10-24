@@ -18,7 +18,6 @@ TEST="$1"
 
 REPO=$(git rev-parse --show-toplevel)
 if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
-  # Use a lock so this can be ran in parallel
   "$REPO"/spartan/scripts/setup_local_k8s.sh
 else
   echo "Not on x64 Linux, not installing k8s and helm."
