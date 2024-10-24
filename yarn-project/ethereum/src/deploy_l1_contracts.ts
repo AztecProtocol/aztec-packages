@@ -438,7 +438,8 @@ export const deployL1Contracts = async (
     logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
   }
 
-  {
+  // If the owner is not the Apella contract, transfer ownership to the Apella contract
+  if ((await registryContract.read.owner([])) !== getAddress(apellaAddress.toString())) {
     const transferOwnershipTxHash = await registryContract.write.transferOwnership(
       [getAddress(apellaAddress.toString())],
       {
