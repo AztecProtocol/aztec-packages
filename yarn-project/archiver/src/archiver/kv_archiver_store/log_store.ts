@@ -58,10 +58,10 @@ export class LogStore {
           noteLogs.forEach(noteLog => {
             const tag = new Fr(noteLog.data.subarray(0, 32));
             const hexHash = noteLog.hash().toString('hex');
-            // AztecMultiMap doesn't handle storing buffers well. Using the body 'ordered-binary' encoding returns an error
-            // when trying to decode buffers (The number <> cannot be converted to a BigInt because it is not an integer)
-            // This unfortunately leads to some duplication, but using the hash of the note log should be fine
-            // even if we had duplicated tags.
+            // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't doesn't
+            // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
+            // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
+            // instead the hashes of the logs.
             void this.#noteEncryptedLogHashesByTag.set(tag.toString(), hexHash);
             void this.#noteEncryptedLogsByHash.set(hexHash, noteLog.toBuffer());
             void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
