@@ -21,7 +21,7 @@ AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
 # Function to load test configuration
 load_test_config() {
   local test_name="$1"
-  yq e ".tests.${test_name}" yarn-project/end-to-end/scripts/e2e_test_config.yml
+  yq e ".tests.${test_name}" "$(dirname "$0")/e2e_test_config.yml"
 }
 
 # Check if Docker images exist
