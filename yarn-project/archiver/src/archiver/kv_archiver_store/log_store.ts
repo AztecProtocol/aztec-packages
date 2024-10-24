@@ -159,7 +159,8 @@ export class LogStore {
         return (
           logHashes
             .map(hash => this.#noteEncryptedLogsByHash.get(hash))
-            // filter out undefined values, since we should never store the hashes of non-existing logs (the addLogs transaction ensures this)
+            // addLogs should ensure that we never have undefined logs, but we filter them out regardless to protect
+            // ourselves from database corruption
             .filter(noteLogBuffer => noteLogBuffer != undefined)
             .map(noteLogBuffer => EncryptedL2NoteLog.fromBuffer(noteLogBuffer!))
         );
