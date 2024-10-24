@@ -545,12 +545,12 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
   }
 
-  getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {
-    return this.#syncedBlockPerPublicKey.get(publicKey.toString());
+  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
+    return this.#syncedBlockPerPublicKey.get(account.toString());
   }
 
-  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<void> {
-    return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
+  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void> {
+    return this.#syncedBlockPerPublicKey.set(account.toString(), blockNumber);
   }
 
   async estimateSize(): Promise<number> {
