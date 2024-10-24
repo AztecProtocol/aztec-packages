@@ -367,6 +367,17 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           data: L2Block.random(index + 1, txsPerBlock, numPrivateFunctionCalls, 2, numNoteEncryptedLogs, 2),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
         }));
+        // Last block has the note encrypted log tags copied from the previous block
+        blocks[numBlocks - 1].data.body.noteEncryptedLogs.txLogs.forEach((txLogs, txIndex) => {
+          txLogs.functionLogs.forEach((fnLogs, fnIndex) => {
+            fnLogs.logs.forEach((log, logIndex) => {
+              const previousLogData =
+                blocks[numBlocks - 2].data.body.noteEncryptedLogs.txLogs[txIndex].functionLogs[fnIndex].logs[logIndex]
+                  .data;
+              previousLogData.copy(log.data, 0, 0, 32);
+            });
+          });
+        });
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));
@@ -386,8 +397,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('is possible to batch request all logs of a tx via tags', async () => {
-        // get random tx
-        const targetBlockIndex = randomInt(numBlocks);
+        // get random tx from any block that's not the last one
+        const targetBlockIndex = randomInt(numBlocks - 2);
         const targetTxIndex = randomInt(txsPerBlock);
 
         const logs = await store.getLogsByTags(tags[targetBlockIndex][targetTxIndex]);
@@ -395,15 +406,16 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
         expect(logs.length).toEqual(expectedNumLogs);
 
-        logs.forEach(log => expect(log).toHaveLength(1));
+        logs.forEach((log, logIndex) => {
+          expect(log).toHaveLength(1);
+          expect(log[0]).toEqual(
+            blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex],
+          );
+        });
       });
 
       it('is possible to batch request all logs of different blocks via tags', async () => {
-        // get random tx
-        const targetBlockIndex = randomInt(numBlocks);
-        const targetTxIndex = randomInt(txsPerBlock);
-
-        const logs = await store.getLogsByTags([...tags[0][0], ...tags[targetBlockIndex][targetTxIndex]]);
+        const logs = await store.getLogsByTags([...tags[0][0], ...tags[1][1]]);
 
         const expectedNumLogs = 2 * numPrivateFunctionCalls * numNoteEncryptedLogs;
         expect(logs.length).toEqual(expectedNumLogs);
@@ -411,9 +423,23 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         logs.forEach(log => expect(log).toHaveLength(1));
       });
 
+      it.only('is possible to batch request logs that have the same tag but different content', async () => {
+        const logs = await store.getLogsByTags(tags[numBlocks - 1][0]);
+
+        const expectedNumLogs = numPrivateFunctionCalls * numNoteEncryptedLogs;
+        expect(logs.length).toEqual(expectedNumLogs);
+
+        logs.forEach(log => {
+          expect(log).toHaveLength(2);
+          const log0Tag = log[0].data.subarray(0, 32);
+          const log1Tag = log[0].data.subarray(0, 32);
+          expect(log1Tag).toEqual(log0Tag);
+        });
+      });
+
       it('is possible to request logs for non-existing tags and determine their position', async () => {
-        // get random tx
-        const targetBlockIndex = randomInt(numBlocks);
+        // get random tx from any block that's not the last one
+        const targetBlockIndex = randomInt(numBlocks - 2);
         const targetTxIndex = randomInt(txsPerBlock);
 
         const logs = await store.getLogsByTags([Fr.random(), ...tags[targetBlockIndex][targetTxIndex].slice(1)]);
@@ -423,7 +449,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         expect(logs[0]).toHaveLength(0);
 
-        logs.slice(1).forEach(log => expect(log).toHaveLength(1));
+        logs.slice(1).forEach((log, logIndex) => {
+          expect(log).toHaveLength(1);
+          expect(log[0]).toEqual(
+            blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex + 1],
+          );
+        });
       });
     });
 
