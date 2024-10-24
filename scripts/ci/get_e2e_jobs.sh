@@ -25,6 +25,7 @@ allow_list=(
   "integration-l1-publisher"
   "e2e-cheat-codes"
   "e2e-prover-fake-proofs"
+  "e2e-prover-coordination"
   "e2e-lending-contract"
   "kind-network-smoke"
 )

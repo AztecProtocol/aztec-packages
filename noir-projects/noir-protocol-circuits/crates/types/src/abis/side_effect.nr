@@ -1,4 +1,4 @@
-use crate::{address::AztecAddress};
+use crate::address::AztecAddress;
 
 pub trait Ordered {
     fn counter(self) -> u32;
@@ -9,12 +9,18 @@ pub trait RangeOrdered {
     fn counter_end(self) -> u32;
 }
 
-pub trait OrderedValue<T> where T: Eq {
+pub trait OrderedValue<T>
+where
+    T: Eq,
+{
     fn value(self) -> T;
     fn counter(self) -> u32;
 }
 
-pub trait Scoped<T> where T: Eq {
+pub trait Scoped<T>
+where
+    T: Eq,
+{
     fn contract_address(self) -> AztecAddress;
     fn inner(self) -> T;
 }

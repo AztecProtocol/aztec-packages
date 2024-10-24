@@ -182,7 +182,8 @@ fn validate_propagated_values_note_encrypted_log_hashes_non_zero_counter_fails()
 
     let mut output = builder.export_output();
     // Set the counter at index 1.
-    output.end.note_encrypted_logs_hashes[1].counter = builder.previous_kernel.note_encrypted_logs_hashes.storage[1].counter;
+    output.end.note_encrypted_logs_hashes[1].counter =
+        builder.previous_kernel.note_encrypted_logs_hashes.storage[1].counter;
 
     builder.validate_with_output(output);
 }
@@ -222,7 +223,8 @@ fn validate_propagated_values_encrypted_logs_hashes_non_zero_counter_fails() {
 
     let mut output = builder.export_output();
     // Set the counter at index 1.
-    output.end.encrypted_logs_hashes[1].log_hash.counter = builder.previous_kernel.encrypted_logs_hashes.storage[1].log_hash.counter;
+    output.end.encrypted_logs_hashes[1].log_hash.counter =
+        builder.previous_kernel.encrypted_logs_hashes.storage[1].log_hash.counter;
 
     builder.validate_with_output(output);
 }

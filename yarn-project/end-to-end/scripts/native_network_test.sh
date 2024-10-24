@@ -32,7 +32,7 @@ if ! [ "$NODE_VERSION" = 18 ] ; then
 fi
 
 cd "$REPO"/yarn-project/end-to-end/scripts/native-network
-rm -f l1-contracts.env l2-contracts.env logs/*.log
+rm -f state/*.env logs/*.log state/*.json
 
 function run_parallel() {
   if [ "${INTERLEAVED:-false}" = "false" ] ; then

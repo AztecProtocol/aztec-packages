@@ -4,7 +4,7 @@ use crate::components::previous_kernel_validator::PreviousKernelValidator;
 use dep::types::tests::fixture_builder::FixtureBuilder;
 
 pub struct PreviousKernelValidatorBuilder {
-    previous_kernel: FixtureBuilder
+    previous_kernel: FixtureBuilder,
 }
 
 impl PreviousKernelValidatorBuilder {

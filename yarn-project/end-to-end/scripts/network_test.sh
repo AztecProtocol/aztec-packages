@@ -62,8 +62,13 @@ function show_status_until_pxe_ready() {
 }
 
 show_status_until_pxe_ready &
-SHOW_STATUS_PID=$!
 
+function cleanup() {
+  # kill everything in our process group except our process
+  kill $(pgrep -g $$ | grep -v $$) || true
+  kill $(jobs -p) || true
+}
+trap cleanup SIGINT SIGTERM EXIT
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
@@ -79,19 +84,12 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
 # tunnel in to get access directly to our PXE service in k8s
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
-PORT_FORWARD_PID=$!
-
-cleanup() {
-  echo "Cleaning up..."
-  kill $PORT_FORWARD_PID || true
-  kill $SHOW_STATUS_PID || true
-}
-
-trap cleanup EXIT SIGINT SIGTERM
+(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-anvil 9545:8545 2>/dev/null >/dev/null || true) &
 
 docker run --rm --network=host \
-  -e PXE_URL=http://localhost:9082 \
+  -e PXE_URL=http://127.0.0.1:9082 \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \
+  -e ETHEREUM_HOST=http://127.0.0.1:9545 \
   -e LOG_JSON=1 \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
