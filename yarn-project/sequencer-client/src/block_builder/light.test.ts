@@ -279,14 +279,14 @@ describe('LightBlockBuilder', () => {
     const baseParityVkWitness = getVkMembershipWitness(baseParityVk);
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
       const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkRoot);
-      const { publicInputs } = await simulator.getBaseParityProof(input);
-      const rootInput = new RootParityInput(emptyProof, baseParityVk, baseParityVkWitness.siblingPath, publicInputs);
+      const { inputs } = await simulator.getBaseParityProof(input);
+      const rootInput = new RootParityInput(emptyProof, baseParityVk, baseParityVkWitness.siblingPath, inputs);
       rootParityInputs.push(rootInput);
     }
 
     const rootParityInput = new RootParityInputs(assertLength(rootParityInputs, NUM_BASE_PARITY_PER_ROOT_PARITY));
     const result = await simulator.getRootParityProof(rootParityInput);
-    return result.publicInputs;
+    return result.inputs;
   };
 
   const getBlockRootOutput = async (

@@ -1,19 +1,11 @@
-import { ProvingRequestType } from '@aztec/circuit-types';
-import {
-  Fr,
-  RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
-  VK_TREE_HEIGHT,
-  VerificationKeyAsFields,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+import { ProvingRequestType, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import {
   makeBaseParityInputs,
   makeBaseRollupInputs,
   makeParityPublicInputs,
   makeRootRollupInputs,
 } from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
 import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -86,10 +78,10 @@ describe('MemoryProvingQueue', () => {
 
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyAsFields.makeFakeHonk();
-    const vkPath = makeTuple(VK_TREE_HEIGHT, Fr.zero);
-    await queue.resolveProvingJob(job!.id, new RootParityInput(proof, vk, vkPath, publicInputs));
-    await expect(promise).resolves.toEqual(new RootParityInput(proof, vk, vkPath, publicInputs));
+    const vk = VerificationKeyData.makeFakeHonk();
+    const result = makePublicInputsAndRecursiveProof(publicInputs, proof, vk);
+    await queue.resolveProvingJob(job!.id, result);
+    await expect(promise).resolves.toEqual(result);
   });
 
   it('retries failed jobs', async () => {
@@ -142,11 +134,10 @@ describe('MemoryProvingQueue', () => {
     await sleep(pollingIntervalMs);
     expect(queue.isJobRunning(job!.id)).toBe(true);
 
-    const output = new RootParityInput(
-      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      VerificationKeyAsFields.makeFakeHonk(),
-      makeTuple(VK_TREE_HEIGHT, Fr.zero),
+    const output = makePublicInputsAndRecursiveProof(
       makeParityPublicInputs(),
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeHonk(),
     );
     await queue.resolveProvingJob(job!.id, output);
     await expect(promise).resolves.toEqual(output);

@@ -10,6 +10,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
@@ -17,7 +18,6 @@ import {
   type PublicKernelTailCircuitPrivateInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -200,8 +200,11 @@ export type ProvingRequestPublicInputs = {
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
 
-  [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
-  [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  [ProvingRequestType.BASE_PARITY]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
+  [ProvingRequestType.ROOT_PARITY]: PublicInputsAndRecursiveProof<
+    ParityPublicInputs,
+    typeof NESTED_RECURSIVE_PROOF_LENGTH
+  >;
   [ProvingRequestType.TUBE_PROOF]: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
 };
 

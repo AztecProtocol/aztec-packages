@@ -1,16 +1,22 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import {
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
 import {
   Fr,
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type ParityPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RootParityInput,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeRootParityInput } from '@aztec/circuits.js/testing';
+import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -42,16 +48,33 @@ describe('prover/orchestrator', () => {
         const message = Fr.random();
 
         // and delay its proof
-        const pendingBaseParityResult = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-        const expectedBaseParityResult = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 0xff);
+        const pendingBaseParityResult =
+          promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+        const expectedBaseParityResult = makePublicInputsAndRecursiveProof(
+          makeParityPublicInputs(0xff),
+          makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+          ProtocolCircuitVks.BaseParityArtifact,
+        );
 
-        mockProver.getRootParityProof.mockResolvedValue(makeRootParityInput(NESTED_RECURSIVE_PROOF_LENGTH));
+        mockProver.getRootParityProof.mockResolvedValue(
+          makePublicInputsAndRecursiveProof(
+            makeParityPublicInputs(),
+            makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+            ProtocolCircuitVks.RootParityArtifact,
+          ),
+        );
 
         mockProver.getBaseParityProof.mockImplementation(inputs => {
           if (inputs.msgs[0].equals(message)) {
             return pendingBaseParityResult.promise;
           } else {
-            return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+            return Promise.resolve(
+              makePublicInputsAndRecursiveProof(
+                makeParityPublicInputs(),
+                makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+                ProtocolCircuitVks.BaseParityArtifact,
+              ),
+            );
           }
         });
 

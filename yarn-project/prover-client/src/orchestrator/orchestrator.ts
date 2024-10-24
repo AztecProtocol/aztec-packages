@@ -40,7 +40,7 @@ import {
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput,
+  RootParityInput,
   RootParityInputs,
   TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
@@ -981,8 +981,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
       ),
-      rootInput => {
-        provingState.setRootParityInputs(rootInput, index);
+      provingOutput => {
+        const rootParityInput = new RootParityInput(
+          provingOutput.proof,
+          provingOutput.verificationKey.keyAsFields,
+          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+          provingOutput.inputs,
+        );
+        provingState.setRootParityInputs(rootParityInput, index);
         if (provingState.areRootParityInputsReady()) {
           const rootParityInputs = new RootParityInputs(
             provingState.rootParityInput as Tuple<
@@ -1010,8 +1016,14 @@ export class ProvingOrchestrator implements EpochProver {
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
       ),
-      rootInput => {
-        provingState!.finalRootParityInput = rootInput;
+      provingOutput => {
+        const rootParityInput = new RootParityInput(
+          provingOutput.proof,
+          provingOutput.verificationKey.keyAsFields,
+          getVKSiblingPath(getVKIndex(provingOutput.verificationKey)),
+          provingOutput.inputs,
+        );
+        provingState!.finalRootParityInput = rootParityInput;
         this.checkAndEnqueueBlockRootRollup(provingState);
       },
     );

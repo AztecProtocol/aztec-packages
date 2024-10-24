@@ -19,6 +19,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   type Proof,
@@ -27,7 +28,6 @@ import {
   type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -44,7 +44,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
   type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
@@ -73,7 +72,6 @@ import {
   convertSimulatedPublicMergeOutputFromWitnessMap,
   convertSimulatedPublicTailInputsToWitnessMap,
   convertSimulatedPublicTailOutputFromWitnessMap,
-  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -166,7 +164,9 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @returns The public inputs of the parity circuit.
    */
   @trackSpan('TestCircuitProver.getBaseParityProof')
-  public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
+  public async getBaseParityProof(
+    inputs: BaseParityInputs,
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     const timer = new Timer();
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
@@ -176,13 +176,6 @@ export class TestCircuitProver implements ServerCircuitProver {
       SimulatedServerCircuitArtifacts.BaseParityArtifact,
     );
     const result = convertBaseParityOutputsFromWitnessMap(witness);
-
-    const rootParityInput = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
-      makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['BaseParityArtifact'].keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes['BaseParityArtifact']),
-      result,
-    );
 
     this.instrumentation.recordDuration('simulationDuration', 'base-parity', timer);
 
@@ -194,7 +187,13 @@ export class TestCircuitProver implements ServerCircuitProver {
       this.logger,
     );
     await this.delay();
-    return Promise.resolve(rootParityInput);
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        result,
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        ProtocolCircuitVks['BaseParityArtifact'],
+      ),
+    );
   }
 
   /**
@@ -205,7 +204,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getRootParityProof')
   public async getRootParityProof(
     inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     const timer = new Timer();
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
@@ -217,13 +216,6 @@ export class TestCircuitProver implements ServerCircuitProver {
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
-    const rootParityInput = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
-      makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['RootParityArtifact'].keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes['RootParityArtifact']),
-      result,
-    );
-
     this.instrumentation.recordDuration('simulationDuration', 'root-parity', timer);
     emitCircuitSimulationStats(
       'root-parity',
@@ -233,7 +225,13 @@ export class TestCircuitProver implements ServerCircuitProver {
       this.logger,
     );
     await this.delay();
-    return Promise.resolve(rootParityInput);
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        result,
+        makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+        ProtocolCircuitVks['RootParityArtifact'],
+      ),
+    );
   }
 
   /**
