@@ -302,7 +302,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
  * Gets the config values for p2p client from environment variables.
  * @returns The config values for p2p client.
  */
-export function getP2PConfigEnvVars(): P2PConfig {
+export function getP2PConfigFromEnv(): P2PConfig {
   return getConfigFromMappings<P2PConfig>(p2pConfigMappings);
 }
 

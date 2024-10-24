@@ -49,7 +49,15 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = new L1Publisher(config, telemetry);
 
-  const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config);
+  // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
+  // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
+  const [proverCoordination, p2pClient] = await createProverCoordination(config, {
+    aztecNodeTxProvider: deps.aztecNodeTxProvider,
+    worldStateSynchronizer,
+    archiver,
+    telemetry,
+  });
+
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
@@ -72,13 +80,14 @@ export async function createProverNode(
     archiver,
     archiver,
     worldStateSynchronizer,
-    txProvider,
+    proverCoordination,
     simulationProvider,
     quoteProvider,
     quoteSigner,
     claimsMonitor,
     epochMonitor,
     bondManager,
+    p2pClient,
     telemetry,
     proverNodeConfig,
   );

@@ -16,7 +16,7 @@ import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/
 
 import { type ENR } from '@chainsafe/enr';
 
-import { getP2PConfigEnvVars } from '../config.js';
+import { getP2PConfigFromEnv } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
@@ -77,11 +77,11 @@ export interface P2P {
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 
   /**
-   * Broadcasts an EpochProofQuote to other peers.
+   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
    *
    * @param quote - the quote to broadcast
    */
-  broadcastEpochProofQuote(quote: EpochProofQuote): void;
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -130,7 +130,14 @@ export interface P2P {
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined;
+  getTxByHashFromPool(txHash: TxHash): Tx | undefined;
+
+  /**
+   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.
@@ -217,7 +224,7 @@ export class P2PClient extends WithTracer implements P2P {
   ) {
     super(telemetryClient, 'P2PClient');
 
-    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
+    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigFromEnv();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
     // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
     // if the archiver is remote. We should refactor this so the downloader keeps a single queue and handles
@@ -234,9 +241,20 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   #assertIsReady() {
+    // this.log.info('Checking if p2p client is ready, current state: ', this.currentState);
     if (!this.isReady()) {
       throw new Error('P2P client not ready');
     }
+  }
+
+  /**
+   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
+   * @param quote - the quote to broadcast
+   */
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    this.epochProofQuotePool.addQuote(quote);
+    this.broadcastEpochProofQuote(quote);
+    return Promise.resolve();
   }
 
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
@@ -245,7 +263,7 @@ export class P2PClient extends WithTracer implements P2P {
 
   broadcastEpochProofQuote(quote: EpochProofQuote): void {
     this.#assertIsReady();
-    this.epochProofQuotePool.addQuote(quote);
+    this.log.info('Broadcasting epoch proof quote', quote.toViemArgs());
     return this.p2pService.propagate(quote);
   }
 
@@ -406,8 +424,22 @@ export class P2PClient extends WithTracer implements P2P {
    * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined {
+  getTxByHashFromPool(txHash: TxHash): Tx | undefined {
     return this.txPool.getTxByHash(txHash);
+  }
+
+  /**
+   * Returns a transaction in the transaction pool by its hash.
+   * If the transaction is not in the pool, it will be requested from the network.
+   * @param txHash - Hash of the transaction to look for in the pool.
+   * @returns A single tx or undefined.
+   */
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    const tx = this.txPool.getTxByHash(txHash);
+    if (tx) {
+      return Promise.resolve(tx);
+    }
+    return this.requestTxByHash(txHash);
   }
 
   /**

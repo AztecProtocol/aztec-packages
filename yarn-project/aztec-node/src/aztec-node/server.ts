@@ -118,7 +118,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return Promise.resolve(this.p2pClient.broadcastEpochProofQuote(quote));
+    return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
   }
 
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
@@ -397,7 +397,7 @@ export class AztecNodeService implements AztecNode {
    * @returns - The tx if it exists.
    */
   public getTxByHash(txHash: TxHash) {
-    return Promise.resolve(this.p2pClient!.getTxByHash(txHash));
+    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
   }
 
   /**
