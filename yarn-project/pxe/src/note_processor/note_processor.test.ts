@@ -8,6 +8,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   type PublicKey,
   computeOvskApp,
+  computePoint,
   deriveKeys,
 } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -184,7 +185,7 @@ describe('Note Processor', () => {
       4,
       0,
       2,
-      ownerIvpkM,
+      computePoint(account.address),
       KeyValidationRequest.random(),
     );
 
@@ -217,11 +218,18 @@ describe('Note Processor', () => {
 
   it('should store multiple notes that belong to us', async () => {
     const requests = [
-      new MockNoteRequest(getRandomNoteLogPayload(app), 1, 1, 1, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(getRandomNoteLogPayload(app), 1, 1, 1, computePoint(account.address), ownerOvKeys),
       new MockNoteRequest(getRandomNoteLogPayload(app), 2, 3, 0, Point.random(), ownerOvKeys),
-      new MockNoteRequest(getRandomNoteLogPayload(app), 6, 3, 2, ownerIvpkM, KeyValidationRequest.random()),
+      new MockNoteRequest(
+        getRandomNoteLogPayload(app),
+        6,
+        3,
+        2,
+        computePoint(account.address),
+        KeyValidationRequest.random(),
+      ),
       new MockNoteRequest(getRandomNoteLogPayload(app), 9, 3, 2, Point.random(), KeyValidationRequest.random()),
-      new MockNoteRequest(getRandomNoteLogPayload(app), 12, 3, 2, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(getRandomNoteLogPayload(app), 12, 3, 2, computePoint(account.address), ownerOvKeys),
     ];
 
     const blocks = mockBlocks(requests);
@@ -270,11 +278,11 @@ describe('Note Processor', () => {
     const note2 = getRandomNoteLogPayload(app);
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const requests = [
-      new MockNoteRequest(note, 3, 0, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, 4, 0, 2, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, 4, 2, 0, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note2, 5, 2, 1, ownerIvpkM, ownerOvKeys),
-      new MockNoteRequest(note, 6, 2, 3, ownerIvpkM, ownerOvKeys),
+      new MockNoteRequest(note, 3, 0, 0, computePoint(account.address), ownerOvKeys),
+      new MockNoteRequest(note, 4, 0, 2, computePoint(account.address), ownerOvKeys),
+      new MockNoteRequest(note, 4, 2, 0, computePoint(account.address), ownerOvKeys),
+      new MockNoteRequest(note2, 5, 2, 1, computePoint(account.address), ownerOvKeys),
+      new MockNoteRequest(note, 6, 2, 3, computePoint(account.address), ownerOvKeys),
     ];
 
     const blocks = mockBlocks(requests);

@@ -94,7 +94,7 @@ pub fn get_protocol_contract(index: u32) -> ContractData {
         salted_initialization_hash,
     );
 
-    let address = AztecAddress::compute(public_keys.hash(), partial_address);
+    let address = AztecAddress::compute(public_keys, partial_address);
 
     ContractData {
         contract_address_salt: 1,

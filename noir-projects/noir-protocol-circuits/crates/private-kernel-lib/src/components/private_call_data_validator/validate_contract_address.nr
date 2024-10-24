@@ -22,7 +22,7 @@ pub fn validate_contract_address(
         private_call_data.contract_class_artifact_hash,
         private_call_data.contract_class_public_bytecode_commitment,
         private_call_data.salted_initialization_hash,
-        private_call_data.public_keys.hash(),
+        private_call_data.public_keys,
     );
 
     let protocol_contract_index = contract_address.to_field();
