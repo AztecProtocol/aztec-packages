@@ -20,8 +20,7 @@ AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
 
 # Install yq if not already installed
 if ! command -v yq &>/dev/null; then
-  wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O - |
-    tar xz && mv yq_linux_amd64 /usr/bin/yq
+  wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
 fi
 
 # Function to load test configuration
