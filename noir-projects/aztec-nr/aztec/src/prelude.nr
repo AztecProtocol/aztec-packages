@@ -8,7 +8,7 @@ pub use crate::{
         map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
         public_immutable::PublicImmutable, public_mutable::PublicMutable, private_set::PrivateSet,
         shared_immutable::SharedImmutable, shared_mutable::SharedMutable, storage::Storable,
-    }, context::{PrivateContext, PackedReturns, FunctionReturns},
+    }, context::{PrivateContext, PackedReturns, FunctionReturns, PublicContext},
     note::{
         note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote},
         note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
