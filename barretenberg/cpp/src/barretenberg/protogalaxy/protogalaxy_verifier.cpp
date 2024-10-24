@@ -134,6 +134,15 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         combination = linear_combination(to_combine, lagranges);
     }
 
+    // generate recursive folding challenges to ensure manifest matches with recursive verifier
+    // (in recursive verifier we use random challenges to convert Flavor::NUM_FOLDED_ENTITIES muls
+    //  into one large multiscalar multiplication)
+    std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
+    for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
+        args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
+    }
+    transcript->template get_challenges<FF>(args);
+
     return next_accumulator;
 }
 
