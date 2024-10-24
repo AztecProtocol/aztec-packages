@@ -190,6 +190,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
   });
 
+  it('Should handle revert oracle', async () => {
+    const context = initContext();
+
+    const bytecode = getAvmTestContractBytecode('revert_oracle');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(true);
+    expect(results.output).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
+  });
+
   it('ec_add should not revert', async () => {
     // This test performs the same doubling as in elliptic_curve_add_and_double
     // But the optimizer is not able to optimize out the addition

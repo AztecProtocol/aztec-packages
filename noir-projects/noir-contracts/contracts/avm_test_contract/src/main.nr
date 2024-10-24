@@ -254,6 +254,12 @@ contract AvmTest {
         [4, 5, 6] // Should not get here.
     }
 
+    #[public]
+    fn revert_oracle() -> [Field; 3] {
+        dep::aztec::context::public_context::avm_revert([1, 2, 3]);
+        [4, 5, 6] // Should not get here.
+    }
+
     /************************************************************************
      * Hashing functions
      ************************************************************************/
