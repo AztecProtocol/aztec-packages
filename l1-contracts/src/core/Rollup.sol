@@ -631,18 +631,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
-    Epoch currentEpoch = getCurrentEpoch();
     Epoch epochToProve = getEpochToProve();
 
     require(
       currentProposer == address(0) || currentProposer == msg.sender,
       Errors.Leonidas__InvalidProposer(currentProposer, msg.sender)
-    );
-
-    // Cannot prove epochs into the future
-    require(
-      _quote.quote.epochToProve < currentEpoch,
-      Errors.Rollup__NotClaimingCorrectEpoch(currentEpoch, _quote.quote.epochToProve)
     );
 
     require(

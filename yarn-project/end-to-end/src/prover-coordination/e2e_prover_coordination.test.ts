@@ -237,7 +237,7 @@ describe('e2e_prover_coordination', () => {
     // Ensure the prover has enough funds to in escrow
     await performEscrow(10000000n);
 
-    // Here we are creating a proof quote for epoch 0, this will NOT get used yet
+    // Here we are creating a proof quote for epoch 0
     const quoteForEpoch0 = await makeEpochProofQuote({
       epochToProve: 0n,
       validUntilSlot: BigInt(AZTEC_EPOCH_DURATION + 10),
@@ -256,15 +256,8 @@ describe('e2e_prover_coordination', () => {
 
     const epoch0BlockNumber = await getPendingBlockNumber();
 
-    // Verify that the claim state on L1 is unitialised
-    // The rollup contract should have an uninitialised proof claim struct
-    await expectProofClaimOnL1({
-      epochToProve: 0n,
-      basisPointFee: 0,
-      bondAmount: 0n,
-      prover: EthAddress.ZERO,
-      proposer: EthAddress.ZERO,
-    });
+    // Verify that we can claim the current epoch
+    await expectProofClaimOnL1({ ...quoteForEpoch0.payload, proposer: publisherAddress });
 
     // Now go to epoch 1
     await advanceToNextEpoch();
