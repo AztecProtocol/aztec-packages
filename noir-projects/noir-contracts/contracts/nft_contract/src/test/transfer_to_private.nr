@@ -37,10 +37,13 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
-    let hiding_point_slot: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(recipient));
+    let hiding_point_slot: Field = NFT::at(nft_contract_address).prepare_transfer_to_private(recipient).call(&mut env.private());
+
 
     // Finalize the transfer of the NFT (message sender owns the NFT in public)
-    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot));
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot).call(
+        &mut env.public(),
+    );
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.
@@ -76,7 +79,9 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     let hiding_point_slot = random();
 
     // Try finalizing the transfer without preparing it
-    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot));
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot).call(
+        &mut env.public(),
+    );
 }
 
 #[test(should_fail_with = "invalid NFT owner")]
@@ -88,9 +93,11 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the NFT owner check is before we use the value but that would made the test less robust against changes
     // in the contract.)
-    let hiding_point_slot: Field = env.call_private(NFT::at(nft_contract_address).prepare_transfer_to_private(not_owner));
+    let hiding_point_slot: Field = NFT::at(nft_contract_address).prepare_transfer_to_private(not_owner).call(&mut env.private());
 
     // Try transferring someone else's public NFT
     env.impersonate(not_owner);
-    env.call_public(NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot));
+    NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, hiding_point_slot).call(
+        &mut env.public(),
+    );
 }

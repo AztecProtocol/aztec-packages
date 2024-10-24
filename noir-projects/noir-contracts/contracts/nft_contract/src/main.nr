@@ -12,7 +12,7 @@ contract NFT {
         oracle::random::random,
         prelude::{
             NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet,
-            AztecAddress,
+            AztecAddress, PrivateContext, PublicContext
         },
         encrypted_logs::encrypted_note_emission::{
             encode_and_encrypt_note, encrypt_and_emit_partial_log,
