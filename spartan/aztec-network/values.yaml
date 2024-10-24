@@ -12,7 +12,7 @@ telemetry:
 images:
   aztec:
     image: aztecprotocol/aztec
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
