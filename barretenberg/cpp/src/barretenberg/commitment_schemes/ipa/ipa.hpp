@@ -441,6 +441,7 @@ template <typename Curve_> class IPA {
         poly_length_var.fix_witness();
 
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
+        info("IPA poly length: ", poly_length);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator

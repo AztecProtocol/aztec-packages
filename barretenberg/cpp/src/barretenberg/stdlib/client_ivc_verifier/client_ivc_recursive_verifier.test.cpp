@@ -38,7 +38,7 @@ class ClientIVCRecursionTests : public testing::Test {
     {
         using Builder = ClientIVC::ClientCircuit;
 
-        size_t NUM_CIRCUITS = 2;
+        size_t NUM_CIRCUITS = 10;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             Builder circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(circuit);
