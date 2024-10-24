@@ -621,7 +621,7 @@ export async function deployL1Contract(
         lib.contractAbi,
         lib.contractBytecode,
         [],
-        undefined,
+        maybeSalt,
         undefined,
         logger,
       );
