@@ -38,6 +38,26 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.binary(lhs, rhs, result, operation);
     }
 
+    /// Procresses a field less than instruction.
+    ///
+    /// Just performs an assertion on bit size and then forwards to binary_instruction().
+    pub(crate) fn field_less_than_instruction(
+        &mut self,
+        lhs: SingleAddrVariable,
+        rhs: SingleAddrVariable,
+        result: SingleAddrVariable,
+    ) {
+        let max_field_size = FieldElement::max_num_bits();
+        assert!(
+            lhs.bit_size == max_field_size && rhs.bit_size == max_field_size,
+            "Expected bit sizes lhs and rhs to be {}, got {} and {} for 'field less than' operation",
+            lhs.bit_size,
+            rhs.bit_size,
+            max_field_size,
+        );
+        self.binary_instruction(lhs, rhs, result, BrilligBinaryOp::LessThan);
+    }
+
     /// Processes a not instruction.
     ///
     /// Not is computed using a subtraction operation as there is no native not instruction

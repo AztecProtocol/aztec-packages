@@ -417,6 +417,19 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 unreachable!("ICE: AES128Encrypt expects three array arguments, one array result")
             }
         }
+        BlackBoxFunc::FieldLessThan => {
+            if let (
+                [BrilligVariable::SingleAddr(input_x), BrilligVariable::SingleAddr(input_y)],
+                [BrilligVariable::SingleAddr(output)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.field_less_than_instruction(*input_x, *input_y, *output);
+            } else {
+                unreachable!(
+                    "ICE: FieldLessThan expects two register arguments one register result"
+                )
+            }
+        }
     }
 }
 

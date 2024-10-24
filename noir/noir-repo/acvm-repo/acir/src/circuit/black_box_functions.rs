@@ -186,6 +186,9 @@ pub enum BlackBoxFunc {
     /// - state: [(witness, 32); 8]
     /// - output: [(witness, 32); 8]
     Sha256Compression,
+
+    // Less than comparison between two field elements (only usable in unconstrained)
+    FieldLessThan,
 }
 
 impl std::fmt::Display for BlackBoxFunc {
@@ -218,6 +221,7 @@ impl BlackBoxFunc {
             BlackBoxFunc::BigIntToLeBytes => "bigint_to_le_bytes",
             BlackBoxFunc::Poseidon2Permutation => "poseidon2_permutation",
             BlackBoxFunc::Sha256Compression => "sha256_compression",
+            BlackBoxFunc::FieldLessThan => "field_less_than",
         }
     }
 
@@ -244,6 +248,7 @@ impl BlackBoxFunc {
             "bigint_to_le_bytes" => Some(BlackBoxFunc::BigIntToLeBytes),
             "poseidon2_permutation" => Some(BlackBoxFunc::Poseidon2Permutation),
             "sha256_compression" => Some(BlackBoxFunc::Sha256Compression),
+            "field_less_than" => Some(BlackBoxFunc::FieldLessThan),
             _ => None,
         }
     }
