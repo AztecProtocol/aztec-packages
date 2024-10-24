@@ -859,7 +859,7 @@ export class PXEService implements PXE {
     from: number,
     limit: number,
     eventMetadata: EventMetadata<T>,
-    // TODO: Fix this by allow it to pass only an address
+    // TODO (#9272): Make this better, we should be able to only pass an address now
     vpks: Point[],
   ): Promise<T[]> {
     if (vpks.length === 0) {
