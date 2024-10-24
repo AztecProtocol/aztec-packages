@@ -616,8 +616,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto rho_pow = FF(1);
         for (auto& commitment : f_commitments) {
             scalars.emplace_back(x_challenge * rho_pow);
-            // info("commitment unshifted ", commitment);
-
             commitments.emplace_back(commitment);
             rho_pow *= rho;
         }
@@ -625,8 +623,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // Add contribution: \sum_{i=0}^{l-1} \rho^{m+i}*[g_i]
         for (auto& commitment : g_commitments) {
             scalars.emplace_back(rho_pow);
-            // info("commitment shifted ", commitment);
-
             commitments.emplace_back(commitment);
             rho_pow *= rho;
         }
@@ -651,7 +647,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 rho_pow *= rho;
             }
         }
-        // info("commitments size ", commitments.size());
 
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
         // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))
@@ -705,10 +700,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
             // If Ultra and using biggroup, handle edge cases in batch_mul
             if constexpr (IsUltraBuilder<typename Curve::Builder> && stdlib::IsBigGroup<Commitment>) {
                 return Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
-                info(commitments.size());
             } else {
                 return Commitment::batch_mul(commitments, scalars);
-                info(commitments.size());
             }
         } else {
             return batch_mul_native(commitments, scalars);
@@ -806,7 +799,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 C_zeta_Z = Commitment::batch_mul(points, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
             } else {
                 C_zeta_Z = Commitment::batch_mul(points, scalars);
-                info(" c zeta size ", points.size());
             }
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
