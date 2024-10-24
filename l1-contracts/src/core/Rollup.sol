@@ -592,7 +592,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: [BlobPublicInputs; 32], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
+    //   blob_public_inputs: [BlobPublicInputs; Constants.AZTEC_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
     // }
 
     // previous_archive.root: the previous archive tree root
@@ -641,8 +641,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     publicInputs[feesEnd + 2] = _args[6];
 
     // blob_public_inputs
-    for (uint256 i = 0; i < _epochSize; i++) {
-      uint256 j = 75 + i * 6;
+    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
+      uint256 j = feesEnd + 3 + i * 6;
       publicInputs[j] = blobPublicInputs[previousBlockNumber + i + 1].z;
       (publicInputs[j + 1], publicInputs[j + 2], publicInputs[j + 3]) =
         bytes32ToBigNum(blobPublicInputs[previousBlockNumber + i + 1].y);

@@ -144,10 +144,12 @@ pub fn accumulate_blocks_fees(
 pub fn accumulate_blob_public_inputs(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs
-) -> [BlobPublicInputs; 32] {
+) -> [BlobPublicInputs; AZTEC_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
-    assert(left_len + right_len <= 32, "too many blob public input structs accumulated in rollup");
+    assert(
+        left_len + right_len <= AZTEC_EPOCH_DURATION, "too many blob public input structs accumulated in rollup"
+    );
     array_merge(left.blob_public_inputs, right.blob_public_inputs)
 }
 

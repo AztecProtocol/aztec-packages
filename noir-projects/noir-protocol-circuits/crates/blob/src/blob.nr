@@ -652,7 +652,7 @@ fn test_400() {
     assert(expected_y == output.y);
 }
 
-#[test(should_fail_with="Found non-zero field after breakpoint")]
+#[test(should_fail_with = "Found non-zero field after breakpoint")]
 fn test_no_extra_blob_fields() {
     let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
     // Fill fields with 50 inputs...
@@ -668,7 +668,7 @@ fn test_no_extra_blob_fields() {
     let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
 }
 
-#[test(should_fail_with="Incorrect number of tx effects added to blob")]
+#[test(should_fail_with = "Incorrect number of tx effects added to blob")]
 fn test_absorbed_too_few_blob_fields() {
     let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
     // Fill fields with 50 inputs...

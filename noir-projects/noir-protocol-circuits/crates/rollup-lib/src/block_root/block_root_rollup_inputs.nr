@@ -10,8 +10,9 @@ use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
 use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
     constants::{
-    AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT, FIELDS_PER_BLOB,
-    L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX
+    AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+    FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX,
+    MERGE_ROLLUP_INDEX
 },
     header::Header, content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
@@ -120,7 +121,7 @@ impl BlockRootRollupInputs {
         let mut fee_arr = [FeeRecipient::empty(); AZTEC_EPOCH_DURATION];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        let mut blob_public_inputs = [BlobPublicInputs::empty(); 32];
+        let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION];
         blob_public_inputs[0] = evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
 
         BlockRootOrBlockMergePublicInputs {

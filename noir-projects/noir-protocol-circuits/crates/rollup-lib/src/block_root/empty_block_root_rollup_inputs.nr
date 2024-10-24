@@ -27,7 +27,7 @@ impl EmptyBlockRootRollupInputs {
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             prover_id: self.prover_id,
-            blob_public_inputs: [BlobPublicInputs::empty(); 32]
+            blob_public_inputs: [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION]
         }
     }
 }

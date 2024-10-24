@@ -5,7 +5,7 @@ import {
   type ProcessedTx,
   TxEffect,
   getTreeHeight,
-  toTxEffect
+  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,

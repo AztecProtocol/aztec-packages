@@ -26,11 +26,11 @@ pub struct SpongeBlob {
 }
 
 impl SpongeBlob {
-    fn new_full_blob() -> Self {
+    pub fn new_full_blob() -> Self {
         Self { sponge: Poseidon2::new(IV), fields: 0, expected_fields: 0 }
     }
 
-    fn new(expected_fields_hint: u32) -> Self {
+    pub fn new(expected_fields_hint: u32) -> Self {
         Self {
             sponge: Poseidon2::new((expected_fields_hint as Field) * 18446744073709551616),
             fields: 0,
@@ -39,7 +39,7 @@ impl SpongeBlob {
     }
 
     // Add fields to the sponge
-    fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
+    pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
         // in_len is all non-0 input
         let mut should_add = true;
         for i in 0..input.len() {
@@ -59,7 +59,7 @@ impl SpongeBlob {
     }
 
     // Finalise the sponge and output poseidon2 hash of all fields absorbed
-    fn squeeze(&mut self) -> Field {
+    pub fn squeeze(&mut self) -> Field {
         // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
         // NB: There is currently no use case in which we don't 'fill' a blob sponge, but adding for completeness
         if self.fields != self.expected_fields {
@@ -143,7 +143,7 @@ unconstrained fn absorb() {
     assert(spongeblob.squeeze() == expected);
 }
 
-#[test(should_fail_with="Given in_len to absorb is larger than the input array len")]
+#[test(should_fail_with = "Given in_len to absorb is larger than the input array len")]
 unconstrained fn absorb_incorrect_in_len() {
     let mut spongeblob = SpongeBlob::new(10);
     let input_3 = [1, 2, 3];

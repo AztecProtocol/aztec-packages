@@ -21,7 +21,7 @@ import {
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
-import { areArraysEqual, padArrayEnd, compactArray, times } from '@aztec/foundation/collection';
+import { areArraysEqual, compactArray, padArrayEnd, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -36,7 +36,7 @@ import pick from 'lodash.pick';
 import { resolve } from 'path';
 import { inspect } from 'util';
 import {
-  type BaseError,
+  BaseError,
   type Chain,
   type Client,
   type ContractFunctionExecutionError,
@@ -57,6 +57,7 @@ import {
   getAbiItem,
   getAddress,
   getContract,
+  getContractError,
   hexToBytes,
   http,
   publicActions,
@@ -67,7 +68,6 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemError } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -273,7 +273,15 @@ export class L1Publisher {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
       this.log.verbose(toFriendlyJSON(err as object));
-      const errorName = tryGetCustomErrorName(err);
+      let errorName = tryGetCustomErrorName(err);
+      if (!errorName) {
+        errorName = this.tryGetErrorFromRevertedTx(err, {
+          args: [],
+          functionName: 'validateEpochProofRightClaim',
+          abi: this.rollupContract.abi,
+          address: this.rollupContract.address,
+        });
+      }
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
@@ -405,7 +413,21 @@ export class L1Publisher {
       return false;
     }
 
-    const { hash: txHash, args, functionName, gasLimit } = tx;
+    const { hash: txHash, args, functionName } = tx;
+
+    if (txHash instanceof BaseError) {
+      const errorMsg = this.tryGetErrorFromRevertedTx(txHash, {
+        args,
+        functionName,
+        abi: RollupAbi,
+        address: this.rollupContract.address,
+      });
+      this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
+        ...ctx,
+      });
+      this.metrics.recordFailedTx('process');
+      return false;
+    }
 
     const receipt = await this.getTransactionReceipt(txHash);
     if (!receipt) {
@@ -428,45 +450,38 @@ export class L1Publisher {
       return true;
     }
 
-    this.metrics.recordFailedTx('process');
-
-    const errorMsg = await this.tryGetErrorFromRevertedTx({
-      args,
-      functionName,
-      gasLimit,
-      abi: RollupAbi,
-      address: this.rollupContract.address,
-      blockNumber: receipt.blockNumber,
-    });
-    this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
-      ...ctx,
-      txHash: receipt.transactionHash,
-    });
     await this.sleepOrInterrupted();
     return false;
   }
 
-  private async tryGetErrorFromRevertedTx(args: {
-    args: any[];
-    functionName: string;
-    gasLimit: bigint;
-    abi: any;
-    address: Hex;
-    blockNumber: bigint | undefined;
-  }) {
-    try {
-      await this.publicClient.simulateContract({ ...args, account: this.walletClient.account });
-      return undefined;
-    } catch (err: any) {
-      if (err.name === 'ContractFunctionExecutionError') {
-        const execErr = err as ContractFunctionExecutionError;
-        return compactArray([
-          execErr.shortMessage,
-          ...(execErr.metaMessages ?? []).slice(0, 2).map(s => s.trim()),
-        ]).join(' ');
-      }
-      this.log.error(`Error getting error from simulation`, err);
+  private tryGetErrorFromRevertedTx(
+    err: any,
+    args: {
+      args: any[];
+      functionName: string;
+      abi: any;
+      address: Hex;
+    },
+  ) {
+    // We can no longer simulate contract calls with blobs, as there is no way to mock the blob hash checked in the contract
+    // The simulation will fail with 'incorrect blob hash' regardless of the real reason
+    // Instead, we pass the sendTransaction error here, and use viem to convert it to a ContractFunctionExecutionError
+    // (The actual error is a TransactionExecutionError, which does not display our custom errors)
+    const contractErr =
+      err.name === 'ContractFunctionExecutionError'
+        ? err
+        : getContractError(err as BaseError, {
+            ...args,
+            sender: this.account.address,
+            docsPath: '/docs/contract/simulateContract',
+          });
+    if (contractErr.name === 'ContractFunctionExecutionError') {
+      const execErr = contractErr as ContractFunctionExecutionError;
+      return compactArray([execErr.shortMessage, ...(execErr.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(
+        ' ',
+      );
     }
+    this.log.error(`Error getting error from viem`, err);
   }
 
   public async submitEpochProof(args: {
@@ -664,13 +679,12 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
+  ): Promise<{ hash: string | any; args: any; functionName: string } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
+    const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
     try {
-      const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
-
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'propose',
@@ -682,30 +696,37 @@ export class L1Publisher {
       const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
 
       // Viem does not allow sending a blob via contract.write()
-      return await this.walletClient.sendTransaction({
-        data,
-        account: this.account,
-        to: this.rollupContract.address,
-        blobs: [encodedData.blob.data],
-        kzg,
-        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
-      });
-    } catch (err) {
-      prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
-      return undefined;
+      return {
+        hash: await this.walletClient.sendTransaction({
+          data,
+          account: this.account,
+          to: this.rollupContract.address,
+          blobs: [encodedData.blob.data],
+          kzg,
+          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
+        }),
+        args,
+        functionName: 'propose',
+      };
+    } catch (err: any) {
+      // TODO(Miranda): bubble up the error more cleanly (as opposed to storing in hash)
+      return {
+        hash: err,
+        args,
+        functionName: 'propose',
+      };
     }
   }
 
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
+  ): Promise<{ hash: string | any; args: any; functionName: string } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
+    const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS);
     try {
-      const { args } = this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS);
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
@@ -717,22 +738,28 @@ export class L1Publisher {
 
       // TODO(Miranda): viem's own path export does not work
       const mainnetTrustedSetupPath = resolve('../node_modules/viem/trusted-setups/mainnet.json');
-
       const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
 
       // Viem does not allow sending a blob via contract.write()
-      return await this.walletClient.sendTransaction({
-        data,
-        account: this.account,
-        to: this.rollupContract.address,
-        blobs: [encodedData.blob.data],
-        kzg,
-        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
-      });
+      return {
+        hash: await this.walletClient.sendTransaction({
+          data,
+          account: this.account,
+          to: this.rollupContract.address,
+          blobs: [encodedData.blob.data],
+          kzg,
+          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
+        }),
+        args: [...args, quote.toViemArgs()],
+        functionName: 'proposeAndClaim',
+      };
     } catch (err) {
-      prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
-      return undefined;
+      // TODO(Miranda): bubble up the error more cleanly (as opposed to storing in hash)
+      return {
+        hash: err,
+        args,
+        functionName: 'proposeAndClaim',
+      };
     }
   }
 

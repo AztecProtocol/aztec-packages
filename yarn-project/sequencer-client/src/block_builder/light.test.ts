@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
+  AZTEC_EPOCH_DURATION,
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -65,14 +66,11 @@ import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/wo
 
 import { jest } from '@jest/globals';
 
-import { jest } from '@jest/globals';
-
 import { LightweightBlockBuilder } from './light.js';
 
 jest.setTimeout(50_000);
 
 describe('LightBlockBuilder', () => {
-  jest.setTimeout(10000);
   let simulator: ServerCircuitProver;
   let logger: DebugLogger;
   let globals: GlobalVariables;
@@ -357,8 +355,8 @@ describe('LightBlockBuilder', () => {
     // For this test only I'm building outputs in ts. For other tests, I force the simulator to use native ACVM (not wasm).
     // const result = await simulator.getBlockRootRollupProof(inputs);
 
-    const newArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
-    const newBlockHash = await db.getLeafValue(
+    const newArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, fork);
+    const newBlockHash = await fork.getLeafValue(
       MerkleTreeId.ARCHIVE,
       BigInt(newArchiveSnapshot.nextAvailableLeafIndex - 1),
     );
@@ -383,10 +381,11 @@ describe('LightBlockBuilder', () => {
         rollupLeft.baseOrMergeRollupPublicInputs.outHash,
         rollupRight.baseOrMergeRollupPublicInputs.outHash,
       ]),
-      padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), 32),
+      padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), AZTEC_EPOCH_DURATION),
       rollupLeft.baseOrMergeRollupPublicInputs.constants.vkTreeRoot,
+      rollupLeft.baseOrMergeRollupPublicInputs.constants.protocolContractTreeRoot,
       inputs.proverId,
-      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), 32),
+      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), AZTEC_EPOCH_DURATION),
     );
 
     return outputs;

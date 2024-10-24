@@ -11,7 +11,7 @@ import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddres
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
-import { IProofCommitmentEscrowAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
 
 import { beforeAll } from '@jest/globals';
@@ -26,9 +26,12 @@ import {
   getAddress,
   getContract,
   http,
+  publicActions,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { EscrowContract } from '../../../prover-node/src/bond/escrow-contract.js';
+import { TokenContract } from '../../../prover-node/src/bond/token-contract.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
@@ -195,6 +198,31 @@ describe('e2e_prover_coordination', () => {
       basisPointFee: 1,
     });
 
+    // The prover deposits their bond (added as part of blob PR to avoid Rollup__InsufficientFundsInEscrow error)
+    const proverWalletClient = createWalletClient({
+      account: privateKeyToAccount(`0x${keccak256(Buffer.from('cow')).toString('hex')}`),
+      transport: http(ctx.aztecNodeConfig.l1RpcUrl),
+      chain: ctx.deployL1ContractsValues.walletClient.chain,
+    });
+
+    await cc.setBalance(EthAddress.fromString(proverWalletClient.account.address), 10000000000000000n);
+
+    const proofCommitmentEscrowContractAddress = EthAddress.fromString(
+      await rollupContract.read.PROOF_COMMITMENT_ESCROW(),
+    );
+
+    const escrowContract = new EscrowContract(
+      proverWalletClient.extend(publicActions),
+      proofCommitmentEscrowContractAddress,
+    );
+    const tokenContract = new TokenContract(
+      proverWalletClient.extend(publicActions),
+      await escrowContract.getTokenAddress(),
+    );
+    await tokenContract.ensureAllowance(proofCommitmentEscrowContractAddress);
+    await tokenContract.ensureBalance(quoteForEpoch0.payload.bondAmount * 2n);
+    await escrowContract.depositProverBond(quoteForEpoch0.payload.bondAmount * 2n);
+
     // Send in the quote
     await ctx.proverNode!.sendEpochProofQuote(quoteForEpoch0);
 
@@ -219,23 +247,6 @@ describe('e2e_prover_coordination', () => {
     await advanceToNextEpoch();
 
     await logState();
-
-    // The prover deposits their bond (added as part of blob PR to avoid Rollup__InsufficientFundsInEscrow error)
-    const proverWalletClient = createWalletClient({
-      account: privateKeyToAccount(`0x${keccak256(Buffer.from('cow')).toString('hex')}`),
-      transport: http(ctx.aztecNodeConfig.l1RpcUrl),
-      chain: ctx.deployL1ContractsValues.walletClient.chain,
-    });
-
-    await cc.setBalance(EthAddress.fromString(proverWalletClient.account.address), 1000000000000000n);
-
-    const proofCommitmentEscrowContractAddress = await rollupContract.read.PROOF_COMMITMENT_ESCROW();
-    const proofCommitmentEscrowContract = getContract({
-      address: proofCommitmentEscrowContractAddress,
-      abi: IProofCommitmentEscrowAbi,
-      client: proverWalletClient,
-    });
-    await proofCommitmentEscrowContract.write.deposit([quoteForEpoch0.payload.bondAmount], { gas: 100000n });
 
     // Build a block in epoch 1, we should see the quote for epoch 0 submitted earlier published to L1
     await contract.methods.create_note(recipient, recipient, 10).send().wait();

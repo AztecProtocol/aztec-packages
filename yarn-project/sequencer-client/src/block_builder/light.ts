@@ -17,7 +17,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   SpongeBlob,
   TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
-  VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';

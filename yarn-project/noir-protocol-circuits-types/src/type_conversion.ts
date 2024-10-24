@@ -2267,7 +2267,11 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
-    mapTupleFromNoir(blockRootOrBlockMergePublicInputs.blob_public_inputs, 32, mapBlobPublicInputsFromNoir),
+    mapTupleFromNoir(
+      blockRootOrBlockMergePublicInputs.blob_public_inputs,
+      AZTEC_EPOCH_DURATION,
+      mapBlobPublicInputsFromNoir,
+    ),
   );
 }
 
@@ -2448,7 +2452,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
-    mapTupleFromNoir(rootRollupPublicInputs.blob_public_inputs, 32, mapBlobPublicInputsFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.blob_public_inputs, AZTEC_EPOCH_DURATION, mapBlobPublicInputsFromNoir),
   );
 }
 

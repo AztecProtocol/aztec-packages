@@ -76,11 +76,6 @@ export class ContentCommitment {
   }
 
   public equals(other: this): boolean {
-    return (
-      this.inHash.equals(other.inHash) &&
-      this.outHash.equals(other.outHash) &&
-      this.numTxs.equals(other.numTxs) &&
-      this.txsEffectsHash.equals(other.txsEffectsHash)
-    );
+    return this.inHash.equals(other.inHash) && this.outHash.equals(other.outHash) && this.numTxs.equals(other.numTxs);
   }
 }

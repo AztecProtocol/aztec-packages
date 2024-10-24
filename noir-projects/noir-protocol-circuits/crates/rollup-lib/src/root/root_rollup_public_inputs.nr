@@ -15,5 +15,5 @@ pub struct RootRollupPublicInputs {
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
     prover_id: Field,
-    blob_public_inputs: [BlobPublicInputs; 32],
+    blob_public_inputs: [BlobPublicInputs; AZTEC_EPOCH_DURATION],
 }

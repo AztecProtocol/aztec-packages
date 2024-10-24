@@ -424,6 +424,22 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
+
+        // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+        const txEffectsInBlob = padArrayEnd(
+          block.body.toFields(),
+          Fr.ZERO,
+          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+        );
+        const blob = new Blob(txEffectsInBlob);
+
+        const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
+        const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
+        expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
+        expect(z).toEqual(blob.challengeZ.toString());
+        expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -433,42 +449,12 @@ describe('L1Publisher integration', () => {
             `0x${block.header.hash().toBuffer().toString('hex')}`,
             [],
             [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            blob.getEthBlobEvaluationInputs(),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
-
-        const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
-
-      // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
-      const txEffectsInBlob = padArrayEnd(
-        block.body.toFields(),
-        Fr.ZERO,
-        TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
-      );
-      const blob = new Blob(txEffectsInBlob);
-
-      const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
-      const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
-      expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
-      expect(z).toEqual(blob.challengeZ.toString());
-      expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
-
-      const expectedData = encodeFunctionData({
-        abi: RollupAbi,
-        functionName: 'propose',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.header.hash().toBuffer().toString('hex')}`,
-          [],
-          [],
-          // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
-          `0x${block.body.toBuffer().toString('hex')}`,
-          blob.getEthBlobEvaluationInputs(),
-        ],
-      });
-      expect(ethTx.input).toEqual(expectedData);
         const tree = new StandardTree(
           openTmpStore(true),
           new SHA256Trunc(),
@@ -550,6 +536,20 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
+        // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
+        const txEffectsInBlob = padArrayEnd(
+          block.body.toFields(),
+          Fr.ZERO,
+          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
+        );
+        const blob = new Blob(txEffectsInBlob);
+
+        const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
+        const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
+        expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
+        expect(z).toEqual(blob.challengeZ.toString());
+        expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
+
         const expectedData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -559,7 +559,9 @@ describe('L1Publisher integration', () => {
             `0x${block.header.hash().toBuffer().toString('hex')}`,
             [],
             [],
+            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
             `0x${block.body.toBuffer().toString('hex')}`,
+            blob.getEthBlobEvaluationInputs(),
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
