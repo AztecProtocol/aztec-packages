@@ -21,10 +21,10 @@ import type {
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateBaseRollupInputs,
+  ParityPublicInputs,
   PrivateKernelEmptyInputData,
   PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -287,7 +287,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: BaseParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.BASE_PARITY, inputs }, signal, epochNumber);
   }
 
@@ -299,7 +299,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: RootParityInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueue({ type: ProvingRequestType.ROOT_PARITY, inputs }, signal, epochNumber);
   }
 

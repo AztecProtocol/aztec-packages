@@ -23,6 +23,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
@@ -30,7 +31,6 @@ import {
   type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
-  RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -45,7 +45,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
@@ -69,7 +68,6 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
-  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -147,7 +145,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The public inputs of the parity circuit.
    */
   @trackSpan('BBNativeRollupProver.getBaseParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' })
-  public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
+  public async getBaseParityProof(
+    inputs: BaseParityInputs,
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'BaseParityArtifact',
@@ -157,15 +157,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseParityArtifact');
-
     await this.verifyProof('BaseParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(
-      proof,
-      verificationKey.keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
-      circuitOutput,
-    );
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -176,7 +170,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getRootParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' })
   public async getRootParityProof(
     inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'RootParityArtifact',
@@ -186,15 +180,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootParityArtifact');
-
     await this.verifyProof('RootParityArtifact', proof.binaryProof);
 
-    return new RootParityInput(
-      proof,
-      verificationKey.keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes.RootParityArtifact),
-      circuitOutput,
-    );
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   /**

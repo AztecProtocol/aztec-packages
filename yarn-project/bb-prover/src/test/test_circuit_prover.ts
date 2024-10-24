@@ -19,13 +19,13 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   type Proof,
   type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
@@ -39,7 +39,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
   type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
@@ -63,7 +62,6 @@ import {
   convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
-  getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -125,20 +123,15 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @returns The public inputs of the parity circuit.
    */
   @trackSpan('TestCircuitProver.getBaseParityProof')
-  public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
-    const result = await this.simulate(
+  public async getBaseParityProof(
+    inputs: BaseParityInputs,
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+    return await this.simulate(
       inputs,
       'BaseParityArtifact',
       RECURSIVE_PROOF_LENGTH,
       convertBaseParityInputsToWitnessMap,
       convertBaseParityOutputsFromWitnessMap,
-    );
-
-    return new RootParityInput(
-      result.proof,
-      result.verificationKey.keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes['BaseParityArtifact']),
-      result.inputs,
     );
   }
 
@@ -150,20 +143,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getRootParityProof')
   public async getRootParityProof(
     inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
-    const result = await this.simulate(
+  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
+    return await this.simulate(
       inputs,
       'RootParityArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
       convertRootParityInputsToWitnessMap,
       convertRootParityOutputsFromWitnessMap,
-    );
-
-    return new RootParityInput(
-      result.proof,
-      result.verificationKey.keyAsFields,
-      getVKSiblingPath(ProtocolCircuitVkIndexes['RootParityArtifact']),
-      result.inputs,
     );
   }
 
