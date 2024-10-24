@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729798491421,
+  "lastUpdate": 1729808123581,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "308c03b9ad45001570e6232f88403de8cc7d3cfb",
-          "message": "feat(avm): constrain start and end l2/da gas (#9031)\n\nResolves #9001",
-          "timestamp": "2024-10-08T14:56:07+02:00",
-          "tree_id": "84ac671708211276d43e4de4d41ad0d91a07802e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/308c03b9ad45001570e6232f88403de8cc7d3cfb"
-        },
-        "date": 1728393399361,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31422.571731000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29295.898729 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5532.853782000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5224.152205 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93023.84082900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93023842000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15698.015697,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15698016000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8283767237,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8283767237 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152294394,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152294394 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6737066833,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6737066833 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126164321,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126164321 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3312,6 +3240,66 @@ window.BENCHMARK_DATA = {
             "value": 126087037,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126087037 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84fdc526f73027a3450bcdcc78b826fc9da8df88",
+          "message": "feat: Print finalized size and log dyadic size during Ultra proof construction (#9411)\n\nYou can now see the circuit sizes in the e2e full prover test.",
+          "timestamp": "2024-10-24T17:47:24-04:00",
+          "tree_id": "8675acf321f92640b1831bb006457a0e8b411c25",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/84fdc526f73027a3450bcdcc78b826fc9da8df88"
+        },
+        "date": 1729808116794,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30847.066788999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29225.964655000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5372.882576000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5038.989699000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 94092.438965,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 94092441000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15161.680561,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15161680000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2717535451,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2717535451 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126186669,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126186669 ns\nthreads: 1"
           }
         ]
       }
