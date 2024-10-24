@@ -92,7 +92,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(_fpcJuicePortal.underlying(), address(this));
+    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(_fpcJuicePortal.UNDERLYING(), address(this));
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
@@ -260,15 +260,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     tips.provenBlockNumber = endBlockNumber;
 
-    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
-      address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
-      uint256 fees = uint256(publicInputs[10 + i * 2]);
-
-      if (coinbase != address(0) && fees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+    // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
+    //        Otherwise, the fees are unbacked #7938.
+    if (address(this) == FEE_JUICE_PORTAL.canonicalRollup()) {
+      for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
+        address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
+        uint256 fees = uint256(publicInputs[10 + i * 2]);
+        if (coinbase != address(0) && fees > 0) {
+          FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+        }
       }
     }
 
@@ -921,5 +921,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       _flags.ignoreDA || _header.contentCommitment.txsEffectsHash == _txsEffectsHash,
       Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash)
     );
+
+    // If not canonical rollup, require that the fees are zero
+    if (address(this) != FEE_JUICE_PORTAL.canonicalRollup()) {
+      require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
+      require(_header.globalVariables.gasFees.feePerL2Gas == 0, Errors.Rollup__NonZeroL2Fee());
+    }
   }
 }
