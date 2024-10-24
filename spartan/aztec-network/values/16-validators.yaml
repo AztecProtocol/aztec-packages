@@ -53,7 +53,7 @@ validator:
 
 bot:
   txIntervalSeconds: 2
-  privateTransfersPerTx: 1
+  privateTransfersPerTx: 2
   publicTransfersPerTx: 2
 
 bootNode:

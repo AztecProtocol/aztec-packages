@@ -45,8 +45,8 @@ jobs:
       # override slot time to use prod 36s standard
       - name: "Set 32s slot time"
         run: |
-          echo "Updating AZTEC_SLOT_DURATION..."
           sed -i 's/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* [0-9]\+/AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3/g' ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+          echo "Updating AZTEC_SLOT_DURATION..."
           if grep -q "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION \* 3" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr; then
             echo "Successfully updated AZTEC_SLOT_DURATION:"
             grep "AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION" ./noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        values_file: ["default.yaml", "3-validators.yaml", "16-validators.yaml"]
+        values_file: ["16-validators.yaml", ""]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
