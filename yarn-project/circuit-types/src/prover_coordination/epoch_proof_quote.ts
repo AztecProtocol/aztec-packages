@@ -1,5 +1,6 @@
+import { PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_FEE_ASSET } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type Secp256k1Signer, keccak256 } from '@aztec/foundation/crypto';
+import { type Secp256k1Signer, keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -76,5 +77,30 @@ export class EpochProofQuote extends Gossipable {
    */
   getSize(): number {
     return this.payload.getSize() + this.signature.getSize();
+  }
+
+  /**
+   * Checks if the epoch proof quote is valid.
+   * Used to validate the quote before gossiping it.
+   * @returns True if the epoch proof quote is valid, false otherwise.
+   */
+  isValid(): boolean {
+    // The bondAmount must be greater than the current minimum bond amount.
+    // The signature must be valid, and the signer must have the specified bond amount in the L1 escrow contract.
+    // It must not have expired (i.e. the slot specified is in the past, or the epoch specified is past its proof timeliness)
+    // The epoch it claims to prove is the one that needs proving.
+    // The rollup address specified matches the one the proposer is using.
+
+    if (this.payload.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_FEE_ASSET) {
+      return false;
+    }
+
+    // Note, to recover address we need to hash the payload first.
+    // Which means we need to do https://github.com/AztecProtocol/aztec-packages/issues/8911
+    recoverAddress;
+
+    // probably this function just needs a hook into something that can talk to (or cache info from) the rollup contract
+
+    return true;
   }
 }

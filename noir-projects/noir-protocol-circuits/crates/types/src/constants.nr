@@ -142,6 +142,8 @@ global AZTEC_EPOCH_DURATION: u32 = 16;
 global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
 // The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
 global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
+// The minimum bond amount that a prover must have in the L1 escrow contract to be able to produce proofs.
+global PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_FEE_ASSET: Field = 1000;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field =
