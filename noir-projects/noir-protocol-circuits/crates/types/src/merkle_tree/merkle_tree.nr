@@ -37,7 +37,11 @@ impl<let N: u32> MerkleTree<N> {
     }
 
     pub fn sibling_index(index: u32) -> u32 {
-        if index % 2 == 0 { index + 1 } else { index - 1 }
+        if index % 2 == 0 {
+            index + 1
+        } else {
+            index - 1
+        }
     }
 
     fn get_sibling_path<let K: u32>(self, leaf_index: u32) -> [Field; K] {
@@ -69,5 +73,9 @@ impl<let N: u32> MerkleTree<N> {
 }
 
 pub fn sibling_index(index: u32) -> u32 {
-    if index % 2 == 0 { index + 1 } else { index - 1 }
+    if index % 2 == 0 {
+        index + 1
+    } else {
+        index - 1
+    }
 }

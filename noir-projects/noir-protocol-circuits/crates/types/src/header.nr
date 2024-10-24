@@ -1,15 +1,14 @@
 use crate::{
     abis::{
-    append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
-    global_variables::GlobalVariables
-},
+        append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
+        global_variables::GlobalVariables,
+    },
     constants::{
-    GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
-    CONTENT_COMMITMENT_LENGTH
-},
-    hash::poseidon2_hash_with_separator, state_reference::StateReference,
+        GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
+        CONTENT_COMMITMENT_LENGTH,
+    }, hash::poseidon2_hash_with_separator, state_reference::StateReference,
     traits::{Deserialize, Empty, Hash, Serialize}, utils::arr_copy_slice,
-    content_commitment::ContentCommitment
+    content_commitment::ContentCommitment,
 };
 
 // docs:start:header
@@ -50,16 +49,19 @@ impl Deserialize<HEADER_LENGTH> for Header {
     fn deserialize(serialized: [Field; HEADER_LENGTH]) -> Self {
         let mut offset = 0;
 
-        let last_archive_fields = arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
+        let last_archive_fields =
+            arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
         offset = offset + APPEND_ONLY_TREE_SNAPSHOT_LENGTH;
 
-        let content_commitment_fields = arr_copy_slice(serialized, [0; CONTENT_COMMITMENT_LENGTH], offset);
+        let content_commitment_fields =
+            arr_copy_slice(serialized, [0; CONTENT_COMMITMENT_LENGTH], offset);
         offset = offset + CONTENT_COMMITMENT_LENGTH;
 
         let state_fields = arr_copy_slice(serialized, [0; STATE_REFERENCE_LENGTH], offset);
         offset = offset + STATE_REFERENCE_LENGTH;
 
-        let global_variables_fields = arr_copy_slice(serialized, [0; GLOBAL_VARIABLES_LENGTH], offset);
+        let global_variables_fields =
+            arr_copy_slice(serialized, [0; GLOBAL_VARIABLES_LENGTH], offset);
         offset = offset + GLOBAL_VARIABLES_LENGTH;
 
         let total_fees = serialized[offset];
@@ -69,7 +71,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
             content_commitment: ContentCommitment::deserialize(content_commitment_fields),
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
-            total_fees
+            total_fees,
         }
     }
 }
@@ -81,7 +83,7 @@ impl Empty for Header {
             content_commitment: ContentCommitment::empty(),
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
-            total_fees: 0
+            total_fees: 0,
         }
     }
 }

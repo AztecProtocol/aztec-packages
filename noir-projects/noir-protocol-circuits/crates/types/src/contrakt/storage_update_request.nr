@@ -1,4 +1,6 @@
-use crate::{constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize}};
+use crate::{
+    constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize},
+};
 
 pub struct StorageUpdateRequest {
     storage_slot: Field,
@@ -26,7 +28,11 @@ impl Serialize<CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH> for StorageUpdateRequest 
 
 impl Deserialize<CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH> for StorageUpdateRequest {
     fn deserialize(serialized: [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH]) -> Self {
-        StorageUpdateRequest { storage_slot: serialized[0], new_value: serialized[1], counter: serialized[2] as u32 }
+        StorageUpdateRequest {
+            storage_slot: serialized[0],
+            new_value: serialized[1],
+            counter: serialized[2] as u32,
+        }
     }
 }
 

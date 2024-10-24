@@ -5,10 +5,9 @@ mod propagate_from_private_call;
 use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_call_request::PrivateCallRequest
-},
-    tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        private_call_request::PrivateCallRequest,
+    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitPublicInputsComposerBuilder {
@@ -26,7 +25,11 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         private_call.value_offset = 9999;
 
         let tx_request = private_call.build_tx_request();
-        PrivateKernelCircuitPublicInputsComposerBuilder { tx_request, previous_kernel, private_call }
+        PrivateKernelCircuitPublicInputsComposerBuilder {
+            tx_request,
+            previous_kernel,
+            private_call,
+        }
     }
 
     pub fn new_from_tx_request(self) -> PrivateKernelCircuitPublicInputsComposer {
@@ -35,7 +38,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
             self.tx_request,
             private_call,
             FixtureBuilder::vk_tree_root(),
-            self.private_call.protocol_contract_tree_root
+            self.private_call.protocol_contract_tree_root,
         )
     }
 
@@ -59,6 +62,9 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
         let private_call = self.private_call.to_private_call_data();
 
-        PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel).pop_top_call_request().with_private_call(private_call.public_inputs).finish()
+        PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
+            .pop_top_call_request()
+            .with_private_call(private_call.public_inputs)
+            .finish()
     }
 }

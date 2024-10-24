@@ -33,15 +33,13 @@ impl VariableMerkleTree {
     //
     pub fn new_sha<let N: u32>(leaves: [Field; N], num_non_empty_leaves: u32) -> Self {
         // Find size of tree required
-        let height = unsafe {
-            get_height(num_non_empty_leaves, 0)
-        };
+        let height = unsafe { get_height(num_non_empty_leaves, 0) };
         let next_power_2 = 2 << height;
         let prev_power_2 = next_power_2 / 2;
         assert(
             (num_non_empty_leaves == 0)
-            | (num_non_empty_leaves == 1)
-            | (num_non_empty_leaves > prev_power_2)
+                | (num_non_empty_leaves == 1)
+                | (num_non_empty_leaves > prev_power_2),
         );
         assert(num_non_empty_leaves <= next_power_2);
         // hash base layer
@@ -94,7 +92,7 @@ impl VariableMerkleTree {
 mod tests {
     use crate::{
         merkle_tree::{variable_merkle_tree::VariableMerkleTree, merkle_tree::MerkleTree},
-        hash::accumulate_sha256
+        hash::accumulate_sha256,
     };
 
     fn generate_test_array(non_empty_items: u32) -> [Field; 100] {

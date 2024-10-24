@@ -1,7 +1,7 @@
 use crate::tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder;
 use dep::types::{
-    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths, traits::is_empty,
-    tests::utils::assert_array_eq
+    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
+    traits::is_empty, tests::utils::assert_array_eq,
 };
 
 #[test]
@@ -110,7 +110,7 @@ fn new_from_previous_kernel_with_private_call_note_hash_read_requests_succeeds()
 
     assert_array_eq(
         output.validation_requests.note_hash_read_requests,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 
@@ -127,7 +127,7 @@ fn new_from_previous_kernel_with_private_call_nullifier_read_requests_succeeds()
 
     assert_array_eq(
         output.validation_requests.nullifier_read_requests,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 
@@ -144,7 +144,7 @@ fn new_from_previous_kernel_with_private_call_key_validation_requests_succeeds()
 
     assert_array_eq(
         output.validation_requests.scoped_key_validation_requests_and_generators,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 
@@ -203,7 +203,7 @@ fn new_from_previous_kernel_with_private_call_note_encrypted_log_hashes_succeeds
 
     assert_array_eq(
         output.end.note_encrypted_logs_hashes,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 
@@ -220,7 +220,7 @@ fn new_from_previous_kernel_with_private_call_encrypted_log_hashes_succeeds() {
 
     assert_array_eq(
         output.end.encrypted_logs_hashes,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 
@@ -237,7 +237,7 @@ fn new_from_previous_kernel_with_private_call_unencrypted_log_hashes_succeeds() 
 
     assert_array_eq(
         output.end.unencrypted_logs_hashes,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 
@@ -255,7 +255,7 @@ fn new_from_previous_kernel_with_private_call_private_call_requests_succeeds() {
     // Call requests from private call will be propagated in reversed order.
     assert_array_eq(
         output.end.private_call_stack,
-        [prev[1], prev[0], curr[1], curr[0]]
+        [prev[1], prev[0], curr[1], curr[0]],
     );
 }
 
@@ -272,7 +272,7 @@ fn new_from_previous_kernel_with_private_call_public_call_requests_succeeds() {
 
     assert_array_eq(
         output.end.public_call_requests,
-        [prev[0], prev[1], curr[0], curr[1]]
+        [prev[0], prev[1], curr[0], curr[1]],
     );
 }
 

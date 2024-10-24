@@ -1,7 +1,7 @@
 use crate::{
     address::{AztecAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress},
     contract_class_id::ContractClassId, hash::private_functions_root_from_siblings,
-    tests::fixtures::contract_functions::get_protocol_contract_function, public_keys::PublicKeys
+    tests::fixtures::contract_functions::get_protocol_contract_function, public_keys::PublicKeys,
 };
 
 pub struct ContractData {
@@ -78,16 +78,19 @@ pub fn get_protocol_contract(index: u32) -> ContractData {
         function.data.selector,
         function.vk_hash,
         function.membership_witness.leaf_index,
-        function.membership_witness.sibling_path
+        function.membership_witness.sibling_path,
     );
 
     let contract_class_id = ContractClassId::compute(
         artifact_hash,
         private_functions_root,
-        public_bytecode_commitment
+        public_bytecode_commitment,
     );
 
-    let partial_address = PartialAddress::compute_from_salted_initialization_hash(contract_class_id, salted_initialization_hash);
+    let partial_address = PartialAddress::compute_from_salted_initialization_hash(
+        contract_class_id,
+        salted_initialization_hash,
+    );
 
     let address = AztecAddress::compute(public_keys.hash(), partial_address);
 
@@ -101,6 +104,6 @@ pub fn get_protocol_contract(index: u32) -> ContractData {
         contract_class_id,
         public_keys,
         salted_initialization_hash,
-        deployer: AztecAddress { inner: 0 }
+        deployer: AztecAddress { inner: 0 },
     }
 }

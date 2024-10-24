@@ -55,7 +55,7 @@ impl BlockMergeRollupInputs {
             fees,
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
-            prover_id: left.prover_id // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+            prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
         }
     }
 }
@@ -63,7 +63,9 @@ impl BlockMergeRollupInputs {
 mod tests {
     use crate::tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs;
     use dep::types::hash::accumulate_sha256;
-    use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, ROOT_PARITY_INDEX};
+    use dep::types::constants::{
+        BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, ROOT_PARITY_INDEX,
+    };
     use types::merkle_tree::merkle_tree::MerkleTree;
     use dep::types::tests::fixtures;
 
@@ -135,19 +137,20 @@ mod tests {
         // inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].recipient = EthAddress::from_field(2);
         // let outputs = inputs.block_merge_rollup_circuit();
         assert_eq(
-            outputs.fees[0], inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0]
+            outputs.fees[0],
+            inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0],
         );
         assert_eq(
-            outputs.fees[1], inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0]
+            outputs.fees[1],
+            inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0],
         );
     }
 
     #[test]
     fn valid_previous_circuit_block_root() {
         let mut inputs = default_block_merge_rollup_inputs();
-        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
-            fixtures::vk_tree::get_vk_merkle_tree()
-        };
+        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
+            comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
             fixtures::vk_tree::generate_fake_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_ROOT_ROLLUP_INDEX as Field;
@@ -159,9 +162,8 @@ mod tests {
     #[test]
     fn valid_previous_circuit_block_merge() {
         let mut inputs = default_block_merge_rollup_inputs();
-        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
-            fixtures::vk_tree::get_vk_merkle_tree()
-        };
+        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
+            comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
             fixtures::vk_tree::generate_fake_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_MERGE_ROLLUP_INDEX as Field;
@@ -173,9 +175,8 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_circuit() {
         let mut inputs = default_block_merge_rollup_inputs();
-        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
-            fixtures::vk_tree::get_vk_merkle_tree()
-        };
+        let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
+            comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
             fixtures::vk_tree::generate_fake_honk_vk_for_index(ROOT_PARITY_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;

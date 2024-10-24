@@ -1,37 +1,34 @@
 use crate::{
     abis::{
-    constant_rollup_data::ConstantRollupData,
-    base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
-},
-    base::state_diff_hints::StateDiffHints,
-    components::{compute_tx_effects_hash, compute_kernel_out_hash}
+        constant_rollup_data::ConstantRollupData,
+        base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE},
+    }, base::state_diff_hints::StateDiffHints,
+    components::{compute_tx_effects_hash, compute_kernel_out_hash},
 };
 use dep::types::{
     hash::silo_l2_to_l1_message,
     data::{
-    public_data_hint::PublicDataHint,
-    hash::{compute_public_data_tree_index, compute_public_data_tree_value}
-},
-    storage::map::derive_storage_slot_in_map, address::AztecAddress,
+        public_data_hint::PublicDataHint,
+        hash::{compute_public_data_tree_index, compute_public_data_tree_value},
+    }, storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
-    append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
-    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
-},
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
+    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
-    PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NOTE_HASHES_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT, ARCHIVE_HEIGHT,
-    FEE_JUICE_ADDRESS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX,
-    PRIVATE_KERNEL_EMPTY_INDEX, TUBE_INDEX
-},
+        PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NOTE_HASHES_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
+        NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, FEE_JUICE_ADDRESS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        PUBLIC_KERNEL_TAIL_INDEX, PRIVATE_KERNEL_EMPTY_INDEX, TUBE_INDEX,
+    },
     merkle_tree::{
-    append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
-    indexed_tree, MembershipWitness
-},
-    partial_state_reference::PartialStateReference,
+        append_only_tree, assert_check_membership, calculate_empty_tree_root,
+        calculate_subtree_root, indexed_tree, MembershipWitness,
+    }, partial_state_reference::PartialStateReference,
     data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage}, traits::is_empty,
-    utils::field::{full_field_less_than, full_field_greater_than}
+    utils::field::{full_field_less_than, full_field_greater_than},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS =
@@ -66,26 +63,33 @@ impl BaseRollupInputs {
         // Verify the kernel chain_id and versions
         assert(
             self.kernel_data.public_inputs.constants.tx_context.chain_id
-            == self.constants.global_variables.chain_id, "kernel chain_id does not match the rollup chain_id"
+                == self.constants.global_variables.chain_id,
+            "kernel chain_id does not match the rollup chain_id",
         );
         assert(
             self.kernel_data.public_inputs.constants.tx_context.version
-            == self.constants.global_variables.version, "kernel version does not match the rollup version"
+                == self.constants.global_variables.version,
+            "kernel version does not match the rollup version",
         );
         assert(
-            self.kernel_data.public_inputs.constants.vk_tree_root == self.constants.vk_tree_root, "kernel vk_tree_root does not match the rollup vk_tree_root"
+            self.kernel_data.public_inputs.constants.vk_tree_root == self.constants.vk_tree_root,
+            "kernel vk_tree_root does not match the rollup vk_tree_root",
         );
         assert(
             self.kernel_data.public_inputs.constants.protocol_contract_tree_root
-            == self.constants.protocol_contract_tree_root, "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root"
+                == self.constants.protocol_contract_tree_root,
+            "kernel protocol_contract_tree_root does not match the rollup protocol_contract_tree_root",
         );
 
         // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
         // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
         assert(
             self.kernel_data.public_inputs.constants.global_variables.is_empty()
-            | (self.kernel_data.public_inputs.constants.global_variables
-                == self.constants.global_variables), "kernel global variables do not match the rollup global variables"
+                | (
+                    self.kernel_data.public_inputs.constants.global_variables
+                        == self.constants.global_variables
+                ),
+            "kernel global variables do not match the rollup global variables",
         );
 
         self.validate_kernel_start_state();
@@ -97,7 +101,8 @@ impl BaseRollupInputs {
         if rollup_validation_requests.max_block_number.is_some() {
             assert(
                 self.constants.global_variables.block_number as u32
-                <= rollup_validation_requests.max_block_number.unwrap_unchecked(), "kernel max_block_number is smaller than block number"
+                    <= rollup_validation_requests.max_block_number.unwrap_unchecked(),
+                "kernel max_block_number is smaller than block number",
             );
         }
 
@@ -110,19 +115,22 @@ impl BaseRollupInputs {
             self.state_diff_hints.note_hash_subtree_sibling_path,
             empty_commitments_subtree_root,
             commitments_tree_subroot,
-            NOTE_HASH_SUBTREE_HEIGHT as u8
+            NOTE_HASH_SUBTREE_HEIGHT as u8,
         );
 
         // Insert nullifiers:
-        let end_nullifier_tree_snapshot = self.check_nullifier_tree_non_membership_and_insert_to_tree();
+        let end_nullifier_tree_snapshot =
+            self.check_nullifier_tree_non_membership_and_insert_to_tree();
 
         // Inject protocol update requests for deducting tx_fee from fee_payer's balance
         let gas_fees = self.constants.global_variables.gas_fees;
         let transaction_fee = self.kernel_data.public_inputs.compute_transaction_fee(gas_fees);
-        let all_public_data_update_requests = self.calculate_all_public_data_update_requests(transaction_fee);
+        let all_public_data_update_requests =
+            self.calculate_all_public_data_update_requests(transaction_fee);
 
         // Validate public data update requests and update public data tree
-        let end_public_data_tree_snapshot = self.validate_and_process_public_state(all_public_data_update_requests);
+        let end_public_data_tree_snapshot =
+            self.validate_and_process_public_state(all_public_data_update_requests);
 
         // Calculate the tx effects hash of the transaction
         let siloed_l2_to_l1_msgs = self.kernel_data.public_inputs.end.l2_to_l1_msgs.map(
@@ -130,7 +138,7 @@ impl BaseRollupInputs {
                 message,
                 self.kernel_data.public_inputs.constants.tx_context.version,
                 self.kernel_data.public_inputs.constants.tx_context.chain_id,
-            )
+            ),
         );
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effects_hash = compute_tx_effects_hash(
@@ -138,7 +146,7 @@ impl BaseRollupInputs {
             self.kernel_data.public_inputs.revert_code,
             transaction_fee,
             all_public_data_update_requests,
-            out_hash
+            out_hash,
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -152,11 +160,11 @@ impl BaseRollupInputs {
             end: PartialStateReference {
                 note_hash_tree: end_note_hash_tree_snapshot,
                 nullifier_tree: end_nullifier_tree_snapshot,
-                public_data_tree: end_public_data_tree_snapshot
+                public_data_tree: end_public_data_tree_snapshot,
             },
             txs_effects_hash: tx_effects_hash,
             out_hash,
-            accumulated_fees: transaction_fee
+            accumulated_fees: transaction_fee,
         }
     }
 
@@ -180,7 +188,7 @@ impl BaseRollupInputs {
                         leaf_index: witness.leaf_index,
                         sibling_path: witness.sibling_path,
                     }
-                }
+                },
             ),
             |low_leaf: NullifierLeafPreimage, nullifier: Field| {
                 // Is valid low leaf
@@ -211,7 +219,7 @@ impl BaseRollupInputs {
                 }
             },
             [0; NULLIFIER_SUBTREE_HEIGHT],
-            [0; NULLIFIER_TREE_HEIGHT]
+            [0; NULLIFIER_TREE_HEIGHT],
         )
     }
 
@@ -223,20 +231,23 @@ impl BaseRollupInputs {
         let kernel_state = self.kernel_data.public_inputs.start_state;
         if !is_empty(kernel_state) {
             assert(
-                kernel_state.note_hash_tree.eq(self.start.note_hash_tree), "Mismatch start state for note hash tree"
+                kernel_state.note_hash_tree.eq(self.start.note_hash_tree),
+                "Mismatch start state for note hash tree",
             );
             assert(
-                kernel_state.nullifier_tree.eq(self.start.nullifier_tree), "Mismatch start state for nullifier tree"
+                kernel_state.nullifier_tree.eq(self.start.nullifier_tree),
+                "Mismatch start state for nullifier tree",
             );
             assert(
-                kernel_state.public_data_tree.eq(self.start.public_data_tree), "Mismatch start state for public data tree"
+                kernel_state.public_data_tree.eq(self.start.public_data_tree),
+                "Mismatch start state for public data tree",
             );
         }
     }
 
     fn validate_and_process_public_state(
         self,
-        all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+        all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     ) -> AppendOnlyTreeSnapshot {
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
@@ -245,7 +256,7 @@ impl BaseRollupInputs {
             self.sorted_public_data_writes_indexes,
             self.low_public_data_writes_preimages,
             self.low_public_data_writes_witnesses,
-            self.state_diff_hints.public_data_sibling_path
+            self.state_diff_hints.public_data_sibling_path,
         );
 
         end_public_data_tree_snapshot
@@ -256,15 +267,17 @@ impl BaseRollupInputs {
     // update request we have at the time of this writing is deducting the tx_fee from the fee_payer balance.
     fn calculate_all_public_data_update_requests(
         self,
-        tx_fee: Field
+        tx_fee: Field,
     ) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-        let mut all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = [PublicDataUpdateRequest::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] =
+            [PublicDataUpdateRequest::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             all_update_requests[i] =
                 self.kernel_data.public_inputs.end.public_data_update_requests[i];
         }
 
-        let (payment_update_request, payment_update_index) = self.build_or_patch_payment_update_request(tx_fee);
+        let (payment_update_request, payment_update_index) =
+            self.build_or_patch_payment_update_request(tx_fee);
         all_update_requests[payment_update_index] = payment_update_request;
 
         all_update_requests
@@ -276,7 +289,10 @@ impl BaseRollupInputs {
     // from the balance of the fee_payer, using the fee_payer_fee_juice_balance_read_hint to read the current balance.
     // Returns the data update request that subtracts the tx_fee from the fee_payer's balance, and the index where it
     // should be inserted in the public data update requests array.
-    fn build_or_patch_payment_update_request(self, tx_fee: Field) -> (PublicDataUpdateRequest, u32) {
+    fn build_or_patch_payment_update_request(
+        self,
+        tx_fee: Field,
+    ) -> (PublicDataUpdateRequest, u32) {
         let fee_payer = self.kernel_data.public_inputs.fee_payer;
 
         // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
@@ -286,37 +302,48 @@ impl BaseRollupInputs {
 
             if read_hint.leaf_slot == 0 {
                 // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update_index = unsafe {
-                    self.find_fee_payer_fee_juice_update_index(leaf_slot)
-                };
-                let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
-                assert(
-                    existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance update request"
-                );
-                assert(
-                    !existing_update.new_value.lt(tx_fee), "Not enough balance for fee payer after claim to pay for transaction"
-                );
+                let existing_update_index =
+                    unsafe { self.find_fee_payer_fee_juice_update_index(leaf_slot) };
+                let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests
+                    [existing_update_index];
+                    assert(
+                        existing_update.leaf_slot == leaf_slot,
+                        "Wrong leaf slot for Fee Juice balance update request",
+                    );
+                    assert(
+                        !existing_update.new_value.lt(tx_fee),
+                        "Not enough balance for fee payer after claim to pay for transaction",
+                    );
 
-                let new_value = compute_public_data_tree_value(existing_update.new_value - tx_fee);
-                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
-                (protocol_update_request, existing_update_index as u32)
+                    let new_value =
+                        compute_public_data_tree_value(existing_update.new_value - tx_fee);
+                    let protocol_update_request =
+                        PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
+                    (protocol_update_request, existing_update_index as u32)
+                } else {
+                    // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
+                    read_hint.validate(self.start.public_data_tree.root);
+
+                    let balance = read_hint.value;
+                    assert(
+                        read_hint.leaf_slot == leaf_slot,
+                        "Wrong leaf slot for Fee Juice balance read hint",
+                    );
+                    assert(
+                        !balance.lt(tx_fee),
+                        "Not enough balance for fee payer to pay for transaction",
+                    );
+
+                    let new_value = compute_public_data_tree_value(balance - tx_fee);
+                    let protocol_update_request =
+                        PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
+                    (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+                }
             } else {
-                // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
-                read_hint.validate(self.start.public_data_tree.root);
-
-                let balance = read_hint.value;
-                assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
-                assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
-
-                let new_value = compute_public_data_tree_value(balance - tx_fee);
-                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
-                (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+                // Nothing to do, just place an empty update request at the end of the array
+                (PublicDataUpdateRequest::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
             }
-        } else {
-            // Nothing to do, just place an empty update request at the end of the array
-            (PublicDataUpdateRequest::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
         }
-    }
 
     // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
     // contains roots of all the trees this is sufficient to verify that the tree roots used by kernels are correct
@@ -336,19 +363,21 @@ impl BaseRollupInputs {
             previous_block_hash,
             previous_block_hash_witness.leaf_index,
             previous_block_hash_witness.sibling_path,
-            archive_root
+            archive_root,
         );
     }
 
     unconstrained fn find_fee_payer_fee_juice_update_index(self, leaf_slot: Field) -> u32 {
         let mut update_index = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1;
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if self.kernel_data.public_inputs.end.public_data_update_requests[i].leaf_slot == leaf_slot {
+            if self.kernel_data.public_inputs.end.public_data_update_requests[i].leaf_slot
+                == leaf_slot {
                 update_index = i;
             }
         }
         assert(
-            update_index < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, "Could not find fee payer Fee Juice update request"
+            update_index < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            "Could not find fee payer Fee Juice update request",
         );
         update_index
     }
@@ -361,7 +390,7 @@ fn insert_public_data_update_requests(
     sorted_public_data_writes_indexes: [u32; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_witnesses: [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]
+    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
 ) -> AppendOnlyTreeSnapshot {
     indexed_tree::batch_insert(
         prev_snapshot,
@@ -376,7 +405,7 @@ fn insert_public_data_update_requests(
                     leaf_index: witness.leaf_index,
                     sibling_path: witness.sibling_path,
                 }
-            }
+            },
         ),
         |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf| {
             // Is valid low preimage
@@ -427,23 +456,26 @@ fn insert_public_data_update_requests(
             }
         },
         [0; PUBLIC_DATA_SUBTREE_HEIGHT],
-        [0; PUBLIC_DATA_TREE_HEIGHT]
+        [0; PUBLIC_DATA_TREE_HEIGHT],
     )
 }
 
 fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let balances_slot_in_fee_juice_contract = 1;
-    let fee_payer_balance_slot_in_fee_juice_contract = derive_storage_slot_in_map(balances_slot_in_fee_juice_contract, fee_payer);
+    let fee_payer_balance_slot_in_fee_juice_contract =
+        derive_storage_slot_in_map(balances_slot_in_fee_juice_contract, fee_payer);
     compute_public_data_tree_index(
         FEE_JUICE_ADDRESS,
-        fee_payer_balance_slot_in_fee_juice_contract
+        fee_payer_balance_slot_in_fee_juice_contract,
     )
 }
 
 #[test]
 fn consistent_not_hash_subtree_width() {
     assert_eq(
-        MAX_NOTE_HASHES_PER_TX as Field, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT as Field), "note hash subtree width is incorrect"
+        MAX_NOTE_HASHES_PER_TX as Field,
+        2.pow_32(NOTE_HASH_SUBTREE_HEIGHT as Field),
+        "note hash subtree width is incorrect",
     );
 }
 
@@ -468,39 +500,38 @@ fn test_u256_greater_than() {
 mod tests {
     use crate::{
         abis::{
-        constant_rollup_data::ConstantRollupData,
-        base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs
-    },
+            constant_rollup_data::ConstantRollupData,
+            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        },
         base::{
-        state_diff_hints::StateDiffHints,
-        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot}
-    },
-        components::TX_EFFECTS_HASH_INPUT_FIELDS
+            state_diff_hints::StateDiffHints,
+            base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot},
+        }, components::TX_EFFECTS_HASH_INPUT_FIELDS,
     };
     use dep::types::{
         abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
-    },
-        messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
+            append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
+        }, messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
         hash::silo_l2_to_l1_message, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
-        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
-        NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-        NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX,
-        PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX,
-        BASE_ROLLUP_INDEX, TUBE_INDEX
-    },
-        partial_state_reference::PartialStateReference,
+            ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+            MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+            NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
+            PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX,
+            PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX,
+            BASE_ROLLUP_INDEX, TUBE_INDEX,
+        }, partial_state_reference::PartialStateReference,
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         tests::{fixtures, fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
-        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::{full_field_less_than, field_from_bytes_32_trunc}},
-        traits::Empty
+        utils::{
+            arrays::get_sorted_tuple::get_sorted_tuple,
+            field::{full_field_less_than, field_from_bytes_32_trunc},
+        }, traits::Empty,
     };
 
     struct NullifierInsertion {
@@ -518,14 +549,19 @@ mod tests {
         user_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         protocol_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         mut final_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-        mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
+        mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES],
     ) -> ([Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH], [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [u32; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
         let mut subtree_path = [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH];
-        let mut sorted_public_data_writes = [PublicDataTreeLeaf::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
-        let mut sorted_public_data_writes_indexes = [0 as u32; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
-        let mut low_public_data_writes_preimages = [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
-        let mut low_public_data_writes_witnesses = [MembershipWitness::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
-        let mut new_subtree = [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut sorted_public_data_writes =
+            [PublicDataTreeLeaf::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut sorted_public_data_writes_indexes =
+            [0 as u32; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut low_public_data_writes_preimages =
+            [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut low_public_data_writes_witnesses =
+            [MembershipWitness::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut new_subtree =
+            [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
 
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < (user_public_data_writes.len()) {
@@ -550,7 +586,7 @@ mod tests {
                 final_public_data_writes.storage,
                 |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| {
                     full_field_less_than(leaf_b.slot, leaf_a.slot)
-                }
+                },
             )
         };
 
@@ -587,7 +623,7 @@ mod tests {
 
                     public_data_tree.update_leaf(
                         low_leaf_index,
-                        pre_existing_public_data[low_leaf_index].hash()
+                        pre_existing_public_data[low_leaf_index].hash(),
                     );
                 }
             } else {
@@ -602,7 +638,9 @@ mod tests {
         );
 
         (
-            subtree_path, sorted_public_data_writes, sorted_public_data_writes_indexes, low_public_data_writes_preimages, low_public_data_writes_witnesses, pre_existing_public_data
+            subtree_path, sorted_public_data_writes, sorted_public_data_writes_indexes,
+            low_public_data_writes_preimages, low_public_data_writes_witnesses,
+            pre_existing_public_data,
         )
     }
 
@@ -648,7 +686,7 @@ mod tests {
 
         fn build_fee_payer_fee_juice_balance_read_hint(
             self,
-            start_public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT>
+            start_public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT>,
         ) -> PublicDataHint {
             self.fee_payer_fee_juice_balance_pre_existing_public_data_index.map_or(
                 PublicDataHint::empty(),
@@ -666,13 +704,13 @@ mod tests {
                         membership_witness,
                         leaf_preimage,
                     }
-                }
+                },
             )
         }
 
         fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
             path: [Field; FULL_HEIGHT],
-            mut sibling_path: [Field; SIBLING_PATH_LENGTH]
+            mut sibling_path: [Field; SIBLING_PATH_LENGTH],
         ) -> [Field; SIBLING_PATH_LENGTH] {
             let subtree_height = FULL_HEIGHT - SIBLING_PATH_LENGTH;
             for i in subtree_height..FULL_HEIGHT {
@@ -685,15 +723,17 @@ mod tests {
             mut self,
             nullifier_tree: &mut NonEmptyMerkleTree<MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>,
             kernel_data: &mut KernelData,
-            start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
+            start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot,
         ) -> ([NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX], [MembershipWitness<NULLIFIER_TREE_HEIGHT>; MAX_NULLIFIERS_PER_TX], [Field; MAX_NULLIFIERS_PER_TX], [u32; MAX_NULLIFIERS_PER_TX]) {
-            let mut nullifier_predecessor_preimages = [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
-            let mut low_nullifier_membership_witness = [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
+            let mut nullifier_predecessor_preimages =
+                [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
+            let mut low_nullifier_membership_witness =
+                [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
 
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
                     self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
-                    |a, b| full_field_less_than(b, a)
+                    |a, b| full_field_less_than(b, a),
                 )
             };
 
@@ -740,7 +780,8 @@ mod tests {
             }
 
             (
-                nullifier_predecessor_preimages, low_nullifier_membership_witness, sorted_nullifiers, sorted_nullifiers_indexes
+                nullifier_predecessor_preimages, low_nullifier_membership_witness,
+                sorted_nullifiers, sorted_nullifiers_indexes,
             )
         }
 
@@ -751,66 +792,66 @@ mod tests {
                 self.pre_existing_notes,
                 [0; NOTE_HASH_TREE_HEIGHT],
                 [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT],
-                [0; NOTE_HASH_SUBTREE_HEIGHT]
+                [0; NOTE_HASH_SUBTREE_HEIGHT],
             );
             let start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
                 root: start_note_hash_tree.get_root(),
-                next_available_leaf_index: start_note_hash_tree.get_next_available_index() as u32
+                next_available_leaf_index: start_note_hash_tree.get_next_available_index() as u32,
             };
             let note_hash_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(
                 start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()),
-                [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]
+                [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH],
             );
 
             let mut start_nullifier_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
                 [0; NULLIFIER_TREE_HEIGHT],
                 [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT],
-                [0; NULLIFIER_SUBTREE_HEIGHT]
+                [0; NULLIFIER_SUBTREE_HEIGHT],
             );
 
             let start_nullifier_tree_snapshot = AppendOnlyTreeSnapshot {
                 root: start_nullifier_tree.get_root(),
-                next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32
+                next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32,
             };
 
             let mut start_public_data_tree = NonEmptyMerkleTree::new(
-                self.pre_existing_public_data.map(
-                    |preimage: PublicDataTreeLeafPreimage| {
+                self.pre_existing_public_data.map(|preimage: PublicDataTreeLeafPreimage| {
                     preimage.hash()
-                }
-                ),
+                }),
                 [0; PUBLIC_DATA_TREE_HEIGHT],
                 [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT],
-                [0; PUBLIC_DATA_SUBTREE_HEIGHT]
+                [0; PUBLIC_DATA_SUBTREE_HEIGHT],
             );
             let start_public_data_tree_snapshot = AppendOnlyTreeSnapshot {
                 root: start_public_data_tree.get_root(),
-                next_available_leaf_index: start_public_data_tree.get_next_available_index() as u32
+                next_available_leaf_index: start_public_data_tree.get_next_available_index() as u32,
             };
 
-            let fee_payer_fee_juice_balance_read_hint = self.build_fee_payer_fee_juice_balance_read_hint(start_public_data_tree);
+            let fee_payer_fee_juice_balance_read_hint =
+                self.build_fee_payer_fee_juice_balance_read_hint(start_public_data_tree);
 
             let start_archive = NonEmptyMerkleTree::new(
                 self.pre_existing_blocks,
                 [0; ARCHIVE_HEIGHT],
                 [0; ARCHIVE_HEIGHT - 1],
-                [0; 1]
+                [0; 1],
             );
             self.constants.last_archive = AppendOnlyTreeSnapshot {
                 root: start_archive.get_root(),
                 next_available_leaf_index: start_archive.get_next_available_index() as u32,
             };
 
-            let (nullifier_predecessor_preimages, nullifier_predecessor_membership_witnesses, sorted_nullifiers, sorted_nullifier_indexes) = self.update_nullifier_tree_with_new_leaves(
-                &mut start_nullifier_tree,
-                &mut kernel_data,
-                start_nullifier_tree_snapshot
-            );
+            let (nullifier_predecessor_preimages, nullifier_predecessor_membership_witnesses, sorted_nullifiers, sorted_nullifier_indexes) = self
+                .update_nullifier_tree_with_new_leaves(
+                    &mut start_nullifier_tree,
+                    &mut kernel_data,
+                    start_nullifier_tree_snapshot,
+                );
 
             let nullifier_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(
                 start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()),
-                [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]
+                [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH],
             );
 
             let (public_data_sibling_path, sorted_public_data_writes, sorted_public_data_writes_indexes, low_public_data_writes_preimages, low_public_data_writes_witnesses, _new_subtree) = update_public_data_tree(
@@ -820,13 +861,13 @@ mod tests {
                 self.public_data_writes,
                 self.protocol_public_data_writes,
                 self.final_public_data_writes,
-                self.pre_existing_public_data
+                self.pre_existing_public_data,
             );
 
             let start = PartialStateReference {
                 note_hash_tree: start_note_hash_tree_snapshot,
                 nullifier_tree: start_nullifier_tree_snapshot,
-                public_data_tree: start_public_data_tree_snapshot
+                public_data_tree: start_public_data_tree_snapshot,
             };
 
             let state_diff_hints = StateDiffHints {
@@ -836,7 +877,7 @@ mod tests {
                 sorted_nullifier_indexes,
                 note_hash_subtree_sibling_path,
                 nullifier_subtree_sibling_path,
-                public_data_sibling_path
+                public_data_sibling_path,
             };
 
             BaseRollupInputs {
@@ -847,16 +888,17 @@ mod tests {
                 sorted_public_data_writes_indexes,
                 low_public_data_writes_preimages,
                 low_public_data_writes_witnesses,
-                archive_root_membership_witness: MembershipWitness { leaf_index: 0, sibling_path: start_archive.get_sibling_path(0) },
+                archive_root_membership_witness: MembershipWitness {
+                    leaf_index: 0,
+                    sibling_path: start_archive.get_sibling_path(0),
+                },
                 constants: self.constants,
-                fee_payer_fee_juice_balance_read_hint
+                fee_payer_fee_juice_balance_read_hint,
             }
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-            let inputs = unsafe {
-                self.build_inputs()
-            };
+            let inputs = unsafe { self.build_inputs() };
             inputs.base_rollup_circuit()
         }
 
@@ -876,17 +918,20 @@ mod tests {
                 pre_existing_notes: [0; MAX_NOTE_HASHES_PER_TX],
                 pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX],
                 pre_existing_contracts: [0; 2],
-                pre_existing_public_data: [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-                pre_existing_blocks: [0; 2],
-                public_data_reads: BoundedVec::new(),
-                public_data_writes: BoundedVec::new(),
-                protocol_public_data_writes: BoundedVec::new(),
-                final_public_data_writes: BoundedVec::new(),
-                nullifiers: BoundedVec::new(),
-                constants: ConstantRollupData::empty(),
-                fee_payer_fee_juice_balance_pre_existing_public_data_index: Option::none()
+                pre_existing_public_data: [
+                    PublicDataTreeLeafPreimage::empty();
+                         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+                    ],
+                    pre_existing_blocks: [0; 2],
+                    public_data_reads: BoundedVec::new(),
+                    public_data_writes: BoundedVec::new(),
+                    protocol_public_data_writes: BoundedVec::new(),
+                    final_public_data_writes: BoundedVec::new(),
+                    nullifiers: BoundedVec::new(),
+                    constants: ConstantRollupData::empty(),
+                    fee_payer_fee_juice_balance_pre_existing_public_data_index: Option::none(),
+                }
             }
-        }
     }
 
     #[test]
@@ -901,11 +946,14 @@ mod tests {
             [0; MAX_NOTE_HASHES_PER_TX * 2],
             [0; NOTE_HASH_TREE_HEIGHT],
             [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT - 1],
-            [0; NOTE_HASH_SUBTREE_HEIGHT + 1]
+            [0; NOTE_HASH_SUBTREE_HEIGHT + 1],
         );
 
         let outputs = builder.execute();
-        let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: MAX_NOTE_HASHES_PER_TX as u32 };
+        let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
+            root: expected_commitments_tree.get_root(),
+            next_available_leaf_index: MAX_NOTE_HASHES_PER_TX as u32,
+        };
         assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
         for i in 0..note_hashes.len() {
@@ -913,7 +961,7 @@ mod tests {
         }
         let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
-            next_available_leaf_index: (MAX_NOTE_HASHES_PER_TX * 2) as u32
+            next_available_leaf_index: (MAX_NOTE_HASHES_PER_TX * 2) as u32,
         };
         assert(outputs.end.note_hash_tree.eq(expected_end_note_hash_tree_snapshot));
     }
@@ -958,16 +1006,17 @@ mod tests {
             tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
             [0; NULLIFIER_TREE_HEIGHT],
             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
-            [0; NULLIFIER_SUBTREE_HEIGHT + 1]
+            [0; NULLIFIER_SUBTREE_HEIGHT + 1],
         );
 
         let output = builder.execute();
 
-        assert(
-            output.end.nullifier_tree.eq(
-                AppendOnlyTreeSnapshot { root: end_nullifier_tree.get_root(), next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32 }
-            )
-        );
+        assert(output.end.nullifier_tree.eq(
+            AppendOnlyTreeSnapshot {
+                root: end_nullifier_tree.get_root(),
+                next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32,
+            },
+        ));
     }
 
     #[test]
@@ -981,7 +1030,9 @@ mod tests {
 
         builder.nullifiers.push(NullifierInsertion { existing_index: 1, value: 8 });
         for i in 1..builder.nullifiers.max_len() {
-            builder.nullifiers.push(NullifierInsertion { existing_index: 1, value: (8 + i) as Field });
+            builder.nullifiers.push(
+                NullifierInsertion { existing_index: 1, value: (8 + i) as Field },
+            );
         }
 
         let output = builder.execute();
@@ -1012,14 +1063,15 @@ mod tests {
             tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
             [0; NULLIFIER_TREE_HEIGHT],
             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
-            [0; NULLIFIER_SUBTREE_HEIGHT + 1]
+            [0; NULLIFIER_SUBTREE_HEIGHT + 1],
         );
 
-        assert(
-            output.end.nullifier_tree.eq(
-                AppendOnlyTreeSnapshot { root: end_nullifier_tree.get_root(), next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32 }
-            )
-        );
+        assert(output.end.nullifier_tree.eq(
+            AppendOnlyTreeSnapshot {
+                root: end_nullifier_tree.get_root(),
+                next_available_leaf_index: 2 * MAX_NULLIFIERS_PER_TX as u32,
+            },
+        ));
     }
 
     #[test(should_fail_with = "Invalid low leaf")]
@@ -1073,7 +1125,10 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            builder.kernel_data.add_exposed_l2_to_l1_message(i as Field, EthAddress::from_field(1 + i as Field));
+            builder.kernel_data.add_exposed_l2_to_l1_message(
+                i as Field,
+                EthAddress::from_field(1 + i as Field),
+            );
         }
 
         let out_hash = builder.execute().out_hash;
@@ -1082,11 +1137,13 @@ mod tests {
                 l2_to_l1_message,
                 builder.constants.global_variables.version,
                 builder.constants.global_variables.chain_id,
-            )
+            ),
         );
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(siloed_l2_to_l1_msgs.storage);
+        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(
+            siloed_l2_to_l1_msgs.storage,
+        );
         assert_eq(out_hash, expected_tree.get_root());
     }
 
@@ -1167,13 +1224,14 @@ mod tests {
         builder.public_data_writes.push((0, PublicDataTreeLeaf { slot: 27, value: 29 }));
         let outputs = builder.execute();
 
-        let updated_leaf = PublicDataTreeLeafPreimage { slot: 27, value: 29, next_slot: 0, next_index: 0 };
+        let updated_leaf =
+            PublicDataTreeLeafPreimage { slot: 27, value: 29, next_slot: 0, next_index: 0 };
 
         let mut expected_public_data_tree = NonEmptyMerkleTree::new(
             [updated_leaf.hash(), 0],
             [0; PUBLIC_DATA_TREE_HEIGHT],
             [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-            [0; 1]
+            [0; 1],
         );
 
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
@@ -1219,7 +1277,7 @@ mod tests {
             public_data_leaves,
             [0; PUBLIC_DATA_TREE_HEIGHT],
             [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT - 1],
-            [0; PUBLIC_DATA_SUBTREE_HEIGHT + 1]
+            [0; PUBLIC_DATA_SUBTREE_HEIGHT + 1],
         );
 
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
@@ -1251,17 +1309,24 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Set expected protocol data update
-        builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
+        builder.protocol_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
+        ));
 
         let outputs = builder.execute();
 
         // The new public data tree should have updated the balance of the fee payer
-        let updated_leaf = PublicDataTreeLeafPreimage { slot: balance_slot, value: expected_balance, next_slot: 0, next_index: 0 };
+        let updated_leaf = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: expected_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
         let mut expected_public_data_tree = NonEmptyMerkleTree::new(
             [updated_leaf.hash(), 0],
             [0; PUBLIC_DATA_TREE_HEIGHT],
             [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-            [0; 1]
+            [0; 1],
         );
 
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
@@ -1293,21 +1358,30 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Create an existing data update that corresponds to a claim
-        builder.public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: after_claim_balance }));
+        builder.public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: after_claim_balance },
+        ));
 
         // Set expected data updates after base rollup runs
         // Note that we tweak the final_public_data_writes directly, since we need to overwrite the output of the user public_data_writes
-        builder.final_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
+        builder.final_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
+        ));
 
         let outputs = builder.execute();
 
         // The new public data tree should have updated the balance of the fee payer
-        let updated_leaf = PublicDataTreeLeafPreimage { slot: balance_slot, value: expected_balance, next_slot: 0, next_index: 0 };
+        let updated_leaf = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: expected_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
         let mut expected_public_data_tree = NonEmptyMerkleTree::new(
             [updated_leaf.hash(), 0],
             [0; PUBLIC_DATA_TREE_HEIGHT],
             [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-            [0; 1]
+            [0; 1],
         );
 
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
@@ -1339,7 +1413,9 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Set expected protocol data update
-        builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 }));
+        builder.protocol_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 },
+        ));
 
         builder.fails();
     }
@@ -1379,7 +1455,9 @@ mod tests {
         builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
 
         // Set expected protocol data update
-        builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
+        builder.protocol_public_data_writes.push((
+            0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance },
+        ));
 
         builder.fails();
     }
@@ -1395,18 +1473,15 @@ mod tests {
 
     #[test]
     fn valid_previous_kernel_tube() {
-        let builder = unsafe {
-            BaseRollupInputsBuilder::new_with_previous_kernel(TUBE_INDEX)
-        };
+        let builder = unsafe { BaseRollupInputsBuilder::new_with_previous_kernel(TUBE_INDEX) };
 
         let _res = builder.execute();
     }
 
     #[test]
     fn valid_previous_kernel_public_tail() {
-        let builder = unsafe {
-            BaseRollupInputsBuilder::new_with_previous_kernel(PUBLIC_KERNEL_TAIL_INDEX)
-        };
+        let builder =
+            unsafe { BaseRollupInputsBuilder::new_with_previous_kernel(PUBLIC_KERNEL_TAIL_INDEX) };
 
         let _res = builder.execute();
     }

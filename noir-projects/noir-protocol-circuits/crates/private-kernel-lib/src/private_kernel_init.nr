@@ -1,15 +1,14 @@
 use crate::components::{
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
+    private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-    private_circuit_public_inputs::PrivateCircuitPublicInputs
-},
-    transaction::tx_request::TxRequest
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    }, transaction::tx_request::TxRequest,
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -26,13 +25,13 @@ impl PrivateKernelInitCircuitPrivateInputs {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         private_call: PrivateCallDataWithoutPublicInputs,
-        app_public_inputs: PrivateCircuitPublicInputs
+        app_public_inputs: PrivateCircuitPublicInputs,
     ) -> Self {
         Self {
             tx_request,
             vk_tree_root,
             protocol_contract_tree_root,
-            private_call: private_call.to_private_call_data(app_public_inputs)
+            private_call: private_call.to_private_call_data(app_public_inputs),
         }
     }
 
@@ -42,21 +41,24 @@ impl PrivateKernelInitCircuitPrivateInputs {
             self.tx_request,
             private_call_public_inputs,
             self.vk_tree_root,
-            self.protocol_contract_tree_root
-        ).with_private_call(private_call_public_inputs).finish()
+            self.protocol_contract_tree_root,
+        )
+            .with_private_call(private_call_public_inputs)
+            .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // Generate output.
-        let output = unsafe {
-            self.generate_output()
-        };
+        let output = unsafe { self.generate_output() };
 
         // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
         private_call_data_validator.validate_as_first_call();
         private_call_data_validator.validate_against_tx_request(self.tx_request);
-        private_call_data_validator.validate(output.end.note_hashes, self.protocol_contract_tree_root);
+        private_call_data_validator.validate(
+            output.end.note_hashes,
+            self.protocol_contract_tree_root,
+        );
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -65,7 +67,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.private_call.public_inputs,
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
-                self.protocol_contract_tree_root
+                self.protocol_contract_tree_root,
             );
         }
         output
@@ -77,7 +79,7 @@ mod tests {
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
-        transaction::tx_request::TxRequest
+        transaction::tx_request::TxRequest,
     };
 
     struct PrivateKernelInitInputsBuilder {
@@ -98,8 +100,9 @@ mod tests {
                 tx_request: self.tx_request,
                 private_call,
                 vk_tree_root: FixtureBuilder::vk_tree_root(),
-                protocol_contract_tree_root: 0
-            }.execute()
+                protocol_contract_tree_root: 0,
+            }
+                .execute()
         }
     }
 
@@ -118,11 +121,11 @@ mod tests {
         let public_inputs = builder.execute();
         assert_array_eq(
             public_inputs.validation_requests.note_hash_read_requests,
-            [note_hash_read_requests[0], note_hash_read_requests[1]]
+            [note_hash_read_requests[0], note_hash_read_requests[1]],
         );
         assert_array_eq(
             public_inputs.end.encrypted_logs_hashes,
-            [encrypted_log_hashes[0]]
+            [encrypted_log_hashes[0]],
         );
     }
 }

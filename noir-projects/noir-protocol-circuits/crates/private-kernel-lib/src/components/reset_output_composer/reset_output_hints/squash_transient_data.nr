@@ -1,11 +1,13 @@
 use dep::reset_kernel_lib::TransientDataIndexHint;
-use dep::types::abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash};
+use dep::types::abis::{
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash,
+};
 
 pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
     note_hashes: [ScopedNoteHash; M],
     nullifiers: [ScopedNullifier; N],
     logs: [NoteLogHash; P],
-    transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS]
+    transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
 ) -> ([ScopedNoteHash; M], [ScopedNullifier; N], [NoteLogHash; P]) {
     let mut transient_nullifier_indexes_for_note_hashes = [N; M];
     let mut transient_note_hash_indexes_for_nullifiers = [M; N];
@@ -35,11 +37,9 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
     let mut propagated_logs = BoundedVec::new();
     for i in 0..logs.len() {
         let log = logs[i];
-        let linked_note_hash_propagated = propagated_note_hashes.storage.any(
-            |n: ScopedNoteHash| {
+        let linked_note_hash_propagated = propagated_note_hashes.storage.any(|n: ScopedNoteHash| {
             (n.counter() == log.note_hash_counter)
-        }
-        );
+        });
         if linked_note_hash_propagated {
             propagated_logs.push(log);
         }

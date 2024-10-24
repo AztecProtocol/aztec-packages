@@ -6,16 +6,15 @@ use crate::components::reset_output_composer::reset_output_hints::generate_reset
 use dep::reset_kernel_lib::{TransientDataIndexHint, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier
-},
-    address::AztecAddress,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+    }, address::AztecAddress,
     constants::{
-    MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-    MAX_NULLIFIERS_PER_TX
-},
-    hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, utils::arrays::sort_by_counter_asc
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX,
+    }, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+    utils::arrays::sort_by_counter_asc,
 };
 
 pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
@@ -34,7 +33,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
-        encrypted_log_siloing_amount: u32
+        encrypted_log_siloing_amount: u32,
     ) -> Self {
         let hints = generate_reset_output_hints(previous_kernel, transient_data_index_hints);
         ResetOutputComposer {
@@ -43,7 +42,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             note_hash_siloing_amount,
             nullifier_siloing_amount,
             encrypted_log_siloing_amount,
-            hints
+            hints,
         }
     }
 
@@ -79,7 +78,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         output
     }
 
-    unconstrained fn get_sorted_siloed_note_hashes(self) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
+    unconstrained fn get_sorted_siloed_note_hashes(
+        self,
+    ) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
         let mut note_hashes = sort_by_counter_asc(self.hints.kept_note_hashes);
         let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         for i in 0..note_hashes.len() {
@@ -89,7 +90,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         note_hashes
     }
 
-    unconstrained fn get_sorted_siloed_nullifiers(self) -> [ScopedNullifier; MAX_NULLIFIERS_PER_TX] {
+    unconstrained fn get_sorted_siloed_nullifiers(
+        self,
+    ) -> [ScopedNullifier; MAX_NULLIFIERS_PER_TX] {
         let mut nullifiers = sort_by_counter_asc(self.hints.kept_nullifiers);
         for i in 0..nullifiers.len() {
             nullifiers[i].nullifier.value = silo_nullifier(nullifiers[i]);
@@ -98,7 +101,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         nullifiers
     }
 
-    unconstrained fn get_sorted_note_encrypted_log_hashes(self) -> [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX] {
+    unconstrained fn get_sorted_note_encrypted_log_hashes(
+        self,
+    ) -> [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX] {
         let mut log_hashes = sort_by_counter_asc(self.hints.kept_note_encrypted_log_hashes);
         for i in 0..log_hashes.len() {
             log_hashes[i].note_hash_counter = 0;
@@ -106,7 +111,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         log_hashes
     }
 
-    unconstrained fn get_sorted_masked_encrypted_log_hashes(self) -> [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX] {
+    unconstrained fn get_sorted_masked_encrypted_log_hashes(
+        self,
+    ) -> [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX] {
         let mut log_hashes = sort_by_counter_asc(self.previous_kernel.end.encrypted_logs_hashes);
         for i in 0..log_hashes.len() {
             log_hashes[i].contract_address = mask_encrypted_log_hash(log_hashes[i]);

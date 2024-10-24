@@ -24,6 +24,10 @@ impl Serialize<3> for ParityPublicInputs {
 
 impl Deserialize<3> for ParityPublicInputs {
     fn deserialize(fields: [Field; 3]) -> Self {
-        ParityPublicInputs { sha_root: fields[0], converted_root: fields[1], vk_tree_root: fields[2] }
+        ParityPublicInputs {
+            sha_root: fields[0],
+            converted_root: fields[1],
+            vk_tree_root: fields[2],
+        }
     }
 }

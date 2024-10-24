@@ -86,7 +86,7 @@ fn smoke_u256_from_bytes32_one_zero_zero_zero() {
     // We want to output [1,0,0,0]
     let input = [
         0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0
+        0,
     ];
     let result = U256::from_bytes32(input);
 
@@ -116,7 +116,7 @@ fn smoke_u256_from_bytes32_test() {
     let input: [u8; 32] = [
         0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
         0x99, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE,
-        0xFF, 0x00
+        0xFF, 0x00,
     ];
     let result = U256::from_bytes32(input);
 

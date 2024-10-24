@@ -13,10 +13,9 @@ mod validate_private_call_requests;
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
     abis::{
-    note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
-    private_kernel::private_call_data::PrivateCallData
-},
-    tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest
+        note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+        private_kernel::private_call_data::PrivateCallData,
+    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateCallDataValidatorBuilder {
@@ -56,7 +55,7 @@ impl PrivateCallDataValidatorBuilder {
         accumulated_note_hashes.extend_from_bounded_vec(self.private_call.note_hashes);
         PrivateCallDataValidator::new(private_call).validate(
             accumulated_note_hashes.storage,
-            self.private_call.protocol_contract_tree_root
+            self.private_call.protocol_contract_tree_root,
         );
     }
 
@@ -79,7 +78,7 @@ impl PrivateCallDataValidatorBuilder {
         let accumulated_note_hashes = self.previous_note_hashes;
         PrivateCallDataValidator::new(data).validate(
             accumulated_note_hashes.storage,
-            self.private_call.protocol_contract_tree_root
+            self.private_call.protocol_contract_tree_root,
         );
     }
 }

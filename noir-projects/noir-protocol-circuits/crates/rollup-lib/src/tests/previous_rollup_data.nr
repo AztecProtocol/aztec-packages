@@ -10,9 +10,8 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     let mut previous_rollup_data = [PreviousRollupData::empty(); 2];
 
     let vk_index = BASE_ROLLUP_INDEX;
-    let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> = comptime {
-        fixtures::vk_tree::get_vk_merkle_tree()
-    };
+    let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
+        comptime { fixtures::vk_tree::get_vk_merkle_tree() };
     let vk_path = vk_tree.get_sibling_path(vk_index);
     let vk_tree_root = vk_tree.get_root();
 

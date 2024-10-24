@@ -1,6 +1,8 @@
 use crate::{
     traits::{Serialize, Deserialize, Empty},
-    constants::{HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS}
+    constants::{
+        HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+    },
 };
 
 pub struct VerificationKey<let N: u32> {

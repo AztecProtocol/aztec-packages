@@ -3,18 +3,18 @@ mod propagate_accumulated_data;
 use crate::components::vm_circuit_output_composer::propagate_accumulated_data::propagate_accumulated_data;
 use dep::types::{
     abis::{
-    accumulated_data::{PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder},
-    combined_constant_data::CombinedConstantData, gas::Gas,
-    kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
-    public_call_request::PublicCallRequest, public_circuit_public_inputs::PublicCircuitPublicInputs,
-    public_data_read::PublicDataRead, public_inner_call_request::PublicInnerCallRequest,
-    validation_requests::{
-    PublicValidationRequestArrayLengths,
-    public_validation_requests_builder::PublicValidationRequestsBuilder
-}
-},
-    constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::is_empty,
-    utils::arrays::array_to_bounded_vec
+        accumulated_data::{PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder},
+        combined_constant_data::CombinedConstantData, gas::Gas,
+        kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
+        public_call_request::PublicCallRequest,
+        public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
+        public_inner_call_request::PublicInnerCallRequest,
+        validation_requests::{
+            PublicValidationRequestArrayLengths,
+            public_validation_requests_builder::PublicValidationRequestsBuilder,
+        },
+    }, constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::is_empty,
+    utils::arrays::array_to_bounded_vec,
 };
 
 // TODO(#7124): To be deprecated.
@@ -37,21 +37,24 @@ impl VMCircuitOutputComposer {
     pub fn new_from_previous_kernel(previous_kernel: VMCircuitPublicInputs) -> Self {
         let mut public_call_stack = array_to_bounded_vec(previous_kernel.public_call_stack);
         let _ = public_call_stack.pop();
-        let validation_requests = PublicValidationRequestsBuilder::new(previous_kernel.validation_requests);
+        let validation_requests =
+            PublicValidationRequestsBuilder::new(previous_kernel.validation_requests);
         let accumulated_data = PublicAccumulatedDataBuilder::new(previous_kernel.accumulated_data);
         VMCircuitOutputComposer {
             constants: previous_kernel.constants,
             call_request: previous_kernel.call_request,
             public_call_stack,
-            previous_validation_request_array_lengths: previous_kernel.previous_validation_request_array_lengths,
+            previous_validation_request_array_lengths: previous_kernel
+                .previous_validation_request_array_lengths,
             validation_requests,
-            previous_accumulated_data_array_lengths: previous_kernel.previous_accumulated_data_array_lengths,
+            previous_accumulated_data_array_lengths: previous_kernel
+                .previous_accumulated_data_array_lengths,
             accumulated_data,
             start_side_effect_counter: previous_kernel.start_side_effect_counter,
             end_side_effect_counter: previous_kernel.end_side_effect_counter,
             start_gas_left: previous_kernel.start_gas_left,
             transaction_fee: previous_kernel.transaction_fee,
-            reverted: previous_kernel.reverted
+            reverted: previous_kernel.reverted,
         }
     }
 
@@ -70,7 +73,8 @@ impl VMCircuitOutputComposer {
             constants: self.constants,
             call_request: self.call_request,
             public_call_stack: self.public_call_stack.storage,
-            previous_validation_request_array_lengths: self.previous_validation_request_array_lengths,
+            previous_validation_request_array_lengths: self
+                .previous_validation_request_array_lengths,
             validation_requests: self.validation_requests.finish(),
             previous_accumulated_data_array_lengths: self.previous_accumulated_data_array_lengths,
             accumulated_data: self.accumulated_data.finish(),
@@ -78,7 +82,7 @@ impl VMCircuitOutputComposer {
             end_side_effect_counter: self.end_side_effect_counter,
             start_gas_left: self.start_gas_left,
             transaction_fee: self.transaction_fee,
-            reverted: self.reverted
+            reverted: self.reverted,
         }
     }
 
@@ -104,7 +108,9 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_read_requests.push(request.scope(contract_address));
+                self.validation_requests.nullifier_read_requests.push(request.scope(
+                    contract_address,
+                ));
             }
         }
 
@@ -112,7 +118,9 @@ impl VMCircuitOutputComposer {
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
-                self.validation_requests.nullifier_non_existent_read_requests.push(request.scope(contract_address));
+                self.validation_requests.nullifier_non_existent_read_requests.push(request.scope(
+                    contract_address,
+                ));
             }
         }
 
@@ -128,7 +136,9 @@ impl VMCircuitOutputComposer {
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
-                self.validation_requests.public_data_reads.push(PublicDataRead::from_contract_storage_read(contract_address, read_request));
+                self.validation_requests.public_data_reads.push(
+                    PublicDataRead::from_contract_storage_read(contract_address, read_request),
+                );
             }
         }
     }

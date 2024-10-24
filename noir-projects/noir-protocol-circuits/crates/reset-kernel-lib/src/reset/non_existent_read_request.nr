@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{side_effect::OrderedValue, read_request::ScopedReadRequest},
     merkle_tree::{assert_check_non_membership, IndexedTreeLeafPreimage, MembershipWitness},
-    traits::is_empty
+    traits::is_empty,
 };
 
 trait NonMembershipHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
@@ -15,12 +15,14 @@ where
 fn check_no_matching_pending_value<T, let N: u32>(
     read_request: ScopedReadRequest,
     sorted_pending_values: BoundedVec<T, N>,
-    next_value_index: u32
+    next_value_index: u32,
 ) -> bool
 where
-    T: OrderedValue<Field>, {
+    T: OrderedValue<Field>,
+{
     if next_value_index == sorted_pending_values.len() {
-        let highest_value = sorted_pending_values.get_unchecked(sorted_pending_values.len() - 1).value();
+        let highest_value =
+            sorted_pending_values.get_unchecked(sorted_pending_values.len() - 1).value();
         highest_value.lt(read_request.value())
     } else {
         let next_value = sorted_pending_values.get_unchecked(next_value_index).value();
@@ -38,10 +40,11 @@ where
 fn check_is_read_before_pending_value<T, let N: u32>(
     read_request: ScopedReadRequest,
     sorted_pending_values: BoundedVec<T, N>,
-    next_value_index: u32
+    next_value_index: u32,
 ) -> bool
 where
-    T: OrderedValue<Field>, {
+    T: OrderedValue<Field>,
+{
     if next_value_index == sorted_pending_values.len() {
         false
     } else {
@@ -63,12 +66,13 @@ pub fn reset_non_existent_read_requests<T, let N: u32, let M: u32, NON_MEMBERSHI
     non_membership_hints: [NON_MEMBERSHIP_HINT; N],
     tree_root: Field,
     sorted_pending_values: BoundedVec<T, M>,
-    next_pending_value_indices: [u32; N]
+    next_pending_value_indices: [u32; N],
 )
 where
     T: OrderedValue<Field>,
     NON_MEMBERSHIP_HINT: NonMembershipHint<TREE_HEIGHT, LEAF_PREIMAGE>,
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage, {
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
+{
     for i in 0..siloed_read_requests.len() {
         let read_request = siloed_read_requests[i];
         if !is_empty(read_request) {
@@ -78,28 +82,39 @@ where
                 read_request.value(),
                 hint.low_leaf_preimage(),
                 hint.membership_witness(),
-                tree_root
+                tree_root,
             );
 
             // Verify that its value is either not in the pending set, or is created after the read.
             let next_value_index = next_pending_value_indices[i];
             assert(
-                next_value_index <= sorted_pending_values.len(), "Next pending value index out of bounds"
+                next_value_index <= sorted_pending_values.len(),
+                "Next pending value index out of bounds",
             );
-            let no_matching_value = check_no_matching_pending_value(read_request, sorted_pending_values, next_value_index);
-            let is_read_before_value = check_is_read_before_pending_value(read_request, sorted_pending_values, next_value_index);
+            let no_matching_value = check_no_matching_pending_value(
+                read_request,
+                sorted_pending_values,
+                next_value_index,
+            );
+            let is_read_before_value = check_is_read_before_pending_value(
+                read_request,
+                sorted_pending_values,
+                next_value_index,
+            );
             assert(no_matching_value | is_read_before_value, "Invalid next pending value index");
         }
     }
 }
 
 mod tests {
-    use crate::reset::non_existent_read_request::{NonMembershipHint, reset_non_existent_read_requests};
+    use crate::reset::non_existent_read_request::{
+        NonMembershipHint, reset_non_existent_read_requests,
+    };
 
     use dep::types::{
         address::AztecAddress, abis::{read_request::ReadRequest, side_effect::OrderedValue},
         merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, membership::MembershipWitness},
-        tests::merkle_tree_utils::NonEmptyMerkleTree
+        tests::merkle_tree_utils::NonEmptyMerkleTree,
     };
 
     struct TestValue {
@@ -179,14 +194,15 @@ mod tests {
             leaf_preimages.map(|leaf_preimage: TestLeafPreimage| leaf_preimage.as_leaf()),
             [0; 3],
             [0; 1],
-            [0; 2]
+            [0; 2],
         )
     }
 
-    fn get_non_membership_hints<let N: u32>(leaf_indices: [Field; N]) -> ([TestNonMembershipHint; N], Field) {
+    fn get_non_membership_hints<let N: u32>(
+        leaf_indices: [Field; N],
+    ) -> ([TestNonMembershipHint; N], Field) {
         let tree = build_tree();
-        let hints = leaf_indices.map(
-            |leaf_index| {
+        let hints = leaf_indices.map(|leaf_index| {
             TestNonMembershipHint {
                 low_leaf_preimage: leaf_preimages[leaf_index],
                 membership_witness: MembershipWitness {
@@ -194,8 +210,7 @@ mod tests {
                     sibling_path: tree.get_sibling_path(leaf_index as u32),
                 },
             }
-        }
-        );
+        });
         let tree_root = tree.get_root();
         (hints, tree_root)
     }
@@ -205,7 +220,7 @@ mod tests {
         let read_requests = [
             ReadRequest { value: 11, counter: 50 }.scope(AztecAddress::zero()),
             ReadRequest { value: 22, counter: 51 }.scope(AztecAddress::zero()),
-            ReadRequest { value: 6, counter: 52 }.scope(AztecAddress::zero())
+            ReadRequest { value: 6, counter: 52 }.scope(AztecAddress::zero()),
         ];
         let (non_membership_hints, root) = get_non_membership_hints([3, 1, 0]);
         let next_pending_value_indices = [1, 2, 1];
@@ -214,7 +229,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -222,7 +237,7 @@ mod tests {
     fn test_reset_non_existent_read_requests_less_than_min() {
         let read_requests = [
             ReadRequest { value: 3, counter: 50 }.scope(AztecAddress::zero()),
-            ReadRequest { value: 2, counter: 51 }.scope(AztecAddress::zero())
+            ReadRequest { value: 2, counter: 51 }.scope(AztecAddress::zero()),
         ];
         let (non_membership_hints, root) = get_non_membership_hints([0, 0]);
         let next_pending_value_indices = [0, 0];
@@ -231,7 +246,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -239,7 +254,7 @@ mod tests {
     fn test_reset_non_existent_read_requests_greater_than_max() {
         let read_requests = [
             ReadRequest { value: 35, counter: 50 }.scope(AztecAddress::zero()),
-            ReadRequest { value: 31, counter: 51 }.scope(AztecAddress::zero())
+            ReadRequest { value: 31, counter: 51 }.scope(AztecAddress::zero()),
         ];
         let (non_membership_hints, root) = get_non_membership_hints([2, 2]);
         let next_pending_value_indices = [3, 3];
@@ -248,7 +263,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -256,7 +271,7 @@ mod tests {
     fn test_reset_non_existent_read_requests_read_before_pending_emitted() {
         let read_requests = [
             ReadRequest { value: 25, counter: 10 }.scope(AztecAddress::zero()),
-            ReadRequest { value: 5, counter: 11 }.scope(AztecAddress::zero())
+            ReadRequest { value: 5, counter: 11 }.scope(AztecAddress::zero()),
         ];
         let (non_membership_hints, root) = get_non_membership_hints([1, 0]);
         let next_pending_value_indices = [2, 0];
@@ -265,7 +280,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -281,7 +296,7 @@ mod tests {
             [hint],
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -295,7 +310,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -309,7 +324,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -323,7 +338,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -337,7 +352,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -351,7 +366,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 
@@ -365,7 +380,7 @@ mod tests {
             non_membership_hints,
             root,
             sorted_pending_values,
-            next_pending_value_indices
+            next_pending_value_indices,
         );
     }
 }

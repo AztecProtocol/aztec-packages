@@ -1,5 +1,7 @@
 use crate::components::public_tail_output_composer::LinkedIndexHint;
-use dep::types::{abis::public_data_write::OverridablePublicDataWrite, data::OverridablePublicDataTreeLeaf};
+use dep::types::{
+    abis::public_data_write::OverridablePublicDataWrite, data::OverridablePublicDataTreeLeaf,
+};
 
 // Check that each non-empty write is correctly linked to either a leaf or another write.
 // All the writes with the same leaf slot will form a single linked list.
@@ -7,7 +9,7 @@ use dep::types::{abis::public_data_write::OverridablePublicDataWrite, data::Over
 pub fn validate_linked_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     public_data_writes: [OverridablePublicDataWrite; NUM_WRITES],
     public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES],
-    hints: [LinkedIndexHint; NUM_WRITES]
+    hints: [LinkedIndexHint; NUM_WRITES],
 ) {
     for i in 0..public_data_writes.len() {
         let write = public_data_writes[i];
@@ -16,17 +18,32 @@ pub fn validate_linked_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u
             if hint.is_first_write {
                 // It's linked to a leaf in the tree.
                 let data_hint = public_data_leaves[hint.prev_index];
-                assert_eq(data_hint.leaf.slot, write.inner().leaf_slot, "hinted leaf has different slot");
                 assert_eq(
-                    data_hint.override_counter, write.counter(), "hinted leaf does not link to current write"
+                    data_hint.leaf.slot,
+                    write.inner().leaf_slot,
+                    "hinted leaf has different slot",
+                );
+                assert_eq(
+                    data_hint.override_counter,
+                    write.counter(),
+                    "hinted leaf does not link to current write",
                 );
             } else {
                 // It's linked to another write for the same leaf slot.
                 let prev = public_data_writes[hint.prev_index];
-                assert_eq(prev.inner().leaf_slot, write.inner().leaf_slot, "hinted write has different slot");
-                assert(prev.counter() < write.counter(), "previous write must have a smaller counter");
                 assert_eq(
-                    prev.override_counter, write.counter(), "hinted previous write does not link to current write"
+                    prev.inner().leaf_slot,
+                    write.inner().leaf_slot,
+                    "hinted write has different slot",
+                );
+                assert(
+                    prev.counter() < write.counter(),
+                    "previous write must have a smaller counter",
+                );
+                assert_eq(
+                    prev.override_counter,
+                    write.counter(),
+                    "hinted previous write does not link to current write",
                 );
             }
         }
@@ -36,11 +53,13 @@ pub fn validate_linked_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u
 mod tests {
     use crate::components::{
         public_tail_output_composer::LinkedIndexHint,
-        public_tail_output_validator::validate_linked_public_data_writes::validate_linked_public_data_writes
+        public_tail_output_validator::validate_linked_public_data_writes::validate_linked_public_data_writes,
     };
     use dep::types::{
-        abis::{public_data_write::OverridablePublicDataWrite, public_data_update_request::PublicDataUpdateRequest},
-        data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf}, tests::utils::pad_end
+        abis::{
+            public_data_write::OverridablePublicDataWrite,
+            public_data_update_request::PublicDataUpdateRequest,
+        }, data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf}, tests::utils::pad_end,
     };
 
     struct TestBuilder {
@@ -60,42 +79,96 @@ mod tests {
         pub fn new() -> Self {
             let public_data_writes = pad_end(
                 [
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 33, new_value: 300, counter: 30 }, override_counter: 0 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 22, new_value: 202, counter: 40 }, override_counter: 50 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 11, new_value: 100, counter: 10 }, override_counter: 0 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 22, new_value: 201, counter: 20 }, override_counter: 40 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 22, new_value: 203, counter: 50 }, override_counter: 0 }
-            ],
-                OverridablePublicDataWrite::empty()
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 33,
+                            new_value: 300,
+                            counter: 30,
+                        },
+                        override_counter: 0,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 22,
+                            new_value: 202,
+                            counter: 40,
+                        },
+                        override_counter: 50,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 11,
+                            new_value: 100,
+                            counter: 10,
+                        },
+                        override_counter: 0,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 22,
+                            new_value: 201,
+                            counter: 20,
+                        },
+                        override_counter: 40,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 22,
+                            new_value: 203,
+                            counter: 50,
+                        },
+                        override_counter: 0,
+                    },
+                ],
+                OverridablePublicDataWrite::empty(),
             );
 
             let public_data_leaves = pad_end(
                 [
-                OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: 0, value: 0 }, override_counter: 0 },
-                OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: 22, value: 200 }, override_counter: 20 },
-                OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: 44, value: 0 }, override_counter: 0 },
-                OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: 11, value: 0 }, override_counter: 10 },
-                OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: 33, value: 0 }, override_counter: 30 }
-            ],
-                OverridablePublicDataTreeLeaf::empty()
+                    OverridablePublicDataTreeLeaf {
+                        leaf: PublicDataTreeLeaf { slot: 0, value: 0 },
+                        override_counter: 0,
+                    },
+                    OverridablePublicDataTreeLeaf {
+                        leaf: PublicDataTreeLeaf { slot: 22, value: 200 },
+                        override_counter: 20,
+                    },
+                    OverridablePublicDataTreeLeaf {
+                        leaf: PublicDataTreeLeaf { slot: 44, value: 0 },
+                        override_counter: 0,
+                    },
+                    OverridablePublicDataTreeLeaf {
+                        leaf: PublicDataTreeLeaf { slot: 11, value: 0 },
+                        override_counter: 10,
+                    },
+                    OverridablePublicDataTreeLeaf {
+                        leaf: PublicDataTreeLeaf { slot: 33, value: 0 },
+                        override_counter: 30,
+                    },
+                ],
+                OverridablePublicDataTreeLeaf::empty(),
             );
 
             let hints = pad_end(
                 [
-                LinkedIndexHint { is_first_write: true, prev_index: 4 },
-                LinkedIndexHint { is_first_write: false, prev_index: 3 },
-                LinkedIndexHint { is_first_write: true, prev_index: 3 },
-                LinkedIndexHint { is_first_write: true, prev_index: 1 },
-                LinkedIndexHint { is_first_write: false, prev_index: 1 }
-            ],
-                LinkedIndexHint::empty()
+                    LinkedIndexHint { is_first_write: true, prev_index: 4 },
+                    LinkedIndexHint { is_first_write: false, prev_index: 3 },
+                    LinkedIndexHint { is_first_write: true, prev_index: 3 },
+                    LinkedIndexHint { is_first_write: true, prev_index: 1 },
+                    LinkedIndexHint { is_first_write: false, prev_index: 1 },
+                ],
+                LinkedIndexHint::empty(),
             );
 
             TestBuilder { public_data_writes, public_data_leaves, hints }
         }
 
         pub fn execute(self) {
-            validate_linked_public_data_writes(self.public_data_writes, self.public_data_leaves, self.hints);
+            validate_linked_public_data_writes(
+                self.public_data_writes,
+                self.public_data_leaves,
+                self.hints,
+            );
         }
     }
 

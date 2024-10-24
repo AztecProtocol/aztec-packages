@@ -1,9 +1,10 @@
 use crate::{
     abis::side_effect::Ordered, traits::{Empty, is_empty},
     utils::arrays::{
-    sort_by_counter::{compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc},
-    get_sorted_tuple::get_sorted_tuple
-}
+        sort_by_counter::{
+            compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc,
+        }, get_sorted_tuple::get_sorted_tuple,
+    },
 };
 
 pub struct SplitOrderHints<let N: u32> {
@@ -14,7 +15,11 @@ pub struct SplitOrderHints<let N: u32> {
 
 impl<let N: u32> SplitOrderHints<N> {
     pub fn empty() -> SplitOrderHints<N> {
-        SplitOrderHints { sorted_counters_lt: [0; N], sorted_counters_gte: [0; N], sorted_indexes: [0; N] }
+        SplitOrderHints {
+            sorted_counters_lt: [0; N],
+            sorted_counters_gte: [0; N],
+            sorted_indexes: [0; N],
+        }
     }
 }
 
@@ -29,10 +34,11 @@ impl<let N: u32> Eq for SplitOrderHints<N> {
 unconstrained fn get_split_order_hints<T, let N: u32>(
     array: [T; N],
     split_counter: u32,
-    ascending: bool
+    ascending: bool,
 ) -> SplitOrderHints<N>
 where
-    T: Ordered + Eq + Empty, {
+    T: Ordered + Eq + Empty,
+{
     let ordering = if ascending {
         compare_by_counter_empty_padded_asc
     } else {
@@ -71,26 +77,30 @@ where
 
 pub unconstrained fn get_split_order_hints_asc<T, let N: u32>(
     array: [T; N],
-    split_counter: u32
+    split_counter: u32,
 ) -> SplitOrderHints<N>
 where
-    T: Ordered + Eq + Empty, {
+    T: Ordered + Eq + Empty,
+{
     get_split_order_hints(array, split_counter, true)
 }
 
 pub unconstrained fn get_split_order_hints_desc<T, let N: u32>(
     array: [T; N],
-    split_counter: u32
+    split_counter: u32,
 ) -> SplitOrderHints<N>
 where
-    T: Ordered + Eq + Empty, {
+    T: Ordered + Eq + Empty,
+{
     get_split_order_hints(array, split_counter, false)
 }
 
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
-        utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
+        utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::{
+            get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints,
+        },
     };
 
     global full_array = [
@@ -120,16 +130,12 @@ mod tests {
 
     impl<let N: u32> TestBuilder<N> {
         pub fn asc_to_equal(self, expected: SplitOrderHints<N>) {
-            let hints = unsafe {
-                get_split_order_hints_asc(self.array, self.split_counter)
-            };
+            let hints = unsafe { get_split_order_hints_asc(self.array, self.split_counter) };
             assert_eq(hints, expected);
         }
 
         pub fn desc_to_equal(self, expected: SplitOrderHints<N>) {
-            let hints = unsafe {
-                get_split_order_hints_desc(self.array, self.split_counter)
-            };
+            let hints = unsafe { get_split_order_hints_desc(self.array, self.split_counter) };
             assert_eq(hints, expected);
         }
     }
@@ -142,7 +148,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0],
             sorted_counters_gte: [5, 7, 11, 13, 17],
-            sorted_indexes: [2, 4, 1, 0, 3]
+            sorted_indexes: [2, 4, 1, 0, 3],
         };
         builder.asc_to_equal(expected_hints);
     }
@@ -155,7 +161,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0],
-            sorted_indexes: [0, 2, 1, 0, 1]
+            sorted_indexes: [0, 2, 1, 0, 1],
         };
         builder.asc_to_equal(expected_hints);
     }
@@ -168,7 +174,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0],
-            sorted_indexes: [0, 2, 1, 0, 1]
+            sorted_indexes: [0, 2, 1, 0, 1],
         };
         builder.asc_to_equal(expected_hints);
     }
@@ -180,7 +186,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0, 0, 0],
             sorted_counters_gte: [5, 7, 11, 13, 17, 0, 0],
-            sorted_indexes: [2, 4, 1, 0, 3, 0, 0]
+            sorted_indexes: [2, 4, 1, 0, 3, 0, 0],
         };
         builder.asc_to_equal(expected_hints);
     }
@@ -193,7 +199,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0, 0, 0],
-            sorted_indexes: [0, 2, 1, 0, 1, 0, 0]
+            sorted_indexes: [0, 2, 1, 0, 1, 0, 0],
         };
         builder.asc_to_equal(expected_hints);
     }
@@ -206,7 +212,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0, 0, 0],
-            sorted_indexes: [0, 2, 1, 0, 1, 0, 0]
+            sorted_indexes: [0, 2, 1, 0, 1, 0, 0],
         };
         builder.asc_to_equal(expected_hints);
     }
@@ -219,7 +225,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 7, 5],
-            sorted_indexes: [2, 0, 3, 4, 1]
+            sorted_indexes: [2, 0, 3, 4, 1],
         };
         builder.desc_to_equal(expected_hints);
     }
@@ -232,7 +238,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0],
-            sorted_indexes: [2, 0, 0, 1, 1]
+            sorted_indexes: [2, 0, 0, 1, 1],
         };
         builder.desc_to_equal(expected_hints);
     }
@@ -245,7 +251,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0],
-            sorted_indexes: [2, 0, 0, 1, 1]
+            sorted_indexes: [2, 0, 0, 1, 1],
         };
         builder.desc_to_equal(expected_hints);
     }
@@ -256,7 +262,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 7, 5, 0, 0],
-            sorted_indexes: [2, 0, 3, 4, 1, 0, 0]
+            sorted_indexes: [2, 0, 3, 4, 1, 0, 0],
         };
         builder.desc_to_equal(expected_hints);
     }
@@ -269,7 +275,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0, 0, 0],
-            sorted_indexes: [2, 0, 0, 1, 1, 0, 0]
+            sorted_indexes: [2, 0, 0, 1, 1, 0, 0],
         };
         builder.desc_to_equal(expected_hints);
     }
@@ -282,7 +288,7 @@ mod tests {
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0, 0, 0],
-            sorted_indexes: [2, 0, 0, 1, 1, 0, 0]
+            sorted_indexes: [2, 0, 0, 1, 1, 0, 0],
         };
         builder.desc_to_equal(expected_hints);
     }

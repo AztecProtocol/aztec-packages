@@ -1,28 +1,28 @@
 use crate::{
     reset::{
-    non_existent_read_request::reset_non_existent_read_requests,
-    mutable_data_read_request::reset_mutable_data_read_requests,
-    read_request::verify_reset_read_requests,
-    tree_leaf_read_request::{TreeLeafReadRequestHint, validate_tree_leaf_read_requests}
-},
-    nullifier_read_request_reset::NullifierReadRequestHints,
+        non_existent_read_request::reset_non_existent_read_requests,
+        mutable_data_read_request::reset_mutable_data_read_requests,
+        read_request::verify_reset_read_requests,
+        tree_leaf_read_request::{TreeLeafReadRequestHint, validate_tree_leaf_read_requests},
+    }, nullifier_read_request_reset::NullifierReadRequestHints,
     nullifier_non_existent_read_request_reset::NullifierNonExistentReadRequestHints,
-    public_data_read_request_hints::PublicDataReadRequestHints
+    public_data_read_request_hints::PublicDataReadRequestHints,
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, nullifier::Nullifier,
-    public_data_write::OverridablePublicDataWrite, read_request::ScopedReadRequest,
-    validation_requests::PublicValidationRequests
-},
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, nullifier::Nullifier,
+        public_data_write::OverridablePublicDataWrite, read_request::ScopedReadRequest,
+        validation_requests::PublicValidationRequests,
+    },
     constants::{
-    MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
-    NOTE_HASH_TREE_HEIGHT
-},
-    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier,
+        MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, L1_TO_L2_MSG_TREE_HEIGHT,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, NOTE_HASH_TREE_HEIGHT,
+    }, data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier,
     partial_state_reference::PartialStateReference, traits::is_empty,
-    utils::arrays::{array_to_bounded_vec, assert_combined_array, assert_sorted_array, combine_arrays}
+    utils::arrays::{
+        array_to_bounded_vec, assert_combined_array, assert_sorted_array, combine_arrays,
+    },
 };
 
 pub struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
@@ -50,17 +50,16 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
         l1_to_l2_msg_read_request_hints: [TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
         pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
         public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
-        public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>
+        public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>,
     ) -> Self {
         let non_revertible_nullifiers = public_inputs.end_non_revertible.nullifiers;
         let revertible_nullifiers = public_inputs.end.nullifiers;
-        let pending_nullifiers = unsafe {
-            combine_arrays(non_revertible_nullifiers, revertible_nullifiers)
-        };
+        let pending_nullifiers =
+            unsafe { combine_arrays(non_revertible_nullifiers, revertible_nullifiers) };
         assert_combined_array(
             non_revertible_nullifiers,
             revertible_nullifiers,
-            pending_nullifiers
+            pending_nullifiers,
         );
 
         PublicValidationRequestProcessor {
@@ -72,10 +71,15 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             nullifier_non_existent_read_request_hints,
             nullifier_tree_root: start_state.nullifier_tree.root,
             l1_to_l2_msg_read_request_hints,
-            l1_to_l2_msg_tree_root: public_inputs.constants.historical_header.state.l1_to_l2_message_tree.root,
+            l1_to_l2_msg_tree_root: public_inputs
+                .constants
+                .historical_header
+                .state
+                .l1_to_l2_message_tree
+                .root,
             pending_public_data_writes,
             public_data_leaves,
-            public_data_read_request_hints
+            public_data_read_request_hints,
         }
     }
 
@@ -91,14 +95,15 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
         validate_tree_leaf_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.note_hash_read_request_hints,
-            self.note_hash_tree_root
+            self.note_hash_tree_root,
         );
     }
 
     fn validate_nullifier_read_requests(self) {
         let requests = self.validation_requests.nullifier_read_requests;
         let hints = self.nullifier_read_request_hints;
-        let unverified_nullifier_read_requests = [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX]; // All nullifier read requests must be verified.
+        let unverified_nullifier_read_requests =
+            [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX]; // All nullifier read requests must be verified.
         verify_reset_read_requests(
             requests,
             self.pending_nullifiers,
@@ -106,7 +111,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             hints.pending_read_hints,
             hints.settled_read_hints,
             self.nullifier_tree_root,
-            unverified_nullifier_read_requests
+            unverified_nullifier_read_requests,
         );
     }
 
@@ -128,7 +133,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             self.pending_nullifiers,
             hints.sorted_pending_values,
             hints.sorted_pending_value_index_hints,
-            |a: Nullifier, b: Nullifier| a.value.lt(b.value)
+            |a: Nullifier, b: Nullifier| a.value.lt(b.value),
         );
         let sorted_pending_nullifiers = array_to_bounded_vec(hints.sorted_pending_values);
 
@@ -137,7 +142,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             hints.non_membership_hints,
             self.nullifier_tree_root,
             sorted_pending_nullifiers,
-            hints.next_pending_value_indices
+            hints.next_pending_value_indices,
         );
     }
 
@@ -145,7 +150,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
         validate_tree_leaf_read_requests(
             self.validation_requests.l1_to_l2_msg_read_requests,
             self.l1_to_l2_msg_read_request_hints,
-            self.l1_to_l2_msg_tree_root
+            self.l1_to_l2_msg_tree_root,
         );
     }
 
@@ -158,7 +163,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             self.pending_public_data_writes,
             self.public_data_leaves,
             hints.pending_read_hints,
-            hints.leaf_data_read_hints
+            hints.leaf_data_read_hints,
         );
     }
 }

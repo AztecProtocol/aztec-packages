@@ -2,10 +2,9 @@ use crate::{
     abis::side_effect::Ordered, address::AztecAddress, constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
     contrakt::storage_update_request::StorageUpdateRequest,
     data::{
-    hash::{compute_public_data_tree_value, compute_public_data_tree_index},
-    public_data_tree_leaf::PublicDataTreeLeaf
-},
-    traits::{Empty, Serialize, Deserialize}
+        hash::{compute_public_data_tree_value, compute_public_data_tree_index},
+        public_data_tree_leaf::PublicDataTreeLeaf,
+    }, traits::{Empty, Serialize, Deserialize},
 };
 
 // TODO: Rename to PublicDataWrite
@@ -18,12 +17,15 @@ pub struct PublicDataUpdateRequest {
 impl PublicDataUpdateRequest {
     pub fn from_contract_storage_update_request(
         contract_address: AztecAddress,
-        update_request: StorageUpdateRequest
+        update_request: StorageUpdateRequest,
     ) -> PublicDataUpdateRequest {
         PublicDataUpdateRequest {
-            leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
+            leaf_slot: compute_public_data_tree_index(
+                contract_address,
+                update_request.storage_slot,
+            ),
             new_value: compute_public_data_tree_value(update_request.new_value),
-            counter: update_request.counter
+            counter: update_request.counter,
         }
     }
 }
@@ -66,7 +68,11 @@ impl Serialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
 
 impl Deserialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
     fn deserialize(fields: [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH]) -> PublicDataUpdateRequest {
-        PublicDataUpdateRequest { leaf_slot: fields[0], new_value: fields[1], counter: fields[2] as u32 }
+        PublicDataUpdateRequest {
+            leaf_slot: fields[0],
+            new_value: fields[1],
+            counter: fields[2] as u32,
+        }
     }
 }
 

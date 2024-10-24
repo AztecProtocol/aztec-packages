@@ -2,16 +2,15 @@ mod meter_gas_used;
 
 use crate::components::{
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
-    tail_output_composer::meter_gas_used::meter_gas_used
+    tail_output_composer::meter_gas_used::meter_gas_used,
 };
 use dep::types::{
     abis::{
-    accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
-    log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier
-},
-    messaging::l2_to_l1_message::ScopedL2ToL1Message
+        accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
+        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
+        log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
 };
 
 pub struct TailOutputComposer {
@@ -20,7 +19,8 @@ pub struct TailOutputComposer {
 
 impl TailOutputComposer {
     pub unconstrained fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
-        let mut output_composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
+        let mut output_composer =
+            PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
         output_composer.sort_ordered_values();
 
         TailOutputComposer { output_composer }

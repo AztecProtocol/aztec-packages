@@ -1,14 +1,14 @@
 use crate::{
     abis::function_selector::FunctionSelector,
     address::{
-    partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
-    salted_initialization_hash::SaltedInitializationHash
-},
+        partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
+        salted_initialization_hash::SaltedInitializationHash,
+    },
     constants::{AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
+    traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils,
 };
 
 // Aztec address
@@ -58,12 +58,10 @@ impl AztecAddress {
     }
 
     pub fn compute(pub_keys_hash: PublicKeysHash, partial_address: PartialAddress) -> AztecAddress {
-        AztecAddress::from_field(
-            poseidon2_hash_with_separator(
-                [pub_keys_hash.to_field(), partial_address.to_field()],
-                GENERATOR_INDEX__CONTRACT_ADDRESS_V1
-            )
-        )
+        AztecAddress::from_field(poseidon2_hash_with_separator(
+            [pub_keys_hash.to_field(), partial_address.to_field()],
+            GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+        ))
     }
 
     pub fn compute_from_private_function(
@@ -73,23 +71,26 @@ impl AztecAddress {
         contract_class_artifact_hash: Field,
         contract_class_public_bytecode_commitment: Field,
         salted_initialization_hash: SaltedInitializationHash,
-        public_keys_hash: PublicKeysHash
+        public_keys_hash: PublicKeysHash,
     ) -> Self {
         let private_functions_root = private_functions_root_from_siblings(
             function_selector,
             functino_vk_hash,
             function_leaf_membership_witness.leaf_index,
-            function_leaf_membership_witness.sibling_path
+            function_leaf_membership_witness.sibling_path,
         );
 
         let contract_class_id = ContractClassId::compute(
             contract_class_artifact_hash,
             private_functions_root,
-            contract_class_public_bytecode_commitment
+            contract_class_public_bytecode_commitment,
         );
 
         // Compute contract address using the preimage which includes the class_id.
-        let partial_address = PartialAddress::compute_from_salted_initialization_hash(contract_class_id, salted_initialization_hash);
+        let partial_address = PartialAddress::compute_from_salted_initialization_hash(
+            contract_class_id,
+            salted_initialization_hash,
+        );
 
         AztecAddress::compute(public_keys_hash, partial_address)
     }
@@ -114,7 +115,8 @@ fn compute_address_from_partial_and_pub_keys_hash() {
     let partial_address = PartialAddress::from_field(2);
 
     let address = AztecAddress::compute(pub_keys_hash, partial_address);
-    let expected_computed_address_from_partial_and_pubkey = 0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
+    let expected_computed_address_from_partial_and_pubkey =
+        0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
     assert(address.to_field() == expected_computed_address_from_partial_and_pubkey);
 }
 

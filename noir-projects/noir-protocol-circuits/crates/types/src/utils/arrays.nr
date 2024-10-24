@@ -15,25 +15,32 @@ mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
-pub use assert_array_appended::{assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped};
+pub use assert_array_appended::{
+    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+};
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
 pub use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,
-    get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
+    get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
 };
-pub use assert_combined_transformed_array::{assert_combined_transformed_array, combine_and_transform_arrays};
+pub use assert_combined_transformed_array::{
+    assert_combined_transformed_array, combine_and_transform_arrays,
+};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
-    get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}
+    get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
 };
 pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_split_sorted_transformed_value_arrays::{
-    assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
-    get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
+    assert_split_sorted_transformed_value_arrays_asc,
+    assert_split_sorted_transformed_value_arrays_desc,
+    get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
 };
-pub use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
+pub use assert_sorted_transformed_value_array::{
+    assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
+};
 pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
@@ -42,7 +49,8 @@ use crate::traits::{Empty, is_empty};
 
 pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where
-    T: Empty + Eq, {
+    T: Empty + Eq,
+{
     let mut len = 0;
     for elem in array {
         if !is_empty(elem) {
@@ -53,7 +61,10 @@ where
     BoundedVec { storage: array, len }
 }
 
-pub unconstrained fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
+pub unconstrained fn find_index_hint<T, let N: u32, Env>(
+    array: [T; N],
+    find: fn[Env](T) -> bool,
+) -> u32 {
     let mut index = N;
     for i in 0..N {
         if (index == N) & find(array[i]) {
@@ -68,7 +79,8 @@ pub unconstrained fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn
 // valid.
 pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32
 where
-    T: Empty + Eq, {
+    T: Empty + Eq,
+{
     let mut seen_empty = false;
     let mut length = 0;
     for i in 0..N {
@@ -86,10 +98,9 @@ where
 // Important: Only use it for validated arrays: validate_array(array) should be true.
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32
 where
-    T: Empty + Eq, {
-    let length = unsafe {
-        find_index_hint(array, |elem: T| is_empty(elem))
-    };
+    T: Empty + Eq,
+{
+    let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
     }
@@ -112,7 +123,8 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
 
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
-    T: Empty + Eq, {
+    T: Empty + Eq,
+{
     let mut result: [T; N] = [T::empty(); N];
     let mut i = 0;
     for elem in array1 {
@@ -133,10 +145,11 @@ where
 pub fn check_permutation<T, let N: u32>(
     original_array: [T; N],
     permuted_array: [T; N],
-    original_indexes: [u32; N]
+    original_indexes: [u32; N],
 )
 where
-    T: Eq + Empty, {
+    T: Eq + Empty,
+{
     let mut seen_value = [false; N];
     for i in 0..N {
         let index = original_indexes[i];
@@ -213,9 +226,7 @@ fn test_array_length_invalid_arrays() {
 fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = unsafe {
-        find_index_hint(values, |v: Field| min.lt(v))
-    };
+    let index = unsafe { find_index_hint(values, |v: Field| min.lt(v)) };
     assert_eq(index, 2);
 }
 
@@ -223,9 +234,7 @@ fn find_index_greater_than_min() {
 fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
-    let index = unsafe {
-        find_index_hint(values, |v: Field| min.lt(v))
-    };
+    let index = unsafe { find_index_hint(values, |v: Field| min.lt(v)) };
     assert_eq(index, 4);
 }
 
