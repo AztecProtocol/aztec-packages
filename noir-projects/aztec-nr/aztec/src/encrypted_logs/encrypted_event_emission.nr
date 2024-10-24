@@ -1,5 +1,5 @@
 use crate::{
-    context::PrivateContext, encrypted_logs::payload::compute_encrypted_log,
+    context::PrivateContext, encrypted_logs::payload::compute_encrypted_event_log,
     event::event_interface::EventInterface, keys::getters::get_ovsk_app, oracle::random::random,
 };
 use dep::protocol_types::{
@@ -23,7 +23,7 @@ where
     let contract_address: AztecAddress = context.this_address();
     let plaintext = event.private_to_be_bytes(randomness);
     let encrypted_log: [u8; 416 + N * 32] =
-        compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+        compute_encrypted_event_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
     (encrypted_log, log_hash)
 }

@@ -5,16 +5,16 @@ import { ContractNotFoundError } from '@aztec/simulator';
 import { type PxeDatabase } from '../../database/pxe_database.js';
 
 /**
- * Inserts publicly delivered nullable fields into the note payload.
+ * Inserts publicly delivered values into the note payload.
  * @param db - PXE database used to fetch contract instance and artifact.
- * @param payload - Note payload to which nullable fields should be added.
- * @param nullableFields - List of nullable fields to be added to the note payload.
- * @returns Note payload with nullable fields added.
+ * @param payload - Note payload to which public fields should be added.
+ * @param publicValues - List of public values to be added to the note payload.
+ * @returns Note payload with public fields added.
  */
-export async function addNullableFieldsToPayload(
+export async function addPublicValuesToPayload(
   db: PxeDatabase,
   payload: L1NotePayload,
-  nullableFields: Fr[],
+  publicValues: Fr[],
 ): Promise<L1NotePayload> {
   const instance = await db.getContractInstance(payload.contractAddress);
   if (!instance) {
@@ -39,21 +39,21 @@ export async function addNullableFieldsToPayload(
   // We sort note fields by index so that we can iterate over them in order.
   noteFields.sort((a, b) => a.index - b.index);
 
-  // Now we insert the nullable fields into the note based on its indices defined in the ABI.
+  // Now we insert the public fields into the note based on its indices defined in the ABI.
   const modifiedNoteItems = [...payload.note.items];
-  let indexInNullable = 0;
+  let indexInPublicValues = 0;
   for (let i = 0; i < noteFields.length; i++) {
     const noteField = noteFields[i];
     if (noteField.nullable) {
       if (i == noteFields.length - 1) {
-        // We are processing the last field so we simply insert the rest of the nullable fields at the end
-        modifiedNoteItems.push(...nullableFields.slice(indexInNullable));
+        // We are processing the last field so we simply insert the rest of the public fields at the end
+        modifiedNoteItems.push(...publicValues.slice(indexInPublicValues));
       } else {
         const noteFieldLength = noteFields[i + 1].index - noteField.index;
-        const nullableFieldsToInsert = nullableFields.slice(indexInNullable, indexInNullable + noteFieldLength);
-        indexInNullable += noteFieldLength;
-        // Now we insert the nullable fields at the note field index
-        modifiedNoteItems.splice(noteField.index, 0, ...nullableFieldsToInsert);
+        const publicValuesToInsert = publicValues.slice(indexInPublicValues, indexInPublicValues + noteFieldLength);
+        indexInPublicValues += noteFieldLength;
+        // Now we insert the public fields at the note field index
+        modifiedNoteItems.splice(noteField.index, 0, ...publicValuesToInsert);
       }
     }
   }

@@ -1,4 +1,4 @@
-import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
+import { type AztecNode, EncryptedL2NoteLog, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   type CompleteAddress,
@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator } from '@aztec/simulator';
@@ -18,6 +19,7 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { addPublicValuesToPayload } from './utils/add_public_values_to_payload.js';
 import { produceNoteDaos } from './utils/produce_note_daos.js';
 
 /**
@@ -128,7 +130,9 @@ export class NoteProcessor {
     // Iterate over both blocks and encrypted logs.
     for (const block of blocks) {
       this.stats.blocks++;
-      const { txLogs } = block.body.noteEncryptedLogs;
+      const { txLogs: encryptedTxLogs } = block.body.noteEncryptedLogs;
+      const { txLogs: unencryptedTxLogs } = block.body.unencryptedLogs;
+
       const dataStartIndexForBlock =
         block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
         block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
@@ -139,65 +143,77 @@ export class NoteProcessor {
       const outgoingNotes: OutgoingNoteDao[] = [];
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
-      for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
+      for (let indexOfTxInABlock = 0; indexOfTxInABlock < encryptedTxLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
         const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
-        const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
+        const encryptedTxFunctionLogs = encryptedTxLogs[indexOfTxInABlock].functionLogs;
+        const unencryptedTxFunctionLogs = unencryptedTxLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
-        for (const functionLogs of txFunctionLogs) {
-          for (const log of functionLogs.logs) {
-            this.stats.seen++;
-            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, addressSecret);
-            const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
 
-            if (incomingNotePayload || outgoingNotePayload) {
-              if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
-                throw new Error(
-                  `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
-                    incomingNotePayload,
-                  )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
-                );
-              }
+        // We iterate over both encrypted and unencrypted logs to decrypt the notes since partial notes are passed
+        // via the unencrypted logs stream.
+        for (const txFunctionLogs of [encryptedTxFunctionLogs, unencryptedTxFunctionLogs]) {
+          for (const functionLogs of txFunctionLogs) {
+            for (const unprocessedLog of functionLogs.logs) {
+              const { publicValues, encryptedLog } = parseLog(unprocessedLog.data);
+              this.stats.seen++;
+              const incomingNotePayload = L1NotePayload.decryptAsIncoming(encryptedLog, addressSecret);
+              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(encryptedLog, ovskM);
 
-              const payload = incomingNotePayload || outgoingNotePayload;
+              if (incomingNotePayload || outgoingNotePayload) {
+                if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
+                  throw new Error(
+                    `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+                      incomingNotePayload,
+                    )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
+                  );
+                }
 
-              const txEffect = block.body.txEffects[indexOfTxInABlock];
-              const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
-                this.simulator,
-                this.db,
-                incomingNotePayload ? this.ivpkM : undefined,
-                outgoingNotePayload ? this.ovpkM : undefined,
-                payload!,
-                txEffect.txHash,
-                noteHashes,
-                dataStartIndexForTx,
-                excludedIndices,
-                this.log,
-                txEffect.unencryptedLogs,
-              );
+                let payload = incomingNotePayload || outgoingNotePayload;
 
-              if (incomingNote) {
-                incomingNotes.push(incomingNote);
-                this.stats.decryptedIncoming++;
-              }
-              if (outgoingNote) {
-                outgoingNotes.push(outgoingNote);
-                this.stats.decryptedOutgoing++;
-              }
-              if (incomingDeferredNote) {
-                deferredIncomingNotes.push(incomingDeferredNote);
-                this.stats.deferredIncoming++;
-              }
-              if (outgoingDeferredNote) {
-                deferredOutgoingNotes.push(outgoingDeferredNote);
-                this.stats.deferredOutgoing++;
-              }
+                if (publicValues.length > 0) {
+                  payload = await addPublicValuesToPayload(this.db, payload!, publicValues);
+                }
 
-              if (incomingNote == undefined && outgoingNote == undefined && incomingDeferredNote == undefined) {
-                this.stats.failed++;
+                const txEffect = block.body.txEffects[indexOfTxInABlock];
+                const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } =
+                  await produceNoteDaos(
+                    this.simulator,
+                    this.db,
+                    incomingNotePayload ? this.ivpkM : undefined,
+                    outgoingNotePayload ? this.ovpkM : undefined,
+                    payload!,
+                    txEffect.txHash,
+                    noteHashes,
+                    dataStartIndexForTx,
+                    excludedIndices,
+                    this.log,
+                    txEffect.unencryptedLogs,
+                  );
+
+                if (incomingNote) {
+                  incomingNotes.push(incomingNote);
+                  this.stats.decryptedIncoming++;
+                }
+                if (outgoingNote) {
+                  outgoingNotes.push(outgoingNote);
+                  this.stats.decryptedOutgoing++;
+                }
+                if (incomingDeferredNote) {
+                  deferredIncomingNotes.push(incomingDeferredNote);
+                  this.stats.deferredIncoming++;
+                }
+                if (outgoingDeferredNote) {
+                  deferredOutgoingNotes.push(outgoingDeferredNote);
+                  this.stats.deferredOutgoing++;
+                }
+
+                if (incomingNote == undefined && outgoingNote == undefined && incomingDeferredNote == undefined) {
+                  this.stats.failed++;
+                }
               }
             }
           }
@@ -359,4 +375,54 @@ export class NoteProcessor {
 
     return { incomingNotes, outgoingNotes };
   }
+}
+
+/**
+ * Parse the given log into an array of public values and an encrypted log.
+ *
+ * @param log - Log to be parsed.
+ * @returns An object containing the public values and the encrypted log.
+ */
+function parseLog(log: Buffer) {
+  // First we remove padding bytes
+  const processedLog = removePaddingBytes(log);
+
+  const reader = new BufferReader(processedLog);
+
+  // Then we extract public values from the log
+  const numPublicValues = reader.readUInt8();
+
+  const publicValuesLength = numPublicValues * Fr.SIZE_IN_BYTES;
+  const encryptedLogLength = reader.remainingBytes() - publicValuesLength;
+
+  // Now we get the buffer corresponding to the encrypted log
+  const encryptedLog = new EncryptedL2NoteLog(reader.readBytes(encryptedLogLength));
+
+  // At last we load the public values
+  const publicValues = reader.readArray(numPublicValues, Fr);
+
+  return { publicValues, encryptedLog };
+}
+
+/**
+ * When a log is emitted via the unencrypted log channel each field contains only 1 byte. OTOH when a log is emitted
+ * via the encrypted log channel there are no empty bytes. This function removes the padding bytes.
+ * @param unprocessedLog - Log to be processed.
+ * @returns Log with padding bytes removed.
+ */
+function removePaddingBytes(unprocessedLog: Buffer) {
+  // Determine whether first 31 bytes of each 32 bytes block of bytes are 0
+  const is1FieldPerByte = unprocessedLog.every((byte, index) => index % 32 === 31 || byte === 0);
+
+  if (is1FieldPerByte) {
+    // We take every 32nd byte from the log and return the result
+    const processedLog = Buffer.alloc(unprocessedLog.length / 32);
+    for (let i = 0; i < processedLog.length; i++) {
+      processedLog[i] = unprocessedLog[31 + i * 32];
+    }
+
+    return processedLog;
+  }
+
+  return unprocessedLog;
 }
