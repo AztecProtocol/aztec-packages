@@ -34,7 +34,7 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
-    // Indicates that this flavor runs with non-ZK Sumcheck.
+    // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 

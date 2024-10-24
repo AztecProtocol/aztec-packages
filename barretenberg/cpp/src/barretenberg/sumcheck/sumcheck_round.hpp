@@ -103,8 +103,8 @@ template <typename Flavor> class SumcheckProverRound {
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
-                      ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                      size_t edge_idx)
+                      const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                      const size_t edge_idx)
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
@@ -115,7 +115,7 @@ template <typename Flavor> class SumcheckProverRound {
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges_with_masking(ExtendedEdges& extended_edges,
                                    ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                                   size_t edge_idx,
+                                   const size_t edge_idx,
                                    const ZKSumcheckData<Flavor>& zk_sumcheck_data)
     {
         // extend edges of witness polynomials and add correcting terms
@@ -168,7 +168,6 @@ template <typename Flavor> class SumcheckProverRound {
     {
         PROFILE_THIS_NAME("compute_univariate");
 
-        // info("sumcheck data has value ", zk_sumcheck_data.has_value());
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
@@ -216,9 +215,9 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         if constexpr (Flavor::HasZK) {
-            auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
+            const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
             // Batch the univariate contributions from each sub-relation to obtain the round univariate
-            auto round_univariate =
+            const auto round_univariate =
                 batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
             // Mask the round univariate
             return round_univariate + libra_round_univariate;
