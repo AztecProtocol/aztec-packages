@@ -485,8 +485,8 @@ class ECCOpQueue {
 
         // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
         const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-        auto x_256 = uint256_t(point.x);
-        auto y_256 = uint256_t(point.y);
+        uint256_t x_256(point.x);
+        uint256_t y_256(point.y);
         ultra_op.return_is_infinity = point.is_point_at_infinity();
         // if we have a point at infinity, set x/y to zero
         // in the biggroup_goblin class we use `assert_equal` statements to validate
@@ -508,7 +508,6 @@ class ECCOpQueue {
         if (converted_u256.get_msb() <= 128) {
             ultra_op.z_1 = scalar;
             ultra_op.z_2 = 0;
-
         } else {
             Fr::split_into_endomorphism_scalars(converted, z_1, z_2);
             ultra_op.z_1 = z_1.to_montgomery_form();
