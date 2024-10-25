@@ -12,6 +12,11 @@ validator:
   validator:
     disabled: false
 
+bot:
+  replicas: 2
+  txIntervalSeconds: 1
+  privateTransfersPerTx: 2
+  publicTransfersPerTx: 2
 
 bootNode:
   validator:
