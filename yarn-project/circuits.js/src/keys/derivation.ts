@@ -4,6 +4,7 @@ import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
+import { CompleteAddress } from '../index.js';
 import { PublicKeys } from '../types/public_keys.js';
 import { type KeyPrefix } from './key_types.js';
 import { getKeyGenerator } from './utils.js';
@@ -124,4 +125,17 @@ export function deriveKeys(secretKey: Fr) {
     masterTaggingSecretKey,
     publicKeys,
   };
+}
+
+export function computeTaggingSecret(senderCompleteAddress: CompleteAddress, senderIvsk: Fq, recipient: AztecAddress) {
+  const senderPreaddress = computePreaddress(
+    senderCompleteAddress.publicKeys.hash(),
+    senderCompleteAddress.partialAddress,
+  );
+  // TODO: #8970 - Computation of address point from x coordinate might fail
+  const recipientAddressPoint = computePoint(recipient);
+  const curve = new Grumpkin();
+  // Given A (sender) -> B (recipient) and h == preaddress
+  // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
+  return curve.mul(recipientAddressPoint, senderIvsk.add(new Fq(senderPreaddress.toBigInt())));
 }

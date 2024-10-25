@@ -19,6 +19,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   computePoint,
   computePreaddress,
+  computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
@@ -239,23 +240,14 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public async getTaggingSecret(
+  public async getAppTaggingSecret(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<Fr> {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
-    const senderPreaddress = computePreaddress(
-      senderCompleteAddress.publicKeys.hash(),
-      senderCompleteAddress.partialAddress,
-    );
-    const ivskSender = await this.keyStore.getMasterIncomingViewingSecretKey(senderPreaddress);
-    // TODO: #8970 - Computation of address point from x coordinate might fail
-    const recipientAddressPoint = computePoint(recipient);
-    const curve = new Grumpkin();
-    // Given A (sender) -> B (recipient) and h == preaddress
-    // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
-    const sharedSecret = curve.mul(recipientAddressPoint, ivskSender.add(new Fq(senderPreaddress.toBigInt())));
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
   }
