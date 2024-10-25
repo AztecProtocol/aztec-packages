@@ -18,7 +18,7 @@ function on_exit() {
 trap on_exit EXIT
 
 # Attempt to download the cache file
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "$TAR_FILE" --quiet --no-progress || (echo "Cache download of $TAR_FILE failed." && exit 1)
+aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "$TAR_FILE" --quiet --no-sign-request || (echo "Cache download of $TAR_FILE failed." && exit 1)
 
 # Extract the cache file
 mkdir -p "$OUT_DIR"

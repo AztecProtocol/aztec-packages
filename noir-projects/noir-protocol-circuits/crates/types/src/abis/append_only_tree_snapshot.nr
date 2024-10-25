@@ -1,7 +1,7 @@
 pub struct AppendOnlyTreeSnapshot {
-    root : Field,
+    root: Field,
     // TODO(Alvaro) change this to a u64
-    next_available_leaf_index : u32
+    next_available_leaf_index: u32,
 }
 
 global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
@@ -11,8 +11,13 @@ impl AppendOnlyTreeSnapshot {
         [self.root, self.next_available_leaf_index as Field]
     }
 
-    pub fn deserialize(serialized: [Field; APPEND_ONLY_TREE_SNAPSHOT_LENGTH]) -> AppendOnlyTreeSnapshot {
-        AppendOnlyTreeSnapshot { root: serialized[0], next_available_leaf_index: serialized[1] as u32 }
+    pub fn deserialize(
+        serialized: [Field; APPEND_ONLY_TREE_SNAPSHOT_LENGTH],
+    ) -> AppendOnlyTreeSnapshot {
+        AppendOnlyTreeSnapshot {
+            root: serialized[0],
+            next_available_leaf_index: serialized[1] as u32,
+        }
     }
 
     pub fn zero() -> Self {

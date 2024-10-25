@@ -10,7 +10,6 @@ import {
   KeyValidationRequest,
   type PartialAddress,
   Point,
-  computeAddress,
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
@@ -54,8 +53,8 @@ export class KeyStore {
       publicKeys,
     } = deriveKeys(sk);
 
-    const publicKeysHash = publicKeys.hash();
-    const account = computeAddress(publicKeysHash, partialAddress);
+    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
     await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
@@ -82,7 +81,7 @@ export class KeyStore {
     await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(new CompleteAddress(account, publicKeys, partialAddress));
+    return Promise.resolve(completeAddress);
   }
 
   /**
@@ -104,7 +103,7 @@ export class KeyStore {
    * @returns The key validation request.
    */
   public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkMHash);
+    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkMHash);
 
     // Now we find the master public key for the account
     const pkMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
@@ -139,6 +138,22 @@ export class KeyStore {
     const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
     return Promise.resolve(new KeyValidationRequest(pkM, skApp));
+  }
+
+  /**
+   * Gets the master nullifier public key for a given account.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account address for which to retrieve the master nullifier public key.
+   * @returns The master nullifier public key for the account.
+   */
+  public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
+    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+    if (!masterNullifierPublicKeyBuffer) {
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
+    }
+    return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
 
   /**
@@ -190,13 +205,12 @@ export class KeyStore {
   }
 
   /**
-   * Retrieves application incoming viewing secret key.
+   * Retrieves master incoming viewing secret key.
    * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application incoming viewing secret key for.
-   * @param app - The application address to retrieve the incoming viewing secret key for.
-   * @returns A Promise that resolves to the application incoming viewing secret key.
+   * @param account - The account to retrieve the master incoming viewing secret key for.
+   * @returns A Promise that resolves to the master incoming viewing secret key.
    */
-  public async getAppIncomingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+  public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
     const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
     if (!masterIncomingViewingSecretKeyBuffer) {
       throw new Error(
@@ -205,12 +219,7 @@ export class KeyStore {
     }
     const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
-    return Promise.resolve(
-      poseidon2HashWithSeparator(
-        [masterIncomingViewingSecretKey.hi, masterIncomingViewingSecretKey.lo, app],
-        GeneratorIndex.IVSK_M,
-      ),
-    );
+    return Promise.resolve(masterIncomingViewingSecretKey);
   }
 
   /**
@@ -245,7 +254,7 @@ export class KeyStore {
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkM);
+    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkM);
 
     const secretKeyBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
     if (!secretKeyBuffer) {
@@ -268,7 +277,7 @@ export class KeyStore {
    * @dev Note that this is quite inefficient but it should not matter because there should never be too many keys
    * in the key store.
    */
-  #getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
+  public getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
     const valueBuffer = serializeToBuffer(value);
     for (const [key, val] of this.#keys.entries()) {
       if (val.equals(valueBuffer)) {

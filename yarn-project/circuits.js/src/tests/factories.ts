@@ -98,14 +98,12 @@ import {
   Point,
   PreviousRollupData,
   PrivateCallRequest,
-  PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicAccumulatedData,
   PublicCallData,
   PublicCallRequest,
-  PublicCallStackItem,
   PublicCallStackItemCompressed,
   PublicCircuitPublicInputs,
   PublicDataHint,
@@ -148,6 +146,7 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  AvmContractBytecodeHints,
   EnqueuedCallData,
   PublicAccumulatedDataArrayLengths,
   PublicDataLeafHint,
@@ -423,16 +422,14 @@ function makePublicAccumulatedDataArrayLengths(seed = 1) {
 /**
  * Creates arbitrary call context.
  * @param seed - The seed to use for generating the call context.
- * @param storageContractAddress - The storage contract address set on the call context.
  * @returns A call context.
  */
 export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContext>> = {}): CallContext {
   return CallContext.from({
     msgSender: makeAztecAddress(seed),
-    storageContractAddress: makeAztecAddress(seed + 1),
+    contractAddress: makeAztecAddress(seed + 1),
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
-    isDelegateCall: false,
     ...overrides,
   });
 }
@@ -440,18 +437,18 @@ export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContex
 /**
  * Creates arbitrary public circuit public inputs.
  * @param seed - The seed to use for generating the public circuit public inputs.
- * @param storageContractAddress - The storage contract address set on the call context.
+ * @param contractAddress - The storage contract address set on the call context.
  * @returns Public circuit public inputs.
  */
 export function makePublicCircuitPublicInputs(
   seed = 0,
-  storageContractAddress?: AztecAddress,
+  contractAddress?: AztecAddress,
   full = false,
 ): PublicCircuitPublicInputs {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PublicCircuitPublicInputs(
-    makeCallContext(seed, { storageContractAddress: storageContractAddress ?? makeAztecAddress(seed) }),
+    makeCallContext(seed, { contractAddress: contractAddress ?? makeAztecAddress(seed) }),
     fr(seed + 0x100),
     fr(seed + 0x200),
     tupleGenerator(
@@ -673,20 +670,13 @@ export function makeProof(seed = 1) {
 }
 
 function makePrivateCallRequest(seed = 1): PrivateCallRequest {
-  return new PrivateCallRequest(
-    makeAztecAddress(seed),
-    makeCallContext(seed + 0x1),
-    fr(seed + 0x3),
-    fr(seed + 0x4),
-    seed + 0x10,
-    seed + 0x11,
-  );
+  return new PrivateCallRequest(makeCallContext(seed + 0x1), fr(seed + 0x3), fr(seed + 0x4), seed + 0x10, seed + 0x11);
 }
 
 function makePublicCallStackItemCompressed(seed = 1): PublicCallStackItemCompressed {
   const callContext = makeCallContext(seed);
   return new PublicCallStackItemCompressed(
-    callContext.storageContractAddress,
+    callContext.contractAddress,
     callContext,
     fr(seed + 0x20),
     fr(seed + 0x30),
@@ -698,27 +688,11 @@ function makePublicCallStackItemCompressed(seed = 1): PublicCallStackItemCompres
 
 export function makePublicCallRequest(seed = 1): PublicCallRequest {
   const callContext = makeCallContext(seed);
-  return new PublicCallRequest(callContext.storageContractAddress, callContext, fr(seed + 0x20), seed + 0x60);
+  return new PublicCallRequest(callContext, fr(seed + 0x20), seed + 0x60);
 }
 
 function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
   return new PublicInnerCallRequest(makePublicCallStackItemCompressed(seed), seed + 0x60);
-}
-
-/**
- * Makes arbitrary public call stack item.
- * @param seed - The seed to use for generating the public call stack item.
- * @returns A public call stack item.
- */
-export function makePublicCallStackItem(seed = 1, full = false): PublicCallStackItem {
-  const callStackItem = new PublicCallStackItem(
-    makeAztecAddress(seed),
-    // in the public kernel, function can't be a constructor or private
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false),
-    makePublicCircuitPublicInputs(seed + 0x10, undefined, full),
-  );
-  callStackItem.publicInputs.callContext.storageContractAddress = callStackItem.contractAddress;
-  return callStackItem;
 }
 
 /**
@@ -727,7 +701,11 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
  * @returns A public call data.
  */
 export function makePublicCallData(seed = 1, full = false): PublicCallData {
-  const publicCallData = new PublicCallData(makePublicCallStackItem(seed, full), makeProof(), fr(seed + 1));
+  const publicCallData = new PublicCallData(
+    makePublicCircuitPublicInputs(seed, undefined, full),
+    makeProof(),
+    fr(seed + 1),
+  );
 
   return publicCallData;
 }
@@ -797,19 +775,6 @@ export function makeTxRequest(seed = 1): TxRequest {
 }
 
 /**
- * Makes arbitrary private call stack item.
- * @param seed - The seed to use for generating the private call stack item.
- * @returns A private call stack item.
- */
-export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
-  return new PrivateCallStackItem(
-    makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ true),
-    makePrivateCircuitPublicInputs(seed + 0x10),
-  );
-}
-
-/**
  * Makes arbitrary private circuit public inputs.
  * @param seed - The seed to use for generating the private circuit public inputs.
  * @returns A private circuit public inputs.
@@ -817,7 +782,7 @@ export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
     maxBlockNumber: new MaxBlockNumber(true, new Fr(seed + 0x31415)),
-    callContext: makeCallContext(seed, { isDelegateCall: true, isStaticCall: true }),
+    callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
@@ -1412,7 +1377,20 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
+    new Fr(seed + 0x400),
   );
+}
+
+export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
+  const instance = makeAvmContractInstanceHint(seed);
+  const { artifactHash, privateFunctionsRoot, packedBytecode } = makeContractClassPublic(seed);
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
+
+  return new AvmContractBytecodeHints(packedBytecode, instance, {
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+  });
 }
 
 /**
@@ -1423,7 +1401,7 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
     new Fr(seed),
-    new Fr(seed + 0x1),
+    true /* exists */,
     new Fr(seed + 0x2),
     new Fr(seed + 0x3),
     new Fr(seed + 0x4),
@@ -1457,6 +1435,7 @@ export function makeAvmExecutionHints(
     l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
     externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    contractBytecodeHints: makeVector(baseLength + 6, makeAvmBytecodeHints, seed + 0x4800),
     ...overrides,
   });
 }
@@ -1469,7 +1448,6 @@ export function makeAvmExecutionHints(
 export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
   return AvmCircuitInputs.from({
     functionName: `function${seed}`,
-    bytecode: makeBytes((seed % 100) + 100, seed),
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
     avmHints: makeAvmExecutionHints(seed + 0x3000),

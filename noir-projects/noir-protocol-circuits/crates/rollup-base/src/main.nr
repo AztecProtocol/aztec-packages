@@ -1,4 +1,4 @@
-use dep::rollup_lib::base::{BaseRollupInputs, BaseOrMergeRollupPublicInputs};
+use dep::rollup_lib::base::{BaseOrMergeRollupPublicInputs, BaseRollupInputs};
 
 #[recursive]
 fn main(inputs: BaseRollupInputs) -> pub BaseOrMergeRollupPublicInputs {

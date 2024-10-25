@@ -1,8 +1,14 @@
 use dep::aztec::{
-    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app, oracle::random::random,
-    prelude::{NullifiableNote, NoteHeader, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator, traits::{Empty, Eq}},
-    macros::notes::partial_note
+    keys::getters::get_nsk_app,
+    macros::notes::partial_note,
+    note::utils::compute_note_hash_for_nullify,
+    oracle::random::random,
+    prelude::{NoteHeader, NullifiableNote, PrivateContext},
+    protocol_types::{
+        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator,
+        traits::{Empty, Eq},
+    },
 };
 
 #[partial_note(quote { token_id})]
@@ -16,14 +22,15 @@ pub struct NFTNote {
 }
 
 impl NullifiableNote for NFTNote {
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(
+        self,
+        context: &mut PrivateContext,
+        note_hash_for_nullify: Field,
+    ) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            [note_hash_for_nullify, secret],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 
@@ -31,11 +38,8 @@ impl NullifiableNote for NFTNote {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+            [note_hash_for_nullify, secret],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
 }
@@ -46,9 +50,7 @@ impl NFTNote {
         // malicious sender could use non-random values to make the note less private. But they already know the full
         // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
         // therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe {
-            random()
-        };
+        let randomness = unsafe { random() };
         NFTNote { token_id, npk_m_hash, randomness, header: NoteHeader::empty() }
     }
 }

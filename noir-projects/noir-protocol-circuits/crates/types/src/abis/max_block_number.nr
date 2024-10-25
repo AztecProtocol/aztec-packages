@@ -1,7 +1,7 @@
-use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Serialize, Empty}};
+use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct MaxBlockNumber {
-    _opt: Option<u32>
+    _opt: Option<u32>,
 }
 
 impl Empty for MaxBlockNumber {
@@ -24,7 +24,9 @@ impl Serialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
 
 impl Deserialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
     fn deserialize(serialized: [Field; MAX_BLOCK_NUMBER_LENGTH]) -> MaxBlockNumber {
-        MaxBlockNumber { _opt: Option { _is_some: serialized[0] as bool, _value: serialized[1] as u32 } }
+        MaxBlockNumber {
+            _opt: Option { _is_some: serialized[0] as bool, _value: serialized[1] as u32 },
+        }
     }
 }
 

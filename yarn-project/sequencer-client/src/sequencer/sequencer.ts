@@ -40,7 +40,7 @@ import { inspect } from 'util';
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
-import { prettyLogViemError } from '../publisher/utils.js';
+import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -70,7 +70,6 @@ export class Sequencer {
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
-  private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
   private allowedInSetup: AllowedElement[] = [];
   private allowedInTeardown: AllowedElement[] = [];
@@ -138,6 +137,10 @@ export class Sequencer {
     if (config.allowedInTeardown) {
       this.allowedInTeardown = config.allowedInTeardown;
     }
+    if (config.gerousiaPayload) {
+      this.publisher.setPayload(config.gerousiaPayload);
+    }
+
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
     this.config = config;
   }
@@ -145,13 +148,12 @@ export class Sequencer {
   /**
    * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
    */
-  public async start() {
-    await this.initialSync();
-
+  public start() {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
     this.state = SequencerState.IDLE;
     this.log.info('Sequencer started');
+    return Promise.resolve();
   }
 
   /**
@@ -181,13 +183,6 @@ export class Sequencer {
    */
   public status() {
     return { state: this.state };
-  }
-
-  protected async initialSync() {
-    // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
-    this.lastPublishedBlock = await this.worldState
-      .status()
-      .then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block);
   }
 
   /**
@@ -232,6 +227,15 @@ export class Sequencer {
       return;
     }
 
+    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+      new Fr(newBlockNumber),
+      this._coinbase,
+      this._feeRecipient,
+      slot,
+    );
+
+    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt());
+
     if (!this.shouldProposeBlock(historicalHeader, {})) {
       return;
     }
@@ -245,13 +249,6 @@ export class Sequencer {
       return;
     }
     this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
-
-    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-      new Fr(newBlockNumber),
-      this._coinbase,
-      this._feeRecipient,
-      slot,
-    );
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new Header(
@@ -318,7 +315,10 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      prettyLogViemError(err, this.log);
+      const msg = prettyLogViemErrorMsg(err);
+      this.log.verbose(
+        `Rejected from being able to propose at next block with ${tipArchive.toString('hex')}: ${msg ? `${msg}` : ''}`,
+      );
       throw err;
     }
   }
@@ -556,20 +556,12 @@ export class Sequencer {
   protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
     try {
       // Find out which epoch we are currently in
-      const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
-      if (epochForBlock < 1n) {
-        // It's the 0th epoch, nothing to be proven yet
-        this.log.verbose(`First epoch has no claim`);
+      const epochToProve = await this.publisher.getClaimableEpoch();
+      if (epochToProve === undefined) {
+        this.log.verbose(`No epoch to prove`);
         return undefined;
       }
-      const epochToProve = epochForBlock - 1n;
-      // Find out the next epoch that can be claimed
-      const canClaim = await this.publisher.nextEpochToClaim();
-      if (canClaim != epochToProve) {
-        // It's not the one we are looking to claim
-        this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
-        return undefined;
-      }
+
       // Get quotes for the epoch to be proven
       const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
       this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
@@ -614,9 +606,7 @@ export class Sequencer {
     this.state = SequencerState.PUBLISHING_BLOCK;
 
     const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
-    if (publishedL2Block) {
-      this.lastPublishedBlock = block.number;
-    } else {
+    if (!publishedL2Block) {
       throw new Error(`Failed to publish block ${block.number}`);
     }
   }
@@ -652,24 +642,37 @@ export class Sequencer {
   }
 
   /**
-   * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
+   * Returns whether all dependencies have caught up.
+   * We don't check against the previous block submitted since it may have been reorg'd out.
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
   protected async isBlockSynced() {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
-      this.p2pClient.getStatus().then(s => s.syncedToL2Block),
-      this.l2BlockSource.getBlockNumber(),
+      this.l2BlockSource.getL2Tips().then(t => t.latest),
+      this.p2pClient.getStatus().then(s => s.syncedToL2Block.number),
       this.l1ToL2MessageSource.getBlockNumber(),
-    ]);
-    const min = Math.min(...syncedBlocks);
-    const [worldState, p2p, l2BlockSource, l1ToL2MessageSource] = syncedBlocks;
-    const result = min >= this.lastPublishedBlock;
-    this.log.debug(`Sync check to last published block ${this.lastPublishedBlock} ${result ? 'succeeded' : 'failed'}`, {
-      worldState,
-      p2p,
-      l2BlockSource,
-      l1ToL2MessageSource,
+    ] as const);
+    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource] = syncedBlocks;
+    const result =
+      // check that world state has caught up with archiver
+      // note that the archiver reports undefined hash for the genesis block
+      // because it doesn't have access to world state to compute it (facepalm)
+      (l2BlockSource.hash === undefined || worldState.hash === l2BlockSource.hash) &&
+      // and p2p client and message source are at least at the same block
+      // this should change to hashes once p2p client handles reorgs
+      // and once we stop pretending that the l1tol2message source is not
+      // just the archiver under a different name
+      p2p >= l2BlockSource.number &&
+      l1ToL2MessageSource >= l2BlockSource.number;
+
+    this.log.verbose(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
+      worldStateNumber: worldState.number,
+      worldStateHash: worldState.hash,
+      l2BlockSourceNumber: l2BlockSource.number,
+      l2BlockSourceHash: l2BlockSource.hash,
+      p2pNumber: p2p,
+      l1ToL2MessageSourceNumber: l1ToL2MessageSource,
     });
     return result;
   }

@@ -1,5 +1,6 @@
 import {
   EncryptedL2BlockL2Logs,
+  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -12,9 +13,10 @@ import {
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
 
 import { type BlockStore } from './block_store.js';
 
@@ -22,16 +24,22 @@ import { type BlockStore } from './block_store.js';
  * A store for logs
  */
 export class LogStore {
-  #noteEncryptedLogs: AztecMap<number, Buffer>;
-  #encryptedLogs: AztecMap<number, Buffer>;
-  #unencryptedLogs: AztecMap<number, Buffer>;
+  #noteEncryptedLogsByBlock: AztecMap<number, Buffer>;
+  #noteEncryptedLogsByHash: AztecMap<string, Buffer>;
+  #noteEncryptedLogHashesByTag: AztecMultiMap<string, string>;
+  #noteEncryptedLogTagsByBlock: AztecMultiMap<number, string>;
+  #encryptedLogsByBlock: AztecMap<number, Buffer>;
+  #unencryptedLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
   #log = createDebugLogger('aztec:archiver:log_store');
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
-    this.#noteEncryptedLogs = db.openMap('archiver_note_encrypted_logs');
-    this.#encryptedLogs = db.openMap('archiver_encrypted_logs');
-    this.#unencryptedLogs = db.openMap('archiver_unencrypted_logs');
+    this.#noteEncryptedLogsByBlock = db.openMap('archiver_note_encrypted_logs_by_block');
+    this.#noteEncryptedLogsByHash = db.openMap('archiver_note_encrypted_logs_by_hash');
+    this.#noteEncryptedLogHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_log_hashes_by_tag');
+    this.#noteEncryptedLogTagsByBlock = db.openMultiMap('archiver_note_encrypted_log_tags_by_block');
+    this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs_by_block');
+    this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs_by_block');
 
     this.#logsMaxPageSize = logsMaxPageSize;
   }
@@ -44,21 +52,58 @@ export class LogStore {
   addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transaction(() => {
       blocks.forEach(block => {
-        void this.#noteEncryptedLogs.set(block.number, block.body.noteEncryptedLogs.toBuffer());
-        void this.#encryptedLogs.set(block.number, block.body.encryptedLogs.toBuffer());
-        void this.#unencryptedLogs.set(block.number, block.body.unencryptedLogs.toBuffer());
+        void this.#noteEncryptedLogsByBlock.set(block.number, block.body.noteEncryptedLogs.toBuffer());
+        block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
+          const noteLogs = txLogs.unrollLogs();
+          noteLogs.forEach(noteLog => {
+            if (noteLog.data.length < 32) {
+              this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
+              return;
+            }
+            try {
+              const tag = new Fr(noteLog.data.subarray(0, 32));
+              const hexHash = noteLog.hash().toString('hex');
+              // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't doesn't
+              // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
+              // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
+              // instead the hashes of the logs.
+              void this.#noteEncryptedLogHashesByTag.set(tag.toString(), hexHash);
+              void this.#noteEncryptedLogsByHash.set(hexHash, noteLog.toBuffer());
+              void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
+            } catch (err) {
+              this.#log.warn(`Failed to add tagged note log to store: ${err}`);
+            }
+          });
+        });
+        void this.#encryptedLogsByBlock.set(block.number, block.body.encryptedLogs.toBuffer());
+        void this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
       });
 
       return true;
     });
   }
 
-  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+  async deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    const noteTagsToDelete = await this.db.transaction(() => {
+      return blocks.flatMap(block => Array.from(this.#noteEncryptedLogTagsByBlock.getValues(block.number)));
+    });
+    const noteLogHashesToDelete = await this.db.transaction(() => {
+      return noteTagsToDelete.flatMap(tag => Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag)));
+    });
     return this.db.transaction(() => {
       blocks.forEach(block => {
-        void this.#noteEncryptedLogs.delete(block.number);
-        void this.#encryptedLogs.delete(block.number);
-        void this.#unencryptedLogs.delete(block.number);
+        void this.#noteEncryptedLogsByBlock.delete(block.number);
+        void this.#encryptedLogsByBlock.delete(block.number);
+        void this.#unencryptedLogsByBlock.delete(block.number);
+        void this.#noteEncryptedLogTagsByBlock.delete(block.number);
+      });
+
+      noteTagsToDelete.forEach(tag => {
+        void this.#noteEncryptedLogHashesByTag.delete(tag.toString());
+      });
+
+      noteLogHashesToDelete.forEach(hash => {
+        void this.#noteEncryptedLogsByHash.delete(hash);
       });
 
       return true;
@@ -80,12 +125,12 @@ export class LogStore {
     const logMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
-          return this.#encryptedLogs;
+          return this.#encryptedLogsByBlock;
         case LogType.NOTEENCRYPTED:
-          return this.#noteEncryptedLogs;
+          return this.#noteEncryptedLogsByBlock;
         case LogType.UNENCRYPTED:
         default:
-          return this.#unencryptedLogs;
+          return this.#unencryptedLogsByBlock;
       }
     })();
     const logTypeMap = (() => {
@@ -103,6 +148,28 @@ export class LogStore {
     for (const buffer of logMap.values({ start, limit })) {
       yield L2BlockL2Logs.fromBuffer(buffer) as L2BlockL2Logs<FromLogType<TLogType>>;
     }
+  }
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.db.transaction(() => {
+      return tags.map(tag => {
+        const logHashes = Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag.toString()));
+        return (
+          logHashes
+            .map(hash => this.#noteEncryptedLogsByHash.get(hash))
+            // addLogs should ensure that we never have undefined logs, but we filter them out regardless to protect
+            // ourselves from database corruption
+            .filter(noteLogBuffer => noteLogBuffer != undefined)
+            .map(noteLogBuffer => EncryptedL2NoteLog.fromBuffer(noteLogBuffer!))
+        );
+      });
+    });
   }
 
   /**
@@ -154,7 +221,7 @@ export class LogStore {
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     let maxLogsHit = false;
-    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#unencryptedLogs.entries({ start, end })) {
+    loopOverBlocks: for (const [blockNumber, logBuffer] of this.#unencryptedLogsByBlock.entries({ start, end })) {
       const unencryptedLogsInBlock = UnencryptedL2BlockL2Logs.fromBuffer(logBuffer);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
@@ -199,12 +266,12 @@ export class LogStore {
     const logMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
-          return this.#encryptedLogs;
+          return this.#encryptedLogsByBlock;
         case LogType.NOTEENCRYPTED:
-          return this.#noteEncryptedLogs;
+          return this.#noteEncryptedLogsByBlock;
         case LogType.UNENCRYPTED:
         default:
-          return this.#unencryptedLogs;
+          return this.#unencryptedLogsByBlock;
       }
     })();
     const logTypeMap = (() => {

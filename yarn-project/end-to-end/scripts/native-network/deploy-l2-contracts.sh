@@ -28,10 +28,5 @@ export PXE_URL="http://127.0.0.1:8079"
 node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts $ARGS
 echo "Deployed L2 contracts"
 # Use file just as done signal
-echo "" > l2-contracts.env
-echo "Wrote to l2-contracts.env to signal completion"
-sleep 5
-function close_tmux_pane() {
-  tmux kill-pane -t $(tmux display -p '#{pane_id}')
-}
-close_tmux_pane 2>/dev/null || true
+echo "" > state/l2-contracts.env
+echo "Wrote to state/l2-contracts.env to signal completion"

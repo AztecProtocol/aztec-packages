@@ -96,12 +96,7 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
-            BrilligOpcode::BinaryIntOp { destination, op, bit_size, lhs, rhs } => {
-                assert!(
-                    is_integral_bit_size(*bit_size),
-                    "BinaryIntOp bit size should be integral: {:?}",
-                    brillig_instr
-                );
+            BrilligOpcode::BinaryIntOp { destination, op, lhs, rhs, .. } => {
                 let bits_needed =
                     [*lhs, *rhs, *destination].iter().map(bits_needed_for).max().unwrap();
                 assert!(
@@ -189,12 +184,7 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
-            BrilligOpcode::Not { destination, source, bit_size } => {
-                assert!(
-                    is_integral_bit_size(*bit_size),
-                    "Not bit size should be integral: {:?}",
-                    brillig_instr
-                );
+            BrilligOpcode::Not { destination, source, .. } => {
                 let bits_needed =
                     [*source, *destination].iter().map(bits_needed_for).max().unwrap();
                 assert!(
@@ -326,29 +316,11 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Trap { revert_data } => {
-                let bits_needed =
-                    *[bits_needed_for(&revert_data.pointer), bits_needed_for(&revert_data.size)]
-                        .iter()
-                        .max()
-                        .unwrap();
-                let avm_opcode = match bits_needed {
-                    8 => AvmOpcode::REVERT_8,
-                    16 => AvmOpcode::REVERT_16,
-                    _ => panic!("REVERT only support 8 or 16 bit encodings, got: {}", bits_needed),
-                };
-                avm_instrs.push(AvmInstruction {
-                    opcode: avm_opcode,
-                    indirect: Some(
-                        AddressingModeBuilder::default()
-                            .indirect_operand(&revert_data.pointer)
-                            .build(),
-                    ),
-                    operands: vec![
-                        make_operand(bits_needed, &revert_data.pointer.to_usize()),
-                        make_operand(bits_needed, &revert_data.size),
-                    ],
-                    ..Default::default()
-                });
+                generate_revert_instruction(
+                    &mut avm_instrs,
+                    &revert_data.pointer,
+                    &revert_data.size,
+                );
             }
             BrilligOpcode::Cast { destination, source, bit_size } => {
                 handle_cast(&mut avm_instrs, source, destination, *bit_size);
@@ -428,6 +400,7 @@ fn handle_foreign_call(
         }
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
+        "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
@@ -800,7 +773,6 @@ fn handle_getter_instruction(
 ) {
     enum EnvironmentVariable {
         ADDRESS,
-        STORAGEADDRESS,
         SENDER,
         FUNCTIONSELECTOR,
         TRANSACTIONFEE,
@@ -827,7 +799,6 @@ fn handle_getter_instruction(
 
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
-        "avmOpcodeStorageAddress" => EnvironmentVariable::STORAGEADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
         "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
         "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,
@@ -941,6 +912,35 @@ fn generate_cast_instruction(
     }
 }
 
+/// Generates an AVM REVERT instruction.
+fn generate_revert_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    revert_data_pointer: &MemoryAddress,
+    revert_data_size_offset: &MemoryAddress,
+) {
+    let bits_needed =
+        *[revert_data_pointer, revert_data_size_offset].map(bits_needed_for).iter().max().unwrap();
+    let avm_opcode = match bits_needed {
+        8 => AvmOpcode::REVERT_8,
+        16 => AvmOpcode::REVERT_16,
+        _ => panic!("REVERT only support 8 or 16 bit encodings, got: {}", bits_needed),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: avm_opcode,
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .indirect_operand(revert_data_pointer)
+                .direct_operand(revert_data_size_offset)
+                .build(),
+        ),
+        operands: vec![
+            make_operand(bits_needed, &revert_data_pointer.to_usize()),
+            make_operand(bits_needed, &revert_data_size_offset.to_usize()),
+        ],
+        ..Default::default()
+    });
+}
+
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(
     indirect: Option<AvmOperand>,
@@ -963,7 +963,7 @@ fn generate_mov_instruction(
     }
 }
 
-/// Black box functions, for the meantime only covers pedersen operations as the blackbox function api suits our current needs.
+/// Black box functions
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
@@ -1014,9 +1014,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::Keccakf1600 { message, output } => {
-            let message_offset = message.pointer.to_usize();
-            let message_size_offset = message.size.to_usize();
+        BlackBoxOp::Keccakf1600 { input, output } => {
+            let input_offset = input.pointer.to_usize();
+            assert_eq!(input.size, 25, "Keccakf1600 input size must be 25!");
             let dest_offset = output.pointer.to_usize();
             assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
 
@@ -1025,14 +1025,12 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
-                        .indirect_operand(&message.pointer)
-                        .direct_operand(&message.size)
+                        .indirect_operand(&input.pointer)
                         .build(),
                 ),
                 operands: vec![
                     AvmOperand::U16 { value: dest_offset as u16 },
-                    AvmOperand::U16 { value: message_offset as u16 },
-                    AvmOperand::U16 { value: message_size_offset as u16 },
+                    AvmOperand::U16 { value: input_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1228,7 +1226,6 @@ fn handle_return(
     assert!(inputs.len() == 1);
     assert!(destinations.len() == 0);
 
-    // First arg is the size, which is ignored because it's redundant.
     let (return_data_offset, return_data_size) = match inputs[0] {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
         _ => panic!("Return instruction's args input should be a HeapArray"),
@@ -1245,6 +1242,25 @@ fn handle_return(
         ],
         ..Default::default()
     });
+}
+
+// #[oracle(avmOpcodeRevert)]
+// unconstrained fn revert_opcode(revertdata: [Field]) {}
+fn handle_revert(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 2);
+    assert!(destinations.len() == 0);
+
+    // First arg is the size, which is ignored because it's redundant.
+    let (revert_data_offset, revert_data_size_offset) = match inputs[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
+        _ => panic!("Revert instruction's args input should be a HeapVector"),
+    };
+
+    generate_revert_instruction(avm_instrs, &revert_data_offset, &revert_data_size_offset);
 }
 
 /// Emit a storage write opcode
@@ -1423,18 +1439,6 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
         pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
     }
     pc_map
-}
-
-fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
-    matches!(
-        bit_size,
-        IntegerBitSize::U1
-            | IntegerBitSize::U8
-            | IntegerBitSize::U16
-            | IntegerBitSize::U32
-            | IntegerBitSize::U64
-            | IntegerBitSize::U128
-    )
 }
 
 fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {

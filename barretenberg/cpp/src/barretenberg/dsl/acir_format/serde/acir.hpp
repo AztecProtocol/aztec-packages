@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "bincode.hpp"
 #include "serde.hpp"
 
@@ -286,7 +287,7 @@ struct BlackBoxOp {
     };
 
     struct Keccakf1600 {
-        Program::HeapVector message;
+        Program::HeapArray input;
         Program::HeapArray output;
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
@@ -424,8 +425,8 @@ struct BlackBoxOp {
     };
 
     struct Sha256Compression {
-        Program::HeapVector input;
-        Program::HeapVector hash_values;
+        Program::HeapArray input;
+        Program::HeapArray hash_values;
         Program::HeapArray output;
 
         friend bool operator==(const Sha256Compression&, const Sha256Compression&);
@@ -712,7 +713,7 @@ struct BrilligOpcode {
     };
 
     struct Trap {
-        Program::HeapArray revert_data;
+        Program::HeapVector revert_data;
 
         friend bool operator==(const Trap&, const Trap&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -4061,7 +4062,7 @@ namespace Program {
 
 inline bool operator==(const BlackBoxOp::Keccakf1600& lhs, const BlackBoxOp::Keccakf1600& rhs)
 {
-    if (!(lhs.message == rhs.message)) {
+    if (!(lhs.input == rhs.input)) {
         return false;
     }
     if (!(lhs.output == rhs.output)) {
@@ -4094,7 +4095,7 @@ template <typename Serializer>
 void serde::Serializable<Program::BlackBoxOp::Keccakf1600>::serialize(const Program::BlackBoxOp::Keccakf1600& obj,
                                                                       Serializer& serializer)
 {
-    serde::Serializable<decltype(obj.message)>::serialize(obj.message, serializer);
+    serde::Serializable<decltype(obj.input)>::serialize(obj.input, serializer);
     serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
 }
 
@@ -4104,7 +4105,7 @@ Program::BlackBoxOp::Keccakf1600 serde::Deserializable<Program::BlackBoxOp::Kecc
     Deserializer& deserializer)
 {
     Program::BlackBoxOp::Keccakf1600 obj;
-    obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
+    obj.input = serde::Deserializable<decltype(obj.input)>::deserialize(deserializer);
     obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
     return obj;
 }

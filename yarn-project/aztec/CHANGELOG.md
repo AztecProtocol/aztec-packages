@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.59.0...aztec-package-v0.60.0) (2024-10-24)
+
+
+### Features
+
+* Introduce default public keys and replace empty public keys ([#9277](https://github.com/AztecProtocol/aztec-packages/issues/9277)) ([47718ea](https://github.com/AztecProtocol/aztec-packages/commit/47718ea3a52468f5341a1203f70f48730faf9f7d))
+* Sequencer cast votes ([#9247](https://github.com/AztecProtocol/aztec-packages/issues/9247)) ([bd05d87](https://github.com/AztecProtocol/aztec-packages/commit/bd05d87891b9df0d0d537c4c1efcdf7d128a6a6f))
+
+## [0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.58.0...aztec-package-v0.59.0) (2024-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **seq:** disable sequencer and disable validator as one env var, update p2p listen port names ([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266))
+
+### Miscellaneous
+
+* **seq:** Disable sequencer and disable validator as one env var, update p2p listen port names ([#9266](https://github.com/AztecProtocol/aztec-packages/issues/9266)) ([367c38c](https://github.com/AztecProtocol/aztec-packages/commit/367c38c02b6cda494e9d3c64ea27a1cf3465f082))
+
 ## [0.58.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.57.0...aztec-package-v0.58.0) (2024-10-18)
 
 

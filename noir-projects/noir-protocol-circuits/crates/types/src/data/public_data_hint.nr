@@ -1,7 +1,8 @@
 use crate::{
-    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::Empty,
-    merkle_tree::{MembershipWitness, conditionally_assert_check_membership},
-    constants::PUBLIC_DATA_TREE_HEIGHT
+    constants::PUBLIC_DATA_TREE_HEIGHT,
+    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
+    traits::Empty,
 };
 
 pub struct PublicDataHint {
@@ -20,7 +21,8 @@ impl PublicDataHint {
             let exists_in_tree = self.leaf_slot == self.leaf_preimage.slot;
             if exists_in_tree {
                 assert(
-                    self.value == self.leaf_preimage.value, "Hinted public data value does not match the value in leaf preimage"
+                    self.value == self.leaf_preimage.value,
+                    "Hinted public data value does not match the value in leaf preimage",
                 );
             } else {
                 assert(self.value == 0, "Value must be 0 for non-existent public data");
@@ -31,7 +33,7 @@ impl PublicDataHint {
                 exists_in_tree,
                 self.leaf_preimage,
                 self.membership_witness,
-                public_data_tree_root
+                public_data_tree_root,
             );
         }
     }
@@ -44,7 +46,7 @@ impl Empty for PublicDataHint {
             value: 0,
             override_counter: 0,
             membership_witness: MembershipWitness::empty(),
-            leaf_preimage: PublicDataTreeLeafPreimage::empty()
+            leaf_preimage: PublicDataTreeLeafPreimage::empty(),
         }
     }
 }

@@ -57,7 +57,6 @@ const CPP_CONSTANTS = [
   'START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET',
   'SENDER_KERNEL_INPUTS_COL_OFFSET',
   'ADDRESS_KERNEL_INPUTS_COL_OFFSET',
-  'STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET',
   'FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET',
   'CHAIN_ID_KERNEL_INPUTS_COL_OFFSET',
   'VERSION_KERNEL_INPUTS_COL_OFFSET',
@@ -79,6 +78,7 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
   'MAX_L2_GAS_PER_ENQUEUED_CALL',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
 const CPP_GENERATORS: string[] = [];
@@ -107,7 +107,6 @@ const PIL_CONSTANTS = [
   'START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET',
   'SENDER_KERNEL_INPUTS_COL_OFFSET',
   'ADDRESS_KERNEL_INPUTS_COL_OFFSET',
-  'STORAGE_ADDRESS_KERNEL_INPUTS_COL_OFFSET',
   'FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET',
   'CHAIN_ID_KERNEL_INPUTS_COL_OFFSET',
   'VERSION_KERNEL_INPUTS_COL_OFFSET',
@@ -128,6 +127,7 @@ const PIL_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
 /**
@@ -308,27 +308,58 @@ function parseNoirFile(fileContent: string): ParsedContent {
   const constantsExpressions: [string, string][] = [];
   const generatorIndexEnum: { [key: string]: number } = {};
 
+  const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
+  let expression = emptyExpression();
   fileContent.split('\n').forEach(l => {
     const line = l.trim();
-    if (!line || line.match(/^\/\/|^\s*\/?\*/)) {
+
+    if (!line) {
+      // Empty line.
       return;
     }
 
-    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(.+?);/) || [];
+    if (line.match(/^\/\/|^\s*\/?\*/)) {
+      // Comment.
+      return;
+    }
 
-    if (!name || !value) {
-      if (!line.includes('use crate')) {
-        // eslint-disable-next-line no-console
-        console.warn(`Unknown content: ${line}`);
+    {
+      const [, name, _type, value, end] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*([^;]*)(;)?/) || [];
+      if (name && value) {
+        const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
+        if (indexName) {
+          // Generator index.
+          generatorIndexEnum[indexName] = +value;
+        } else if (end) {
+          // A single line of expression.
+          constantsExpressions.push([name, value]);
+        } else {
+          // The first line of an expression.
+          expression = { name, content: [value] };
+        }
+        return;
+      } else if (name) {
+        // This case happens if we have only a name, with the value being on the next line
+        expression = { name, content: [] };
+        return;
+      }
+    }
+
+    if (expression.name) {
+      // The expression continues...
+      const [, content, end] = line.match(/\s*([^;]+)(;)?/) || [];
+      expression.content.push(content);
+      if (end) {
+        // The last line of an expression.
+        constantsExpressions.push([expression.name, expression.content.join('')]);
+        expression = emptyExpression();
       }
       return;
     }
 
-    const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
-    if (indexName) {
-      generatorIndexEnum[indexName] = +value;
-    } else {
-      constantsExpressions.push([name, value]);
+    if (!line.includes('use crate')) {
+      // eslint-disable-next-line no-console
+      console.warn(`Unknown content: ${line}`);
     }
   });
 
@@ -364,8 +395,11 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')
+        // We also make some space around common operators
+        .replace(/\+/g, ' + ')
+        .replace(/(?<!\/)\*(?!\/)/, ' * ')
         // We split the expression into terms...
-        .split(' ')
+        .split(/\s+/)
         // ...and then we convert each term to a BigInt if it is a number.
         .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
         // .. also, we convert the known bigints to BigInts.

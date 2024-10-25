@@ -1,6 +1,14 @@
-import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  type FunctionSelector,
+  type Gas,
+  SerializableContractInstance,
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+
+import assert from 'assert';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
@@ -67,44 +75,44 @@ export class AvmPersistableStateManager {
   /**
    * Write to public storage, journal/trace the write.
    *
-   * @param storageAddress - the address of the contract whose storage is being written to
+   * @param contractAddress - the address of the contract whose storage is being written to
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public writeStorage(storageAddress: Fr, slot: Fr, value: Fr) {
-    this.log.debug(`Storage write (address=${storageAddress}, slot=${slot}): value=${value}`);
+  public writeStorage(contractAddress: Fr, slot: Fr, value: Fr) {
+    this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
     // Cache storage writes for later reference/reads
-    this.publicStorage.write(storageAddress, slot, value);
-    this.trace.tracePublicStorageWrite(storageAddress, slot, value);
+    this.publicStorage.write(contractAddress, slot, value);
+    this.trace.tracePublicStorageWrite(contractAddress, slot, value);
   }
 
   /**
    * Read from public storage, trace the read.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param contractAddress - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+  public async readStorage(contractAddress: Fr, slot: Fr): Promise<Fr> {
+    const { value, exists, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(
-      `Storage read  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+      `Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
-    this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
+    this.trace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
     return Promise.resolve(value);
   }
 
   /**
    * Read from public storage, don't trace the read.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param contractAddress - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async peekStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+  public async peekStorage(contractAddress: Fr, slot: Fr): Promise<Fr> {
+    const { value, exists, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(
-      `Storage peek  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+      `Storage peek  (address=${contractAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
     return Promise.resolve(value);
   }
@@ -113,20 +121,20 @@ export class AvmPersistableStateManager {
   /**
    * Check if a note hash exists at the given leaf index, trace the check.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param contractAddress - the address of the contract whose storage is being read from
    * @param noteHash - the unsiloed note hash being checked
    * @param leafIndex - the leaf index being checked
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
-  public async checkNoteHashExists(storageAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
+  public async checkNoteHashExists(contractAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
     const gotLeafValue = (await this.worldStateDB.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = gotLeafValue.equals(noteHash);
     this.log.debug(
-      `noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
+      `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
     );
     // TODO(8287): We still return exists here, but we need to transmit both the requested noteHash and the gotLeafValue
     // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceNoteHashCheck(storageAddress, gotLeafValue, leafIndex, exists);
+    this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists);
     return Promise.resolve(exists);
   }
 
@@ -134,37 +142,37 @@ export class AvmPersistableStateManager {
    * Write a note hash, trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(storageAddress: Fr, noteHash: Fr) {
-    this.log.debug(`noteHashes(${storageAddress}) += @${noteHash}.`);
-    this.trace.traceNewNoteHash(storageAddress, noteHash);
+  public writeNoteHash(contractAddress: Fr, noteHash: Fr) {
+    this.log.debug(`noteHashes(${contractAddress}) += @${noteHash}.`);
+    this.trace.traceNewNoteHash(contractAddress, noteHash);
   }
 
   /**
    * Check if a nullifier exists, trace the check.
-   * @param storageAddress - address of the contract that the nullifier is associated with
+   * @param contractAddress - address of the contract that the nullifier is associated with
    * @param nullifier - the unsiloed nullifier to check
    * @returns exists - whether the nullifier exists in the nullifier set
    */
-  public async checkNullifierExists(storageAddress: Fr, nullifier: Fr): Promise<boolean> {
-    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(storageAddress, nullifier);
+  public async checkNullifierExists(contractAddress: Fr, nullifier: Fr): Promise<boolean> {
+    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(contractAddress, nullifier);
     this.log.debug(
-      `nullifiers(${storageAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
+      `nullifiers(${contractAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
     );
-    this.trace.traceNullifierCheck(storageAddress, nullifier, leafIndex, exists, isPending);
+    this.trace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
     return Promise.resolve(exists);
   }
 
   /**
    * Write a nullifier to the nullifier set, trace the write.
-   * @param storageAddress - address of the contract that the nullifier is associated with
+   * @param contractAddress - address of the contract that the nullifier is associated with
    * @param nullifier - the unsiloed nullifier to write
    */
-  public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
-    this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
+  public async writeNullifier(contractAddress: Fr, nullifier: Fr) {
+    this.log.debug(`nullifiers(${contractAddress}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
-    await this.nullifiers.append(storageAddress, nullifier);
+    await this.nullifiers.append(contractAddress, nullifier);
     // Trace all nullifier creations (even reverted ones)
-    this.trace.traceNewNullifier(storageAddress, nullifier);
+    this.trace.traceNewNullifier(contractAddress, nullifier);
   }
 
   /**
@@ -217,7 +225,7 @@ export class AvmPersistableStateManager {
     const aztecAddress = AztecAddress.fromField(contractAddress);
     let instance = await this.worldStateDB.getContractInstance(aztecAddress);
     if (instance === undefined) {
-      instance = SerializableContractInstance.empty().withAddress(aztecAddress);
+      instance = SerializableContractInstance.default().withAddress(aztecAddress);
       exists = false;
     }
     this.log.debug(
@@ -237,10 +245,42 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Get a contract's bytecode from the contracts DB
+   * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
   public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return await this.worldStateDB.getBytecode(contractAddress, selector);
+    let exists = true;
+    // If the bytecode is not found, we let the executor decide that to do
+    const bytecode = await this.worldStateDB.getBytecode(contractAddress, selector);
+    let contractInstance = await this.worldStateDB.getContractInstance(contractAddress);
+    // If the contract instance is not found, we assume it has not be deployed. We will also be unable to find the
+    // contract class as we will not have the id. While the class might exist, we hopefully won't need it to generate a proof (tbd).
+    if (contractInstance === undefined) {
+      exists = false;
+      contractInstance = SerializableContractInstance.default().withAddress(contractAddress);
+      this.trace.traceGetBytecode(
+        bytecode ?? Buffer.alloc(1),
+        { exists, ...contractInstance },
+        {
+          artifactHash: Fr.zero(),
+          privateFunctionsRoot: Fr.zero(),
+          publicBytecodeCommitment: Fr.zero(),
+        },
+      );
+      return bytecode;
+    }
+    const contractClass = await this.worldStateDB.getContractClass(contractInstance.contractClassId);
+    assert(
+      contractClass,
+      `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.contractClassId}). This should not happen!`,
+    );
+    const contractClassPreimage = {
+      artifactHash: contractClass.artifactHash,
+      privateFunctionsRoot: contractClass.privateFunctionsRoot,
+      publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+    };
+    this.trace.traceGetBytecode(bytecode!, { exists, ...contractInstance }, contractClassPreimage);
+
+    return bytecode;
   }
 
   /**

@@ -2,6 +2,8 @@
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
 
 #include <mutex>
+#include <set>
+#include <unordered_map>
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -22,6 +24,23 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
     ASSERT(num_rows <= circuit_subgroup_size);
     ProverPolynomials polys;
 
+    // We create a mapping between the polynomial index and the corresponding column index when row
+    // is expressed as a vector, i.e., column of the trace matrix.
+    std::unordered_map<std::string, size_t> names_to_col_idx;
+    const auto names = Row::names();
+    for (size_t i = 0; i < names.size(); i++) {
+        names_to_col_idx[names[i]] = i;
+    }
+
+    const auto labels = polys.get_unshifted_labels();
+    const size_t num_unshifted = labels.size();
+
+    // Mapping
+    std::vector<size_t> polys_to_cols_unshifted_idx(num_unshifted);
+    for (size_t i = 0; i < num_unshifted; i++) {
+        polys_to_cols_unshifted_idx[i] = names_to_col_idx.at(labels[i]);
+    }
+
     // Allocate mem for each column
     AVM_TRACK_TIME("circuit_builder/init_polys_to_be_shifted", ({
                        for (auto& poly : polys.get_to_be_shifted()) {
@@ -30,15 +49,48 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                                               /*make shiftable with offset*/ 1 };
                        }
                    }));
+
     // catch-all with fully formed polynomials
     AVM_TRACK_TIME(
         "circuit_builder/init_polys_unshifted", ({
             auto unshifted = polys.get_unshifted();
-            bb::parallel_for(unshifted.size(), [&](size_t i) {
+
+            // An array which stores for each column of the trace the smallest size of the
+            // truncated column containing all non-zero elements.
+            // It is used to allocate the polynomials without memory overhead for the tail of zeros.
+            std::array<size_t, Row::SIZE> col_nonzero_size{};
+
+            // Computation of size of columns.
+            // Non-parallel version takes 0.5 second for a trace size of 200k rows.
+            // A parallel version might be considered in the future.
+            for (size_t i = 0; i < num_rows; i++) {
+                const auto row = rows[i].as_vector();
+                for (size_t col = 0; col < Row::SIZE; col++) {
+                    if (!row[col].is_zero()) {
+                        col_nonzero_size[col] = i + 1;
+                    }
+                }
+            }
+
+            // Set of the labels for derived/inverse polynomials.
+            const auto derived_labels = polys.get_derived_labels();
+            std::set<std::string> derived_labels_set(derived_labels.begin(), derived_labels.end());
+
+            bb::parallel_for(num_unshifted, [&](size_t i) {
                 auto& poly = unshifted[i];
+                const auto col_idx = polys_to_cols_unshifted_idx[i];
+                size_t col_size = 0;
+
+                // We fully allocate the inverse polynomials. We leave this potential memory optimization for later.
+                if (derived_labels_set.contains(labels[i])) {
+                    col_size = num_rows;
+                } else {
+                    col_size = col_nonzero_size[col_idx];
+                }
+
                 if (poly.is_empty()) {
                     // Not set above
-                    poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ circuit_subgroup_size };
+                    poly = Polynomial{ /*memory size*/ col_size, /*largest possible index*/ circuit_subgroup_size };
                 }
             });
         }));
@@ -136,6 +188,10 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.binary_op_id.set_if_valid_index(i, rows[i].binary_op_id);
                 polys.binary_sel_bin.set_if_valid_index(i, rows[i].binary_sel_bin);
                 polys.binary_start.set_if_valid_index(i, rows[i].binary_start);
+                polys.bytecode_end_latch.set_if_valid_index(i, rows[i].bytecode_end_latch);
+                polys.bytecode_length_remaining.set_if_valid_index(i, rows[i].bytecode_length_remaining);
+                polys.bytecode_packed.set_if_valid_index(i, rows[i].bytecode_packed);
+                polys.bytecode_running_hash.set_if_valid_index(i, rows[i].bytecode_running_hash);
                 polys.cmp_a_hi.set_if_valid_index(i, rows[i].cmp_a_hi);
                 polys.cmp_a_lo.set_if_valid_index(i, rows[i].cmp_a_lo);
                 polys.cmp_b_hi.set_if_valid_index(i, rows[i].cmp_b_hi);
@@ -280,8 +336,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_note_hash_exists.set_if_valid_index(i, rows[i].main_sel_op_note_hash_exists);
                 polys.main_sel_op_nullifier_exists.set_if_valid_index(i, rows[i].main_sel_op_nullifier_exists);
                 polys.main_sel_op_or.set_if_valid_index(i, rows[i].main_sel_op_or);
-                polys.main_sel_op_pedersen.set_if_valid_index(i, rows[i].main_sel_op_pedersen);
-                polys.main_sel_op_pedersen_commit.set_if_valid_index(i, rows[i].main_sel_op_pedersen_commit);
                 polys.main_sel_op_poseidon2.set_if_valid_index(i, rows[i].main_sel_op_poseidon2);
                 polys.main_sel_op_radix_le.set_if_valid_index(i, rows[i].main_sel_op_radix_le);
                 polys.main_sel_op_sender.set_if_valid_index(i, rows[i].main_sel_op_sender);
@@ -292,7 +346,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_sload.set_if_valid_index(i, rows[i].main_sel_op_sload);
                 polys.main_sel_op_sstore.set_if_valid_index(i, rows[i].main_sel_op_sstore);
                 polys.main_sel_op_static_call.set_if_valid_index(i, rows[i].main_sel_op_static_call);
-                polys.main_sel_op_storage_address.set_if_valid_index(i, rows[i].main_sel_op_storage_address);
                 polys.main_sel_op_sub.set_if_valid_index(i, rows[i].main_sel_op_sub);
                 polys.main_sel_op_timestamp.set_if_valid_index(i, rows[i].main_sel_op_timestamp);
                 polys.main_sel_op_transaction_fee.set_if_valid_index(i, rows[i].main_sel_op_transaction_fee);
@@ -351,10 +404,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.mem_tsp.set_if_valid_index(i, rows[i].mem_tsp);
                 polys.mem_val.set_if_valid_index(i, rows[i].mem_val);
                 polys.mem_w_in_tag.set_if_valid_index(i, rows[i].mem_w_in_tag);
-                polys.pedersen_clk.set_if_valid_index(i, rows[i].pedersen_clk);
-                polys.pedersen_input.set_if_valid_index(i, rows[i].pedersen_input);
-                polys.pedersen_output.set_if_valid_index(i, rows[i].pedersen_output);
-                polys.pedersen_sel_pedersen.set_if_valid_index(i, rows[i].pedersen_sel_pedersen);
                 polys.poseidon2_B_10_0.set_if_valid_index(i, rows[i].poseidon2_B_10_0);
                 polys.poseidon2_B_10_1.set_if_valid_index(i, rows[i].poseidon2_B_10_1);
                 polys.poseidon2_B_10_2.set_if_valid_index(i, rows[i].poseidon2_B_10_2);
@@ -624,6 +673,30 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.poseidon2_b_2.set_if_valid_index(i, rows[i].poseidon2_b_2);
                 polys.poseidon2_b_3.set_if_valid_index(i, rows[i].poseidon2_b_3);
                 polys.poseidon2_clk.set_if_valid_index(i, rows[i].poseidon2_clk);
+                polys.poseidon2_full_a_0.set_if_valid_index(i, rows[i].poseidon2_full_a_0);
+                polys.poseidon2_full_a_1.set_if_valid_index(i, rows[i].poseidon2_full_a_1);
+                polys.poseidon2_full_a_2.set_if_valid_index(i, rows[i].poseidon2_full_a_2);
+                polys.poseidon2_full_a_3.set_if_valid_index(i, rows[i].poseidon2_full_a_3);
+                polys.poseidon2_full_b_0.set_if_valid_index(i, rows[i].poseidon2_full_b_0);
+                polys.poseidon2_full_b_1.set_if_valid_index(i, rows[i].poseidon2_full_b_1);
+                polys.poseidon2_full_b_2.set_if_valid_index(i, rows[i].poseidon2_full_b_2);
+                polys.poseidon2_full_b_3.set_if_valid_index(i, rows[i].poseidon2_full_b_3);
+                polys.poseidon2_full_clk.set_if_valid_index(i, rows[i].poseidon2_full_clk);
+                polys.poseidon2_full_end_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_end_poseidon);
+                polys.poseidon2_full_execute_poseidon_perm.set_if_valid_index(
+                    i, rows[i].poseidon2_full_execute_poseidon_perm);
+                polys.poseidon2_full_input_0.set_if_valid_index(i, rows[i].poseidon2_full_input_0);
+                polys.poseidon2_full_input_1.set_if_valid_index(i, rows[i].poseidon2_full_input_1);
+                polys.poseidon2_full_input_2.set_if_valid_index(i, rows[i].poseidon2_full_input_2);
+                polys.poseidon2_full_input_len.set_if_valid_index(i, rows[i].poseidon2_full_input_len);
+                polys.poseidon2_full_num_perm_rounds_rem.set_if_valid_index(i,
+                                                                            rows[i].poseidon2_full_num_perm_rounds_rem);
+                polys.poseidon2_full_num_perm_rounds_rem_inv.set_if_valid_index(
+                    i, rows[i].poseidon2_full_num_perm_rounds_rem_inv);
+                polys.poseidon2_full_output.set_if_valid_index(i, rows[i].poseidon2_full_output);
+                polys.poseidon2_full_padding.set_if_valid_index(i, rows[i].poseidon2_full_padding);
+                polys.poseidon2_full_sel_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_sel_poseidon);
+                polys.poseidon2_full_start_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_start_poseidon);
                 polys.poseidon2_input_addr.set_if_valid_index(i, rows[i].poseidon2_input_addr);
                 polys.poseidon2_mem_addr_read_a.set_if_valid_index(i, rows[i].poseidon2_mem_addr_read_a);
                 polys.poseidon2_mem_addr_read_b.set_if_valid_index(i, rows[i].poseidon2_mem_addr_read_b);
@@ -635,6 +708,11 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.poseidon2_mem_addr_write_d.set_if_valid_index(i, rows[i].poseidon2_mem_addr_write_d);
                 polys.poseidon2_output_addr.set_if_valid_index(i, rows[i].poseidon2_output_addr);
                 polys.poseidon2_sel_poseidon_perm.set_if_valid_index(i, rows[i].poseidon2_sel_poseidon_perm);
+                polys.poseidon2_sel_poseidon_perm_immediate.set_if_valid_index(
+                    i, rows[i].poseidon2_sel_poseidon_perm_immediate);
+                polys.poseidon2_sel_poseidon_perm_mem_op.set_if_valid_index(i,
+                                                                            rows[i].poseidon2_sel_poseidon_perm_mem_op);
+                polys.poseidon2_space_id.set_if_valid_index(i, rows[i].poseidon2_space_id);
                 polys.range_check_alu_rng_chk.set_if_valid_index(i, rows[i].range_check_alu_rng_chk);
                 polys.range_check_clk.set_if_valid_index(i, rows[i].range_check_clk);
                 polys.range_check_cmp_hi_bits_rng_chk.set_if_valid_index(i, rows[i].range_check_cmp_hi_bits_rng_chk);
