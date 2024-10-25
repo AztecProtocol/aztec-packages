@@ -112,7 +112,8 @@ mod tests {
     };
 
     use dep::types::{
-        abis::{read_request::ReadRequest, side_effect::OrderedValue}, address::AztecAddress,
+        abis::{read_request::ReadRequest, side_effect::OrderedValue},
+        address::AztecAddress,
         merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, membership::MembershipWitness},
         tests::merkle_tree_utils::NonEmptyMerkleTree,
     };

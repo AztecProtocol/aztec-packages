@@ -1,6 +1,10 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
-    hash::poseidon2_hash_with_separator, point::Point, public_keys::{IvpkM, OvpkM}, scalar::Scalar,
+    address::AztecAddress,
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY,
+    hash::poseidon2_hash_with_separator,
+    point::Point,
+    public_keys::{IvpkM, OvpkM},
+    scalar::Scalar,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -159,7 +163,10 @@ mod test {
         compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext,
     };
     use dep::protocol_types::{
-        address::AztecAddress, point::Point, public_keys::{IvpkM, OvpkM}, scalar::Scalar,
+        address::AztecAddress,
+        point::Point,
+        public_keys::{IvpkM, OvpkM},
+        scalar::Scalar,
     };
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
     use std::test::OracleMock;

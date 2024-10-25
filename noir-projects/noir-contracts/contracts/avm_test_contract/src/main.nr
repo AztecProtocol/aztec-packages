@@ -39,7 +39,9 @@ contract AvmTest {
         abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map,
     };
     use dep::aztec::protocol_types::{
-        address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar,
+        address::{AztecAddress, EthAddress},
+        point::Point,
+        scalar::Scalar,
     };
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::state_vars::PublicMutable;
@@ -208,7 +210,7 @@ contract AvmTest {
 
     #[public]
     fn to_radix_le(input: Field) -> [u8; 10] {
-        input.to_le_radix( /*base=*/ 2)
+        input.to_le_radix(/*base=*/ 2)
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
@@ -282,7 +284,7 @@ contract AvmTest {
 
     #[public]
     fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/  20)
+        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
 
     /************************************************************************
@@ -402,11 +404,11 @@ contract AvmTest {
 
     #[public]
     fn emit_unencrypted_log() {
-        context.emit_unencrypted_log( /*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log( /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log( /*message=*/ s);
+        context.emit_unencrypted_log(/*message=*/ s);
     }
 
     #[public]

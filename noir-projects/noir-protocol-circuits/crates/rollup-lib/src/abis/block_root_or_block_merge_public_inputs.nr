@@ -3,7 +3,9 @@ use dep::types::{
     address::EthAddress,
     constants::{
         AZTEC_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH,
-    }, traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
+    },
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct FeeRecipient {

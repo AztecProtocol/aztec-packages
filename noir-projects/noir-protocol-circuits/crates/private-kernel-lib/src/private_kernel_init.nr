@@ -8,7 +8,8 @@ use dep::types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-    }, transaction::tx_request::TxRequest,
+    },
+    transaction::tx_request::TxRequest,
 };
 
 // Initialization struct for private inputs to the private kernel

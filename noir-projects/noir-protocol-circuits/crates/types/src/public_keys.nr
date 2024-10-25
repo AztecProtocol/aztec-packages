@@ -3,7 +3,9 @@ use crate::{
     constants::{
         DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_X,
         DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-    }, hash::poseidon2_hash_with_separator, point::POINT_LENGTH,
+    },
+    hash::poseidon2_hash_with_separator,
+    point::POINT_LENGTH,
     traits::{Deserialize, Hash, Serialize},
 };
 

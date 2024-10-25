@@ -1,5 +1,6 @@
 use crate::{
-    abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}}, traits::Empty,
+    abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}},
+    traits::Empty,
 };
 
 pub struct PublicDataTreeLeaf {

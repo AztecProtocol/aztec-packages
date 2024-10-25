@@ -2,8 +2,10 @@ use crate::components::public_tail_output_composer::generate_output_hints::Outpu
 use dep::types::{
     abis::{
         accumulated_data::{CombinedAccumulatedData, PublicAccumulatedData},
-        log_hash::{LogHash, ScopedLogHash}, nullifier::Nullifier,
-    }, utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc},
+        log_hash::{LogHash, ScopedLogHash},
+        nullifier::Nullifier,
+    },
+    utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc},
 };
 
 pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(

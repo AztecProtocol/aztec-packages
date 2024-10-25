@@ -3,7 +3,9 @@ use crate::{
     event::event_interface::EventInterface, keys::getters::get_ovsk_app, oracle::random::random,
 };
 use dep::protocol_types::{
-    address::AztecAddress, hash::sha256_to_field, public_keys::{IvpkM, OvpkM},
+    address::AztecAddress,
+    hash::sha256_to_field,
+    public_keys::{IvpkM, OvpkM},
 };
 
 fn compute_raw_event_log<Event, let N: u32>(

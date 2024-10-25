@@ -135,17 +135,23 @@ mod tests {
         tests::{
             note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
             nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        }, TransientDataIndexHint,
+        },
+        TransientDataIndexHint,
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            log_hash::{NoteLogHash, ScopedEncryptedLogHash}, max_block_number::MaxBlockNumber,
-            note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-        }, address::AztecAddress, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+            log_hash::{NoteLogHash, ScopedEncryptedLogHash},
+            max_block_number::MaxBlockNumber,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+        },
+        address::AztecAddress,
+        hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
-        traits::is_empty_array, utils::arrays::find_index_hint,
+        traits::is_empty_array,
+        utils::arrays::find_index_hint,
     };
     use dep::types::constants::{
         BASE_ROLLUP_INDEX, GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX,

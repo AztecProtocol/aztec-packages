@@ -1,5 +1,6 @@
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered,
+    traits::{Empty, is_empty},
     utils::arrays::{
         get_sorted_tuple::get_sorted_tuple,
         sort_by_counter::{

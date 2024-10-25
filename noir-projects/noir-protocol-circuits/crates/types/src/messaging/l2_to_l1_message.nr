@@ -1,7 +1,9 @@
 use crate::{
-    abis::side_effect::{Ordered, Scoped}, address::{AztecAddress, EthAddress},
+    abis::side_effect::{Ordered, Scoped},
+    address::{AztecAddress, EthAddress},
     constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH},
-    traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_concat, reader::Reader},
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 // Note: Not to be confused with L2ToL1Msg in Solidity

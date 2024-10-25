@@ -4,7 +4,8 @@ use crate::{
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
 use dep::protocol_types::{
-    header::Header, utils::field::{full_field_greater_than, full_field_less_than},
+    header::Header,
+    utils::field::{full_field_greater_than, full_field_less_than},
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 

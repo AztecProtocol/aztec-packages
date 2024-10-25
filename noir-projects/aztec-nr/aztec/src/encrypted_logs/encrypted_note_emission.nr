@@ -1,9 +1,13 @@
 use crate::{
-    context::PrivateContext, encrypted_logs::payload::compute_encrypted_log,
-    keys::getters::get_ovsk_app, note::{note_emission::NoteEmission, note_interface::NoteInterface},
+    context::PrivateContext,
+    encrypted_logs::payload::compute_encrypted_log,
+    keys::getters::get_ovsk_app,
+    note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
-    abis::note_hash::NoteHash, address::AztecAddress, hash::sha256_to_field,
+    abis::note_hash::NoteHash,
+    address::AztecAddress,
+    hash::sha256_to_field,
     public_keys::{IvpkM, OvpkM, PublicKeys},
 };
 

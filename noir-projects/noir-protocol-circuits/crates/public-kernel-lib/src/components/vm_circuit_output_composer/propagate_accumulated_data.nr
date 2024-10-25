@@ -3,7 +3,8 @@ use dep::types::{
         accumulated_data::PublicAccumulatedDataBuilder, nullifier::Nullifier,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         public_data_update_request::PublicDataUpdateRequest,
-    }, hash::compute_siloed_nullifier,
+    },
+    hash::compute_siloed_nullifier,
 };
 
 pub fn propagate_accumulated_data(

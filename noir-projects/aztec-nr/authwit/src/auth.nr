@@ -1,10 +1,12 @@
 use dep::aztec::{context::{gas::GasOpts, PrivateContext, PublicContext}, hash::hash_args_array};
 use dep::aztec::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
     constants::{
         CANONICAL_AUTH_REGISTRY_ADDRESS, GENERATOR_INDEX__AUTHWIT_INNER,
         GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
-    }, hash::poseidon2_hash_with_separator,
+    },
+    hash::poseidon2_hash_with_separator,
 };
 
 /**

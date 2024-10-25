@@ -15,15 +15,21 @@ contract NFT {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::{
             encode_and_encrypt_note, encrypt_and_emit_partial_log,
-        }, hash::pedersen_hash, keys::getters::get_public_keys,
+        },
+        hash::pedersen_hash,
+        keys::getters::get_public_keys,
         macros::{
-            events::event, functions::{initializer, internal, private, public, view},
+            events::event,
+            functions::{initializer, internal, private, public, view},
             storage::storage,
-        }, note::constants::MAX_NOTES_PER_PAGE, oracle::random::random,
+        },
+        note::constants::MAX_NOTES_PER_PAGE,
+        oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicMutable, SharedImmutable,
-        }, protocol_types::{point::Point, traits::{is_empty, Serialize}},
+        },
+        protocol_types::{point::Point, traits::{is_empty, Serialize}},
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;

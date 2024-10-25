@@ -4,7 +4,8 @@ use dep::types::{
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
         L2_GAS_PER_NULLIFIER,
-    }, tests::fixture_builder::FixtureBuilder,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 fn new_builder() -> FixtureBuilder {

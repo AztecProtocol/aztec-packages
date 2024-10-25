@@ -5,7 +5,9 @@ use crate::{
     merkle_tree::{
         membership::{assert_check_membership, MembershipWitness},
         root::{calculate_empty_tree_root, calculate_subtree_root, root_from_sibling_path},
-    }, traits::{Empty, Hash, is_empty}, utils::arrays::check_permutation,
+    },
+    traits::{Empty, Hash, is_empty},
+    utils::arrays::check_permutation,
 };
 
 pub fn batch_insert<Value, Leaf, let SubtreeWidth: u32, let SiblingPathLength: u32, let SubtreeHeight: u32, let TreeHeight: u32>(

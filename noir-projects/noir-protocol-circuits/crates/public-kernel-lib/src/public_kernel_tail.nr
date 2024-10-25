@@ -3,13 +3,17 @@ use crate::{
         previous_kernel_validator::PreviousKernelValidator,
         public_tail_output_composer::{OutputHints, PublicTailOutputComposer},
         public_tail_output_validator::PublicTailOutputValidator,
-    }, public_kernel_phase::PublicKernelPhase,
+    },
+    public_kernel_phase::PublicKernelPhase,
 };
 use dep::reset_kernel_lib::{
-    NullifierNonExistentReadRequestHints, NullifierReadRequestHints,
+    NullifierNonExistentReadRequestHints,
+    NullifierReadRequestHints,
     public_data_read_request_hints::{
         build_public_data_read_request_hints, PublicDataReadRequestHints,
-    }, PublicValidationRequestProcessor, TreeLeafReadRequestHint,
+    },
+    PublicValidationRequestProcessor,
+    TreeLeafReadRequestHint,
 };
 use dep::types::{
     abis::{
@@ -21,7 +25,9 @@ use dep::types::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_PUBLIC_DATA_HINTS, MAX_PUBLIC_DATA_READS_PER_TX, NOTE_HASH_TREE_HEIGHT,
         PUBLIC_KERNEL_MERGE_INDEX,
-    }, data::PublicDataLeafHint, partial_state_reference::PartialStateReference,
+    },
+    data::PublicDataLeafHint,
+    partial_state_reference::PartialStateReference,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [PUBLIC_KERNEL_MERGE_INDEX];
@@ -97,14 +103,16 @@ mod tests {
         tests::{
             nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
             nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        }, TreeLeafReadRequestHint,
+        },
+        TreeLeafReadRequestHint,
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs, nullifier::ScopedNullifier,
             nullifier_leaf_preimage::NullifierLeafPreimage,
             public_data_update_request::PublicDataUpdateRequest,
-        }, address::AztecAddress,
+        },
+        address::AztecAddress,
         constants::{
             BASE_ROLLUP_INDEX, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
             MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -114,13 +122,18 @@ mod tests {
             NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
             PUBLIC_DATA_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX,
-        }, data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
-        hash::{compute_siloed_nullifier, silo_note_hash}, merkle_tree::MembershipWitness,
+        },
+        data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
+        hash::{compute_siloed_nullifier, silo_note_hash},
+        merkle_tree::MembershipWitness,
         partial_state_reference::PartialStateReference,
         tests::{
-            fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree,
+            fixture_builder::FixtureBuilder,
+            merkle_tree_utils::NonEmptyMerkleTree,
             utils::{assert_array_eq, pad_end, swap_items},
-        }, traits::is_empty, utils::arrays::{array_merge, find_index_hint},
+        },
+        traits::is_empty,
+        utils::arrays::{array_merge, find_index_hint},
     };
 
     fn build_note_hash_tree<let N: u32>(

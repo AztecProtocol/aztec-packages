@@ -12,7 +12,8 @@ contract EcdsaKAccount {
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
 
     use dep::authwit::{
-        account::AccountActions, auth_witness::get_auth_witness,
+        account::AccountActions,
+        auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
 

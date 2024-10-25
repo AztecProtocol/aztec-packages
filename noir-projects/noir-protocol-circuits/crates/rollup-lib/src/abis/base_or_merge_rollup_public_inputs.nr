@@ -1,7 +1,9 @@
 use crate::abis::constant_rollup_data::ConstantRollupData;
 use dep::types::{
-    constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH, partial_state_reference::PartialStateReference,
-    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
+    constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
+    partial_state_reference::PartialStateReference,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 global BASE_ROLLUP_TYPE = 0;

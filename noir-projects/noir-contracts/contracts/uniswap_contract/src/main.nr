@@ -17,7 +17,8 @@ contract Uniswap {
 
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
     use dep::aztec::macros::{
-        functions::{initializer, internal, private, public, view}, storage::storage,
+        functions::{initializer, internal, private, public, view},
+        storage::storage,
     };
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;

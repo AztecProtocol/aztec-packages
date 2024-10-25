@@ -3,11 +3,15 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
-        }, max_block_number::MaxBlockNumber,
+        },
+        max_block_number::MaxBlockNumber,
         private_circuit_public_inputs::{
             PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths,
         },
-    }, address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
+    },
+    address::AztecAddress,
+    traits::is_empty,
+    transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
         assert_array_prepended,

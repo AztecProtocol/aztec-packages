@@ -24,7 +24,8 @@ contract Lending {
     use dep::token::Token;
 
     use dep::aztec::macros::{
-        functions::{initializer, internal, private, public, view}, storage::storage,
+        functions::{initializer, internal, private, public, view},
+        storage::storage,
     };
 
     // Storage structure, containing all storage, and specifying what slots they use.

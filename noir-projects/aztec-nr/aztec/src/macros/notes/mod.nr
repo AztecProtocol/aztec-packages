@@ -1,7 +1,8 @@
 use crate::note::{note_getter_options::PropertySelector, note_header::NoteHeader};
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
 use std::{
-    collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+    collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
     meta::{typ::fresh_type_variable, type_of, unquote},
 };
 
@@ -200,7 +201,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } })
+        .map(|(name, _): (Quoted, Type)| quote { $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694

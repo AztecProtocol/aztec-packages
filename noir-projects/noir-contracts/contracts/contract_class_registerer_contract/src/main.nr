@@ -12,7 +12,8 @@ contract ContractClassRegisterer {
             MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-        }, contract_class_id::ContractClassId,
+        },
+        contract_class_id::ContractClassId,
     };
 
     use dep::aztec::{

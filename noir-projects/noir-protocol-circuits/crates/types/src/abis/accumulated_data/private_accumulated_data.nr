@@ -1,9 +1,13 @@
 use crate::{
     abis::{
-        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier, private_call_request::PrivateCallRequest,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+        private_call_request::PrivateCallRequest,
         public_call_request::PublicCallRequest,
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::{Deserialize, Empty, Serialize},
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 use crate::constants::{

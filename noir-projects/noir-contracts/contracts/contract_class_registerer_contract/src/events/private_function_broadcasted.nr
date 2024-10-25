@@ -5,7 +5,9 @@ use dep::aztec::protocol_types::{
         MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
         REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
         REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-    }, contract_class_id::ContractClassId, traits::Serialize,
+    },
+    contract_class_id::ContractClassId,
+    traits::Serialize,
 };
 
 pub struct InnerPrivateFunction {

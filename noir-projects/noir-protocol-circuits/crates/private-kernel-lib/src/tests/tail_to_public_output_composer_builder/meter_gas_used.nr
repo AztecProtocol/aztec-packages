@@ -6,7 +6,8 @@ use dep::types::{
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-    }, tests::fixture_builder::FixtureBuilder,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 #[test]

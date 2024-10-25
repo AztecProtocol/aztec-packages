@@ -4,23 +4,33 @@ use crate::{
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
-        arguments, call_private_function::call_private_function_internal,
+        arguments,
+        call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
             enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
             set_public_teardown_function_call_internal,
-        }, header::get_header_at, key_validation_request::get_key_validation_request,
-        logs::{emit_encrypted_event_log, emit_encrypted_note_log}, returns::pack_returns,
+        },
+        header::get_header_at,
+        key_validation_request::get_key_validation_request,
+        logs::{emit_encrypted_event_log, emit_encrypted_note_log},
+        returns::pack_returns,
     },
 };
 use dep::protocol_types::{
     abis::{
-        call_context::CallContext, function_selector::FunctionSelector,
-        log_hash::{EncryptedLogHash, LogHash, NoteLogHash}, max_block_number::MaxBlockNumber,
-        note_hash::NoteHash, nullifier::Nullifier, private_call_request::PrivateCallRequest,
+        call_context::CallContext,
+        function_selector::FunctionSelector,
+        log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
+        max_block_number::MaxBlockNumber,
+        note_hash::NoteHash,
+        nullifier::Nullifier,
+        private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        public_call_request::PublicCallRequest, read_request::ReadRequest,
+        public_call_request::PublicCallRequest,
+        read_request::ReadRequest,
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
-    }, address::{AztecAddress, EthAddress},
+    },
+    address::{AztecAddress, EthAddress},
     constants::{
         MAX_ENCRYPTED_LOGS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
         MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
@@ -28,7 +38,10 @@ use dep::protocol_types::{
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_DISPATCH_SELECTOR,
-    }, header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::Empty,
+    },
+    header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
+    traits::Empty,
 };
 
 // When finished, one can call .finish() to convert back to the abi

@@ -1,7 +1,8 @@
 // This file is copied from the token contract.
 use crate::types::token_note::OwnedNote;
 use dep::aztec::{
-    context::{PrivateContext, UnconstrainedContext}, note::note_emission::OuterNoteEmission,
+    context::{PrivateContext, UnconstrainedContext},
+    note::note_emission::OuterNoteEmission,
     protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
 };
 use dep::aztec::prelude::{

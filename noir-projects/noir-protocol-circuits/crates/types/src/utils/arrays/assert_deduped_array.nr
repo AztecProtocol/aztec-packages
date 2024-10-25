@@ -39,8 +39,10 @@ where
 
 mod tests {
     use crate::{
-        abis::side_effect::{Inner, Overridable}, tests::{types::TestValue, utils::pad_end},
-        traits::Empty, utils::arrays::assert_deduped_array::{assert_deduped_array, dedupe_array},
+        abis::side_effect::{Inner, Overridable},
+        tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
+        utils::arrays::assert_deduped_array::{assert_deduped_array, dedupe_array},
     };
 
     struct TestItem {

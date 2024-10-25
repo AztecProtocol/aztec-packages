@@ -1,5 +1,6 @@
 use dep::protocol_types::{
-    address::{AztecAddress, PartialAddress}, point::Point,
+    address::{AztecAddress, PartialAddress},
+    point::Point,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
 };
 

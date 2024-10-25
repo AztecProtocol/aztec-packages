@@ -26,9 +26,12 @@ contract Test {
         hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
         macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
-            lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
+            lifecycle::{create_note, destroy_note_unsafe},
+            note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
-        }, oracle::random::random, utils::comparison::Comparator,
+        },
+        oracle::random::random,
+        utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_private_content_hash, get_mint_public_content_hash,
@@ -365,9 +368,9 @@ contract Test {
     #[public]
     fn emit_unencrypted(value: Field) {
         // docs:start:emit_unencrypted
-        context.emit_unencrypted_log( /*message=*/ value);
-        context.emit_unencrypted_log( /*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log( /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*message=*/ value);
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         // docs:end:emit_unencrypted
     }
 

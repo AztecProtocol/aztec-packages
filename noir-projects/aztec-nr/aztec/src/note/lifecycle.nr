@@ -1,6 +1,7 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
-    note_emission::NoteEmission, note_header::NoteHeader,
+    note_emission::NoteEmission,
+    note_header::NoteHeader,
     note_interface::{NoteInterface, NullifiableNote},
     utils::{compute_note_hash_for_nullify_internal, compute_note_hash_for_read_request},
 };

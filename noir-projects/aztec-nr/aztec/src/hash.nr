@@ -4,8 +4,10 @@ use dep::protocol_types::{
     constants::{
         GENERATOR_INDEX__FUNCTION_ARGS, GENERATOR_INDEX__MESSAGE_NULLIFIER,
         GENERATOR_INDEX__SECRET_HASH,
-    }, hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice, sha256_to_field},
-    point::Point, traits::Hash,
+    },
+    hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice, sha256_to_field},
+    point::Point,
+    traits::Hash,
 };
 
 pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};

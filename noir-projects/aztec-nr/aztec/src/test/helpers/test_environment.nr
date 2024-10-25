@@ -9,7 +9,8 @@ use crate::test::helpers::{cheatcodes, utils::Deployer};
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
 use crate::oracle::{
-    execution::{get_block_number, get_contract_address}, notes::notify_created_note,
+    execution::{get_block_number, get_contract_address},
+    notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
@@ -47,7 +48,7 @@ impl TestEnvironment {
     }
 
     unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
-        let mut context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
         context.args_hash = Option::some(hash_args(args));
         context
     }

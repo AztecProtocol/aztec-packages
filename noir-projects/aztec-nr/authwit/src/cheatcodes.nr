@@ -1,7 +1,9 @@
 use dep::aztec::{
-    context::{call_interfaces::CallInterface, public_context::PublicContext}, hash::hash_args,
+    context::{call_interfaces::CallInterface, public_context::PublicContext},
+    hash::hash_args,
     oracle::execution::{get_block_number, get_contract_address},
-    protocol_types::address::AztecAddress, test::helpers::cheatcodes,
+    protocol_types::address::AztecAddress,
+    test::helpers::cheatcodes,
 };
 
 use crate::auth::{compute_authwit_message_hash, compute_inner_authwit_hash, set_authorized};
@@ -45,7 +47,7 @@ where
     let inner_hash =
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     let message_hash = compute_authwit_message_hash(target, chain_id, version, inner_hash);
-    let mut context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+    let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
     context.args_hash = Option::some(args_hash);
     set_authorized(&mut context, message_hash, true);
     cheatcodes::set_contract_address(current_contract);

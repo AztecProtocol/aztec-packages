@@ -3,9 +3,12 @@ use dep::types::{
     constants::VK_TREE_HEIGHT,
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     recursion::{
-        proof::NestedRecursiveProof, traits::Verifiable,
+        proof::NestedRecursiveProof,
+        traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
-    }, traits::Empty, utils::arrays::find_index_hint,
+    },
+    traits::Empty,
+    utils::arrays::find_index_hint,
 };
 
 pub struct PreviousRollupData {

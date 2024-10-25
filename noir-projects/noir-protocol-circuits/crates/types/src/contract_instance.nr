@@ -2,8 +2,11 @@ use crate::{
     address::{
         aztec_address::AztecAddress, partial_address::PartialAddress,
         public_keys_hash::PublicKeysHash,
-    }, constants::CONTRACT_INSTANCE_LENGTH, contract_class_id::ContractClassId,
-    public_keys::PublicKeys, traits::{Deserialize, Hash, Serialize},
+    },
+    constants::CONTRACT_INSTANCE_LENGTH,
+    contract_class_id::ContractClassId,
+    public_keys::PublicKeys,
+    traits::{Deserialize, Hash, Serialize},
 };
 
 pub struct ContractInstance {

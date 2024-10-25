@@ -3,9 +3,11 @@ use dep::types::{
     constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
     recursion::{
-        proof::NestedRecursiveProof, traits::Verifiable,
+        proof::NestedRecursiveProof,
+        traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
-    }, traits::Empty,
+    },
+    traits::Empty,
 };
 
 pub struct RootRollupParityInput {

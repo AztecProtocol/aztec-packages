@@ -3,9 +3,11 @@ use dep::types::{
     constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
     recursion::{
-        proof::RecursiveProof, traits::Verifiable,
+        proof::RecursiveProof,
+        traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
-    }, traits::Empty,
+    },
+    traits::Empty,
 };
 
 pub struct RootParityInput {

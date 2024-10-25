@@ -1,7 +1,9 @@
 use dep::aztec::protocol_types::{
     constants::{
         MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
-    }, contract_class_id::ContractClassId, traits::Serialize,
+    },
+    contract_class_id::ContractClassId,
+    traits::Serialize,
 };
 
 // #[event]

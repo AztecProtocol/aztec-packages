@@ -5,7 +5,9 @@ use dep::types::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
         public_call_request::PublicCallRequest,
         validation_requests::PublicValidationRequestArrayLengths,
-    }, constants::MAX_L2_GAS_PER_ENQUEUED_CALL, utils::arrays::array_length,
+    },
+    constants::MAX_L2_GAS_PER_ENQUEUED_CALL,
+    utils::arrays::array_length,
 };
 
 pub struct EnqueuedCallDataValidator {

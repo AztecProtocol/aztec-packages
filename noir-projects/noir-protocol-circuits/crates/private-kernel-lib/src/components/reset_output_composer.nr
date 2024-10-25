@@ -7,13 +7,16 @@ use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataInde
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash},
+        note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-    }, address::AztecAddress,
+    },
+    address::AztecAddress,
     constants::{
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX,
-    }, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+    },
+    hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
     utils::arrays::sort_by_counter_asc,
 };
 

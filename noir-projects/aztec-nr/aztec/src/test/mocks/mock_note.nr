@@ -1,5 +1,6 @@
 use crate::{
-    context::PrivateContext, generators::Ga1 as G_val,
+    context::PrivateContext,
+    generators::Ga1 as G_val,
     note::{
         note_header::NoteHeader, note_interface::NoteInterface,
         utils::compute_note_hash_for_nullify,

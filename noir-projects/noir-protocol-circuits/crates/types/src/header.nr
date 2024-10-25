@@ -6,8 +6,11 @@ use crate::{
     constants::{
         CONTENT_COMMITMENT_LENGTH, GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH,
         HEADER_LENGTH, STATE_REFERENCE_LENGTH,
-    }, content_commitment::ContentCommitment, hash::poseidon2_hash_with_separator,
-    state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
+    },
+    content_commitment::ContentCommitment,
+    hash::poseidon2_hash_with_separator,
+    state_reference::StateReference,
+    traits::{Deserialize, Empty, Hash, Serialize},
     utils::arr_copy_slice,
 };
 

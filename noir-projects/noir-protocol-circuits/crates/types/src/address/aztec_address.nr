@@ -1,25 +1,27 @@
 use crate::{
     abis::function_selector::FunctionSelector,
-    public_keys::{ToPoint, PublicKeys, NpkM, IvpkM, OvpkM, TpkM},
     address::{
         partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
         salted_initialization_hash::SaltedInitializationHash,
     },
     constants::{
-        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-        GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE,
-    }, contract_class_id::ContractClassId,
+        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+        GENERATOR_INDEX__PUBLIC_KEYS_HASH, MAX_FIELD_VALUE,
+    },
+    contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    traits::{Deserialize, Empty, FromField, Serialize, ToField}, utils,
+    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
+    utils,
 };
 
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use std::{
-    ec::{sqrt, pow},
-    embedded_curve_ops::{fixed_base_scalar_mul as derive_public_key, EmbeddedCurveScalar},
+    ec::{pow, sqrt},
+    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
 };
 
 // Aztec address

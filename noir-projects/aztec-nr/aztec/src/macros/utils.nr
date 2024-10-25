@@ -130,12 +130,12 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     } else if typ.as_struct().is_some() {
         let (s, _) = typ.as_struct().unwrap();
         let field_signatures =
-            s.fields().map(|(_, typ): (Quoted, Type)| { signature_of_type(typ) }).join(quote {,});
+            s.fields().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
         let types = typ.as_tuple().unwrap();
-        let field_signatures = types.map(|typ: Type| { signature_of_type(typ) }).join(quote {,});
+        let field_signatures = types.map(|typ: Type| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else {
         panic(f"Unsupported type {typ}")
@@ -179,7 +179,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     // The signature will be "foo(Field,AztecAddress)".
     let fn_name = f.name();
     let args_signatures =
-        f.parameters().map(|(_, typ): (Quoted, Type)| { signature_of_type(typ) }).join(quote {,});
+        f.parameters().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
     let signature_str_quote = signature_quote.as_str_quote();
 

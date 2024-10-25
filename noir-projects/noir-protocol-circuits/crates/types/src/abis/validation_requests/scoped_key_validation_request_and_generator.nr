@@ -2,8 +2,11 @@ use crate::{
     abis::{
         side_effect::Scoped,
         validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator,
-    }, address::AztecAddress, constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-    traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_concat, reader::Reader},
+    },
+    address::AztecAddress,
+    constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct ScopedKeyValidationRequestAndGenerator {
