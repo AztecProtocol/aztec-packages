@@ -26,7 +26,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
 
     // We create a mapping between the polynomial index and the corresponding column index when row
     // is expressed as a vector, i.e., column of the trace matrix.
-
     std::unordered_map<std::string, size_t> names_to_col_idx;
     const auto names = Row::names();
     for (size_t i = 0; i < names.size(); i++) {
@@ -34,7 +33,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
     }
 
     const auto labels = polys.get_unshifted_labels();
-    size_t num_unshifted = labels.size();
+    const size_t num_unshifted = labels.size();
 
     // Mapping
     std::vector<size_t> polys_to_cols_unshifted_idx(num_unshifted);
@@ -56,11 +55,28 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
         "circuit_builder/init_polys_unshifted", ({
             auto unshifted = polys.get_unshifted();
 
+            // An array which stores for each column of the trace the smallest size of the
+            // truncated column containing all non-zero elements.
+            // It is used to allocate the polynomials without memory overhead for the tail of zeros.
+            std::array<size_t, Row::SIZE> col_nonzero_size{};
+
+            // Computation of size of columns.
+            // Non-parallel version takes 0.5 second for a trace size of 200k rows.
+            // A parallel version might be considered in the future.
+            for (size_t i = 0; i < num_rows; i++) {
+                const auto row = rows[i].as_vector();
+                for (size_t col = 0; col < Row::SIZE; col++) {
+                    if (!row[col].is_zero()) {
+                        col_nonzero_size[col] = i + 1;
+                    }
+                }
+            }
+
             // Set of the labels for derived/inverse polynomials.
             const auto derived_labels = polys.get_derived_labels();
             std::set<std::string> derived_labels_set(derived_labels.begin(), derived_labels.end());
 
-            bb::parallel_for(unshifted.size(), [&](size_t i) {
+            bb::parallel_for(num_unshifted, [&](size_t i) {
                 auto& poly = unshifted[i];
                 const auto col_idx = polys_to_cols_unshifted_idx[i];
                 size_t col_size = 0;
@@ -69,13 +85,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 if (derived_labels_set.contains(labels[i])) {
                     col_size = num_rows;
                 } else {
-                    // We process each column from bottom and stops as soon as we encounter a non-zero entry.
-                    for (size_t j = 0; j < num_rows; j++) {
-                        if (!rows[num_rows - j - 1].as_vector()[col_idx].is_zero()) {
-                            col_size = num_rows - j;
-                            break;
-                        }
-                    }
+                    col_size = col_nonzero_size[col_idx];
                 }
 
                 if (poly.is_empty()) {
