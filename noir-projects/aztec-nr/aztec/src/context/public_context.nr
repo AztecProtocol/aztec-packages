@@ -293,6 +293,14 @@ unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
     return_opcode(returndata)
 }
 
+// This opcode reverts using the exact data given. In general it should only be used
+// to do rethrows, where the revert data is the same as the original revert data.
+// For normal reverts, use Noir's `assert` which, on top of reverting, will also add
+// an error selector to the revert data.
+unconstrained fn avm_revert<let N: u32>(revertdata: [Field]) {
+    revert_opcode(revertdata)
+}
+
 unconstrained fn storage_read(storage_slot: Field) -> Field {
     storage_read_opcode(storage_slot)
 }
@@ -377,6 +385,13 @@ unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32)
 
 #[oracle(avmOpcodeReturn)]
 unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
+
+// This opcode reverts using the exact data given. In general it should only be used
+// to do rethrows, where the revert data is the same as the original revert data.
+// For normal reverts, use Noir's `assert` which, on top of reverting, will also add
+// an error selector to the revert data.
+#[oracle(avmOpcodeRevert)]
+unconstrained fn revert_opcode(revertdata: [Field]) {}
 
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode<let RET_SIZE: u32>(

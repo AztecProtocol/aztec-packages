@@ -21,6 +21,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/fixed_bytes.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
@@ -266,6 +267,7 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
+    , bytecode_trace_builder(execution_hints_.all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
@@ -2389,7 +2391,7 @@ void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t addres
     ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
     std::vector<FF> public_key_fields = contract_instance.public_keys.to_fields();
     // NOTE: we don't write the first entry (the contract instance's address/key) to memory
-    std::vector<FF> contract_instance_vec = { contract_instance.instance_found_in_address,
+    std::vector<FF> contract_instance_vec = { contract_instance.exists ? FF::one() : FF::zero(),
                                               contract_instance.salt,
                                               contract_instance.deployer_addr,
                                               contract_instance.contract_class_id,
@@ -2449,12 +2451,12 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     // Truncate the hash to 31 bytes so it will be a valid field element
     FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
 
-    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and is
-    // prefixed to message see toBuffer in unencrypted_l2_log.ts
+    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and
+    // is prefixed to message see toBuffer in unencrypted_l2_log.ts
     FF length_of_preimage = num_bytes + 32 + 4;
     // The + 4 is because the kernels store the length of the
-    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need to
-    // add four to the length here. [Copied from unencrypted_l2_log.ts]
+    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need
+    // to add four to the length here. [Copied from unencrypted_l2_log.ts]
     FF metadata_log_length = length_of_preimage + 4;
     Row row = Row{
         .main_clk = clk,
@@ -2736,10 +2738,59 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     return returndata;
 }
 
-std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
+    // TODO: This opcode is still masquerading as RETURN.
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
+    bool tag_match = true;
+
+    auto [resolved_ret_offset, resolved_ret_size_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
+    gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
+
     // TODO: fix and set sel_op_revert
-    return op_return(indirect, ret_offset, ret_size);
+    if (ret_size == 0) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+
+        pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+        return {};
+    }
+
+    // The only memory operation performed from the main trace is a possible indirect load for resolving the
+    // direct destination offset stored in main_mem_addr_c.
+    // All the other memory operations are triggered by the slice gadget.
+    if (tag_match) {
+        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
+        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+    }
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_ib = ret_size,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_mem_addr_c = resolved_ret_offset,
+        .main_pc = pc,
+        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .main_sel_op_external_return = 1,
+        .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
+        .main_tag_err = static_cast<uint32_t>(!tag_match),
+        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+    });
+
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    return returndata;
 }
 
 /**************************************************************************************************
@@ -3511,6 +3562,18 @@ std::vector<Row> AvmTraceBuilder::finalize()
     kernel_trace_builder.finalize(main_trace);
 
     /**********************************************************************************************
+     * BYTECODE TRACE INCLUSION
+     **********************************************************************************************/
+
+    bytecode_trace_builder.build_bytecode_columns();
+    // Should not have to resize in the future, but for now we do
+    if (bytecode_trace_builder.size() > main_trace_size) {
+        main_trace_size = bytecode_trace_builder.size();
+        main_trace.resize(main_trace_size);
+    }
+    bytecode_trace_builder.finalize(main_trace);
+
+    /**********************************************************************************************
      * ONLY FIXED TABLES FROM HERE ON
      **********************************************************************************************/
 
@@ -3595,7 +3658,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
     // In case the range entries are larger than the main trace, we need to resize the main trace
-    // Normally this would happen at the start of finalize, but we cannot finalize the range checks until after gas :(
+    // Normally this would happen at the start of finalize, but we cannot finalize the range checks until after gas
+    // :(
     if (range_entries.size() > new_trace_size) {
         main_trace.resize(range_entries.size(), {});
         new_trace_size = range_entries.size();

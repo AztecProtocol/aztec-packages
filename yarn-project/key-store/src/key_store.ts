@@ -205,13 +205,12 @@ export class KeyStore {
   }
 
   /**
-   * Retrieves application incoming viewing secret key.
+   * Retrieves master incoming viewing secret key.
    * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application incoming viewing secret key for.
-   * @param app - The application address to retrieve the incoming viewing secret key for.
-   * @returns A Promise that resolves to the application incoming viewing secret key.
+   * @param account - The account to retrieve the master incoming viewing secret key for.
+   * @returns A Promise that resolves to the master incoming viewing secret key.
    */
-  public async getAppIncomingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+  public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
     const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
     if (!masterIncomingViewingSecretKeyBuffer) {
       throw new Error(
@@ -220,12 +219,7 @@ export class KeyStore {
     }
     const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
-    return Promise.resolve(
-      poseidon2HashWithSeparator(
-        [masterIncomingViewingSecretKey.hi, masterIncomingViewingSecretKey.lo, app],
-        GeneratorIndex.IVSK_M,
-      ),
-    );
+    return Promise.resolve(masterIncomingViewingSecretKey);
   }
 
   /**

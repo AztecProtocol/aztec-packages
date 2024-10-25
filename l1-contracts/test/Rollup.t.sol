@@ -8,6 +8,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
@@ -21,7 +22,7 @@ import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-
+import {Sysstia} from "@aztec/governance/Sysstia.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 
@@ -46,11 +47,14 @@ contract RollupTest is DecoderBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   IProofCommitmentEscrow internal proofCommitmentEscrow;
-
+  Sysstia internal sysstia;
   SignatureLib.Signature[] internal signatures;
 
   EpochProofQuoteLib.EpochProofQuote internal quote;
   EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
+
+  uint256 internal privateKey;
+  address internal signer;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -72,7 +76,11 @@ contract RollupTest is DecoderBase {
     );
     testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
-    rollup = new Rollup(feeJuicePortal, bytes32(0), bytes32(0), address(this), new address[](0));
+    sysstia = new Sysstia(testERC20, registry, address(this));
+    testERC20.mint(address(sysstia), 1e6 ether);
+
+    rollup =
+      new Rollup(feeJuicePortal, sysstia, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
     proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
@@ -82,15 +90,15 @@ contract RollupTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    uint256 privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
-    address signer = vm.addr(privateKey);
+    privateKey = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234;
+    signer = vm.addr(privateKey);
     uint256 bond = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
     quote = EpochProofQuoteLib.EpochProofQuote({
       epochToProve: Epoch.wrap(0),
       validUntilSlot: Slot.wrap(1),
       bondAmount: bond,
       prover: signer,
-      basisPointFee: 0
+      basisPointFee: 500
     });
     signedQuote = _quoteToSignedQuote(quote);
 
@@ -569,6 +577,13 @@ contract RollupTest is DecoderBase {
 
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
 
+    quote.epochToProve = Epoch.wrap(1);
+    quote.validUntilSlot = Epoch.wrap(2).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
+    rollup.claimEpochProofRight(signedQuote);
+
     {
       vm.expectRevert(
         abi.encodeWithSelector(
@@ -589,8 +604,9 @@ contract RollupTest is DecoderBase {
         coinbase,
         feeAmount
       );
-      assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
     }
+    assertEq(testERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
+    assertEq(testERC20.balanceOf(address(quote.prover)), 0, "invalid prover balance");
 
     {
       testERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
@@ -607,7 +623,13 @@ contract RollupTest is DecoderBase {
         coinbase,
         feeAmount
       );
-      assertEq(testERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
+
+      uint256 expectedReward = sysstia.BLOCK_REWARD() + feeAmount;
+      uint256 expectedProverReward = Math.mulDiv(expectedReward, quote.basisPointFee, 10_000);
+      uint256 expectedSequencerReward = expectedReward - expectedProverReward;
+
+      assertEq(testERC20.balanceOf(coinbase), expectedSequencerReward, "invalid coinbase balance");
+      assertEq(testERC20.balanceOf(quote.prover), expectedProverReward, "invalid prover balance");
     }
   }
 
@@ -824,8 +846,7 @@ contract RollupTest is DecoderBase {
     returns (EpochProofQuoteLib.SignedEpochProofQuote memory)
   {
     bytes32 digest = rollup.quoteToDigest(_quote);
-    (uint8 v, bytes32 r, bytes32 s) =
-      vm.sign(0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef1234, digest);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
     return EpochProofQuoteLib.SignedEpochProofQuote({
       quote: _quote,
       signature: SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s})

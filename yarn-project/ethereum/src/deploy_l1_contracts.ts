@@ -19,10 +19,13 @@ import {
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
+  RollupLinkReferences,
   SysstiaAbi,
   SysstiaBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
+  TxsDecoderAbi,
+  TxsDecoderBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
@@ -68,6 +71,20 @@ export type DeployL1Contracts = {
   l1ContractAddresses: L1ContractAddresses;
 };
 
+export interface LinkReferences {
+  [fileName: string]: {
+    [contractName: string]: ReadonlyArray<{
+      start: number;
+      length: number;
+    }>;
+  };
+}
+
+export interface Libraries {
+  linkReferences: LinkReferences;
+  libraryCode: Record<string, ContractArtifacts>;
+}
+
 /**
  * Contract artifacts
  */
@@ -80,6 +97,10 @@ export interface ContractArtifacts {
    * The contract bytecode
    */
   contractBytecode: Hex;
+  /**
+   * The contract libraries
+   */
+  libraries?: Libraries;
 }
 
 /**
@@ -144,6 +165,15 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   rollup: {
     contractAbi: RollupAbi,
     contractBytecode: RollupBytecode,
+    libraries: {
+      linkReferences: RollupLinkReferences,
+      libraryCode: {
+        TxsDecoder: {
+          contractAbi: TxsDecoderAbi,
+          contractBytecode: TxsDecoderBytecode,
+        },
+      },
+    },
   },
   feeJuice: {
     contractAbi: TestERC20Abi,
@@ -285,19 +315,6 @@ export const deployL1Contracts = async (
   const feeJuiceAddress = await govDeployer.deploy(l1Artifacts.feeJuice);
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
-    feeJuiceAddress.toString(),
-    1n * 10n ** 18n, // @todo  #8084
-    account.address.toString(),
-  ]);
-  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
-
-  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
-    feeJuiceAddress.toString(),
-    registryAddress.toString(),
-  ]);
-  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
-
   // @todo  #8084
   // @note These numbers are just chosen to make testing simple.
   const quorumSize = 6n;
@@ -315,6 +332,20 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Apella at ${apellaAddress}`);
 
+  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
+    feeJuiceAddress.toString(),
+    1n * 10n ** 18n, // @todo  #8084
+    apellaAddress.toString(),
+  ]);
+  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
+
+  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
+    feeJuiceAddress.toString(),
+    registryAddress.toString(),
+    apellaAddress.toString(),
+  ]);
+  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
+
   await govDeployer.waitForDeployments();
   logger.info(`All governance contracts deployed`);
 
@@ -329,6 +360,7 @@ export const deployL1Contracts = async (
 
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
+    sysstiaAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
@@ -486,10 +518,7 @@ class L1Deployer {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
   }
 
-  async deploy(
-    params: { contractAbi: Narrow<Abi | readonly unknown[]>; contractBytecode: Hex },
-    args: readonly unknown[] = [],
-  ): Promise<EthAddress> {
+  async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
     const { txHash, address } = await deployL1Contract(
       this.walletClient,
       this.publicClient,
@@ -497,6 +526,7 @@ class L1Deployer {
       params.contractBytecode,
       args,
       this.salt,
+      params.libraries,
       this.logger,
     );
     if (txHash) {
@@ -572,10 +602,51 @@ export async function deployL1Contract(
   bytecode: Hex,
   args: readonly unknown[] = [],
   maybeSalt?: Hex,
+  libraries?: Libraries,
   logger?: DebugLogger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let address: Hex | null | undefined = undefined;
+
+  if (libraries) {
+    // @note  Assumes that we wont have nested external libraries.
+
+    const replacements: Record<string, EthAddress> = {};
+
+    for (const libraryName in libraries?.libraryCode) {
+      const lib = libraries.libraryCode[libraryName];
+
+      const { address } = await deployL1Contract(
+        walletClient,
+        publicClient,
+        lib.contractAbi,
+        lib.contractBytecode,
+        [],
+        maybeSalt,
+        undefined,
+        logger,
+      );
+
+      for (const linkRef in libraries.linkReferences) {
+        for (const c in libraries.linkReferences[linkRef]) {
+          const start = 2 + 2 * libraries.linkReferences[linkRef][c][0].start;
+          const length = 2 * libraries.linkReferences[linkRef][c][0].length;
+
+          const toReplace = bytecode.slice(start, start + length);
+          replacements[toReplace] = address;
+        }
+      }
+    }
+
+    const escapeRegExp = (s: string) => {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape special characters
+    };
+
+    for (const toReplace in replacements) {
+      const replacement = replacements[toReplace].toString().slice(2);
+      bytecode = bytecode.replace(new RegExp(escapeRegExp(toReplace), 'g'), replacement) as Hex;
+    }
+  }
 
   if (maybeSalt) {
     const salt = padHex(maybeSalt, { size: 32 });
