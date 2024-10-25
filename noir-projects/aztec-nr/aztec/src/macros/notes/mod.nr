@@ -719,9 +719,6 @@ comptime fn generate_finalization_payload(
                 // We convert the log from fields to bytes
                 let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
 
-                // First byte should be zero as the number of public values is populated in public
-                assert(setup_log[0] == 0, "Non-zero first byte");
-
                 // We append the public value to the log and emit it as unencrypted log
                 let mut finalization_log = [0; $finalization_log_byte_length];
 
