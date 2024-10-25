@@ -67,7 +67,7 @@ fi
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
   # run_docker_compose "$TEST" "$@" || [ "$ignore_failures" = "true" ]
-  ./e2e_compose_test.sh "$TEST" "$@" || [ "$ignore_failures" = "true" ]
+  $(dirname "$0")/e2e_compose_test.sh "$TEST" "$@" || [ "$ignore_failures" = "true" ]
 else
   # Set environment variables
   while IFS='=' read -r key value; do
