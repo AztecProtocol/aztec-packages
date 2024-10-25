@@ -3,15 +3,17 @@ import {
   type BlockProposal,
   type EpochProofQuote,
   type L2Block,
-  L2BlockDownloader,
   type L2BlockId,
   type L2BlockSource,
+  L2BlockStream,
+  type L2BlockStreamEvent,
+  type L2Tips,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
@@ -179,12 +181,6 @@ export interface P2P {
  * The P2P client implementation.
  */
 export class P2PClient extends WithTracer implements P2P {
-  /** L2 block download to stay in sync with latest blocks. */
-  private latestBlockDownloader: L2BlockDownloader;
-
-  /** L2 block download to stay in sync with proven blocks. */
-  private provenBlockDownloader: L2BlockDownloader;
-
   /** Property that indicates whether the client is running. */
   private stopping = false;
 
@@ -197,12 +193,15 @@ export class P2PClient extends WithTracer implements P2P {
   private latestBlockNumberAtStart = -1;
   private provenBlockNumberAtStart = -1;
 
+  private synchedBlockHashes: AztecMap<number, string>;
   private synchedLatestBlockNumber: AztecSingleton<number>;
   private synchedProvenBlockNumber: AztecSingleton<number>;
 
   private txPool: TxPool;
   private attestationPool: AttestationPool;
   private epochProofQuotePool: EpochProofQuotePool;
+
+  private blockStream;
 
   /**
    * In-memory P2P client constructor.
@@ -224,20 +223,78 @@ export class P2PClient extends WithTracer implements P2P {
   ) {
     super(telemetryClient, 'P2PClient');
 
-    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigFromEnv();
-    const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
-    // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
-    // if the archiver is remote. We should refactor this so the downloader keeps a single queue and handles
-    // latest/proven metadata, as well as block reorgs.
-    this.latestBlockDownloader = new L2BlockDownloader(l2BlockSource, l2DownloaderOpts);
-    this.provenBlockDownloader = new L2BlockDownloader(l2BlockSource, { ...l2DownloaderOpts, proven: true });
+    const { blockCheckIntervalMS, l2QueueSize } = getP2PConfigFromEnv();
 
+    this.blockStream = new L2BlockStream(l2BlockSource, this, this, {
+      batchSize: l2QueueSize,
+      pollIntervalMS: blockCheckIntervalMS,
+    });
+
+    this.synchedBlockHashes = store.openMap('p2p_pool_block_hashes');
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
 
     this.txPool = mempools.txPool;
     this.attestationPool = mempools.attestationPool;
     this.epochProofQuotePool = mempools.epochProofQuotePool;
+  }
+
+  public getL2BlockHash(number: number): Promise<string | undefined> {
+    return Promise.resolve(this.synchedBlockHashes.get(number));
+  }
+
+  public getL2Tips(): Promise<L2Tips> {
+    const latestBlockNumber = this.getSyncedLatestBlockNum();
+    let latestBlockHash: string | undefined;
+    const provenBlockNumber = this.getSyncedProvenBlockNum();
+    let provenBlockHash: string | undefined;
+
+    if (latestBlockNumber > 0) {
+      latestBlockHash = this.synchedBlockHashes.get(latestBlockNumber);
+      if (typeof latestBlockHash === 'undefined') {
+        this.log.warn(`Block hash for latest block ${latestBlockNumber} not found`);
+        throw new Error();
+      }
+    }
+
+    if (provenBlockNumber > 0) {
+      provenBlockHash = this.synchedBlockHashes.get(provenBlockNumber);
+      if (typeof provenBlockHash === 'undefined') {
+        this.log.warn(`Block hash for proven block ${provenBlockNumber} not found`);
+        throw new Error();
+      }
+    }
+
+    return Promise.resolve({
+      latest: { hash: latestBlockHash!, number: latestBlockNumber },
+      proven: { hash: provenBlockHash!, number: provenBlockNumber },
+      finalized: { hash: provenBlockHash!, number: provenBlockNumber },
+    });
+  }
+
+  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    this.log.debug(`Handling block stream event ${event.type}`);
+    switch (event.type) {
+      case 'blocks-added':
+        await this.handleLatestL2Blocks(event.blocks);
+        break;
+      case 'chain-finalized':
+        // TODO (alexg): I think we can prune the block hashes map here
+        break;
+      case 'chain-proven': {
+        const from = this.getSyncedProvenBlockNum() + 1;
+        const limit = event.blockNumber - from + 1;
+        await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
+        break;
+      }
+      case 'chain-pruned':
+        await this.handlePruneL2Blocks(event.blockNumber);
+        break;
+      default: {
+        const _: never = event;
+        break;
+      }
+    }
   }
 
   #assertIsReady() {
@@ -304,21 +361,7 @@ export class P2PClient extends WithTracer implements P2P {
     // publish any txs in TxPool after its doing initial sync
     this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
 
-    // start looking for further blocks
-    const processLatest = async () => {
-      while (!this.stopping) {
-        await this.latestBlockDownloader.getBlocks(1).then(this.handleLatestL2Blocks.bind(this));
-      }
-    };
-    const processProven = async () => {
-      while (!this.stopping) {
-        await this.provenBlockDownloader.getBlocks(1).then(this.handleProvenL2Blocks.bind(this));
-      }
-    };
-
-    this.runningPromise = Promise.all([processLatest(), processProven()]).then(() => {});
-    this.latestBlockDownloader.start(syncedLatestBlock);
-    this.provenBlockDownloader.start(syncedLatestBlock);
+    this.blockStream.start();
     this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
 
     return this.syncPromise;
@@ -333,8 +376,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.stopping = true;
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
-    await this.latestBlockDownloader.stop();
-    await this.provenBlockDownloader.stop();
+    await this.blockStream.stop();
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
@@ -551,8 +593,10 @@ export class P2PClient extends WithTracer implements P2P {
     if (!blocks.length) {
       return Promise.resolve();
     }
+
     await this.markTxsAsMinedFromBlocks(blocks);
     const lastBlockNum = blocks[blocks.length - 1].number;
+    await Promise.all(blocks.map(block => this.synchedBlockHashes.set(block.number, block.hash().toString())));
     await this.synchedLatestBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to latest block ${lastBlockNum}`);
     await this.startServiceIfSynched();
@@ -590,7 +634,37 @@ export class P2PClient extends WithTracer implements P2P {
     await this.startServiceIfSynched();
   }
 
+  /**
+   * Updates the tx pool after a chain prune.
+   * @param latestBlock - The block number the chain was pruned to.
+   */
+  private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
+    const txsToDelete: TxHash[] = [];
+    for (const tx of this.txPool.getAllTxs()) {
+      // every tx that's been generated against a block that has now been pruned is no longer valid
+      // NOTE (alexg): I think this check against block hash instead of block number?
+      if (tx.data.constants.globalVariables.blockNumber.toNumber() > latestBlock) {
+        txsToDelete.push(tx.getTxHash());
+      }
+    }
+
+    // TODO (alexg): Delete or re-add txs that were created against the proven block but mined in one of the pruned blocks
+    // e.g. I create a tx against proven block 42 but it the sequencer includes it in block 45. The chain gets pruned back to 42.
+    // That tx now lingers in the pool as 'mined' but it really is no longer mined. It's also not technically invalid.
+
+    this.log.info(
+      `Detected chain prune. Removing invalid txs count=${
+        txsToDelete.length
+      } newLatestBlock=${latestBlock} previousLatestBlock=${this.getSyncedLatestBlockNum()}`,
+    );
+    await this.txPool.deleteTxs(txsToDelete);
+    await this.synchedLatestBlockNumber.set(latestBlock);
+    await this.synchedProvenBlockNumber.set(latestBlock);
+    // no need to update block hashes, as they will be updated as new blocks are added
+  }
+
   private async startServiceIfSynched() {
+    // TODO (alexg): I don't think this check works if there's a reorg
     if (
       this.currentState === P2PClientState.SYNCHING &&
       this.getSyncedLatestBlockNum() >= this.latestBlockNumberAtStart &&
