@@ -750,7 +750,7 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  async getTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderPreaddress = computePreaddress(
       senderCompleteAddress.publicKeys.hash(),
