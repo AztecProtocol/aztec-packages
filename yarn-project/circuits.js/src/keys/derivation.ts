@@ -4,7 +4,7 @@ import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
-import { CompleteAddress } from '../index.js';
+import { type CompleteAddress } from '../index.js';
 import { PublicKeys } from '../types/public_keys.js';
 import { type KeyPrefix } from './key_types.js';
 import { getKeyGenerator } from './utils.js';
