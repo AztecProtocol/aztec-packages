@@ -244,6 +244,50 @@ export class UltraHonkBackend {
   }
 }
 
+export class AztecClientBackend {
+  // These type assertions are used so that we don't
+  // have to initialize `api` in the constructor.
+  // These are initialized asynchronously in the `init` function,
+  // constructors cannot be asynchronous which is why we do this.
+
+  protected api!: Barretenberg;
+
+  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+
+  /** @ignore */
+  async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.options);
+      await api.initSRSClientIVC();
+      this.api = api;
+    }
+  }
+
+  async generateProof(witnessMsgpack: Uint8Array[]): Promise<Uint8Array> {
+    await this.instantiate();
+    return this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  // async verifyProof(proof: Uint8Array): Promise<boolean> {
+  //   await this.instantiate();
+  //   const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirMsgpack);
+
+  //   return await this.api.acirVerifyAztecClientProof(proof, new RawBuffer(vkBuf));
+  // }
+
+  // async getVerificationKey(): Promise<Uint8Array> {
+  //   await this.instantiate();
+  //   return await this.api.acirWriteVkUltraHonk(this.acirMsgpack);
+  // }
+
+  async destroy(): Promise<void> {
+    if (!this.api) {
+      return;
+    }
+    await this.api.destroy();
+  }
+}
+
 // Converts bytecode from a base64 string to a Uint8Array
 function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
   const compressedByteCode = base64Decode(base64EncodedBytecode);

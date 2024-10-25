@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { Crs, Barretenberg, RawBuffer } from './index.js';
-import { GrumpkinCrs } from './crs/node/index.js';
+import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
+import { ungzip } from 'pako';
 import { Command } from 'commander';
+import { decode } from '@msgpack/msgpack';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
 createDebug.log = console.error.bind(console);
@@ -30,6 +31,13 @@ function getBytecode(bytecodePath: string) {
 
   const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
+  return decompressed;
+}
+
+function readStack(bytecodePath: string, numToDrop: number) {
+  const encodedCircuit = readFileSync(bytecodePath);
+  const unpacked = decode(encodedCircuit.subarray(0, encodedCircuit.length - numToDrop)) as Uint8Array[];
+  const decompressed = unpacked.map((arr: Uint8Array) => ungzip(arr));
   return decompressed;
 }
 
@@ -99,11 +107,11 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   return { api, circuitSize, dyadicCircuitSize };
 }
 
-async function initClientIVC(bytecodePath: string, crsPath: string) {
+async function initClientIVC(crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
   debug('loading BN254 and Grumpkin crs...');
-  const crs = await Crs.new(2 ** 18 + 1, crsPath);
+  const crs = await Crs.new(2 ** 21 + 1, crsPath); // WORKTODO: size?
   const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
@@ -186,9 +194,48 @@ export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: 
   /* eslint-enable camelcase */
 }
 
+export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const { api } = await initClientIVC(crsPath);
+  try {
+    const bytecode = readStack(bytecodePath, 0);
+    const witness = readStack(witnessPath, 0);
+
+    const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
+export async function proveAztecClient(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
+  /* eslint-disable camelcase */
+  const { api } = await initClientIVC(crsPath);
+  try {
+    debug(`creating proof...`);
+    const bytecode = readStack(bytecodePath, 0);
+    const witness = readStack(witnessPath, 0);
+    const proof = await api.acirProveAztecClient(bytecode, witness);
+    debug(`finished creating proof.`);
+
+    if (outputPath === '-') {
+      process.stdout.write(proof);
+      debug(`proof written to stdout`);
+    } else {
+      writeFileSync(outputPath, proof);
+      debug(`proof written to: ${outputPath}`);
+    }
+
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
 export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const { api } = await initClientIVC(bytecodePath, crsPath);
+  const { api } = await initClientIVC(crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
@@ -501,6 +548,17 @@ program
   });
 
 program
+  .command('client_ivc_prove_and_verify')
+  .description('Generate a ClientIVC proof.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acirs.msgpack')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack')
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
   .command('fold_and_verify_program')
   .description('Accumulate a set of circuits using ClientIvc then verify. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
@@ -520,6 +578,29 @@ program
   .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
     handleGlobalOptions();
     await prove(bytecodePath, witnessPath, crsPath, outputPath);
+  });
+
+program
+  .command('client_ivc_prove')
+  .description('Generate a ClientIVC proof.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acirs.msgpack')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack')
+  .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
+  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
+    handleGlobalOptions();
+    await proveAztecClient(bytecodePath, witnessPath, outputPath, crsPath);
+  });
+
+  program
+  .command('client_ivc_prove_and_verify')
+  .description('Generate a ClientIVC proof.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acirs.msgpack')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack')
+  .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
   });
 
 program
