@@ -1,7 +1,9 @@
 use crate::{
-    address::{AztecAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress},
-    contract_class_id::ContractClassId, hash::private_functions_root_from_siblings,
-    tests::fixtures::contract_functions::get_protocol_contract_function, public_keys::PublicKeys,
+    address::{AztecAddress, PartialAddress, PublicKeysHash, SaltedInitializationHash},
+    contract_class_id::ContractClassId,
+    hash::private_functions_root_from_siblings,
+    public_keys::PublicKeys,
+    tests::fixtures::contract_functions::get_protocol_contract_function,
 };
 
 pub struct ContractData {

@@ -1,11 +1,12 @@
 use dep::aztec::{
-    protocol_types::address::AztecAddress,
-    context::{public_context::PublicContext, call_interfaces::CallInterface},
-    test::helpers::cheatcodes, oracle::execution::{get_block_number, get_contract_address},
+    context::{call_interfaces::CallInterface, public_context::PublicContext},
     hash::hash_args,
+    oracle::execution::{get_block_number, get_contract_address},
+    protocol_types::address::AztecAddress,
+    test::helpers::cheatcodes,
 };
 
-use crate::auth::{compute_inner_authwit_hash, compute_authwit_message_hash, set_authorized};
+use crate::auth::{compute_authwit_message_hash, compute_inner_authwit_hash, set_authorized};
 
 pub fn add_private_authwit_from_call_interface<C, let M: u32>(
     on_behalf_of: AztecAddress,

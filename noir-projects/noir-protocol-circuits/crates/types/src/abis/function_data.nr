@@ -1,6 +1,7 @@
 use crate::{
-    abis::function_selector::FunctionSelector, constants::FUNCTION_DATA_LENGTH,
-    traits::{Serialize, Deserialize, Empty},
+    abis::function_selector::FunctionSelector,
+    constants::FUNCTION_DATA_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
 };
 
 pub struct FunctionData {

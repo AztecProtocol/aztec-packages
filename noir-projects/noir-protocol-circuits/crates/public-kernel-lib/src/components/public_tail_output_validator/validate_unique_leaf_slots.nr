@@ -30,7 +30,8 @@ pub fn validate_unique_leaf_slots<let N: u32>(
 mod tests {
     use crate::components::public_tail_output_validator::validate_unique_leaf_slots::validate_unique_leaf_slots;
     use dep::types::{
-        data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf}, tests::utils::pad_end,
+        data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf},
+        tests::utils::pad_end,
         utils::arrays::SortedResult,
     };
 

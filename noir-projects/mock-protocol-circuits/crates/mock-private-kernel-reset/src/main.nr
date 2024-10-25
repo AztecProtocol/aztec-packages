@@ -1,5 +1,5 @@
 use dep::mock_types::{
-    PrivateKernelPublicInputs, MAX_COMMITMENT_READ_REQUESTS_PER_TX, MAX_COMMITMENTS_PER_TX,
+    MAX_COMMITMENT_READ_REQUESTS_PER_TX, MAX_COMMITMENTS_PER_TX, PrivateKernelPublicInputs,
 };
 
 // Mock reset kernel that reset read requests.

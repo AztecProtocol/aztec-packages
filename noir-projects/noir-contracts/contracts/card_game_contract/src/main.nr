@@ -5,14 +5,14 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract CardGame {
-    use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
+    use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
-    use crate::cards::{Deck, Card, get_pack_cards, compute_deck_strength};
-    use crate::game::{PLAYABLE_CARDS, PlayerEntry, Game};
-    use dep::aztec::macros::{storage::storage, functions::{private, public, internal}};
+    use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
+    use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
+    use dep::aztec::macros::{functions::{internal, private, public}, storage::storage};
 
     #[storage]
     struct Storage<Context> {

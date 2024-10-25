@@ -4,9 +4,11 @@ use dep::protocol_types::{
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
-    lifecycle::create_note, note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
+    lifecycle::create_note,
     note_emission::NoteEmission,
+    note_getter::{get_note, view_notes},
+    note_interface::{NoteInterface, NullifiableNote},
+    note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;

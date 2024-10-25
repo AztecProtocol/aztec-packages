@@ -3,22 +3,25 @@ use crate::abis::{
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
 };
 use crate::abis::{
-    previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData,
+    previous_rollup_block_data::PreviousRollupBlockData, previous_rollup_data::PreviousRollupData,
 };
 use dep::types::{
-    hash::{
-        accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
-        compute_tx_note_logs_hash,
-    }, merkle_tree::VariableMerkleTree,
-    constants::{
-        AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
-    }, utils::arrays::{array_length, array_merge},
     abis::{
         accumulated_data::CombinedAccumulatedData,
-        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
+        log_hash::{LogHash, ScopedLogHash},
+        public_data_update_request::PublicDataUpdateRequest,
     },
+    constants::{
+        AZTEC_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+    },
+    hash::{
+        accumulate_sha256, compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
+        silo_unencrypted_log_hash,
+    },
+    merkle_tree::VariableMerkleTree,
+    utils::arrays::{array_length, array_merge},
 };
 
 /**
@@ -358,7 +361,7 @@ fn get_all_update_requests_for_tx_effects(
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     let expected_size = 1 // revert code
-    + 1 // transaction fee
+        + 1 // transaction fee
         + MAX_NOTE_HASHES_PER_TX
         + MAX_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2

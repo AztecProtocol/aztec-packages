@@ -1,4 +1,4 @@
-use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Serialize, Empty}};
+use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct MaxBlockNumber {
     _opt: Option<u32>,

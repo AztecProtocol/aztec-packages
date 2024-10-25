@@ -1,10 +1,12 @@
-use dep::aztec::prelude::{NoteHeader, NullifiableNote, PrivateContext};
 use dep::aztec::{
-    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app,
+    keys::getters::get_nsk_app,
+    macros::notes::note,
+    note::utils::compute_note_hash_for_nullify,
     protocol_types::{
         constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
-    }, macros::notes::note,
+    },
 };
+use dep::aztec::prelude::{NoteHeader, NullifiableNote, PrivateContext};
 
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?

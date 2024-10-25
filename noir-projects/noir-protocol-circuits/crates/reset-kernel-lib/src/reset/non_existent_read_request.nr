@@ -1,5 +1,5 @@
 use dep::types::{
-    abis::{side_effect::OrderedValue, read_request::ScopedReadRequest},
+    abis::{read_request::ScopedReadRequest, side_effect::OrderedValue},
     merkle_tree::{assert_check_non_membership, IndexedTreeLeafPreimage, MembershipWitness},
     traits::is_empty,
 };
@@ -112,7 +112,8 @@ mod tests {
     };
 
     use dep::types::{
-        address::AztecAddress, abis::{read_request::ReadRequest, side_effect::OrderedValue},
+        abis::{read_request::ReadRequest, side_effect::OrderedValue},
+        address::AztecAddress,
         merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, membership::MembershipWitness},
         tests::merkle_tree_utils::NonEmptyMerkleTree,
     };

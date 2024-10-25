@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 global SETTINGS_LENGTH: u32 = 2;
 

@@ -32,8 +32,8 @@ pub fn point_to_bytes(pk: Point) -> [u8; 32] {
 }
 
 mod test {
-    use dep::protocol_types::point::Point;
     use crate::utils::point::point_to_bytes;
+    use dep::protocol_types::point::Point;
 
     #[test]
     unconstrained fn test_point_to_bytes_positive_sign() {

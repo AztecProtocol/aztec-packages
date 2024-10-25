@@ -1,5 +1,5 @@
 use dep::protocol_types::abis::validation_requests::{
-    KeyValidationRequest, key_validation_request::KEY_VALIDATION_REQUEST_LENGTH,
+    key_validation_request::KEY_VALIDATION_REQUEST_LENGTH, KeyValidationRequest,
 };
 
 #[oracle(getKeyValidationRequest)]

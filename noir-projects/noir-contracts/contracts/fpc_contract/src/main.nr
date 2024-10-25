@@ -4,13 +4,13 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract FPC {
+    use crate::lib::compute_rebate;
     use dep::aztec::{
+        macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable,
-        macros::{storage::storage, functions::{private, public, initializer, internal}},
     };
     use dep::token::Token;
-    use crate::lib::compute_rebate;
 
     #[storage]
     struct Storage<Context> {

@@ -19,22 +19,28 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
-        oracle::random::random,
-        prelude::{
-            NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress,
-            FunctionSelector,
-        },
+        context::{PrivateCallInterface, PrivateContext},
         encrypted_logs::{
+            encrypted_event_emission::encode_and_encrypt_event_unconstrained,
             encrypted_note_emission::{
                 encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
                 encrypt_and_emit_partial_log,
-            }, encrypted_event_emission::encode_and_encrypt_event_unconstrained,
-        }, keys::getters::get_public_keys,
+            },
+        },
+        hash::compute_secret_hash,
+        keys::getters::get_public_keys,
         macros::{
-            storage::storage, events::event,
-            functions::{initializer, private, view, public, internal},
-        }, utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize},
+            events::event,
+            functions::{initializer, internal, private, public, view},
+            storage::storage,
+        },
+        oracle::random::random,
+        prelude::{
+            AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable,
+            SharedImmutable,
+        },
+        protocol_types::{point::Point, traits::Serialize},
+        utils::comparison::Comparator,
     };
 
     // docs:start:import_authwit
@@ -45,7 +51,7 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::TransparentNote, token_note::TokenNote, balance_set::BalanceSet,
+        balance_set::BalanceSet, token_note::TokenNote, transparent_note::TransparentNote,
     };
 
     // docs:end::imports

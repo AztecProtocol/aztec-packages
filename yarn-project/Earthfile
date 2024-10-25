@@ -281,7 +281,8 @@ prover-client-test:
 
 # NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
 # Running this inside the main builder as the point is not to run this through dockerization.
-network-test-fake-proofs:
+network-test:
+    ARG test=./test-transfer.sh
     FROM +build
     WORKDIR /usr/src/
     # Bare minimum git setup to run 'git rev-parse --show-toplevel'
@@ -291,14 +292,14 @@ network-test-fake-proofs:
     # All script arguments are in the end-to-end/scripts/native-network folder
     ENV LOG_LEVEL=verbose
     RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
-        ./test-transfer.sh \
+        "$test" \
         ./deploy-l1-contracts.sh \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
         ./ethereum.sh \
         "./prover-node.sh 8078 false" \
         ./pxe.sh \
-        "./validator.sh 8081 40401"
+        "./validators.sh 3"
 
 publish-npm:
     FROM +build
