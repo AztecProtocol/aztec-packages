@@ -30,25 +30,6 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
   exit 1
 fi
 
-# Function to run docker compose
-run_docker_compose() {
-  local test_name=$1
-  shift
-
-  # Compute project_name
-  local project_name=$(echo "$test_name" | sed 's/\./_/g' | sed 's/\//_/g')
-
-  # Determine CMD
-  if docker compose >/dev/null 2>&1; then
-    local CMD="docker compose"
-  else
-    local CMD="docker-compose"
-  fi
-
-  # Run docker compose
-  $CMD -p "$project_name" -f "$COMPOSE_FILE" up --exit-code-from=end-to-end --force-recreate "$@"
-}
-
 # Load test configuration
 test_config=$(load_test_config "$TEST")
 
@@ -67,7 +48,7 @@ fi
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
   # run_docker_compose "$TEST" "$@" || [ "$ignore_failures" = "true" ]
-  $(dirname "$0")/e2e_compose_test.sh "$TEST" "$@" || [ "$ignore_failures" = "true" ]
+  $(dirname "$0")/e2e_compose_test.sh "$test_path" "$@" || [ "$ignore_failures" = "true" ]
 else
   # Set environment variables
   while IFS='=' read -r key value; do
