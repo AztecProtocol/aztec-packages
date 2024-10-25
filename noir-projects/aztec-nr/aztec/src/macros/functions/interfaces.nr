@@ -14,7 +14,7 @@ comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseido
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let mut parameters =
-        f.parameters().map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
+        f.parameters().map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
@@ -97,7 +97,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     };
 
     let fn_parameters_list =
-        fn_parameters.map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
+        fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
     let fn_name_str = fn_name.as_str_quote();
 

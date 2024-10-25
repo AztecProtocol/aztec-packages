@@ -76,7 +76,7 @@ contract RollupTest is DecoderBase {
     );
     testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
-    sysstia = new Sysstia(testERC20, registry);
+    sysstia = new Sysstia(testERC20, registry, address(this));
     testERC20.mint(address(sysstia), 1e6 ether);
 
     rollup =

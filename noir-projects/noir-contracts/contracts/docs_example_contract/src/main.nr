@@ -73,7 +73,7 @@ contract DocsExample {
                 profiles: Map::new(
                     context,
                     4,
-                    |context, slot| { PrivateMutable::new(context, slot) },
+                    |context, slot| PrivateMutable::new(context, slot),
                 ),
                 // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
@@ -85,7 +85,7 @@ contract DocsExample {
                 minters: Map::new(
                     context,
                     8,
-                    |context, slot| { PublicMutable::new(context, slot) },
+                    |context, slot| PublicMutable::new(context, slot),
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
