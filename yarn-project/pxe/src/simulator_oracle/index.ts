@@ -11,17 +11,13 @@ import {
   type AztecAddress,
   type CompleteAddress,
   type ContractInstance,
-  Fq,
   type Fr,
   type FunctionSelector,
   type Header,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  computePoint,
-  computePreaddress,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
