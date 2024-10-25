@@ -1,6 +1,12 @@
 import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { type CompleteAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
+import {
+  type CompleteAddress,
+  INITIAL_L2_BLOCK_NUM,
+  MAX_NOTE_HASHES_PER_TX,
+  type PublicKey,
+  computeAddressSecret,
+} from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -115,6 +121,8 @@ export class NoteProcessor {
     const deferredOutgoingNotes: DeferredNoteDao[] = [];
 
     const ivskM = await this.keyStore.getMasterSecretKey(this.ivpkM);
+    const addressSecret = computeAddressSecret(this.account.getPreaddress(), ivskM);
+
     const ovskM = await this.keyStore.getMasterSecretKey(this.ovpkM);
 
     // Iterate over both blocks and encrypted logs.
@@ -142,7 +150,7 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, ivskM);
+            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, addressSecret);
             const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
 
             if (incomingNotePayload || outgoingNotePayload) {
