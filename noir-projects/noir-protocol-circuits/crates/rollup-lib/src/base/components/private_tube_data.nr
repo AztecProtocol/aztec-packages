@@ -17,7 +17,7 @@ impl Verifiable for PrivateTubeData {
             self.vk_data.vk.key,
             self.proof.fields,
             inputs,
-            self.vk_data.vk.hash
+            self.vk_data.vk.hash,
         );
     }
 }

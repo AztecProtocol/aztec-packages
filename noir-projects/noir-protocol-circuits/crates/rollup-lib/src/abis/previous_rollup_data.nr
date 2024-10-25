@@ -1,24 +1,27 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
+    merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
-    recursive_proof::NestedRecursiveProof, verification_key::{VerificationKey, HonkVerificationKey},
-    traits::Verifiable
-},
-    traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
-    utils::arrays::find_index_hint
+        recursive_proof::NestedRecursiveProof,
+        traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
+    utils::arrays::find_index_hint,
 };
 
-pub struct PreviousRollupData{
-    base_or_merge_rollup_public_inputs : BaseOrMergeRollupPublicInputs,
-    proof : NestedRecursiveProof,
-    vk : HonkVerificationKey,
-    vk_witness : MembershipWitness<VK_TREE_HEIGHT>,
+pub struct PreviousRollupData {
+    base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs,
+    proof: NestedRecursiveProof,
+    vk: HonkVerificationKey,
+    vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupData {
     fn verify(self) {
-        let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
+        let inputs =
+            BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
         std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
     }
 }
@@ -29,7 +32,7 @@ impl Empty for PreviousRollupData {
             base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs::empty(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
-            vk_witness: MembershipWitness::empty()
+            vk_witness: MembershipWitness::empty(),
         }
     }
 }
@@ -39,9 +42,8 @@ impl PreviousRollupData {
         self.vk.check_hash();
 
         let leaf_index = self.vk_witness.leaf_index as u32;
-        let index_hint = unsafe {
-            find_index_hint(allowed_indices, |index: u32| index == leaf_index)
-        };
+        let index_hint =
+            unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
         assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
@@ -49,7 +51,7 @@ impl PreviousRollupData {
             self.vk.hash,
             self.vk_witness.leaf_index,
             self.vk_witness.sibling_path,
-            self.base_or_merge_rollup_public_inputs.constants.vk_tree_root
+            self.base_or_merge_rollup_public_inputs.constants.vk_tree_root,
         );
     }
 }

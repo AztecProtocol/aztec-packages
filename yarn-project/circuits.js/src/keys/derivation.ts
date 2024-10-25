@@ -1,6 +1,6 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { type Fq, type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
@@ -41,9 +41,48 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
-export function computeAddress(publicKeysHash: Fr, partialAddress: Fr) {
-  const addressFr = poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
-  return AztecAddress.fromField(addressFr);
+export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
+  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+}
+
+export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr) {
+  // Given public keys and a partial address, we can compute our address in the following steps.
+  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
+  // 2. addressPoint = (preaddress * G) + ivpk_m
+  // 3. address = addressPoint.x
+  const preaddress = computePreaddress(publicKeys.hash(), partialAddress);
+  const address = new Grumpkin().add(
+    derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt())),
+    publicKeys.masterIncomingViewingPublicKey,
+  );
+
+  return address.x;
+}
+
+export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
+  // TLDR; P1 = (h + ivsk) * G
+  // if P1.y is pos
+  //   S = (h + ivsk)
+  // else
+  //   S = Fq.MODULUS - (h + ivsk)
+  //
+  // Given h (our preaddress) and our ivsk, we have two different addressSecret candidates. One encodes to a point with a positive y-coordinate
+  // and the other encodes to a point with a negative y-coordinate. We take the addressSecret candidate that is a simple addition of the two Scalars.
+  const addressSecretCandidate = ivsk.add(new Fq(preaddress.toBigInt()));
+  // We then multiply this secretCandidate by the generator G to create an addressPoint candidate.
+  const addressPointCandidate = derivePublicKeyFromSecretKey(addressSecretCandidate);
+
+  // Because all encryption to addresses is done using a point with the positive y-coordinate, if our addressSecret candidate derives a point with a
+  // negative y-coordinate, we use the other candidate by negating the secret. This transformation of the secret simply flips the y-coordinate of the derived point while keeping the x-coordinate the same.
+  if (!(addressPointCandidate.y.toBigInt() <= (Fr.MODULUS - 1n) / 2n)) {
+    return new Fq(Fq.MODULUS - addressSecretCandidate.toBigInt());
+  }
+
+  return addressSecretCandidate;
+}
+
+export function computePoint(address: AztecAddress) {
+  return Point.fromXAndSign(address, true);
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {

@@ -74,7 +74,7 @@ Note in particular that the request for a witness is done by the token contract,
 As part of `AuthWit` we are assuming that the `on_behalf_of` implements the private function:
 
 ```rust
-#[aztec(private)]
+#[private]
 fn verify_private_authwit(inner_hash: Field) -> Field;
 ```
 

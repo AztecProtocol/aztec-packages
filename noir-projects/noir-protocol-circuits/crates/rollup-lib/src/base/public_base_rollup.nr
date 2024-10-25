@@ -1,23 +1,25 @@
 use crate::{
     abis::{
-    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-    constant_rollup_data::ConstantRollupData
-},
+        base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        constant_rollup_data::ConstantRollupData,
+    },
     base::{
-    base_rollup_inputs::{BaseRollupInputs, KernelData},
-    components::{avm_proof_data::AvmProofData, public_tube_data::PublicTubeData},
-    state_diff_hints::StateDiffHints
-}
+        base_rollup_inputs::{BaseRollupInputs, KernelData},
+        components::{avm_proof_data::AvmProofData, public_tube_data::PublicTubeData},
+        state_diff_hints::StateDiffHints,
+    },
 };
 use dep::types::{
-    constants::{ARCHIVE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, TUBE_VK_INDEX},
+    constants::{
+        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT,
+        TUBE_VK_INDEX,
+    },
     data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-    merkle_tree::MembershipWitness, partial_state_reference::PartialStateReference
+    merkle_tree::MembershipWitness,
+    partial_state_reference::PartialStateReference,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    TUBE_VK_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_VK_INDEX];
 
 pub struct PublicBaseRollupInputs {
     tube_data: PublicTubeData,
@@ -44,7 +46,6 @@ impl PublicBaseRollupInputs {
         //     self.kernel_data.verify();
         //     self.kernel_data.vk_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         // }
-
         BaseRollupInputs {
             kernel_data: KernelData { public_inputs: self.tube_data.public_inputs },
             start: self.start,
@@ -55,7 +56,8 @@ impl PublicBaseRollupInputs {
             low_public_data_writes_preimages: self.low_public_data_writes_preimages,
             low_public_data_writes_witnesses: self.low_public_data_writes_witnesses,
             archive_root_membership_witness: self.archive_root_membership_witness,
-            constants: self.constants
-        }.base_rollup_circuit()
+            constants: self.constants,
+        }
+            .base_rollup_circuit()
     }
 }

@@ -1,8 +1,8 @@
-use dep::types::merkle_tree::MerkleTree;
 use crate::{
     parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
-    utils::sha256_merkle_tree::Sha256MerkleTree
+    utils::sha256_merkle_tree::Sha256MerkleTree,
 };
+use dep::types::merkle_tree::MerkleTree;
 
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
@@ -16,7 +16,8 @@ impl RootParityInputs {
         let vk_tree_root = self.children[0].public_inputs.vk_tree_root;
         for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
             assert(
-                self.children[i].public_inputs.vk_tree_root == vk_tree_root, "Inconsistent vk tree roots across base parity circuits"
+                self.children[i].public_inputs.vk_tree_root == vk_tree_root,
+                "Inconsistent vk tree roots across base parity circuits",
             );
         }
 
@@ -30,16 +31,22 @@ impl RootParityInputs {
         let sha_tree = Sha256MerkleTree::new(sha_roots);
         let poseidon_tree = MerkleTree::new(converted_roots);
 
-        ParityPublicInputs { sha_root: sha_tree.get_root(), converted_root: poseidon_tree.get_root(), vk_tree_root }
+        ParityPublicInputs {
+            sha_root: sha_tree.get_root(),
+            converted_root: poseidon_tree.get_root(),
+            vk_tree_root,
+        }
     }
 
     fn verify_child_proofs(self) {
         for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
             assert(
-                self.children[i].verification_key.hash == self.children[0].verification_key.hash, "Inconsistent vk hashes across base parity circuits"
+                self.children[i].verification_key.hash == self.children[0].verification_key.hash,
+                "Inconsistent vk hashes across base parity circuits",
             );
             assert(
-                self.children[i].vk_path == self.children[0].vk_path, "Inconsistent vk paths across base parity circuits"
+                self.children[i].vk_path == self.children[0].vk_path,
+                "Inconsistent vk paths across base parity circuits",
             );
             self.children[i].verify();
             self.children[i].validate_in_vk_tree();
@@ -50,11 +57,11 @@ impl RootParityInputs {
 mod tests {
     use crate::{
         parity_public_inputs::ParityPublicInputs,
-        root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs}
+        root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs},
     };
-    use dep::types::proof::{verification_key::VerificationKey, recursive_proof::RecursiveProof};
-    use dep::types::tests::fixtures;
     use dep::types::constants::BASE_PARITY_INDEX;
+    use dep::types::proof::{recursive_proof::RecursiveProof, verification_key::VerificationKey};
+    use dep::types::tests::fixtures;
 
     use super::NUM_BASE_PARITY_PER_ROOT_PARITY;
     use types::hash::verification_key_hash;
@@ -66,7 +73,7 @@ mod tests {
             0xb3a3fc1968999f2c2d798b900bdf0de41311be2a4d20496a7e792a521fc8ab,
             0x43f78e0ebc9633ce336a8c086064d898c32fb5d7d6011f5427459c0b8d14e9,
             0x024259b6404280addcc9319bc5a32c9a5d56af5c93b2f941fa326064fbe963,
-            0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a
+            0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a,
         ];
 
         let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
@@ -81,26 +88,42 @@ mod tests {
                 proof: RecursiveProof::empty(),
                 verification_key: vk1,
                 vk_path,
-                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[0], converted_root: 0, vk_tree_root }
+                public_inputs: ParityPublicInputs {
+                    sha_root: children_sha_roots[0],
+                    converted_root: 0,
+                    vk_tree_root,
+                },
             },
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: vk1,
                 vk_path,
-                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[1], converted_root: 0, vk_tree_root }
+                public_inputs: ParityPublicInputs {
+                    sha_root: children_sha_roots[1],
+                    converted_root: 0,
+                    vk_tree_root,
+                },
             },
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: vk1,
                 vk_path,
-                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[2], converted_root: 0, vk_tree_root }
+                public_inputs: ParityPublicInputs {
+                    sha_root: children_sha_roots[2],
+                    converted_root: 0,
+                    vk_tree_root,
+                },
             },
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: vk1,
                 vk_path,
-                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[3], converted_root: 0, vk_tree_root }
-            }
+                public_inputs: ParityPublicInputs {
+                    sha_root: children_sha_roots[3],
+                    converted_root: 0,
+                    vk_tree_root,
+                },
+            },
         ];
         children
     }

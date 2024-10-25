@@ -30,19 +30,18 @@ import {
   TxSimulationResult,
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
-  isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
-  AztecAddress,
+  type AztecAddress,
   type CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
-  PUBLIC_DISPATCH_SELECTOR,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
+  computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
@@ -64,7 +63,7 @@ import {
   getCanonicalProtocolContract,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator, resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -75,6 +74,7 @@ import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
+import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
 /**
  * A Private eXecution Environment (PXE) implementation.
@@ -720,7 +720,7 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await this.#enrichSimulationError(err);
+        await enrichSimulationError(err, this.db, this.log);
       }
       throw err;
     }
@@ -746,7 +746,7 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await this.#enrichSimulationError(err);
+        await enrichSimulationError(err, this.db, this.log);
       }
       throw err;
     }
@@ -764,36 +764,7 @@ export class PXEService implements PXE {
     } catch (err) {
       // Try to fill in the noir call stack since the PXE may have access to the debug metadata
       if (err instanceof SimulationError) {
-        const callStack = err.getCallStack();
-        const originalFailingFunction = callStack[callStack.length - 1];
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
-        // To be able to resolve the assertion message, we need to use the information from the public dispatch function,
-        // no matter what the call stack selector points to (since we've modified it to point to the target function).
-        // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
-        const debugInfo = await this.contractDataOracle.getFunctionDebugMetadata(
-          originalFailingFunction.contractAddress,
-          FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-        );
-        const noirCallStack = err.getNoirCallStack();
-        if (debugInfo) {
-          if (isNoirCallStackUnresolved(noirCallStack)) {
-            const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
-            if (assertionMessage) {
-              err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
-            }
-            try {
-              // Public functions are simulated as a single Brillig entry point.
-              // Thus, we can safely assume here that the Brillig function id is `0`.
-              const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
-              err.setNoirCallStack(parsedCallStack);
-            } catch (err) {
-              this.log.warn(
-                `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
-              );
-            }
-          }
-          await this.#enrichSimulationError(err);
-        }
+        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
       }
 
       throw err;
@@ -826,43 +797,6 @@ export class PXEService implements PXE {
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);
-  }
-
-  /**
-   * Adds contract and function names to a simulation error.
-   * @param err - The error to enrich.
-   */
-  async #enrichSimulationError(err: SimulationError) {
-    // Maps contract addresses to the set of functions selectors that were in error.
-    // Using strings because map and set don't use .equals()
-    const mentionedFunctions: Map<string, Set<string>> = new Map();
-
-    err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
-      if (!mentionedFunctions.has(contractAddress.toString())) {
-        mentionedFunctions.set(contractAddress.toString(), new Set());
-      }
-      mentionedFunctions.get(contractAddress.toString())!.add(functionSelector.toString());
-    });
-
-    await Promise.all(
-      [...mentionedFunctions.entries()].map(async ([contractAddress, selectors]) => {
-        const parsedContractAddress = AztecAddress.fromString(contractAddress);
-        const contract = await this.db.getContract(parsedContractAddress);
-        if (contract) {
-          err.enrichWithContractName(parsedContractAddress, contract.name);
-          selectors.forEach(selector => {
-            const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
-            if (functionArtifact) {
-              err.enrichWithFunctionName(
-                parsedContractAddress,
-                FunctionSelector.fromNameAndParameters(functionArtifact),
-                functionArtifact.name,
-              );
-            }
-          });
-        }
-      }),
-    );
   }
 
   public async isGlobalStateSynchronized() {
@@ -925,6 +859,7 @@ export class PXEService implements PXE {
     from: number,
     limit: number,
     eventMetadata: EventMetadata<T>,
+    // TODO (#9272): Make this better, we should be able to only pass an address now
     vpks: Point[],
   ): Promise<T[]> {
     if (vpks.length === 0) {
@@ -938,7 +873,24 @@ export class PXEService implements PXE {
 
     const encryptedLogs = encryptedTxLogs.flatMap(encryptedTxLog => encryptedTxLog.unrollLogs());
 
-    const vsks = await Promise.all(vpks.map(vpk => this.keyStore.getMasterSecretKey(vpk)));
+    const vsks = await Promise.all(
+      vpks.map(async vpk => {
+        const [keyPrefix, account] = this.keyStore.getKeyPrefixAndAccount(vpk);
+        let secretKey = await this.keyStore.getMasterSecretKey(vpk);
+        if (keyPrefix === 'iv') {
+          const registeredAccount = await this.getRegisteredAccount(account);
+          if (!registeredAccount) {
+            throw new Error('No registered account');
+          }
+
+          const preaddress = registeredAccount.getPreaddress();
+
+          secretKey = computeAddressSecret(preaddress, secretKey);
+        }
+
+        return secretKey;
+      }),
+    );
 
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {

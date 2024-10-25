@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Serialize, Deserialize, FromField, ToField};
+use dep::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
 use std::cmp::min;
 
 mod test;
@@ -31,7 +31,6 @@ impl<T> ScheduledValueChange<T> {
         // - in public, any transaction that is included in the block of change will use the post value
         // - in private, any transaction that includes the block of change as part of the historical state will use the
         //   post value (barring any follow-up changes)
-
         if block_number < self.block_of_change {
             self.pre
         } else {
@@ -62,7 +61,6 @@ impl<T> ScheduledValueChange<T> {
         // (i.e. with a block number larger than the block horizon) may have a different current value. Reading the
         // current value in private typically requires constraining the maximum valid block number to be equal to the
         // block horizon.
-
         if historical_block_number >= self.block_of_change {
             // Once the block of change has been mined, the current value (post) will not change unless a new value
             // change is scheduled. This did not happen at the historical block number (or else it would not be
@@ -77,7 +75,6 @@ impl<T> ScheduledValueChange<T> {
             //                         ^                   ^
             //                         ---------------------
             //                             minimum delay
-
             historical_block_number + minimum_delay
         } else {
             // If the block of change has not yet been mined however, then there are two possible scenarios.
@@ -110,12 +107,11 @@ impl<T> ScheduledValueChange<T> {
             // Note that the current implementation does not allow the caller to set the block of change to an arbitrary
             // value, and therefore scenario a) is not currently possible. However implementing #5501 would allow for
             // this to happen.
-
             // Because historical_block_number < self.block_of_change, then block_of_change > 0 and we can safely
             // subtract 1.
             min(
                 self.block_of_change - 1,
-                historical_block_number + minimum_delay
+                historical_block_number + minimum_delay,
             )
         }
     }
@@ -127,7 +123,7 @@ impl<T> ScheduledValueChange<T> {
         new_value: T,
         current_block_number: u32,
         minimum_delay: u32,
-        block_of_change: u32
+        block_of_change: u32,
     ) {
         assert(block_of_change >= current_block_number + minimum_delay);
 
@@ -137,23 +133,32 @@ impl<T> ScheduledValueChange<T> {
     }
 }
 
-impl<T> Serialize<3> for ScheduledValueChange<T> where T: ToField {
+impl<T> Serialize<3> for ScheduledValueChange<T>
+where
+    T: ToField,
+{
     fn serialize(self) -> [Field; 3] {
         [self.pre.to_field(), self.post.to_field(), self.block_of_change.to_field()]
     }
 }
 
-impl<T> Deserialize<3> for ScheduledValueChange<T> where T: FromField {
+impl<T> Deserialize<3> for ScheduledValueChange<T>
+where
+    T: FromField,
+{
     fn deserialize(input: [Field; 3]) -> Self {
         Self {
             pre: FromField::from_field(input[0]),
             post: FromField::from_field(input[1]),
-            block_of_change: FromField::from_field(input[2])
+            block_of_change: FromField::from_field(input[2]),
         }
     }
 }
 
-impl<T> Eq for ScheduledValueChange<T> where T: Eq {
+impl<T> Eq for ScheduledValueChange<T>
+where
+    T: Eq,
+{
     fn eq(self, other: Self) -> bool {
         (self.pre == other.pre)
             & (self.post == other.post)

@@ -3,6 +3,7 @@
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
@@ -142,7 +143,6 @@ class AvmTraceBuilder {
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
 
     // Gadgets
-    void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
     void op_ec_add(uint16_t indirect,
                    uint32_t lhs_x_offset,
@@ -167,7 +167,7 @@ class AvmTraceBuilder {
 
     // Future Gadgets -- pending changes in noir
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t state_offset, uint32_t inputs_offset);
-    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
+    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset);
 
     std::vector<Row> finalize();
     void reset();
@@ -219,6 +219,7 @@ class AvmTraceBuilder {
     AvmEccTraceBuilder ecc_trace_builder;
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;
+    AvmBytecodeTraceBuilder bytecode_trace_builder;
 
     Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 

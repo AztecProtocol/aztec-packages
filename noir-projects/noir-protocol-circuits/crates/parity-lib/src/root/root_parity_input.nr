@@ -1,12 +1,14 @@
-use dep::types::{
-    traits::Empty,
-    proof::{
-    verification_key::{VerificationKey, HonkVerificationKey}, recursive_proof::RecursiveProof,
-    traits::Verifiable
-},
-    constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT}, merkle_tree::membership::assert_check_membership
-};
 use crate::parity_public_inputs::ParityPublicInputs;
+use dep::types::{
+    constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT},
+    merkle_tree::membership::assert_check_membership,
+    proof::{
+        recursive_proof::RecursiveProof,
+        traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
+};
 
 pub struct RootParityInput {
     proof: RecursiveProof,
@@ -21,7 +23,7 @@ impl Empty for RootParityInput {
             proof: RecursiveProof::empty(),
             verification_key: VerificationKey::empty(),
             vk_path: [0; VK_TREE_HEIGHT],
-            public_inputs: ParityPublicInputs::empty()
+            public_inputs: ParityPublicInputs::empty(),
         }
     }
 }
@@ -33,7 +35,7 @@ impl Verifiable for RootParityInput {
             self.verification_key.key,
             self.proof.fields,
             inputs,
-            self.verification_key.hash
+            self.verification_key.hash,
         );
     }
 }
@@ -45,7 +47,7 @@ impl RootParityInput {
             self.verification_key.hash,
             BASE_PARITY_INDEX as Field,
             self.vk_path,
-            self.public_inputs.vk_tree_root
+            self.public_inputs.vk_tree_root,
         );
     }
 }

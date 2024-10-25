@@ -33,5 +33,5 @@ mod meta;
 
 pub use abis::kernel_circuit_public_inputs::{
     KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    VMCircuitPublicInputs
+    VMCircuitPublicInputs,
 };

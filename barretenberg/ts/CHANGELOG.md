@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.59.0...barretenberg.js-v0.60.0) (2024-10-24)
+
+
+### Features
+
+* Eccvm translator zk sumcheck ([#9199](https://github.com/AztecProtocol/aztec-packages/issues/9199)) ([c7d4572](https://github.com/AztecProtocol/aztec-packages/commit/c7d4572b49b33ee309f9238f3cec245878e6c295))
+
+
+### Miscellaneous
+
+* Remove noir_js_backend_barretenberg ([#9338](https://github.com/AztecProtocol/aztec-packages/issues/9338)) ([cefe3d9](https://github.com/AztecProtocol/aztec-packages/commit/cefe3d901731d3b05de503ce93c97a3badf91363))
+
 ## [0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.58.0...barretenberg.js-v0.59.0) (2024-10-21)
 
 

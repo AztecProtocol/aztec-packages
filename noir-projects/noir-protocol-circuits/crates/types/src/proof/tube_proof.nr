@@ -1,4 +1,4 @@
-use crate::{traits::{Serialize, Deserialize, Empty}, constants::TUBE_PROOF_LENGTH};
+use crate::{constants::TUBE_PROOF_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct TubeProof {
     fields: [Field; TUBE_PROOF_LENGTH],

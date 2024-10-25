@@ -1,5 +1,6 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
@@ -7,6 +8,7 @@ import {
   AztecAddress,
   CallContext,
   type CombinedConstantData,
+  type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -155,6 +157,35 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   private incrementSideEffectCounter() {
     this.sideEffectCounter++;
+  }
+
+  // This tracing function gets called everytime we start simulation/execution.
+  // This happens both when starting a new top-level trace and the start of every nested trace
+  // We use this to collect the AvmContractBytecodeHints
+  public traceGetBytecode(
+    bytecode: Buffer,
+    contractInstance: TracedContractInstance,
+    contractClass: ContractClassIdPreimage,
+  ) {
+    // Deduplicate - we might want a map here to make this more efficient
+    const idx = this.avmCircuitHints.contractBytecodeHints.items.findIndex(
+      hint => hint.contractInstanceHint.address === contractInstance.address,
+    );
+    // If this is the first time we have seen the contract instance, add it to the hints
+    if (idx === -1) {
+      const instance = new AvmContractInstanceHint(
+        contractInstance.address,
+        contractInstance.exists,
+        contractInstance.salt,
+        contractInstance.deployer,
+        contractInstance.contractClassId,
+        contractInstance.initializationHash,
+        contractInstance.publicKeys,
+      );
+      this.avmCircuitHints.contractBytecodeHints.items.push(
+        new AvmContractBytecodeHints(bytecode, instance, contractClass),
+      );
+    }
   }
 
   public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
@@ -314,7 +345,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
         instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        instance.exists,
         instance.salt,
         instance.deployer,
         instance.contractClassId,
@@ -334,7 +365,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** The trace of the nested call. */
     nestedCallTrace: this,
     /** The execution environment of the nested call. */
-    _nestedEnvironment: AvmExecutionEnvironment,
+    nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
@@ -368,6 +399,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         avmCallResults.output,
         gasUsed,
         endSideEffectCounter,
+        nestedEnvironment.address,
       ),
     );
   }

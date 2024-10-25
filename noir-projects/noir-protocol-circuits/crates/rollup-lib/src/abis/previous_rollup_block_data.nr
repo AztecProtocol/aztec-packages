@@ -1,12 +1,14 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
+    merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
-    recursive_proof::NestedRecursiveProof, verification_key::{HonkVerificationKey, VerificationKey},
-    traits::Verifiable
-},
-    traits::Empty, merkle_tree::MembershipWitness, merkle_tree::membership::assert_check_membership,
-    utils::arrays::find_index_hint
+        recursive_proof::NestedRecursiveProof,
+        traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
+    utils::arrays::find_index_hint,
 };
 
 pub struct PreviousRollupBlockData {
@@ -18,7 +20,9 @@ pub struct PreviousRollupBlockData {
 
 impl Verifiable for PreviousRollupBlockData {
     fn verify(self) {
-        let inputs = BlockRootOrBlockMergePublicInputs::serialize(self.block_root_or_block_merge_public_inputs);
+        let inputs = BlockRootOrBlockMergePublicInputs::serialize(
+            self.block_root_or_block_merge_public_inputs,
+        );
         std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
     }
 }
@@ -29,7 +33,7 @@ impl Empty for PreviousRollupBlockData {
             block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs::empty(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
-            vk_witness: MembershipWitness::empty()
+            vk_witness: MembershipWitness::empty(),
         }
     }
 }
@@ -39,9 +43,8 @@ impl PreviousRollupBlockData {
         self.vk.check_hash();
 
         let leaf_index = self.vk_witness.leaf_index as u32;
-        let index_hint = unsafe {
-            find_index_hint(allowed_indices, |index: u32| index == leaf_index)
-        };
+        let index_hint =
+            unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
         assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
@@ -49,7 +52,7 @@ impl PreviousRollupBlockData {
             self.vk.hash,
             self.vk_witness.leaf_index,
             self.vk_witness.sibling_path,
-            self.block_root_or_block_merge_public_inputs.vk_tree_root
+            self.block_root_or_block_merge_public_inputs.vk_tree_root,
         );
     }
 }

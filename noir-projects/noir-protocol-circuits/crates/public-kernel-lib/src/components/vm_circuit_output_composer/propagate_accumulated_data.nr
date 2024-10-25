@@ -1,15 +1,15 @@
 use dep::types::{
     abis::{
-    accumulated_data::PublicAccumulatedDataBuilder, nullifier::Nullifier,
-    public_circuit_public_inputs::PublicCircuitPublicInputs,
-    public_data_update_request::PublicDataUpdateRequest
-},
-    hash::compute_siloed_nullifier
+        accumulated_data::PublicAccumulatedDataBuilder, nullifier::Nullifier,
+        public_circuit_public_inputs::PublicCircuitPublicInputs,
+        public_data_update_request::PublicDataUpdateRequest,
+    },
+    hash::compute_siloed_nullifier,
 };
 
 pub fn propagate_accumulated_data(
     data: &mut PublicAccumulatedDataBuilder,
-    public_call: PublicCircuitPublicInputs
+    public_call: PublicCircuitPublicInputs,
 ) -> PublicAccumulatedDataBuilder {
     propagate_note_hashes(data, public_call);
     propagate_nullifiers(data, public_call);
@@ -19,7 +19,10 @@ pub fn propagate_accumulated_data(
     *data
 }
 
-fn propagate_note_hashes(data: &mut PublicAccumulatedDataBuilder, public_call: PublicCircuitPublicInputs) {
+fn propagate_note_hashes(
+    data: &mut PublicAccumulatedDataBuilder,
+    public_call: PublicCircuitPublicInputs,
+) {
     let contract_address = public_call.call_context.contract_address;
     let note_hashes = public_call.note_hashes;
     for i in 0..note_hashes.len() {
@@ -30,7 +33,10 @@ fn propagate_note_hashes(data: &mut PublicAccumulatedDataBuilder, public_call: P
     }
 }
 
-fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, public_call: PublicCircuitPublicInputs) {
+fn propagate_nullifiers(
+    data: &mut PublicAccumulatedDataBuilder,
+    public_call: PublicCircuitPublicInputs,
+) {
     let contract_address = public_call.call_context.contract_address;
     let nullifiers = public_call.nullifiers;
     for i in 0..nullifiers.len() {
@@ -38,13 +44,20 @@ fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, public_call: Pu
         if nullifier.counter != 0 {
             let siloed_value = compute_siloed_nullifier(contract_address, nullifier.value);
             data.nullifiers.push(
-                Nullifier { value: siloed_value, counter: nullifier.counter, note_hash: nullifier.note_hash }
+                Nullifier {
+                    value: siloed_value,
+                    counter: nullifier.counter,
+                    note_hash: nullifier.note_hash,
+                },
             );
         }
     }
 }
 
-fn propagate_l2_to_l1_messages(data: &mut PublicAccumulatedDataBuilder, public_call: PublicCircuitPublicInputs) {
+fn propagate_l2_to_l1_messages(
+    data: &mut PublicAccumulatedDataBuilder,
+    public_call: PublicCircuitPublicInputs,
+) {
     let contract_address = public_call.call_context.contract_address;
     let msgs = public_call.l2_to_l1_msgs;
     for i in 0..msgs.len() {
@@ -55,7 +68,10 @@ fn propagate_l2_to_l1_messages(data: &mut PublicAccumulatedDataBuilder, public_c
     }
 }
 
-fn propagate_unencrypted_logs(data: &mut PublicAccumulatedDataBuilder, public_call: PublicCircuitPublicInputs) {
+fn propagate_unencrypted_logs(
+    data: &mut PublicAccumulatedDataBuilder,
+    public_call: PublicCircuitPublicInputs,
+) {
     let contract_address = public_call.call_context.contract_address;
     let logs = public_call.unencrypted_logs_hashes;
     for i in 0..logs.len() {
@@ -66,13 +82,21 @@ fn propagate_unencrypted_logs(data: &mut PublicAccumulatedDataBuilder, public_ca
     }
 }
 
-fn propagate_public_data_writes(data: &mut PublicAccumulatedDataBuilder, public_call: PublicCircuitPublicInputs) {
+fn propagate_public_data_writes(
+    data: &mut PublicAccumulatedDataBuilder,
+    public_call: PublicCircuitPublicInputs,
+) {
     let contract_address = public_call.call_context.contract_address;
     let writes = public_call.contract_storage_update_requests;
     for i in 0..writes.len() {
         let write = writes[i];
         if write.counter != 0 {
-            data.public_data_update_requests.push(PublicDataUpdateRequest::from_contract_storage_update_request(contract_address, write));
+            data.public_data_update_requests.push(
+                PublicDataUpdateRequest::from_contract_storage_update_request(
+                    contract_address,
+                    write,
+                ),
+            );
         }
     }
 }

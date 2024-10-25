@@ -68,13 +68,7 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
 function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: PublicExecutionResult): AvmProvingRequest {
   return {
     type: ProvingRequestType.PUBLIC_VM,
-    inputs: new AvmCircuitInputs(
-      result.functionName,
-      result.bytecode!,
-      result.calldata,
-      inputs,
-      result.avmCircuitHints,
-    ),
+    inputs: new AvmCircuitInputs(result.functionName, result.calldata, inputs, result.avmCircuitHints),
   };
 }
 

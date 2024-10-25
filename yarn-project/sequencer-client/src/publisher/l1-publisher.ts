@@ -23,10 +23,10 @@ import { areArraysEqual, compactArray, times } from '@aztec/foundation/collectio
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { GerousiaAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -62,7 +62,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemError } from './utils.js';
+import { prettyLogViemError, prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -140,12 +140,19 @@ export class L1Publisher {
   private interrupted = false;
   private metrics: L1PublisherMetrics;
 
+  private payload: EthAddress = EthAddress.ZERO;
+  private myLastVote: bigint = 0n;
+
   protected log = createDebugLogger('aztec:sequencer:publisher');
 
   private rollupContract: GetContractReturnType<
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
+  private gerousiaContract?: GetContractReturnType<
+    typeof GerousiaAbi,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  > = undefined;
 
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
@@ -180,6 +187,22 @@ export class L1Publisher {
       abi: RollupAbi,
       client: this.walletClient,
     });
+
+    if (l1Contracts.gerousiaAddress) {
+      this.gerousiaContract = getContract({
+        address: getAddress(l1Contracts.gerousiaAddress.toString()),
+        abi: GerousiaAbi,
+        client: this.walletClient,
+      });
+    }
+  }
+
+  public getPayLoad() {
+    return this.payload;
+  }
+
+  public setPayload(payload: EthAddress) {
+    this.payload = payload;
   }
 
   public getSenderAddress(): EthAddress {
@@ -221,8 +244,23 @@ export class L1Publisher {
     return [slot, blockNumber];
   }
 
-  public async nextEpochToClaim(): Promise<bigint> {
-    return await this.rollupContract.read.nextEpochToClaim();
+  public async getClaimableEpoch(): Promise<bigint | undefined> {
+    try {
+      return await this.rollupContract.read.getClaimableEpoch();
+    } catch (err: any) {
+      const errorName = tryGetCustomErrorName(err);
+      // getting the error name from the abi is redundant,
+      // but it enforces that the error name is correct.
+      // That is, if the error name is not found, this will not compile.
+      const acceptedErrors = (['Rollup__NoEpochToProve', 'Rollup__ProofRightAlreadyClaimed'] as const).map(
+        name => getAbiItem({ abi: RollupAbi, name }).name,
+      );
+
+      if (errorName && acceptedErrors.includes(errorName as any)) {
+        return undefined;
+      }
+      throw err;
+    }
   }
 
   public async getEpochForSlotNumber(slotNumber: bigint): Promise<bigint> {
@@ -268,7 +306,6 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
-      this.log.verbose(toFriendlyJSON(err as object));
       const errorName = tryGetCustomErrorName(err);
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
@@ -337,6 +374,68 @@ export class L1Publisher {
       calldataSize: calldata.length,
       calldataGas: getCalldataGasUsage(calldata),
     };
+  }
+
+  public async castVote(slotNumber: bigint, timestamp: bigint): Promise<boolean> {
+    if (this.payload.equals(EthAddress.ZERO)) {
+      return false;
+    }
+
+    if (!this.gerousiaContract) {
+      return false;
+    }
+
+    if (this.myLastVote >= slotNumber) {
+      return false;
+    }
+
+    // @todo This can be optimized A LOT by doing the computation instead of making calls to L1, but it is  very convenient
+    // for when we keep changing the values and don't want to have multiple versions of the same logic implemented.
+
+    const [proposer, roundNumber] = await Promise.all([
+      this.rollupContract.read.getProposerAt([timestamp]),
+      this.gerousiaContract.read.computeRound([slotNumber]),
+    ]);
+
+    if (proposer != this.account.address) {
+      return false;
+    }
+
+    const [slotForLastVote] = await this.gerousiaContract.read.rounds([this.rollupContract.address, roundNumber]);
+
+    if (slotForLastVote >= slotNumber) {
+      return false;
+    }
+
+    // Storing these early such that a quick entry again would not send another tx,
+    // revert the state if there is a failure.
+    const cachedMyLastVote = this.myLastVote;
+    this.myLastVote = slotNumber;
+
+    let txHash;
+    try {
+      txHash = await this.gerousiaContract.write.vote([this.payload.toString()], {
+        account: this.account,
+      });
+    } catch (err) {
+      const msg = prettyLogViemErrorMsg(err);
+      this.log.error(`Governance: Failed to vote`, msg);
+      this.myLastVote = cachedMyLastVote;
+      return false;
+    }
+
+    if (txHash) {
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        this.log.info(`Failed to get receipt for tx ${txHash}`);
+        this.myLastVote = cachedMyLastVote;
+        return false;
+      }
+    }
+
+    this.log.info(`Governance: Cast vote for ${this.payload}`);
+
+    return true;
   }
 
   /**
@@ -767,7 +866,7 @@ function getCalldataGasUsage(data: Uint8Array) {
 function tryGetCustomErrorName(err: any) {
   try {
     // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
-    if (err.name === 'ViemError') {
+    if (err.name === 'ViemError' || err.name === 'ContractFunctionExecutionError') {
       const baseError = err as BaseError;
       const revertError = baseError.walk(err => (err as Error).name === 'ContractFunctionRevertedError');
       if (revertError) {

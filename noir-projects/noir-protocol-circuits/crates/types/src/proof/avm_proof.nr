@@ -1,4 +1,4 @@
-use crate::{traits::{Serialize, Deserialize, Empty}, constants::AVM_PROOF_LENGTH_IN_FIELDS};
+use crate::{constants::AVM_PROOF_LENGTH_IN_FIELDS, traits::{Deserialize, Empty, Serialize}};
 
 pub struct AvmProof {
     fields: [Field; AVM_PROOF_LENGTH_IN_FIELDS],

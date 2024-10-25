@@ -46,14 +46,14 @@ You can't read public storage in private domain. But nevertheless reading public
 1. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
 
 ```rust
-#[aztec(storage)]
+#[storage]
 struct Storage {
    token: PublicMutable<Field>,
 }
 
 contract Bridge {
 
-    #[aztec(private)]
+    #[private]
     fn burn_token_private(
         token: AztecAddress, // pass token here since this is a private method but can't access public storage
         amount: Field,

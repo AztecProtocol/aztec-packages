@@ -1,26 +1,25 @@
 use crate::{
     abis::{
-    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-    constant_rollup_data::ConstantRollupData
-},
+        base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        constant_rollup_data::ConstantRollupData,
+    },
     base::{
-    base_rollup_inputs::{BaseRollupInputs, KernelData}, components::private_tube_data::PrivateTubeData,
-    state_diff_hints::StateDiffHints
-}
+        base_rollup_inputs::{BaseRollupInputs, KernelData},
+        components::private_tube_data::PrivateTubeData,
+        state_diff_hints::StateDiffHints,
+    },
 };
 use dep::types::{
     constants::{
-    ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_EMPTY_INDEX,
-    PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX
-},
+        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_EMPTY_INDEX,
+        PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX,
+    },
     data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-    merkle_tree::MembershipWitness, partial_state_reference::PartialStateReference
+    merkle_tree::MembershipWitness,
+    partial_state_reference::PartialStateReference,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [
-    PRIVATE_KERNEL_EMPTY_INDEX,
-    TUBE_VK_INDEX,
-];
+global ALLOWED_PREVIOUS_CIRCUITS = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -57,7 +56,8 @@ impl PrivateBaseRollupInputs {
             low_public_data_writes_preimages: self.low_public_data_writes_preimages,
             low_public_data_writes_witnesses: self.low_public_data_writes_witnesses,
             archive_root_membership_witness: self.archive_root_membership_witness,
-            constants: self.constants
-        }.base_rollup_circuit()
+            constants: self.constants,
+        }
+            .base_rollup_circuit()
     }
 }
