@@ -9,14 +9,14 @@
 set -eu
 
 # Main positional parameter
-TEST="$1"
+export TEST="$1"
 shift
 
 # Default values for environment variables
-HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
-FAKE_PROOFS="${FAKE_PROOFS:-}"
-COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
-AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+export HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
+export FAKE_PROOFS="${FAKE_PROOFS:-}"
+export COMPOSE_FILE="${COMPOSE_FILE:-./scripts/docker-compose.yml}"
+export AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
 
 # Function to load test configuration
 load_test_config() {
@@ -66,7 +66,8 @@ fi
 
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
-  run_docker_compose "$TEST" "$@" || [ "$ignore_failures" = "true" ]
+  # run_docker_compose "$TEST" "$@" || [ "$ignore_failures" = "true" ]
+  ./e2e_compose_test.sh "$TEST" "$@" || [ "$ignore_failures" = "true" ]
 else
   # Set environment variables
   while IFS='=' read -r key value; do
