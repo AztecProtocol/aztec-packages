@@ -555,7 +555,7 @@ jobs:
   noir-projects:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true' || needs.configure.outputs.txe == 'true'
+    if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true' || needs.configure.outputs.txe == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -584,7 +584,7 @@ jobs:
 
   yarn-project-formatting:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true'
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master' 
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -598,7 +598,7 @@ jobs:
 
   yarn-project-test:
     needs: [build, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master' 
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -613,7 +613,7 @@ jobs:
   prover-client-test:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master' 
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
