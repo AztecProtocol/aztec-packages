@@ -36,9 +36,13 @@ class AvmExecutionTests : public ::testing::Test {
         Execution::set_trace_builder_constructor([](VmPublicInputsNT public_inputs,
                                                     ExecutionHints execution_hints,
                                                     uint32_t side_effect_counter,
-                                                    std::vector<FF> calldata) {
-            return AvmTraceBuilder(
-                       std::move(public_inputs), std::move(execution_hints), side_effect_counter, std::move(calldata))
+                                                    std::vector<FF> calldata,
+                                                    const std::vector<std::vector<uint8_t>>& all_contracts_bytecode) {
+            return AvmTraceBuilder(std::move(public_inputs),
+                                   std::move(execution_hints),
+                                   side_effect_counter,
+                                   std::move(calldata),
+                                   all_contracts_bytecode)
                 .set_full_precomputed_tables(false)
                 .set_range_check_required(false);
         });
@@ -62,10 +66,12 @@ class AvmExecutionTests : public ::testing::Test {
      * @param instructions A vector of the instructions to be executed.
      * @return The trace as a vector of Row.
      */
-    std::vector<Row> gen_trace_from_instr(std::vector<Instruction> const& instructions) const
+    std::vector<Row> gen_trace_from_instr(std::vector<uint8_t> bytecode) const
     {
         std::vector<FF> calldata{};
-        return Execution::gen_trace(instructions, calldata, public_inputs_vec);
+        std::vector<FF> returndata{};
+
+        return Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
     }
 
     void feed_output(uint32_t output_offset, FF const& value, FF const& side_effect_counter, FF const& metadata)
@@ -121,7 +127,7 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(0), VariantWith<uint16_t>(0)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
     validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
@@ -180,7 +186,7 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
                                         VariantWith<uint8_t>(51),
                                         VariantWith<uint8_t>(1)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == 1; });
@@ -253,7 +259,7 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(0), VariantWith<uint16_t>(0)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the multiplication selector and pc = 13
     auto row = std::ranges::find_if(
@@ -313,7 +319,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
@@ -388,7 +394,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
         EXPECT_EQ(instructions.at(i).op_code, opcode_sequence.at(i));
     }
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };
@@ -468,7 +474,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(5)))));
 
     std::vector<FF> returndata;
-    auto trace = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 13, 156 }, public_inputs_vec);
+    auto trace =
+        Execution::gen_trace(bytecode, std::vector<FF>{ 13, 156 }, public_inputs_vec, returndata, ExecutionHints());
 
     // Expected sequence of PCs during execution
     std::vector<FF> pc_sequence{
@@ -557,8 +564,10 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                     ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(6), VariantWith<uint16_t>(10)))));
 
     std::vector<FF> returndata;
-    auto trace_jump = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 9873123 }, public_inputs_vec);
-    auto trace_no_jump = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 0 }, public_inputs_vec);
+    auto trace_jump =
+        Execution::gen_trace(bytecode, std::vector<FF>{ 9873123 }, public_inputs_vec, returndata, ExecutionHints());
+    auto trace_no_jump =
+        Execution::gen_trace(bytecode, std::vector<FF>{ 0 }, public_inputs_vec, returndata, ExecutionHints());
 
     // Expected sequence of PCs during execution with jump
     std::vector<FF> pc_sequence_jump{ 0, 1, 2, 3, 4, 6, 7 };
@@ -616,7 +625,7 @@ TEST_F(AvmExecutionTests, movOpcode)
               Field(&Instruction::operands,
                     ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint8_t>(171), VariantWith<uint8_t>(33)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the MOV selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mov == 1; });
@@ -664,7 +673,7 @@ TEST_F(AvmExecutionTests, indMovOpcode)
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint8_t>(1), VariantWith<uint8_t>(2)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the MOV selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mov == 1; });
@@ -706,7 +715,7 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
                                         VariantWith<uint8_t>(17),
                                         VariantWith<uint8_t>(18)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the cast selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cast == 1; });
@@ -765,8 +774,8 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata;
-    auto trace =
-        Execution::gen_trace(instructions, returndata, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec);
+    auto trace = Execution::gen_trace(
+        bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, ExecutionHints());
 
     // Find the first row enabling the TORADIXLE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
@@ -831,8 +840,8 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata;
-    auto trace =
-        Execution::gen_trace(instructions, returndata, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec);
+    auto trace = Execution::gen_trace(
+        bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, ExecutionHints());
 
     // Find the first row enabling the TORADIXLE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
@@ -906,7 +915,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     // 4091010797,3974542186]),
     std::vector<FF> expected_output = { 1862536192, 526086805, 2067405084,    593147560,
                                         726610467,  813867028, 4091010797ULL, 3974542186ULL };
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     EXPECT_EQ(returndata, expected_output);
 
@@ -967,7 +976,7 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
         FF(std::string("0x018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3")),
         FF(std::string("0x0cbea457c91c22c6c31fd89afd2541efc2edf31736b9f721e823b2165c90fd41"))
     };
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     EXPECT_EQ(returndata, expected_output);
 
@@ -1034,7 +1043,7 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     EXPECT_EQ(returndata, expected_output);
 
@@ -1101,7 +1110,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata;
     std::vector<FF> calldata = { a.x, a.y, FF(a_is_inf ? 1 : 0), b.x, b.y, FF(b_is_inf ? 1 : 0) };
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     EXPECT_EQ(returndata, expected_output);
 
@@ -1188,7 +1197,7 @@ TEST_F(AvmExecutionTests, msmOpCode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata;
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     EXPECT_EQ(returndata, expected_output);
 
@@ -1384,7 +1393,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     public_inputs_vec[FEE_PER_L2_GAS_PCPI_OFFSET] = feeperl2gas;
 
     std::vector<FF> returndata;
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     // Validate returndata
     EXPECT_EQ(returndata, expected_returndata);
@@ -1477,7 +1486,7 @@ TEST_F(AvmExecutionTests, l2GasLeft)
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)),
                                         VariantWith<uint16_t>(17)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the L2GASLEFT selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l2gasleft == 1; });
@@ -1521,7 +1530,7 @@ TEST_F(AvmExecutionTests, daGasLeft)
                                         VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)),
                                         VariantWith<uint16_t>(39)))));
 
-    auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(bytecode);
 
     // Find the first row enabling the DAGASLEFT selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_dagasleft == 1; });
@@ -1550,9 +1559,9 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithTooMuchGasAllocated)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_THROW_WITH_MESSAGE(
-        Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
-        "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
+    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints()),
+                              "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for "
+                              "execution of an enqueued call");
 }
 
 // Should throw whenever the wrong number of public inputs are provided
@@ -1569,7 +1578,7 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
+    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints()),
                               "Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
 }
 
@@ -1612,7 +1621,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     // CHECK EMIT NOTE HASH
     // Check output data + side effect counters have been set correctly
@@ -1713,7 +1722,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
     // side effect counter 0 = value 42
     auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
 
     // CHECK SLOAD
     // Check output data + side effect counters have been set correctly
@@ -1767,7 +1776,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageStoreOpcodeSimple)
 
     std::vector<FF> returndata;
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
     // CHECK SSTORE
     auto sstore_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sstore == 1; });
     EXPECT_EQ(sstore_row->main_ia, 42); // Read value
@@ -1830,7 +1839,7 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
     // side effect counter 0 = value 42
     auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 42 } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
 
     // CHECK SLOAD
     // Check output data + side effect counters have been set correctly
@@ -1913,7 +1922,7 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
                                .with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } })
                                .with_note_hash_exists_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
 
     // CHECK NOTEHASHEXISTS
     auto note_hash_row =
@@ -2047,9 +2056,10 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
         .l2_gas_used = 0,
         .da_gas_used = 0,
         .end_side_effect_counter = 0,
+        .bytecode = {},
     } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
@@ -2106,7 +2116,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     auto execution_hints =
         ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, public_keys_hints } } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, returned_point.x })); // The first one represents true
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);

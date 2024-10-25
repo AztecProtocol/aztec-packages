@@ -82,12 +82,14 @@ export class AvmExternalCallHint {
    * @param returnData the data returned by the external call.
    * @param gasUsed gas used by the external call (not including the cost of the CALL opcode itself).
    * @param endSideEffectCounter value of side effect counter at the end of the external call.
+   * @param bytecode currently the bytecode of the nested call function, will be changed to the contract bytecode (via the dispatch function) of the nested call
    */
   constructor(
     public readonly success: Fr,
     returnData: Fr[],
     public readonly gasUsed: Gas,
     public readonly endSideEffectCounter: Fr,
+    public readonly bytecode: Buffer,
   ) {
     this.returnData = new Vector(returnData);
   }
@@ -117,7 +119,8 @@ export class AvmExternalCallHint {
       this.success.isZero() &&
       this.returnData.items.length == 0 &&
       this.gasUsed.isEmpty() &&
-      this.endSideEffectCounter.isZero()
+      this.endSideEffectCounter.isZero() &&
+      this.bytecode.length == 0
     );
   }
 
@@ -132,6 +135,7 @@ export class AvmExternalCallHint {
       fields.returnData.items,
       fields.gasUsed,
       fields.endSideEffectCounter,
+      fields.bytecode,
     );
   }
 
@@ -141,7 +145,18 @@ export class AvmExternalCallHint {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmExternalCallHint>) {
-    return [fields.success, fields.returnData, fields.gasUsed, fields.endSideEffectCounter] as const;
+    // Buffers aren't serialised the same way as they are read (lenth prefixed), so we need to do this manually.
+    const lengthPrefixedBytecode = Buffer.alloc(fields.bytecode.length + 4);
+    // Add a 4-byte length prefix to the bytecode.
+    lengthPrefixedBytecode.writeUInt32BE(fields.bytecode.length);
+    fields.bytecode.copy(lengthPrefixedBytecode, 4);
+    return [
+      fields.success,
+      fields.returnData,
+      fields.gasUsed,
+      fields.endSideEffectCounter,
+      lengthPrefixedBytecode,
+    ] as const;
   }
 
   /**
@@ -156,6 +171,7 @@ export class AvmExternalCallHint {
       reader.readVector(Fr),
       reader.readObject<Gas>(Gas),
       Fr.fromBuffer(reader),
+      reader.readBuffer(),
     );
   }
 

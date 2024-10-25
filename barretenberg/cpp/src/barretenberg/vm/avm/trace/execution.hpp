@@ -15,27 +15,25 @@ namespace bb::avm_trace {
 class Execution {
   public:
     static constexpr size_t SRS_SIZE = 1 << 22;
-    using TraceBuilderConstructor = std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
-                                                                  ExecutionHints execution_hints,
-                                                                  uint32_t side_effect_counter,
-                                                                  std::vector<FF> calldata)>;
+    using TraceBuilderConstructor =
+        std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
+                                      ExecutionHints execution_hints,
+                                      uint32_t side_effect_counter,
+                                      std::vector<FF> calldata,
+                                      const std::vector<std::vector<uint8_t>>& all_contract_bytecode)>;
 
     Execution() = default;
 
     static std::vector<FF> getDefaultPublicInputs();
 
-    // TODO: Clean these overloaded functions. We probably need less and confusing overloading.
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
+    static VmPublicInputs convert_public_inputs(std::vector<FF> const& public_inputs_vec);
+
+    // Bytecode is currently the bytecode of the top-level function call
+    // Eventually this will be the bytecode of the dispatch function of top-level contract
+    static std::vector<Row> gen_trace(std::vector<uint8_t> const& bytecode,
+                                      std::vector<FF> const& calldata,
+                                      std::vector<FF> const& public_inputs,
                                       std::vector<FF>& returndata,
-                                      std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs,
-                                      ExecutionHints const& execution_hints = {});
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
-                                      std::vector<FF> const& calldata = {},
-                                      std::vector<FF> const& public_inputs = {});
-    static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
-                                      std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs,
                                       ExecutionHints const& execution_hints);
 
     // For testing purposes only.
