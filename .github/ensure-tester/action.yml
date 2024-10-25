@@ -8,7 +8,6 @@ inputs:
   run:
     # command to run once tester available
     required: false
-
   ttl:
     required: false
     description: "Time to live for the tester instance in minutes"
@@ -31,7 +30,7 @@ runs:
         echo "ttl=${{ inputs.ttl }}" >> $GITHUB_OUTPUT
         SIZE=large
         if [[ $TYPE == 4core-* ]]; then
-          SIZE=large
+          SIZE=xlarge
         elif [[ $TYPE == 8core-* ]]; then
           SIZE=2xlarge
         elif [[ $TYPE == 16core-* ]]; then
