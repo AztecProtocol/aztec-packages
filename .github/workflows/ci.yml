@@ -157,7 +157,7 @@ jobs:
         timeout-minutes: 40
         if: (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
         run: |
-          earthly-ci ./yarn-project+export-e2e-test-images
+          flock /var/lock/image-build earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
@@ -206,7 +206,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          builder_command: flock /var/lock/image-build cd ../l1-artifacts && yarn generate && yarn build
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
@@ -238,7 +238,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          builder_command: flock /var/lock/image-build cd ../l1-artifacts && yarn generate && yarn build
           tester_ttl: 40
           run: |
             set -eux
@@ -621,6 +621,7 @@ jobs:
   # proving disabled
   network-test:
     needs: [build, configure]
+    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       max-parallel: 1
@@ -642,6 +643,7 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
+    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-misc-ci == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
@@ -667,7 +669,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          builder_command: flock /var/lock/image-build scripts/earthly-ci ./yarn-project+export-e2e-test-images
           run: |
             sudo shutdown -P 60 # extend ttl
             cd yarn-project/end-to-end
