@@ -1,4 +1,4 @@
-import { type Gas } from '@aztec/circuits.js';
+import { type ContractClassIdPreimage, type Gas } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
@@ -9,6 +9,11 @@ export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
+  traceGetBytecode(
+    bytecode: Buffer,
+    contractInstance: TracedContractInstance,
+    contractClass: ContractClassIdPreimage,
+  ): void;
   tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
   tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr): void;
   traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;

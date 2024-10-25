@@ -1,8 +1,8 @@
-use crate::note::{note_getter_options::PropertySelector, note_header::NoteHeader};
+use crate::{note::{note_getter_options::PropertySelector, note_header::NoteHeader}, prelude::Point};
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
 use std::{
     collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+    hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
     meta::{typ::fresh_type_variable, type_of, unquote},
 };
 
@@ -201,7 +201,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } })
+        .map(|(name, _): (Quoted, Type)| quote { $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
@@ -310,7 +310,6 @@ comptime fn generate_multi_scalar_mul(
     let mut scalars_list = &[];
     let mut args_list = &[];
     let mut aux_vars_list = &[];
-    // TODO(#8648): Generate generators at comptime instead of importing here.
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
@@ -318,8 +317,17 @@ comptime fn generate_multi_scalar_mul(
         for j in 0..flattened_field.len() {
             let flattened_as_field = flattened_field[j];
             let generator_index = start_generator_index + j;
-            generators_list = generators_list.push_back(f"aztec::generators::Ga{generator_index}"
-                .quoted_contents());
+
+            let generators: [Point; 1] =
+                derive_generators("aztec_nr_generators".as_bytes(), generator_index);
+            let generator_x = generators[0].x;
+            let generator_y = generators[0].y;
+
+            generators_list = generators_list.push_back(
+                quote {
+                aztec::protocol_types::point::Point { x: $generator_x, y: $generator_y, is_infinite: false }
+                },
+            );
             scalars_list =
                 scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
         }

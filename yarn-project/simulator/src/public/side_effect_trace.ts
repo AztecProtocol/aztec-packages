@@ -1,11 +1,13 @@
 import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
   AztecAddress,
   CallContext,
+  type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -91,6 +93,36 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   // TODO(dbanks12): checks against tx-wide limit need access to parent trace's length
+
+  // This tracing function gets called everytime we start simulation/execution.
+  // This happens both when starting a new top-level trace and the start of every nested trace
+  // We use this to collect the AvmContractBytecodeHints
+  public traceGetBytecode(
+    bytecode: Buffer,
+    contractInstance: TracedContractInstance,
+    contractClass: ContractClassIdPreimage,
+  ) {
+    // Deduplicate - we might want a map here to make this more efficient
+    const idx = this.avmCircuitHints.contractBytecodeHints.items.findIndex(
+      hint => hint.contractInstanceHint.address === contractInstance.address,
+    );
+    // If this is the first time we have seen the contract instance, add it to the hints
+    if (idx === -1) {
+      const instance = new AvmContractInstanceHint(
+        contractInstance.address,
+        contractInstance.exists,
+        contractInstance.salt,
+        contractInstance.deployer,
+        contractInstance.contractClassId,
+        contractInstance.initializationHash,
+        contractInstance.publicKeys,
+      );
+      this.avmCircuitHints.contractBytecodeHints.items.push(
+        new AvmContractBytecodeHints(bytecode, instance, contractClass),
+      );
+      this.logger.debug(`Traced New Contract Bytecode deployed at ${contractInstance.address}`);
+    }
+  }
 
   public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
@@ -223,7 +255,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
         instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        instance.exists,
         instance.salt,
         instance.deployer,
         instance.contractClassId,
@@ -288,6 +320,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         result.returnValues,
         gasUsed,
         result.endSideEffectCounter,
+        nestedEnvironment.address,
       ),
     );
   }

@@ -949,6 +949,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_call_to_assert_same');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
+        mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
