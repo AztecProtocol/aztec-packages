@@ -87,11 +87,16 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
+    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
+    // get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = TranslatorFlavor::TO_BE_SHIFTED_WITNESSES_START;
+    // The index of the shift of the first unshifted witness
     static constexpr size_t SHIFTED_WITNESSES_START = TranslatorFlavor::SHIFTED_WITNESSES_START;
     static constexpr size_t NUM_SHIFTED_WITNESSES = TranslatorFlavor::NUM_SHIFTED_WITNESSES;
-
+    // The index of the first unshifted witness that is contained in the groups to be concatenated, when AllEntities are
+    // partitioned into get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
     static constexpr size_t TO_BE_CONCATENATED_START = TranslatorFlavor::TO_BE_CONCATENATED_START;
+    // The index of the first concatenation groups element inside AllEntities
     static constexpr size_t CONCATENATED_START = TranslatorFlavor::CONCATENATED_START;
     static constexpr size_t NUM_CONCATENATED = TranslatorFlavor::NUM_CONCATENATED;
 

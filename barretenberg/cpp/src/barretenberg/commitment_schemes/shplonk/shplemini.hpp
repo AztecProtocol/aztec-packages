@@ -322,9 +322,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
     {
-        info("commitments size before adding ", commitments.size());
         Fr current_batching_challenge = Fr(1);
-        info("get_unshifted_without_concatenated: ");
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector
@@ -336,7 +334,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
-        info("get_to_be_shifted: ");
 
         for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
             // Move shifted commitments to the 'commitments' vector
@@ -352,7 +349,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // If we are performing an opening verification for the translator, add the contributions from the concatenation
         // commitments and evaluations to the result
-        info("get_groups_to_be_concatenated: ");
 
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
@@ -447,57 +443,68 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
 
+    /**
+     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by the
+     * verifier.
+     *
+     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are duplicated
+     * by design. This method combines the scalars associated with these repeating commitments, reducing the total
+     * number of scalar multiplications required during verification.
+     * More specifically, the Shplemini verifier receives two or three groups of commitments: get_unshifted() and
+     * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; and get_unshifted_without_concatenated(),
+     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments are
+     * then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a vector
+     * of scalars. This method iterates over the commitments and scalars in a BatchOpeningClaim object
+     *
+     */
     static void remove_shifted_commitments(BatchOpeningClaim<Curve>& accumulator,
-                                           const size_t TO_BE_SHIFTED_WITNESSES_START,
-                                           const size_t SHIFTED_WITNESSES_START,
-                                           const size_t NUM_SHIFTED_WITNESSES,
-                                           const size_t TO_BE_SHIFTED_PRECOMPUTED_START = 0,
-                                           const size_t SHIFTED_PRECOMPUTED_START = 0,
-                                           const size_t NUM_SHIFTED_PRECOMPUTED = 0)
+                                           const size_t first_range_to_be_shifted_start,
+                                           const size_t first_range_shifted_start,
+                                           const size_t first_range_size,
+                                           const size_t second_range_to_be_shifted_start = 0,
+                                           const size_t second_range_shifted_start = 0,
+                                           const size_t second_range_size = 0)
     {
         // Get references to the scalars and commitments in the accumulator
         auto& commitments = accumulator.commitments;
         auto& scalars = accumulator.scalars;
 
-        // Step 1: Iterate over the to-be-shifted witness scalars and their shifted counterparts
-        for (size_t i = TO_BE_SHIFTED_WITNESSES_START + 1, j = SHIFTED_WITNESSES_START + 1;
-             i < TO_BE_SHIFTED_WITNESSES_START + NUM_SHIFTED_WITNESSES + 1 &&
-             j < SHIFTED_WITNESSES_START + NUM_SHIFTED_WITNESSES + 1;
-             ++i, ++j) {
-            scalars[i] = scalars[i] + scalars[j];
+        // Iterate over the first range of to-be-shifted scalars and their shifted counterparts
+        for (size_t i = 0; i < first_range_size; i++) {
+            size_t idx_to_be_shifted = i + (first_range_to_be_shifted_start + 1);
+            size_t idx_shifted = i + (first_range_shifted_start + 1);
+            scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
         }
-        // Step 2: Iterate over the to-be-shifted precomputed scalars and their shifted counterparts (if provided)
-        if (NUM_SHIFTED_PRECOMPUTED > 0) {
-            for (size_t i = TO_BE_SHIFTED_PRECOMPUTED_START + 1, j = SHIFTED_PRECOMPUTED_START + 1;
-                 i < TO_BE_SHIFTED_PRECOMPUTED_START + NUM_SHIFTED_PRECOMPUTED + 1 &&
-                 j < SHIFTED_PRECOMPUTED_START + NUM_SHIFTED_PRECOMPUTED + 1;
-                 ++i, ++j) {
-                scalars[i] = scalars[i] + scalars[j];
-            }
+        // Iterate over the second range of to-be-shifted precomputed scalars and their shifted counterparts (if
+        // provided)
+        for (size_t i = 0; i < second_range_size; i++) {
+            size_t idx_to_be_shifted = i + (second_range_to_be_shifted_start + 1);
+            size_t idx_shifted = i + (second_range_shifted_start + 1);
+            scalars[idx_to_be_shifted] = scalars[idx_to_be_shifted] + scalars[idx_shifted];
         }
-        if (SHIFTED_PRECOMPUTED_START > SHIFTED_WITNESSES_START) {
-            // Step 4: Erase the shifted precomputed scalars and commitments (if provided)
-            if (NUM_SHIFTED_PRECOMPUTED > 0) {
-                for (size_t i = 0; i < NUM_SHIFTED_PRECOMPUTED; ++i) {
-                    scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START + 1));
-                    commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START + 1));
-                }
-            }
-            // Step 3: Erase the shifted scalars and commitments (after all updates)
-            for (size_t i = 0; i < NUM_SHIFTED_WITNESSES; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START + 1));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START + 1));
-            }
-        } else {
-            for (size_t i = 0; i < NUM_SHIFTED_WITNESSES; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START + 1));
-                info(i);
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_WITNESSES_START + 1));
+
+        if (second_range_shifted_start > first_range_shifted_start) {
+            // Erase the shifted scalars and commitments from the second range (if provided)
+            for (size_t i = 0; i < second_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start + 1));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start + 1));
             }
 
-            for (size_t i = 0; i < NUM_SHIFTED_PRECOMPUTED; ++i) {
-                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START + 1));
-                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(SHIFTED_PRECOMPUTED_START + 1));
+            // Erase the shifted scalars and commitments from the first range
+            for (size_t i = 0; i < first_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start + 1));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start + 1));
+            }
+        } else {
+            // Erase the shifted scalars and commitments from the first range
+            for (size_t i = 0; i < first_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start + 1));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(first_range_shifted_start + 1));
+            }
+            // Erase the shifted scalars and commitments from the second range (if provided)
+            for (size_t i = 0; i < second_range_size; ++i) {
+                scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start + 1));
+                commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(second_range_shifted_start + 1));
             }
         }
     }

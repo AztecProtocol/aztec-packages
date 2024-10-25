@@ -54,10 +54,11 @@ class ECCVMFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 113;
-
+    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
+    // get_unshifted() and get_to_be_shifted()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 63;
+    // The index of the shift of the first unshifted witness
     static constexpr size_t NUM_SHIFTED_WITNESSES = 26;
-
     static constexpr size_t SHIFTED_WITNESSES_START = 90;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;

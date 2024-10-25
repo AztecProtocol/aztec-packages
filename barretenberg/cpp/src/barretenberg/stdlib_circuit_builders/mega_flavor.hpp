@@ -51,13 +51,16 @@ class MegaFlavor {
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
+    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
+    // get_unshifted() and get_to_be_shifted()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = 30;
-
+    // The index of the shift of the first unshifted witness
     static constexpr size_t SHIFTED_WITNESSES_START = 58;
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
-
+    // The index of the first unshifted precomputed element that is going to be shifted when AllEntities are
+    // partitioned into get_unshifted() and get_to_be_shifted()
     static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = 22;
-
+    // The index of the shift of the first precomputed element
     static constexpr size_t SHIFTED_PRECOMPUTED_START = 54;
     static constexpr size_t NUM_PRECOMPUTED_SHIFTS = 4;
 
@@ -87,7 +90,7 @@ class MegaFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 23;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This

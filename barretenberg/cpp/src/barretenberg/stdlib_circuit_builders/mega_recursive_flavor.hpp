@@ -66,14 +66,16 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-
+    // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
+    // get_unshifted() and get_to_be_shifted()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = MegaFlavor::TO_BE_SHIFTED_WITNESSES_START;
-
+    // The index of the shift of the first unshifted witness
     static constexpr size_t SHIFTED_WITNESSES_START = MegaFlavor::SHIFTED_WITNESSES_START;
     static constexpr size_t NUM_SHIFTED_WITNESSES = MegaFlavor::NUM_SHIFTED_WITNESSES;
-
+    // The index of the first unshifted precomputed element that is going to be shifted when AllEntities are
+    // partitioned into get_unshifted() and get_to_be_shifted()
     static constexpr size_t TO_BE_SHIFTED_PRECOMPUTED_START = MegaFlavor::TO_BE_SHIFTED_PRECOMPUTED_START;
-
+    // The index of the shift of the first precomputed element
     static constexpr size_t SHIFTED_PRECOMPUTED_START = MegaFlavor::SHIFTED_PRECOMPUTED_START;
     static constexpr size_t NUM_PRECOMPUTED_SHIFTS = MegaFlavor::NUM_PRECOMPUTED_SHIFTS;
 
