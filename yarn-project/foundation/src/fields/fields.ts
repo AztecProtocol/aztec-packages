@@ -234,14 +234,18 @@ export class Fr extends BaseField {
   }
 
   /**
-   * Creates a Fr instance from a hex string.
-   * @param buf - a hex encoded string.
+   * Creates a Fr instance from a string.
+   * @param buf - string with value.
+   * @param encoding - the encoding to use (default: hex)
    * @returns the Fr instance
    */
-  static fromString(buf: string) {
-    return fromHexString(buf, Fr);
-  }
+  static fromString(buf: string, encoding: 'hex' | 'dec' = 'hex') {
+    if (encoding === 'hex') {
+      return fromHexString(buf, Fr);
+    }
 
+    return new Fr(BigInt(buf));
+  }
   /** Arithmetic */
 
   add(rhs: Fr) {
@@ -369,12 +373,17 @@ export class Fq extends BaseField {
   }
 
   /**
-   * Creates a Fq instance from a hex string.
-   * @param buf - a hex encoded string.
+   * Creates a Fq instance from a string.
+   * @param buf - string with value.
+   * @param encoding - the encoding to use (default: hex)
    * @returns the Fq instance
    */
-  static fromString(buf: string) {
-    return fromHexString(buf, Fq);
+  static fromString(buf: string, encoding: 'hex' | 'dec' = 'hex') {
+    if (encoding === 'hex') {
+      return fromHexString(buf, Fq);
+    }
+
+    return new Fq(BigInt(buf));
   }
 
   static fromHighLow(high: Fr, low: Fr): Fq {
