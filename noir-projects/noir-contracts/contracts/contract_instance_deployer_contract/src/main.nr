@@ -98,7 +98,7 @@ contract ContractInstanceDeployer {
         let partial_address =
             PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
-        let address = AztecAddress::compute(public_keys.hash(), partial_address);
+        let address = AztecAddress::compute(public_keys, partial_address);
 
         // Emit the address as a nullifier to be able to prove that this instance has been (not) deployed
         context.push_nullifier(address.to_field());
