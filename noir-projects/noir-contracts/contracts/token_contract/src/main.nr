@@ -614,8 +614,10 @@ contract Token {
     }
     // docs:end:setup_refund
 
-    // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for users
-    // to derive manually. This will however go away once we have a real transient storage. We cannot use generics here
+    // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
+    // users to derive manually. This will however go away once we have a real transient storage since we will not need
+    // the public call and instead we would do something like `context.transient_storage_write(slot, payload)` and that
+    // will allow us to use generics and hence user will not need to define it explicitly. We cannot use generics here
     // as it is an entrypoint function.
     #[public]
     #[internal]
