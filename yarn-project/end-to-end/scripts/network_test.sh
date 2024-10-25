@@ -78,7 +78,9 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --set ingress.enabled=true \
       --wait \
       --wait-for-jobs=true \
-      --timeout=30m
+      --timeout=30m \
+      --debug \
+      --v=5
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
