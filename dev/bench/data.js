@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729877439313,
+  "lastUpdate": 1729881452648,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "07e4c956494154685970849bc4dda60c25af31bc",
-          "message": "chore: Revert \"feat(avm): constrain start and end l2/da gas (#9031)\" (#9080)\n\nThis reverts commit 308c03b9ad45001570e6232f88403de8cc7d3cfb.\r\n\r\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
-          "timestamp": "2024-10-08T16:10:26Z",
-          "tree_id": "6482a306f598473b8a266c6cbe452b3adb448a70",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/07e4c956494154685970849bc4dda60c25af31bc"
-        },
-        "date": 1728405905581,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31468.289316999984,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29355.360567 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5512.053488000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5216.996002999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93558.897723,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93558900000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15646.910401,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15646911000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8368279159,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8368279159 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152963425,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152963425 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6743323211,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6743323211 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125816942,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125816942 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3264,6 +3192,66 @@ window.BENCHMARK_DATA = {
             "value": 126613305,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126613305 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a67d0e2122945998119a8643a4fb4e74fccc7f34",
+          "message": "chore(avm): Allocate memory for unshifted polynomials according to their trace col size (#9345)\n\nSome measurements on bulk test showed that resident memory during\r\nproving went from 33.1 GB to 28.4 GB.",
+          "timestamp": "2024-10-25T20:12:45+02:00",
+          "tree_id": "30e462f146708fab2680cc20bd1656dd762dde12",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a67d0e2122945998119a8643a4fb4e74fccc7f34"
+        },
+        "date": 1729881445642,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30837.070517,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29067.204898 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5345.56532500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5017.449989 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91926.988729,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91926991000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15167.119286,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15167119000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2699587404,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2699587404 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126754976,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126754976 ns\nthreads: 1"
           }
         ]
       }
