@@ -390,7 +390,7 @@ comptime fn generate_multi_scalar_mul(
 ///     fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; 17] {
 ///         let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 ///
-///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_encrypted_note_log(
+///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_private_log_payload(
 ///             context.this_address(),
 ///             ovsk_app,
 ///             recipient_keys.ovpk_m,
@@ -435,7 +435,7 @@ comptime fn generate_setup_payload(
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
     // Then we compute values for `encrypt_log(...)` function
-    // 353 is a fixed ciphertext overhead as defined by `compute_encrypted_note_log`
+    // 353 is a fixed ciphertext overhead as defined by `compute_private_log_payload`
     let encrypted_log_byte_length = 353 + log_plaintext_length;
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
@@ -466,13 +466,14 @@ comptime fn generate_setup_payload(
             fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
                 let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_encrypted_note_log(
+                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_private_log_payload(
                     context.this_address(),
                     ovsk_app,
                     recipient_keys.ovpk_m,
                     recipient_keys.ivpk_m,
                     recipient,
-                    self.log_plaintext
+                    self.log_plaintext,
+                    true
                 );
 
                 aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
@@ -656,7 +657,7 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    // 353 is a fixed ciphertext overhead as defined by `compute_encrypted_note_log`
+    // 353 is a fixed ciphertext overhead as defined by `compute_private_log_payload`
     let setup_log_byte_length = 353 + setup_log_plaintext_length;
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder

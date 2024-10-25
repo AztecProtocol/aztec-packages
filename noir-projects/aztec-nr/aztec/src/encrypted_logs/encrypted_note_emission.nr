@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext,
-    encrypted_logs::payload::compute_encrypted_note_log,
+    encrypted_logs::payload::compute_private_log_payload,
     keys::getters::get_ovsk_app,
     note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
@@ -11,7 +11,8 @@ use dep::protocol_types::{
     public_keys::{IvpkM, OvpkM, PublicKeys},
 };
 
-fn compute_raw_note_log<Note, let N: u32>(
+/// Computes private note log payload and a log hash
+fn compute_payload_and_hash<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
     ovsk_app: Field,
@@ -33,14 +34,23 @@ where
     let contract_address: AztecAddress = context.this_address();
 
     let plaintext = note.to_be_bytes(storage_slot);
-    let encrypted_log: [u8; 417 + N * 32] =
-        compute_encrypted_note_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+
+    // For note logs we always include public values prefix
+    let encrypted_log: [u8; 417 + N * 32] = compute_private_log_payload(
+        contract_address,
+        ovsk_app,
+        ovpk,
+        ivpk,
+        recipient,
+        plaintext,
+        true,
+    );
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
 }
 
-unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32>(
+unconstrained fn compute_payload_and_hash_unconstrained<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
     ovpk: OvpkM,
@@ -51,7 +61,7 @@ where
     Note: NoteInterface<N>,
 {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_raw_note_log(context, note, ovsk_app, ovpk, ivpk, recipient)
+    compute_payload_and_hash(context, note, ovsk_app, ovpk, ivpk, recipient)
 }
 
 // This function seems to be affected by the following Noir bug:
@@ -70,7 +80,7 @@ where
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
 
         let (note_hash_counter, encrypted_log, log_hash) =
-            compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, recipient);
+            compute_payload_and_hash(*context, e.note, ovsk_app, ovpk, ivpk, recipient);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -104,8 +114,9 @@ where
         // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
         // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
         // for a note that doesn't exist).
-        let (note_hash_counter, encrypted_log, log_hash) =
-            unsafe { compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient) };
+        let (note_hash_counter, encrypted_log, log_hash) = unsafe {
+            compute_payload_and_hash_unconstrained(*context, e.note, ovpk, ivpk, recipient)
+        };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
