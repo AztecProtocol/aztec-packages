@@ -4,7 +4,7 @@ use std::sync::Arc;
 use acir::brillig::{BitSize, HeapVector, IntegerBitSize};
 use acir::{
     acir_field::GenericFieldElement,
-    brillig::{BinaryFieldOp, HeapArray, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray},
+    brillig::{BinaryFieldOp, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray},
     circuit::{
         brillig::{BrilligBytecode, BrilligFunctionId, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, BlockId, BlockType, FunctionInput, MemOp},
@@ -749,7 +749,7 @@ fn unsatisfied_opcode_resolved_brillig() {
         ACVMStatus::Failure(OpcodeResolutionError::BrilligFunctionFailed {
             function_id: BrilligFunctionId(0),
             payload: None,
-            call_stack: vec![OpcodeLocation::Brillig { acir_index: 0, brillig_index: 5 }]
+            call_stack: vec![OpcodeLocation::Brillig { acir_index: 0, brillig_index: 6 }]
         }),
         "The first opcode is not satisfiable, expected an error indicating this"
     );

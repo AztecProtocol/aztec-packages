@@ -944,6 +944,8 @@ mod tests {
         assert_eq!(status, VMStatus::InProgress);
         let status = vm.process_opcode();
         assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
 
         let output_cmp_value = vm.memory.read(MemoryAddress::direct(2));
         assert_eq!(output_cmp_value.to_field(), false.into());
@@ -956,7 +958,7 @@ mod tests {
             status,
             VMStatus::Failure {
                 reason: FailureReason::Trap { revert_data_offset: 0, revert_data_size: 0 },
-                call_stack: vec![4]
+                call_stack: vec![5]
             }
         );
 
