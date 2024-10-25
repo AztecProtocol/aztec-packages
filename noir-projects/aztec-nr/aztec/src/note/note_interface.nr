@@ -1,11 +1,16 @@
 use crate::context::PrivateContext;
 use crate::note::note_header::NoteHeader;
+use dep::protocol_types::traits::{Deserialize, Empty, Serialize};
 
 pub trait NoteProperties<T> {
     fn properties() -> T;
 }
 
-pub trait PartialNote<S, F> {
+pub trait PartialNote<S, F>
+where
+    S: crate::protocol_types::traits::Empty,
+    F: crate::protocol_types::traits::Empty,
+{
     fn setup_payload() -> S;
 
     fn finalization_payload() -> F;

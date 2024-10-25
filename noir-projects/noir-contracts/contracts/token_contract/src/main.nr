@@ -65,8 +65,8 @@ contract Token {
     // an overall small circuit regardless.
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct Transfer {
         from: AztecAddress,
         to: AztecAddress,
