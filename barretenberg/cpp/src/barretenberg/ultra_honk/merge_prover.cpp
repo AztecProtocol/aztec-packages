@@ -98,16 +98,20 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
         opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    std::array<std::string, NUM_WIRES * 3 - 1> args;
+    for (size_t idx = 0; idx < NUM_WIRES * 3 - 1; ++idx) {
+        args[idx] = "alpha_" + std::to_string(idx);
+    }
+    std::array<FF, NUM_WIRES* 3 - 1> alphas = transcript->template get_challenges<FF>(args);
 
     // Construct batched polynomial to opened via KZG
     auto batched_polynomial = Polynomial(N);
     auto batched_eval = FF(0);
-    auto alpha_pow = FF(1);
-    for (auto& claim : opening_claims) {
-        batched_polynomial.add_scaled(claim.polynomial, alpha_pow);
-        batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        alpha_pow *= alpha;
+    batched_polynomial.add_scaled(opening_claims[0].polynomial, FF(1));
+    batched_eval += opening_claims[0].opening_pair.evaluation;
+    for (size_t idx = 1; idx < opening_claims.size(); ++idx) {
+        batched_polynomial.add_scaled(opening_claims[idx].polynomial, alphas[idx - 1]);
+        batched_eval += alphas[idx - 1] * opening_claims[idx].opening_pair.evaluation;
     }
 
     // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)

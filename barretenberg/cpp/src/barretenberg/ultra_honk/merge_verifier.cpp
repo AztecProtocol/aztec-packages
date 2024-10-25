@@ -60,17 +60,19 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
         identity_checked = identity_checked && (T_current_evals[idx] == T_prev_evals[idx] + t_shift_evals[idx]);
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    std::array<std::string, NUM_WIRES * 3 - 1> args;
+    for (size_t idx = 0; idx < NUM_WIRES * 3 - 1; ++idx) {
+        args[idx] = "alpha_" + std::to_string(idx);
+    }
+    std::array<FF, NUM_WIRES* 3 - 1> alphas = transcript->template get_challenges<FF>(args);
 
     // Construct batched commitment and evaluation from constituents
     auto batched_commitment = opening_claims[0].commitment;
     auto batched_eval = opening_claims[0].opening_pair.evaluation;
-    auto alpha_pow = alpha;
     for (size_t idx = 1; idx < opening_claims.size(); ++idx) {
         auto& claim = opening_claims[idx];
-        batched_commitment = batched_commitment + (claim.commitment * alpha_pow);
-        batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        alpha_pow *= alpha;
+        batched_commitment = batched_commitment + (claim.commitment * alphas[idx - 1]);
+        batched_eval += alphas[idx - 1] * claim.opening_pair.evaluation;
     }
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
