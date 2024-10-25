@@ -16,7 +16,7 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 
 /**
  * Information about a note needed during execution.
@@ -251,5 +251,9 @@ export abstract class TypedOracle {
 
   debugLog(_message: string, _fields: Fr[]): void {
     throw new OracleMethodNotAvailableError('debugLog');
+  }
+
+  getTaggingSecret(_sender: AztecAddress, _recipient: AztecAddress): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('getTaggingSecret');
   }
 }

@@ -11,13 +11,18 @@ import {
   type AztecAddress,
   type CompleteAddress,
   type ContractInstance,
+  Fq,
   type Fr,
   type FunctionSelector,
   type Header,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  computePoint,
+  computePreaddress,
 } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
@@ -225,5 +230,26 @@ export class SimulatorOracle implements DBOracle {
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
     return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+  }
+
+  public async getTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<Fr> {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderPreaddress = computePreaddress(
+      senderCompleteAddress.publicKeys.hash(),
+      senderCompleteAddress.partialAddress,
+    );
+    const ivskSender = await this.keyStore.getMasterIncomingViewingSecretKey(senderPreaddress);
+    // TODO: #8970 - Computation of address point from x coordinate might fail
+    const recipientAddressPoint = computePoint(recipient);
+    const curve = new Grumpkin();
+    // Given A (sender) -> B (recipient) and h == preaddress
+    // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
+    const sharedSecret = curve.mul(recipientAddressPoint, ivskSender.add(new Fq(senderPreaddress.toBigInt())));
+    // Silo the secret to the app so it can't be used to track other app's notes
+    return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
   }
 }

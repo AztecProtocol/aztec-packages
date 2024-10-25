@@ -408,4 +408,12 @@ export class Oracle {
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
+
+  async getTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField> {
+    const taggingSecret = await this.typedOracle.getTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+    return toACVMField(taggingSecret);
+  }
 }

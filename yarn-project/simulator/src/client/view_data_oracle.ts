@@ -288,4 +288,8 @@ export class ViewDataOracle extends TypedOracle {
     const formattedStr = applyStringFormatting(message, fields);
     this.log.verbose(`debug_log ${formattedStr}`);
   }
+
+  public override async getTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+    return await this.db.getTaggingSecret(this.contractAddress, sender, recipient);
+  }
 }

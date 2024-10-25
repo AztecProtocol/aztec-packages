@@ -193,4 +193,6 @@ export interface DBOracle extends CommitmentsDB {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  getTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
 }
