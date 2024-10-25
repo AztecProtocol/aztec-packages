@@ -88,13 +88,11 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
-        auto base_point = Point::random_element();
-        info("erroneous equality op point ", base_point);
         raw_ops.emplace_back(ECCVMOperation{ .add = false,
                                              .mul = false,
                                              .eq = true,
                                              .reset = true,
-                                             .base_point = base_point,
+                                             .base_point = Point::random_element(),
                                              .z1 = 0,
                                              .z2 = 0,
                                              .mul_scalar_full = 0 });
@@ -487,8 +485,8 @@ class ECCOpQueue {
 
         // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
         const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-        auto x_256 = uint256_t(point.x);
-        auto y_256 = uint256_t(point.y);
+        uint256_t x_256(point.x);
+        uint256_t y_256(point.y);
         ultra_op.return_is_infinity = point.is_point_at_infinity();
         ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
         ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));

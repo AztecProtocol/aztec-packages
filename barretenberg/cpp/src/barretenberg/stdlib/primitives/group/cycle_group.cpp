@@ -734,9 +734,9 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
             field_t hi = field_t::from_witness(ctx, hi_v);
 
             uint256_t hi_max = (scalar.binary_basis_limbs[0].maximum_value >> BigScalarField::NUM_LIMB_BITS);
-            const size_t hi_bits = hi_max.get_msb() + 1;
+            const uint64_t hi_bits = hi_max.get_msb() + 1;
             lo.create_range_constraint(BigScalarField::NUM_LIMB_BITS);
-            hi.create_range_constraint(hi_bits);
+            hi.create_range_constraint(static_cast<size_t>(hi_bits));
             limb0.assert_equal(lo + hi * BigScalarField::shift_1);
 
             limb1 += hi;
@@ -753,7 +753,7 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         // is LO_BITS - BigScalarField::NUM_LIMB_BITS (which reprsents its contribution to *this.lo) and the second
         // represents the limbs contribution to *this.hi Step 1: compute the max bit sizes of both slices
         const size_t lo_bits_in_limb_1 = LO_BITS - BigScalarField::NUM_LIMB_BITS;
-        const size_t hi_bits_in_limb_1 = (limb1_max.get_msb() + 1) - lo_bits_in_limb_1;
+        const size_t hi_bits_in_limb_1 = (static_cast<size_t>(limb1_max.get_msb()) + 1) - lo_bits_in_limb_1;
 
         // Step 2: compute the witness values of both slices
         const uint256_t limb_1 = limb1.get_value();
