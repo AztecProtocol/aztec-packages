@@ -201,7 +201,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } })
+        .map(|(name, _): (Quoted, Type)| quote { $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
