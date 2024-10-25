@@ -137,6 +137,7 @@ services:
       BOT_NO_WAIT_FOR_TRANSFERS: true
       BOT_NO_START: false
       BOT_MAX_CONSECUTIVE_ERRORS: 3
+      BOT_STOP_WHEN_UNHEALTHY: true
       PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
@@ -151,7 +152,7 @@ services:
       test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
       interval: 3s
       timeout: 30s
-      start_period: 10s
+      start_period: 90s
     restart: on-failure:5
     command: [ "start", "--bot", "--pxe" ]
 

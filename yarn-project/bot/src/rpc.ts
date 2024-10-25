@@ -12,5 +12,5 @@ import { type BotRunner } from './runner.js';
  * @returns An JSON-RPC HTTP server
  */
 export function createBotRunnerRpcServer(botRunner: BotRunner) {
-  return new JsonRpcServer(botRunner, { AztecAddress, EthAddress, Fr, TxHash }, {}, [], () => botRunner.isRunning());
+  return new JsonRpcServer(botRunner, { AztecAddress, EthAddress, Fr, TxHash }, {}, [], () => botRunner.isHealthy());
 }

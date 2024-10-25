@@ -55,6 +55,8 @@ export type BotConfig = {
   contract: SupportedTokenContracts;
   /** The maximum number of consecutive errors before the bot shuts down */
   maxConsecutiveErrors: number;
+  /** Stops the bot if service becomes unhealthy */
+  stopWhenUnhealthy: boolean;
 };
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
@@ -170,6 +172,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_MAX_CONSECUTIVE_ERRORS',
     description: 'The maximum number of consecutive errors before the bot shuts down',
     ...numberConfigHelper(0),
+  },
+  stopWhenUnhealthy: {
+    env: 'BOT_STOP_WHEN_UNHEALTHY',
+    description: 'Stops the bot if service becomes unhealthy',
+    ...booleanConfigHelper(false),
   },
 };
 
