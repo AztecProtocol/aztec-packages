@@ -298,7 +298,7 @@ kind-network-smoke:
 kind-network-transfer:
   ARG values_file
   LOCALLY
-  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
+  RUN NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${values_file:-16-validators-2-bots.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
 
 kind-network-4epochs:
   ARG values_file
