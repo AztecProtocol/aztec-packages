@@ -118,22 +118,30 @@ void AvmBytecodeTraceBuilder::build_bytecode_hash_columns()
             bytecode_hash_trace.push_back(BytecodeHashTraceEntry{
                 .field_encoded_bytecode = field_encoded_bytecode[i],
                 .running_hash = running_hash,
-                .bytecode_length_remaining = static_cast<uint16_t>(field_encoded_bytecode.size() - i),
+                .bytecode_field_length_remaining = static_cast<uint16_t>(field_encoded_bytecode.size() - i),
             });
+            // We pair-wise hash the i-th bytecode field with the running hash (which is the output of previous i-1
+            // round). I.e.
+            // initially running_hash = 0,
+            // the first round is running_hash = hash(bytecode[0], running_hash),
+            // the second round is running_hash = hash(bytecode[1],running_hash), and so on.
             running_hash = poseidon2::hash({ field_encoded_bytecode[i], running_hash });
         }
         // Now running_hash actually contains the bytecode hash
         BytecodeHashTraceEntry last_entry;
-        last_entry.bytecode_length_remaining = 0;
+        last_entry.bytecode_field_length_remaining = 0;
         last_entry.running_hash = running_hash;
+        // Assert that the computed bytecode hash is the same as what we received as the hint
         ASSERT(running_hash == contract_bytecode.contract_class_id_preimage.public_bytecode_commitment);
 
         last_entry.class_id = compute_contract_class_id(contract_bytecode.contract_class_id_preimage.artifact_hash,
                                                         contract_bytecode.contract_class_id_preimage.private_fn_root,
                                                         running_hash);
+        // Assert that the computed class id is the same as what we received as the hint
         ASSERT(last_entry.class_id == contract_bytecode.contract_instance.contract_class_id);
 
         last_entry.contract_address = compute_address_from_instance(contract_bytecode.contract_instance);
+        // Assert that the computed contract address is the same as what we received as the hint
         ASSERT(last_entry.contract_address == contract_bytecode.contract_instance.address);
     }
 }
@@ -144,9 +152,9 @@ void AvmBytecodeTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         auto const& src = bytecode_hash_trace.at(i);
         auto& dest = main_trace.at(i);
         dest.bytecode_running_hash = src.running_hash;
-        dest.bytecode_length_remaining = src.bytecode_length_remaining;
+        dest.bytecode_length_remaining = src.bytecode_field_length_remaining;
         dest.bytecode_as_fields = src.field_encoded_bytecode;
-        dest.bytecode_end_latch = src.bytecode_length_remaining == 0 ? FF::one() : FF::zero();
+        dest.bytecode_end_latch = src.bytecode_field_length_remaining == 0 ? FF::one() : FF::zero();
     }
 
     // We should probably combine this step with the previous one
@@ -157,9 +165,8 @@ void AvmBytecodeTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         for (auto& byte : bytecode.bytecode) {
             main_trace.at(row_index).bytecode_bytes = byte;
             main_trace.at(row_index).bytecode_bytes_pc = byte_index;
+            row_index++;
         }
-        // The row index will match up with the clk
-        row_index += bytecode.bytecode.size();
     }
 }
 

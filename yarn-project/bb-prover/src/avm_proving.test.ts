@@ -73,12 +73,6 @@ const proveAndVerifyAvmTestContract = async (
   const contractClass = makeContractClassPublic(0, publicFn);
   const contractInstance = makeContractInstanceFromClassId(contractClass.id);
 
-  const nestedCallBytecode = getAvmTestContractBytecode('public_dispatch');
-  const nestedCallFnSelector = getAvmTestContractFunctionSelector('public_dispatch');
-  const nestedCallPublicFn: PublicFunction = { bytecode: nestedCallBytecode, selector: nestedCallFnSelector };
-  const nestedCallContractClass = makeContractClassPublic(0, nestedCallPublicFn);
-  const nestedCallContractInstance = makeContractInstanceFromClassId(nestedCallContractClass.id);
-
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -96,9 +90,8 @@ const proveAndVerifyAvmTestContract = async (
   worldStateDB.getContractInstance
     .mockResolvedValueOnce(contractInstance)
     .mockResolvedValueOnce(instanceGet)
-    .mockResolvedValueOnce(nestedCallContractInstance)
-    .mockResolvedValueOnce(nestedCallContractInstance);
-  worldStateDB.getContractClass.mockResolvedValueOnce(contractClass).mockResolvedValue(nestedCallContractClass);
+    .mockResolvedValue(contractInstance);
+  worldStateDB.getContractClass.mockResolvedValue(contractClass);
 
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
@@ -113,10 +106,7 @@ const proveAndVerifyAvmTestContract = async (
   });
   const context = initContext({ env: environment, persistableState });
 
-  worldStateDB.getBytecode
-    .mockResolvedValueOnce(bytecode)
-    .mockResolvedValue(nestedCallBytecode)
-    .mockResolvedValue(nestedCallBytecode);
+  worldStateDB.getBytecode.mockResolvedValue(bytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 

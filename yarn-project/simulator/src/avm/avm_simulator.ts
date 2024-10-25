@@ -33,10 +33,7 @@ export class AvmSimulator {
    * Fetch the bytecode and execute it in the current context.
    */
   public async execute(): Promise<AvmContractCallResult> {
-    const bytecode = await this.context.persistableState.getBytecode(
-      this.context.environment.address,
-      this.context.environment.functionSelector,
-    );
+    const bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
 
     // This assumes that we will not be able to send messages to accounts without code
     // Pending classes and instances impl details

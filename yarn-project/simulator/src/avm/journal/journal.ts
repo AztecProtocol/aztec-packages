@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  type FunctionSelector,
   type Gas,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
@@ -247,7 +246,7 @@ export class AvmPersistableStateManager {
   /**
    * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
-  public async getBytecode(contractAddress: AztecAddress, _selector: FunctionSelector): Promise<Buffer | undefined> {
+  public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
     let exists = true;
     let contractInstance = await this.worldStateDB.getContractInstance(contractAddress);
     // If the contract instance is not found, we assume it has not been deployed.
