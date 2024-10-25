@@ -2738,10 +2738,59 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     return returndata;
 }
 
-std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
+    // TODO: This opcode is still masquerading as RETURN.
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
+    bool tag_match = true;
+
+    auto [resolved_ret_offset, resolved_ret_size_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
+    gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
+
     // TODO: fix and set sel_op_revert
-    return op_return(indirect, ret_offset, ret_size);
+    if (ret_size == 0) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+
+        pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+        return {};
+    }
+
+    // The only memory operation performed from the main trace is a possible indirect load for resolving the
+    // direct destination offset stored in main_mem_addr_c.
+    // All the other memory operations are triggered by the slice gadget.
+    if (tag_match) {
+        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
+        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+    }
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_ib = ret_size,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_mem_addr_c = resolved_ret_offset,
+        .main_pc = pc,
+        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .main_sel_op_external_return = 1,
+        .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
+        .main_tag_err = static_cast<uint32_t>(!tag_match),
+        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+    });
+
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    return returndata;
 }
 
 /**************************************************************************************************
