@@ -25,7 +25,7 @@ tests:
   e2e_blacklist_token_contract: {}
   e2e_block_building: {}
   e2e_bot: {}
-  e2e_browser:
+  e2e_aztec_js_browser:
     use_compose: true
   e2e_card_game: {}
   e2e_cheat_codes: {}
@@ -33,7 +33,7 @@ tests:
   e2e_crowdfunding_and_claim: {}
   e2e_deploy_contract: {}
   e2e_devnet_smoke: {}
-  e2e_docs_examples:
+  docs_examples:
     use_compose: true
   e2e_escrow_contract: {}
   e2e_fees_account_init:
@@ -85,14 +85,19 @@ tests:
     ignore_failures: true
   guides_dapp_testing:
     use_compose: true
+    test_path: "guides/dapp_testing.test.ts"
   guides_sample_dapp:
     use_compose: true
+    test_path: "sample-dapp/index.test.mjs"
   guides_sample_dapp_ci:
     use_compose: true
+    test_path: "sample-dapp/ci/index.test.mjs"
   guides_up_quick_start:
     use_compose: true
+    test_path: "guides/up_quick_start.test.ts"
   guides_writing_an_account_contract:
     use_compose: true
+    test_path: "guides/writing_an_account_contract.test.ts"
   integration_l1_publisher:
     use_compose: true
   kind_network_4epochs:
