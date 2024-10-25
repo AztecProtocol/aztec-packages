@@ -1,7 +1,7 @@
 use crate::tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder;
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
-    traits::is_empty, tests::utils::assert_array_eq,
+    tests::utils::assert_array_eq, traits::is_empty,
 };
 
 #[test]

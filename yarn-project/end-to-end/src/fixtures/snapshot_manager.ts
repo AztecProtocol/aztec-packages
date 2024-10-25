@@ -17,7 +17,7 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, createL1Clients, l1Artifacts } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
@@ -31,7 +31,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import getPort from 'get-port';
 import { join } from 'path';
-import { type Hex } from 'viem';
+import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures.js';
@@ -335,6 +335,29 @@ async function setupFromFresh(
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
+
+  if (opts.fundSysstia) {
+    // Mints block rewards for 10000 blocks to the sysstia contract
+
+    const sysstia = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.sysstiaAddress.toString(),
+      abi: l1Artifacts.sysstia.contractAbi,
+      client: deployL1ContractsValues.publicClient,
+    });
+
+    const blockReward = await sysstia.read.BLOCK_REWARD([]);
+    const mintAmount = 10_000n * (blockReward as bigint);
+
+    const feeJuice = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
+      abi: l1Artifacts.feeJuice.contractAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
+
+    const sysstiaMintTxHash = await feeJuice.write.mint([sysstia.address, mintAmount], {} as any);
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: sysstiaMintTxHash });
+    logger.info(`Funding sysstia in ${sysstiaMintTxHash}`);
+  }
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodes(aztecNodeConfig.l1RpcUrl),

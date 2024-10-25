@@ -8,7 +8,9 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
         log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::is_empty,
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 

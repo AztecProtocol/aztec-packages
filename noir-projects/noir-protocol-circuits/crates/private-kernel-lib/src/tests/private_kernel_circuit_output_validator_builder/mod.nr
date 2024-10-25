@@ -9,11 +9,13 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        private_call_request::PrivateCallRequest,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
+        private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
-    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
+    },
     constants::PRIVATE_KERNEL_INIT_INDEX,
+    tests::fixture_builder::FixtureBuilder,
+    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitOutputValidatorBuilder {

@@ -1,5 +1,5 @@
 use crate::{
-    note_hash_read_request_reset::{NoteHashSettledReadHint, NoteHashReadRequestHints},
+    note_hash_read_request_reset::{NoteHashReadRequestHints, NoteHashSettledReadHint},
     reset::read_request::{PendingReadHint, ReadRequestStatus},
 };
 use dep::types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_TX;

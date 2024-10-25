@@ -1,6 +1,7 @@
 use dep::types::{
-    abis::{global_variables::GlobalVariables, append_only_tree_snapshot::AppendOnlyTreeSnapshot},
-    traits::{Empty, Serialize, Deserialize}, constants::CONSTANT_ROLLUP_DATA_LENGTH,
+    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
+    constants::CONSTANT_ROLLUP_DATA_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 

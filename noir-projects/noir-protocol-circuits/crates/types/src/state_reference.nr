@@ -1,7 +1,8 @@
 use crate::{
-    abis::append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
+    abis::append_only_tree_snapshot::{APPEND_ONLY_TREE_SNAPSHOT_LENGTH, AppendOnlyTreeSnapshot},
     constants::{PARTIAL_STATE_REFERENCE_LENGTH, STATE_REFERENCE_LENGTH},
-    partial_state_reference::PartialStateReference, traits::{Deserialize, Empty, Serialize},
+    partial_state_reference::PartialStateReference,
+    traits::{Deserialize, Empty, Serialize},
     utils::arr_copy_slice,
 };
 

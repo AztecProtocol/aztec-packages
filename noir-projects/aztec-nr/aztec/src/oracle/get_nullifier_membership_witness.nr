@@ -1,6 +1,7 @@
 use dep::protocol_types::{
-    abis::nullifier_leaf_preimage::{NullifierLeafPreimage, NULLIFIER_LEAF_PREIMAGE_LENGTH},
-    constants::NULLIFIER_TREE_HEIGHT, utils::arr_copy_slice,
+    abis::nullifier_leaf_preimage::{NULLIFIER_LEAF_PREIMAGE_LENGTH, NullifierLeafPreimage},
+    constants::NULLIFIER_TREE_HEIGHT,
+    utils::arr_copy_slice,
 };
 
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT

@@ -1,8 +1,8 @@
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::header::Header;
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
-    note::{utils::compute_note_hash_for_nullify, note_interface::{NoteInterface, NullifiableNote}},
+    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_note_hash_for_nullify},
     oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 

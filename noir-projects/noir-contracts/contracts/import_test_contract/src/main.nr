@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 contract ImportTest {
     use dep::aztec::prelude::AztecAddress;
 
-    use dep::test::{Test, Test::DeepStruct, Test::DummyNote};
+    use dep::test::Test::{self, DeepStruct, DummyNote};
 
     use dep::aztec::macros::functions::{private, public};
 

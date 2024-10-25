@@ -4,10 +4,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract PriceFeed {
-    use dep::aztec::prelude::{Map, PublicMutable};
     use crate::asset::Asset;
+    use dep::aztec::prelude::{Map, PublicMutable};
 
-    use dep::aztec::macros::{storage::storage, functions::{public, view}};
+    use dep::aztec::macros::{functions::{public, view}, storage::storage};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]

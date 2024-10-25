@@ -299,7 +299,7 @@ describe('e2e_block_building', () => {
       // compare logs
       expect(rct.status).toEqual('success');
       const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
-        const notePayload = L1NotePayload.decryptAsIncoming(l, keys.masterIncomingViewingSecretKey);
+        const notePayload = L1NotePayload.decryptAsIncoming(l, thisWallet.getEncryptionSecret());
         return notePayload?.note.items[0];
       });
       expect(noteValues[0]).toEqual(new Fr(10));

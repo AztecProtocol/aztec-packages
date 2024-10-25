@@ -6,7 +6,8 @@ mod validate_propagated_values;
 use crate::components::{
     tail_output_composer::meter_gas_used::meter_gas_used,
     tail_output_validator::{
-        tail_output_hints::{generate_tail_output_hints, TailOutputHints}, TailOutputValidator,
+        tail_output_hints::{generate_tail_output_hints, TailOutputHints},
+        TailOutputValidator,
     },
 };
 use dep::types::{

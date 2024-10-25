@@ -381,6 +381,10 @@ export class Fq extends BaseField {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
   }
 
+  add(rhs: Fq) {
+    return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
   toJSON() {
     return {
       type: 'Fq',

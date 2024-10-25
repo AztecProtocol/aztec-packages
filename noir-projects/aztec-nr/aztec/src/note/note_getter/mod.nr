@@ -1,15 +1,16 @@
-use dep::protocol_types::constants::{
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTES_ORACLE_RETURN_LENGTH,
-};
 use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
-    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, NoteStatus, PropertySelector},
-    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
+    note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
+    note_interface::{NoteInterface, NullifiableNote},
+    note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request,
 };
 use crate::oracle;
 use crate::utils::comparison::compare;
+use dep::protocol_types::constants::{
+    GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+};
 
 pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 
