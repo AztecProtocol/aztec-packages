@@ -12,7 +12,7 @@
 namespace acir_format {
 
 using namespace bb;
-// using field_ct = stdlib::field_t<Builder>;
+using field_ct = stdlib::field_t<Builder>;
 // using bn254 = stdlib::bn254<Builder>;
 // using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
@@ -44,8 +44,8 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(size_t num_public_inp
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
 
     // Preamble (metadata plus public inputs)
-    size_t fixed_num_public_inputs = bb::AGGREGATION_OBJECT_SIZE;
-    size_t num_preamble_elements = 3 + num_public_inputs + fixed_num_public_inputs;
+    size_t total_num_public_inputs = num_public_inputs + bb::AGGREGATION_OBJECT_SIZE;
+    size_t num_preamble_elements = 3 + total_num_public_inputs;
     for (size_t i = 0; i < num_preamble_elements; ++i) {
         verifier_inputs.proof.emplace_back(0);
     }
@@ -69,6 +69,11 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(size_t num_public_inp
     // vkey->databus_propagation_data = databus_propagation_data;
     verifier_inputs.honk_verification_key = std::make_shared<VerificationKey>();
     verifier_inputs.honk_verification_key->contains_recursive_proof = true;
+    // WORKTODO: does this need to be set properly? probably
+    verifier_inputs.honk_verification_key->num_public_inputs = total_num_public_inputs;
+    // Note: this must be set to the genuine correct value since it determines the location of the PI in the circuit and
+    // is thus part of the VK
+    verifier_inputs.honk_verification_key->pub_inputs_offset = 16385; // WORKTODO: find a way to set this
     for (auto& commitment : verifier_inputs.honk_verification_key->get_all()) {
         commitment = mock_commitment;
     }
@@ -104,6 +109,22 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     }
 
     return proof;
+}
+
+void populate_dummy_vk_and_public_inputs_in_constraint(
+    MegaCircuitBuilder& builder,
+    const std::shared_ptr<ClientIVC::VerificationKey>& mock_verification_key,
+    std::vector<uint32_t>& key_witness_indices)
+{
+    using Flavor = MegaFlavor;
+    using FF = Flavor::FF;
+
+    std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
+    ASSERT(mock_vk_fields.size() == key_witness_indices.size());
+
+    for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
+        witness_idx = builder.add_variable(value);
+    }
 }
 
 } // namespace acir_format

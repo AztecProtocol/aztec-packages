@@ -89,6 +89,15 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
         decider_vk = verifier_accum; // decider vk for the incoming circuit
 
+        // FF sum = 0;
+        // // size_t idx = 0;
+        // for (auto val : circuit.blocks.arithmetic.q_1()) {
+        //     // info("idx: ", idx++);
+        //     // info("val: ", val);
+        //     sum += val;
+        // }
+        // info("HASH -1: ", sum);
+
         break;
     }
     }
@@ -101,6 +110,15 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         decider_vk->witness_commitments.secondary_calldata,
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
+
+    // FF sum = 0;
+    // // size_t idx = 0;
+    // for (auto val : circuit.blocks.arithmetic.q_1()) {
+    //     // info("idx: ", idx++);
+    //     // info("val: ", val);
+    //     sum += val;
+    // }
+    // info("HASH 0: ", sum);
 }
 
 /**
@@ -140,11 +158,27 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
     stdlib_verification_queue.clear();
 
+    // FF sum = 0;
+    // FF idx = 1;
+    // for (auto val : circuit.blocks.arithmetic.q_1()) {
+    //     sum += val * idx;
+    //     idx += 1;
+    // }
+    // info("HASH inner: ", sum);
+
     // Propagate return data commitments via the public inputs for use in databus consistency checks
     bus_depot.propagate_return_data_commitments(circuit);
 
     // Perform recursive merge verification for every merge proof in the queue
     process_recursive_merge_verification_queue(circuit);
+
+    // FF sum = 0;
+    // FF idx = 1;
+    // for (auto val : circuit.blocks.arithmetic.q_1()) {
+    //     sum += val * idx;
+    //     idx += 1;
+    // }
+    // info("HASH inner: ", sum);
 }
 
 /**

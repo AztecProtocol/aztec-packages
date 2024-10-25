@@ -1,6 +1,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -33,6 +34,11 @@ void build_constraints(Builder& builder,
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
         builder.create_poly_gate(constraint);
+        // size_t idx = 0;
+        // for (auto val : builder.blocks.arithmetic.q_c()) {
+        //     info("idx: ", idx++);
+        //     info("val: ", val);
+        // }
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
     }
@@ -482,21 +488,27 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         ASSERT(false);
     }
 
-    // WORKTODO: comments
-    // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
+    // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
+    // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
     if (witness.empty()) {
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-        ivc.instantiate_stdlib_verification_queue(circuit);
-    } else {
-        std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
-        stdlib_verification_keys.reserve(constraint_system.ivc_recursion_constraints.size());
-        for (const auto& constraint : constraint_system.ivc_recursion_constraints) {
-            stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
-                StdlibVerificationKey::from_witness_indices(circuit, constraint.key)));
+        for (auto [constraint, queue_entry] :
+             zip_view(constraint_system.ivc_recursion_constraints, ivc.verification_queue)) {
+
+            populate_dummy_vk_and_public_inputs_in_constraint(
+                circuit, queue_entry.honk_verification_key, constraint.key);
         }
-        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-        ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
     }
+
+    // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
+    std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
+    stdlib_verification_keys.reserve(constraint_system.ivc_recursion_constraints.size());
+    for (const auto& constraint : constraint_system.ivc_recursion_constraints) {
+        stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
+            StdlibVerificationKey::from_witness_indices(circuit, constraint.key)));
+    }
+    // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+    ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
     // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
