@@ -139,6 +139,17 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), true) << outer_circuit.err();
+
+        {
+            auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            OuterProver prover(proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            OuterVerifier verifier(verification_key);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
+
+            EXPECT_FALSE(verified);
+        }
     }
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

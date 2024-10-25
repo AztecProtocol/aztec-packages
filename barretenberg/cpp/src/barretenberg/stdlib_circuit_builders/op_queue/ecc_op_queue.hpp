@@ -88,11 +88,13 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
+        auto base_point = Point::random_element();
+        info("erroneous equality op point ", base_point);
         raw_ops.emplace_back(ECCVMOperation{ .add = false,
                                              .mul = false,
                                              .eq = true,
                                              .reset = true,
-                                             .base_point = Point::random_element(),
+                                             .base_point = base_point,
                                              .z1 = 0,
                                              .z2 = 0,
                                              .mul_scalar_full = 0 });
