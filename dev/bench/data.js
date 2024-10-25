@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729808123581,
+  "lastUpdate": 1729867268607,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1798b1cc701824dd268ed0e49e592febf01a1687",
-          "message": "feat: Integrate databus in the private kernels (#9028)\n\nIntegrates the databus in the private kernels. We do this by annotating\r\nwith call_data(0) for previous kernel public inputs and call_data(1) for\r\napp public inputs. Kernels and apps expose their own public inputs as\r\nreturn_data except the tail kernel who does it via the traditional\r\npublic inputs mechanism for the tube.",
-          "timestamp": "2024-10-08T15:49:49+02:00",
-          "tree_id": "f4d0a63910cc9513d4976febf0270eca4d21f50c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1798b1cc701824dd268ed0e49e592febf01a1687"
-        },
-        "date": 1728398857690,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31445.828130999984,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29235.102244 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5522.198032000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5155.774105999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93141.111719,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93141114000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15803.426605000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15803426000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8315489819,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8315489819 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151066956,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151066956 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6762357502,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6762357502 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126014718,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126014718 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3228,66 @@ window.BENCHMARK_DATA = {
             "value": 126186669,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126186669 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2bb09e59f648e6182f1097d283451afd3c488d27",
+          "message": "feat: bytecode hashing init (#8535)\n\nThis adds proper computation of the public bytecode commitment (i.e.\r\npair-wise poseidon hashing of the public bytecode). This hash is also\r\ncomputed in the witgen although the circuit remains unconstrained.\r\n\r\nFollow up PRs will handle:\r\n1) Deriving class id, including tracing and hinting the artifact hash,\r\netc\r\n2) Deriving the address, including tracing and hinting the contract\r\ninstance\r\n3) Merkle path hinting and verification in the AVM",
+          "timestamp": "2024-10-25T15:13:41+01:00",
+          "tree_id": "d531be1b3de5d89fef81d95a0648210ccf98db24",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2bb09e59f648e6182f1097d283451afd3c488d27"
+        },
+        "date": 1729867261557,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30828.311361999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28952.089779 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5348.9558649999935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5002.027076 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93254.62796800002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93254630000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15220.061291,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15220061000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2715364570,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2715364570 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128242637,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128242637 ns\nthreads: 1"
           }
         ]
       }
