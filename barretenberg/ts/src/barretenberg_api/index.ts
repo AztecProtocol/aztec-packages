@@ -593,6 +593,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async honkSolidityVerifier(acirVec: Uint8Array): Promise<string> {
+    const inArgs = [acirVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'honk_solidity_verifier',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirProofAsFieldsUltraHonk(proofBuf: Uint8Array): Promise<Fr[]> {
     const inArgs = [proofBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];

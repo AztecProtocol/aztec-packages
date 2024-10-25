@@ -11,6 +11,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "honk_contract.hpp"
 #include <cstdint>
 #include <memory>
 
@@ -320,6 +321,22 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
     *out = to_heap_buffer(to_buffer(vk));
 }
 
+WASM_EXPORT void honk_solidity_verifier(uint8_t const* acir_vec, uint8_t** out)
+{
+    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using VerificationKey = UltraFlavor::VerificationKey;
+
+    auto constraint_system =
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
+
+    DeciderProvingKey proving_key(builder);
+    VerificationKey vk(proving_key.proving_key);
+
+    auto str = get_honk_solidity_verifier(&vk);
+    *out = to_heap_buffer(str);
+}
+
 WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out)
 {
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
@@ -329,15 +346,6 @@ WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::v
 WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey)
 {
     using VerificationKey = UltraFlavor::VerificationKey;
-
-    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
-    *out_vkey = to_heap_buffer(vkey_as_fields);
-}
-
-WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey)
-{
-    using VerificationKey = MegaFlavor::VerificationKey;
 
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
     std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
