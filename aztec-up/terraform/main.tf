@@ -26,6 +26,11 @@ data "terraform_remote_state" "aztec2_iac" {
   }
 }
 
+variable "VERSION" {
+  description = "The version of the Aztec scripts to upload"
+  type        = string
+}
+
 # Create the website S3 bucket
 resource "aws_s3_bucket" "install_bucket" {
   bucket = "install.aztec.network"
@@ -71,7 +76,13 @@ resource "null_resource" "upload_public_directory" {
   }
 
   provisioner "local-exec" {
-    command = "aws s3 sync ../bin s3://${aws_s3_bucket.install_bucket.id}/"
+    command = <<EOT
+      # Upload latest version to root
+      aws s3 sync ../bin s3://${aws_s3_bucket.install_bucket.id}/
+
+      # Create a version directory and upload files there
+      aws s3 sync ../bin s3://${aws_s3_bucket.install_bucket.id}/${var.VERSION}/
+    EOT
   }
 }
 

@@ -114,8 +114,14 @@ curl -fsSL http://$INSTALL_HOST/docker-compose.sandbox.yml -o $AZTEC_PATH/docker
 curl -fsSL http://$INSTALL_HOST/docker-compose.test.yml -o $AZTEC_PATH/docker-compose.test.yml
 
 function install_bin {
-  curl -fsSL http://$INSTALL_HOST/$1 -o $BIN_PATH/$1
-  chmod +x $BIN_PATH/$1
+  local install_url
+  if [ "$VERSION" != "latest" ]; then
+    install_url="http://$INSTALL_HOST/$VERSION/$1"
+  else
+    install_url="http://$INSTALL_HOST/$1"
+  fi
+  curl -fsSL "$install_url" -o "$BIN_PATH/$1"
+  chmod +x "$BIN_PATH/$1"
   echo "Installed: $BIN_PATH/$1"
 }
 
