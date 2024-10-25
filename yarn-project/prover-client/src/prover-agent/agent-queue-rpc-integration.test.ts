@@ -3,15 +3,13 @@ import { ClientIvcProof, Fr, PrivateKernelEmptyInputData, TubeInputs } from '@az
 import {
   makeAvmCircuitInputs,
   makeBaseParityInputs,
-  makeBaseRollupInputs,
   makeBlockMergeRollupInputs,
   makeBlockRootRollupInputs,
   makeEmptyBlockRootRollupInputs,
   makeHeader,
   makeMergeRollupInputs,
-  makePublicKernelCircuitPrivateInputs,
-  makePublicKernelInnerCircuitPrivateInputs,
-  makePublicKernelTailCircuitPrivateInputs,
+  makePrivateBaseRollupInputs,
+  makePublicBaseRollupInputs,
   makeRootParityInputs,
   makeRootRollupInputs,
 } from '@aztec/circuits.js/testing';
@@ -38,7 +36,8 @@ describe('Prover agent <-> queue integration', () => {
   const makeInputs: MakeInputs = {
     getAvmProof: makeAvmCircuitInputs,
     getBaseParityProof: makeBaseParityInputs,
-    getBaseRollupProof: makeBaseRollupInputs,
+    getPrivateBaseRollupProof: makePrivateBaseRollupInputs,
+    getPublicBaseRollupProof: makePublicBaseRollupInputs,
     getRootParityProof: makeRootParityInputs,
     getBlockMergeRollupProof: makeBlockMergeRollupInputs,
     getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
@@ -48,9 +47,6 @@ describe('Prover agent <-> queue integration', () => {
     getEmptyTubeProof: () =>
       new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
     getMergeRollupProof: makeMergeRollupInputs,
-    getPublicKernelInnerProof: makePublicKernelInnerCircuitPrivateInputs,
-    getPublicKernelMergeProof: makePublicKernelCircuitPrivateInputs,
-    getPublicTailProof: makePublicKernelTailCircuitPrivateInputs,
     getRootRollupProof: makeRootRollupInputs,
     getTubeProof: () => new TubeInputs(ClientIvcProof.empty()),
   };

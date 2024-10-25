@@ -25,8 +25,7 @@ mod tests;
 
 mod state_reference;
 mod partial_state_reference;
-
-mod recursion;
+pub mod proof;
 mod data;
 mod storage;
 mod validate;

@@ -1,17 +1,16 @@
 import {
-  AVM_REQUEST,
   type AvmProvingRequest,
   MerkleTreeId,
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
   PublicKernelPhase,
-  type PublicProvingRequest,
   type SimulationError,
   type Tx,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import {
+  AvmCircuitInputs,
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -52,6 +51,7 @@ import {
   RevertCode,
   TreeLeafReadRequest,
   VMCircuitPublicInputs,
+  VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -59,33 +59,28 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { type PublicExecutionResult, accumulatePublicReturnValues, collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
-function makeAvmProvingRequest(
-  inputs: PublicKernelInnerCircuitPrivateInputs,
-  result: PublicExecutionResult,
-): AvmProvingRequest {
+function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: PublicExecutionResult): AvmProvingRequest {
   return {
-    type: AVM_REQUEST,
-    functionName: result.functionName,
-    calldata: result.calldata,
-    bytecode: result.bytecode!,
-    avmHints: result.avmCircuitHints,
-    kernelRequest: {
-      type: ProvingRequestType.PUBLIC_KERNEL_INNER,
+    type: ProvingRequestType.PUBLIC_VM,
+    inputs: new AvmCircuitInputs(
+      result.functionName,
+      result.bytecode!,
+      result.calldata,
       inputs,
-    },
+      result.avmCircuitHints,
+    ),
   };
 }
 
 export type EnqueuedCallResult = {
   /** Inputs to be used for proving */
-  provingRequests: PublicProvingRequest[];
+  avmProvingRequest: AvmProvingRequest;
   /** The public kernel output at the end of the enqueued call */
   kernelOutput: VMCircuitPublicInputs;
   /** Unencrypted logs generated during the execution of this enqueued call */
@@ -186,7 +181,7 @@ export class EnqueuedCallSimulator {
   ): Promise<EnqueuedCallResult> {
     const executionResults = collectExecutionResults(topResult);
 
-    const provingRequests: AvmProvingRequest[] = [];
+    let avmProvingRequest: AvmProvingRequest;
     let gasUsed = Gas.empty();
     let revertReason;
     let kernelOutput = startVMCircuitOutput;
@@ -215,7 +210,7 @@ export class EnqueuedCallSimulator {
       kernelOutput = output;
 
       // Capture the inputs for later proving in the AVM and kernel.
-      provingRequests.push(makeAvmProvingRequest(inputs, result));
+      avmProvingRequest = makeAvmProvingRequest(inputs.publicCall.publicInputs, result);
 
       // Safely return the revert reason and the kernel output (which has had its revertible side effects dropped)
       // TODO(@leila) we shouldn't drop everything when it reverts. The tail kernel needs the data to prove that it's reverted for the correct reason.
@@ -226,7 +221,7 @@ export class EnqueuedCallSimulator {
         // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
 
         return {
-          provingRequests,
+          avmProvingRequest,
           kernelOutput,
           newUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
           returnValues: NestedProcessReturnValues.empty(),
@@ -237,7 +232,7 @@ export class EnqueuedCallSimulator {
     }
 
     return {
-      provingRequests,
+      avmProvingRequest: avmProvingRequest!,
       kernelOutput,
       newUnencryptedLogs: topResult.allUnencryptedLogs,
       returnValues: accumulatePublicReturnValues(topResult),
@@ -257,7 +252,7 @@ export class EnqueuedCallSimulator {
   ): Promise<{ inputs: PublicKernelInnerCircuitPrivateInputs; output: VMCircuitPublicInputs }> {
     // The proof is not used in simulation
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    const vk = ProtocolCircuitVks.PublicKernelInnerArtifact;
+    const vk = VerificationKeyData.makeFakeHonk();
     const previousKernel = new PublicKernelInnerData(previousOutput, proof, vk);
     const inputs = new PublicKernelInnerCircuitPrivateInputs(previousKernel, callData);
     return { inputs, output: await this.publicKernelSimulator.publicKernelCircuitInner(inputs) };

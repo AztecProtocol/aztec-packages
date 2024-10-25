@@ -152,7 +152,7 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), [])]
+          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs())]
           : await this.processTxWithPublicCalls(tx);
         this.log.debug(`Processed tx`, {
           txHash: processedTx.hash,
@@ -253,7 +253,7 @@ export class PublicProcessor {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { tailKernelOutput, returnValues, revertReason, provingRequests, gasUsed, processedPhases } =
+    const { avmProvingRequest, tailKernelOutput, returnValues, revertReason, gasUsed, processedPhases } =
       await this.enqueuedCallsProcessor.process(tx);
 
     if (!tailKernelOutput) {
@@ -279,7 +279,7 @@ export class PublicProcessor {
     const phaseCount = processedPhases.length;
     this.metrics.recordTx(phaseCount, timer.ms());
 
-    const processedTx = makeProcessedTx(tx, tailKernelOutput, provingRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, tailKernelOutput, { avmProvingRequest, revertReason, gasUsed });
     return [processedTx, returnValues];
   }
 }

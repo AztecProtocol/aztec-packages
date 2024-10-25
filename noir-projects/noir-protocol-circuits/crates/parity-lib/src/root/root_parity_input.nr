@@ -1,6 +1,9 @@
 use dep::types::{
     traits::Empty,
-    recursion::{verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof, traits::Verifiable},
+    proof::{
+    verification_key::{VerificationKey, HonkVerificationKey}, recursive_proof::RecursiveProof,
+    traits::Verifiable
+},
     constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT}, merkle_tree::membership::assert_check_membership
 };
 use crate::parity_public_inputs::ParityPublicInputs;

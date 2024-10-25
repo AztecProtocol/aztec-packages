@@ -1,6 +1,9 @@
 use dep::types::{
     header::Header, KernelCircuitPublicInputs, traits::Empty,
-    recursion::{verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof, traits::Verifiable}
+    proof::{
+    verification_key::{VerificationKey, HonkVerificationKey}, recursive_proof::RecursiveProof,
+    traits::Verifiable
+}
 };
 
 pub struct EmptyNestedCircuitPublicInputs {

@@ -11,7 +11,7 @@ use crate::{
     KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
     VMCircuitPublicInputs
 },
-    kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
+    public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier}, private_call_request::PrivateCallRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -60,9 +60,9 @@ use crate::{
 }
 },
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{
-    verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey},
-    proof::NestedRecursiveProof
+    proof::{
+    recursive_proof::NestedRecursiveProof,
+    verification_key::{HonkVerificationKey, ClientIVCVerificationKey, VerificationKey}
 },
     point::Point
 };
@@ -585,17 +585,6 @@ impl FixtureBuilder {
             start_state: self.start_state,
             revert_code: self.revert_code,
             fee_payer: self.fee_payer
-        }
-    }
-
-    pub fn to_kernel_data(self) -> KernelData {
-        let public_inputs = self.to_kernel_circuit_public_inputs();
-        KernelData {
-            public_inputs,
-            proof: NestedRecursiveProof::empty(),
-            vk: self.honk_vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path
         }
     }
 

@@ -2,7 +2,7 @@ use crate::{
     abis::{private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::SaltedInitializationHash, public_keys::PublicKeys,
     constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
-    merkle_tree::membership::MembershipWitness, recursion::{verification_key::ClientIVCVerificationKey}
+    merkle_tree::membership::MembershipWitness, proof::{verification_key::ClientIVCVerificationKey}
 };
 
 pub struct PrivateCallData {

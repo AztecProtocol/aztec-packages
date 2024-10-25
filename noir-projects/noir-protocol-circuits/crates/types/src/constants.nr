@@ -104,18 +104,17 @@ comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
 comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
 comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
 comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-comptime global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
-comptime global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
-comptime global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
+comptime global TUBE_VK_INDEX: u32 = 6;
+comptime global AVM_VK_INDEX: u32 = 7;
+comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 8;
+comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 9;
 comptime global BASE_PARITY_INDEX: u32 = 10;
 comptime global ROOT_PARITY_INDEX: u32 = 11;
-comptime global BASE_ROLLUP_INDEX: u32 = 12;
-comptime global MERGE_ROLLUP_INDEX: u32 = 13;
-comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
-comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
-comptime global ROOT_ROLLUP_INDEX: u32 = 16;
-comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
-comptime global TUBE_INDEX: u32 = 18;
+comptime global MERGE_ROLLUP_INDEX: u32 = 12;
+comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 13;
+comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
+comptime global ROOT_ROLLUP_INDEX: u32 = 15;
+comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 16;
 comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 

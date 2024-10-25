@@ -52,7 +52,7 @@ mod tests {
         parity_public_inputs::ParityPublicInputs,
         root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs}
     };
-    use dep::types::recursion::{verification_key::VerificationKey, proof::RecursiveProof};
+    use dep::types::proof::{verification_key::VerificationKey, recursive_proof::RecursiveProof};
     use dep::types::tests::fixtures;
     use dep::types::constants::BASE_PARITY_INDEX;
 

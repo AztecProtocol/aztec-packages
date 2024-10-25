@@ -132,7 +132,7 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
+        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, EMPTY_NESTED_INDEX
     };
     use dep::types::{
         abis::{
@@ -613,7 +613,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
         let _res = builder.execute();
     }
 }

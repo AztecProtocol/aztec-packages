@@ -1,12 +1,10 @@
 import {
+  type AvmProvingRequest,
   type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
   type ProcessedTx,
-  ProvingRequestType,
   type PublicExecutionRequest,
-  type PublicKernelMergeRequest,
   PublicKernelPhase,
-  type PublicProvingRequest,
   type SimulationError,
   type Tx,
 } from '@aztec/circuit-types';
@@ -23,12 +21,13 @@ import {
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
   type VMCircuitPublicInputs,
+  VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolCircuitVks, TubeVk, getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
 import { inspect } from 'util';
 
@@ -45,10 +44,9 @@ const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
 };
 
 type PublicPhaseResult = {
+  avmProvingRequest: AvmProvingRequest;
   /** The output of the public kernel circuit simulation for this phase */
   publicKernelOutput: PublicKernelCircuitPublicInputs;
-  /** The collection of public proving requests */
-  provingRequests: PublicProvingRequest[];
   /** Return values of simulating complete callstack */
   returnValues: NestedProcessReturnValues[];
   /** Gas used during the execution this phase */
@@ -66,8 +64,7 @@ export type ProcessedPhase = {
 };
 
 export type TxPublicCallsResult = {
-  /** The collection of public proving requests */
-  provingRequests: PublicProvingRequest[];
+  avmProvingRequest: AvmProvingRequest;
   /** The output of the public kernel tail circuit simulation for this tx */
   tailKernelOutput: KernelCircuitPublicInputs;
   /** Return values of simulating complete callstack */
@@ -158,8 +155,8 @@ export class EnqueuedCallsProcessor {
       PublicKernelPhase.TEARDOWN,
     ];
     const processedPhases: ProcessedPhase[] = [];
-    const provingRequests: PublicProvingRequest[] = [];
     const gasUsed: ProcessedTx['gasUsed'] = {};
+    let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
     let isFromPrivate = true;
     let returnValues: NestedProcessReturnValues[] = [];
@@ -184,7 +181,9 @@ export class EnqueuedCallsProcessor {
         publicKernelOutput = result.publicKernelOutput;
         isFromPrivate = false;
 
-        provingRequests.push(...result.provingRequests);
+        // Propagate only one avmProvingRequest of a function call for now, so that we know it's still provable.
+        // Eventually this will be the proof for the entire public call stack.
+        avmProvingRequest = result.avmProvingRequest;
         if (phase === PublicKernelPhase.APP_LOGIC) {
           returnValues = result.returnValues;
         }
@@ -201,19 +200,16 @@ export class EnqueuedCallsProcessor {
       }
     }
 
-    const { output: tailKernelOutput, provingRequest } = await this.publicKernelTailSimulator
-      .simulate(publicKernelOutput)
-      .catch(
-        // the abstract phase manager throws if simulation gives error in non-revertible phase
-        async err => {
-          await this.worldStateDB.rollbackToCommit();
-          throw err;
-        },
-      );
-    provingRequests.push(provingRequest);
+    const tailKernelOutput = await this.publicKernelTailSimulator.simulate(publicKernelOutput).catch(
+      // the abstract phase manager throws if simulation gives error in non-revertible phase
+      async err => {
+        await this.worldStateDB.rollbackToCommit();
+        throw err;
+      },
+    );
 
     return {
-      provingRequests: provingRequests,
+      avmProvingRequest: avmProvingRequest!,
       tailKernelOutput,
       returnValues,
       gasUsed,
@@ -233,8 +229,8 @@ export class EnqueuedCallsProcessor {
     this.log.debug(`Beginning processing in phase ${PublicKernelPhase[phase]} for tx ${tx.getTxHash()}`);
 
     const phaseTimer = new Timer();
-    const provingRequests: PublicProvingRequest[] = [];
     const returnValues: NestedProcessReturnValues[] = [];
+    let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = previousPublicKernelOutput;
     let gasUsed = Gas.empty();
     let revertReason: SimulationError | undefined;
@@ -270,7 +266,7 @@ export class EnqueuedCallsProcessor {
         throw enqueuedCallResult.revertReason;
       }
 
-      provingRequests.push(...enqueuedCallResult.provingRequests);
+      avmProvingRequest = enqueuedCallResult.avmProvingRequest;
       returnValues.push(enqueuedCallResult.returnValues);
       gasUsed = gasUsed.add(enqueuedCallResult.gasUsed);
       revertReason ??= enqueuedCallResult.revertReason;
@@ -286,14 +282,13 @@ export class EnqueuedCallsProcessor {
         tx.unencryptedLogs.addFunctionLogs([enqueuedCallResult.newUnencryptedLogs]);
       }
 
-      const { output, provingRequest } = await this.runMergeKernelCircuit(
+      const output = await this.runMergeKernelCircuit(
         publicKernelOutput,
         enqueuedCallResult.kernelOutput,
         isFromPrivate,
       );
       publicKernelOutput = output;
       isFromPrivate = false;
-      provingRequests.push(provingRequest);
     }
 
     if (phase === PublicKernelPhase.SETUP) {
@@ -301,8 +296,8 @@ export class EnqueuedCallsProcessor {
     }
 
     return {
+      avmProvingRequest: avmProvingRequest!,
       publicKernelOutput,
-      provingRequests,
       durationMs: phaseTimer.ms(),
       gasUsed,
       returnValues: revertReason ? [] : returnValues,
@@ -349,7 +344,7 @@ export class EnqueuedCallsProcessor {
     previousOutput: PublicKernelCircuitPublicInputs,
     enqueuedCallData: VMCircuitPublicInputs,
     isFromPrivate: boolean,
-  ): Promise<{ output: PublicKernelCircuitPublicInputs; provingRequest: PublicKernelMergeRequest }> {
+  ): Promise<PublicKernelCircuitPublicInputs> {
     const previousKernel = this.getPreviousKernelData(previousOutput, isFromPrivate);
 
     // The proof is not used in simulation.
@@ -358,25 +353,18 @@ export class EnqueuedCallsProcessor {
 
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
 
-    const output = await this.publicKernelSimulator.publicKernelCircuitMerge(inputs);
-
-    const provingRequest: PublicKernelMergeRequest = {
-      type: ProvingRequestType.PUBLIC_KERNEL_MERGE,
-      inputs,
-    };
-
-    return { output, provingRequest };
+    return await this.publicKernelSimulator.publicKernelCircuitMerge(inputs);
   }
 
   private getPreviousKernelData(
     previousOutput: PublicKernelCircuitPublicInputs,
-    isFromPrivate: boolean,
+    _isFromPrivate: boolean,
   ): PublicKernelData {
     // The proof is not used in simulation.
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
-    const vk = isFromPrivate ? TubeVk : ProtocolCircuitVks.PublicKernelMergeArtifact;
-    const vkIndex = getVKIndex(vk);
+    const vk = VerificationKeyData.makeFakeHonk();
+    const vkIndex = 0;
     const siblingPath = getVKSiblingPath(vkIndex);
 
     return new PublicKernelData(previousOutput, proof, vk, vkIndex, siblingPath);
