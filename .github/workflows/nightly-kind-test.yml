@@ -67,7 +67,7 @@ jobs:
     strategy:
       matrix:
         values_file:
-          ["3-validators.yaml"]
+          ["3-validators-2-bots.yaml"]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
