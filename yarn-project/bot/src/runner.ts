@@ -136,6 +136,7 @@ export class BotRunner {
       if (this.config.maxConsecutiveErrors > 0 && this.consecutiveErrors >= this.config.maxConsecutiveErrors) {
         this.log.error(`Too many consecutive errors, stopping bot`);
         await this.stop();
+        process.exit(1); // workaround docker not restarting the container if its unhealthy. We have to exit instead
       }
     }
   }
