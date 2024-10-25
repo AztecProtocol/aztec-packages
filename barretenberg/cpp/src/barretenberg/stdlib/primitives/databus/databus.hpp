@@ -140,8 +140,9 @@ template <class Builder> class DataBusDepot {
      * value that will satisfy the consistency check on the next cycle. For example, the first kernel has no previous
      * kernel to verify and thus neither receives a previous kernel return data commitment nor a calldata input
      * corresponding to a previous kernel. The commitment to the "empty" calldata will take a default value and thus we
-     * set the same value for the missing return data so that the consistency check will be satisfied. See issue
-     * https://github.com/AztecProtocol/barretenberg/issues/1138 for more discussion.
+     * set the same value for the missing return data so that the consistency check will be satisfied.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Resolve issues around default commitment value
+     * and bool_t "existence" type flags.
      * @note The ordering of the kernel/app return data commitments within the public inputs is arbitrary but must be
      * consistent across all kernels in order for the corresponding conistency check constraints to be consistent.
      *
