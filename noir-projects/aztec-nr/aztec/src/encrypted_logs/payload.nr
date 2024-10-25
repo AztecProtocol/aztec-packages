@@ -74,7 +74,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
     }
 
     // Current unoptimized size of the encrypted log
-    // empty_prefix (prefix_length bytes)
+    // empty_prefix (1 byte)
     // incoming_tag (32 bytes)
     // outgoing_tag (32 bytes)
     // eph_pk (32 bytes)
@@ -95,7 +95,7 @@ fn fr_to_fq(r: Field) -> Scalar {
 }
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {
-    // @todo Need to draw randomness from the full domain of Fq not only Fr
+    offset += 48 * 2;
     // We use the randomness to preserve the privacy of both the sender and recipient via encryption, so a malicious
     // sender could use non-random values to reveal the plaintext. But they already know it themselves anyway, and so
     // the recipient already trusts them to not disclose this information. We can therefore assume that the sender will

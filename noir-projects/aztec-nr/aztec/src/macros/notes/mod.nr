@@ -716,7 +716,7 @@ comptime fn generate_finalization_payload(
                 // We load the setup log from storage
                 let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 
-                // We convert the lof from fields to bytes
+                // We convert the log from fields to bytes
                 let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
 
                 // First byte should be zero as the number of public values is populated in public
