@@ -65,9 +65,9 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
             // A parallel version might be considered in the future.
             for (size_t i = 0; i < num_rows; i++) {
                 const auto row = rows[i].as_vector();
-                for (size_t j = 0; j < Row::SIZE; j++) {
-                    if (!row[j].is_zero()) {
-                        col_nonzero_size[j] = i + 1;
+                for (size_t col = 0; col < Row::SIZE; col++) {
+                    if (!row[col].is_zero()) {
+                        col_nonzero_size[col] = i + 1;
                     }
                 }
             }
