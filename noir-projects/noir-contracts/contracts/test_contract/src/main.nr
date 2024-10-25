@@ -26,12 +26,9 @@ contract Test {
         hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
         macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
-            lifecycle::{create_note, destroy_note_unsafe},
-            note_getter::{get_notes, view_notes},
+            lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
-        },
-        oracle::random::random,
-        utils::comparison::Comparator,
+        }, oracle::random::random, utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_private_content_hash, get_mint_public_content_hash,

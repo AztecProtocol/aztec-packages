@@ -1,12 +1,9 @@
 use dep::aztec::{
-    context::PrivateContext,
-    keys::getters::get_nsk_app,
-    macros::notes::note,
+    context::PrivateContext, keys::getters::get_nsk_app, macros::notes::note,
     note::{
         note_header::NoteHeader, note_interface::NullifiableNote,
         utils::compute_note_hash_for_nullify,
-    },
-    oracle::random::random,
+    }, oracle::random::random,
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         hash::poseidon2_hash_with_separator,

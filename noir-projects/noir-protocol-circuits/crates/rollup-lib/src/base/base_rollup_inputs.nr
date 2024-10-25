@@ -2,8 +2,7 @@ use crate::{
     abis::{
         base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
         constant_rollup_data::ConstantRollupData,
-    },
-    base::state_diff_hints::StateDiffHints,
+    }, base::state_diff_hints::StateDiffHints,
     components::{compute_kernel_out_hash, compute_tx_effects_hash},
 };
 use dep::types::{
@@ -11,8 +10,7 @@ use dep::types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, kernel_data::KernelData,
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_update_request::PublicDataUpdateRequest,
-    },
-    address::AztecAddress,
+    }, address::AztecAddress,
     constants::{
         ARCHIVE_HEIGHT, FEE_JUICE_ADDRESS, MAX_NOTE_HASHES_PER_TX,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -23,20 +21,14 @@ use dep::types::{
     },
     data::{
         hash::{compute_public_data_tree_index, compute_public_data_tree_value},
-        public_data_hint::PublicDataHint,
-        PublicDataTreeLeaf,
-        PublicDataTreeLeafPreimage,
-    },
-    hash::silo_l2_to_l1_message,
+        public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage,
+    }, hash::silo_l2_to_l1_message,
     merkle_tree::{
         append_only_tree, assert_check_membership, calculate_empty_tree_root,
         calculate_subtree_root, indexed_tree, MembershipWitness,
-    },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    partial_state_reference::PartialStateReference,
-    storage::map::derive_storage_slot_in_map,
-    traits::is_empty,
-    utils::field::{full_field_greater_than, full_field_less_than},
+    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    partial_state_reference::PartialStateReference, storage::map::derive_storage_slot_in_map,
+    traits::is_empty, utils::field::{full_field_greater_than, full_field_less_than},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS =
@@ -514,16 +506,14 @@ mod tests {
         base::{
             base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot},
             state_diff_hints::StateDiffHints,
-        },
-        components::TX_EFFECTS_HASH_INPUT_FIELDS,
+        }, components::TX_EFFECTS_HASH_INPUT_FIELDS,
     };
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot, kernel_data::KernelData,
             nullifier_leaf_preimage::NullifierLeafPreimage,
             public_data_update_request::PublicDataUpdateRequest,
-        },
-        address::{AztecAddress, EthAddress},
+        }, address::{AztecAddress, EthAddress},
         constants::{
             ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
             MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -534,10 +524,8 @@ mod tests {
             PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_SUBTREE_HEIGHT,
             PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
             PUBLIC_KERNEL_TAIL_INDEX, TUBE_INDEX,
-        },
-        data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::silo_l2_to_l1_message,
-        merkle_tree::MembershipWitness,
+        }, data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
+        hash::silo_l2_to_l1_message, merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
         tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},

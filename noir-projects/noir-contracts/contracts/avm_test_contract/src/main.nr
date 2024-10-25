@@ -39,9 +39,7 @@ contract AvmTest {
         abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map,
     };
     use dep::aztec::protocol_types::{
-        address::{AztecAddress, EthAddress},
-        point::Point,
-        scalar::Scalar,
+        address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar,
     };
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::state_vars::PublicMutable;

@@ -9,9 +9,7 @@ use crate::{
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX, NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS,
         PUBLIC_VALIDATION_REQUESTS_LENGTH,
-    },
-    traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_length, reader::Reader},
+    }, traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_length, reader::Reader},
 };
 
 pub struct PublicValidationRequests {

@@ -2,8 +2,7 @@ use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
     note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
-    note_interface::{NoteInterface, NullifiableNote},
-    note_viewer_options::NoteViewerOptions,
+    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request,
 };
 use crate::oracle;

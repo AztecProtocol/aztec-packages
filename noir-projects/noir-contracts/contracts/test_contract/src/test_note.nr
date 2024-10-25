@@ -1,6 +1,5 @@
 use dep::aztec::{
-    context::PrivateContext,
-    macros::notes::note,
+    context::PrivateContext, macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote},
 };
 

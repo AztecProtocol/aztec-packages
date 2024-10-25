@@ -1,9 +1,6 @@
 use dep::aztec::{
-    hash::poseidon2_hash_with_separator,
-    keys::getters::get_nsk_app,
-    macros::notes::note,
-    note::utils::compute_note_hash_for_nullify,
-    oracle::random::random,
+    hash::poseidon2_hash_with_separator, keys::getters::get_nsk_app, macros::notes::note,
+    note::utils::compute_note_hash_for_nullify, oracle::random::random,
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
 };

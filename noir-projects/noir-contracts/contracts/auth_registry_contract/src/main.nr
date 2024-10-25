@@ -7,8 +7,7 @@ contract AuthRegistry {
     };
     use dep::aztec::{
         macros::{functions::{internal, private, public, view}, storage::storage},
-        protocol_types::address::AztecAddress,
-        state_vars::{Map, PublicMutable},
+        protocol_types::address::AztecAddress, state_vars::{Map, PublicMutable},
     };
 
     #[storage]

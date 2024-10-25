@@ -1,8 +1,7 @@
 use crate::components::public_tail_output_composer::{
     generate_overridable_public_data_writes::{
         generate_overridable_public_data_writes, LinkedIndexHint,
-    },
-    generate_public_data_leaves::generate_public_data_leaves,
+    }, generate_public_data_leaves::generate_public_data_leaves,
 };
 use dep::types::{
     abis::{
@@ -13,9 +12,7 @@ use dep::types::{
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX,
-    },
-    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint},
-    hash::silo_note_hash,
+    }, data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint}, hash::silo_note_hash,
     traits::Empty,
     utils::arrays::{
         array_merge, CombinedOrderHint, get_combined_order_hints_asc, sort_by_counter_asc,

@@ -57,15 +57,10 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas,
-            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-            log_hash::{LogHash, NoteLogHash},
-            note_hash::ScopedNoteHash,
+            gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+            log_hash::{LogHash, NoteLogHash}, note_hash::ScopedNoteHash,
             nullifier::{Nullifier, ScopedNullifier},
-        },
-        address::{AztecAddress, EthAddress},
-        constants::PRIVATE_KERNEL_INNER_INDEX,
-        point::Point,
+        }, address::{AztecAddress, EthAddress}, constants::PRIVATE_KERNEL_INNER_INDEX, point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
     use dep::types::constants::{

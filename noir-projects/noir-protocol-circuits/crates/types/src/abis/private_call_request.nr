@@ -1,7 +1,6 @@
 use crate::{
     abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}},
-    constants::PRIVATE_CALL_REQUEST_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    constants::PRIVATE_CALL_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 

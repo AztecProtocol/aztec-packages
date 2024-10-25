@@ -9,8 +9,7 @@ use crate::test::helpers::{cheatcodes, utils::Deployer};
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
 use crate::oracle::{
-    execution::{get_block_number, get_contract_address},
-    notes::notify_created_note,
+    execution::{get_block_number, get_contract_address}, notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 

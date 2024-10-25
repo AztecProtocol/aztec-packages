@@ -1,8 +1,6 @@
 use crate::{
-    abis::gas_fees::GasFees,
-    address::{AztecAddress, EthAddress},
-    constants::GLOBAL_VARIABLES_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    abis::gas_fees::GasFees, address::{AztecAddress, EthAddress},
+    constants::GLOBAL_VARIABLES_LENGTH, traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 

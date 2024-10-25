@@ -1,13 +1,10 @@
 use crate::{
-    abis::side_effect::Ordered,
-    address::AztecAddress,
-    constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
+    abis::side_effect::Ordered, address::AztecAddress, constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
     contrakt::storage_update_request::StorageUpdateRequest,
     data::{
         hash::{compute_public_data_tree_index, compute_public_data_tree_value},
         public_data_tree_leaf::PublicDataTreeLeaf,
-    },
-    traits::{Deserialize, Empty, Serialize},
+    }, traits::{Deserialize, Empty, Serialize},
 };
 
 // TODO: Rename to PublicDataWrite

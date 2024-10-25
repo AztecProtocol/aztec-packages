@@ -6,9 +6,7 @@ use dep::types::{
     constants::{
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-    },
-    merkle_tree::MembershipWitness,
-    tests::merkle_tree_utils::NonEmptyMerkleTree,
+    }, merkle_tree::MembershipWitness, tests::merkle_tree_utils::NonEmptyMerkleTree,
     utils::arrays::{find_index_hint, get_sorted_result},
 };
 

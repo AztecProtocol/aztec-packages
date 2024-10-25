@@ -8,8 +8,7 @@ use dep::protocol_types::{
         compute_siloed_note_hash as compute_siloed_note_hash,
         compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
         compute_unique_note_hash,
-    },
-    utils::arr_copy_slice,
+    }, utils::arr_copy_slice,
 };
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(

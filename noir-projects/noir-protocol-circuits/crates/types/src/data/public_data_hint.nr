@@ -1,8 +1,7 @@
 use crate::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
-    traits::Empty,
+    merkle_tree::{conditionally_assert_check_membership, MembershipWitness}, traits::Empty,
 };
 
 pub struct PublicDataHint {

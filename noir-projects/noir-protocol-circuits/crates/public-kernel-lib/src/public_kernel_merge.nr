@@ -4,16 +4,14 @@ use crate::{
         previous_kernel_validator::PreviousKernelValidator,
         public_kernel_output_composer::PublicKernelOutputComposer,
         public_kernel_output_validator::PublicKernelOutputValidator,
-    },
-    public_kernel_phase::PublicKernelPhase,
+    }, public_kernel_phase::PublicKernelPhase,
 };
 use dep::types::{
     abis::{
         enqueued_call_data::EnqueuedCallData,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
         public_kernel_data::PublicKernelData,
-    },
-    constants::{PUBLIC_KERNEL_MERGE_INDEX, TUBE_INDEX},
+    }, constants::{PUBLIC_KERNEL_MERGE_INDEX, TUBE_INDEX},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX];
@@ -91,8 +89,7 @@ mod tests {
             kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
             validation_requests::PublicValidationRequestArrayLengths,
-        },
-        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX},
+        }, constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 

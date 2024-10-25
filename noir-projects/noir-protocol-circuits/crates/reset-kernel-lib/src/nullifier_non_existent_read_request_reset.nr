@@ -4,8 +4,7 @@ use dep::types::{
     constants::{
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         NULLIFIER_TREE_HEIGHT,
-    },
-    merkle_tree::MembershipWitness,
+    }, merkle_tree::MembershipWitness,
 };
 
 pub struct NullifierNonMembershipHint {

@@ -26,21 +26,15 @@ contract Token {
                 encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
                 encrypt_and_emit_partial_log,
             },
-        },
-        hash::compute_secret_hash,
-        keys::getters::get_public_keys,
+        }, hash::compute_secret_hash, keys::getters::get_public_keys,
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public, view},
+            events::event, functions::{initializer, internal, private, public, view},
             storage::storage,
-        },
-        oracle::random::random,
+        }, oracle::random::random,
         prelude::{
             AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable,
             SharedImmutable,
-        },
-        protocol_types::{point::Point, traits::Serialize},
-        utils::comparison::Comparator,
+        }, protocol_types::{point::Point, traits::Serialize}, utils::comparison::Comparator,
     };
 
     // docs:start:import_authwit

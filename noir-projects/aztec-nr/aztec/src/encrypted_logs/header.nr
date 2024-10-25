@@ -1,8 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    point::Point,
-    public_keys::{IvpkM, PublicKeys, ToPoint},
-    scalar::Scalar,
+    address::AztecAddress, point::Point, public_keys::{IvpkM, PublicKeys, ToPoint}, scalar::Scalar,
 };
 
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;

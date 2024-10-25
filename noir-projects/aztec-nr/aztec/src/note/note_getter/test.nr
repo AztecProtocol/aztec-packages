@@ -2,8 +2,7 @@ use crate::{
     note::{
         note_getter::constrain_get_notes_internal,
         note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
-    },
-    oracle::execution::get_contract_address,
+    }, oracle::execution::get_contract_address,
 };
 use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 

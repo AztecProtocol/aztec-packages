@@ -52,13 +52,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            nullifier::{Nullifier, ScopedNullifier},
-            nullifier_leaf_preimage::NullifierLeafPreimage,
+            nullifier::{Nullifier, ScopedNullifier}, nullifier_leaf_preimage::NullifierLeafPreimage,
             read_request::{ReadRequest, ScopedReadRequest},
-        },
-        address::AztecAddress,
-        constants::NULLIFIER_TREE_HEIGHT,
-        hash::compute_siloed_nullifier,
+        }, address::AztecAddress, constants::NULLIFIER_TREE_HEIGHT, hash::compute_siloed_nullifier,
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,

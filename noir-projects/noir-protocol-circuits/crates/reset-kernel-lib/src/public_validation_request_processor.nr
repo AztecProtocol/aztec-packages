@@ -19,11 +19,8 @@ use dep::types::{
         L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, NOTE_HASH_TREE_HEIGHT,
-    },
-    data::OverridablePublicDataTreeLeaf,
-    hash::compute_siloed_nullifier,
-    partial_state_reference::PartialStateReference,
-    traits::is_empty,
+    }, data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier,
+    partial_state_reference::PartialStateReference, traits::is_empty,
     utils::arrays::{
         array_to_bounded_vec, assert_combined_array, assert_sorted_array, combine_arrays,
     },

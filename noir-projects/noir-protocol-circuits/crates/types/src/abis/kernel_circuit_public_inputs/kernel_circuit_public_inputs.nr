@@ -2,11 +2,8 @@ use crate::{
     abis::{
         accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
         gas_fees::GasFees, validation_requests::RollupValidationRequests,
-    },
-    address::AztecAddress,
-    constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    partial_state_reference::PartialStateReference,
-    traits::{Deserialize, Empty, Serialize},
+    }, address::AztecAddress, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    partial_state_reference::PartialStateReference, traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 

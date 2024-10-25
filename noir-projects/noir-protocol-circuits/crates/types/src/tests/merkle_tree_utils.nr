@@ -1,6 +1,5 @@
 use crate::{
-    hash::merkle_hash,
-    merkle_tree::{calculate_empty_tree_root, merkle_tree, MerkleTree},
+    hash::merkle_hash, merkle_tree::{calculate_empty_tree_root, merkle_tree, MerkleTree},
     traits::Empty,
 };
 

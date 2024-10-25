@@ -14,8 +14,7 @@ use dep::types::{
     constants::{
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX,
-    },
-    utils::arrays::{get_order_hints_asc, OrderHint},
+    }, utils::arrays::{get_order_hints_asc, OrderHint},
 };
 
 pub struct ResetOutputHints {

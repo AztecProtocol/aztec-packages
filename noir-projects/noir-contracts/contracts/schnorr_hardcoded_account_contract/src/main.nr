@@ -5,8 +5,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract SchnorrHardcodedAccount {
     use dep::authwit::{
-        account::AccountActions,
-        auth_witness::get_auth_witness,
+        account::AccountActions, auth_witness::get_auth_witness,
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
     use dep::aztec::prelude::PrivateContext;

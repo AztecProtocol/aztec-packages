@@ -198,11 +198,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            log_hash::NoteLogHash,
-            note_hash::{NoteHash, ScopedNoteHash},
+            log_hash::NoteLogHash, note_hash::{NoteHash, ScopedNoteHash},
             nullifier::{Nullifier, ScopedNullifier},
-        },
-        address::AztecAddress,
+        }, address::AztecAddress,
     };
 
     global contract_address = AztecAddress::from_field(987654);

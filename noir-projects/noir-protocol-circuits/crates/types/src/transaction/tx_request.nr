@@ -1,11 +1,8 @@
 use crate::{
-    abis::function_data::FunctionData,
-    address::AztecAddress,
+    abis::function_data::FunctionData, address::AztecAddress,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH},
-    hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Hash, Serialize},
-    transaction::tx_context::TxContext,
-    utils::reader::Reader,
+    hash::poseidon2_hash_with_separator, traits::{Deserialize, Empty, Hash, Serialize},
+    transaction::tx_context::TxContext, utils::reader::Reader,
 };
 
 pub struct TxRequest {
@@ -78,9 +75,7 @@ mod tests {
         abis::{
             function_data::FunctionData, function_selector::FunctionSelector, gas::Gas,
             gas_fees::GasFees, gas_settings::GasSettings,
-        },
-        address::AztecAddress,
-        transaction::{tx_context::TxContext, tx_request::TxRequest},
+        }, address::AztecAddress, transaction::{tx_context::TxContext, tx_request::TxRequest},
     };
 
     #[test]

@@ -11,8 +11,7 @@ use crate::{
     }, contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils,
+    traits::{Deserialize, Empty, FromField, Serialize, ToField}, utils,
 };
 
 // We do below because `use crate::point::Point;` does not work

@@ -8,8 +8,7 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
-        },
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        }, private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },

@@ -1,8 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    traits::{FromField, ToField},
-    utils::arrays::array_concat,
+    address::AztecAddress, hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    traits::{FromField, ToField}, utils::arrays::array_concat,
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
@@ -10,8 +8,7 @@ use crate::oracle::storage::storage_read;
 use crate::state_vars::{
     shared_mutable::{
         scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-    },
-    storage::Storage,
+    }, storage::Storage,
 };
 use dep::std::mem::zeroed;
 

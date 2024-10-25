@@ -15,8 +15,7 @@ contract Spam {
             constants::{
                 GENERATOR_INDEX__NOTE_NULLIFIER, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            },
-            hash::poseidon2_hash_with_separator,
+            }, hash::poseidon2_hash_with_separator,
         },
     };
 

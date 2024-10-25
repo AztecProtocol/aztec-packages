@@ -59,9 +59,7 @@ mod tests {
         abis::{
             public_data_update_request::PublicDataUpdateRequest,
             public_data_write::OverridablePublicDataWrite,
-        },
-        data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf},
-        tests::utils::pad_end,
+        }, data::{OverridablePublicDataTreeLeaf, PublicDataTreeLeaf}, tests::utils::pad_end,
     };
 
     struct TestBuilder {

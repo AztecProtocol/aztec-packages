@@ -1,14 +1,9 @@
 use crate::{
     abis::{
-        call_context::CallContext,
-        log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
-        max_block_number::MaxBlockNumber,
-        note_hash::NoteHash,
-        nullifier::Nullifier,
-        private_call_request::PrivateCallRequest,
-        public_call_request::PublicCallRequest,
-        read_request::ReadRequest,
-        validation_requests::KeyValidationRequestAndGenerator,
+        call_context::CallContext, log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
+        max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
+        private_call_request::PrivateCallRequest, public_call_request::PublicCallRequest,
+        read_request::ReadRequest, validation_requests::KeyValidationRequestAndGenerator,
     },
     constants::{
         MAX_ENCRYPTED_LOGS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
@@ -17,11 +12,8 @@ use crate::{
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_UNENCRYPTED_LOGS_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    },
-    header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Deserialize, Empty, Serialize},
-    transaction::tx_context::TxContext,
+    }, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
+    traits::{Deserialize, Empty, Serialize}, transaction::tx_context::TxContext,
     utils::{arrays::validate_array, reader::Reader},
 };
 

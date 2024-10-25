@@ -3,9 +3,7 @@ use crate::{
     constants::{
         DEFAULT_GAS_LIMIT, DEFAULT_INCLUSION_FEE, DEFAULT_MAX_FEE_PER_GAS,
         DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH,
-    },
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    }, traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
 };
 
 pub struct GasSettings {

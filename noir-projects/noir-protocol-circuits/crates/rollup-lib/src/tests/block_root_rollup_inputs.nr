@@ -6,8 +6,7 @@ use dep::types::{
     constants::{
         ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
         L1_TO_L2_MSG_TREE_HEIGHT,
-    },
-    tests::merkle_tree_utils::compute_zero_hashes,
+    }, tests::merkle_tree_utils::compute_zero_hashes,
 };
 
 pub fn compute_l1_l2_empty_snapshot() -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH]) {

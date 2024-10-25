@@ -2,8 +2,7 @@ use crate::{
     abis::{
         block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
         previous_rollup_data::PreviousRollupData,
-    },
-    components,
+    }, components,
 };
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
@@ -12,11 +11,8 @@ use types::{
         ARCHIVE_HEIGHT, AZTEC_EPOCH_DURATION, BASE_ROLLUP_INDEX, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-    },
-    content_commitment::ContentCommitment,
-    header::Header,
-    merkle_tree::{append_only_tree, calculate_empty_tree_root},
-    state_reference::StateReference,
+    }, content_commitment::ContentCommitment, header::Header,
+    merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
     traits::Empty,
 };
 use types::debug_log::debug_log_format;

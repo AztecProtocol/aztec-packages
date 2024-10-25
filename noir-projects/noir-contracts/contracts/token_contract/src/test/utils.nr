@@ -1,12 +1,8 @@
 use dep::aztec::{
     hash::compute_secret_hash,
     oracle::{
-        execution::{get_block_number, get_contract_address},
-        random::random,
-        storage::storage_read,
-    },
-    prelude::AztecAddress,
-    protocol_types::storage::map::derive_storage_slot_in_map,
+        execution::{get_block_number, get_contract_address}, random::random, storage::storage_read,
+    }, prelude::AztecAddress, protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
 

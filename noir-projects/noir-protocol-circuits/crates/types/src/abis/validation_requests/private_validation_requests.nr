@@ -9,9 +9,7 @@ use crate::{
     constants::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, PRIVATE_VALIDATION_REQUESTS_LENGTH,
-    },
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    }, traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
 };
 
 pub struct PrivateValidationRequests {

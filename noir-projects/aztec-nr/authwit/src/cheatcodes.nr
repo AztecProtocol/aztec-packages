@@ -1,9 +1,7 @@
 use dep::aztec::{
-    context::{call_interfaces::CallInterface, public_context::PublicContext},
-    hash::hash_args,
+    context::{call_interfaces::CallInterface, public_context::PublicContext}, hash::hash_args,
     oracle::execution::{get_block_number, get_contract_address},
-    protocol_types::address::AztecAddress,
-    test::helpers::cheatcodes,
+    protocol_types::address::AztecAddress, test::helpers::cheatcodes,
 };
 
 use crate::auth::{compute_authwit_message_hash, compute_inner_authwit_hash, set_authorized};

@@ -1,13 +1,9 @@
 use crate::{NFT, types::nft_note::NFTNote};
 use dep::aztec::{
-    hash::pedersen_hash,
-    keys::getters::get_public_keys,
+    hash::pedersen_hash, keys::getters::get_public_keys,
     oracle::{
-        execution::{get_block_number, get_contract_address},
-        random::random,
-        storage::storage_read,
-    },
-    prelude::{AztecAddress, NoteHeader},
+        execution::{get_block_number, get_contract_address}, random::random, storage::storage_read,
+    }, prelude::{AztecAddress, NoteHeader},
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };

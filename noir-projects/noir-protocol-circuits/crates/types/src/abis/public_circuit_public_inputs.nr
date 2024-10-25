@@ -4,8 +4,7 @@ use crate::{
         note_hash::NoteHash, nullifier::Nullifier,
         public_inner_call_request::PublicInnerCallRequest, read_request::ReadRequest,
         tree_leaf_read_request::TreeLeafReadRequest,
-    },
-    address::AztecAddress,
+    }, address::AztecAddress,
     constants::{
         MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
@@ -13,12 +12,9 @@ use crate::{
         MAX_NULLIFIERS_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    },
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    }, contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    header::Header, messaging::l2_to_l1_message::L2ToL1Message,
+    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
 };
 
 // Public inputs to public app circuit.

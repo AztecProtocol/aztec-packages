@@ -58,11 +58,8 @@ mod tests {
         abis::{
             gas::Gas, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             log_hash::ScopedLogHash, max_block_number::MaxBlockNumber,
-        },
-        address::{AztecAddress, EthAddress},
-        point::Point,
-        tests::fixture_builder::FixtureBuilder,
-        traits::is_empty,
+        }, address::{AztecAddress, EthAddress}, point::Point,
+        tests::fixture_builder::FixtureBuilder, traits::is_empty,
     };
     use dep::types::constants::{
         BASE_ROLLUP_INDEX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M,

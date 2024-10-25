@@ -16,9 +16,7 @@ contract TokenBlacklist {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
-        },
-        hash::compute_secret_hash,
-        keys::getters::get_public_keys,
+        }, hash::compute_secret_hash, keys::getters::get_public_keys,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,

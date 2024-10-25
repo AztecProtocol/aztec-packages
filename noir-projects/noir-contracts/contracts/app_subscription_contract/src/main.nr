@@ -13,8 +13,7 @@ contract AppSubscription {
         keys::getters::get_public_keys,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
-        protocol_types::constants::MAX_FIELD_VALUE,
-        utils::comparison::Comparator,
+        protocol_types::constants::MAX_FIELD_VALUE, utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
     use token::Token;

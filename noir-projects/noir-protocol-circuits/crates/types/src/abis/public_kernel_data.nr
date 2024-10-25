@@ -1,11 +1,9 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    constants::{TUBE_INDEX, VK_TREE_HEIGHT},
-    merkle_tree::membership::check_membership,
+    constants::{TUBE_INDEX, VK_TREE_HEIGHT}, merkle_tree::membership::check_membership,
     recursion::{
         proof::NestedRecursiveProof, traits::Verifiable, verification_key::HonkVerificationKey,
-    },
-    utils::arrays::find_index_hint,
+    }, utils::arrays::find_index_hint,
 };
 
 pub struct PublicKernelData {

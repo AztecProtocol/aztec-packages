@@ -2,11 +2,8 @@ use crate::{
     abis::validation_requests::{
         key_validation_request::KeyValidationRequest,
         scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
-    },
-    address::AztecAddress,
-    constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader},
+    }, address::AztecAddress, constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+    traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct KeyValidationRequestAndGenerator {

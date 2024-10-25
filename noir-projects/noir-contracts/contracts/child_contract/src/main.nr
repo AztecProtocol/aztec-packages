@@ -9,8 +9,7 @@ contract Child {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{functions::{internal, private, public}, storage::storage},
-        note::note_getter_options::NoteGetterOptions,
-        utils::comparison::Comparator,
+        note::note_getter_options::NoteGetterOptions, utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
 

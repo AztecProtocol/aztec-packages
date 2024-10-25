@@ -4,8 +4,7 @@ use dep::types::{
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-    },
-    tests::utils::{assert_array_eq, swap_items},
+    }, tests::utils::{assert_array_eq, swap_items},
 };
 
 #[test]
@@ -141,7 +140,7 @@ fn tail_to_public_output_composer_succeeds() {
     // Gas: revertible
     let total_num_side_effects = 2 + 1 + 1;
     let total_log_length = 20 // note_encrypted_log_hash
-        + 6
+    + 6
         + 24 // encrypted_log_hash
         + 4; // unencrypted_log_hash
     let computed_da_gas =
