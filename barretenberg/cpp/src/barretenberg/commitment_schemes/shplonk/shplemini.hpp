@@ -334,11 +334,9 @@ template <typename Curve> class ShpleminiVerifier_ {
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
-
         for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
             // Move shifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(shifted_commitment));
-
             // Compute −ρ⁽ᵏ⁺ʲ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-shifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρ⁽ᵏ⁺ʲ⁾ ⋅ f_shift at the sumcheck challenge
@@ -349,7 +347,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // If we are performing an opening verification for the translator, add the contributions from the concatenation
         // commitments and evaluations to the result
-
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
