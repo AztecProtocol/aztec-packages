@@ -154,14 +154,16 @@ template <class Builder> class DataBusDepot {
         if (kernel_return_data_commitment_exists) {
             propagate_commitment_via_public_inputs(kernel_return_data_commitment, /*is_kernel=*/true);
         } else {
-            Commitment default_commitment = Commitment::from_witness(&builder, default_commitment_val);
+            Commitment default_commitment(default_commitment_val);
+            default_commitment.convert_constant_to_fixed_witness(&builder);
             propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/true);
         }
 
         if (app_return_data_commitment_exists) {
             propagate_commitment_via_public_inputs(app_return_data_commitment, /*is_kernel=*/false);
         } else {
-            Commitment default_commitment = Commitment::from_witness(&builder, default_commitment_val);
+            Commitment default_commitment(default_commitment_val);
+            default_commitment.convert_constant_to_fixed_witness(&builder);
             propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/false);
         }
         // Reset flags indicating existence of return data commitments
