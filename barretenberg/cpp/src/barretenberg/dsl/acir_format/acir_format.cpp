@@ -405,6 +405,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {
+    // TODO #6185: move constraint_system.recursive into a function argument
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
     };

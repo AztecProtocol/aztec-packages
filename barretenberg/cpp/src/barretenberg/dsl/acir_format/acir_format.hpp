@@ -75,6 +75,7 @@ struct AcirFormat {
     // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
     // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in order
     // to be able to verify SNARKs on Ethereum.
+    // TODO #6185: Remove
     bool recursive;
 
     uint32_t num_acir_opcodes;

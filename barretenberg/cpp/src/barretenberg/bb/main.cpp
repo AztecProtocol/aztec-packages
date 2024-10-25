@@ -1475,6 +1475,7 @@ int main(int argc, char* argv[])
         }
 
         if (command == "prove") {
+            // TODO #6185: Add --recursive option
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, output_path);
         } else if (command == "prove_output_all") {
