@@ -312,14 +312,11 @@ pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u3
 // Why? Because when we call stdlib poseidon, we call absorb for each item. When absorbing is conditional, it seems the compiler does not know
 // what cache_size will be when calling absorb, so it assigns the permutation gates for /each i/ rather than /every 3rd i/, which is actually required.
 // The below code forces the compiler to:
-//  - absorb normally up to 2 times to set cache_size to 1 (once for fresh sponge, up to twice for existing - TODO)
+//  - absorb normally up to 2 times to set cache_size to 1
 //  - absorb in chunks of 3 to ensure perm. only happens every 3rd absorb
 //  - absorb normally up to 2 times to add any remaining values to the hash
 // In fixed len hashes, the compiler is able to tell that it will only need to perform the permutation every 3 absorbs.
 // NB: it also replaces unnecessary range checks (i < thing) with a bit check (&= i != thing), which alone reduces the gates of a var. hash by half.
-// NB: it would be possible to make a version of the below for an existing sponge (e.g. use for sponge_blob) by absorbing with a 3-loop until cache_size is 1.
-// The difficulty is that the compiler cannot determine loop bound 'max_chunks' because 'shift' is variable. Though 'shift' can only be 0, 1, or 2 it may be possible to make 3 fns
-// for each possible value of 'shift'.
 
 #[no_predicates]
 fn poseidon2_absorb_chunks<let N: u32>(
@@ -333,20 +330,59 @@ fn poseidon2_absorb_chunks<let N: u32>(
     // cache_size = 0, init absorb
     sponge.cache[0] = input[0];
     sponge.cache_size = 1;
-    // this is to account for already added inputs
-    let shift = 1;
-    let remainder = (in_len - shift) % 3;
-    let chunks = (in_len - shift - remainder) / 3;
-    let max_remainder = (N - shift) % 3;
-    let max_chunks = (N - shift - max_remainder) / 3;
+    // shift = num elts already added to make cache_size 1 = 1 for a fresh sponge
+    // M = max_chunks = (N - 1 - (N - 1) % 3) / 3: (must be written as a fn of N to compile)
+    // max_remainder = (N - 1) % 3;
+    // max_chunks = (N - 1 - max_remainder) / 3;
+    poseidon2_absorb_chunks_loop::<N, (N - 1 - (N - 1) % 3) / 3>(sponge, input, in_len, variable, 1)
+}
 
+#[no_predicates]
+pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
+    in_sponge: std::hash::poseidon2::Poseidon2,
+    input: [Field; N],
+    in_len: u32,
+    variable: bool,
+) -> std::hash::poseidon2::Poseidon2 {
+    let mut sponge = in_sponge;
+    // this is to account for already added inputs
+    let mut shift = 0;
+    for i in 0..3 {
+        if sponge.cache_size != 1 {
+            sponge.absorb(input[i]);
+            shift += 1;
+        }
+    }
+    // max_chunks = (N - (N % 3)) / 3;
+    poseidon2_absorb_chunks_loop::<N, (N - (N % 3)) / 3>(sponge, input, in_len, variable, shift)
+}
+
+// The below is the loop to absorb elts into a poseidon sponge in chunks of 3
+// shift - the num of elts already absorbed to ensure the sponge's cache_size = 1
+// M - the max number of chunks required to absorb N things (must be comptime to compile)
+#[no_predicates]
+fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
+    in_sponge: std::hash::poseidon2::Poseidon2,
+    input: [Field; N],
+    in_len: u32,
+    variable: bool,
+    shift: u32,
+) -> std::hash::poseidon2::Poseidon2 {
+    // Writing in_sponge: &mut does not compile
+    let mut sponge = in_sponge;
     let mut should_add = true;
-    for i in 0..max_chunks {
+    // The num of things left over after absorbing in 3s
+    let remainder = (in_len - shift) % 3;
+    // The num of chunks of 3 to absorb (maximum M)
+    let chunks = (in_len - shift - remainder) / 3;
+    for i in 0..M {
         // Now we loop through cache size = 1 -> 3
         should_add &= i != chunks;
         // This is the index at the start of the chunk (for readability)
         let k = 3 * i + shift;
         if should_add {
+            let overflow_check = (k == N) | (k + 1 == N) | (k + 2 == N);
+            assert(!overflow_check, "Given in_len to absorb is larger than the input array len");
             // cache_size = 1, 2 => just assign
             sponge.cache[1] = input[k];
             sponge.cache[2] = input[k + 1];
@@ -452,6 +488,26 @@ fn poseidon_chunks_matches_variable() {
     let variable_chunk_hash = poseidon2_cheaper_variable_hash(input, in_len);
     let variable_len_hash = std::hash::poseidon2::Poseidon2::hash(input, in_len);
     assert(variable_chunk_hash == variable_len_hash);
+}
+
+#[test]
+fn existing_sponge_poseidon_chunks_matches_fixed() {
+    let in_len = 501;
+    let mut input: [Field; 4096] = [0; 4096];
+    let mut fixed_input = [3; 501];
+    assert(in_len == fixed_input.len()); // sanity check
+    for i in 0..in_len {
+        input[i] = 3;
+    }
+    // absorb 250 of the 501 things
+    let two_pow_64 = 18446744073709551616;
+    let empty_sponge =
+        std::hash::poseidon2::Poseidon2::new((in_len as Field) * 18446744073709551616);
+    let first_sponge = poseidon2_absorb_chunks_existing_sponge(empty_sponge, input, 250, true);
+    // now absorb the final 251 (since they are all 3s, im being lazy and not making a new array)
+    let mut final_sponge = poseidon2_absorb_chunks_existing_sponge(first_sponge, input, 251, true);
+    let fixed_len_hash = std::hash::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
+    assert(final_sponge.squeeze() == fixed_len_hash);
 }
 
 #[test]

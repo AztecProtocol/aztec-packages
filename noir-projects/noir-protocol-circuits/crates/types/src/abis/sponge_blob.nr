@@ -1,5 +1,6 @@
 use crate::{
     traits::{Serialize, Deserialize, Empty}, constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH},
+    hash::poseidon2_absorb_chunks_existing_sponge,
 };
 use std::hash::poseidon2::Poseidon2;
 
@@ -42,19 +43,7 @@ impl SpongeBlob {
 
     // Add fields to the sponge
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
-        // in_len is all non-0 input
-        let mut should_add = true;
-        for i in 0..input.len() {
-            should_add &= i != in_len;
-            if should_add {
-                // TODO(Miranda): Absorb in chunks of 3 to reduce cost (crate::hash::poseidon2_absorb_chunks).
-                // Existing fn assumes we start at cache_size = 0, but here we may start at any cache_size.
-                self.sponge.absorb(input[i]);
-            }
-        }
-        // Below is a cheaper version of "assert(in_len <= N)"
-        should_add &= input.len() != in_len;
-        assert(!should_add, "Given in_len to absorb is larger than the input array len");
+        self.sponge = poseidon2_absorb_chunks_existing_sponge(self.sponge, input, in_len, false);
         self.fields += in_len;
         // TODO(Miranda): add max field check(s)
         // assert(self.fields + in_len <= expected_fields, "Attempted to overflow blob");
