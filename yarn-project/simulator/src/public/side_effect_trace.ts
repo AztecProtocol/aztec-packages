@@ -288,6 +288,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         result.returnValues,
         gasUsed,
         result.endSideEffectCounter,
+        bytecode,
       ),
     );
   }

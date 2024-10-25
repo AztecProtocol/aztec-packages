@@ -3,6 +3,7 @@
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
@@ -32,7 +33,8 @@ class AvmTraceBuilder {
     AvmTraceBuilder(VmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {});
+                    std::vector<FF> calldata = {},
+                    const std::vector<std::vector<uint8_t>>& all_contract_bytecode = {});
 
     uint32_t getPc() const { return pc; }
 
@@ -218,6 +220,7 @@ class AvmTraceBuilder {
     AvmEccTraceBuilder ecc_trace_builder;
     AvmSliceTraceBuilder slice_trace_builder;
     AvmRangeCheckBuilder range_check_builder;
+    AvmBytecodeTraceBuilder bytecode_trace_builder;
 
     Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
