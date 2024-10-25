@@ -24,7 +24,6 @@ contract Token {
             encrypted_event_emission::encode_and_encrypt_event_unconstrained,
             encrypted_note_emission::{
                 encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
-                encrypt_and_emit_partial_log,
             },
         },
         hash::compute_secret_hash,
@@ -323,8 +322,15 @@ contract Token {
         }
 
         let from_keys = get_public_keys(from);
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from),
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                from_keys.ovpk_m,
+                from_keys.ivpk_m,
+                from,
+            ),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -562,54 +568,74 @@ contract Token {
             storage.balances.at(user).set.storage_slot,
         );
 
-        // 5. We encrypt and emit the partial note log
-        encrypt_and_emit_partial_log(
-            &mut context,
-            fee_payer_setup_payload.log_plaintext,
-            fee_payer_keys,
-            fee_payer,
-        );
-        encrypt_and_emit_partial_log(
-            &mut context,
-            user_setup_payload.log_plaintext,
-            user_keys,
-            user,
-        );
+        // 5. We get transient storage slots
+        // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
+        // we have a guarantee that the public functions of the transaction are executed right after the private ones
+        // and for this reason the protocol guarantees that nobody can front-run us in consuming the hiding point.
+        // This guarantee would break if `finalize_transfer_to_private` was not called in the same transaction. This
+        // however is not the flow we are currently concerned with. To support the multi-transaction flow we could
+        // introduce a `from` function argument, hash the x-coordinate with it and then repeat the hashing in
+        // `finalize_transfer_to_private`.
+        //
+        // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
+        // in our state variables we derive slots using a different hash function from multi scalar multiplication
+        // (MSM).
+        let fee_payer_point_slot = fee_payer_setup_payload.hiding_point.x;
+        let user_point_slot = user_setup_payload.hiding_point.x;
 
-        // 6. We convert the hiding points to standard `Point` type as we cannot pass `TokenNoteHidingPoint` type
-        // as an argument to a function due to macro limitations (the `TokenNoteHidingPoint` type is macro generated
-        // and hence is not resolved soon enough by the compiler).
-        let fee_payer_point = fee_payer_setup_payload.hiding_point;
-        let user_point = user_setup_payload.hiding_point;
+        // 6. We compute setup logs
+        let fee_payer_setup_log =
+            fee_payer_setup_payload.encrypt_log(&mut context, fee_payer_keys, fee_payer);
+        let user_setup_log = user_setup_payload.encrypt_log(&mut context, user_keys, user);
 
-        // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 7. We store the hiding points an logs in transients storage
+        Token::at(context.this_address())
+            ._store_payload_in_transient_storage_unsafe(
+                fee_payer_point_slot,
+                fee_payer_setup_payload.hiding_point,
+                fee_payer_setup_log,
+            )
+            .enqueue(&mut context);
+        Token::at(context.this_address())
+            ._store_payload_in_transient_storage_unsafe(
+                user_point_slot,
+                user_setup_payload.hiding_point,
+                user_setup_log,
+            )
+            .enqueue(&mut context);
+
+        // 8. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            comptime {
-                FunctionSelector::from_signature(
-                    "complete_refund((Field,Field,bool),(Field,Field,bool),Field)",
-                )
-            },
-            [
-                fee_payer_point.x,
-                fee_payer_point.y,
-                fee_payer_point.is_infinite as Field,
-                user_point.x,
-                user_point.y,
-                user_point.is_infinite as Field,
-                funded_amount,
-            ],
+            comptime { FunctionSelector::from_signature("complete_refund(Field,Field,Field)") },
+            [fee_payer_point_slot, user_point_slot, funded_amount],
         );
     }
     // docs:end:setup_refund
+
+    // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
+    // users to derive manually. This will however go away once we have a real transient storage since we will not need
+    // the public call and instead we would do something like `context.transient_storage_write(slot, payload)` and that
+    // will allow us to use generics and hence user will not need to define it explicitly. We cannot use generics here
+    // as it is an entrypoint function.
+    #[public]
+    #[internal]
+    fn _store_payload_in_transient_storage_unsafe(
+        slot: Field,
+        point: Point,
+        setup_log: [Field; 16],
+    ) {
+        context.storage_write(slot, point);
+        context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
+    }
 
     // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
+    fn complete_refund(fee_payer_slot: Field, user_slot: Field, funded_amount: Field) {
         // TODO(#7728): Remove the next line
         let funded_amount = U128::from_integer(funded_amount);
         let tx_fee = U128::from_integer(context.transaction_fee());
@@ -624,18 +650,13 @@ contract Token {
         // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
         // hashes and unencrypted logs.
         let fee_payer_finalization_payload =
-            TokenNote::finalization_payload().new(fee_payer_point, tx_fee);
+            TokenNote::finalization_payload().new(&mut context, fee_payer_slot, tx_fee);
         let user_finalization_payload =
-            TokenNote::finalization_payload().new(user_point, refund_amount);
+            TokenNote::finalization_payload().new(&mut context, user_slot, refund_amount);
 
-        // 4. We emit the `tx_fee` and `refund_amount` as unencrypted event such that the `NoteProcessor` can use it
-        // to reconstruct the note.
-        context.emit_unencrypted_log(fee_payer_finalization_payload.log);
-        context.emit_unencrypted_log(user_finalization_payload.log);
-
-        // 5. At last we emit the note hashes.
-        context.push_note_hash(fee_payer_finalization_payload.note_hash);
-        context.push_note_hash(user_finalization_payload.note_hash);
+        // 4. At last we emit the note hashes and the final note logs.
+        fee_payer_finalization_payload.emit();
+        user_finalization_payload.emit();
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
     // docs:end:complete_refund
