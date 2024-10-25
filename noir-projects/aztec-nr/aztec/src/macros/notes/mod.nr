@@ -7,6 +7,8 @@ use std::{
 };
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
+// The following is a fixed ciphertext overhead as defined by `compute_private_log_payload`
+comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 353;
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -435,8 +437,7 @@ comptime fn generate_setup_payload(
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
     // Then we compute values for `encrypt_log(...)` function
-    // 353 is a fixed ciphertext overhead as defined by `compute_private_log_payload`
-    let encrypted_log_byte_length = 353 + log_plaintext_length;
+    let encrypted_log_byte_length = NOTE_CIPHERTEXT_OVERHEAD + log_plaintext_length;
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
@@ -657,8 +658,7 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    // 353 is a fixed ciphertext overhead as defined by `compute_private_log_payload`
-    let setup_log_byte_length = 353 + setup_log_plaintext_length;
+    let setup_log_byte_length = NOTE_CIPHERTEXT_OVERHEAD + setup_log_plaintext_length;
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;
