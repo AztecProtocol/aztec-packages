@@ -21,8 +21,8 @@ library Constants {
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 4;
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 16;
   uint256 internal constant MAX_L2_TO_L1_MSGS_PER_CALL = 2;
-  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 32;
-  uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 32;
+  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 64;
+  uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 64;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 16;
@@ -119,7 +119,7 @@ library Constants {
     14061769416655647708490531650437236735160113654556896985372298487345;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 100000000;
-  uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 6000000;
+  uint256 internal constant MAX_L2_GAS_PER_ENQUEUED_CALL = 12000000;
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DEFAULT_INCLUSION_FEE = 0;
   uint256 internal constant DA_BYTES_PER_FIELD = 32;
@@ -206,7 +206,7 @@ library Constants {
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 501;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 674;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 866;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 38;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 41;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
@@ -273,11 +273,11 @@ library Constants {
   uint256 internal constant START_NULLIFIER_NON_EXISTS_OFFSET = 32;
   uint256 internal constant START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 48;
   uint256 internal constant START_SSTORE_WRITE_OFFSET = 64;
-  uint256 internal constant START_SLOAD_WRITE_OFFSET = 96;
-  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 128;
-  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
-  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
-  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
+  uint256 internal constant START_SLOAD_WRITE_OFFSET = 128;
+  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 192;
+  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
+  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
+  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;
