@@ -673,9 +673,7 @@ jobs:
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.test }}
-            fallback_result=false
-            [ $test = 4epochs.test.ts ] && fallback_result=true
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test || $fallback_result
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
 
   l1-contracts-test:
     needs: [build, configure]

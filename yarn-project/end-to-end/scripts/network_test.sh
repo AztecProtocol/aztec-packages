@@ -65,9 +65,9 @@ show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
+  kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
 }
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup EXIT
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --namespace "$NAMESPACE" \
