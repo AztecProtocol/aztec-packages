@@ -319,8 +319,8 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         ClientIVC ivc;
         ivc.trace_structure = trace_structure;
 
-        ClientIVC::VerifierInputs oink_entry =
-            acir_format::create_dummy_vkey_and_proof_oink(num_app_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
+        ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
+            trace_structure, num_app_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
         ivc.verification_queue.emplace_back(oink_entry);
         ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
         // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?

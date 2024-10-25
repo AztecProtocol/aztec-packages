@@ -29,11 +29,18 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc([[maybe_unused]] c
  * @brief Create an mock proof and VK that have the correct structure but are not necessarily valid
  *
  */
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(size_t num_public_inputs = 0)
+ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure& trace_structure,
+                                                           const size_t num_public_inputs = 0)
 {
     using Flavor = MegaFlavor;
     using VerificationKey = ClientIVC::VerificationKey;
     using FF = bb::fr;
+
+    MegaArith<FF>::TraceBlocks blocks;
+    blocks.set_fixed_block_sizes(trace_structure);
+    blocks.compute_offsets(/*is_structured=*/true);
+    size_t structured_dyadic_size = blocks.get_structured_dyadic_size();
+    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
 
     ClientIVC::VerifierInputs verifier_inputs;
     verifier_inputs.type = ClientIVC::QUEUE_TYPE::OINK;
@@ -43,10 +50,12 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(size_t num_public_inp
     auto mock_commitment = curve::BN254::AffineElement::one() * mock_val;
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
 
-    // Preamble (metadata plus public inputs)
+    // Set proof preamble (metadata plus public inputs)
     size_t total_num_public_inputs = num_public_inputs + bb::AGGREGATION_OBJECT_SIZE;
-    size_t num_preamble_elements = 3 + total_num_public_inputs;
-    for (size_t i = 0; i < num_preamble_elements; ++i) {
+    verifier_inputs.proof.emplace_back(structured_dyadic_size);
+    verifier_inputs.proof.emplace_back(total_num_public_inputs);
+    verifier_inputs.proof.emplace_back(pub_inputs_offset);
+    for (size_t i = 0; i < total_num_public_inputs; ++i) {
         verifier_inputs.proof.emplace_back(0);
     }
 
@@ -57,23 +66,12 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(size_t num_public_inp
         }
     }
 
-    // auto vkey = verifier_inputs.honk_verification_key;
-    // WORKTODO: all these are default init so maybe do nothing here?
-    // uint64_t mock_u64(3);
-    // vkey->circuit_size = mock_u64;
-    // vkey->log_circuit_size = mock_u64;
-    // vkey->num_public_inputs = mock_u64;
-    // vkey->pub_inputs_offset = mock_u64;
-    // vkey->contains_recursive_proof = false;
-    // vkey->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
-    // vkey->databus_propagation_data = databus_propagation_data;
+    // Set relevant VK metadata and commitments
     verifier_inputs.honk_verification_key = std::make_shared<VerificationKey>();
-    verifier_inputs.honk_verification_key->contains_recursive_proof = true;
-    // WORKTODO: does this need to be set properly? probably
+    verifier_inputs.honk_verification_key->circuit_size = structured_dyadic_size;
     verifier_inputs.honk_verification_key->num_public_inputs = total_num_public_inputs;
-    // Note: this must be set to the genuine correct value since it determines the location of the PI in the circuit and
-    // is thus part of the VK
-    verifier_inputs.honk_verification_key->pub_inputs_offset = 16385; // WORKTODO: find a way to set this
+    verifier_inputs.honk_verification_key->pub_inputs_offset = blocks.pub_inputs.trace_offset; // must be set correctly
+    verifier_inputs.honk_verification_key->contains_recursive_proof = true;
     for (auto& commitment : verifier_inputs.honk_verification_key->get_all()) {
         commitment = mock_commitment;
     }

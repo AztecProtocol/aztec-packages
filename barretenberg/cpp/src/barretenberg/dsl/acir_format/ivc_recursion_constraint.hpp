@@ -10,7 +10,8 @@ using namespace bb;
 
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc(const PROOF_TYPE proof_type);
 
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(size_t num_public_inputs);
+ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure& trace_structure,
+                                                           const size_t num_public_inputs);
 
 ClientIVC::MergeProof create_dummy_merge_proof();
 
