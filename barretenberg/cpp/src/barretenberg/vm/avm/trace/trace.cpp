@@ -26,6 +26,7 @@
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm/trace/fixed_powers.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/cmp.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
@@ -2950,27 +2951,17 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
 
 /**
  * @brief Keccakf1600  with direct or indirect memory access.
- * This function temporarily has the same interface as the kecccak opcode for compatibility, when the keccak
- * migration is complete (to keccakf1600) We will update this function call as we will not likely need
- * input_size_offset
  * @param indirect byte encoding information about indirect/direct memory access.
  * @param output_offset An index in memory pointing to where the first u64 value of the output array should be
  * stored.
  * @param input_offset An index in memory pointing to the first u64 value of the input array to be used in the next
- * instance of poseidon2 permutation.
- * @param input_size offset An index in memory pointing to the size of the input array. Temporary while we maintain
- * the same interface as keccak (this is fixed to 25)
+ * instance of keccakf1600.
  */
-void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
-                                     uint32_t output_offset,
-                                     uint32_t input_offset,
-                                     [[maybe_unused]] uint32_t input_size_offset)
+void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset)
 {
-    // What happens if the input_size_offset is > 25 when the state is more that that?
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset, _] =
-        Addressing<3>::fromWire(indirect, call_ptr)
-            .resolve({ output_offset, input_offset, input_size_offset }, mem_trace_builder);
+    auto [resolved_output_offset, resolved_input_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ output_offset, input_offset }, mem_trace_builder);
     auto input_read = constrained_read_from_memory(
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
     auto output_read = constrained_read_from_memory(
@@ -3002,13 +2993,13 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
     // Array input is fixed to 1600 bits
     std::vector<uint64_t> input_vec;
     // Read results are written to input array
-    read_slice_from_memory<uint64_t>(resolved_input_offset, 25, input_vec);
-    std::array<uint64_t, 25> input = vec_to_arr<uint64_t, 25>(input_vec);
+    read_slice_from_memory<uint64_t>(resolved_input_offset, KECCAKF1600_INPUT_SIZE, input_vec);
+    std::array<uint64_t, KECCAKF1600_INPUT_SIZE> input = vec_to_arr<uint64_t, KECCAKF1600_INPUT_SIZE>(input_vec);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
     // Note: We use the keccak_op_clk to ensure that the keccakf1600 operation is performed at the same clock cycle
     // as the main trace that has the selector
-    std::array<uint64_t, 25> result = keccak_trace_builder.keccakf1600(clk, input);
+    std::array<uint64_t, KECCAKF1600_INPUT_SIZE> result = keccak_trace_builder.keccakf1600(clk, input);
     // Write the result to memory after
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 }

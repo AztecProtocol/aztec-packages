@@ -1,11 +1,12 @@
-use crate::{public_kernel_phase::PublicKernelPhase};
+use crate::public_kernel_phase::PublicKernelPhase;
 use dep::types::{
     abis::{
-    accumulated_data::public_accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
-    kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, VMCircuitPublicInputs},
-    validation_requests::public_validation_requests::PublicValidationRequestArrayLengths
-},
-    traits::is_empty, utils::arrays::{array_length, assert_array_appended, assert_array_prepended}
+        accumulated_data::public_accumulated_data::{
+            PublicAccumulatedData, PublicAccumulatedDataArrayLengths,
+        }, kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, VMCircuitPublicInputs},
+        validation_requests::public_validation_requests::PublicValidationRequestArrayLengths,
+    }, traits::is_empty,
+    utils::arrays::{array_length, assert_array_appended, assert_array_prepended},
 };
 
 pub struct PublicKernelOutputValidator {
@@ -16,7 +17,7 @@ pub struct PublicKernelOutputValidator {
     revertible: bool,
     previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
     previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-    previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+    previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
 }
 
 impl PublicKernelOutputValidator {
@@ -24,12 +25,15 @@ impl PublicKernelOutputValidator {
         output: PublicKernelCircuitPublicInputs,
         previous_kernel: PublicKernelCircuitPublicInputs,
         enqueued_call: VMCircuitPublicInputs,
-        phase: u8
+        phase: u8,
     ) -> Self {
         let revertible = phase != PublicKernelPhase.SETUP;
-        let previous_validation_request_array_lengths = PublicValidationRequestArrayLengths::new(previous_kernel.validation_requests);
-        let previous_non_revertible_data_array_lengths = PublicAccumulatedDataArrayLengths::new(previous_kernel.end_non_revertible);
-        let previous_revertible_data_array_lengths = PublicAccumulatedDataArrayLengths::new(previous_kernel.end);
+        let previous_validation_request_array_lengths =
+            PublicValidationRequestArrayLengths::new(previous_kernel.validation_requests);
+        let previous_non_revertible_data_array_lengths =
+            PublicAccumulatedDataArrayLengths::new(previous_kernel.end_non_revertible);
+        let previous_revertible_data_array_lengths =
+            PublicAccumulatedDataArrayLengths::new(previous_kernel.end);
         PublicKernelOutputValidator {
             output,
             previous_kernel,
@@ -38,7 +42,7 @@ impl PublicKernelOutputValidator {
             revertible,
             previous_validation_request_array_lengths,
             previous_non_revertible_data_array_lengths,
-            previous_revertible_data_array_lengths
+            previous_revertible_data_array_lengths,
         }
     }
 
@@ -59,10 +63,14 @@ impl PublicKernelOutputValidator {
         assert_eq(out.tx_context, prev.tx_context, "mismatch tx_context");
         assert_eq(out.vk_tree_root, prev.vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
-            out.protocol_contract_tree_root, prev.protocol_contract_tree_root, "mismatch protocol_contract_tree_root"
+            out.protocol_contract_tree_root,
+            prev.protocol_contract_tree_root,
+            "mismatch protocol_contract_tree_root",
         );
         assert_eq(
-            out.global_variables, self.enqueued_call.constants.global_variables, "mismatch global_variables"
+            out.global_variables,
+            self.enqueued_call.constants.global_variables,
+            "mismatch global_variables",
         );
     }
 
@@ -72,7 +80,9 @@ impl PublicKernelOutputValidator {
             assert(is_empty(out), "public_teardown_call_request must be empty after teardown");
         } else {
             assert_eq(
-                out, self.previous_kernel.public_teardown_call_request, "mismatch public_teardown_call_request"
+                out,
+                self.previous_kernel.public_teardown_call_request,
+                "mismatch public_teardown_call_request",
             );
         }
     }
@@ -96,31 +106,31 @@ impl PublicKernelOutputValidator {
         assert_array_prepended(
             out.note_hash_read_requests,
             prev.note_hash_read_requests,
-            prev_lengths.note_hash_read_requests
+            prev_lengths.note_hash_read_requests,
         );
 
         assert_array_prepended(
             out.nullifier_read_requests,
             prev.nullifier_read_requests,
-            prev_lengths.nullifier_read_requests
+            prev_lengths.nullifier_read_requests,
         );
 
         assert_array_prepended(
             out.nullifier_non_existent_read_requests,
             prev.nullifier_non_existent_read_requests,
-            prev_lengths.nullifier_non_existent_read_requests
+            prev_lengths.nullifier_non_existent_read_requests,
         );
 
         assert_array_prepended(
             out.l1_to_l2_msg_read_requests,
             prev.l1_to_l2_msg_read_requests,
-            prev_lengths.l1_to_l2_msg_read_requests
+            prev_lengths.l1_to_l2_msg_read_requests,
         );
 
         assert_array_prepended(
             out.public_data_reads,
             prev.public_data_reads,
-            prev_lengths.public_data_reads
+            prev_lengths.public_data_reads,
         );
     }
 
@@ -131,40 +141,39 @@ impl PublicKernelOutputValidator {
         let prev_lengths = self.previous_validation_request_array_lengths;
 
         // Note that the enqueued call cannot modify the max block number value - it simply forwards it to the rollup.
-
         assert_array_appended(
             out.note_hash_read_requests,
             curr.note_hash_read_requests,
             curr_lengths.note_hash_read_requests,
-            prev_lengths.note_hash_read_requests
+            prev_lengths.note_hash_read_requests,
         );
 
         assert_array_appended(
             out.nullifier_read_requests,
             curr.nullifier_read_requests,
             curr_lengths.nullifier_read_requests,
-            prev_lengths.nullifier_read_requests
+            prev_lengths.nullifier_read_requests,
         );
 
         assert_array_appended(
             out.nullifier_non_existent_read_requests,
             curr.nullifier_non_existent_read_requests,
             curr_lengths.nullifier_non_existent_read_requests,
-            prev_lengths.nullifier_non_existent_read_requests
+            prev_lengths.nullifier_non_existent_read_requests,
         );
 
         assert_array_appended(
             out.l1_to_l2_msg_read_requests,
             curr.l1_to_l2_msg_read_requests,
             curr_lengths.l1_to_l2_msg_read_requests,
-            prev_lengths.l1_to_l2_msg_read_requests
+            prev_lengths.l1_to_l2_msg_read_requests,
         );
 
         assert_array_appended(
             out.public_data_reads,
             curr.public_data_reads,
             curr_lengths.public_data_reads,
-            prev_lengths.public_data_reads
+            prev_lengths.public_data_reads,
         );
     }
 
@@ -172,7 +181,6 @@ impl PublicKernelOutputValidator {
         // TODO: Should keep the data even when reverts.
         let revert_in_phase = (self.output.revert_code != 0)
             & ((self.phase != PublicKernelPhase.TEARDOWN) | (self.output.revert_code != 1)); // Revert in APP_LOGIC
-
         self.validate_accumulated_data_from_private(revert_in_phase);
         self.validate_combined_accumulated_data(revert_in_phase);
         self.validate_gas_used();
@@ -182,27 +190,39 @@ impl PublicKernelOutputValidator {
         let out = self.output.end_non_revertible;
         let prev = self.previous_kernel.end_non_revertible;
         assert_eq(
-            out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes, "mismatch non-revertible note_encrypted_logs_hashes"
+            out.note_encrypted_logs_hashes,
+            prev.note_encrypted_logs_hashes,
+            "mismatch non-revertible note_encrypted_logs_hashes",
         );
         assert_eq(
-            out.encrypted_logs_hashes, prev.encrypted_logs_hashes, "mismatch non-revertible encrypted_logs_hashes"
+            out.encrypted_logs_hashes,
+            prev.encrypted_logs_hashes,
+            "mismatch non-revertible encrypted_logs_hashes",
         );
 
         let out = self.output.end;
         let prev = self.previous_kernel.end;
         if revert_in_phase {
             assert_eq(
-                array_length(out.note_encrypted_logs_hashes), 0, "revertible note_encrypted_logs_hashes must be cleared after revert"
+                array_length(out.note_encrypted_logs_hashes),
+                0,
+                "revertible note_encrypted_logs_hashes must be cleared after revert",
             );
             assert_eq(
-                array_length(out.encrypted_logs_hashes), 0, "revertible encrypted_logs_hashes must be cleared after revert"
+                array_length(out.encrypted_logs_hashes),
+                0,
+                "revertible encrypted_logs_hashes must be cleared after revert",
             );
         } else {
             assert_eq(
-                out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes, "mismatch revertible note_encrypted_logs_hashes"
+                out.note_encrypted_logs_hashes,
+                prev.note_encrypted_logs_hashes,
+                "mismatch revertible note_encrypted_logs_hashes",
             );
             assert_eq(
-                out.encrypted_logs_hashes, prev.encrypted_logs_hashes, "mismatch revertible encrypted_logs_hashes"
+                out.encrypted_logs_hashes,
+                prev.encrypted_logs_hashes,
+                "mismatch revertible encrypted_logs_hashes",
             );
         }
     }
@@ -226,14 +246,18 @@ impl PublicKernelOutputValidator {
         self.validate_prepended_accumulated_data(
             out_non_revertible,
             prev_non_revertible,
-            prev_non_revertible_lengths
+            prev_non_revertible_lengths,
         );
         let prepended_revertible_lengths = if revert_in_phase {
             empty_lengths
         } else {
             prev_revertible_lengths
         };
-        self.validate_prepended_accumulated_data(out_revertible, prev_revertible, prepended_revertible_lengths);
+        self.validate_prepended_accumulated_data(
+            out_revertible,
+            prev_revertible,
+            prepended_revertible_lengths,
+        );
 
         // Appended from enqueued call.
         let curr_data = self.enqueued_call.accumulated_data;
@@ -252,13 +276,13 @@ impl PublicKernelOutputValidator {
             out_non_revertible,
             curr_data,
             prev_non_revertible_lengths,
-            appended_non_revertible_lengths
+            appended_non_revertible_lengths,
         );
         self.validate_appended_accumulated_data(
             out_revertible,
             curr_data,
             prev_revertible_lengths,
-            appended_revertible_lengths
+            appended_revertible_lengths,
         );
     }
 
@@ -266,7 +290,7 @@ impl PublicKernelOutputValidator {
         _self: Self,
         out: PublicAccumulatedData,
         prev: PublicAccumulatedData,
-        lengths: PublicAccumulatedDataArrayLengths
+        lengths: PublicAccumulatedDataArrayLengths,
     ) {
         assert_array_prepended(out.note_hashes, prev.note_hashes, lengths.note_hashes);
         assert_array_prepended(out.nullifiers, prev.nullifiers, lengths.nullifiers);
@@ -274,17 +298,17 @@ impl PublicKernelOutputValidator {
         assert_array_prepended(
             out.unencrypted_logs_hashes,
             prev.unencrypted_logs_hashes,
-            lengths.unencrypted_logs_hashes
+            lengths.unencrypted_logs_hashes,
         );
         assert_array_prepended(
             out.public_data_update_requests,
             prev.public_data_update_requests,
-            lengths.public_data_update_requests
+            lengths.public_data_update_requests,
         );
         assert_array_prepended(
             out.public_call_stack,
             prev.public_call_stack,
-            lengths.public_call_stack
+            lengths.public_call_stack,
         );
     }
 
@@ -293,37 +317,37 @@ impl PublicKernelOutputValidator {
         out: PublicAccumulatedData,
         curr: PublicAccumulatedData,
         prev_lengths: PublicAccumulatedDataArrayLengths,
-        curr_lengths: PublicAccumulatedDataArrayLengths
+        curr_lengths: PublicAccumulatedDataArrayLengths,
     ) {
         assert_array_appended(
             out.note_hashes,
             curr.note_hashes,
             curr_lengths.note_hashes,
-            prev_lengths.note_hashes
+            prev_lengths.note_hashes,
         );
         assert_array_appended(
             out.nullifiers,
             curr.nullifiers,
             curr_lengths.nullifiers,
-            prev_lengths.nullifiers
+            prev_lengths.nullifiers,
         );
         assert_array_appended(
             out.l2_to_l1_msgs,
             curr.l2_to_l1_msgs,
             curr_lengths.l2_to_l1_msgs,
-            prev_lengths.l2_to_l1_msgs
+            prev_lengths.l2_to_l1_msgs,
         );
         assert_array_appended(
             out.unencrypted_logs_hashes,
             curr.unencrypted_logs_hashes,
             curr_lengths.unencrypted_logs_hashes,
-            prev_lengths.unencrypted_logs_hashes
+            prev_lengths.unencrypted_logs_hashes,
         );
         assert_array_appended(
             out.public_data_update_requests,
             curr.public_data_update_requests,
             curr_lengths.public_data_update_requests,
-            prev_lengths.public_data_update_requests
+            prev_lengths.public_data_update_requests,
         );
     }
 
@@ -339,14 +363,22 @@ impl PublicKernelOutputValidator {
             expected_revertible_gas_used += curr_gas_used;
         }
         assert_eq(
-            out_non_revertible_gas_used, expected_non_revertible_gas_used, "wrong non-revertible gas used"
+            out_non_revertible_gas_used,
+            expected_non_revertible_gas_used,
+            "wrong non-revertible gas used",
         );
-        assert_eq(out_revertible_gas_used, expected_revertible_gas_used, "wrong revertible gas used");
+        assert_eq(
+            out_revertible_gas_used,
+            expected_revertible_gas_used,
+            "wrong revertible gas used",
+        );
     }
 
     fn validate_end_side_effect_counter(self) {
         assert_eq(
-            self.output.end_side_effect_counter, self.enqueued_call.end_side_effect_counter, "mismatch end_side_effect_counter"
+            self.output.end_side_effect_counter,
+            self.enqueued_call.end_side_effect_counter,
+            "mismatch end_side_effect_counter",
         );
     }
 

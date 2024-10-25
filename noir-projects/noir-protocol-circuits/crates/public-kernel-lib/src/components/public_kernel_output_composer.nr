@@ -2,15 +2,16 @@ mod propagate_accumulated_data;
 
 use crate::{
     components::public_kernel_output_composer::propagate_accumulated_data::propagate_accumulated_data,
-    public_kernel_phase::PublicKernelPhase
+    public_kernel_phase::PublicKernelPhase,
 };
 use dep::types::{
     abis::{
-    accumulated_data::PublicAccumulatedDataBuilder,
-    kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder, VMCircuitPublicInputs},
-    public_call_request::PublicCallRequest
-},
-    traits::is_empty
+        accumulated_data::PublicAccumulatedDataBuilder,
+        kernel_circuit_public_inputs::{
+            PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder,
+            VMCircuitPublicInputs,
+        }, public_call_request::PublicCallRequest,
+    }, traits::is_empty,
 };
 
 pub struct PublicKernelOutputComposer {
@@ -36,7 +37,11 @@ impl PublicKernelOutputComposer {
         *self
     }
 
-    pub fn propagate_from_enqueued_call(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) -> Self {
+    pub fn propagate_from_enqueued_call(
+        &mut self,
+        enqueued_call: VMCircuitPublicInputs,
+        phase: u8,
+    ) -> Self {
         self.output_builder.constants.global_variables = enqueued_call.constants.global_variables;
         self.propagate_revert_code(enqueued_call, phase);
         self.propagate_validation_requests(enqueued_call);
@@ -75,7 +80,6 @@ impl PublicKernelOutputComposer {
     fn propagate_validation_requests(&mut self, enqueued_call: VMCircuitPublicInputs) {
         let data = enqueued_call.validation_requests;
         // Note that the public kernel cannot modify the max block number value - it simply forwards it to the rollup
-
         let note_hash_read_requests = data.note_hash_read_requests;
         for i in 0..note_hash_read_requests.len() {
             let request = note_hash_read_requests[i];
@@ -96,7 +100,9 @@ impl PublicKernelOutputComposer {
         for i in 0..nullifier_non_existent_read_requests.len() {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
-                self.output_builder.validation_requests.nullifier_non_existent_read_requests.push(request);
+                self.output_builder.validation_requests.nullifier_non_existent_read_requests.push(
+                    request,
+                );
             }
         }
 
@@ -119,10 +125,16 @@ impl PublicKernelOutputComposer {
 
     fn propagate_accumulated_data(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) {
         if phase == PublicKernelPhase.SETUP {
-            self.output_builder.end_non_revertible = propagate_accumulated_data(&mut self.output_builder.end_non_revertible, enqueued_call.accumulated_data);
+            self.output_builder.end_non_revertible = propagate_accumulated_data(
+                &mut self.output_builder.end_non_revertible,
+                enqueued_call.accumulated_data,
+            );
         }
         if (phase == PublicKernelPhase.APP_LOGIC) | (phase == PublicKernelPhase.TEARDOWN) {
-            self.output_builder.end = propagate_accumulated_data(&mut self.output_builder.end, enqueued_call.accumulated_data);
+            self.output_builder.end = propagate_accumulated_data(
+                &mut self.output_builder.end,
+                enqueued_call.accumulated_data,
+            );
         }
 
         // TODO: Should keep the data even when reverts.

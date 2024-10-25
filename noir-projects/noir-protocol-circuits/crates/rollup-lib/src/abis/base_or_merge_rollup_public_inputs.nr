@@ -1,6 +1,6 @@
 use dep::types::{
     constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH, partial_state_reference::PartialStateReference,
-    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
+    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader,
 };
 use crate::abis::constant_rollup_data::ConstantRollupData;
 
@@ -10,9 +10,9 @@ global MERGE_ROLLUP_TYPE = 1;
 pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
-    rollup_type : u32,
-    num_txs : u32,
-    constants : ConstantRollupData,
+    rollup_type: u32,
+    num_txs: u32,
+    constants: ConstantRollupData,
 
     start: PartialStateReference,
     end: PartialStateReference,
@@ -22,10 +22,10 @@ pub struct BaseOrMergeRollupPublicInputs {
     // So we want to constrain it when casting these fields to U128
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    txs_effects_hash : Field,
-    out_hash : Field,
+    txs_effects_hash: Field,
+    out_hash: Field,
 
-    accumulated_fees: Field
+    accumulated_fees: Field,
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {
@@ -38,7 +38,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             end: PartialStateReference::empty(),
             txs_effects_hash: 0,
             out_hash: 0,
-            accumulated_fees: 0
+            accumulated_fees: 0,
         }
     }
 }
@@ -76,7 +76,9 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
 }
 
 impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
-    fn deserialize(fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH]) -> BaseOrMergeRollupPublicInputs {
+    fn deserialize(
+        fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH],
+    ) -> BaseOrMergeRollupPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
             rollup_type: reader.read() as u32,
@@ -86,7 +88,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
             end: reader.read_struct(PartialStateReference::deserialize),
             txs_effects_hash: reader.read(),
             out_hash: reader.read(),
-            accumulated_fees: reader.read()
+            accumulated_fees: reader.read(),
         };
 
         reader.finish();
