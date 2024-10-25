@@ -335,14 +335,14 @@ export const deployL1Contracts = async (
   const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
     feeJuiceAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
-    apellaAddress,
+    apellaAddress.toString(),
   ]);
   logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
 
   const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
     feeJuiceAddress.toString(),
     registryAddress.toString(),
-    apellaAddress,
+    apellaAddress.toString(),
   ]);
   logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
 
