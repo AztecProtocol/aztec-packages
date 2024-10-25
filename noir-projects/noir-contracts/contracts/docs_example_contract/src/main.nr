@@ -16,14 +16,14 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract DocsExample {
     // how to import dependencies defined in your workspace
-    use dep::aztec::prelude::{
-        AztecAddress, NoteViewerOptions, PrivateContext, Map, PublicMutable, PublicImmutable,
-        PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable,
-    };
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{storage::{storage, storage_no_init}, functions::{public, private, internal, view}},
+        macros::{functions::{internal, private, public, view}, storage::{storage, storage_no_init}},
+    };
+    use dep::aztec::prelude::{
+        AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,
+        PrivateSet, PublicImmutable, PublicMutable, SharedImmutable,
     };
 
     // how to import methods from other files/folders within your workspace
@@ -73,7 +73,7 @@ contract DocsExample {
                 profiles: Map::new(
                     context,
                     4,
-                    |context, slot| { PrivateMutable::new(context, slot) },
+                    |context, slot| PrivateMutable::new(context, slot),
                 ),
                 // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
@@ -85,7 +85,7 @@ contract DocsExample {
                 minters: Map::new(
                     context,
                     8,
-                    |context, slot| { PublicMutable::new(context, slot) },
+                    |context, slot| PublicMutable::new(context, slot),
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable

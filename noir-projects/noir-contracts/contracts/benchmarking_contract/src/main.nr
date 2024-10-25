@@ -7,10 +7,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Benchmarking {
-    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, Map, PublicMutable, PrivateSet};
+    use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
     use dep::value_note::{utils::increment, value_note::ValueNote};
 
-    use dep::aztec::macros::{storage::storage, functions::{private, public}};
+    use dep::aztec::macros::{functions::{private, public}, storage::storage};
 
     #[storage]
     struct Storage<Context> {

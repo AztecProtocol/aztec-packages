@@ -1,6 +1,5 @@
 #include "decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"

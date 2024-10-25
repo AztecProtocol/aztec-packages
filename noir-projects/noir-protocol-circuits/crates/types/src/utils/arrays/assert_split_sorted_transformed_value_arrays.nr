@@ -1,7 +1,8 @@
 mod get_split_order_hints;
 
 use crate::{
-    abis::side_effect::Ordered, traits::Empty,
+    abis::side_effect::Ordered,
+    traits::Empty,
     utils::arrays::{
         array_length,
         assert_split_sorted_transformed_value_arrays::get_split_order_hints::SplitOrderHints,

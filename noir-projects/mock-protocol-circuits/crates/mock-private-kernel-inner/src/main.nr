@@ -1,4 +1,4 @@
-use dep::mock_types::{PrivateKernelPublicInputs, PrivateKernelPublicInputsBuilder, AppPublicInputs};
+use dep::mock_types::{AppPublicInputs, PrivateKernelPublicInputs, PrivateKernelPublicInputsBuilder};
 
 fn main(
     prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,

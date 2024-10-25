@@ -1,7 +1,7 @@
 use crate::components::vm_circuit_output_composer::VMCircuitOutputComposer;
 use dep::types::abis::{
-    kernel_circuit_public_inputs::VMCircuitPublicInputs,
-    public_kernel_inner_data::PublicKernelInnerData, public_call_data::PublicCallData,
+    kernel_circuit_public_inputs::VMCircuitPublicInputs, public_call_data::PublicCallData,
+    public_kernel_inner_data::PublicKernelInnerData,
 };
 
 // TODO(#7124): To be deprecated.

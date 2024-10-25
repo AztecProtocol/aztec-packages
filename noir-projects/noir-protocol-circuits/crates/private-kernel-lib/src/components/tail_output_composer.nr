@@ -8,9 +8,11 @@ use dep::types::{
     abis::{
         accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
-        log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
 };
 
 pub struct TailOutputComposer {

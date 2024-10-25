@@ -51,11 +51,14 @@ mod tests {
         verify_reset_read_requests,
     };
     use dep::types::{
-        address::AztecAddress,
         abis::{
-            nullifier::{Nullifier, ScopedNullifier}, nullifier_leaf_preimage::NullifierLeafPreimage,
+            nullifier::{Nullifier, ScopedNullifier},
+            nullifier_leaf_preimage::NullifierLeafPreimage,
             read_request::{ReadRequest, ScopedReadRequest},
-        }, constants::NULLIFIER_TREE_HEIGHT, hash::compute_siloed_nullifier,
+        },
+        address::AztecAddress,
+        constants::NULLIFIER_TREE_HEIGHT,
+        hash::compute_siloed_nullifier,
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,

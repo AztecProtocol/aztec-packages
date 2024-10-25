@@ -31,7 +31,7 @@ runs:
           for image in ${{ inputs.builder_images_to_copy }} ; do
             if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
               export FORCE_COLOR=1
-              flock submodule.lock git submodule update --init --recursive --recommend-shallow
+              flock /var/lock/submodule.lock git submodule update --init --recursive --recommend-shallow
               ${{ inputs.builder_command }}
               break
             fi

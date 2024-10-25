@@ -3,12 +3,12 @@ use dep::protocol_types::{
 };
 
 use crate::context::{
-    private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
-    inputs::PrivateContextInputs,
+    gas::GasOpts, inputs::PrivateContextInputs, private_context::PrivateContext,
+    public_context::PublicContext,
 };
 
-use crate::oracle::arguments::pack_arguments;
 use crate::hash::hash_args;
+use crate::oracle::arguments::pack_arguments;
 
 pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field] {

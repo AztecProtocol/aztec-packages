@@ -1,9 +1,12 @@
 use crate::{
-    abis::side_effect::{Ordered, OrderedValue, Scoped}, address::AztecAddress,
+    abis::side_effect::{Ordered, OrderedValue, Scoped},
+    address::AztecAddress,
     constants::{
-        LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
-        SCOPED_ENCRYPTED_LOG_HASH_LENGTH,
-    }, traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader},
+        ENCRYPTED_LOG_HASH_LENGTH, LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH,
+        SCOPED_ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
+    },
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct LogHash {

@@ -14,7 +14,7 @@ import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@a
 
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { extractL1ContractAddresses, extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions } from '../util.js';
 
 export const startProverNode = async (
   options: any,
@@ -32,7 +32,6 @@ export const startProverNode = async (
   const proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
-    l1Contracts: extractL1ContractAddresses(options),
   };
 
   if (!options.archiver && !proverConfig.archiverUrl) {

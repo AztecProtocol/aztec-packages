@@ -40,7 +40,7 @@ describe('Side Effect Trace', () => {
   const recipient = Fr.random();
   const content = Fr.random();
   const log = [Fr.random(), Fr.random(), Fr.random()];
-  const contractInstance = SerializableContractInstance.empty().withAddress(new Fr(42));
+  const contractInstance = SerializableContractInstance.default().withAddress(new Fr(42));
 
   const startGasLeft = Gas.fromFields([new Fr(randomInt(10000)), new Fr(randomInt(10000))]);
   const endGasLeft = Gas.fromFields([new Fr(randomInt(10000)), new Fr(randomInt(10000))]);

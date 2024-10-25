@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computePartialAddress } from '../contract/contract_address.js';
-import { computeAddress, deriveKeys } from '../keys/index.js';
+import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
 import { type PartialAddress } from '../types/partial_address.js';
 import { PublicKeys } from '../types/public_keys.js';
 
@@ -36,8 +36,13 @@ export class CompleteAddress {
 
   static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
     const { publicKeys } = deriveKeys(secretKey);
-    const address = computeAddress(publicKeys.hash(), partialAddress);
+    const address = computeAddress(publicKeys, partialAddress);
+
     return new CompleteAddress(address, publicKeys, partialAddress);
+  }
+
+  getPreaddress() {
+    return computePreaddress(this.publicKeys.hash(), this.partialAddress);
   }
 
   static fromSecretKeyAndInstance(
@@ -50,8 +55,9 @@ export class CompleteAddress {
 
   /** Throws if the address is not correctly derived from the public key and partial address.*/
   public validate() {
-    const expectedAddress = computeAddress(this.publicKeys.hash(), this.partialAddress);
-    if (!expectedAddress.equals(this.address)) {
+    const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
+
+    if (!AztecAddress.fromField(expectedAddress).equals(this.address)) {
       throw new Error(
         `Address cannot be derived from public keys and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
       );

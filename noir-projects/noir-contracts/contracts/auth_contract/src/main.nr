@@ -7,8 +7,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Auth {
     use dep::aztec::{
-        protocol_types::address::AztecAddress, state_vars::{PublicImmutable, SharedMutable},
-        macros::{storage::storage, functions::{private, public, initializer, view}},
+        macros::{functions::{initializer, private, public, view}, storage::storage},
+        protocol_types::address::AztecAddress,
+        state_vars::{PublicImmutable, SharedMutable},
     };
 
     // Authorizing a new address has a certain block delay before it goes into effect.

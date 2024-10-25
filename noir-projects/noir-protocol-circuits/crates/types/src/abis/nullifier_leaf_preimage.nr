@@ -1,8 +1,10 @@
 global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
 
 use crate::{
-    abis::{read_request::ScopedReadRequest, side_effect::Readable}, hash::compute_siloed_nullifier,
-    merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{Empty, Hash},
+    abis::{read_request::ScopedReadRequest, side_effect::Readable},
+    hash::compute_siloed_nullifier,
+    merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
+    traits::{Empty, Hash},
 };
 
 pub struct NullifierLeafPreimage {
