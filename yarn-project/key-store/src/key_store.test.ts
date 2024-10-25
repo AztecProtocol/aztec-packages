@@ -43,6 +43,11 @@ describe('KeyStore', () => {
       `"0x07cec19d32f1cbaaacf16edc081021b696c86dff14160779373ffc77b04568e7076f25b0e7f0d02fd6433d788483e2262c1e45c5962790b40d1cd7efbd5253d3"`,
     );
 
+    const masterIncomingViewingSecretKey = await keyStore.getMasterIncomingViewingSecretKey(accountAddress);
+    expect(masterIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x1d1d920024dd64e019c23de36d27aefe4d9d4d05983b99cf85bea9e85fd60020"`,
+    );
+
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 
@@ -52,11 +57,6 @@ describe('KeyStore', () => {
       `"0x0030e54eefa97f61f384e112dcf7859583494e0e1823a272d18ea93eb110c0a7"`,
     );
     expect(obtainedMasterNullifierPublicKey).toEqual(masterNullifierPublicKey);
-
-    const appIncomingViewingSecretKey = await keyStore.getAppIncomingViewingSecretKey(accountAddress, appAddress);
-    expect(appIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x0247d73d16cf0939cc783b3cee140b37b294b6cbc1c0295d530f3f637c9b8034"`,
-    );
 
     const appOutgoingViewingSecretKey = await keyStore.getAppOutgoingViewingSecretKey(accountAddress, appAddress);
     expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
@@ -76,8 +76,10 @@ describe('KeyStore', () => {
     );
 
     // Manages to find master incoming viewing secret key for pub key
-    const masterIncomingViewingSecretKey = await keyStore.getMasterSecretKey(masterIncomingViewingPublicKey);
-    expect(masterIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
+    const masterIncomingViewingSecretKeyFromPublicKey = await keyStore.getMasterSecretKey(
+      masterIncomingViewingPublicKey,
+    );
+    expect(masterIncomingViewingSecretKeyFromPublicKey.toString()).toMatchInlineSnapshot(
       `"0x1d1d920024dd64e019c23de36d27aefe4d9d4d05983b99cf85bea9e85fd60020"`,
     );
   });

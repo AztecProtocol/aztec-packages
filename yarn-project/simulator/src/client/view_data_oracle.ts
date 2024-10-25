@@ -288,4 +288,15 @@ export class ViewDataOracle extends TypedOracle {
     const formattedStr = applyStringFormatting(message, fields);
     this.log.verbose(`debug_log ${formattedStr}`);
   }
+
+  /**
+   * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
+   * For this to work, the ivpsk_m of the sender must be known.
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   * @returns A tagging secret that can be used to tag notes.
+   */
+  public override async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+    return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
+  }
 }
