@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729867268607,
+  "lastUpdate": 1729870690186,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d2c9ae2853bb75cd736583406a57e96645bd2e88",
-          "message": "refactor: eccvm transcript builder (#9026)\n\n* improved the structure of the main method compute_rows\r\n* cleaned up logic without modifying it\r\n* improved code sharing \r\n* added docs (not very detailed but should be helpful)\r\n\r\n* added the point at infinity test to ECCVMCircuitBuilderTests. this\r\ntest passing means that we are not handling point at infinity correctly",
-          "timestamp": "2024-10-08T15:32:43+01:00",
-          "tree_id": "9e84ebadb5e5ae0745b8f78095c4b0ea11c90064",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d2c9ae2853bb75cd736583406a57e96645bd2e88"
-        },
-        "date": 1728400506127,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31344.235303000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29034.491273 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5526.763727000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5214.549549 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93590.01770899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93590019000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15709.828442,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15709829000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8314204894,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8314204894 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151597464,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151597464 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6743186490,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6743186490 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126461114,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126461114 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3216,66 @@ window.BENCHMARK_DATA = {
             "value": 128242637,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128242637 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84205d872067345239913914a84b708d05d8364c",
+          "message": "feat(avm): trace contract class and contract instance (#8840)\n\nThis PR is centred around tracing and passing contract class & instance\r\nduring simulator execution and passing it to circuit. We store each\r\ncontract class & instance whenever the `simulator` calls `getBytecode`.\r\n\r\nThis changes the input interface to the bb binary - we no longer take in\r\na specific bytecode to execute. Instead we get a vector of\r\n`{contract_class, contract_instance, bytecode}` which define all the\r\n(deduplicated) contract bytecode that will be executed during this\r\n\"one-enqueued call\" (actual implementation of 1-enqueued call tbd).\r\n\r\nThis doesnt do any derivation of id or address yet",
+          "timestamp": "2024-10-25T15:53:25+01:00",
+          "tree_id": "b2cb91e82c38f735658e88c9d312338fdd07b567",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/84205d872067345239913914a84b708d05d8364c"
+        },
+        "date": 1729870683281,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30824.063572999876,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28977.064539 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5357.160063000038,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5041.958132999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 90897.220161,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 90897222000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15185.878856999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15185879000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2702632818,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2702632818 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126158558,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126158558 ns\nthreads: 1"
           }
         ]
       }
