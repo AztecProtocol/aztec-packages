@@ -1,5 +1,6 @@
 use dep::protocol_types::{
-    constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT}, utils::arr_copy_slice,
+    constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
+    utils::arr_copy_slice,
 };
 
 global NOTE_HASH_TREE_ID = 1;

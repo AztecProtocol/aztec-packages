@@ -1,5 +1,5 @@
-use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
 use crate::state_vars::storage::Storage;
+use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
 
 // docs:start:map
 pub struct Map<K, V, Context> {

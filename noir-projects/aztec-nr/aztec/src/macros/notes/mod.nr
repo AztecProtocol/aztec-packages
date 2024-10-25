@@ -1,9 +1,10 @@
-use std::{
-    meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
-};
+use crate::note::{note_getter_options::PropertySelector, note_header::NoteHeader};
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
-use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
+use std::{
+    collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+    meta::{typ::fresh_type_variable, type_of, unquote},
+};
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 

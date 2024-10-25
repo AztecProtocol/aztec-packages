@@ -1,7 +1,9 @@
 use crate::{
     abis::{
-        max_block_number::MaxBlockNumber, public_data_read::PublicDataRead,
-        read_request::ScopedReadRequest, tree_leaf_read_request::TreeLeafReadRequest,
+        max_block_number::MaxBlockNumber,
+        public_data_read::PublicDataRead,
+        read_request::ScopedReadRequest,
+        tree_leaf_read_request::TreeLeafReadRequest,
         validation_requests::{
             public_validation_requests::PublicValidationRequests,
             rollup_validation_requests::RollupValidationRequests,
@@ -9,9 +11,11 @@ use crate::{
     },
     constants::{
         MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX,
-    }, traits::Empty, utils::arrays::array_to_bounded_vec,
+    },
+    traits::Empty,
+    utils::arrays::array_to_bounded_vec,
 };
 
 pub struct PublicValidationRequestsBuilder {

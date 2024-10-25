@@ -1,9 +1,10 @@
-use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, public_keys::PublicKeys,
-    constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
-};
 use crate::context::inputs::PrivateContextInputs;
 use crate::test::helpers::utils::TestAccount;
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
+    public_keys::PublicKeys,
+};
 
 pub unconstrained fn reset() {
     oracle_reset();

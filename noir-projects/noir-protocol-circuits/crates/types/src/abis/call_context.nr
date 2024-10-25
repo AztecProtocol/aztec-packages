@@ -1,6 +1,9 @@
 use crate::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::CALL_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    constants::CALL_CONTEXT_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // docs:start:call-context

@@ -1,5 +1,5 @@
-use crate::test::utils;
 use crate::NFT;
+use crate::test::utils;
 
 #[test]
 unconstrained fn mint_success() {

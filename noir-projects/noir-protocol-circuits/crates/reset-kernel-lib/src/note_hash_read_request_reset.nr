@@ -51,11 +51,15 @@ mod tests {
         verify_reset_read_requests,
     };
     use dep::types::{
-        address::AztecAddress, merkle_tree::MembershipWitness,
         abis::{
-            note_hash::{NoteHash, ScopedNoteHash}, note_hash_leaf_preimage::NoteHashLeafPreimage,
+            note_hash::{NoteHash, ScopedNoteHash},
+            note_hash_leaf_preimage::NoteHashLeafPreimage,
             read_request::{ReadRequest, ScopedReadRequest},
-        }, constants::NOTE_HASH_TREE_HEIGHT, hash::compute_siloed_note_hash,
+        },
+        address::AztecAddress,
+        constants::NOTE_HASH_TREE_HEIGHT,
+        hash::compute_siloed_note_hash,
+        merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,
     };

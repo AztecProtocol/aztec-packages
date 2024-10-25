@@ -1,6 +1,7 @@
 use crate::{
-    merkle_tree::{merkle_tree, MerkleTree, calculate_empty_tree_root}, traits::Empty,
     hash::merkle_hash,
+    merkle_tree::{calculate_empty_tree_root, merkle_tree, MerkleTree},
+    traits::Empty,
 };
 
 pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {

@@ -12,13 +12,14 @@ contract TokenBridge {
     use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, SharedImmutable};
 
     use dep::token_portal_content_hash_lib::{
-        get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash,
+        get_mint_private_content_hash, get_mint_public_content_hash, get_withdraw_content_hash,
     };
 
     use dep::token::Token;
 
     use dep::aztec::macros::{
-        storage::storage, functions::{public, initializer, private, internal, view},
+        functions::{initializer, internal, private, public, view},
+        storage::storage,
     };
     // docs:end:token_bridge_imports
 

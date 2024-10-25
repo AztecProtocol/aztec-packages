@@ -1,9 +1,9 @@
-use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
+use crate::context::gas::GasOpts;
+use crate::hash::{compute_message_hash, compute_message_nullifier, compute_secret_hash};
+use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::{MAX_FIELD_VALUE, PUBLIC_DISPATCH_SELECTOR};
-use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
-use dep::protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::gas::GasOpts;
+use dep::protocol_types::traits::{Deserialize, Empty, Serialize};
 
 pub struct PublicContext {
     args_hash: Option<Field>,

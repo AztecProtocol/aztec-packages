@@ -6,36 +6,39 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Test {
 
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions,
         PrivateImmutable, PrivateSet,
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
 
     use dep::aztec::protocol_types::{
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point,
-        public_keys::IvpkM,
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, point::Point, public_keys::IvpkM,
+        traits::Serialize,
     };
 
-    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
+    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::{
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
+        deploy::deploy_contract as aztec_deploy_contract,
+        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
+        macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
-            lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
+            lifecycle::{create_note, destroy_note_unsafe},
+            note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
-        }, deploy::deploy_contract as aztec_deploy_contract, oracle::random::random,
+        },
+        oracle::random::random,
         utils::comparison::Comparator,
-        macros::{storage::storage, events::event, functions::{private, public, internal}},
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_private_content_hash, get_mint_public_content_hash,
     };
     use dep::value_note::value_note::ValueNote;
     // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
-    use std::embedded_curve_ops::{EmbeddedCurveScalar, EmbeddedCurvePoint};
+    use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
     use std::meta::derive;
 
     use crate::test_note::TestNote;

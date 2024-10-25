@@ -1,7 +1,7 @@
 use crate::test::utils;
-use dep::aztec::{oracle::random::random, hash::compute_secret_hash};
+use crate::{Token, types::transparent_note::TransparentNote};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::{types::transparent_note::TransparentNote, Token};
+use dep::aztec::{hash::compute_secret_hash, oracle::random::random};
 
 #[test]
 unconstrained fn shielding_on_behalf_of_self() {

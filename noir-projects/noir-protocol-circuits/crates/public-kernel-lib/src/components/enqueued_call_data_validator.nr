@@ -1,11 +1,13 @@
 use crate::public_kernel_phase::PublicKernelPhase;
 use dep::types::{
     abis::{
-        accumulated_data::PublicAccumulatedDataArrayLengths,
+        accumulated_data::PublicAccumulatedDataArrayLengths, enqueued_call_data::EnqueuedCallData,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        enqueued_call_data::EnqueuedCallData, public_call_request::PublicCallRequest,
+        public_call_request::PublicCallRequest,
         validation_requests::PublicValidationRequestArrayLengths,
-    }, constants::MAX_L2_GAS_PER_ENQUEUED_CALL, utils::arrays::array_length,
+    },
+    constants::MAX_L2_GAS_PER_ENQUEUED_CALL,
+    utils::arrays::array_length,
 };
 
 pub struct EnqueuedCallDataValidator {

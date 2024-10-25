@@ -2,8 +2,11 @@ use crate::{
     abis::{
         accumulated_data::PublicAccumulatedData, combined_constant_data::CombinedConstantData,
         public_call_request::PublicCallRequest, validation_requests::PublicValidationRequests,
-    }, address::AztecAddress, constants::PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader,
+    },
+    address::AztecAddress,
+    constants::PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct PublicKernelCircuitPublicInputs {

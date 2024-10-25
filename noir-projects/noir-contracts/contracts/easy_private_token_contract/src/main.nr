@@ -3,10 +3,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract EasyPrivateToken {
+    use dep::aztec::macros::{functions::{initializer, private}, storage::storage};
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::value_note::balance_utils;
     use dep::easy_private_state::EasyPrivateUint;
-    use dep::aztec::macros::{storage::storage, functions::{initializer, private}};
+    use dep::value_note::balance_utils;
 
     #[storage]
     struct Storage<Context> {

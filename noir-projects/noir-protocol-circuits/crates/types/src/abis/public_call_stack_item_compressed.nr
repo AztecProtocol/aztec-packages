@@ -1,7 +1,7 @@
 use crate::abis::{call_context::CallContext, gas::Gas};
 use crate::address::AztecAddress;
 use crate::constants::PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH;
-use crate::traits::{Empty, Serialize, Deserialize};
+use crate::traits::{Deserialize, Empty, Serialize};
 use crate::utils::reader::Reader;
 
 /**

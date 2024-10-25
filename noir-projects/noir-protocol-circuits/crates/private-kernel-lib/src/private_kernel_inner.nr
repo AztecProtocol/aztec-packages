@@ -8,9 +8,10 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
-        }, private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
-        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+        },
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
 };
@@ -83,11 +84,11 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_inner::{
-        PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
+        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelInnerCircuitPrivateInputs,
     };
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        constants::{PRIVATE_KERNEL_INIT_INDEX, BASE_ROLLUP_INDEX},
+        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INIT_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 

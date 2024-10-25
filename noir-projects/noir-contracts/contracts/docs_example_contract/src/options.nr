@@ -1,8 +1,8 @@
 use crate::types::card_note::{CARD_NOTE_LEN, CardNote};
 use dep::aztec::prelude::NoteGetterOptions;
 
-use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 use dep::aztec::{note::note_getter_options::SortOrder, utils::comparison::Comparator};
+use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
 // Shows how to use NoteGetterOptions and query for notes.
 

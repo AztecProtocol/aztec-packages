@@ -1,6 +1,6 @@
 use dep::types::{
-    abis::tree_leaf_read_request::TreeLeafReadRequest, traits::is_empty,
-    merkle_tree::assert_check_membership,
+    abis::tree_leaf_read_request::TreeLeafReadRequest, merkle_tree::assert_check_membership,
+    traits::is_empty,
 };
 
 pub struct TreeLeafReadRequestHint<let N: u32> {

@@ -1,6 +1,6 @@
 use crate::context::{PublicContext, UnconstrainedContext};
-use dep::protocol_types::traits::{Deserialize, Serialize};
 use crate::state_vars::storage::Storage;
+use dep::protocol_types::traits::{Deserialize, Serialize};
 
 // docs:start:public_mutable_struct
 pub struct PublicMutable<T, Context> {

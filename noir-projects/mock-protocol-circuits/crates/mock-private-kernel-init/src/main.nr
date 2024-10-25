@@ -1,5 +1,5 @@
 use dep::mock_types::{
-    TxRequest, PrivateKernelPublicInputs, PrivateKernelPublicInputsBuilder, AppPublicInputs,
+    AppPublicInputs, PrivateKernelPublicInputs, PrivateKernelPublicInputsBuilder, TxRequest,
 };
 
 fn main(

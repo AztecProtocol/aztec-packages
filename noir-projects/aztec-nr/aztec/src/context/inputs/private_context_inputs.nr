@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    transaction::tx_context::TxContext, abis::call_context::CallContext, header::Header,
-    traits::Empty,
+    abis::call_context::CallContext, header::Header, traits::Empty,
+    transaction::tx_context::TxContext,
 };
 
 // PrivateContextInputs are expected to be provided to each private function
