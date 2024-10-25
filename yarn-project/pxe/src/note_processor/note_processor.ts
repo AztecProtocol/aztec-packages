@@ -1,4 +1,4 @@
-import { type AztecNode, EncryptedL2NoteLog, L1NotePayload, type L2Block } from '@aztec/circuit-types';
+import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   type CompleteAddress,
@@ -7,9 +7,8 @@ import {
   type PublicKey,
   computeAddressSecret,
 } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator } from '@aztec/simulator';
@@ -19,7 +18,6 @@ import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
-import { addPublicValuesToPayload } from './utils/add_public_values_to_payload.js';
 import { produceNoteDaos } from './utils/produce_note_daos.js';
 
 /**
@@ -158,10 +156,9 @@ export class NoteProcessor {
         for (const txFunctionLogs of [encryptedTxFunctionLogs, unencryptedTxFunctionLogs]) {
           for (const functionLogs of txFunctionLogs) {
             for (const unprocessedLog of functionLogs.logs) {
-              const { publicValues, encryptedLog } = parseLog(unprocessedLog.data);
               this.stats.seen++;
-              const incomingNotePayload = L1NotePayload.decryptAsIncoming(encryptedLog, addressSecret);
-              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(encryptedLog, ovskM);
+              const incomingNotePayload = L1NotePayload.decryptAsIncoming(unprocessedLog.data, addressSecret);
+              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(unprocessedLog.data, ovskM);
 
               if (incomingNotePayload || outgoingNotePayload) {
                 if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
@@ -172,11 +169,7 @@ export class NoteProcessor {
                   );
                 }
 
-                let payload = incomingNotePayload || outgoingNotePayload;
-
-                if (publicValues.length > 0) {
-                  payload = await addPublicValuesToPayload(this.db, payload!, publicValues);
-                }
+                const payload = incomingNotePayload || outgoingNotePayload;
 
                 const txEffect = block.body.txEffects[indexOfTxInABlock];
                 const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } =
@@ -289,15 +282,15 @@ export class NoteProcessor {
       await this.db.addDeferredNotes([...deferredIncomingNotes, ...deferredOutgoingNotes]);
       deferredIncomingNotes.forEach(noteDao => {
         this.log.verbose(
-          `Deferred incoming note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
+          `Deferred incoming note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
           } in tx ${noteDao.txHash.toString()}`,
         );
       });
       deferredOutgoingNotes.forEach(noteDao => {
         this.log.verbose(
-          `Deferred outgoing note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
+          `Deferred outgoing note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
           } in tx ${noteDao.txHash.toString()}`,
         );
       });
@@ -322,18 +315,7 @@ export class NoteProcessor {
     const outgoingNotes: OutgoingNoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
-      const {
-        publicKey,
-        note,
-        contractAddress,
-        storageSlot,
-        noteTypeId,
-        txHash,
-        noteHashes,
-        dataStartIndexForTx,
-        unencryptedLogs,
-      } = deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const { publicKey, payload, txHash, noteHashes, dataStartIndexForTx, unencryptedLogs } = deferredNote;
 
       const isIncoming = publicKey.equals(this.ivpkM);
       const isOutgoing = publicKey.equals(this.ovpkM);
@@ -375,54 +357,4 @@ export class NoteProcessor {
 
     return { incomingNotes, outgoingNotes };
   }
-}
-
-/**
- * Parse the given log into an array of public values and an encrypted log.
- *
- * @param log - Log to be parsed.
- * @returns An object containing the public values and the encrypted log.
- */
-function parseLog(log: Buffer) {
-  // First we remove padding bytes
-  const processedLog = removePaddingBytes(log);
-
-  const reader = new BufferReader(processedLog);
-
-  // Then we extract public values from the log
-  const numPublicValues = reader.readUInt8();
-
-  const publicValuesLength = numPublicValues * Fr.SIZE_IN_BYTES;
-  const encryptedLogLength = reader.remainingBytes() - publicValuesLength;
-
-  // Now we get the buffer corresponding to the encrypted log
-  const encryptedLog = new EncryptedL2NoteLog(reader.readBytes(encryptedLogLength));
-
-  // At last we load the public values
-  const publicValues = reader.readArray(numPublicValues, Fr);
-
-  return { publicValues, encryptedLog };
-}
-
-/**
- * When a log is emitted via the unencrypted log channel each field contains only 1 byte. OTOH when a log is emitted
- * via the encrypted log channel there are no empty bytes. This function removes the padding bytes.
- * @param unprocessedLog - Log to be processed.
- * @returns Log with padding bytes removed.
- */
-function removePaddingBytes(unprocessedLog: Buffer) {
-  // Determine whether first 31 bytes of each 32 bytes block of bytes are 0
-  const is1FieldPerByte = unprocessedLog.every((byte, index) => index % 32 === 31 || byte === 0);
-
-  if (is1FieldPerByte) {
-    // We take every 32nd byte from the log and return the result
-    const processedLog = Buffer.alloc(unprocessedLog.length / 32);
-    for (let i = 0; i < processedLog.length; i++) {
-      processedLog[i] = unprocessedLog[31 + i * 32];
-    }
-
-    return processedLog;
-  }
-
-  return unprocessedLog;
 }
