@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729870690186,
+  "lastUpdate": 1729877439313,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e827056e652a4789c91a617587945d57163fa7ff",
-          "message": "chore: add world_state_napi to bootstrap fast (#9079)\n\n😳",
-          "timestamp": "2024-10-08T15:41:17+01:00",
-          "tree_id": "43f6d3beff07fd340922dd605c82744785c7da02",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e827056e652a4789c91a617587945d57163fa7ff"
-        },
-        "date": 1728400521975,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31483.792483,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29055.359390999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5532.321727999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5258.928586 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92780.14958099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92780151000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15859.853535,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15859852000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8341823694,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8341823694 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 150737962,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 150737962 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6747754251,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6747754251 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125610452,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125610452 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3204,66 @@ window.BENCHMARK_DATA = {
             "value": 126158558,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126158558 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bbd724eab39c193c1db1d89570eab9358563fe2",
+          "message": "feat(avm/brillig)!: revert/rethrow oracle (#9408)\n\nThis PR introduces a revert oracle to be used when (and only when) rethrowing revertdata in public. The major difference with just doing `assert(false, data)` is that the latter will also add an error selector to the revertdata, which is not something we want when rethrowing.\n\n* Creates a revert oracle to be used for rethrowing.\n* Changes TRAP/REVERT to have a runtime size.",
+          "timestamp": "2024-10-25T17:49:12+01:00",
+          "tree_id": "a8b966ca306aeb646254cf62ceac303f6e24ed2f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1bbd724eab39c193c1db1d89570eab9358563fe2"
+        },
+        "date": 1729877432315,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30762.430378999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28925.057473 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5337.910193999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4996.069336 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92085.686835,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92085688000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15183.141846,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15183141000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2704906561,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2704906561 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126613305,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126613305 ns\nthreads: 1"
           }
         ]
       }
