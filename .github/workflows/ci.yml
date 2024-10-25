@@ -552,7 +552,7 @@ jobs:
   noir-projects:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true' || needs.configure.outputs.txe == 'true'
+    if: needs.configure.outputs.non-barretenberg-cpp == 'true' || needs.configure.outputs.noir == 'true' || needs.configure.outputs.noir-projects == 'true' || needs.configure.outputs.txe == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
