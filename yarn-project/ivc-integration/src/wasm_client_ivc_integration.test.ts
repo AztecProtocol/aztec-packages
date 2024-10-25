@@ -37,7 +37,7 @@ describe('Client IVC Integration', () => {
 
   beforeEach(async () => {
     // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join('/mnt/user-data/cody/bb-tmp/', 'bb-client-ivc-integration-'));
+    bbWorkingDirectory = await fs.mkdtemp(path.join(os.homedir(), 'bb-tmp/', 'bb-client-ivc-integration-'));
     bbBinaryPath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
       '../../../barretenberg/ts/dest/node',
