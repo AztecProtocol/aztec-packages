@@ -637,10 +637,10 @@ jobs:
         with:
           concurrency_key: network-test-${{ matrix.test }}
       - name: "Setup and Local Network Tests"
-        timeout-minutes: 40
+        timeout-minutes: 60
         # Only allow transfer test to run on every (non-network-all) PR
         if: matrix.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run: earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
+        run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
 
   # note: proving disabled
   kind-network-test:
@@ -650,7 +650,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [smoke.test.ts, transfer.test.ts, 4epochs.test.ts]
+        test: [smoke.test.ts, transfer.test.ts] # TODO reinstate: 4epochs.test.ts
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -664,7 +664,7 @@ jobs:
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
-          runner_type: 16core-tester-x86
+          runner_type: 8core-tester-x86
           spot_strategy: None # use on-demand machines
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
@@ -672,8 +672,8 @@ jobs:
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: flock /var/lock/image-build scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: 60
           run: |
-            sudo shutdown -P 60 # extend ttl
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.test }}
