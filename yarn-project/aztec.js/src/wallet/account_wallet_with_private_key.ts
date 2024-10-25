@@ -26,10 +26,11 @@ export class AccountWalletWithSecretKey extends AccountWallet {
     return this.secretKey;
   }
 
-  /** Returns the address secret, the secret of the address point—the point that others use to encrypt messages to this account
+  /** Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account
    * note - this ensures that the address secret always corresponds to an address point with y being positive
+   * dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
    */
-  public getAddressSecret() {
+  public getEncryptionSecret() {
     return computeAddressSecret(
       this.getCompleteAddress().getPreaddress(),
       deriveMasterIncomingViewingSecretKey(this.getSecretKey()),
