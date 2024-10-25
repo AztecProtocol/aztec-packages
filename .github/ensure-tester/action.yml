@@ -32,7 +32,7 @@ runs:
         echo "ttl=${{ inputs.ttl }}" >> $GITHUB_OUTPUT
         SIZE=large
         if [[ $TYPE == 4core-* ]]; then
-          SIZE=large
+          SIZE=xlarge
         elif [[ $TYPE == 8core-* ]]; then
           SIZE=2xlarge
         elif [[ $TYPE == 16core-* ]]; then
