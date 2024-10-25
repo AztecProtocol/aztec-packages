@@ -14,7 +14,7 @@ For a guide on using authwit in Aztec.js, [read this](../../js_apps/authwit.md).
 
 ## Introduction
 
-Authentication Witness is a scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
+Authentication Witness (authwit) is a scheme for authentication actions on Aztec, so users can allow third-parties (eg other contracts) to execute an action on their behalf. Authwits can only authorize actions for contracts that your account is calling, they cannot be used to permit other users to take actions on your behalf.
 
 How it works logically is explained in the [concepts](../../../../aztec/concepts/accounts/authwit.md) but we will do a short recap here.
 
@@ -175,7 +175,7 @@ In the snippet below, this is done as a separate contract call, but can also be 
 
 We have cases where we need a non-wallet contract to approve an action to be executed by another contract. One of the cases could be when making more complex defi where funds are passed along. When doing so, we need the intermediate contracts to support approving of actions on their behalf.
 
-This is fairly straight forward to do using the `auth` library which includes logic for updating values in the public auth registry. Namely, you can prepare the `message_hash` using `compute_authwit_message_hash_from_call` and then simply feed it into the `set_authorized` function (both are in `auth` library) to update the value. 
+This is fairly straight forward to do using the `auth` library which includes logic for updating values in the public auth registry. Namely, you can prepare the `message_hash` using `compute_authwit_message_hash_from_call` and then simply feed it into the `set_authorized` function (both are in `auth` library) to update the value.
 
 When another contract later is consuming the authwit using `assert_current_call_valid_authwit_public` it will be calling the registry, and spend that authwit.
 

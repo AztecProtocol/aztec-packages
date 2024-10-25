@@ -59,9 +59,10 @@ Adopting ERC20 for Aztec is not as simple as it might seem because of private st
 
 If you recall from the [Hybrid State model](../state_model/index.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
 
-If we were to implement the `approve` with an allowance in private, you might know the allowance, but unless you also know about the individual notes that make up the user's balances, it would be of no use to you! It is private after all. To spend the user's funds you would need to know the decryption key, see [keys for more](./keys.md). 
+If we were to implement the `approve` with an allowance in private, you might know the allowance, but unless you also know about the individual notes that make up the user's balances, it would be of no use to you! It is private after all. To spend the user's funds you would need to know the decryption key, see [keys for more](./keys.md).
 
 While this might sound limiting in what we can actually do, the main use of approvals have been for simplifying contract interactions that the user is doing. In the case of private transactions, this is executed on the user device, so it is not a blocker that the user need to tell the executor a secret - the user is the executor!
+
 ### So what can we do?
 
 A few more things we need to remember about private execution:
@@ -193,6 +194,14 @@ Beware that the account contract will be unable to emit the nullifier since it i
 The main difference is that we are not setting up an allowance, but allowing the execution of a specific action. We decided on this option as the default since it is more explicit and the user can agree exactly what they are signing.
 
 Also, most uses of the approvals are for contracts where the following interactions are called by the user themselves, so it is not a big issue that they are not as easily "transferrable" as the `permit`s.
+
+:::note
+
+Authwits only work for a single user to authorize actions on contracts that their account is calling. You cannot authorize other users to take actions on your behalf.
+
+:::
+
+In order for another user to be able to take actions on your behalf, they would need access to your nullifier secret key so that they could nullify notes for you, but they should not have access to your nullifier secret key.
 
 ### Other use-cases
 
