@@ -60,7 +60,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
         encrypted_bytes[offset + 48 + i] = outgoing_header_ciphertext[i];
     }
 
-    offset += 96;
+    offset += 48 * 2;
     for i in 0..144 {
         encrypted_bytes[offset + i] = outgoing_body_ciphertext[i];
     }
@@ -95,7 +95,7 @@ fn fr_to_fq(r: Field) -> Scalar {
 }
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {
-    offset += 48 * 2;
+    // @todo Need to draw randomness from the full domain of Fq not only Fr
     // We use the randomness to preserve the privacy of both the sender and recipient via encryption, so a malicious
     // sender could use non-random values to reveal the plaintext. But they already know it themselves anyway, and so
     // the recipient already trusts them to not disclose this information. We can therefore assume that the sender will
