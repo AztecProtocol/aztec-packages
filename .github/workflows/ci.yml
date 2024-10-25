@@ -51,6 +51,7 @@ jobs:
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      yarn-project: ${{ steps.filter.outputs.yarn-project }}
       txe: ${{ steps.filter.outputs.txe }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
@@ -95,6 +96,8 @@ jobs:
               - 'l1-contracts/**'
             noir-projects:
               - 'noir-projects/**'
+            yarn-project:
+              - 'yarn-project/**'
             txe:
               - 'yarn-project/txe/**'
             non-barretenberg-cpp:
@@ -525,7 +528,7 @@ jobs:
   noir-examples:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.barretenberg == 'true' || needs.configure.outputs.noir == 'true'
+    if: needs.configure.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -581,6 +584,7 @@ jobs:
 
   yarn-project-formatting:
     needs: [build, configure]
+    if: needs.configure.outputs.yarn-project == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -623,7 +627,7 @@ jobs:
   # proving disabled
   network-test:
     needs: [build, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    if: needs.configure.outputs.yarn-project == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       max-parallel: 1
@@ -645,7 +649,7 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-barretenberg-cpp == 'true'
+    if: needs.configure.output.yarn-project == 'true'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
