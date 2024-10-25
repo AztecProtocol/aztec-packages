@@ -322,8 +322,15 @@ contract Token {
         }
 
         let from_keys = get_public_keys(from);
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from),
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                from_keys.ovpk_m,
+                from_keys.ivpk_m,
+                from,
+            ),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
