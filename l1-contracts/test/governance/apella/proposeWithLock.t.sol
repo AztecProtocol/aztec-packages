@@ -8,31 +8,35 @@ import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
-contract ProposeTest is ApellaBase {
-  function test_WhenCallerIsNotGerousia() external {
+contract ProposeWithLockTest is ApellaBase {
+  function test_WhenCallerHaveInsufficientPower() external {
     // it revert
+    DataStructures.Configuration memory config = apella.getConfiguration();
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Apella__CallerNotGerousia.selector, address(this), address(gerousia)
+        Errors.Apella__InsufficientPower.selector, address(this), 0, config.proposeConfig.lockAmount
       )
     );
-    apella.propose(IPayload(address(0)));
+    apella.proposeWithLock(IPayload(address(0)), address(this));
   }
 
-  function test_WhenCallerIsGerousia(address _proposal) external {
+  function test_WhenCallerHaveSufficientPower(address _proposal) external {
+    // it creates a withdrawal with the lock amount and delay
     // it creates a new proposal with current config
     // it emits a {ProposalCreated} event
     // it returns true
-
     DataStructures.Configuration memory config = apella.getConfiguration();
+    token.mint(address(this), config.proposeConfig.lockAmount);
+
+    token.approve(address(apella), config.proposeConfig.lockAmount);
+    apella.deposit(address(this), config.proposeConfig.lockAmount);
 
     proposalId = apella.proposalCount();
 
     vm.expectEmit(true, true, true, true, address(apella));
     emit IApella.Proposed(proposalId, _proposal);
 
-    vm.prank(address(gerousia));
-    assertTrue(apella.propose(IPayload(_proposal)));
+    assertTrue(apella.proposeWithLock(IPayload(_proposal), address(this)));
 
     DataStructures.Proposal memory proposal = apella.getProposal(proposalId);
     assertEq(proposal.config.executionDelay, config.executionDelay);

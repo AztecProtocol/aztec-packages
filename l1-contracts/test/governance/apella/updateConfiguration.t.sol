@@ -90,6 +90,45 @@ contract UpdateConfigurationTest is ApellaBase {
     apella.updateConfiguration(config);
   }
 
+  function test_WhenLockAmountLtMin(uint256 _val)
+    external
+    whenCallerIsSelf
+    whenConfigurationIsInvalid
+  {
+    // it revert
+    config.proposeConfig.lockAmount = bound(_val, 0, ConfigurationLib.VOTES_LOWER - 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Apella__ConfigurationLib__LockAmountTooSmall.selector)
+    );
+
+    vm.prank(address(apella));
+    apella.updateConfiguration(config);
+  }
+
+  function test_WhenLockDelayLtMinOrGtMax(uint256 _val)
+    external
+    whenCallerIsSelf
+    whenConfigurationIsInvalid
+  {
+    // it revert
+    config.proposeConfig.lockDelay =
+      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Apella__ConfigurationLib__TimeTooSmall.selector, "LockDelay")
+    );
+    vm.prank(address(apella));
+    apella.updateConfiguration(config);
+
+    config.proposeConfig.lockDelay = Timestamp.wrap(
+      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
+    );
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Apella__ConfigurationLib__TimeTooBig.selector, "LockDelay")
+    );
+    vm.prank(address(apella));
+    apella.updateConfiguration(config);
+  }
+
   function test_WhenVotingDelayLtMinOrGtMax(uint256 _val)
     external
     whenCallerIsSelf
@@ -222,6 +261,8 @@ contract UpdateConfigurationTest is ApellaBase {
       Timestamp.wrap(Timestamp.unwrap(fresh.votingDelay) / 5) + fresh.votingDuration
         + fresh.executionDelay
     );
+    assertEq(config.proposeConfig.lockAmount, fresh.proposeConfig.lockAmount);
+    assertEq(config.proposeConfig.lockDelay, fresh.proposeConfig.lockDelay);
 
     // Ensure that there is a difference between the two
     assertFalse(
@@ -229,6 +270,8 @@ contract UpdateConfigurationTest is ApellaBase {
         && old.minimumVotes == fresh.minimumVotes && old.quorum == fresh.quorum
         && old.voteDifferential == fresh.voteDifferential && old.votingDelay == fresh.votingDelay
         && old.votingDuration == fresh.votingDuration
+        && old.proposeConfig.lockAmount == fresh.proposeConfig.lockAmount
+        && old.proposeConfig.lockDelay == fresh.proposeConfig.lockDelay
     );
   }
 
@@ -272,6 +315,39 @@ contract UpdateConfigurationTest is ApellaBase {
 
     vm.assume(val != config.minimumVotes);
     config.minimumVotes = val;
+  }
+
+  function test_WhenLockAmountGeMin(uint256 _val)
+    external
+    whenCallerIsSelf
+    whenConfigurationIsValid
+  {
+    // it updates the configuration
+    // it emits {ConfigurationUpdated} event
+
+    uint256 val = bound(_val, ConfigurationLib.VOTES_LOWER, type(uint256).max);
+
+    vm.assume(val != config.proposeConfig.lockAmount);
+    config.proposeConfig.lockAmount = val;
+  }
+
+  function test_WhenLockDelayGeMinAndLeMax(uint256 _val)
+    external
+    whenCallerIsSelf
+    whenConfigurationIsValid
+  {
+    // it updates the configuration
+    // it emits {ConfigurationUpdated} event
+    Timestamp val = Timestamp.wrap(
+      bound(
+        _val,
+        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
+        Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
+      )
+    );
+
+    vm.assume(val != config.proposeConfig.lockDelay);
+    config.proposeConfig.lockDelay = val;
   }
 
   function test_WhenVotingDelayGeMinAndLeMax(uint256 _val)

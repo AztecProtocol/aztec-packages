@@ -22,6 +22,7 @@ interface IApella {
   function initiateWithdraw(address _to, uint256 _amount) external returns (uint256);
   function finaliseWithdraw(uint256 _withdrawalId) external;
   function propose(IPayload _proposal) external returns (bool);
+  function proposeWithLock(IPayload _proposal, address _to) external returns (bool);
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);
   function execute(uint256 _proposalId) external returns (bool);
   function dropProposal(uint256 _proposalId) external returns (bool);

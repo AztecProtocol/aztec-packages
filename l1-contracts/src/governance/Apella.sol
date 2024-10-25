@@ -37,6 +37,10 @@ contract Apella is IApella {
     gerousia = _gerousia;
 
     configuration = DataStructures.Configuration({
+      proposeConfig: DataStructures.ProposeConfiguration({
+        lockDelay: Timestamp.wrap(3600),
+        lockAmount: 1000e18
+      }),
       votingDelay: Timestamp.wrap(3600),
       votingDuration: Timestamp.wrap(3600),
       executionDelay: Timestamp.wrap(3600),
@@ -81,21 +85,7 @@ contract Apella is IApella {
     override(IApella)
     returns (uint256)
   {
-    users[msg.sender].sub(_amount);
-    total.sub(_amount);
-
-    uint256 withdrawalId = withdrawalCount++;
-
-    withdrawals[withdrawalId] = DataStructures.Withdrawal({
-      amount: _amount,
-      unlocksAt: Timestamp.wrap(block.timestamp) + configuration.lockDelay(),
-      recipient: _to,
-      claimed: false
-    });
-
-    emit WithdrawInitiated(withdrawalId, _to, _amount);
-
-    return withdrawalId;
+    return _initiateWithdraw(_to, _amount, configuration.lockDelay());
   }
 
   function finaliseWithdraw(uint256 _withdrawalId) external override(IApella) {
@@ -114,21 +104,37 @@ contract Apella is IApella {
 
   function propose(IPayload _proposal) external override(IApella) returns (bool) {
     require(msg.sender == gerousia, Errors.Apella__CallerNotGerousia(msg.sender, gerousia));
+    return _propose(_proposal);
+  }
 
-    uint256 proposalId = proposalCount++;
+  /**
+   * @notice  Propose a new proposal by locking up a bunch of power
+   *
+   *          Beware that if the gerousia changes these proposals will also be dropped
+   *          This is to ensure consistency around way proposals are made, and they should
+   *          really be using the proposal logic in Gerousia, which might have a similar
+   *          mechanism in place as well.
+   *          It is here for emergency purposes.
+   *          Using the lock should be a last resort if the Gerousia is broken.
+   *
+   * @param _proposal The proposal to propose
+   * @param _to The address to send the lock to
+   * @return True if the proposal was proposed
+   */
+  function proposeWithLock(IPayload _proposal, address _to)
+    external
+    override(IApella)
+    returns (bool)
+  {
+    uint256 availablePower = users[msg.sender].powerNow();
+    uint256 amount = configuration.proposeConfig.lockAmount;
 
-    proposals[proposalId] = DataStructures.Proposal({
-      config: configuration,
-      state: DataStructures.ProposalState.Pending,
-      payload: _proposal,
-      creator: msg.sender,
-      creation: Timestamp.wrap(block.timestamp),
-      summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
-    });
+    require(
+      amount <= availablePower, Errors.Apella__InsufficientPower(msg.sender, availablePower, amount)
+    );
 
-    emit Proposed(proposalId, address(_proposal));
-
-    return true;
+    _initiateWithdraw(_to, amount, configuration.proposeConfig.lockDelay);
+    return _propose(_proposal);
   }
 
   function vote(uint256 _proposalId, uint256 _amount, bool _support)
@@ -264,7 +270,7 @@ contract Apella is IApella {
     }
 
     // If the gerousia have changed we mark is as dropped
-    if (gerousia != self.creator) {
+    if (gerousia != self.gerousia) {
       return DataStructures.ProposalState.Dropped;
     }
 
@@ -293,5 +299,43 @@ contract Apella is IApella {
     }
 
     return DataStructures.ProposalState.Expired;
+  }
+
+  function _initiateWithdraw(address _to, uint256 _amount, Timestamp _delay)
+    internal
+    returns (uint256)
+  {
+    users[msg.sender].sub(_amount);
+    total.sub(_amount);
+
+    uint256 withdrawalId = withdrawalCount++;
+
+    withdrawals[withdrawalId] = DataStructures.Withdrawal({
+      amount: _amount,
+      unlocksAt: Timestamp.wrap(block.timestamp) + _delay,
+      recipient: _to,
+      claimed: false
+    });
+
+    emit WithdrawInitiated(withdrawalId, _to, _amount);
+
+    return withdrawalId;
+  }
+
+  function _propose(IPayload _proposal) internal returns (bool) {
+    uint256 proposalId = proposalCount++;
+
+    proposals[proposalId] = DataStructures.Proposal({
+      config: configuration,
+      state: DataStructures.ProposalState.Pending,
+      payload: _proposal,
+      gerousia: gerousia,
+      creation: Timestamp.wrap(block.timestamp),
+      summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
+    });
+
+    emit Proposed(proposalId, address(_proposal));
+
+    return true;
   }
 }

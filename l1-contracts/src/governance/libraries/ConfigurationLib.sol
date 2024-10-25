@@ -40,6 +40,19 @@ library ConfigurationLib {
     require(
       _self.minimumVotes >= VOTES_LOWER, Errors.Apella__ConfigurationLib__InvalidMinimumVotes()
     );
+    require(
+      _self.proposeConfig.lockAmount >= VOTES_LOWER,
+      Errors.Apella__ConfigurationLib__LockAmountTooSmall()
+    );
+
+    require(
+      _self.proposeConfig.lockDelay >= TIME_LOWER,
+      Errors.Apella__ConfigurationLib__TimeTooSmall("LockDelay")
+    );
+    require(
+      _self.proposeConfig.lockDelay <= TIME_UPPER,
+      Errors.Apella__ConfigurationLib__TimeTooBig("LockDelay")
+    );
 
     require(
       _self.votingDelay >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("VotingDelay")
