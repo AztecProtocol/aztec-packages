@@ -1224,7 +1224,6 @@ export class ProvingOrchestrator implements EpochProver {
         async (signal: AbortSignal) => {
           const inputs: AvmCircuitInputs = new AvmCircuitInputs(
             publicFunction.vmRequest!.functionName,
-            publicFunction.vmRequest!.bytecode,
             publicFunction.vmRequest!.calldata,
             publicFunction.vmRequest!.kernelRequest.inputs.publicCall.publicInputs,
             publicFunction.vmRequest!.avmHints,
