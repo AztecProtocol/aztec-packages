@@ -30,10 +30,12 @@ import {
   type PublicDataTreeLeafPreimage,
   TxContext,
   computeContractClassId,
+  computePoint,
+  computePreaddress,
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type ContractArtifact,
@@ -43,7 +45,8 @@ import {
   countArgumentsSize,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fq, Fr } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
@@ -745,6 +748,23 @@ export class TXE implements TypedOracle {
   ): void {
     this.sideEffectsCounter = counter + 1;
     return;
+  }
+
+  async getTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderPreaddress = computePreaddress(
+      senderCompleteAddress.publicKeys.hash(),
+      senderCompleteAddress.partialAddress,
+    );
+    const ivskSender = await this.keyStore.getMasterIncomingViewingSecretKey(senderPreaddress);
+    // TODO: #8970 - Computation of address point from x coordinate might fail
+    const recipientAddressPoint = computePoint(recipient);
+    const curve = new Grumpkin();
+    // Given A (sender) -> B (recipient) and h == preaddress
+    // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
+    const sharedSecret = curve.mul(recipientAddressPoint, ivskSender.add(new Fq(senderPreaddress.toBigInt())));
+    // Silo the secret to the app so it can't be used to track other app's notes
+    return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
   }
 
   // AVM oracles
