@@ -1,6 +1,7 @@
 use crate::{context::{PublicContext, UnconstrainedContext}, state_vars::storage::Storage};
 use dep::protocol_types::{
-    constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize},
+    constants::INITIALIZATION_SLOT_SEPARATOR,
+    traits::{Deserialize, Serialize},
 };
 
 // Just like SharedImmutable but without the ability to read from private functions.

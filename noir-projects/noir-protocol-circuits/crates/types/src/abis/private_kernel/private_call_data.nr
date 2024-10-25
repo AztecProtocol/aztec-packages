@@ -1,8 +1,9 @@
 use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    address::SaltedInitializationHash, public_keys::PublicKeys,
+    address::SaltedInitializationHash,
     constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
     merkle_tree::membership::MembershipWitness,
+    public_keys::PublicKeys,
     recursion::verification_key::ClientIVCVerificationKey,
 };
 

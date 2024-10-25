@@ -9,11 +9,17 @@ use crate::components::private_call_data_validator::{
 };
 use dep::types::{
     abis::{
-        call_context::CallContext, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+        call_context::CallContext,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        note_hash::ScopedNoteHash,
+        private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
-        private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered},
-    }, address::AztecAddress, constants::MAX_FIELD_VALUE, transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData,
+        side_effect::{Ordered, RangeOrdered},
+    },
+    address::AztecAddress,
+    constants::MAX_FIELD_VALUE,
+    transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
 };
 

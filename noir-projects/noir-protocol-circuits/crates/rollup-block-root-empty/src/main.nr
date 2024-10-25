@@ -1,4 +1,4 @@
-use rollup_lib::block_root::{EmptyBlockRootRollupInputs, BlockRootOrBlockMergePublicInputs};
+use rollup_lib::block_root::{BlockRootOrBlockMergePublicInputs, EmptyBlockRootRollupInputs};
 
 #[recursive]
 fn main(inputs: EmptyBlockRootRollupInputs) -> pub BlockRootOrBlockMergePublicInputs {

@@ -7,9 +7,9 @@ mod private_kernel_empty;
 mod private_kernel_reset;
 mod tests;
 
+pub use private_kernel_empty::PrivateKernelEmptyPrivateInputs;
 pub use private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
 pub use private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
 pub use private_kernel_reset::PrivateKernelResetCircuitPrivateInputs;
 pub use private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
 pub use private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
-pub use private_kernel_empty::PrivateKernelEmptyPrivateInputs;

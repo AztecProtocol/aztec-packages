@@ -3,19 +3,24 @@ mod validate_public_data_leaf_memberships;
 mod validate_unique_leaf_slots;
 
 use crate::components::{
+    public_tail_output_composer::{OutputHints, SiloedNoteHashHint},
     public_tail_output_validator::{
         validate_linked_public_data_writes::validate_linked_public_data_writes,
         validate_public_data_leaf_memberships::validate_public_data_leaf_memberships,
         validate_unique_leaf_slots::validate_unique_leaf_slots,
-    }, public_tail_output_composer::{OutputHints, SiloedNoteHashHint},
+    },
 };
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-        log_hash::{LogHash, ScopedLogHash}, note_hash::ScopedNoteHash, nullifier::Nullifier,
+        log_hash::{LogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::Nullifier,
         public_data_update_request::PublicDataUpdateRequest,
         public_data_write::OverridablePublicDataWrite,
-    }, data::PublicDataLeafHint, hash::silo_note_hash,
+    },
+    data::PublicDataLeafHint,
+    hash::silo_note_hash,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
     utils::arrays::{

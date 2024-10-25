@@ -1,5 +1,5 @@
-use crate::utils::field::field_from_bytes;
 use crate::meta::{derive_deserialize, derive_serialize};
+use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
 //

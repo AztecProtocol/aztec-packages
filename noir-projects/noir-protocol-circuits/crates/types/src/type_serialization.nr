@@ -1,4 +1,4 @@
-use crate::traits::{Serialize, Deserialize};
+use crate::traits::{Deserialize, Serialize};
 
 global BOOL_SERIALIZED_LEN: u32 = 1;
 global U8_SERIALIZED_LEN: u32 = 1;

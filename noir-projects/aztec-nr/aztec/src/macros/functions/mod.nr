@@ -1,11 +1,11 @@
 mod interfaces;
 
-use std::meta::type_of;
 use super::utils::{
-    modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
-    fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer,
+    add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
+    is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
 };
 use protocol_types::meta::flatten_to_fields;
+use std::meta::type_of;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 

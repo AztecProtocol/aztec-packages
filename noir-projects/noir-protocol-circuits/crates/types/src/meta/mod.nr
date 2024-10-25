@@ -1,4 +1,4 @@
-use super::traits::{Serialize, Deserialize};
+use super::traits::{Deserialize, Serialize};
 
 pub comptime fn pack_from_fields<N>(
     name: Quoted,

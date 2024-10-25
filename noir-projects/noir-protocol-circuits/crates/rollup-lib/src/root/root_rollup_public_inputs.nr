@@ -1,6 +1,6 @@
+use crate::abis::block_root_or_block_merge_public_inputs::FeeRecipient;
 use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::constants::AZTEC_EPOCH_DURATION;
-use crate::abis::block_root_or_block_merge_public_inputs::FeeRecipient;
 
 pub struct RootRollupPublicInputs {
     // Snapshot of archive tree before/after this rollup has been processed

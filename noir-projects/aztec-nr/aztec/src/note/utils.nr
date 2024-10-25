@@ -1,13 +1,15 @@
 use crate::{
     context::PrivateContext,
-    note::{note_header::NoteHeader, note_interface::{NullifiableNote, NoteInterface}},
+    note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
 };
 
 use dep::protocol_types::{
     hash::{
-        compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
+        compute_siloed_note_hash as compute_siloed_note_hash,
         compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-    }, utils::arr_copy_slice,
+        compute_unique_note_hash,
+    },
+    utils::arr_copy_slice,
 };
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(

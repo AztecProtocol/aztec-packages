@@ -1,5 +1,6 @@
 use crate::{
-    constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize},
+    constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
 };
 
 pub struct StorageUpdateRequest {

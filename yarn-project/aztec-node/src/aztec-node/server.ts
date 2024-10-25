@@ -3,6 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
+  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -306,6 +307,16 @@ export class AztecNodeService implements AztecNode {
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
     return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  }
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
   /**

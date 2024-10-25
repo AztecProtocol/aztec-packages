@@ -1,10 +1,11 @@
-use std::{
-    meta::{unquote, type_of}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
-};
 use crate::macros::utils::{
-    get_fn_visibility, is_fn_view, is_fn_private, add_to_field_slice, compute_fn_selector,
-    is_fn_public,
+    add_to_field_slice, compute_fn_selector, get_fn_visibility, is_fn_private, is_fn_public,
+    is_fn_view,
+};
+use std::{
+    collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
+    meta::{type_of, unquote},
 };
 
 comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
@@ -13,7 +14,7 @@ comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseido
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let mut parameters =
-        f.parameters().map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
+        f.parameters().map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
@@ -96,7 +97,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     };
 
     let fn_parameters_list =
-        fn_parameters.map(|(name, typ): (Quoted, Type)| { quote { $name: $typ } }).join(quote {,});
+        fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
     let fn_name_str = fn_name.as_str_quote();
 

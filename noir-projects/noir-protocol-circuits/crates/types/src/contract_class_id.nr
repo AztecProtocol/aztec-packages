@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
-use crate::traits::{ToField, FromField, Serialize, Deserialize};
+use crate::traits::{Deserialize, FromField, Serialize, ToField};
 
 pub struct ContractClassId {
     inner: Field,

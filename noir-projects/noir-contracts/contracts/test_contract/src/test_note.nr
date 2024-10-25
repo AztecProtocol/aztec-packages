@@ -1,6 +1,7 @@
 use dep::aztec::{
-    note::{note_header::NoteHeader, note_interface::NullifiableNote}, context::PrivateContext,
+    context::PrivateContext,
     macros::notes::note,
+    note::{note_header::NoteHeader, note_interface::NullifiableNote},
 };
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.

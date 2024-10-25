@@ -1,12 +1,13 @@
-use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, NoteInterface, PrivateSet};
+use crate::types::token_note::OwnedNote;
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
-    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
+    keys::getters::get_public_keys,
     note::{
-        note_interface::NullifiableNote, note_getter::view_notes, note_emission::OuterNoteEmission,
-    }, keys::getters::get_public_keys,
+        note_emission::OuterNoteEmission, note_getter::view_notes, note_interface::NullifiableNote,
+    },
+    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
 };
-use crate::types::token_note::OwnedNote;
+use dep::aztec::prelude::{NoteGetterOptions, NoteInterface, NoteViewerOptions, PrivateSet};
 
 pub struct BalanceSet<T, Context> {
     set: PrivateSet<T, Context>,

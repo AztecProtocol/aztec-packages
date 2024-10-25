@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.59.0",
+  "version": "0.60.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -43,7 +43,6 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/p2p": "workspace:^",

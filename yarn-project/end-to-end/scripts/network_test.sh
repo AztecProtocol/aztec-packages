@@ -65,8 +65,7 @@ show_status_until_pxe_ready &
 
 function cleanup() {
   # kill everything in our process group except our process
-  kill $(pgrep -g $$ | grep -v $$) || true
-  kill $(jobs -p) || true
+  trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 # Install the Helm chart
@@ -82,14 +81,24 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
-# tunnel in to get access directly to our PXE service in k8s
-(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe 9082:8080 2>/dev/null >/dev/null || true) &
-(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-anvil 9545:8545 2>/dev/null >/dev/null || true) &
+# Find two free ports between 9000 and 10000
+FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 2)
+
+# Extract the two free ports from the list
+PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
+ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
+
+# Namespace variable (assuming it's set)
+NAMESPACE=${NAMESPACE:-default}
+
+# Start port-forwarding with dynamically allocated free ports
+(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe $PXE_PORT:8080 2>/dev/null >/dev/null || true) &
+(kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-ethereum $ANVIL_PORT:8545 2>/dev/null >/dev/null || true) &
 
 docker run --rm --network=host \
-  -e PXE_URL=http://127.0.0.1:9082 \
+  -e PXE_URL=http://127.0.0.1:$PXE_PORT \
   -e DEBUG="aztec:*" \
   -e LOG_LEVEL=debug \
-  -e ETHEREUM_HOST=http://127.0.0.1:9545 \
+  -e ETHEREUM_HOST=http://127.0.0.1:$ANVIL_PORT \
   -e LOG_JSON=1 \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST

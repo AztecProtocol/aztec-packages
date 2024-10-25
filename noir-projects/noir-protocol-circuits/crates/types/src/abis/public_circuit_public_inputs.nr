@@ -1,20 +1,24 @@
 use crate::{
     abis::{
-        call_context::CallContext, note_hash::NoteHash, nullifier::Nullifier,
-        read_request::ReadRequest, tree_leaf_read_request::TreeLeafReadRequest, gas::Gas,
-        global_variables::GlobalVariables, log_hash::LogHash,
-        public_inner_call_request::PublicInnerCallRequest,
-    }, address::AztecAddress,
+        call_context::CallContext, gas::Gas, global_variables::GlobalVariables, log_hash::LogHash,
+        note_hash::NoteHash, nullifier::Nullifier,
+        public_inner_call_request::PublicInnerCallRequest, read_request::ReadRequest,
+        tree_leaf_read_request::TreeLeafReadRequest,
+    },
+    address::AztecAddress,
     constants::{
         MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NULLIFIERS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-        MAX_UNENCRYPTED_LOGS_PER_CALL,
-    }, contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Serialize, Deserialize, Empty}, utils::reader::Reader,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+        MAX_NULLIFIERS_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    },
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // Public inputs to public app circuit.

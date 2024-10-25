@@ -1,9 +1,9 @@
-use dep::types::{traits::Empty, constants::{BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX}};
-use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{
     BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE,
 };
+use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::components;
+use dep::types::{constants::{BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX}, traits::Empty};
 
 global ALLOWED_PREVIOUS_CIRCUITS = [BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX];
 
@@ -61,8 +61,8 @@ impl MergeRollupInputs {
 
 mod tests {
     use crate::tests::merge_rollup_inputs::default_merge_rollup_inputs;
+    use dep::types::constants::{BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX, ROOT_PARITY_INDEX};
     use dep::types::hash::accumulate_sha256;
-    use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX, ROOT_PARITY_INDEX};
     use types::merkle_tree::merkle_tree::MerkleTree;
     use types::tests::fixtures;
 
