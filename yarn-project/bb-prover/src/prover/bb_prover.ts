@@ -220,12 +220,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     const artifactName = 'PrivateBaseRollupArtifact';
 
-    inputs.tubeData.proof = await this.ensureValidProof(inputs.tubeData.proof, artifactName, inputs.tubeData.vkData.vk);
-
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       artifactName,
-      NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO: this should be BASE_ROLLUP_PROOF_LENGTH or something like this
+      NESTED_RECURSIVE_PROOF_LENGTH,
       convertPrivateBaseRollupInputsToWitnessMap,
       convertPrivateBaseRollupOutputsFromWitnessMap,
     );
@@ -246,6 +244,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     inputs: PublicBaseRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     const artifactName = 'PublicBaseRollupArtifact';
+
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       artifactName,

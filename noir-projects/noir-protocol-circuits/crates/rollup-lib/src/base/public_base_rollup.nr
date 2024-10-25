@@ -19,8 +19,6 @@ use dep::types::{
     partial_state_reference::PartialStateReference,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_VK_INDEX];
-
 pub struct PublicBaseRollupInputs {
     tube_data: PublicTubeData,
     avm_proof_data: AvmProofData,
@@ -41,10 +39,15 @@ pub struct PublicBaseRollupInputs {
 
 impl PublicBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
-        // Skip proving for now. As we currently tweak the public inputs of the tube to be the output of public tail.
+        // Skip it for now. As we currently swap the public inputs to be the output of public tail, so the proof won't be verfied.
         // if !dep::std::runtime::is_unconstrained() {
-        //     self.kernel_data.verify();
-        //     self.kernel_data.vk_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        //     self.tube_data.verify();
+        //     self.tube_data.vk_data.validate_in_vk_tree([TUBE_VK_INDEX]);
+        // }
+        // TODO(#8470)
+        // if !dep::std::runtime::is_unconstrained() {
+        //     self.avm_proof_data.verify();
+        //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         // }
         BaseRollupInputs {
             kernel_data: KernelData { public_inputs: self.tube_data.public_inputs },

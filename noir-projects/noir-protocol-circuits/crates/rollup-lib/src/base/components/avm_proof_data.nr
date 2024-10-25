@@ -12,6 +12,6 @@ pub struct AvmProofData {
 
 impl Verifiable for AvmProofData {
     fn verify(self) {
-        // TODO
+        // TODO(#8470)
     }
 }
