@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729882353769,
+  "lastUpdate": 1729983292890,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bda0a4d71ae0fb4352de0746f7d96b63b787888",
-          "message": "fix: make gate counting functions less confusing and avoid estimations (#9046)\n\nRemoves unnecessary gate counting in Honk flows in main.cpp and instead\r\ninits the SRS based on the actual finalized gate count taken from the\r\nProver.\r\n\r\nRenames get_num_gates to get_estimated_num_finalized_gates, renames a\r\nfew other functions to add \"estimated\" to their names to reflect their\r\nactual functionality and avoid misuse.\r\n\r\nReplace estimating functions used in main.cpp and in c_bind.cpp with\r\nfunctions that return the actual finalized gate count.\r\n\r\nFixes a bug in an earlier PR\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/9042, which forgot\r\nthe ensure_nonzero = true argument to finalize_circuit(), and\r\nundercounted the number of gates in the circuit, leading a smaller than\r\nneeded SRS.",
-          "timestamp": "2024-10-09T00:04:38Z",
-          "tree_id": "428c0b0471861fd81c6b9ef1243a79b6e4f9d56a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0bda0a4d71ae0fb4352de0746f7d96b63b787888"
-        },
-        "date": 1728433132418,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31370.552290000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29170.556771 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5551.436401000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5186.710443 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93008.236066,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93008238000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15692.112062,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15692112000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8362320497,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8362320497 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151305067,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151305067 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6818517083,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6818517083 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126589291,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126589291 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3240,6 +3168,66 @@ window.BENCHMARK_DATA = {
             "value": 128342368,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128342368 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ebe3611ad3826443b31e5626a4e08cdd90f0f2a",
+          "message": "feat: derive address and class id in avm (#8897)\n\nthis PR adds tracing of the class id and contract instance when\r\n`getBytecode` (indicating a new context execution is happening in the\r\nsimulator) is executed.\r\n\r\nWe now derive the class id and the contract address in witgen, plus\r\nbuild the (unconstrained) circuit for:\r\n\r\n1. the raw bytecode bytes, \r\n2. the field encoded version\r\n3. the bytecode hash derivation\r\n\r\nThe circuit elements of the contract class id and address will be done\r\nin a follow up based on how we tackle nullifier request",
+          "timestamp": "2024-10-26T18:26:04-04:00",
+          "tree_id": "f4513cd797fd8196c605a219cff91b00a1e98364",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2ebe3611ad3826443b31e5626a4e08cdd90f0f2a"
+        },
+        "date": 1729983285888,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30830.65084100002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28893.521361 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5360.253768999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5060.213106 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92563.331494,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92563333000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15140.094836,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15140095000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2710663305,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2710663305 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127831682,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127831682 ns\nthreads: 1"
           }
         ]
       }
