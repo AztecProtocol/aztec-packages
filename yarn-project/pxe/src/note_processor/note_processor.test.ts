@@ -1,4 +1,11 @@
-import { type AztecNode, EncryptedL2NoteLog, EncryptedLogPayload, L1NotePayload, L2Block } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  EncryptedL2NoteLog,
+  EncryptedLogPayload,
+  L1NotePayload,
+  L2Block,
+  Note,
+} from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -59,7 +66,9 @@ class MockNoteRequest {
   encrypt(): EncryptedL2NoteLog {
     const ephSk = GrumpkinScalar.random();
     const recipient = AztecAddress.random();
-    const log = this.logPayload.encrypt(ephSk, recipient, this.ivpk, this.ovKeys);
+    const logWithoutNumPublicValues = this.logPayload.encrypt(ephSk, recipient, this.ivpk, this.ovKeys);
+    // We prefix the log with an empty byte indicating there are 0 public values.
+    const log = Buffer.concat([Buffer.alloc(1), logWithoutNumPublicValues]);
     return new EncryptedL2NoteLog(log);
   }
 
@@ -69,11 +78,18 @@ class MockNoteRequest {
     );
   }
 
-  get notePayload(): L1NotePayload | undefined {
-    return L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+  get snippetOfNoteDao() {
+    const payload = L1NotePayload.fromIncomingBodyPlaintextContractAndPublicValues(
       this.logPayload.incomingBodyPlaintext,
       this.logPayload.contractAddress,
-    );
+      [],
+    )!;
+    return {
+      note: new Note(payload.privateNoteValues),
+      contractAddress: payload.contractAddress,
+      storageSlot: payload.storageSlot,
+      noteTypeId: payload.noteTypeId,
+    };
   }
 }
 
@@ -111,8 +127,8 @@ describe('Note Processor', () => {
 
       // Then we update the relevant note hashes to match the note requests
       for (const request of noteRequestsForBlock) {
-        const notePayload = request.notePayload;
-        const noteHash = pedersenHash(notePayload!.note.items);
+        const note = request.snippetOfNoteDao.note;
+        const noteHash = pedersenHash(note.items);
         block.body.txEffects[request.txIndex].noteHashes[request.noteHashIndex] = noteHash;
 
         // Now we populate the log - to simplify we say that there is only 1 function invocation in each tx
@@ -196,7 +212,7 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledWith(
       [
         expect.objectContaining({
-          ...request.notePayload,
+          ...request.snippetOfNoteDao,
           index: request.indexWithinNoteHashTree,
         }),
       ],
@@ -213,7 +229,7 @@ describe('Note Processor', () => {
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     // For outgoing notes, the resulting DAO does not contain index.
-    expect(addNotesSpy).toHaveBeenCalledWith([], [expect.objectContaining(request.notePayload)], account.address);
+    expect(addNotesSpy).toHaveBeenCalledWith([], [expect.objectContaining(request.snippetOfNoteDao)], account.address);
   }, 25_000);
 
   it('should store multiple notes that belong to us', async () => {
@@ -240,23 +256,23 @@ describe('Note Processor', () => {
       // Incoming should contain notes from requests 0, 2, 4 because in those requests we set owner ivpk.
       [
         expect.objectContaining({
-          ...requests[0].notePayload,
+          ...requests[0].snippetOfNoteDao,
           index: requests[0].indexWithinNoteHashTree,
         }),
         expect.objectContaining({
-          ...requests[2].notePayload,
+          ...requests[2].snippetOfNoteDao,
           index: requests[2].indexWithinNoteHashTree,
         }),
         expect.objectContaining({
-          ...requests[4].notePayload,
+          ...requests[4].snippetOfNoteDao,
           index: requests[4].indexWithinNoteHashTree,
         }),
       ],
       // Outgoing should contain notes from requests 0, 1, 4 because in those requests we set owner ovKeys.
       [
-        expect.objectContaining(requests[0].notePayload),
-        expect.objectContaining(requests[1].notePayload),
-        expect.objectContaining(requests[4].notePayload),
+        expect.objectContaining(requests[0].snippetOfNoteDao),
+        expect.objectContaining(requests[1].snippetOfNoteDao),
+        expect.objectContaining(requests[4].snippetOfNoteDao),
       ],
       account.address,
     );
@@ -292,11 +308,11 @@ describe('Note Processor', () => {
     {
       const addedIncoming: IncomingNoteDao[] = addNotesSpy.mock.calls[0][0];
       expect(addedIncoming.map(dao => dao)).toEqual([
-        expect.objectContaining({ ...requests[0].notePayload, index: requests[0].indexWithinNoteHashTree }),
-        expect.objectContaining({ ...requests[1].notePayload, index: requests[1].indexWithinNoteHashTree }),
-        expect.objectContaining({ ...requests[2].notePayload, index: requests[2].indexWithinNoteHashTree }),
-        expect.objectContaining({ ...requests[3].notePayload, index: requests[3].indexWithinNoteHashTree }),
-        expect.objectContaining({ ...requests[4].notePayload, index: requests[4].indexWithinNoteHashTree }),
+        expect.objectContaining({ ...requests[0].snippetOfNoteDao, index: requests[0].indexWithinNoteHashTree }),
+        expect.objectContaining({ ...requests[1].snippetOfNoteDao, index: requests[1].indexWithinNoteHashTree }),
+        expect.objectContaining({ ...requests[2].snippetOfNoteDao, index: requests[2].indexWithinNoteHashTree }),
+        expect.objectContaining({ ...requests[3].snippetOfNoteDao, index: requests[3].indexWithinNoteHashTree }),
+        expect.objectContaining({ ...requests[4].snippetOfNoteDao, index: requests[4].indexWithinNoteHashTree }),
       ]);
 
       // Check that every note has a different nonce.
@@ -309,11 +325,11 @@ describe('Note Processor', () => {
     {
       const addedOutgoing: OutgoingNoteDao[] = addNotesSpy.mock.calls[0][1];
       expect(addedOutgoing.map(dao => dao)).toEqual([
-        expect.objectContaining(requests[0].notePayload),
-        expect.objectContaining(requests[1].notePayload),
-        expect.objectContaining(requests[2].notePayload),
-        expect.objectContaining(requests[3].notePayload),
-        expect.objectContaining(requests[4].notePayload),
+        expect.objectContaining(requests[0].snippetOfNoteDao),
+        expect.objectContaining(requests[1].snippetOfNoteDao),
+        expect.objectContaining(requests[2].snippetOfNoteDao),
+        expect.objectContaining(requests[3].snippetOfNoteDao),
+        expect.objectContaining(requests[4].snippetOfNoteDao),
       ]);
 
       // Outgoing note daos do not have a nonce so we don't check it.
