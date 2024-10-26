@@ -463,20 +463,28 @@ contract Token {
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
-        storage.balances.at(from).sub(from_keys.npk_m, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from_keys.ovpk_m,
-            from_keys.ivpk_m,
-            from,
-        ));
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.at(from).sub(from_keys.npk_m, amount).emit(
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                from_keys.ovpk_m,
+                from_keys.ivpk_m,
+                from,
+            ),
+        );
         // docs:end:encrypted
         // docs:end:increase_private_balance
-        storage.balances.at(to).add(to_keys.npk_m, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from_keys.ovpk_m,
-            to_keys.ivpk_m,
-            to,
-        ));
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.at(to).add(to_keys.npk_m, amount).emit(
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                from_keys.ovpk_m,
+                to_keys.ivpk_m,
+                to,
+            ),
+        );
     }
     // docs:end:transfer_from
     // docs:start:burn
@@ -488,8 +496,15 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         let from_keys = get_public_keys(from);
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from),
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                from_keys.ovpk_m,
+                from_keys.ivpk_m,
+                from,
+            ),
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
