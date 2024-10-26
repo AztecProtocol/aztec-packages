@@ -247,26 +247,22 @@ export class AvmPersistableStateManager {
   /**
    * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
-  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
+  public async getBytecode(contractAddress: AztecAddress, _selector: FunctionSelector): Promise<Buffer | undefined> {
     let exists = true;
-    // If the bytecode is not found, we let the executor decide that to do
-    const bytecode = await this.worldStateDB.getBytecode(contractAddress, selector);
     let contractInstance = await this.worldStateDB.getContractInstance(contractAddress);
-    // If the contract instance is not found, we assume it has not be deployed. We will also be unable to find the
-    // contract class as we will not have the id. While the class might exist, we hopefully won't need it to generate a proof (tbd).
-    if (contractInstance === undefined) {
-      exists = false;
+    // If the contract instance is not found, we assume it has not been deployed.
+    // It doesnt matter what the values of the contract instance are in this case, as long as we tag it with exists=false.
+    // This will hint to the avm circuit to just perform the non-membership check on the address and disregard the bytecode hash
+    if (!contractInstance) {
       contractInstance = SerializableContractInstance.default().withAddress(contractAddress);
-      this.trace.traceGetBytecode(
-        bytecode ?? Buffer.alloc(1),
-        { exists, ...contractInstance },
-        {
-          artifactHash: Fr.zero(),
-          privateFunctionsRoot: Fr.zero(),
-          publicBytecodeCommitment: Fr.zero(),
-        },
-      );
-      return bytecode;
+      exists = false;
+      const defaultBytecode = Buffer.alloc(0);
+      const contractClassPreimage = {
+        artifactHash: Fr.ZERO,
+        privateFunctionsRoot: Fr.ZERO,
+        publicBytecodeCommitment: Fr.ZERO,
+      };
+      this.trace.traceGetBytecode(defaultBytecode, { exists, ...contractInstance }, contractClassPreimage);
     }
     const contractClass = await this.worldStateDB.getContractClass(contractInstance.contractClassId);
     assert(
@@ -278,9 +274,9 @@ export class AvmPersistableStateManager {
       privateFunctionsRoot: contractClass.privateFunctionsRoot,
       publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
     };
-    this.trace.traceGetBytecode(bytecode!, { exists, ...contractInstance }, contractClassPreimage);
+    this.trace.traceGetBytecode(contractClass.packedBytecode, { exists, ...contractInstance }, contractClassPreimage);
 
-    return bytecode;
+    return contractClass.packedBytecode;
   }
 
   /**

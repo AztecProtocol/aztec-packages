@@ -267,7 +267,7 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
-    , bytecode_trace_builder(execution_hints_.all_contract_bytecode)
+    , bytecode_trace_builder(execution_hints.all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
@@ -2419,7 +2419,9 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     auto [resolved_log_offset, resolved_log_size_offset] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ log_offset, log_size_offset }, mem_trace_builder);
 
-    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_KERNEL_INPUTS_COL_OFFSET];
+    // This is a hack to get the contract address from the first contract instance
+    // Once we have 1-enqueued call and proper nested contexts, this should use that address of the current contextt
+    FF contract_address = execution_hints.all_contract_bytecode.at(0).contract_instance.address;
     std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
 
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
@@ -3565,10 +3567,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
      * BYTECODE TRACE INCLUSION
      **********************************************************************************************/
 
-    bytecode_trace_builder.build_bytecode_columns();
+    bytecode_trace_builder.build_bytecode_hash_columns();
     // Should not have to resize in the future, but for now we do
-    if (bytecode_trace_builder.size() > main_trace_size) {
-        main_trace_size = bytecode_trace_builder.size();
+    if (bytecode_trace_builder.total_bytecode_length() > main_trace_size) {
+        main_trace_size = bytecode_trace_builder.total_bytecode_length();
         main_trace.resize(main_trace_size);
     }
     bytecode_trace_builder.finalize(main_trace);

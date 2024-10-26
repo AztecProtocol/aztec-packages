@@ -1,6 +1,7 @@
 import { GasFees, PublicKeys } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
@@ -52,6 +53,7 @@ import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
   mockGetBytecode,
+  mockGetContractClass,
   mockGetContractInstance,
   mockL1ToL2MessageExists,
   mockNoteHashExists,
@@ -884,6 +886,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
 
@@ -900,6 +911,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
 
@@ -917,6 +937,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add_with_gas');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+
         mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
@@ -936,6 +965,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+
         mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
@@ -959,6 +997,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_call_to_assert_same');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+
         mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);

@@ -9,6 +9,7 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
+#include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
@@ -53,8 +54,7 @@ class AvmExecutionTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        public_inputs_vec.at(ADDRESS_KERNEL_INPUTS_COL_OFFSET) = 0xdeadbeef;
-        public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
+        public_inputs_vec.at(ADDRESS_PCPI_OFFSET) = 0xdeadbeef;
     };
 
     /**
@@ -63,26 +63,49 @@ class AvmExecutionTests : public ::testing::Test {
      * @param instructions A vector of the instructions to be executed.
      * @return The trace as a vector of Row.
      */
-    std::vector<Row> gen_trace_from_instr(std::vector<uint8_t> bytecode) const
+    std::vector<Row> gen_trace_from_instr(const std::vector<uint8_t>& bytecode) const
     {
         std::vector<FF> calldata{};
         std::vector<FF> returndata{};
 
-        auto execution_hints = ExecutionHints().with_avm_contract_bytecode({ bytecode });
-        execution_hints.all_contract_bytecode[0].contract_instance.address = 0xdeadbeef;
+        auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+        auto execution_hints = ExecutionHints().with_avm_contract_bytecode(
+            { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
 
         return AvmExecutionTests::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
     }
 
-    std::vector<Row> gen_trace(std::vector<uint8_t> bytecode,
-                               std::vector<FF> const& calldata,
-                               std::vector<FF> const& public_inputs_vec,
-                               std::vector<FF>& returndata,
-                               ExecutionHints& execution_hints) const
+    static std::vector<Row> gen_trace(const std::vector<uint8_t>& bytecode,
+                                      const std::vector<FF>& calldata,
+                                      const std::vector<FF>& public_inputs_vec,
+                                      std::vector<FF>& returndata,
+                                      ExecutionHints& execution_hints)
     {
-        execution_hints.all_contract_bytecode = { bytecode };
-        execution_hints.all_contract_bytecode[0].contract_instance.address = 0xdeadbeef;
+        auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+        execution_hints.with_avm_contract_bytecode(
+            { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+
         return Execution::gen_trace(calldata, public_inputs_vec, returndata, execution_hints);
+    }
+
+    static std::tuple<ContractClassIdHint, ContractInstanceHint> gen_test_contract_hint(
+        const std::vector<uint8_t>& bytecode)
+    {
+        FF public_commitment = AvmBytecodeTraceBuilder::compute_public_bytecode_commitment(bytecode);
+        FF class_id = AvmBytecodeTraceBuilder::compute_contract_class_id(
+            FF::one() /*artifact_hash*/, FF(2) /*private_fn_root*/, public_commitment);
+        auto nullifier_key = grumpkin::g1::affine_one;
+        auto incoming_viewing_key = grumpkin::g1::affine_one;
+        auto outgoing_viewing_key = grumpkin::g1::affine_one;
+        auto tagging_key = grumpkin::g1::affine_one;
+        PublicKeysHint public_keys{ nullifier_key, incoming_viewing_key, outgoing_viewing_key, tagging_key };
+        ContractInstanceHint contract_instance = {
+            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id,
+            FF(8) /* initialisation_hash */, public_keys
+        };
+        FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
+        contract_instance.address = address;
+        return { ContractClassIdHint{ FF::one(), FF(2), public_commitment }, contract_instance };
     }
 
     void feed_output(uint32_t output_offset, FF const& value, FF const& side_effect_counter, FF const& metadata)
@@ -1677,7 +1700,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
     // Trust me bro for now, this is the truncated sha output
-    FF expected_hash = FF(std::string("0x003383cbb254941b33c0aaf8476c4b9b532d70a2fb105ee908dd332f7d942df6"));
+    FF expected_hash = FF(std::string("0x00c826495d6e1248a170accc2790424505d5d20204053143bda20812e360299e"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
     // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).

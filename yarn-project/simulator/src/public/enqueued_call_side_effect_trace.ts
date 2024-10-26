@@ -167,25 +167,18 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractInstance: TracedContractInstance,
     contractClass: ContractClassIdPreimage,
   ) {
-    // Deduplicate - we might want a map here to make this more efficient
-    const idx = this.avmCircuitHints.contractBytecodeHints.items.findIndex(
-      hint => hint.contractInstanceHint.address === contractInstance.address,
+    const instance = new AvmContractInstanceHint(
+      contractInstance.address,
+      contractInstance.exists,
+      contractInstance.salt,
+      contractInstance.deployer,
+      contractInstance.contractClassId,
+      contractInstance.initializationHash,
+      contractInstance.publicKeys,
     );
-    // If this is the first time we have seen the contract instance, add it to the hints
-    if (idx === -1) {
-      const instance = new AvmContractInstanceHint(
-        contractInstance.address,
-        contractInstance.exists,
-        contractInstance.salt,
-        contractInstance.deployer,
-        contractInstance.contractClassId,
-        contractInstance.initializationHash,
-        contractInstance.publicKeys,
-      );
-      this.avmCircuitHints.contractBytecodeHints.items.push(
-        new AvmContractBytecodeHints(bytecode, instance, contractClass),
-      );
-    }
+    this.avmCircuitHints.contractBytecodeHints.items.push(
+      new AvmContractBytecodeHints(bytecode, instance, contractClass),
+    );
   }
 
   public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
