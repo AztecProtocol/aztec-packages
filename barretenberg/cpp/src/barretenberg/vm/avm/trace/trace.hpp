@@ -113,7 +113,8 @@ class AvmTraceBuilder {
                                 uint32_t log_offset,
                                 uint32_t leaf_index_offset,
                                 uint32_t dest_offset);
-    void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
+    void op_get_contract_instance(
+        uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset);
 
     // Accrued Substate
     void op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset);

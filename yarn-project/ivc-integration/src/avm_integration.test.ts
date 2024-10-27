@@ -183,7 +183,9 @@ const proveAvmTestContract = async (
 
   worldStateDB.getContractInstance
     .mockResolvedValueOnce(contractInstance)
-    .mockResolvedValueOnce(instanceGet)
+    .mockResolvedValueOnce(instanceGet) // test gets deployer
+    .mockResolvedValueOnce(instanceGet) // test gets class id
+    .mockResolvedValueOnce(instanceGet) // test gets init hash
     .mockResolvedValue(contractInstance);
 
   worldStateDB.getContractClass.mockResolvedValue(contractClass);

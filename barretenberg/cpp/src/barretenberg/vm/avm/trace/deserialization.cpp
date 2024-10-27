@@ -136,7 +136,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT16,
         /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT16,
         OperandType::UINT16 } },
-    { OpCode::GETCONTRACTINSTANCE, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::GETCONTRACTINSTANCE,
+      { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::EMITUNENCRYPTEDLOG,
       {
           OperandType::INDIRECT8,

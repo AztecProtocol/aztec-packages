@@ -66,6 +66,7 @@ const proveAndVerifyAvmTestContract = async (
   globals.timestamp = TIMESTAMP;
 
   const worldStateDB = mock<WorldStateDB>();
+  //
   // Top level contract call
   const bytecode = getAvmTestContractBytecode('public_dispatch');
   const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
@@ -73,6 +74,7 @@ const proveAndVerifyAvmTestContract = async (
   const contractClass = makeContractClassPublic(0, publicFn);
   const contractInstance = makeContractInstanceFromClassId(contractClass.id);
 
+  // The values here should match those in `avm_simulator.test.ts`
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -89,7 +91,9 @@ const proveAndVerifyAvmTestContract = async (
 
   worldStateDB.getContractInstance
     .mockResolvedValueOnce(contractInstance)
-    .mockResolvedValueOnce(instanceGet)
+    .mockResolvedValueOnce(instanceGet) // test gets deployer
+    .mockResolvedValueOnce(instanceGet) // test gets class id
+    .mockResolvedValueOnce(instanceGet) // test gets init hash
     .mockResolvedValue(contractInstance);
   worldStateDB.getContractClass.mockResolvedValue(contractClass);
 
