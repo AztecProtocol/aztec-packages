@@ -29,7 +29,6 @@ where
         contract_address,
         ovsk_app,
         ovpk,
-        ivpk,
         recipient,
         plaintext,
         false,

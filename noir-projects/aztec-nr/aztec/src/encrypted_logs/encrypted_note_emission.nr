@@ -36,15 +36,8 @@ where
     let plaintext = note.to_be_bytes(storage_slot);
 
     // For note logs we always include public values prefix
-    let encrypted_log: [u8; 417 + N * 32] = compute_private_log_payload(
-        contract_address,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        plaintext,
-        true,
-    );
+    let encrypted_log: [u8; 417 + N * 32] =
+        compute_private_log_payload(contract_address, ovsk_app, ovpk, recipient, plaintext, true);
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
