@@ -45,14 +45,12 @@ contract StaticChild {
     #[private]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let msg_sender_keys = get_public_keys(context.msg_sender());
-        let owner_keys = get_public_keys(owner);
+        let mut note = ValueNote::new(new_value, owner);
 
-        let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
-
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_keys.ovpk_m,
+            msg_sender_ovpk_m,
             owner,
         ));
         new_value
@@ -65,13 +63,12 @@ contract StaticChild {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
     ) -> Field {
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let mut note = ValueNote::new(new_value, owner);
 
-        let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
         ));
         new_value
@@ -81,11 +78,10 @@ contract StaticChild {
     #[private]
     #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut options = NoteGetterOptions::new();
         options = options
             .select(ValueNote::properties().value, Comparator.EQ, amount)
-            .select(ValueNote::properties().npk_m_hash, Comparator.EQ, owner_npk_m_hash)
+            .select(ValueNote::properties().owner, Comparator.EQ, owner)
             .set_limit(1);
         let notes = storage.a_private_value.get_notes(options);
         notes.get(0).value

@@ -1,10 +1,7 @@
 use crate::{test::utils, Token};
 
 use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::{
-    keys::getters::get_public_keys, prelude::NoteHeader,
-    protocol_types::storage::map::derive_storage_slot_in_map,
-};
+use dep::aztec::{prelude::NoteHeader, protocol_types::storage::map::derive_storage_slot_in_map};
 use dep::uint_note::uint_note::UintNote;
 use std::test::OracleMock;
 
@@ -36,8 +33,6 @@ unconstrained fn setup_refund_success() {
     env.impersonate(fee_payer);
 
     setup_refund_from_call_interface.call(&mut env.private());
-    let user_npk_m_hash = get_public_keys(user).npk_m.hash();
-    let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
 
     let fee_payer_balances_slot =
         derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
@@ -51,7 +46,7 @@ unconstrained fn setup_refund_success() {
     env.add_note(
         &mut UintNote {
             value: U128::from_integer(funded_amount - 1),
-            npk_m_hash: user_npk_m_hash,
+            owner: user,
             randomness: user_randomness,
             header: NoteHeader::empty(),
         },
@@ -61,7 +56,7 @@ unconstrained fn setup_refund_success() {
     env.add_note(
         &mut UintNote {
             value: U128::from_integer(1),
-            npk_m_hash: fee_payer_npk_m_hash,
+            owner: fee_payer,
             randomness: fee_payer_randomness,
             header: NoteHeader::empty(),
         },

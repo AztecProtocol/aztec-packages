@@ -224,9 +224,9 @@ contract Token {
     #[private]
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
-        let caller_keys = get_public_keys(caller);
-        storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, caller_keys.ovpk_m, caller),
+        let caller_ovpk_m = get_public_keys(caller).ovpk_m;
+        storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note(&mut context, caller_ovpk_m, caller),
         );
         Token::at(context.this_address())
             .assert_minter_and_mint(context.msg_sender(), amount)
@@ -305,11 +305,12 @@ contract Token {
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
         // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
         let from = context.msg_sender();
-        let from_keys = get_public_keys(from);
-        let to_keys = get_public_keys(to);
-        storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, to),
-        );
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
+        storage.balances.at(to).add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            from_ovpk_m,
+            to,
+        ));
     }
     // docs:end:redeem_shield
     // docs:start:unshield
@@ -321,11 +322,11 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
+        storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -335,8 +336,7 @@ contract Token {
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
 
-        let from_keys = get_public_keys(from);
-        let to_keys = get_public_keys(to);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
 
         let amount = U128::from_integer(amount);
         // We reduce `from`'s balance by amount by recursively removing notes over potentially multiple calls. This
@@ -352,18 +352,22 @@ contract Token {
             amount,
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        storage.balances.at(from).add(from_keys.npk_m, change).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
-        );
-        storage.balances.at(to).add(to_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to),
-        );
+        storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_ovpk_m,
+            from,
+        ));
+        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_ovpk_m,
+            to,
+        ));
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         Transfer { from, to, amount: amount.to_field() }.emit(
-            encode_and_encrypt_event_unconstrained(&mut context, from_keys.ovpk_m, to),
+            encode_and_encrypt_event_unconstrained(&mut context, from_ovpk_m, to),
         );
     }
     // docs:end:transfer
@@ -437,24 +441,27 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         // docs:end:assert_current_call_valid_authwit
-        let from_keys = get_public_keys(from);
-        let to_keys = get_public_keys(to);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
 
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.at(from).sub(from_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
-        );
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_ovpk_m,
+            from,
+        ));
         // docs:end:encrypted
         // docs:end:increase_private_balance
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.at(to).add(to_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to),
-        );
+        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_ovpk_m,
+            to,
+        ));
     }
     // docs:end:transfer_from
     // docs:start:burn
@@ -465,11 +472,11 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        let from_keys = get_public_keys(from);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
+        storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -508,9 +515,6 @@ contract Token {
         let fee_payer_keys = get_public_keys(fee_payer);
         let user_keys = get_public_keys(user);
 
-        let fee_payer_npk_m_hash = fee_payer_keys.npk_m.hash();
-        let user_npk_m_hash = user_keys.npk_m.hash();
-
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
         // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
         // to the user in the `complete_refund(...)` function.
@@ -521,9 +525,11 @@ contract Token {
             U128::from_integer(funded_amount),
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        storage.balances.at(user).add(user_keys.npk_m, change).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, user_keys.ovpk_m, user),
-        );
+        storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            user_keys.ovpk_m,
+            user,
+        ));
 
         // 4. Now we get the partial payloads
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
@@ -532,13 +538,13 @@ contract Token {
         let user_randomness = unsafe { random() };
 
         let fee_payer_setup_payload = UintNote::setup_payload().new(
-            fee_payer_npk_m_hash,
+            fee_payer,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot,
         );
 
         let user_setup_payload = UintNote::setup_payload().new(
-            user_npk_m_hash,
+            user,
             user_randomness,
             storage.balances.at(user).set.storage_slot,
         );

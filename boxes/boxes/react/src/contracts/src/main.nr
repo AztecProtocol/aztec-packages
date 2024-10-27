@@ -20,11 +20,10 @@ contract BoxReact {
     fn constructor(
         number: Field,
         owner: AztecAddress,
-        owner_npk_m_hash: Field,
         owner_ovpk_m: OvpkM
     ) {
         let numbers = storage.numbers;
-        let mut new_number = ValueNote::new(number, owner_npk_m_hash);
+        let mut new_number = ValueNote::new(number, owner);
         numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner));
     }
 
@@ -32,11 +31,10 @@ contract BoxReact {
     fn setNumber(
         number: Field,
         owner: AztecAddress,
-        owner_npk_m_hash: Field,
         owner_ovpk_m: OvpkM
     ) {
         let numbers = storage.numbers;
-        let mut new_number = ValueNote::new(number, owner_npk_m_hash);
+        let mut new_number = ValueNote::new(number, owner);
         numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner));
     }
 
