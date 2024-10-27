@@ -6,8 +6,8 @@ use dep::protocol_types::{
 use crate::{
     context::{PrivateContext, PublicContext},
     oracle::get_contract_instance::{
-        get_contract_instance,
-        get_contract_instance_deployer_avm, get_contract_instance_initialization_hash_avm,
+        get_contract_instance, get_contract_instance_deployer_avm,
+        get_contract_instance_initialization_hash_avm,
     },
 };
 

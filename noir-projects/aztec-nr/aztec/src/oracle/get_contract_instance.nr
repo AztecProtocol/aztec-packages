@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, contract_class_id::ContractClassId, contract_instance::ContractInstance,
-    constants::CONTRACT_INSTANCE_LENGTH,
+    address::AztecAddress, constants::CONTRACT_INSTANCE_LENGTH, contract_class_id::ContractClassId,
+    contract_instance::ContractInstance,
 };
 
 // NOTE: this is for use in private only
