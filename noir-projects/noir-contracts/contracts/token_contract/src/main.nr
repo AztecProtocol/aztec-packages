@@ -42,6 +42,8 @@ contract Token {
         utils::comparison::Comparator,
     };
 
+    use dep::uint_note::uint_note::UintNote;
+
     // docs:start:import_authwit
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
@@ -49,9 +51,7 @@ contract Token {
     };
     // docs:end:import_authwit
 
-    use crate::types::{
-        balance_set::BalanceSet, token_note::TokenNote, transparent_note::TransparentNote,
-    };
+    use crate::types::{balance_set::BalanceSet, transparent_note::TransparentNote};
 
     // docs:end::imports
 
@@ -82,7 +82,7 @@ contract Token {
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
+        balances: Map<AztecAddress, BalanceSet<Context>, Context>,
         // docs:end:storage_balances
         total_supply: PublicMutable<U128, Context>,
         // docs:start:storage_pending_shields
@@ -571,13 +571,13 @@ contract Token {
         let fee_payer_randomness = unsafe { random() };
         let user_randomness = unsafe { random() };
 
-        let fee_payer_setup_payload = TokenNote::setup_payload().new(
+        let fee_payer_setup_payload = UintNote::setup_payload().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot,
         );
 
-        let user_setup_payload = TokenNote::setup_payload().new(
+        let user_setup_payload = UintNote::setup_payload().new(
             user_npk_m_hash,
             user_randomness,
             storage.balances.at(user).set.storage_slot,
@@ -665,9 +665,9 @@ contract Token {
         // 3. We construct the note finalization payloads with the correct amounts and hiding points to get the note
         // hashes and unencrypted logs.
         let fee_payer_finalization_payload =
-            TokenNote::finalization_payload().new(&mut context, fee_payer_slot, tx_fee);
+            UintNote::finalization_payload().new(&mut context, fee_payer_slot, tx_fee);
         let user_finalization_payload =
-            TokenNote::finalization_payload().new(&mut context, user_slot, refund_amount);
+            UintNote::finalization_payload().new(&mut context, user_slot, refund_amount);
 
         // 4. At last we emit the note hashes and the final note logs.
         fee_payer_finalization_payload.emit();
