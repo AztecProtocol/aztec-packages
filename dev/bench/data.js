@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729983292890,
+  "lastUpdate": 1730042871247,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c1150c9b28581985686b13ba97eb7f0066736652",
-          "message": "refactor: configure trees instead of duplicating constants (#9088)\n\nThis PR undoes the changes to `aztec_constants.hpp` instead opting to\r\ntake those values via parameters to the constructor",
-          "timestamp": "2024-10-09T10:37:05+01:00",
-          "tree_id": "a75759a7cf987be3f63cdab20d532b7b84d4f3dd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c1150c9b28581985686b13ba97eb7f0066736652"
-        },
-        "date": 1728468363869,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31366.89035099998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28873.886896000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5528.521012000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5157.667679 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93713.801295,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93713803000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15680.559068,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15680559000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8376498651,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8376498651 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153025379,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153025379 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6751547501,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6751547501 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125810476,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125810476 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3228,6 +3156,66 @@ window.BENCHMARK_DATA = {
             "value": 127831682,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127831682 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a85f92a24f4ec988a4d472651a0e2827bf9381b2",
+          "message": "fix(avm): address bytecode hashing comments (#9436)\n\nFixing up some earlier comments in PRs",
+          "timestamp": "2024-10-27T11:02:14-04:00",
+          "tree_id": "f761e5c091bdc9b4cc03392f11c26094006ff8b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a85f92a24f4ec988a4d472651a0e2827bf9381b2"
+        },
+        "date": 1730042864242,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30814.117400000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29016.342338 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5391.582382999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5046.063061 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92493.65878499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92493662000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15181.880702999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15181880000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2712424423,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2712424423 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126163766,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126163766 ns\nthreads: 1"
           }
         ]
       }
