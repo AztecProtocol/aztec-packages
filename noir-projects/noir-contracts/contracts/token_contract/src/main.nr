@@ -226,7 +226,7 @@ contract Token {
         let caller = context.msg_sender();
         let caller_keys = get_public_keys(caller);
         storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller),
+            encode_and_encrypt_note(&mut context, caller_keys.ovpk_m, caller),
         );
         Token::at(context.this_address())
             .assert_minter_and_mint(context.msg_sender(), amount)
@@ -308,7 +308,7 @@ contract Token {
         let from_keys = get_public_keys(from);
         let to_keys = get_public_keys(to);
         storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to),
+            encode_and_encrypt_note(&mut context, from_keys.ovpk_m, to),
         );
     }
     // docs:end:redeem_shield
@@ -325,12 +325,7 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -358,32 +353,17 @@ contract Token {
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
         storage.balances.at(from).add(from_keys.npk_m, change).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
         );
         storage.balances.at(to).add(to_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                to_keys.ivpk_m,
-                to,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to),
         );
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         Transfer { from, to, amount: amount.to_field() }.emit(
-            encode_and_encrypt_event_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                to_keys.ivpk_m,
-                to,
-            ),
+            encode_and_encrypt_event_unconstrained(&mut context, from_keys.ovpk_m, to),
         );
     }
     // docs:end:transfer
@@ -466,24 +446,14 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
         );
         // docs:end:encrypted
         // docs:end:increase_private_balance
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(to).add(to_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                to_keys.ivpk_m,
-                to,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to),
         );
     }
     // docs:end:transfer_from
@@ -499,12 +469,7 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -557,12 +522,7 @@ contract Token {
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
         storage.balances.at(user).add(user_keys.npk_m, change).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                user_keys.ovpk_m,
-                user_keys.ivpk_m,
-                user,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, user_keys.ovpk_m, user),
         );
 
         // 4. Now we get the partial payloads

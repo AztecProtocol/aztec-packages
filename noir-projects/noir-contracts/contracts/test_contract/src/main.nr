@@ -109,7 +109,6 @@ contract Test {
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }
@@ -289,7 +288,6 @@ contract Test {
         outgoing_viewer: AztecAddress,
         nest: bool,
     ) {
-        let owner_ivpk_m = get_public_keys(owner).ivpk_m;
         let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let event = ExampleEvent {
@@ -305,7 +303,6 @@ contract Test {
             // testing only - a secret random value is passed in here to salt / mask the address
             5,
             outgoing_viewer_ovpk_m,
-            owner_ivpk_m,
             owner,
         ));
 
@@ -323,7 +320,6 @@ contract Test {
                 // testing only - a randomness of 0 signals the kernels to not mask the address
                 0,
                 outgoing_viewer_ovpk_m,
-                owner_ivpk_m,
                 owner,
             ));
         }
@@ -348,7 +344,6 @@ contract Test {
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
         storage_slot += 1;

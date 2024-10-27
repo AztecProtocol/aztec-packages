@@ -62,7 +62,6 @@ contract Child {
         storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             owner_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
         new_value

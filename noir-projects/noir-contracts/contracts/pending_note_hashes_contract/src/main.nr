@@ -47,7 +47,6 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
 
@@ -100,7 +99,6 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }
@@ -126,7 +124,6 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }
@@ -145,20 +142,10 @@ contract PendingNoteHashes {
         // Insert note
         let emission = owner_balance.insert(&mut note);
 
-        emission.emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
-            owner,
-        ));
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_keys.ovpk_m, owner));
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(
-            &mut context,
-            outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
-            owner,
-        ));
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_keys.ovpk_m, owner));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -379,7 +366,6 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
 
@@ -393,7 +379,6 @@ contract PendingNoteHashes {
         NoteEmission::new(bad_note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }
@@ -409,7 +394,6 @@ contract PendingNoteHashes {
 
         let owner_keys = get_public_keys(owner);
         let owner_npk_m_hash = owner_keys.npk_m.hash();
-        let owner_ivpk_m = owner_keys.ivpk_m;
         let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         for i in 0..max_notes_per_call() {
@@ -417,7 +401,6 @@ contract PendingNoteHashes {
             owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
                 context,
                 outgoing_viewer_ovpk_m,
-                owner_ivpk_m,
                 owner,
             ));
         }
