@@ -273,7 +273,7 @@ export class AvmContractInstanceHint {
 
 export class AvmContractBytecodeHints {
   /*
-   * @param bytecode currently the bytecode of the nested call function, will be changed to the contract bytecode (via the dispatch function) of the nested call
+   * @param bytecode the contract bytecode
    * @param contractInstance the contract instance of the nested call, used to derive the contract address
    * @param contractClassPreimage the contract class preimage of the nested call, used to derive the class id
    * */
@@ -321,7 +321,7 @@ export class AvmContractBytecodeHints {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmContractBytecodeHints>) {
-    // Buffers aren't serialised the same way as they are read (lenth prefixed), so we need to do this manually.
+    // Buffers aren't serialised the same way as they are read (length prefixed), so we need to do this manually.
     const lengthPrefixedBytecode = Buffer.alloc(fields.bytecode.length + 4);
     // Add a 4-byte length prefix to the bytecode.
     lengthPrefixedBytecode.writeUInt32BE(fields.bytecode.length);

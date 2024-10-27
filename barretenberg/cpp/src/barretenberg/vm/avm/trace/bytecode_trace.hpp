@@ -4,6 +4,7 @@
 
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution_hints.hpp"
+
 namespace bb::avm_trace {
 
 class AvmBytecodeTraceBuilder {
@@ -18,7 +19,7 @@ class AvmBytecodeTraceBuilder {
         // Calculate the bytecode hash
         FF running_hash{};
         // This is the length in fields, not bytes - max 3000 fields
-        uint16_t bytecode_length_remaining = 0;
+        uint16_t bytecode_field_length_remaining = 0;
 
         // Derive the class Id
         FF arifact_hash{};
