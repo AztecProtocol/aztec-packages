@@ -1,10 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY,
-    hash::poseidon2_hash_with_separator,
-    point::Point,
-    public_keys::{IvpkM, OvpkM},
-    scalar::Scalar,
+    address::AztecAddress, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
+    hash::poseidon2_hash_with_separator, point::Point, public_keys::OvpkM, scalar::Scalar,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -122,7 +118,7 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     aes128_encrypt(plaintext, iv, sym_key)
 }
 
-/// Encrypts ephemeral secret key and recipient's ivpk --> with this information the recipient of outgoing will
+/// Encrypts ephemeral secret key and recipient's address point --> with this information the recipient of outgoing will
 /// be able to derive the key with which the incoming log can be decrypted.
 pub fn compute_outgoing_body_ciphertext(
     recipient: AztecAddress,
@@ -138,7 +134,8 @@ pub fn compute_outgoing_body_ciphertext(
     let serialized_eph_sk_low: [u8; 32] = eph_sk.lo.to_be_bytes();
 
     let address_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
-    let serialized_recipient_ivpk = point_to_bytes(recipient.to_address_point().to_point());
+    let serialized_recipient_address_point =
+        point_to_bytes(recipient.to_address_point().to_point());
 
     for i in 0..32 {
         buffer[i] = serialized_eph_sk_high[i];
@@ -146,7 +143,7 @@ pub fn compute_outgoing_body_ciphertext(
         buffer[i + 64] = address_bytes[i];
     }
     for i in 0..32 {
-        buffer[i + 96] = serialized_recipient_ivpk[i];
+        buffer[i + 96] = serialized_recipient_address_point[i];
     }
 
     // We compute the symmetric key using poseidon.
@@ -172,10 +169,7 @@ mod test {
         compute_private_log_payload,
     };
     use dep::protocol_types::{
-        address::AztecAddress,
-        point::Point,
-        public_keys::{IvpkM, OvpkM},
-        scalar::Scalar,
+        address::AztecAddress, point::Point, public_keys::OvpkM, scalar::Scalar,
     };
     use protocol_types::public_keys::AddressPoint;
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
@@ -192,14 +186,6 @@ mod test {
             inner: Point {
                 x: 0x07f696b8b233de2c1935e43c793399586f532da5ff7c0356636a75acb862e964,
                 y: 0x156e8a3e42bfca3663936ba98c7fd26386a14657c23b5f5146f1a94b6c465154,
-                is_infinite: false,
-            },
-        };
-
-        let ivpk_m = IvpkM {
-            inner: Point {
-                x: 0x18dd22d6a4032eefe3a7a55703f583396596235f7c186e450c92981186ee7404,
-                y: 0x2e49e00996565114016a1a478309842ecbaf930fb716c3f498e7e10370631d75,
                 is_infinite: false,
             },
         };
@@ -282,7 +268,7 @@ mod test {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
         ];
 
-        // `compute_incoming_body_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // `compute_incoming_body_ciphertext(...)` function then derives symmetric key from `eph_sk` and `address_point` and encrypts
         // the note plaintext using AES-128.
         let ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, address_point);
 
