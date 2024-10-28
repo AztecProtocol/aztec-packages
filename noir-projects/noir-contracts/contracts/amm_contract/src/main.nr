@@ -29,7 +29,7 @@ use dep::aztec::macros::aztec;
 ///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
 contract AMM {
-    use crate::lib::{get_amount_in, get_amount_out, get_quote};
+    use crate::lib::{get_amount_in, get_amount_out, get_amounts_to_add, get_quote};
     use dep::aztec::{
         macros::{
             events::event,
@@ -181,26 +181,14 @@ contract AMM {
         let reserve1 = reserve1_with_amount1_desired - amount1_desired;
 
         // Calculate the amounts to be added to the pool
-        let mut amount0 = amount0_desired;
-        let mut amount1 = amount1_desired;
-        if ((reserve0 != U128::zero()) | (reserve1 != U128::zero())) {
-            // First calculate the optimal amount of token1 based on the desired amount of token0.
-            let amount1_optimal = get_quote(amount0_desired, reserve0, reserve1);
-            if (amount1_optimal <= amount1_desired) {
-                // Revert if the optimal amount of token1 is less than the desired amount of token1.
-                assert(amount1_optimal >= amount1_min, "INSUFFICIENT_1_AMOUNT");
-                amount0 = amount0_desired;
-                amount1 = amount1_optimal;
-            } else {
-                // We got more amount of token1 than desired so we try repeating the process but this time by quoting
-                // based on token1.
-                let amount0_optimal = get_quote(amount1_desired, reserve1, reserve0);
-                assert(amount0_optimal <= amount0_desired);
-                assert(amount0_optimal >= amount0_min, "INSUFFICIENT_0_AMOUNT");
-                amount0 = amount0_optimal;
-                amount1 = amount1_desired;
-            }
-        }
+        let (amount0, amount1) = get_amounts_to_add(
+            amount0_desired,
+            amount1_desired,
+            amount0_min,
+            amount1_min,
+            reserve0,
+            reserve1,
+        );
 
         let refund_amount_token0 = amount0_desired - amount0;
         let refund_amount_token1 = amount1_desired - amount1;
