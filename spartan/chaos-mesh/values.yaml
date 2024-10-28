@@ -12,18 +12,18 @@ chaos-mesh:
     # We disable locally so the local dashboard does not require configuring authentication
     securityMode: false
 
-chaosDaemon:
-  privileged: true
-  runtime: "containerd"
-  socketPath: "/run/containerd/containerd.sock"
-  capabilities:
-    - SYS_PTRACE
-    - NET_ADMIN
-    - IPC_LOCK
-    - SYS_ADMIN
+  chaosDaemon:
+    privileged: true
+    runtime: "containerd"
+    socketPath: "/run/containerd/containerd.sock"
+    # capabilities:
+    #   - SYS_PTRACE
+    #   - NET_ADMIN
+    #   - IPC_LOCK
+    #   - SYS_ADMIN
 
-dnsServer:
-  create: true
+  dnsServer:
+    create: true
 
-podSecurityPolicy:
-  enabled: false
+  podSecurityPolicy:
+    enabled: false

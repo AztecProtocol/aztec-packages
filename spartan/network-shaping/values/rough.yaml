@@ -1,4 +1,3 @@
-# values-congested.yaml
 # Simulates congested network conditions
 # High latency, limited bandwidth, packet loss
 global:

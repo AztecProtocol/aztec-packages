@@ -1,7 +1,7 @@
 # Simulates global network conditions
 # High latency, moderate bandwidth
 global:
-  namespace: "p2p-testnet"
+  namespace: "smoke"
 
 networkShaping:
   enabled: true

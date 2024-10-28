@@ -1,4 +1,3 @@
-# templates/network-shaping.yaml
 {{- if .Values.networkShaping.enabled }}
 {{- if .Values.networkShaping.conditions.latency.enabled }}
 ---
@@ -19,10 +18,6 @@ spec:
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}
-    podSelectors:
-      - namespaces: ['{{ .Values.global.targetNamespace }}']
-        pods:
-          regex: '.*aztec-network.*'  # matches any pod with aztec-network in name
   delay:
     {{- toYaml .Values.networkShaping.conditions.latency.delay | nindent 4 }}
   duration: 8760h  # 1 year
@@ -47,10 +42,6 @@ spec:
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}
-    podSelectors:
-      - namespaces: ['{{ .Values.global.targetNamespace }}']
-        pods:
-          regex: '.*aztec-network.*'  # matches any pod with aztec-network in name
   bandwidth:
     rate: {{ .Values.networkShaping.conditions.bandwidth.rate }}
     limit: {{ .Values.networkShaping.conditions.bandwidth.limit }}
@@ -68,8 +59,6 @@ metadata:
   labels:
     {{- include "network-shaping.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
     "helm.sh/resource-policy": keep
 spec:
   action: loss
@@ -77,13 +66,9 @@ spec:
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}
-    podSelectors:
-      - namespaces: ['{{ .Values.global.targetNamespace }}']
-        pods:
-          regex: '.*aztec-network.*'  # matches any pod with aztec-network in name
   loss:
-    loss: {{ .Values.networkShaping.conditions.packetLoss.loss }}
-    correlation: {{ .Values.networkShaping.conditions.packetLoss.correlation }}
+    loss: {{ .Values.networkShaping.conditions.packetLoss.loss | quote }}
+    correlation: {{ .Values.networkShaping.conditions.packetLoss.correlation | quote }}
   duration: 8760h
 {{- end }}
 {{- end }}

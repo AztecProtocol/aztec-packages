@@ -74,10 +74,9 @@ handle_network_shaping() {
         fi
 
         echo "Deploying network shaping configuration..."
-        helm upgrade --install network-chaos "$REPO/spartan/network-shaping/" \
+        helm upgrade --install network-shaping "$REPO/spartan/network-shaping/" \
             --namespace chaos-mesh \
             --values "$REPO/spartan/network-shaping/values/$CHAOS_VALUES" \
-            ## Configure the namespace we will apply network shaping to
             --set global.targetNamespace="$NAMESPACE" \
             --wait \
             --timeout=5m
