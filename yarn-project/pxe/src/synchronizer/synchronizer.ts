@@ -249,14 +249,14 @@ export class Synchronizer {
    * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public async addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
+  public addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
     const predicate = (x: NoteProcessor) => x.account.equals(account);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
     if (processor) {
       return;
     }
 
-    this.noteProcessorsToCatchUp.push(await NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
+    this.noteProcessorsToCatchUp.push(NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
   }
 
   /**

@@ -15,7 +15,12 @@ CMD=${1:-}
 if [ "$CMD" = "clean" ]; then
   git clean -fdx
   exit 0
-elif [ "$CMD" = "full" ]; then
+fi
+
+# Generate l1-artifacts before creating lock file
+(cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+
+if [ "$CMD" = "full" ]; then
   yarn install --immutable
   yarn build
   exit 0
