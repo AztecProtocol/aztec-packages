@@ -442,7 +442,7 @@ impl FunctionBuilder {
         match self.type_of_value(value) {
             Type::Numeric(_) => (),
             Type::Function => (),
-            Type::Reference(_) => ()
+            Type::Reference(_) => (),
             Type::Array(..) | Type::Slice(..) => {
                 // If there are nested arrays or slices, we wait until ArrayGet
                 // is issued to increment the count of that array.
