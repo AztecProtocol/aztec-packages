@@ -14,13 +14,11 @@ describe('BoxReact Contract Tests', () => {
     wallet = await deployerEnv.getWallet();
     accountCompleteAddress = wallet.getCompleteAddress();
     const salt = Fr.random();
-    const { masterNullifierPublicKey, masterOutgoingViewingPublicKey } =
-      accountCompleteAddress.publicKeys;
+
     contract = await BoxReactContract.deploy(
       wallet,
       Fr.random(),
-      accountCompleteAddress.address,
-      masterOutgoingViewingPublicKey.toWrappedNoirStruct()
+      accountCompleteAddress.address
     )
       .send({ contractAddressSalt: salt })
       .deployed();
@@ -30,13 +28,11 @@ describe('BoxReact Contract Tests', () => {
 
   test('Can set a number', async () => {
     logger.info(`${await wallet.getRegisteredAccounts()}`);
-    const { masterNullifierPublicKey, masterOutgoingViewingPublicKey } =
-      accountCompleteAddress.publicKeys;
+
     await contract.methods
       .setNumber(
         numberToSet,
-        accountCompleteAddress.address,
-        masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
+        accountCompleteAddress.address
       )
       .send()
       .wait();
