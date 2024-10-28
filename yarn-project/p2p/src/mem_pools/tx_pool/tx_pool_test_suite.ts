@@ -46,6 +46,35 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(pool.getPendingTxHashes()).toEqual([tx2.getTxHash()]);
   });
 
+  it('Marks txs as pending after being mined', async () => {
+    const tx1 = mockTx(1);
+    const tx2 = mockTx(2);
+
+    await pool.addTxs([tx1, tx2]);
+    await pool.markAsMined([tx1.getTxHash()]);
+
+    await pool.markMinedAsPending([tx1.getTxHash()]);
+    expect(pool.getMinedTxHashes()).toEqual([]);
+    const pending = pool.getPendingTxHashes();
+    expect(pending).toHaveLength(2);
+    expect(pending).toEqual(expect.arrayContaining([tx1.getTxHash(), tx2.getTxHash()]));
+  });
+
+  it('Only marks txs as pending if they are known', async () => {
+    const tx1 = mockTx(1);
+    // simulate a situation where not all peers have all the txs
+    const someTxHashThatThisPeerDidNotSee = mockTx(2).getTxHash();
+    await pool.addTxs([tx1]);
+    // this peer knows that tx2 was mined, but it does not have the tx object
+    await pool.markAsMined([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
+    expect(pool.getMinedTxHashes()).toEqual([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
+
+    // reorg: both txs should now become available again
+    await pool.markMinedAsPending([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
+    expect(pool.getMinedTxHashes()).toEqual([]);
+    expect(pool.getPendingTxHashes()).toEqual([tx1.getTxHash()]); // tx2 is not in the pool
+  });
+
   it('Returns all transactions in the pool', async () => {
     const tx1 = mockTx(1);
     const tx2 = mockTx(2);

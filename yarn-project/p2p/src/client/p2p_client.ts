@@ -648,23 +648,23 @@ export class P2PClient extends WithTracer implements P2P {
       }
     }
 
-    // TODO (alexg): Delete or re-add txs that were created against the proven block but mined in one of the pruned blocks
-    // e.g. I create a tx against proven block 42 but it the sequencer includes it in block 45. The chain gets pruned back to 42.
-    // That tx now lingers in the pool as 'mined' but it really is no longer mined. It's also not technically invalid.
-
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
         txsToDelete.length
       } newLatestBlock=${latestBlock} previousLatestBlock=${this.getSyncedLatestBlockNum()}`,
     );
+
+    // delete invalid txs (both pending and mined)
     await this.txPool.deleteTxs(txsToDelete);
+    // everything left in the mined set was built against a block on the proven chain so its still valid
+    // move back to pending set
+    await this.txPool.markMinedAsPending(this.txPool.getMinedTxHashes());
+
     await this.synchedLatestBlockNumber.set(latestBlock);
-    await this.synchedProvenBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
   }
 
   private async startServiceIfSynched() {
-    // TODO (alexg): I don't think this check works if there's a reorg
     if (
       this.currentState === P2PClientState.SYNCHING &&
       this.getSyncedLatestBlockNum() >= this.latestBlockNumberAtStart &&

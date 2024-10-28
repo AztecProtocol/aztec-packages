@@ -56,6 +56,32 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
+  public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
+    if (txHashes.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.#store.transaction(() => {
+      let deleted = 0;
+      let added = 0;
+      for (const hash of txHashes) {
+        const key = hash.toString();
+        if (this.#minedTxs.has(key)) {
+          deleted++;
+          void this.#minedTxs.delete(key);
+        }
+
+        if (this.#txs.has(key)) {
+          added++;
+          void this.#pendingTxs.add(key);
+        }
+      }
+
+      this.#metrics.recordRemovedObjects(deleted, 'mined');
+      this.#metrics.recordAddedObjects(added, 'pending');
+    });
+  }
+
   public getPendingTxHashes(): TxHash[] {
     return Array.from(this.#pendingTxs.entries()).map(x => TxHash.fromString(x));
   }

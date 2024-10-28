@@ -24,6 +24,13 @@ export interface TxPool {
   markAsMined(txHashes: TxHash[]): Promise<void>;
 
   /**
+   * Moves mined txs back to the pending set in the case of a reorg.
+   * Note: txs not known by this peer will be ignored.
+   * @param txHashes - Hashes of the txs to flag as pending.
+   */
+  markMinedAsPending(txHashes: TxHash[]): Promise<void>;
+
+  /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
    */

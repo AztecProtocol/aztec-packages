@@ -45,6 +45,7 @@ describe('In-Memory P2P Client', () => {
       getPendingTxHashes: jest.fn().mockReturnValue([]),
       getTxStatus: jest.fn().mockReturnValue(undefined),
       markAsMined: jest.fn(),
+      markMinedAsPending: jest.fn(),
     };
 
     p2pService = {
@@ -293,6 +294,31 @@ describe('In-Memory P2P Client', () => {
       blockSource.removeBlocks(10);
       await sleep(150);
       expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
+      await client.stop();
+    });
+
+    it('moves mined and valid txs back to the pending set', async () => {
+      client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10, telemetryClient);
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
+
+      // add two txs to the pool. One build against block 90, one against block 95
+      // then prune the chain back to block 90
+      // only one tx should be deleted
+      const goodTx = mockTx();
+      goodTx.data.constants.globalVariables.blockNumber = new Fr(90);
+
+      const badTx = mockTx();
+      badTx.data.constants.globalVariables.blockNumber = new Fr(95);
+
+      txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
+      txPool.getMinedTxHashes.mockReturnValue([goodTx.getTxHash()]);
+
+      blockSource.removeBlocks(10);
+      await sleep(150);
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
+      await sleep(150);
+      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()]);
       await client.stop();
     });
   });

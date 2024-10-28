@@ -41,6 +41,32 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve();
   }
 
+  public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
+    if (txHashes.length === 0) {
+      return Promise.resolve();
+    }
+
+    const keys = txHashes.map(x => x.toBigInt());
+    let deleted = 0;
+    let added = 0;
+    for (const key of keys) {
+      if (this.minedTxs.delete(key)) {
+        deleted++;
+      }
+
+      // only add back to the pending set if we have the tx object
+      if (this.txs.has(key)) {
+        added++;
+        this.pendingTxs.add(key);
+      }
+    }
+
+    this.metrics.recordRemovedObjects(deleted, 'mined');
+    this.metrics.recordAddedObjects(added, 'pending');
+
+    return Promise.resolve();
+  }
+
   public getPendingTxHashes(): TxHash[] {
     return Array.from(this.pendingTxs).map(x => TxHash.fromBigInt(x));
   }
