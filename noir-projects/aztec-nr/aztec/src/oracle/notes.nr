@@ -198,3 +198,19 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+
+/// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
+/// For this to work, PXE must know the ivpsk_m of the sender.
+/// For the recipient's side, only the address is needed.
+pub unconstrained fn get_app_tagging_secret(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> Field {
+    get_app_tagging_secret_oracle(sender, recipient)
+}
+
+#[oracle(getAppTaggingSecret)]
+unconstrained fn get_app_tagging_secret_oracle(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+) -> Field {}

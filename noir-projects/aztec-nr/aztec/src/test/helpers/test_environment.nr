@@ -48,7 +48,7 @@ impl TestEnvironment {
     }
 
     unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
-        let mut context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
         context.args_hash = Option::some(hash_args(args));
         context
     }

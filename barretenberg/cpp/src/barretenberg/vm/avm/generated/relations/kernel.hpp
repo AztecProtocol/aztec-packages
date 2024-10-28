@@ -36,11 +36,11 @@ template <typename FF_> class kernelImpl {
         const auto constants_START_NULLIFIER_NON_EXISTS_OFFSET = FF(32);
         const auto constants_START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = FF(48);
         const auto constants_START_SSTORE_WRITE_OFFSET = FF(64);
-        const auto constants_START_SLOAD_WRITE_OFFSET = FF(96);
-        const auto constants_START_EMIT_NOTE_HASH_WRITE_OFFSET = FF(128);
-        const auto constants_START_EMIT_NULLIFIER_WRITE_OFFSET = FF(144);
-        const auto constants_START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = FF(160);
-        const auto constants_START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = FF(162);
+        const auto constants_START_SLOAD_WRITE_OFFSET = FF(128);
+        const auto constants_START_EMIT_NOTE_HASH_WRITE_OFFSET = FF(192);
+        const auto constants_START_EMIT_NULLIFIER_WRITE_OFFSET = FF(208);
+        const auto constants_START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = FF(224);
+        const auto constants_START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = FF(226);
         const auto main_KERNEL_INPUT_SELECTORS = ((((((((((new_term.main_sel_op_address + new_term.main_sel_op_sender) +
                                                           new_term.main_sel_op_function_selector) +
                                                          new_term.main_sel_op_transaction_fee) +

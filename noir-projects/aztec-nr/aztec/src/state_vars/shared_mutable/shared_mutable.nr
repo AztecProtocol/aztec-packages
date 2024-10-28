@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::AztecAddress,
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    traits::{FromField, ToField},
+    traits::{Deserialize, FromField, Serialize, ToField},
     utils::arrays::array_concat,
 };
 
@@ -34,7 +34,10 @@ global HASH_SEPARATOR: u32 = 2;
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
 // can actually use it here
-impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
+impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)

@@ -72,7 +72,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         cheatcodes::advance_blocks_by(1);
 
-        let mut public_context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
         public_context
             .call_public_function(
@@ -103,7 +103,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         cheatcodes::advance_blocks_by(1);
 
-        let mut public_context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
         let _: T = public_context
             .call_public_function(

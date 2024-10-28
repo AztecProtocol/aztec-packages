@@ -110,7 +110,6 @@ impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let owner_keys = get_public_keys(owner);
 
-        let owner_ivpk_m = owner_keys.ivpk_m;
         let owner_npk_m_hash = owner_keys.npk_m.hash();
         let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
 
@@ -120,7 +119,6 @@ impl Deck<&mut PrivateContext> {
             self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
                 msg_sender_ovpk_m,
-                owner_ivpk_m,
                 owner,
             ));
             inserted_cards = inserted_cards.push_back(card_note);
@@ -181,5 +179,5 @@ pub fn get_pack_cards(
 }
 
 pub fn compute_deck_strength<let N: u32>(cards: [Card; N]) -> Field {
-    cards.fold(0, |acc, card: Card| { acc + card.strength as Field })
+    cards.fold(0, |acc, card: Card| acc + card.strength as Field)
 }

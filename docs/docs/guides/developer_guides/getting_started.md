@@ -139,14 +139,14 @@ In the next step, let's mint some tokens!
 Call the public mint function like this:
 
 ```bash
-aztec-wallet send mint_public --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 100
+aztec-wallet send mint_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
 ```
 
 This takes
 
-- the function name as the argument, whcih is `mint_public`
+- the function name as the argument, which is `mint_public`
 - the `from` account (caller) which is `accounts:my-wallet`
-- the contract address, which is alised as `contracts:testtoken`
+- the contract address, which is aliased as `contracts:testtoken` (or simply `testtoken`)
 - the args that the function takes, which is the account to mint the tokens into (`my-wallet`), and `amount` (`100`).
 
 This only works because we are using the secret key of the admin who has permissions to mint.
@@ -196,9 +196,8 @@ Call the `shield` function like this:
 aztec-wallet send shield --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 25 secrets:shield:hash 0
 ```
 
-This takes the same parameters as our previous `send` call, plus the arguments which are
+This takes the same parameters as our previous `send` call, with the arguments for `shield` function which are:
 
-- the account that is shielding the tokens (`$ACCOUNT_ADDRESS`)
 - the number of tokens to shield (`25`)
 - a `secret_hash` (`SECRET_HASH` which has been derived from a secret that you generated in the CLI)
 - a `nonce` (`0` in this case).

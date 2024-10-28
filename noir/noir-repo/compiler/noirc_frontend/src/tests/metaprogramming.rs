@@ -110,7 +110,7 @@ fn allows_references_to_structs_generated_by_macros() {
 fn errors_if_macros_inject_functions_with_name_collisions() {
     let src = r#"
     comptime fn make_colliding_functions(_s: StructDefinition) -> Quoted {
-        quote { 
+        quote {
             fn foo() {}
         }
     }

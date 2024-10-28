@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 
 import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -11,6 +10,8 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRollup, ITestRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -21,6 +22,8 @@ import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Math} from "@oz/utils/math/Math.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
@@ -40,6 +43,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
   using SlotLib for Slot;
   using EpochLib for Epoch;
+  using SafeERC20 for IERC20;
 
   struct ChainTips {
     uint256 pendingBlockNumber;
@@ -64,6 +68,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
+  ISysstia public immutable SYSSTIA;
+  IERC20 public immutable ASSET;
   IVerifier public epochProofVerifier;
 
   ChainTips public tips;
@@ -85,6 +91,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
+    ISysstia _sysstia,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
@@ -92,7 +99,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(_fpcJuicePortal.underlying(), address(this));
+    SYSSTIA = _sysstia;
+    ASSET = _fpcJuicePortal.UNDERLYING();
+    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(ASSET, address(this));
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
@@ -260,15 +269,53 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     tips.provenBlockNumber = endBlockNumber;
 
-    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
-      address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
-      uint256 fees = uint256(publicInputs[10 + i * 2]);
+    // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
+    //        Otherwise, the fees are unbacked #7938.
+    bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+    bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
 
-      if (coinbase != address(0) && fees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+    uint256 totalProverReward = 0;
+
+    if (isFeeCanonical || isSysstiaCanonical) {
+      for (uint256 i = 0; i < _epochSize; i++) {
+        address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
+        uint256 reward = 0;
+        uint256 toProver = 0;
+
+        if (isFeeCanonical) {
+          uint256 fees = uint256(publicInputs[10 + i * 2]);
+          if (fees > 0) {
+            reward += fees;
+            FEE_JUICE_PORTAL.distributeFees(address(this), fees);
+          }
+        }
+
+        if (isSysstiaCanonical) {
+          reward += SYSSTIA.claim(address(this));
+        }
+
+        if (coinbase == address(0)) {
+          toProver = reward;
+        } else {
+          // @note  We are getting value from the `proofClaim`, which are not cleared.
+          //        So if someone is posting the proof before a new claim is made,
+          //        the reward will calculated based on the previous values.
+          toProver = Math.mulDiv(reward, proofClaim.basisPointFee, 10_000);
+        }
+
+        uint256 toCoinbase = reward - toProver;
+        if (toCoinbase > 0) {
+          ASSET.safeTransfer(coinbase, toCoinbase);
+        }
+
+        totalProverReward += toProver;
+      }
+
+      if (totalProverReward > 0) {
+        // If there is a bond-provider give him the reward, otherwise give it to the submitter.
+        address proofRewardRecipient =
+          proofClaim.bondProvider == address(0) ? msg.sender : proofClaim.bondProvider;
+        ASSET.safeTransfer(proofRewardRecipient, totalProverReward);
       }
     }
 
@@ -481,11 +528,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     if (blockNumber <= assumeProvenThroughBlockNumber) {
       fakeBlockNumberAsProven(blockNumber);
 
-      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+      bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
+      bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
+
+      if (isFeeCanonical && header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
         //        which WILL happen for the old version after an upgrade where the bridge follow.
         //        Consider allowing a failure. See #7938.
         FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+      if (isSysstiaCanonical && header.globalVariables.coinbase != address(0)) {
+        SYSSTIA.claim(header.globalVariables.coinbase);
       }
 
       emit L2ProofVerified(blockNumber, "CHEAT");
@@ -641,6 +694,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     Epoch epochToProve = getEpochToProve();
+
+    require(
+      _quote.quote.basisPointFee <= 10_000,
+      Errors.Rollup__InvalidBasisPointFee(_quote.quote.basisPointFee)
+    );
 
     require(
       currentProposer == address(0) || currentProposer == msg.sender,
@@ -921,5 +979,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       _flags.ignoreDA || _header.contentCommitment.txsEffectsHash == _txsEffectsHash,
       Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash)
     );
+
+    // If not canonical rollup, require that the fees are zero
+    if (address(this) != FEE_JUICE_PORTAL.canonicalRollup()) {
+      require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
+      require(_header.globalVariables.gasFees.feePerL2Gas == 0, Errors.Rollup__NonZeroL2Fee());
+    }
   }
 }

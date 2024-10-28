@@ -1,7 +1,10 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { bufferAsFields } from '@aztec/foundation/abi';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { strict as assert } from 'assert';
+
+import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '../constants.gen.js';
 import { type ContractClass } from './interfaces/contract_class.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
 
@@ -56,8 +59,17 @@ export type ContractClassIdPreimage = {
   publicBytecodeCommitment: Fr;
 };
 
-// TODO(#5860): Replace with actual implementation
-// Changed to work with canonical contracts that may have non-deterministic noir compiles and we want to keep the address constant
-export function computePublicBytecodeCommitment(_bytecode: Buffer) {
-  return new Fr(5);
+export function computePublicBytecodeCommitment(packedBytecode: Buffer) {
+  // Encode the buffer into field elements (chunked into 31 bytes each)
+  const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  // The first element is the length of the bytecode (in bytes)
+  const bytecodeLength = Math.ceil(encodedBytecode[0].toNumber() / (Fr.SIZE_IN_BYTES - 1));
+  assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
+
+  let bytecodeCommitment = new Fr(0);
+  for (let i = 0; i < bytecodeLength; i++) {
+    // We skip the first element, which is the length of the bytecode
+    bytecodeCommitment = poseidon2Hash([encodedBytecode[i + 1], bytecodeCommitment]);
+  }
+  return bytecodeCommitment;
 }

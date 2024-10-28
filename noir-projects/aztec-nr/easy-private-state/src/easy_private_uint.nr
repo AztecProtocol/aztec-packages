@@ -33,7 +33,6 @@ impl EasyPrivateUint<&mut PrivateContext> {
         self.set.insert(&mut addend_note).emit(encode_and_encrypt_note(
             self.context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
         // docs:end:insert
@@ -65,7 +64,6 @@ impl EasyPrivateUint<&mut PrivateContext> {
         self.set.insert(&mut result_note).emit(encode_and_encrypt_note(
             self.context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }

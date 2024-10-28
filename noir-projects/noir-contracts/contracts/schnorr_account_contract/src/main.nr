@@ -44,7 +44,6 @@ contract SchnorrAccount {
         storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this_keys.ovpk_m,
-            this_keys.ivpk_m,
             this,
         ));
     }
