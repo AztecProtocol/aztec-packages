@@ -593,11 +593,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async honkSolidityVerifier(acirVec: Uint8Array): Promise<string> {
+  async getHonkSolidityVerifier(acirVec: Uint8Array): Promise<string> {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'honk_solidity_verifier',
+      'get_honk_solidity_verifier_vk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

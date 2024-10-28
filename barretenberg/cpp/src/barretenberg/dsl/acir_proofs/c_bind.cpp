@@ -321,7 +321,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
     *out = to_heap_buffer(to_buffer(vk));
 }
 
-WASM_EXPORT void honk_solidity_verifier(uint8_t const* acir_vec, uint8_t** out)
+WASM_EXPORT void get_honk_solidity_verifier_vk(uint8_t const* acir_vec, uint8_t** out)
 {
     using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
     using VerificationKey = UltraFlavor::VerificationKey;
