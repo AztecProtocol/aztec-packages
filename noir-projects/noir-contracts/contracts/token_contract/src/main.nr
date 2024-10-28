@@ -487,14 +487,14 @@ contract Token {
     fn transfer_to_private(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
 
-        let nft = Token::at(context.this_address());
+        let token = Token::at(context.this_address());
 
         // We prepare the transfer.
         let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
 
         // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
-        // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
-        nft._finalize_transfer_to_private_unsafe(from, amount, hiding_point_slot).enqueue(
+        // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
+        token._finalize_transfer_to_private_unsafe(from, amount, hiding_point_slot).enqueue(
             &mut context,
         );
     }
