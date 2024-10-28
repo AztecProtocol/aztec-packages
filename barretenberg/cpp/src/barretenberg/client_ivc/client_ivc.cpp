@@ -202,12 +202,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     max_block_size_tracker.update(circuit);
 }
 
-/**
- * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
- *
- * @return Proof
- */
-ClientIVC::Proof ClientIVC::prove()
+HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     max_block_size_tracker.print();               // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
@@ -215,9 +210,31 @@ ClientIVC::Proof ClientIVC::prove()
     FoldProof& fold_proof = verification_queue[0].proof;
     MergeProof& merge_proof = merge_verification_queue[0];
     HonkProof decider_proof = decider_prove();
-    // Free the accumulator to save memory
     fold_output.accumulator = nullptr;
-    return { fold_proof, std::move(decider_proof), goblin.prove(merge_proof) };
+
+    std::shared_ptr<ClientCircuit> builder;
+    // Construct stdlib accumulator, vkey and proof
+    auto stdlib_verifier_accum =
+        std::make_shared<RecursiveDeciderVerificationKey>(builder.get(), verification_queue[0].honk_verification_key);
+
+    auto stdlib_decider_vk =
+        std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.fold_input.decider_vks[0]);
+    auto stdlib_proof = bb::convert_proof_to_witness(builder.get(), proof.folding_proof);
+
+    // Free the accumulator to save memory
+
+    return proof;
+}
+
+/**
+ * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
+ *
+ * @return Proof
+ */
+ClientIVC::Proof ClientIVC::prove()
+{
+    HonkProof ultra_proof = construct_and_prove_hiding_circuit();
+    return { ultra_proof, goblin.prove(merge_proof) };
 };
 
 bool ClientIVC::verify(const Proof& proof,
@@ -230,12 +247,6 @@ bool ClientIVC::verify(const Proof& proof,
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
 
-    // Decider verification
-    ClientIVC::FoldingVerifier folding_verifier({ accumulator, final_stack_vk });
-    auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
-
-    ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
-    bool decision = decider_verifier.verify_proof(proof.decider_proof);
     return goblin_verified && decision;
 }
 

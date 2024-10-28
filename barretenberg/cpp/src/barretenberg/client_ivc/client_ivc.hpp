@@ -55,13 +55,12 @@ class ClientIVC {
 
     // A full proof for the IVC scheme
     struct Proof {
-        FoldProof folding_proof; // final fold proof
-        HonkProof decider_proof;
+        HonkProof ultra_proof;
         GoblinProof goblin_proof;
 
-        size_t size() const { return folding_proof.size() + decider_proof.size() + goblin_proof.size(); }
+        size_t size() const { return ultra_proof.size() + goblin_proof.size(); }
 
-        MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
+        MSGPACK_FIELDS(ultra_proof, goblin_proof);
     };
 
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
@@ -142,6 +141,10 @@ class ClientIVC {
                     bool mock_vk = false);
 
     Proof prove();
+
+    HonkProof construct_and_prove_hiding_circuit();
+
+    HonkProof construct_hiding_circuit();
 
     static bool verify(const Proof& proof,
                        const std::shared_ptr<DeciderVerificationKey>& accumulator,
