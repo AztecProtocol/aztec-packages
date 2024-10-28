@@ -26,6 +26,8 @@ namespace bb {
 template <typename Arithmetization>
 std::unordered_set<uint32_t> UltraCircuitBuilder_<Arithmetization>::get_all_used_variables()
 {
+
+    PROFILE_THIS_NAME("get_all_used_variables()");
     std::unordered_set<uint32_t> all_used_real_variables;
 #ifndef NO_MULTITHREADING
     std::mutex common_set_merge_mutex;
@@ -1032,6 +1034,7 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::process_range_list(
     RangeList& list, const std::unordered_set<uint32_t>& all_used_real_variable_indices)
 {
+    PROFILE_THIS_NAME("process_range_list(&list,&all_used_real_variable_indices)");
     this->assert_valid_variables(list.variable_indices);
 
     ASSERT(list.variable_indices.size() > 0);
@@ -1046,12 +1049,15 @@ void UltraCircuitBuilder_<Arithmetization>::process_range_list(
     std::sort(list.variable_indices.begin(), list.variable_indices.end());
     auto back_iterator = std::unique(list.variable_indices.begin(), list.variable_indices.end());
     list.variable_indices.erase(back_iterator, list.variable_indices.end());
-    // Remove variables not contained in the trace
-    list.variable_indices.erase(
-        std::remove_if(list.variable_indices.begin(),
-                       list.variable_indices.end(),
-                       [&](uint32_t index) { return !all_used_real_variable_indices.contains(index); }),
-        list.variable_indices.end());
+#ifndef NDEBUG
+    parallel_for_range(list.variable_indices.size(), [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; i++) {
+            ASSERT(all_used_real_variable_indices.contains(index));
+        }
+    });
+#else
+    (void)all_used_real_variable_indices;
+#endif
 
     if (list.variable_indices.empty()) {
         info("Range list for range ", list.target_range, " is empty!");
@@ -1097,7 +1103,13 @@ void UltraCircuitBuilder_<Arithmetization>::process_range_list(
 
 template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_range_lists()
 {
+    std::unordered_set<uint32_t> all_used_variables;
+    // Going through all variables and and checking that only used variables ended up in range lists is pricey, so we
+    // only do it in debug
+#ifdef _DEBUG
     auto all_used_variables = get_all_used_variables();
+#endif
+
     for (auto& i : range_lists) {
         process_range_list(i.second, all_used_variables);
     }
