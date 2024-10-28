@@ -23,7 +23,10 @@ use dep::aztec::macros::aztec;
 /// ### 2. Public Functions:
 /// No **reentrancy guard** is required for public functions because:
 /// - All public functions are marked as **internal** with a **single callsite** - from a private function.
-/// - Public functions **cannot call private functions**, eliminating the risk of reentrancy into them.
+/// - Public functions **cannot call private functions**, eliminating the risk of reentering into them from private.
+/// - Since public functions are internal-only, **external contracts cannot access them**, ensuring no external
+///   contract can trigger a reentrant call. This eliminates the following attack vector:
+///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
 contract AMM {
     use crate::lib::{get_amount_in, get_amount_out, get_quote};
@@ -163,9 +166,6 @@ contract AMM {
         let amount0_min = U128::from_integer(amount0_min);
         let amount1_min = U128::from_integer(amount1_min);
 
-        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
-        // `add_liquidity` which is private and since public functions cannot call private ones it's impossible to
-        // reenter this function.
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
