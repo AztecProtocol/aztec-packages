@@ -40,8 +40,8 @@ template <typename FF_> class CircuitBuilderBase {
     AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
 
-    // We only know from the circuit description whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. However, a verifier does not need a full circuit
+    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
     // description and should be able to verify a proof with just the verification key and the proof.
     // This field exists to later set the same field in the verification key, and make sure
     // that we are using the correct prover/verifier.

@@ -506,6 +506,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "honk_recursion",
         "type": "const bool *"
       }
@@ -563,6 +567,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       }
     ],
     "outArgs": [],
@@ -578,6 +586,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       },
       {
         "name": "witness_buf",
@@ -704,6 +716,10 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -802,6 +818,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "witness_vec",
         "type": "const uint8_t *"
       }
@@ -840,6 +860,10 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       }
     ],
     "outArgs": [
