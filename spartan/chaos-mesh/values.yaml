@@ -16,11 +16,6 @@ chaos-mesh:
     privileged: true
     runtime: "containerd"
     socketPath: "/run/containerd/containerd.sock"
-    # capabilities:
-    #   - SYS_PTRACE
-    #   - NET_ADMIN
-    #   - IPC_LOCK
-    #   - SYS_ADMIN
 
   dnsServer:
     create: true

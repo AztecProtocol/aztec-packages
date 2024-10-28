@@ -5,10 +5,10 @@
 #   NAMESPACE
 # Optional environment variables:
 #   VALUES_FILE (default: "default.yaml")
+#   INSTALL_CHAOS_MESH (default: "")
 #   CHAOS_VALUES (default: "")
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
-#   NETWORK_SHAPING_CONFIG (default: "")
 
 set -eux
 
@@ -125,8 +125,6 @@ FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | c
 # Extract the two free ports from the list
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
-
-## TODO: why is namespace down here???
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
