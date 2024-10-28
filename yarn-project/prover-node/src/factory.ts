@@ -1,5 +1,5 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { type AztecNode } from '@aztec/circuit-types';
+import { ProverCoordination, type AztecNode } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -29,7 +29,7 @@ export async function createProverNode(
   deps: {
     telemetry?: TelemetryClient;
     log?: DebugLogger;
-    aztecNodeTxProvider?: AztecNode;
+    aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
   } = {},
 ) {
@@ -51,7 +51,7 @@ export async function createProverNode(
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
-  const [proverCoordination, p2pClient] = await createProverCoordination(config, {
+  const proverCoordination = await createProverCoordination(config, {
     aztecNodeTxProvider: deps.aztecNodeTxProvider,
     worldStateSynchronizer,
     archiver,
@@ -87,7 +87,6 @@ export async function createProverNode(
     claimsMonitor,
     epochMonitor,
     bondManager,
-    p2pClient,
     telemetry,
     proverNodeConfig,
   );

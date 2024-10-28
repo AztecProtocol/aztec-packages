@@ -48,7 +48,6 @@ describe('prover-node', () => {
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let coordination: MockProxy<ProverCoordination> | ProverCoordination;
-  let p2pClient: P2PClient | undefined;
   let simulator: MockProxy<SimulationProvider>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
@@ -104,7 +103,6 @@ describe('prover-node', () => {
       claimsMonitor,
       epochMonitor,
       bondManager,
-      p2pClient,
       telemetryClient,
       config,
     );
@@ -291,9 +289,10 @@ describe('prover-node', () => {
 
   // Things to test
   // - Another aztec node receives the proof quote via p2p
-  // - The prover node can get the trasnactions it is missing via p2p, or it has them in it's mempool
+  // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
   describe('Using a p2p coordination', () => {
     let bootnode: BootstrapNode;
+    let p2pClient: P2PClient;
     let otherP2PClient: P2PClient;
 
     const createP2PClient = async (bootnodeAddr: string, port: number) => {

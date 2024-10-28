@@ -256,6 +256,15 @@ async function createAndSyncProverNode(
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
 ) {
+  // Disable stopping the aztec node as the prover coordination test will kill it otherwise
+  // This is only required when stopping the prover node for testing
+  const aztecNodeWithoutStop = {
+    p2pClient: (aztecNode as any).p2pClient,
+    addEpochProofQuote: aztecNode.addEpochProofQuote,
+    getTxByHash: aztecNode.getTxByHash,
+    stop: () => Promise.resolve(),
+  };
+
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
   const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
@@ -277,7 +286,7 @@ async function createAndSyncProverNode(
     proverTargetEscrowAmount: 2000n,
   };
   const proverNode = await createProverNode(proverConfig, {
-    aztecNodeTxProvider: aztecNode,
+    aztecNodeTxProvider: aztecNodeWithoutStop,
     archiver: archiver as Archiver,
   });
   await proverNode.start();

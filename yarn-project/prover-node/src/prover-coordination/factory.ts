@@ -1,35 +1,39 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
-  type AztecNode,
   type ProverCoordination,
   type WorldStateSynchronizer,
   createAztecNodeClient,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type P2PClient, createP2PClient } from '@aztec/p2p';
+import { createP2PClient } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProverNodeConfig } from '../config.js';
 
 // We return a reference to the P2P client so that the prover node can stop the service when it shuts down.
-type ProverCoordinationWithP2P = [ProverCoordination, P2PClient | undefined];
 type ProverCoordinationDeps = {
-  aztecNodeTxProvider?: AztecNode;
+  aztecNodeTxProvider?: ProverCoordination;
   worldStateSynchronizer?: WorldStateSynchronizer;
   archiver?: Archiver | ArchiveSource;
   telemetry?: TelemetryClient;
 };
 
+/**
+ * Creates a prover coordination service.
+ * If p2p is enabled, prover coordination is done via p2p.
+ * If an Aztec node URL is provided, prover coordination is done via the Aztec node over http.
+ * If an aztec node is provided, it is returned directly.
+ */
 export async function createProverCoordination(
   config: ProverNodeConfig,
   deps: ProverCoordinationDeps,
-): Promise<ProverCoordinationWithP2P> {
+): Promise<ProverCoordination> {
   const log = createDebugLogger('aztec:createProverCoordination');
 
   if (deps.aztecNodeTxProvider) {
     log.info('Using prover coordination via aztec node');
-    return [deps.aztecNodeTxProvider, undefined];
+    return deps.aztecNodeTxProvider;
   }
 
   if (config.p2pEnabled) {
@@ -49,12 +53,12 @@ export async function createProverCoordination(
     );
     await p2pClient.start();
 
-    return [p2pClient, p2pClient];
+    return p2pClient;
   }
 
   if (config.proverCoordinationNodeUrl) {
     log.info('Using prover coordination via node url');
-    return [createAztecNodeClient(config.proverCoordinationNodeUrl), undefined];
+    return createAztecNodeClient(config.proverCoordinationNodeUrl);
   } else {
     throw new Error(`Aztec Node URL for Tx Provider is not set.`);
   }
