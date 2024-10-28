@@ -95,7 +95,15 @@ describe('e2e_avm_simulator', () => {
 
     describe('Contract instance', () => {
       it('Works', async () => {
-        const tx = await avmContract.methods.test_get_contract_instance().send().wait();
+        const tx = await avmContract.methods
+          .test_get_contract_instance_matches(
+            avmContract.address,
+            avmContract.instance.deployer,
+            avmContract.instance.contractClassId,
+            avmContract.instance.initializationHash,
+          )
+          .send()
+          .wait();
         expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
     });
