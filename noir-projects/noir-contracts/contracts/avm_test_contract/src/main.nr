@@ -526,27 +526,27 @@ contract AvmTest {
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
-    // #[public]
-    // fn nested_static_call_to_set_storage() {
-    //     AvmTest::at(context.this_address()).set_storage_single(20).view(&mut context);
-    // }
+    #[public]
+    fn nested_static_call_to_set_storage() {
+        AvmTest::at(context.this_address()).set_storage_single(20).view(&mut context);
+    }
 
-    // #[public]
-    // fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-    //     context.push_nullifier(nullifier);
-    //     AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
-    // }
+    #[public]
+    fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
+        context.push_nullifier(nullifier);
+        AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
+    }
 
-    // #[public]
-    // fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-    //     context.push_nullifier(nullifier);
-    //     AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
-    // }
+    #[public]
+    fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
+        context.push_nullifier(nullifier);
+        AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
+    }
 
-    // #[public]
-    // fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
-    //     AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
-    // }
+    #[public]
+    fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
+        AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
+    }
 
     /**
      * Enqueue a public call from private

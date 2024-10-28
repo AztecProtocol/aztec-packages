@@ -139,36 +139,36 @@ describe('e2e_avm_simulator', () => {
     });
 
     describe('Nested calls', () => {
-      //   it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
-      //     const nullifier = new Fr(1);
-      //     await expect(
-      //       avmContract.methods.create_same_nullifier_in_nested_call(avmContract.address, nullifier).send().wait(),
-      //     ).rejects.toThrow();
-      //   });
-      //   it('Should be able to emit different unsiloed nullifiers from the same contract', async () => {
-      //     const nullifier = new Fr(1);
-      //     const tx = await avmContract.methods
-      //       .create_different_nullifier_in_nested_call(avmContract.address, nullifier)
-      //       .send()
-      //       .wait();
-      //     expect(tx.status).toEqual(TxStatus.SUCCESS);
-      //   });
-      //   it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
-      //     const nullifier = new Fr(1);
-      //     const tx = await avmContract.methods
-      //       .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)
-      //       .send()
-      //       .wait();
-      //     expect(tx.status).toEqual(TxStatus.SUCCESS);
-      //   });
-      //   it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
-      //     const nullifier = new Fr(1);
-      //     const tx = await avmContract.methods
-      //       .create_different_nullifier_in_nested_call(secondAvmContract.address, nullifier)
-      //       .send()
-      //       .wait();
-      //     expect(tx.status).toEqual(TxStatus.SUCCESS);
-      //   });
+        it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
+          const nullifier = new Fr(1);
+          await expect(
+            avmContract.methods.create_same_nullifier_in_nested_call(avmContract.address, nullifier).send().wait(),
+          ).rejects.toThrow();
+        });
+        it('Should be able to emit different unsiloed nullifiers from the same contract', async () => {
+          const nullifier = new Fr(1);
+          const tx = await avmContract.methods
+            .create_different_nullifier_in_nested_call(avmContract.address, nullifier)
+            .send()
+            .wait();
+          expect(tx.status).toEqual(TxStatus.SUCCESS);
+        });
+        it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
+          const nullifier = new Fr(1);
+          const tx = await avmContract.methods
+            .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)
+            .send()
+            .wait();
+          expect(tx.status).toEqual(TxStatus.SUCCESS);
+        });
+        it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
+          const nullifier = new Fr(1);
+          const tx = await avmContract.methods
+            .create_different_nullifier_in_nested_call(secondAvmContract.address, nullifier)
+            .send()
+            .wait();
+          expect(tx.status).toEqual(TxStatus.SUCCESS);
+        });
     });
   });
 

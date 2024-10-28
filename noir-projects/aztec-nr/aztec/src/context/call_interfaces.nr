@@ -193,7 +193,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
             self.args,
             self.gas_opts,
         );
-        returns.deserialize_into()
+        Deserialize::deserialize(returns.as_array::<M>())
     }
 
     pub unconstrained fn view<let M: u32>(self, context: &mut PublicContext) -> T
@@ -206,7 +206,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
             self.args,
             self.gas_opts,
         );
-        returns.deserialize_into()
+        Deserialize::deserialize(returns.as_array::<M>())
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
@@ -259,7 +259,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
             self.args,
             self.gas_opts,
         );
-        returns.assert_empty()
+        assert(returns.len() == 0);
     }
 
     pub unconstrained fn view(self, context: &mut PublicContext) {
@@ -269,7 +269,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
             self.args,
             self.gas_opts,
         );
-        returns.assert_empty()
+        assert(returns.len() == 0);
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
@@ -325,8 +325,7 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
             self.args,
             self.gas_opts,
         );
-        let unpacked: T = returns.deserialize_into();
-        unpacked
+        Deserialize::deserialize(returns.as_array::<M>())
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
@@ -367,7 +366,7 @@ impl<let N: u32> PublicStaticVoidCallInterface<N> {
             self.args,
             self.gas_opts,
         );
-        returns.assert_empty()
+        assert(returns.len() == 0);
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {

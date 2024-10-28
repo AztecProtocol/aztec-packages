@@ -69,50 +69,52 @@ impl PublicContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    pub unconstrained fn call_public_function<let RETURNS_COUNT: u32>(
+    pub unconstrained fn call_public_function(
         _self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
         gas_opts: GasOpts,
-    ) -> FunctionReturns<RETURNS_COUNT> {
-        let args = &[function_selector.to_field()].append(args);
-        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call(
+    ) -> [Field] {
+        let args = args.push_front(function_selector.to_field());
+        // TODO: modify call opcode and remove <0>.
+        let (_, success) = call::<0>(
             gas_for_call(gas_opts),
             contract_address,
             args,
             PUBLIC_DISPATCH_SELECTOR,
         );
 
+        let result_data = returndata_copy(0, returndata_size());
         if success == 0 {
-            let revert_data = returndata_copy(0, returndata_size());
-            avm_revert(revert_data);
+            // Rethrow the revert data.
+            avm_revert(result_data);
         }
-
-        FunctionReturns::new(data_to_return)
+        result_data
     }
 
-    pub unconstrained fn static_call_public_function<let RETURNS_COUNT: u32>(
+    pub unconstrained fn static_call_public_function(
         _self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
         gas_opts: GasOpts,
-    ) -> FunctionReturns<RETURNS_COUNT> {
-        let args = &[function_selector.to_field()].append(args);
-        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
+    ) -> [Field] {
+        let args = args.push_front(function_selector.to_field());
+        // TODO: modify call_static opcode and remove <0>.
+        let (_, success) = call_static::<0>(
             gas_for_call(gas_opts),
             contract_address,
             args,
             PUBLIC_DISPATCH_SELECTOR,
         );
 
+        let result_data = returndata_copy(0, returndata_size());
         if success == 0 {
-            let revert_data = returndata_copy(0, returndata_size());
-            avm_revert(revert_data);
+            // Rethrow the revert data.
+            avm_revert(result_data);
         }
-
-        FunctionReturns::new(data_to_return)
+        result_data
     }
 
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
@@ -439,30 +441,3 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
-
-pub struct FunctionReturns<let N: u32> {
-    values: [Field; N],
-}
-
-impl<let N: u32> FunctionReturns<N> {
-    pub fn new(values: [Field; N]) -> FunctionReturns<N> {
-        FunctionReturns { values }
-    }
-
-    pub fn raw(self) -> [Field; N] {
-        self.values
-    }
-
-    pub fn deserialize_into<T>(self) -> T
-    where
-        T: Deserialize<N>,
-    {
-        Deserialize::deserialize(self.raw())
-    }
-}
-
-impl FunctionReturns<0> {
-    pub fn assert_empty(self) {
-        assert(self.values.len() == 0);
-    }
-}
