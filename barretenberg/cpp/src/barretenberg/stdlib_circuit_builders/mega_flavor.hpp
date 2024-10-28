@@ -578,8 +578,6 @@ class MegaFlavor {
             serialize_to_field_buffer(this->contains_recursive_proof, elements);
             serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.contains_app_return_data_commitment, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.contains_kernel_return_data_commitment, elements);
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
