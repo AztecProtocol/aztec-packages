@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730114624619,
+  "lastUpdate": 1730128871771,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "jose@aztecprotocol.com",
-            "name": "José Pedro Sousa",
-            "username": "signorecello"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "662b61e4c20a2d4217980922d4578f4dfeacae6b",
-          "message": "chore(docs): rewriting bbup script, refactoring bb readme for clarity (#9073)\n\n## Description\r\n\r\nCloses #8530\r\n\r\nCloses https://github.com/AztecProtocol/aztec-packages/issues/7511\r\nhttps://github.com/AztecProtocol/aztec-packages/issues/7525 as no longer\r\nuseful / relevant\r\n\r\nThis PR updates the Barretenberg README with more information about the\r\nproject, its installation, usage, and development.\r\n\r\nIt also refactors `bbup` with `commander` to match the rest of the\r\nrepository's CLI tooling.\r\n\r\n## Changes\r\n\r\n### bb readme\r\n- Added a project banner and reorganized the README structure\r\n- Expanded usage instructions for UltraHonk and MegaHonk\r\n\r\n### bbup\r\n- Refactored bbup installation script and related files\r\n- Included detailed installation instructions in its README\r\n\r\n## Testing\r\n\r\n`bbup` won't change much so it is deployed manually on `npm`. You can\r\ntry it immediately with:\r\n\r\n```bash\r\ncurl -L bbup.dev | bash\r\nbbup\r\n```\r\n\r\n---------\r\n\r\nCo-authored-by: Savio <72797635+Savio-Sou@users.noreply.github.com>",
-          "timestamp": "2024-10-10T11:55:56+02:00",
-          "tree_id": "a8da02af2a6c3c0feea6ea807397918d15e92f16",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/662b61e4c20a2d4217980922d4578f4dfeacae6b"
-        },
-        "date": 1728555860437,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31416.497950000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28975.102133 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5599.053466000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5265.072284 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93321.99006000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93321992000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15678.334770000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15678335000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8386492104,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8386492104 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152888702,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152888702 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6806037491,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6806037491 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125119260,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125119260 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3180,6 +3108,66 @@ window.BENCHMARK_DATA = {
             "value": 125876914,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125876914 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8658abd46612d3fdf8c8b54902c201c790a52345",
+          "message": "feat: fixed number of pub inputs for databus commitment propagation (#9336)\n\nThis work is motivated by the need to have a \"write vk\" method for\r\nkernel circuits that depends only on acir constraints (no witness data\r\nor historical data about the previously accumulated circuits). This is\r\nmade difficult by the inter-circuit databus consistency check mechanism\r\nwhich, until now, added structure to a present circuit based on the\r\nstructure of previous circuits. This PR makes updates to the mechanism\r\nso that the constraints associated with the databus consistency checks\r\nare consistent across all kernel circuits. There are two components to\r\nthis:\r\n\r\n(1) Every kernel propagates 2 commitments worth of data (one for app\r\nreturn data, one for kernel return data) on its public inputs.\r\n(Previously this was allowed to be 0, 1 or 2 depending on the number of\r\nrecursive verifications performed by the kernel). If data does not exist\r\nfor either of these (e.g. if the kernel is only verifying a proof of one\r\nor the other), a default value is propagated. (This value is set to\r\nmatch the commitment to the \"empty\" calldata that will correspond to the\r\nmissing return data).\r\n\r\n(2) Every kernel performs two commitment consistency checks: one that\r\nchecks that the app `return_data` is equal to the `secondary_calldata`\r\nand one that checks that the previous kernel `return_data` is equal to\r\nthe `calldata`. (Previously there could be 0, 1, or 2 such checks\r\ndepending on the data propagated on the public inputs of the kernel\r\nbeing recursively verified - hence the need for knowledge of history /\r\nwitness data).\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1125 (had to\r\ndo with dynamically determining the number of public inputs associated\r\nwith databus commitments which is now fixed in size to 16).",
+          "timestamp": "2024-10-28T07:42:16-07:00",
+          "tree_id": "ba603d89606afceb8d617f12a28cec086931da61",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8658abd46612d3fdf8c8b54902c201c790a52345"
+        },
+        "date": 1730128864710,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30866.215102000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29142.921290000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5351.697946000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5064.016449999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91351.84189,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91351844000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15169.656309999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15169656000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2686004829,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2686004829 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125664065,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125664065 ns\nthreads: 1"
           }
         ]
       }
