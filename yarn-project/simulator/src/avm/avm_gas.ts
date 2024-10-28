@@ -89,6 +89,10 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.CAST_16]: makeCost(c.AVM_CAST_BASE_L2_GAS, 0),
   [Opcode.GETENVVAR_16]: makeCost(c.AVM_GETENVVAR_BASE_L2_GAS, 0),
   [Opcode.CALLDATACOPY]: makeCost(c.AVM_CALLDATACOPY_BASE_L2_GAS, 0),
+  // TEMP
+  [Opcode.RETURNDATASIZE]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
+  [Opcode.RETURNDATACOPY]: makeCost(c.AVM_CALLDATACOPY_BASE_L2_GAS, 0),
+  // TEMP END
   [Opcode.JUMP_16]: makeCost(c.AVM_JUMP_BASE_L2_GAS, 0),
   [Opcode.JUMPI_16]: makeCost(c.AVM_JUMPI_BASE_L2_GAS, 0),
   [Opcode.INTERNALCALL]: makeCost(c.AVM_INTERNALCALL_BASE_L2_GAS, 0),
@@ -127,6 +131,9 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
 
 const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)],
+  // TEMP
+  [Opcode.RETURNDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)],
+  // TEMP END
   [Opcode.EMITUNENCRYPTEDLOG, makeCost(c.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
   [Opcode.CALL, makeCost(c.AVM_CALL_DYN_L2_GAS, 0)],
   [Opcode.STATICCALL, makeCost(c.AVM_STATICCALL_DYN_L2_GAS, 0)],

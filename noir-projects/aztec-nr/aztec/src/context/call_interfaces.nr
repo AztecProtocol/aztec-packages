@@ -183,7 +183,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
         self
     }
 
-    pub fn call<let M: u32>(self, context: &mut PublicContext) -> T
+    pub unconstrained fn call<let M: u32>(self, context: &mut PublicContext) -> T
     where
         T: Deserialize<M>,
     {
@@ -196,7 +196,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
         returns.deserialize_into()
     }
 
-    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T
+    pub unconstrained fn view<let M: u32>(self, context: &mut PublicContext) -> T
     where
         T: Deserialize<M>,
     {
@@ -252,7 +252,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
         self
     }
 
-    pub fn call(self, context: &mut PublicContext) {
+    pub unconstrained fn call(self, context: &mut PublicContext) {
         let returns = context.call_public_function(
             self.target_contract,
             self.selector,
@@ -262,7 +262,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
         returns.assert_empty()
     }
 
-    pub fn view(self, context: &mut PublicContext) {
+    pub unconstrained fn view(self, context: &mut PublicContext) {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,
@@ -315,7 +315,7 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
         self
     }
 
-    pub fn view<let M: u32>(self, context: &mut PublicContext) -> T
+    pub unconstrained fn view<let M: u32>(self, context: &mut PublicContext) -> T
     where
         T: Deserialize<M>,
     {
@@ -360,7 +360,7 @@ impl<let N: u32> PublicStaticVoidCallInterface<N> {
         self
     }
 
-    pub fn view(self, context: &mut PublicContext) {
+    pub unconstrained fn view(self, context: &mut PublicContext) {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,

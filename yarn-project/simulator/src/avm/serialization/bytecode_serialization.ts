@@ -31,6 +31,8 @@ import {
   Or,
   Poseidon2,
   Return,
+  ReturndataCopy,
+  ReturndataSize,
   Revert,
   SLoad,
   SStore,
@@ -96,6 +98,8 @@ const INSTRUCTION_SET = () =>
     // Execution Environment
     [Opcode.GETENVVAR_16, GetEnvVar.as(GetEnvVar.wireFormat16).deserialize],
     [CalldataCopy.opcode, Instruction.deserialize.bind(CalldataCopy)],
+    [Opcode.RETURNDATASIZE, Instruction.deserialize.bind(ReturndataSize)],
+    [Opcode.RETURNDATACOPY, Instruction.deserialize.bind(ReturndataCopy)],
 
     // Machine State - Internal Control Flow
     [Jump.opcode, Instruction.deserialize.bind(Jump)],

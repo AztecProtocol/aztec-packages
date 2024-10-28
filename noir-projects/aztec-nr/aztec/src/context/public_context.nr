@@ -69,7 +69,7 @@ impl PublicContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<let RETURNS_COUNT: u32>(
+    pub unconstrained fn call_public_function<let RETURNS_COUNT: u32>(
         _self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -77,20 +77,22 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> FunctionReturns<RETURNS_COUNT> {
         let args = &[function_selector.to_field()].append(args);
-        let results = call(
+        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call(
             gas_for_call(gas_opts),
             contract_address,
             args,
             PUBLIC_DISPATCH_SELECTOR,
         );
-        let data_to_return: [Field; RETURNS_COUNT] = results.0;
-        let success: u8 = results.1;
-        assert(success == 1, "Nested call failed!");
+
+        if success == 0 {
+            let revert_data = returndata_copy(0, returndata_size());
+            avm_revert(revert_data);
+        }
 
         FunctionReturns::new(data_to_return)
     }
 
-    fn static_call_public_function<let RETURNS_COUNT: u32>(
+    pub unconstrained fn static_call_public_function<let RETURNS_COUNT: u32>(
         _self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -105,7 +107,11 @@ impl PublicContext {
             PUBLIC_DISPATCH_SELECTOR,
         );
 
-        assert(success == 1, "Nested static call failed!");
+        if success == 0 {
+            let revert_data = returndata_copy(0, returndata_size());
+            avm_revert(revert_data);
+        }
+
         FunctionReturns::new(data_to_return)
     }
 
@@ -290,6 +296,14 @@ pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) ->
     calldata_copy_opcode(cdoffset, copy_size)
 }
 
+unconstrained fn returndata_size() -> u32 {
+    returndata_size_opcode()
+}
+
+unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
+    returndata_copy_opcode(rdoffset, copy_size)
+}
+
 unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
     return_opcode(returndata)
 }
@@ -383,6 +397,12 @@ unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field)
 
 #[oracle(avmOpcodeCalldataCopy)]
 unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
+
+#[oracle(avmOpcodeReturndataSize)]
+unconstrained fn returndata_size_opcode() -> u32 {}
+
+#[oracle(avmOpcodeReturndataCopy)]
+unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 
 #[oracle(avmOpcodeReturn)]
 unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
