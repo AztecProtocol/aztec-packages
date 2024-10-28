@@ -1161,6 +1161,7 @@ __metadata:
     jest: ^29.5.0
     ts-node: ^10.9.1
     typescript: ^5.0.4
+    winston: ^3.10.0
   languageName: unknown
   linkType: soft
 
