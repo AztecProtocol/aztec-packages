@@ -42,7 +42,6 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
 
     AcirFormat constraint_system{
         .varnum = 9,
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -86,7 +85,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         fr(std::string("0x2e11c5cff2a22c64d01304b778d78f6998eff1ab73163a35603f54794c30847a")),
     };
 
-    auto builder = create_circuit(constraint_system, /*size_hint=*/0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);

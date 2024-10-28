@@ -37,7 +37,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
 
     AcirFormat constraint_system{
         .varnum = 34,
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -103,7 +102,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
                            557795688,
                            static_cast<uint32_t>(3481642555) };
 
-    auto builder = create_circuit(constraint_system, /*size_hint=*/0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
