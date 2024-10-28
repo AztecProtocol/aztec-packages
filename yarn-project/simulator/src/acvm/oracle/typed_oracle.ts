@@ -11,7 +11,7 @@ import {
 import {
   type ContractInstance,
   type Header,
-  IndexedTaggingSecret,
+  type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';

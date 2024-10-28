@@ -10,7 +10,7 @@ import {
 import {
   type ContractInstance,
   type Header,
-  IndexedTaggingSecret,
+  type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';

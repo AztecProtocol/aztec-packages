@@ -219,7 +219,7 @@ pub unconstrained fn get_app_tagging_secret(
 unconstrained fn get_app_tagging_secret_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
-) -> [Field; INDEXED_TAGGING_SECRET_LENGHT] {}
+) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
 
 /// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
 // siloed for the current contract address.

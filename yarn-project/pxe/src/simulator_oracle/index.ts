@@ -1,7 +1,5 @@
 import {
   type AztecNode,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
   type L2Block,
   MerkleTreeId,
   type NoteStatus,

@@ -66,7 +66,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByIvpkMAndScope: Map<string, AztecMultiMap<string, string>>;
 
-  #taggingSecretIndices: AztecMap<string, number>;
+  #taggingSecretIndexes: AztecMap<string, number>;
 
   constructor(private db: AztecKVStore) {
     this.#db = db;
@@ -114,7 +114,7 @@ export class KVPxeDatabase implements PxeDatabase {
       this.#notesByIvpkMAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_ivpk_m`));
     }
 
-    this.#taggingSecretIndices = db.openMap('tagging_secret_indices');
+    this.#taggingSecretIndexes = db.openMap('tagging_secret_indices');
   }
 
   public async getContract(
@@ -582,14 +582,14 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.db.transaction(() => {
       indexes.forEach(index => {
         const nextIndex = index ? index + 1 : 1;
-        void this.#taggingSecretIndices.set(appTaggingSecrets.toString(), nextIndex);
+        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
       });
     });
   }
 
-  async getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
     return this.db.transaction(() =>
-      appTaggingSecrets.map(secret => this.#taggingSecretIndices.get(secret.toString()) ?? 0),
+      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
     );
   }
 }

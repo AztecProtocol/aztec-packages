@@ -9,7 +9,7 @@ import {
   type CompleteAddress,
   type ContractInstance,
   type Header,
-  IndexedTaggingSecret,
+  type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
