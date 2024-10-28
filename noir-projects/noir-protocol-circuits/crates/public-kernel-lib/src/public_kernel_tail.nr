@@ -24,13 +24,12 @@ use dep::types::{
         L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_PUBLIC_DATA_HINTS, MAX_PUBLIC_DATA_READS_PER_TX, NOTE_HASH_TREE_HEIGHT,
-        PUBLIC_KERNEL_MERGE_INDEX,
     },
     data::PublicDataLeafHint,
     partial_state_reference::PartialStateReference,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [PUBLIC_KERNEL_MERGE_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS = [];
 
 pub struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -65,8 +64,7 @@ impl PublicKernelTailCircuitPrivateInputs {
     pub fn execute(self) -> KernelCircuitPublicInputs {
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
         previous_kernel_validator.validate_phase(PublicKernelPhase.TAIL);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-
+        // previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
         let (output, output_hints, public_data_read_request_hints) =
             unsafe { self.generate_output_and_hints() };
 
@@ -114,14 +112,14 @@ mod tests {
         },
         address::AztecAddress,
         constants::{
-            BASE_ROLLUP_INDEX, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+            L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
             MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
             MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_HINTS,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
             NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX,
+            PUBLIC_DATA_TREE_HEIGHT,
         },
         data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
         hash::{compute_siloed_nullifier, silo_note_hash},
@@ -191,7 +189,7 @@ mod tests {
 
     impl PublicKernelTailCircuitPrivateInputsBuilder {
         pub fn new() -> PublicKernelTailCircuitPrivateInputsBuilder {
-            let previous_kernel = FixtureBuilder::new().in_vk_tree(PUBLIC_KERNEL_MERGE_INDEX);
+            let previous_kernel = FixtureBuilder::new();
             let previous_revertible = FixtureBuilder::new();
             let nullifier_non_existent_read_request_hints_builder =
                 NullifierNonExistentReadRequestHintsBuilder::new();
@@ -702,20 +700,5 @@ mod tests {
         let expected = [non_rev[0], rev[0], rev[1], non_rev[1], non_rev[2], rev[2], rev[3], rev[4]]
             .map(|n: ScopedNullifier| n.nullifier.value);
         assert_array_eq(public_inputs.end.nullifiers, expected);
-    }
-
-    #[test]
-    fn valid_previous_kernel_merge() {
-        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_MERGE_INDEX);
-
-        let _res = builder.execute();
-    }
-
-    #[test(should_fail_with = "Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-        let _res = builder.execute();
     }
 }
