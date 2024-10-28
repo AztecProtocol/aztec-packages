@@ -226,15 +226,13 @@ unconstrained fn get_app_tagging_secret_oracle(
 /// Includes the last known index used for tagging with this secret.
 /// For this to work, PXE must know the ivpsk_m of the recipient.
 pub unconstrained fn get_app_tagging_secrets_for_senders(
-    sender: AztecAddress,
     recipient: AztecAddress,
 ) -> [IndexedTaggingSecret] {
-    let results = get_app_tagging_secrets_for_senders_oracle(sender, recipient);
+    let results = get_app_tagging_secrets_for_senders_oracle(recipient);
     results.map(|result| IndexedTaggingSecret::deserialize(result))
 }
 
 #[oracle(getAppTaggingSecretsForSenders)]
 unconstrained fn get_app_tagging_secrets_for_senders_oracle(
-    _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [[Field; INDEXED_TAGGING_SECRET_LENGTH]] {}
