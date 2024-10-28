@@ -52,4 +52,4 @@ Currently there are two "app" boxes and one "contract-only" box:
 
 ## Support
 
-Need any support? Reach out on [discord](https://discord.gg/DgWG2DBMyB), [discourse](https://discourse.aztec.network/) or [twitter](https://twitter.com/aztecnetwork).
+Need any support? Reach out on [discord](https://discord.gg/DgWG2DBMyB), [discourse](https://discourse.aztec.network/) or [twitter](https://x.com/aztecnetwork).
