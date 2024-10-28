@@ -35,8 +35,8 @@ contract Token {
         },
         oracle::random::random,
         prelude::{
-            AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable,
-            SharedImmutable,
+            AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicContext,
+            PublicMutable, SharedImmutable,
         },
         protocol_types::{point::Point, traits::Serialize},
         utils::comparison::Comparator,
@@ -481,6 +481,125 @@ contract Token {
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
     // docs:end:burn
+
+    // Transfers token `amount` from public balance of message sender to a private balance of `to`.
+    #[private]
+    fn transfer_to_private(to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+
+        let nft = Token::at(context.this_address());
+
+        // We prepare the transfer.
+        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+
+        // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
+        // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
+        nft._finalize_transfer_to_private_unsafe(from, amount, hiding_point_slot).enqueue(
+            &mut context,
+        );
+    }
+
+    /// Prepares a transfer to a private balance of `to`. The transfer then needs to be
+    /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
+    #[private]
+    fn prepare_transfer_to_private(to: AztecAddress) -> Field {
+        _prepare_transfer_to_private(to, &mut context, storage)
+    }
+
+    /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
+    /// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
+    ///
+    /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
+    /// function.
+    #[contract_library_method]
+    fn _prepare_transfer_to_private(
+        to: AztecAddress,
+        context: &mut PrivateContext,
+        storage: Storage<&mut PrivateContext>,
+    ) -> Field {
+        let to_keys = get_public_keys(to);
+        let to_npk_m_hash = to_keys.npk_m.hash();
+        let to_note_slot = storage.balances.at(to).set.storage_slot;
+
+        // We create a setup payload with unpopulated/zero `amount` for 'to'
+        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
+        // notes we could just inject it in macros.
+        let note_randomness = unsafe { random() };
+        let note_setup_payload =
+            UintNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+
+        // We encrypt the note log
+        let setup_log = note_setup_payload.encrypt_log(context, to_keys, to);
+
+        // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
+        // we have a guarantee that the public functions of the transaction are executed right after the private ones
+        // and for this reason the protocol guarantees that nobody can front-run us in consuming the hiding point.
+        // This guarantee would break if `finalize_transfer_to_private` was not called in the same transaction. This
+        // however is not the flow we are currently concerned with. To support the multi-transaction flow we could
+        // introduce a `from` function argument, hash the x-coordinate with it and then repeat the hashing in
+        // `finalize_transfer_to_private`.
+        //
+        // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
+        // in our state variables we derive slots using a different hash function from multi scalar multiplication
+        // (MSM).
+        let hiding_point_slot = note_setup_payload.hiding_point.x;
+
+        // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
+        // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
+        // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
+        Token::at(context.this_address())
+            ._store_payload_in_transient_storage_unsafe(
+                hiding_point_slot,
+                note_setup_payload.hiding_point,
+                setup_log,
+            )
+            .enqueue(context);
+
+        hiding_point_slot
+    }
+
+    /// Finalizes a transfer of token `amount` from public balance of `from` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_transfer_to_private` first and the resulting
+    /// `hiding_point_slot` must be passed as an argument to this function.
+    #[public]
+    fn finalize_transfer_to_private(amount: Field, hiding_point_slot: Field) {
+        let from = context.msg_sender();
+        _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
+    }
+
+    #[public]
+    #[internal]
+    fn _finalize_transfer_to_private_unsafe(
+        from: AztecAddress,
+        amount: Field,
+        hiding_point_slot: Field,
+    ) {
+        _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
+    }
+
+    #[contract_library_method]
+    fn _finalize_transfer_to_private(
+        from: AztecAddress,
+        amount: Field,
+        note_transient_storage_slot: Field,
+        context: &mut PublicContext,
+        storage: Storage<&mut PublicContext>,
+    ) {
+        // TODO(#8271): Type the amount as U128 and nuke the ugly cast
+        let amount = U128::from_integer(amount);
+
+        // First we subtract the `amount` from the public balance of `from`
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
+        storage.public_balances.at(from).write(from_balance);
+
+        // Then we finalize the partial note with the `amount`
+        let finalization_payload =
+            UintNote::finalization_payload().new(context, note_transient_storage_slot, amount);
+
+        // At last we emit the note hash and the final log
+        finalization_payload.emit();
+    }
+
     /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
     /// were the same we could fingerprint the user by doing the following:
     ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
