@@ -1,41 +1,33 @@
-import { type DebugLogger, currentLevel, onLog } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 
-
-
-import { DiagConsoleLogger, DiagLogLevel, type Meter, type Tracer, type TracerProvider, diag } from '@opentelemetry/api';
+import {
+  DiagConsoleLogger,
+  DiagLogLevel,
+  type Meter,
+  type Tracer,
+  type TracerProvider,
+  diag,
+} from '@opentelemetry/api';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
 import { awsEc2Detector, awsEcsDetector } from '@opentelemetry/resource-detector-aws';
-import { type IResource, detectResourcesSync, envDetectorSync, osDetectorSync, processDetectorSync, serviceInstanceIdDetectorSync } from '@opentelemetry/resources';
+import {
+  type IResource,
+  detectResourcesSync,
+  envDetectorSync,
+  osDetectorSync,
+  processDetectorSync,
+  serviceInstanceIdDetectorSync,
+} from '@opentelemetry/resources';
+import { type LoggerProvider } from '@opentelemetry/sdk-logs';
 import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import * as winston from 'winston';
 
 import { aztecDetector } from './aztec_resource_detector.js';
+import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
-import { OpenTelemetryTransportV3 } from '@opentelemetry/winston-transport';
-
-
-export function setupConsoleJsonLog() {
-  const logger = createWinstonJsonStdoutLogger();
-  onLog((level, module, message, data) => {
-    logger.log({ ...data, level, module, message });
-  });
-}
-
-function createWinstonJsonStdoutLogger() {
-  const { format } = winston;
-  return winston.createLogger({
-    level: currentLevel,
-    transports: [
-      new OpenTelemetryTransportV3({
-        format: format.combine(format.timestamp(), format.json()),
-      }),
-    ],
-  });
-}
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
@@ -45,6 +37,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     private resource: IResource,
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
+    private loggerProvider: LoggerProvider,
     private log: DebugLogger,
   ) {}
 
@@ -81,7 +74,7 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async stop() {
-    await Promise.all([this.meterProvider.shutdown()]);
+    await Promise.all([this.meterProvider.shutdown(), this.loggerProvider.shutdown()]);
   }
 
   public static async createAndStart(
@@ -127,8 +120,9 @@ export class OpenTelemetryClient implements TelemetryClient {
         }),
       ],
     });
+    const loggerProvider = registerOtelLoggerProvider(resource, logsCollector);
 
-    const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, log);
+    const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
     service.start();
 
     return service;
