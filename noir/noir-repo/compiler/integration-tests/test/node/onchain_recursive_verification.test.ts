@@ -35,7 +35,7 @@ it.skip(`smart contract can verify a recursive proof`, async () => {
 
   // Intermediate proof
 
-  const inner_backend = new UltraPlonkBackend(innerProgram.bytecode);
+  const inner_backend = new UltraPlonkBackend(innerProgram.bytecode, {}, {recursive: true});
   const inner = new Noir(innerProgram);
 
   const inner_prover_toml = readFileSync(
@@ -67,7 +67,7 @@ it.skip(`smart contract can verify a recursive proof`, async () => {
 
   const { witness: recursionWitness } = await recursion.execute(recursion_inputs);
 
-  const recursion_backend = new UltraPlonkBackend(recursionProgram.bytecode);
+  const recursion_backend = new UltraPlonkBackend(recursionProgram.bytecode, {}, {recursive: true});
   const recursion_proof = await recursion_backend.generateProof(recursionWitness);
   expect(await recursion_backend.verifyProof(recursion_proof)).to.be.true;
 
