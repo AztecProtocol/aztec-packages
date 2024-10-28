@@ -1,5 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint32, Uint64 } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -63,7 +64,7 @@ export class GetEnvVar extends Instruction {
     OperandType.UINT16, // dstOffset
   ];
 
-  constructor(private indirect: number, private varEnum: EnvironmentVariable, private dstOffset: number) {
+  constructor(private indirect: number, private varEnum: number, private dstOffset: number) {
     super();
   }
 
@@ -71,11 +72,15 @@ export class GetEnvVar extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
+    if (!(this.varEnum in EnvironmentVariable)) {
+      throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);
+    }
+
     const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
 
-    memory.set(dstOffset, getValue(this.varEnum, context));
+    memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));
 
     memory.assert({ writes: 1, addressing });
     context.machineState.incrementPc();

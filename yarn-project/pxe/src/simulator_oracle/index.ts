@@ -16,8 +16,10 @@ import {
   type Header,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
@@ -225,5 +227,24 @@ export class SimulatorOracle implements DBOracle {
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
     return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+  }
+
+  /**
+   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * @param contractAddress - The contract address to silo the secret for
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   * @returns A tagging secret that can be used to tag notes.
+   */
+  public async getAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<Fr> {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
+    // Silo the secret to the app so it can't be used to track other app's notes
+    return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
   }
 }

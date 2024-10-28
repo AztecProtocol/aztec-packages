@@ -1,10 +1,10 @@
 ---
-title: Inner Workings of Functions and Macros
+title: Function Attributes and Macros
 sidebar_position: 4
 tags: [functions]
 ---
 
-Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract and what the attributes are really doing.
+On this page you will learn about function attributes and macros.
 
 If you are looking for a reference of function macros, go [here](../../../reference/developer_references/smart_contract_reference/macros.md).
 
@@ -358,5 +358,7 @@ Key things to keep in mind:
 
 ## Further reading
 
-- [How do macros work](./inner_workings.md)
 - [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
+- [How do macros work](./attributes.md)
+
+

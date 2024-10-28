@@ -252,4 +252,8 @@ export abstract class TypedOracle {
   debugLog(_message: string, _fields: Fr[]): void {
     throw new OracleMethodNotAvailableError('debugLog');
   }
+
+  getAppTaggingSecret(_sender: AztecAddress, _recipient: AztecAddress): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('getAppTaggingSecret');
+  }
 }
