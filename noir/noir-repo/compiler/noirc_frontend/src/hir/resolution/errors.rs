@@ -83,8 +83,6 @@ pub enum ResolverError {
     InvalidClosureEnvironment { typ: Type, span: Span },
     #[error("Nested slices, i.e. slices within an array or slice, are not supported")]
     NestedSlices { span: Span },
-    #[error("Deprecated attributes")]
-    DeprecatedAttributes { ident: Ident, attrs: Vec<String> },
     #[error("#[abi(tag)] attribute is only allowed in contracts")]
     AbiAttributeOutsideContract { span: Span },
     #[error("Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library")]
@@ -380,18 +378,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 "Try to use a constant sized array or BoundedVec instead".into(),
                 *span,
             ),
-            ResolverError::DeprecatedAttributes { ident, attrs } => {
-                let name = &ident.0.contents;
-
-                let mut diag = Diagnostic::simple_warning(
-                    format!("deprecated attributes on {name}: {}", attrs.join(", ")),
-                    "these attributes have no effect any more".to_string(),
-                    ident.0.span(),
-                );
-                diag.deprecated = true;
-
-                diag
-            }
             ResolverError::AbiAttributeOutsideContract { span } => {
                 Diagnostic::simple_error(
                     "#[abi(tag)] attributes can only be used in contracts".to_string(),

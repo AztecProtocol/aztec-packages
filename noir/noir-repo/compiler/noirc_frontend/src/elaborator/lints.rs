@@ -1,5 +1,5 @@
 use crate::{
-    ast::{FunctionKind, Ident, NoirFunction, Signedness, UnaryOp, Visibility},
+    ast::{Ident, NoirFunction, Signedness, UnaryOp, Visibility},
     graph::CrateId,
     hir::{
         resolution::errors::{PubPosition, ResolverError},
@@ -122,33 +122,6 @@ pub(super) fn missing_pub(func: &FuncMeta, modifiers: &FunctionModifiers) -> Opt
     {
         let ident = func_meta_name_ident(func, modifiers);
         Some(ResolverError::NecessaryPub { ident })
-    } else {
-        None
-    }
-}
-
-/// Warn about deprecated attributes.
-pub(super) fn deprecated_attributes(
-    func: &FuncMeta,
-    modifiers: &FunctionModifiers,
-) -> Option<ResolverError> {
-    if func.kind == FunctionKind::Normal {
-        let attrs = func
-            .custom_attributes
-            .iter()
-            .filter_map(|attr| {
-                if matches!(attr.contents.as_str(), "recursive") {
-                    Some(attr.contents.clone())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        if attrs.is_empty() {
-            return None;
-        }
-        let ident = func_meta_name_ident(func, modifiers);
-        Some(ResolverError::DeprecatedAttributes { ident, attrs })
     } else {
         None
     }
