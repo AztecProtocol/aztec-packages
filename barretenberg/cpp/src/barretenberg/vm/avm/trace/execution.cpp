@@ -495,6 +495,18 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
                                            std::get<uint16_t>(inst.operands.at(3)));
             break;
 
+        case OpCode::RETURNDATASIZE:
+            trace_builder.op_returndata_size(std::get<uint8_t>(inst.operands.at(0)),
+                                             std::get<uint16_t>(inst.operands.at(1)));
+            break;
+
+        case OpCode::RETURNDATACOPY:
+            trace_builder.op_returndata_copy(std::get<uint8_t>(inst.operands.at(0)),
+                                             std::get<uint16_t>(inst.operands.at(1)),
+                                             std::get<uint16_t>(inst.operands.at(2)),
+                                             std::get<uint16_t>(inst.operands.at(3)));
+            break;
+
             // Machine State - Internal Control Flow
         case OpCode::JUMP_16:
             trace_builder.op_jump(std::get<uint16_t>(inst.operands.at(0)));

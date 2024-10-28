@@ -95,6 +95,8 @@ namespace main(256);
 
     //===== Memory Slice Gadget Selectors =========================================
     pol commit sel_op_calldata_copy;
+    pol commit sel_op_returndata_size;
+    pol commit sel_op_returndata_copy;
     pol commit sel_op_external_return;
     pol commit sel_op_external_revert;
 
@@ -275,6 +277,8 @@ namespace main(256);
     sel_op_static_call * (1 - sel_op_static_call) = 0;
 
     sel_op_calldata_copy * (1 - sel_op_calldata_copy) = 0;
+    sel_op_returndata_size * (1 - sel_op_returndata_size) = 0;
+    sel_op_returndata_copy * (1 - sel_op_returndata_copy) = 0;
     sel_op_external_return * (1 - sel_op_external_return) = 0;
     sel_op_external_revert * (1 - sel_op_external_revert) = 0;
 
@@ -409,7 +413,8 @@ namespace main(256);
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol SEL_ALL_CTRL_FLOW = sel_op_jump + sel_op_jumpi + sel_op_internal_call
-                          + sel_op_internal_return + sel_op_external_call + sel_op_static_call + sel_op_external_return;
+                          + sel_op_internal_return + sel_op_external_call + sel_op_static_call
+                          + sel_op_external_return + sel_op_external_revert;
     pol SEL_ALU_R_TAG = sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_not + sel_op_eq
                       + sel_op_lt + sel_op_lte + sel_op_shr + sel_op_shl;
     pol SEL_ALU_W_TAG = sel_op_cast;
@@ -420,6 +425,7 @@ namespace main(256);
                        + sel_op_ecadd + sel_op_msm;
     pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol OPCODE_SELECTORS = sel_op_fdiv + sel_op_calldata_copy + sel_op_get_contract_instance
+                         + sel_op_returndata_size + sel_op_returndata_copy
                          + SEL_ALL_ALU + SEL_ALL_BINARY + SEL_ALL_MEMORY + SEL_ALL_GADGET
                          + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + SEL_ALL_LEFTGAS
                          + SEL_ALL_CTRL_FLOW;

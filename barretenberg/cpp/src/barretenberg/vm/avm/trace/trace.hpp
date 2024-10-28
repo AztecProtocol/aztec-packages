@@ -80,6 +80,11 @@ class AvmTraceBuilder {
 
     // Execution Environment - Calldata
     void op_calldata_copy(uint8_t indirect, uint32_t cd_offset_address, uint32_t copy_size_offset, uint32_t dst_offset);
+    void op_returndata_size(uint8_t indirect, uint32_t dst_offset);
+    void op_returndata_copy(uint8_t indirect,
+                            uint32_t rd_offset_address,
+                            uint32_t copy_size_offset,
+                            uint32_t dst_offset);
 
     // Machine State - Gas
     void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
@@ -201,6 +206,10 @@ class AvmTraceBuilder {
 
     std::vector<FF> calldata;
     std::vector<FF> returndata;
+
+    // Return/revert data of the last nested call.
+    std::vector<FF> nested_returndata;
+
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
