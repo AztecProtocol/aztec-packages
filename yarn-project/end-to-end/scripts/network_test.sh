@@ -8,6 +8,7 @@
 #   CHAOS_VALUES (default: "")
 #   FRESH_INSTALL (default: "false")
 #   AZTEC_DOCKER_TAG (default: current git commit)
+#   NETWORK_SHAPING_CONFIG (default: "")
 
 set -eux
 
@@ -61,6 +62,30 @@ function show_status_until_pxe_ready() {
   done
 }
 
+# Handle and check chaos mesh setup
+handle_network_shaping() {
+    if [ -n "${CHAOS_VALUES:-}" ]; then
+        echo "Checking chaos-mesh setup..."
+        if ! kubectl get namespace chaos-mesh &>/dev/null; then
+            echo "Error: chaos-mesh namespace not found!"
+            echo "Please set up chaos-mesh first. You can do this by running:"
+            echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
+            exit 1
+        fi
+
+        echo "Deploying network shaping configuration..."
+        helm upgrade --install network-chaos "$REPO/spartan/network-shaping/" \
+            --namespace chaos-mesh \
+            --values "$CHAOS_VALUES" \
+            ## Configure the namespace we will apply network shaping to
+            --set global.targetNamespace="$NAMESPACE" \
+            --wait \
+            --timeout=5m
+
+        echo "Network shaping configuration applied successfully"
+    fi
+}
+
 show_status_until_pxe_ready &
 
 function cleanup() {
@@ -88,8 +113,12 @@ FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | c
 PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 
+## TODO: why is namespace down here???
+
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
+
+handle_network_shaping
 
 # Start port-forwarding with dynamically allocated free ports
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe $PXE_PORT:8080 2>/dev/null >/dev/null || true) &
