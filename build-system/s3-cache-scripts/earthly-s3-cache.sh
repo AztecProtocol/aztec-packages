@@ -5,7 +5,7 @@
 # - $prefix
 # - $command
 # The rest of the env variables are injected as secrets (e.g. aws creds and s3 modes)
-set -eux
+set -eu
 
 # definitions
 FILE="$prefix-$(cat .content-hash).tar.gz"
