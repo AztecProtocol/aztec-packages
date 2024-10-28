@@ -8,8 +8,8 @@ pub trait NoteProperties<T> {
 
 pub trait PartialNote<S, F>
 where
-    S: crate::protocol_types::traits::Empty,
-    F: crate::protocol_types::traits::Empty,
+    S: Empty,
+    F: Empty,
 {
     fn setup_payload() -> S;
 
