@@ -338,7 +338,6 @@ impl Program {
         main_function_signature: FunctionSignature,
         return_location: Option<Location>,
         return_visibility: Visibility,
-        _recursive: bool,
         debug_variables: DebugVariables,
         debug_functions: DebugFunctions,
         debug_types: DebugTypes,

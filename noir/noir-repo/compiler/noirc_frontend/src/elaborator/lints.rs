@@ -127,14 +127,28 @@ pub(super) fn missing_pub(func: &FuncMeta, modifiers: &FunctionModifiers) -> Opt
     }
 }
 
-/// `#[recursive]` attribute is only allowed for entry point functions
-pub(super) fn recursive_non_entrypoint_function(
+/// Warn about deprecated attributes.
+pub(super) fn deprecated_attributes(
     func: &FuncMeta,
     modifiers: &FunctionModifiers,
 ) -> Option<ResolverError> {
-    if !func.is_entry_point && func.kind == FunctionKind::Recursive {
+    if func.kind == FunctionKind::Normal {
+        let attrs = func
+            .custom_attributes
+            .iter()
+            .filter_map(|attr| {
+                if matches!(attr.contents.as_str(), "recursive") {
+                    Some(attr.contents.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if attrs.is_empty() {
+            return None;
+        }
         let ident = func_meta_name_ident(func, modifiers);
-        Some(ResolverError::MisplacedRecursiveAttribute { ident })
+        Some(ResolverError::DeprecatedAttributes { ident, attrs })
     } else {
         None
     }
