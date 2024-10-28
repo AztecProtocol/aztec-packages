@@ -183,7 +183,7 @@ contract AMM {
         // Calculate the amounts to be added to the pool
         let mut amount0 = amount0_desired;
         let mut amount1 = amount1_desired;
-        if ((reserve0 != 0) | (reserve1 != 0)) {
+        if ((reserve0 != U128::zero()) | (reserve1 != U128::zero())) {
             // First calculate the optimal amount of token1 based on the desired amount of token0.
             let amount1_optimal = get_quote(amount0_desired, reserve0, reserve1);
             if (amount1_optimal <= amount1_desired) {
