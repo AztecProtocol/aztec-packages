@@ -81,19 +81,21 @@ contract Inbox is IInbox {
       currentTree = trees[inProgress];
     }
 
+    // this is the global leaf index and not index in the l2Block subtree
+    // such that users can simply use it and don't need access to a node if they are to consume it in public.
+    // trees are constant size so global index = tree number * size + subtree index
+    uint256 index = (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
+
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(msg.sender, block.chainid),
       recipient: _recipient,
       content: _content,
-      secretHash: _secretHash
+      secretHash: _secretHash,
+      index: index
     });
 
     bytes32 leaf = message.sha256ToField();
-    // this is the global leaf index and not index in the l2Block subtree
-    // such that users can simply use it and don't need access to a node if they are to consume it in public.
-    // trees are constant size so global index = tree number * size + subtree index
-    uint256 index =
-      (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.insertLeaf(leaf);
+    currentTree.insertLeaf(leaf);
     totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 

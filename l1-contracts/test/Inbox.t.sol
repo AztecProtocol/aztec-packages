@@ -38,7 +38,8 @@ contract InboxTest is Test {
         version: version
       }),
       content: 0x2000000000000000000000000000000000000000000000000000000000000000,
-      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000
+      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
+      index: 0x01
     });
   }
 
@@ -46,7 +47,7 @@ contract InboxTest is Test {
     return (a + b - 1) / b;
   }
 
-  function _boundMessage(DataStructures.L1ToL2Msg memory _message)
+  function _boundMessage(DataStructures.L1ToL2Msg memory _message, uint256 _globalLeafIndex)
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -61,6 +62,8 @@ contract InboxTest is Test {
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
     // update version
     _message.recipient.version = version;
+    // set leaf index
+    _message.index = _globalLeafIndex;
 
     return _message;
   }
@@ -84,12 +87,12 @@ contract InboxTest is Test {
   }
 
   function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
-    DataStructures.L1ToL2Msg memory message = _boundMessage(_message);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
+    DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
     bytes32 leaf = message.sha256ToField();
     vm.expectEmit(true, true, true, true);
     // event we expect
-    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
     emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf);
     // event we will get
     bytes32 insertedLeaf =
@@ -107,9 +110,9 @@ contract InboxTest is Test {
     // Only 1 tree should be non-zero
     assertEq(inbox.getNumTrees(), 1);
 
-    // All the leaves should be the same
-    assertEq(leaf1, leaf2);
-    assertEq(leaf2, leaf3);
+    // All the leaves should be different since the index gets mixed in
+    assertNotEq(leaf1, leaf2);
+    assertNotEq(leaf2, leaf3);
   }
 
   function testRevertIfActorTooLarge() public {
@@ -161,7 +164,8 @@ contract InboxTest is Test {
 
     // We send the messages and then check that toConsume root did not change.
     for (uint256 i = 0; i < _messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
+      DataStructures.L1ToL2Msg memory message =
+        _boundMessage(_messages[i], inbox.getNextMessageIndex());
 
       // We check whether a new tree is correctly initialized when the one in progress is full
       uint256 numTrees = inbox.getNumTrees();
