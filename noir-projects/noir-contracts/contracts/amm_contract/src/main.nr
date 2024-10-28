@@ -211,8 +211,8 @@ contract AMM {
         let mut liquidity = U128::zero();
         if (total_supply == U128::zero()) {
             // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
-            liquidity = U128::from_integer(std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY)
-                .to_integer()));
+            liquidity = U128::from_integer(std::ec::sqrt((amount0 * amount1).to_integer()))
+                - MINIMUM_LIQUIDITY;
             liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY.to_integer()).call(
                 &mut context,
             ); // permanently lock the first MINIMUM_LIQUIDITY tokens
