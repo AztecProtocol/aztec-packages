@@ -508,7 +508,7 @@ describe('StandardIndexedTreeSpecific', () => {
 
     const TREE_HEIGHT = 16; // originally from NULLIFIER_TREE_HEIGHT
     const INITIAL_TREE_SIZE = 8; // originally from INITIAL_NULLIFIER_TREE_SIZE
-    const SUBTREE_HEIGHT = 5; // originally from BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT
+    const SUBTREE_HEIGHT = 5; // originally from NULLIFIER_SUBTREE_HEIGHT
 
     // Create a depth-3 indexed merkle tree
     const appendTree = await createDb(openTmpStore(), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);

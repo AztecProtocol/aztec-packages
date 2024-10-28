@@ -1,12 +1,12 @@
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint32, Uint64 } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
 export enum EnvironmentVariable {
   ADDRESS,
-  STORAGEADDRESS,
   SENDER,
   FUNCTIONSELECTOR,
   TRANSACTIONFEE,
@@ -25,8 +25,6 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
   switch (e) {
     case EnvironmentVariable.ADDRESS:
       return new Field(ctx.environment.address.toField());
-    case EnvironmentVariable.STORAGEADDRESS:
-      return new Field(ctx.environment.storageAddress.toField());
     case EnvironmentVariable.SENDER:
       return new Field(ctx.environment.sender.toField());
     case EnvironmentVariable.FUNCTIONSELECTOR:
@@ -66,7 +64,7 @@ export class GetEnvVar extends Instruction {
     OperandType.UINT16, // dstOffset
   ];
 
-  constructor(private indirect: number, private varEnum: EnvironmentVariable, private dstOffset: number) {
+  constructor(private indirect: number, private varEnum: number, private dstOffset: number) {
     super();
   }
 
@@ -74,11 +72,15 @@ export class GetEnvVar extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
+    if (!(this.varEnum in EnvironmentVariable)) {
+      throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);
+    }
+
     const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
 
-    memory.set(dstOffset, getValue(this.varEnum, context));
+    memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));
 
     memory.assert({ writes: 1, addressing });
     context.machineState.incrementPc();

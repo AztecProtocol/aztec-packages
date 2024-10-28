@@ -36,7 +36,11 @@ impl<let N: u32> Reader<N> {
         result
     }
 
-    pub fn read_struct_array<T, let K: u32, let C: u32>(&mut self, deserialise: fn([Field; K]) -> T, mut result: [T; C]) -> [T; C] {
+    pub fn read_struct_array<T, let K: u32, let C: u32>(
+        &mut self,
+        deserialise: fn([Field; K]) -> T,
+        mut result: [T; C],
+    ) -> [T; C] {
         for i in 0..C {
             result[i] = self.read_struct(deserialise);
         }

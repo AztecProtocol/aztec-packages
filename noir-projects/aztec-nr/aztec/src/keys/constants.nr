@@ -1,4 +1,7 @@
-use dep::protocol_types::constants::{GENERATOR_INDEX__NSK_M, GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M, GENERATOR_INDEX__TSK_M};
+use dep::protocol_types::constants::{
+    GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__NSK_M, GENERATOR_INDEX__OVSK_M,
+    GENERATOR_INDEX__TSK_M,
+};
 
 // Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate and
 // index * 2 + 2 for the y coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot
@@ -15,5 +18,5 @@ global sk_generators = [
     GENERATOR_INDEX__NSK_M as Field,
     GENERATOR_INDEX__IVSK_M as Field,
     GENERATOR_INDEX__OVSK_M as Field,
-    GENERATOR_INDEX__TSK_M as Field
+    GENERATOR_INDEX__TSK_M as Field,
 ];

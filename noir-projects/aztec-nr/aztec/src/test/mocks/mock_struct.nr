@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Serialize, Deserialize};
+use dep::protocol_types::traits::{Deserialize, Serialize};
 
 pub(crate) struct MockStruct {
     a: Field,

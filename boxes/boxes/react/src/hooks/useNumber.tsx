@@ -25,7 +25,7 @@ export function useNumber({ contract }: { contract: Contract }) {
 
       const value = BigInt(el.value);
       const deployerWallet = await deployerEnv.getWallet();
-      const { masterNullifierPublicKey, masterIncomingViewingPublicKey, masterOutgoingViewingPublicKey } =
+      const { masterNullifierPublicKey, masterOutgoingViewingPublicKey } =
         deployerWallet.getCompleteAddress().publicKeys;
       await toast.promise(
         contract!.methods
@@ -34,7 +34,6 @@ export function useNumber({ contract }: { contract: Contract }) {
             deployerWallet.getCompleteAddress().address,
             masterNullifierPublicKey.hash(),
             masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
-            masterIncomingViewingPublicKey.toWrappedNoirStruct(),
           )
           .send()
           .wait(),

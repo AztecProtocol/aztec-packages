@@ -24,4 +24,4 @@ A good place to use `internal` is when you want a private function to be able to
 Note that non-internal functions could be used directly as an entry-point, which currently means that the `msg_sender` would be `0`, so for now, using address `0` as a burn address is not recommended. You can learn more about this in the [Accounts concept page](../../concepts/accounts/keys.md).
 :::
 
-To understand how visibility works under the hood, check out the [Inner Workings page](./inner_workings.md).
+To understand how visibility works under the hood, check out the [Inner Workings page](./attributes.md).

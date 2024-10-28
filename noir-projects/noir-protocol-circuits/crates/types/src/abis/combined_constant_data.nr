@@ -1,8 +1,8 @@
-use crate::transaction::tx_context::TxContext;
-use crate::header::Header;
-use crate::traits::{Empty, Serialize, Deserialize};
 use crate::abis::global_variables::GlobalVariables;
 use crate::constants::COMBINED_CONSTANT_DATA_LENGTH;
+use crate::header::Header;
+use crate::traits::{Deserialize, Empty, Serialize};
+use crate::transaction::tx_context::TxContext;
 use crate::utils::reader::Reader;
 
 pub struct CombinedConstantData {
@@ -25,14 +25,14 @@ impl CombinedConstantData {
         historical_header: Header,
         tx_context: TxContext,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field
+        protocol_contract_tree_root: Field,
     ) -> CombinedConstantData {
         CombinedConstantData {
             historical_header,
             tx_context,
             vk_tree_root,
             protocol_contract_tree_root,
-            global_variables: GlobalVariables::empty()
+            global_variables: GlobalVariables::empty(),
         }
     }
 }
@@ -44,7 +44,7 @@ impl Empty for CombinedConstantData {
             tx_context: TxContext::empty(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
-            global_variables: GlobalVariables::empty()
+            global_variables: GlobalVariables::empty(),
         }
     }
 }
@@ -74,7 +74,7 @@ impl Deserialize<COMBINED_CONSTANT_DATA_LENGTH> for CombinedConstantData {
             tx_context: reader.read_struct(TxContext::deserialize),
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),
-            global_variables: reader.read_struct(GlobalVariables::deserialize)
+            global_variables: reader.read_struct(GlobalVariables::deserialize),
         };
         reader.finish();
         item

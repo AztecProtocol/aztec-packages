@@ -85,6 +85,14 @@ contract Registry is IRegistry, Ownable {
   }
 
   /**
+   * @notice Returns the address of the apella
+   * @return The apella address
+   */
+  function getApella() external view override(IRegistry) returns (address) {
+    return owner();
+  }
+
+  /**
    * @notice Creates a new snapshot of the registry
    *
    * @dev Only callable by the owner

@@ -14,17 +14,22 @@ use dep::aztec::macros::aztec;
 contract TokenBlacklist {
     // Libs
     use dep::aztec::{
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
         hash::compute_secret_hash,
+        keys::getters::get_public_keys,
+        macros::{functions::{initializer, internal, private, public, view}, storage::storage},
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note_unconstrained, encode_and_encrypt_note},
         utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public, initializer, view, internal}},
-        keys::getters::get_public_keys
     };
 
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
+    use dep::authwit::auth::{
+        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+    };
 
-    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap, roles::UserFlags};
+    use crate::types::{
+        balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
+        transparent_note::TransparentNote,
+    };
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
@@ -40,36 +45,31 @@ contract TokenBlacklist {
 
     // docs:start:constructor
     #[public]
-    #['public]
-    #['initializer]
+    #[initializer]
     fn constructor(admin: AztecAddress) {
         let admin_roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false };
         storage.roles.at(admin).schedule_value_change(admin_roles);
     }
 
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn total_supply() -> pub Field {
         storage.total_supply.read().to_field()
     }
 
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.public_balances.at(owner).read().to_field()
     }
 
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn get_roles(user: AztecAddress) -> UserFlags {
         storage.roles.at(user).get_current_value_in_public()
     }
 
     #[public]
-    #['public]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
         let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
         assert(caller_roles.is_admin, "caller is not admin");
@@ -78,7 +78,6 @@ contract TokenBlacklist {
     }
 
     #[public]
-    #['public]
     fn mint_public(to: AztecAddress, amount: Field) {
         let to_roles = storage.roles.at(to).get_current_value_in_public();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
@@ -95,7 +94,6 @@ contract TokenBlacklist {
     }
 
     #[public]
-    #['public]
     fn mint_private(amount: Field, secret_hash: Field) {
         let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
         assert(caller_roles.is_minter, "caller is not minter");
@@ -109,7 +107,6 @@ contract TokenBlacklist {
     }
 
     #[public]
-    #['public]
     fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_public();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -132,7 +129,6 @@ contract TokenBlacklist {
     }
 
     #[public]
-    #['public]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_public();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -154,7 +150,6 @@ contract TokenBlacklist {
     }
 
     #[public]
-    #['public]
     fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_public();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -174,7 +169,6 @@ contract TokenBlacklist {
     }
 
     #[private]
-    #['private]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
         let to_roles = storage.roles.at(to).get_current_value_in_private();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
@@ -184,11 +178,10 @@ contract TokenBlacklist {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
-            TransparentNote::properties().secret_hash,
-            Comparator.EQ,
-            secret_hash
-        ).set_limit(1);
+        options = options
+            .select(TransparentNote::properties().amount, Comparator.EQ, amount)
+            .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
+            .set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
@@ -196,11 +189,14 @@ contract TokenBlacklist {
         // Add the token note to user's balances set
         let msg_sender_keys = get_public_keys(context.msg_sender());
         let to_keys = get_public_keys(to);
-        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, to_keys.ivpk_m, to));
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.add(to, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, msg_sender_keys.ovpk_m, to),
+        );
     }
 
     #[private]
-    #['private]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -214,14 +210,19 @@ contract TokenBlacklist {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.sub(from, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
+        );
 
-        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
+            &mut context,
+        );
     }
 
     // docs:start:transfer_private
     #[private]
-    #['private]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -238,14 +239,19 @@ contract TokenBlacklist {
         let to_keys = get_public_keys(to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
-        );
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_keys.ovpk_m,
+            from,
+        ));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_keys.ovpk_m,
+            to,
+        ));
     }
 
     #[private]
-    #['private]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -257,23 +263,25 @@ contract TokenBlacklist {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.sub(from, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from),
+        );
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
     /// Internal ///
     #[public]
-    #['public]
-    #['internal]
+    #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
         storage.public_balances.at(to).write(new_balance);
     }
 
     #[public]
-    #['public]
-    #['internal]
+    #[internal]
     fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));

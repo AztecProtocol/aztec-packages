@@ -33,9 +33,9 @@ describe('Discv5Service', () => {
   let basePort = 7890;
   const baseConfig = {
     tcpAnnounceAddress: `127.0.0.1:${basePort}`,
-    udpAnnounceAddress: `127.0.0.1:${basePort}`,
+    udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
     tcpListenAddress: `0.0.0.0:${basePort}`,
-    udpListenAddress: `0.0.0.0:${basePort}`,
+    udpListenAddress: `0.0.0.0:${basePort + 100}`,
     minPeerCount: 1,
     maxPeerCount: 100,
     queryForIp: false,
@@ -126,9 +126,9 @@ describe('Discv5Service', () => {
       ...getP2PDefaultConfig(),
       ...baseConfig,
       tcpListenAddress: `0.0.0.0:${port}`,
-      udpListenAddress: `0.0.0.0:${port}`,
+      udpListenAddress: `0.0.0.0:${port + 100}`,
       tcpAnnounceAddress: `127.0.0.1:${port}`,
-      udpAnnounceAddress: `127.0.0.1:${port}`,
+      udpAnnounceAddress: `127.0.0.1:${port + 100}`,
       bootstrapNodes: [bootnodeAddr],
       blockCheckIntervalMS: 50,
       peerCheckIntervalMS: 50,
