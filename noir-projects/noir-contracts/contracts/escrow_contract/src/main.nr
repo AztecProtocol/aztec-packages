@@ -32,7 +32,6 @@ contract Escrow {
         storage.owner.initialize(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }
