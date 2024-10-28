@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730053042554,
+  "lastUpdate": 1730110869728,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ef0895ed9788c533b0caf2d2c30839552dabbcc",
-          "message": "feat: new per-enqueued-call gas limit (#9033)\n\nIt is not trivial to implement \"startup conditions\" in the AVM circuit\r\nthat are not standard part of any execution. So, for now we think it'd\r\nbe much easier to enforce our \"max gas\" in the kernel. The simulator and\r\nwitgen will check the startup gas and error if its too much, but the AVM\r\ncircuit will not include constraints for this.\r\n\r\nNote that this is an important constraint (whether in the kernel or AVM)\r\nbecause for now this gas limit also serves to ensure that the AVM\r\ncircuit's trace never fills up.",
-          "timestamp": "2024-10-09T21:23:48Z",
-          "tree_id": "08978444664ee37e923bb9e3c6e2d3341fb36681",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6ef0895ed9788c533b0caf2d2c30839552dabbcc"
-        },
-        "date": 1728509894156,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31321.665307999978,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28882.341134 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5537.085727000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5243.292273999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 94970.49075699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 94970493000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15652.720294000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15652720000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8406353168,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8406353168 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 150599368,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 150599368 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6777457456,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6777457456 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125549974,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125549974 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3204,6 +3132,66 @@ window.BENCHMARK_DATA = {
             "value": 124794973,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 124794973 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e07de8233929d40a433a80064ceec30a69c1360",
+          "message": "chore(avm:): Fix execution tests in proving mode (#9466)\n\nThis will fix failures in:\r\nhttps://github.com/AztecProtocol/aztec-packages/actions/runs/11547299961",
+          "timestamp": "2024-10-28T09:49:39Z",
+          "tree_id": "3ef5a856fd0482bb8b368b6951520fe99f8bee35",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8e07de8233929d40a433a80064ceec30a69c1360"
+        },
+        "date": 1730110862785,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30765.77651100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28825.568314999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5365.104804000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5064.249232 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92651.39496100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92651397000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15148.522228999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15148523000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2715504396,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2715504396 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127042197,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127042197 ns\nthreads: 1"
           }
         ]
       }
