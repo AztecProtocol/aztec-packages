@@ -59,7 +59,7 @@ contract AMM {
 
     /// Amount of liquidity which gets locked in the pool when liquidity is provided for the first time. It's purpose
     /// is to prevent the pool from ever emptying which could lead to undefined behavior.
-    global MINIMUM_LIQUIDITY: u64 = 1000;
+    global MINIMUM_LIQUIDITY = U128::from_integer(1000);
 
     // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
     // a liquidity tracking contract. This contract would be an admin of the liquidity contract.
@@ -77,13 +77,22 @@ contract AMM {
     /// isolate authwits to this specific call.
     #[private]
     fn add_liquidity(
-        amount0_desired: u64,
-        amount1_desired: u64,
-        amount0_min: u64,
-        amount1_min: u64,
+        amount0_desired: Field,
+        amount1_desired: Field,
+        amount0_min: Field,
+        amount1_min: Field,
         nonce: Field,
     ) {
-        assert(amount0_desired > 0 & amount1_desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
+        // TODO(#8271): Type the args as U128 and nuke these ugly casts
+        let amount0_desired = U128::from_integer(amount0_desired);
+        let amount1_desired = U128::from_integer(amount1_desired);
+        let amount0_min = U128::from_integer(amount0_min);
+        let amount1_min = U128::from_integer(amount1_min);
+
+        assert(
+            amount0_desired > U128::zero() & amount1_desired > U128::zero(),
+            "INSUFFICIENT_INPUT_AMOUNTS",
+        );
 
         let state = storage.state.read_private();
 
@@ -92,12 +101,22 @@ contract AMM {
         let liquidity_token = Token::at(state.liquidity_token);
 
         // We transfer the desired amounts of tokens to this contract.
-        token0.transfer_to_public(msg.sender, context.this_address(), amount0_desired, nonce).call(
-            &mut context,
-        );
-        token1.transfer_to_public(msg.sender, context.this_address(), amount1_desired, nonce).call(
-            &mut context,
-        );
+        token0
+            .transfer_to_public(
+                msg.sender,
+                context.this_address(),
+                amount0_desired.to_integer(),
+                nonce,
+            )
+            .call(&mut context);
+        token1
+            .transfer_to_public(
+                msg.sender,
+                context.this_address(),
+                amount1_desired.to_integer(),
+                nonce,
+            )
+            .call(&mut context);
 
         // We may need to return some token amounts depending on public state (i.e. if the desired amounts do
         // not have the same ratio as the live reserves), so we prepare partial notes for the refunds.
@@ -117,10 +136,10 @@ contract AMM {
                 refund_token0_slot_commitment,
                 refund_token1_slot_commitment,
                 liquidity_slot_commitment,
-                amount0_desired,
-                amount1_desired,
-                amount0_min,
-                amount1_min,
+                amount0_desired.to_integer(),
+                amount1_desired.to_integer(),
+                amount0_min.to_integer(),
+                amount1_min.to_integer(),
             )
             .enqueue(&mut context);
     }
@@ -133,11 +152,17 @@ contract AMM {
         refund_token0_slot_commitment: Field,
         refund_token1_slot_commitment: Field,
         liquidity_slot_commitment: Field,
-        amount0_desired: u64,
-        amount1_desired: u64,
-        amount0_min: u64,
-        amount1_min: u64,
+        amount0_desired: Field,
+        amount1_desired: Field,
+        amount0_min: Field,
+        amount1_min: Field,
     ) {
+        // TODO(#8271): Type the args as U128 and nuke these ugly casts
+        let amount0_desired = U128::from_integer(amount0_desired);
+        let amount1_desired = U128::from_integer(amount1_desired);
+        let amount0_min = U128::from_integer(amount0_min);
+        let amount1_min = U128::from_integer(amount1_min);
+
         // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
         // `add_liquidity` which is private and since public functions cannot call private ones it's impossible to
         // reenter this function.
@@ -145,10 +170,12 @@ contract AMM {
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
 
-        let reserve0_with_amount0_desired =
-            token0.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Avoid the need for these casts.
-        let reserve1_with_amount1_desired =
-            token1.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve0_with_amount0_desired = U128::from_integer(token0
+            .balance_of_public(context.this_address())
+            .view(&mut context));
+        let reserve1_with_amount1_desired = U128::from_integer(token1
+            .balance_of_public(context.this_address())
+            .view(&mut context));
 
         let reserve0 = reserve0_with_amount0_desired - amount0_desired;
         let reserve1 = reserve1_with_amount1_desired - amount1_desired;
@@ -180,25 +207,25 @@ contract AMM {
 
         // The refund does not need to be finalized if the refund amount is 0 --> the partial note will simply stay in
         // public storage, which is fine.
-        if (refund_amount_token0 > 0) {
+        if (refund_amount_token0 > U128::zero()) {
             token0
                 .finalize_transfer_to_private(refund_token0_slot_commitment, refund_amount_token0)
                 .call(&mut context);
         }
-        if (refund_amount_token1 > 0) {
+        if (refund_amount_token1 > U128::zero()) {
             token1
                 .finalize_transfer_to_private(refund_token1_slot_commitment, refund_amount_token1)
                 .call(&mut context);
         }
 
         // Calculate the amount of liquidity tokens to mint
-        let total_supply = liquidity_token.total_supply().view(&mut context) as u64;
-        let mut liquidity: u64 = 0;
-        if (total_supply == 0) {
+        let total_supply = U128::from_integer(liquidity_token.total_supply().view(&mut context));
+        let mut liquidity = U128::zero();
+        if (total_supply == U128::zero()) {
             // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
-            // TODO: avoid the casts here. Shall we use a method natively working with some integer type?
-            liquidity = std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY) as Field) as u64;
-            liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY as Field).call(
+            liquidity = U128::from_integer(std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY)
+                .to_integer()));
+            liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY.to_integer()).call(
                 &mut context,
             ); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
@@ -207,7 +234,7 @@ contract AMM {
                 amount1 * total_supply / reserve1,
             );
         }
-        assert(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
+        assert(liquidity > U128::zero(), "INSUFFICIENT_LIQUIDITY_MINTED");
         liquidity_token.finalize_mint_to_private(liquidity_slot_commitment, liquidity).call(
             &mut context,
         );
@@ -216,8 +243,9 @@ contract AMM {
     /// Removes `liquidity` from the pool and transfers the tokens back to the user. `amount0_min` and `amount1_min` are
     /// the minimum amounts of `token0` and `token1` the user is willing to accept. `nonce` can be arbitrary non-zero
     /// value and its purpose is to isolate authwits to this specific call.
+    /// TODO(#8271): Type the args as U128
     #[private]
-    fn remove_liquidity(liquidity: u64, amount0_min: u64, amount1_min: u64, nonce: Field) {
+    fn remove_liquidity(liquidity: Field, amount0_min: Field, amount1_min: Field, nonce: Field) {
         let state = storage.state.read_private();
 
         let liquidity_token = Token::at(state.liquidity_token);
@@ -256,18 +284,27 @@ contract AMM {
         state: State,
         token0_slot_commitment: Field,
         token1_slot_commitment: Field,
-        liquidity: u64,
-        amount0_min: u64,
-        amount1_min: u64,
+        liquidity: Field,
+        amount0_min: Field,
+        amount1_min: Field,
     ) {
+        // TODO(#8271): Type the args as U128 and nuke these ugly casts
+        let liquidity = U128::from_integer(liquidity);
+        let amount0_min = U128::from_integer(amount0_min);
+        let amount1_min = U128::from_integer(amount1_min);
+
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
 
         // We get the reserves and the liquidity token total supply.
-        let reserve0 = token0.balance_of_public(context.this_address()).view(&mut context) as u64;
-        let reserve1 = token1.balance_of_public(context.this_address()).view(&mut context) as u64;
-        let total_supply = liquidity_token.total_supply().view(&mut context) as u64;
+        let reserve0 = U128::from_integer(token0.balance_of_public(context.this_address()).view(
+            &mut context,
+        ));
+        let reserve1 = U128::from_integer(token1.balance_of_public(context.this_address()).view(
+            &mut context,
+        ));
+        let total_supply = U128::from_integer(liquidity_token.total_supply().view(&mut context));
 
         // We calculate the amounts of token0 and token1 the user is entitled to based on the amount of liquidity they
         // are removing.
@@ -287,10 +324,11 @@ contract AMM {
     /// Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
     /// whether we are swapping `token0` for `token1` or vice versa. `nonce` can be arbitrary non-zero value and its
     /// purpose is to isolate authwits to this specific call.
+    /// TODO(#8271): Type the args as U128
     #[private]
     fn swap_exact_tokens_for_tokens(
-        amount_in: u64,
-        amount_out_min: u64,
+        amount_in: Field,
+        amount_out_min: Field,
         from_0_to_1: bool,
         nonce: Field,
     ) {
@@ -327,21 +365,27 @@ contract AMM {
     #[public]
     #[internal]
     fn _swap_exact_tokens_for_tokens(
-        amount_in: u64,
-        amount_out_min: u64,
+        amount_in: Field,
+        amount_out_min: Field,
         token_address_in: AztecAddress,
         token_address_out: AztecAddress,
         token_out_slot_commitment: Field,
     ) {
+        // TODO(#8271): Type the args as U128 and nuke these ugly casts
+        let amount_in = U128::from_integer(amount_in);
+        let amount_out_min = U128::from_integer(amount_out_min);
+
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
         // We get the reserves. The `amount_in` was already transferred to this contract so we need to subtract it.
-        let reserve_in_with_amount_in =
-            token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve_in_with_amount_in = U128::from_integer(token_in
+            .balance_of_public(context.this_address())
+            .view(&mut context));
         let reserve_in = reserve_in_with_amount_in - amount_in;
-        let reserve_out =
-            token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve_out = U128::from_integer(token_out
+            .balance_of_public(context.this_address())
+            .view(&mut context));
 
         // Calculate the amount of output token we will get.
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
@@ -358,11 +402,15 @@ contract AMM {
     /// purpose is to isolate authwits to this specific call.
     #[private]
     fn swap_tokens_for_exact_tokens(
-        amount_out: u64,
-        amount_in_max: u64,
+        amount_out: Field,
+        amount_in_max: Field,
         from_0_to_1: bool,
         nonce: Field,
     ) {
+        // TODO(#8271): Type the args as U128 and nuke these ugly casts
+        let amount_out = U128::from_integer(amount_out);
+        let amount_in_max = U128::from_integer(amount_in_max);
+
         let state = storage.state.read_private();
 
         let (token_address_in, token_address_out) = if from_0_to_1 {
@@ -403,20 +451,26 @@ contract AMM {
     fn _swap_tokens_for_exact_tokens(
         refund_token_in_slot_commitment: Field,
         token_out_slot_commitment: Field,
-        amount_out: u64,
-        amount_in_max: u64,
+        amount_out: Field,
+        amount_in_max: Field,
         token_address_in: AztecAddress,
         token_address_out: AztecAddress,
     ) {
+        // TODO(#8271): Type the args as U128 and nuke these ugly casts
+        let amount_out = U128::from_integer(amount_out);
+        let amount_in_max = U128::from_integer(amount_in_max);
+
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
         // We get the reserves. The `amount_in_max` was already transferred to this contract so we need to subtract it.
-        let reserve_in_with_amount_in_max =
-            token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve_in_with_amount_in_max = U128::from_integer(token_in
+            .balance_of_public(context.this_address())
+            .view(&mut context));
         let reserve_in = reserve_in_with_amount_in_max - amount_in_max;
-        let reserve_out =
-            token_out.balance_of_public(context.this_address()).view(&mut context) as u64;
+        let reserve_out = U128::from_integer(token_out
+            .balance_of_public(context.this_address())
+            .view(&mut context));
 
         // Calculate the amount of input token needed to get the desired amount of output token.
         let amount_in = get_amount_in(amount_out, reserve_in, reserve_out);
@@ -424,7 +478,7 @@ contract AMM {
 
         // If less than amount_in_max of input token was needed we refund the difference.
         let refund_amount = amount_in_max - amount_in;
-        if (refund_amount > 0) {
+        if (refund_amount > U128::zero()) {
             token_in
                 .finalize_transfer_to_private(refund_token_in_slot_commitment, refund_amount)
                 .call(&mut context);
