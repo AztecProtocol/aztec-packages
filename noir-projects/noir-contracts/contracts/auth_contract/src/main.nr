@@ -7,8 +7,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Auth {
     use dep::aztec::{
-        protocol_types::address::AztecAddress, state_vars::{PublicImmutable, SharedMutable},
-        macros::{storage::storage, functions::{private, public, initializer, view}}
+        macros::{functions::{initializer, private, public, view}, storage::storage},
+        protocol_types::address::AztecAddress,
+        state_vars::{PublicImmutable, SharedMutable},
     };
 
     // Authorizing a new address has a certain block delay before it goes into effect.
@@ -24,8 +25,7 @@ contract Auth {
     }
 
     #[public]
-    #['public]
-    #['initializer]
+    #[initializer]
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.initialize(admin);
@@ -33,7 +33,6 @@ contract Auth {
 
     // docs:start:shared_mutable_schedule
     #[public]
-    #['public]
     fn set_authorized(authorized: AztecAddress) {
         assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
         storage.authorized.schedule_value_change(authorized);
@@ -42,8 +41,7 @@ contract Auth {
 
     // docs:start:public_getter
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn get_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_current_public
         storage.authorized.get_current_value_in_public()
@@ -52,30 +50,27 @@ contract Auth {
     // docs:end:public_getter
 
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn get_scheduled_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_scheduled_public
-        let (scheduled_value, _block_of_change): (AztecAddress, u32) = storage.authorized.get_scheduled_value_in_public();
+        let (scheduled_value, _block_of_change): (AztecAddress, u32) =
+            storage.authorized.get_scheduled_value_in_public();
         // docs:end:shared_mutable_get_scheduled_public
         scheduled_value
     }
 
     #[public]
-    #['public]
-    #['view]
+    #[view]
     fn get_authorized_delay() -> pub u32 {
         storage.authorized.get_current_delay_in_public()
     }
 
     #[public]
-    #['public]
     fn set_authorized_delay(new_delay: u32) {
         storage.authorized.schedule_delay_change(new_delay);
     }
 
     #[private]
-    #['private]
     fn do_private_authorized_thing() {
         // Reading a value from authorized in private automatically adds an extra validity condition: the base rollup
         // circuit will reject this tx if included in a block past the block horizon, which is as far as the circuit can
@@ -87,8 +82,7 @@ contract Auth {
     }
 
     #[private]
-    #['private]
-    #['view]
+    #[view]
     fn get_authorized_in_private() -> AztecAddress {
         storage.authorized.get_current_value_in_private()
     }

@@ -8,9 +8,10 @@ import {
 } from '@aztec/bb-prover';
 import {
   AvmCircuitInputs,
-  FunctionSelector,
   Gas,
   GlobalVariables,
+  type PublicFunction,
+  PublicKeys,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import {
@@ -20,13 +21,15 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initPersistableStateManager,
@@ -151,41 +154,66 @@ const proveAvmTestContract = async (
   calldata: Fr[] = [],
   assertionErrString?: string,
 ): Promise<BBSuccess> => {
-  const startSideEffectCounter = 0;
-  const functionSelector = FunctionSelector.random();
-  const globals = GlobalVariables.empty();
-  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
-
   const worldStateDB = mock<WorldStateDB>();
-  const contractInstance = new SerializableContractInstance({
+  const startSideEffectCounter = 0;
+  const functionSelector = getAvmTestContractFunctionSelector(functionName);
+  calldata = [functionSelector.toField(), ...calldata];
+  const globals = GlobalVariables.empty();
+
+  // Top level contract call
+  const bytecode = getAvmTestContractBytecode('public_dispatch');
+  const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
+  const publicFn: PublicFunction = { bytecode, selector: fnSelector };
+  const contractClass = makeContractClassPublic(0, publicFn);
+  const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+
+  const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
     deployer: new Fr(0x456),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
-    publicKeysHash: new Fr(0x161718),
-  }).withAddress(environment.address);
-  worldStateDB.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
+    publicKeys: new PublicKeys(
+      new Point(new Fr(0x131415), new Fr(0x161718), false),
+      new Point(new Fr(0x192021), new Fr(0x222324), false),
+      new Point(new Fr(0x252627), new Fr(0x282930), false),
+      new Point(new Fr(0x313233), new Fr(0x343536), false),
+    ),
+  }).withAddress(contractInstance.address);
+
+  worldStateDB.getContractInstance
+    .mockResolvedValueOnce(contractInstance)
+    .mockResolvedValueOnce(instanceGet) // test gets deployer
+    .mockResolvedValueOnce(instanceGet) // test gets class id
+    .mockResolvedValueOnce(instanceGet) // test gets init hash
+    .mockResolvedValue(contractInstance);
+
+  worldStateDB.getContractClass.mockResolvedValue(contractClass);
 
   const storageValue = new Fr(5);
-  worldStateDB.storageRead.mockResolvedValue(await Promise.resolve(storageValue));
+  worldStateDB.storageRead.mockResolvedValue(storageValue);
 
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
+  const environment = initExecutionEnvironment({
+    functionSelector,
+    calldata,
+    globals,
+    address: contractInstance.address,
+  });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
+
+  worldStateDB.getBytecode.mockResolvedValue(bytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
   // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode(functionName);
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
   // First we simulate (though it's not needed in this simple case).
   const simulator = new AvmSimulator(context);
-  const avmResult = await simulator.executeBytecode(bytecode);
+  const avmResult = await simulator.execute();
 
   if (assertionErrString == undefined) {
     expect(avmResult.reverted).toBe(false);
@@ -207,7 +235,6 @@ const proveAvmTestContract = async (
 
   const avmCircuitInputs = new AvmCircuitInputs(
     functionName,
-    /*bytecode=*/ simulator.getBytecode()!, // uncompressed bytecode
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,

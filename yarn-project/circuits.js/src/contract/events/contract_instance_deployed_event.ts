@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { DEPLOYER_CONTRACT_ADDRESS, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE } from '../../constants.gen.js';
+import { PublicKeys } from '../../types/public_keys.js';
 import { type ContractInstanceWithAddress } from '../interfaces/contract_instance.js';
 
 /** Event emitted from the ContractInstanceDeployer. */
@@ -14,7 +15,7 @@ export class ContractInstanceDeployedEvent {
     public readonly salt: Fr,
     public readonly contractClassId: Fr,
     public readonly initializationHash: Fr,
-    public readonly publicKeysHash: Fr,
+    public readonly publicKeys: PublicKeys,
     public readonly deployer: AztecAddress,
   ) {}
 
@@ -40,7 +41,7 @@ export class ContractInstanceDeployedEvent {
     const salt = reader.readObject(Fr);
     const contractClassId = reader.readObject(Fr);
     const initializationHash = reader.readObject(Fr);
-    const publicKeysHash = reader.readObject(Fr);
+    const publicKeys = reader.readObject(PublicKeys);
     const deployer = reader.readObject(AztecAddress);
 
     return new ContractInstanceDeployedEvent(
@@ -49,7 +50,7 @@ export class ContractInstanceDeployedEvent {
       salt,
       contractClassId,
       initializationHash,
-      publicKeysHash,
+      publicKeys,
       deployer,
     );
   }
@@ -64,7 +65,7 @@ export class ContractInstanceDeployedEvent {
       version: this.version,
       contractClassId: this.contractClassId,
       initializationHash: this.initializationHash,
-      publicKeysHash: this.publicKeysHash,
+      publicKeys: this.publicKeys,
       salt: this.salt,
       deployer: this.deployer,
     };

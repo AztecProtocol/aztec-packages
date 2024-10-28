@@ -1,11 +1,13 @@
 use crate::{
     abis::{
-    accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::RollupValidationRequests, gas_fees::GasFees
-},
-    address::AztecAddress, partial_state_reference::PartialStateReference,
-    traits::{Empty, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    utils::reader::Reader
+        accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
+        gas_fees::GasFees, validation_requests::RollupValidationRequests,
+    },
+    address::AztecAddress,
+    constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    partial_state_reference::PartialStateReference,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct KernelCircuitPublicInputs {
@@ -14,7 +16,7 @@ pub struct KernelCircuitPublicInputs {
     constants: CombinedConstantData,
     start_state: PartialStateReference,
     revert_code: u8,
-    fee_payer: AztecAddress
+    fee_payer: AztecAddress,
 }
 
 impl KernelCircuitPublicInputs {
@@ -32,7 +34,7 @@ impl Empty for KernelCircuitPublicInputs {
             constants: CombinedConstantData::empty(),
             start_state: PartialStateReference::empty(),
             revert_code: 0,
-            fee_payer: AztecAddress::empty()
+            fee_payer: AztecAddress::empty(),
         }
     }
 }
@@ -66,7 +68,9 @@ impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInput
 }
 
 impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
-    fn deserialize(fields: [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> KernelCircuitPublicInputs {
+    fn deserialize(
+        fields: [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
+    ) -> KernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
             rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
@@ -74,7 +78,7 @@ impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInp
             constants: reader.read_struct(CombinedConstantData::deserialize),
             start_state: reader.read_struct(PartialStateReference::deserialize),
             revert_code: reader.read() as u8,
-            fee_payer: reader.read_struct(AztecAddress::deserialize)
+            fee_payer: reader.read_struct(AztecAddress::deserialize),
         };
 
         reader.finish();
@@ -84,9 +88,10 @@ impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInp
 
 mod tests {
     use crate::abis::{
-        kernel_circuit_public_inputs::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-        validation_requests::RollupValidationRequests, gas::Gas, gas_fees::GasFees
+        gas::Gas, gas_fees::GasFees,
+        kernel_circuit_public_inputs::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        validation_requests::RollupValidationRequests,
     };
     use crate::address::AztecAddress;
     use crate::partial_state_reference::PartialStateReference;
@@ -105,13 +110,10 @@ mod tests {
             constants: CombinedConstantData::empty(),
             start_state: PartialStateReference::empty(),
             revert_code: 0,
-            fee_payer: AztecAddress::empty()
+            fee_payer: AztecAddress::empty(),
         };
 
-        inputs.end.gas_used = Gas {
-            da_gas: 10,
-            l2_gas: 20
-        };
+        inputs.end.gas_used = Gas { da_gas: 10, l2_gas: 20 };
 
         inputs.constants.tx_context.gas_settings.inclusion_fee = 42;
 

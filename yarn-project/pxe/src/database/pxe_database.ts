@@ -169,16 +169,16 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Updates up to which block number we have processed notes for a given public key.
-   * @param publicKey - The public key to set the synched block number for.
+   * @param account - The account to set the synched block number for.
    * @param blockNumber - The block number to set.
    */
-  setSynchedBlockNumberForPublicKey(publicKey: PublicKey, blockNumber: number): Promise<void>;
+  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void>;
 
   /**
    * Get the synched block number for a given public key.
-   * @param publicKey - The public key to get the synched block number for.
+   * @param account - The account to get the synched block number for.
    */
-  getSynchedBlockNumberForPublicKey(publicKey: PublicKey): number | undefined;
+  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined;
 
   /**
    * Returns the estimated size in bytes of this db.

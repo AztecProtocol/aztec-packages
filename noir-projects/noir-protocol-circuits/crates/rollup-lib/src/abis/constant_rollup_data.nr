@@ -1,7 +1,8 @@
 use dep::types::{
-    abis::{global_variables::GlobalVariables, append_only_tree_snapshot::AppendOnlyTreeSnapshot},
-    traits::{Empty, Serialize, Deserialize}, constants::CONSTANT_ROLLUP_DATA_LENGTH,
-    utils::reader::Reader
+    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
+    constants::CONSTANT_ROLLUP_DATA_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct ConstantRollupData {
@@ -27,7 +28,7 @@ impl Empty for ConstantRollupData {
             last_archive: AppendOnlyTreeSnapshot::zero(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
-            global_variables: GlobalVariables::empty()
+            global_variables: GlobalVariables::empty(),
         }
     }
 }
@@ -54,7 +55,7 @@ impl Deserialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
             last_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),
-            global_variables: reader.read_struct(GlobalVariables::deserialize)
+            global_variables: reader.read_struct(GlobalVariables::deserialize),
         };
 
         reader.finish();

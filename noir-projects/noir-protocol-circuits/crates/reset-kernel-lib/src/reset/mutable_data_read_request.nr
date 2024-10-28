@@ -1,5 +1,5 @@
-use crate::reset::{read_request::{ReadRequestState, ReadRequestStatus}};
-use dep::types::{abis::side_effect::{Ordered, Overridable, Readable}};
+use crate::reset::read_request::{ReadRequestState, ReadRequestStatus};
+use dep::types::abis::side_effect::{Ordered, Overridable, Readable};
 
 pub struct ReadIndexHint {
     read_request_index: u32,
@@ -15,8 +15,12 @@ impl ReadIndexHint {
 fn validate_pending_read_requests<R, let READ_REQUEST_LEN: u32, V, let PENDING_VALUE_LEN: u32, let NUM_HINTS: u32>(
     read_requests: [R; READ_REQUEST_LEN],
     pending_values: [V; PENDING_VALUE_LEN],
-    index_hints: [ReadIndexHint; NUM_HINTS]
-) where R: Ordered, V: Readable<R> + Ordered + Overridable {
+    index_hints: [ReadIndexHint; NUM_HINTS],
+)
+where
+    R: Ordered,
+    V: Readable<R> + Ordered + Overridable,
+{
     for i in 0..index_hints.len() {
         let index_hint = index_hints[i];
         let read_request_index = index_hint.read_request_index;
@@ -25,11 +29,13 @@ fn validate_pending_read_requests<R, let READ_REQUEST_LEN: u32, V, let PENDING_V
             let pending_value = pending_values[index_hint.value_index];
             pending_value.assert_match_read_request(read_request);
             assert(
-                read_request.counter() > pending_value.counter(), "Read request counter must be greater than the counter of the data write"
+                read_request.counter() > pending_value.counter(),
+                "Read request counter must be greater than the counter of the data write",
             );
             assert(
                 (read_request.counter() < pending_value.override_counter())
-                | (pending_value.override_counter() == 0), "Read request counter must be less than the counter of the next data write"
+                    | (pending_value.override_counter() == 0),
+                "Read request counter must be less than the counter of the next data write",
             );
         }
     }
@@ -38,8 +44,12 @@ fn validate_pending_read_requests<R, let READ_REQUEST_LEN: u32, V, let PENDING_V
 fn validate_leaf_data_read_requests<R, let READ_REQUEST_LEN: u32, L, let LEAF_DATA_LEN: u32, let NUM_HINTS: u32>(
     read_requests: [R; READ_REQUEST_LEN],
     leaf_data: [L; LEAF_DATA_LEN],
-    index_hints: [ReadIndexHint; NUM_HINTS]
-) where R: Ordered, L: Readable<R> + Overridable {
+    index_hints: [ReadIndexHint; NUM_HINTS],
+)
+where
+    R: Ordered,
+    L: Readable<R> + Overridable,
+{
     for i in 0..index_hints.len() {
         let index_hint = index_hints[i];
         let read_request_index = index_hint.read_request_index;
@@ -48,7 +58,8 @@ fn validate_leaf_data_read_requests<R, let READ_REQUEST_LEN: u32, L, let LEAF_DA
             let data = leaf_data[index_hint.value_index];
             data.assert_match_read_request(read_request);
             assert(
-                (read_request.counter() < data.override_counter()) | (data.override_counter() == 0), "Hinted leaf is overridden before the read request"
+                (read_request.counter() < data.override_counter()) | (data.override_counter() == 0),
+                "Hinted leaf is overridden before the read request",
             );
         }
     }
@@ -58,42 +69,43 @@ fn ensure_all_read_requests_are_verified<R, let READ_REQUEST_LEN: u32, let NUM_P
     read_requests: [R; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_read_hints: [ReadIndexHint; NUM_PENDING_READS],
-    leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS]
-) where R: Ordered {
+    leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS],
+)
+where
+    R: Ordered,
+{
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
         if read_request.counter() != 0 {
             let status = read_request_statuses[i];
             if status.state == ReadRequestState.PENDING {
                 assert(
-                    pending_read_hints[status.hint_index].read_request_index == i, "Hinted pending read request does not match status"
+                    pending_read_hints[status.hint_index].read_request_index == i,
+                    "Hinted pending read request does not match status",
                 );
             } else {
                 assert(
-                    leaf_data_read_hints[status.hint_index].read_request_index == i, "Hinted settled read request does not match status"
+                    leaf_data_read_hints[status.hint_index].read_request_index == i,
+                    "Hinted settled read request does not match status",
                 );
             }
         }
     }
 }
 
-pub fn reset_mutable_data_read_requests<
-    R,
-    let READ_REQUEST_LEN: u32,
-    V,
-    let PENDING_VALUE_LEN: u32,
-    L,
-    let NUM_LEAF_DATA_HINTS: u32,
-    let NUM_PENDING_READS: u32,
-    let NUM_LEAF_DATA_READS: u32
->(
+pub fn reset_mutable_data_read_requests<R, let READ_REQUEST_LEN: u32, V, let PENDING_VALUE_LEN: u32, L, let NUM_LEAF_DATA_HINTS: u32, let NUM_PENDING_READS: u32, let NUM_LEAF_DATA_READS: u32>(
     read_requests: [R; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_values: [V; PENDING_VALUE_LEN],
     leaf_data: [L; NUM_LEAF_DATA_HINTS],
     pending_read_hints: [ReadIndexHint; NUM_PENDING_READS],
-    leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS]
-) where R: Ordered, V: Readable<R> + Ordered + Overridable, L: Readable<R> + Overridable {
+    leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS],
+)
+where
+    R: Ordered,
+    V: Readable<R> + Ordered + Overridable,
+    L: Readable<R> + Overridable,
+{
     validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
 
     validate_leaf_data_read_requests(read_requests, leaf_data, leaf_data_read_hints);
@@ -102,24 +114,27 @@ pub fn reset_mutable_data_read_requests<
         read_requests,
         read_request_statuses,
         pending_read_hints,
-        leaf_data_read_hints
+        leaf_data_read_hints,
     );
 }
 
 mod tests {
     use crate::reset::{
         mutable_data_read_request::{
-        ensure_all_read_requests_are_verified, ReadIndexHint, reset_mutable_data_read_requests,
-        validate_pending_read_requests, validate_leaf_data_read_requests
-    },
-        read_request::{ReadRequestState, ReadRequestStatus}
+            ensure_all_read_requests_are_verified, ReadIndexHint, reset_mutable_data_read_requests,
+            validate_leaf_data_read_requests, validate_pending_read_requests,
+        },
+        read_request::{ReadRequestState, ReadRequestStatus},
     };
     use dep::types::{
         abis::{
-        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        public_data_write::OverridablePublicDataWrite, side_effect::{Overridable, Readable}
-    },
-        tests::utils::pad_end, traits::Empty
+            public_data_read::PublicDataRead,
+            public_data_update_request::PublicDataUpdateRequest,
+            public_data_write::OverridablePublicDataWrite,
+            side_effect::{Overridable, Readable},
+        },
+        tests::utils::pad_end,
+        traits::Empty,
     };
 
     struct TestLeafData {
@@ -142,7 +157,11 @@ mod tests {
 
     impl Readable<PublicDataRead> for TestLeafData {
         fn assert_match_read_request(self, read_request: PublicDataRead) {
-            assert_eq(self.leaf_index, read_request.leaf_slot, "leaf_index in TestLeafData does not match");
+            assert_eq(
+                self.leaf_index,
+                read_request.leaf_slot,
+                "leaf_index in TestLeafData does not match",
+            );
             assert_eq(self.value, read_request.value, "value in TestLeafData does not match");
         }
     }
@@ -168,25 +187,53 @@ mod tests {
 
             let leaf_data = pad_end(
                 [
-                TestLeafData { leaf_index: 44, value: 0, override_counter: 40 },
-                TestLeafData { leaf_index: 77, value: 700, override_counter: 0 },
-                TestLeafData { leaf_index: 11, value: 0, override_counter: 20 },
-                TestLeafData { leaf_index: 33, value: 300, override_counter: 30 },
-                TestLeafData { leaf_index: 66, value: 600, override_counter: 0 },
-                TestLeafData { leaf_index: 22, value: 200, override_counter: 10 },
-                TestLeafData { leaf_index: 55, value: 500, override_counter: 0 }
-            ],
-                TestLeafData::empty()
+                    TestLeafData { leaf_index: 44, value: 0, override_counter: 40 },
+                    TestLeafData { leaf_index: 77, value: 700, override_counter: 0 },
+                    TestLeafData { leaf_index: 11, value: 0, override_counter: 20 },
+                    TestLeafData { leaf_index: 33, value: 300, override_counter: 30 },
+                    TestLeafData { leaf_index: 66, value: 600, override_counter: 0 },
+                    TestLeafData { leaf_index: 22, value: 200, override_counter: 10 },
+                    TestLeafData { leaf_index: 55, value: 500, override_counter: 0 },
+                ],
+                TestLeafData::empty(),
             );
 
             let data_writes = pad_end(
                 [
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 22, new_value: 201, counter: 10 }, override_counter: 40 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 11, new_value: 100, counter: 20 }, override_counter: 0 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 33, new_value: 301, counter: 30 }, override_counter: 0 },
-                OverridablePublicDataWrite { write: PublicDataUpdateRequest { leaf_slot: 22, new_value: 202, counter: 40 }, override_counter: 0 }
-            ],
-                OverridablePublicDataWrite::empty()
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 22,
+                            new_value: 201,
+                            counter: 10,
+                        },
+                        override_counter: 40,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 11,
+                            new_value: 100,
+                            counter: 20,
+                        },
+                        override_counter: 0,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 33,
+                            new_value: 301,
+                            counter: 30,
+                        },
+                        override_counter: 0,
+                    },
+                    OverridablePublicDataWrite {
+                        write: PublicDataUpdateRequest {
+                            leaf_slot: 22,
+                            new_value: 202,
+                            counter: 40,
+                        },
+                        override_counter: 0,
+                    },
+                ],
+                OverridablePublicDataWrite::empty(),
             );
 
             let pending_read_hints = pad_end([], ReadIndexHint::nada(READ_REQUEST_LEN));
@@ -202,7 +249,7 @@ mod tests {
                 leaf_data_read_hints,
                 num_pending_reads: 0,
                 num_leaf_data_reads: 0,
-                counter: 50
+                counter: 50,
             }
         }
 
@@ -212,10 +259,12 @@ mod tests {
             self.read_requests[read_request_index] = PublicDataRead {
                 leaf_slot: write.leaf_slot,
                 value: write.new_value,
-                counter: self.counter
+                counter: self.counter,
             };
-            self.pending_read_hints[self.num_pending_reads] = ReadIndexHint { read_request_index, value_index: data_write_index };
-            self.read_request_statuses[read_request_index] = ReadRequestStatus::pending(self.num_pending_reads);
+            self.pending_read_hints[self.num_pending_reads] =
+                ReadIndexHint { read_request_index, value_index: data_write_index };
+            self.read_request_statuses[read_request_index] =
+                ReadRequestStatus::pending(self.num_pending_reads);
             self.num_pending_reads += 1;
             self.counter += 1;
         }
@@ -226,20 +275,30 @@ mod tests {
             self.read_requests[read_request_index] = PublicDataRead {
                 leaf_slot: data_hint.leaf_index,
                 value: data_hint.value,
-                counter: self.counter
+                counter: self.counter,
             };
-            self.leaf_data_read_hints[self.num_leaf_data_reads] = ReadIndexHint { read_request_index, value_index: data_hint_index };
-            self.read_request_statuses[read_request_index] = ReadRequestStatus::settled(self.num_leaf_data_reads);
+            self.leaf_data_read_hints[self.num_leaf_data_reads] =
+                ReadIndexHint { read_request_index, value_index: data_hint_index };
+            self.read_request_statuses[read_request_index] =
+                ReadRequestStatus::settled(self.num_leaf_data_reads);
             self.num_leaf_data_reads += 1;
             self.counter += 1;
         }
 
         pub fn validate_pending_read_requests(self) {
-            validate_pending_read_requests(self.read_requests, self.data_writes, self.pending_read_hints);
+            validate_pending_read_requests(
+                self.read_requests,
+                self.data_writes,
+                self.pending_read_hints,
+            );
         }
 
         pub fn validate_leaf_data_read_requests(self) {
-            validate_leaf_data_read_requests(self.read_requests, self.leaf_data, self.leaf_data_read_hints)
+            validate_leaf_data_read_requests(
+                self.read_requests,
+                self.leaf_data,
+                self.leaf_data_read_hints,
+            )
         }
 
         pub fn ensure_all_read_requests_are_verified(self) {
@@ -247,7 +306,7 @@ mod tests {
                 self.read_requests,
                 self.read_request_statuses,
                 self.pending_read_hints,
-                self.leaf_data_read_hints
+                self.leaf_data_read_hints,
             )
         }
 
@@ -258,7 +317,7 @@ mod tests {
                 self.data_writes,
                 self.leaf_data,
                 self.pending_read_hints,
-                self.leaf_data_read_hints
+                self.leaf_data_read_hints,
             );
         }
     }

@@ -1,6 +1,7 @@
 use crate::{
-    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::Empty,
-    merkle_tree::MembershipWitness, constants::PUBLIC_DATA_TREE_HEIGHT
+    constants::PUBLIC_DATA_TREE_HEIGHT,
+    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    merkle_tree::MembershipWitness, traits::Empty,
 };
 
 pub struct PublicDataLeafHint {
@@ -10,6 +11,9 @@ pub struct PublicDataLeafHint {
 
 impl Empty for PublicDataLeafHint {
     fn empty() -> Self {
-        PublicDataLeafHint { preimage: PublicDataTreeLeafPreimage::empty(), membership_witness: MembershipWitness::empty() }
+        PublicDataLeafHint {
+            preimage: PublicDataTreeLeafPreimage::empty(),
+            membership_witness: MembershipWitness::empty(),
+        }
     }
 }

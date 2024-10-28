@@ -1,5 +1,5 @@
 import {
-  type AvmProofAndVerificationKey,
+  type ProofAndVerificationKey,
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
@@ -9,10 +9,10 @@ import {
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
 import type {
+  AVM_PROOF_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BaseRollupInputs,
   BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
@@ -20,11 +20,9 @@ import type {
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
-  PublicKernelCircuitPrivateInputs,
-  PublicKernelCircuitPublicInputs,
-  PublicKernelInnerCircuitPrivateInputs,
-  PublicKernelTailCircuitPrivateInputs,
+  PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   RootParityInput,
@@ -32,8 +30,6 @@ import type {
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
-  VMCircuitPublicInputs,
-  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
@@ -280,7 +276,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }> {
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>> {
     return this.enqueue({ type: ProvingRequestType.TUBE_PROOF, inputs }, signal, epochNumber);
   }
 
@@ -316,16 +312,20 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.enqueue({ type: ProvingRequestType.ROOT_PARITY, inputs }, signal, epochNumber);
   }
 
-  /**
-   * Creates a proof for the given input.
-   * @param input - Input to the circuit.
-   */
-  getBaseRollupProof(
-    baseRollupInput: BaseRollupInputs,
+  getPrivateBaseRollupProof(
+    inputs: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.BASE_ROLLUP, inputs: baseRollupInput }, signal, epochNumber);
+    return this.enqueue({ type: ProvingRequestType.PRIVATE_BASE_ROLLUP, inputs }, signal, epochNumber);
+  }
+
+  getPublicBaseRollupProof(
+    inputs: PublicBaseRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    return this.enqueue({ type: ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs }, signal, epochNumber);
   }
 
   /**
@@ -385,49 +385,13 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   }
 
   /**
-   * Create a public kernel inner proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicKernelInnerProof(
-    inputs: PublicKernelInnerCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_INNER, inputs }, signal, epochNumber);
-  }
-
-  /**
-   * Create a public kernel merge proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicKernelMergeProof(
-    inputs: PublicKernelCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_MERGE, inputs }, signal, epochNumber);
-  }
-
-  /**
-   * Create a public kernel tail proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicTailProof(
-    inputs: PublicKernelTailCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_TAIL, inputs }, signal, epochNumber);
-  }
-
-  /**
    * Creates an AVM proof.
    */
   getAvmProof(
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<AvmProofAndVerificationKey> {
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>> {
     return this.enqueue({ type: ProvingRequestType.PUBLIC_VM, inputs }, signal, epochNumber);
   }
 
