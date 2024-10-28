@@ -1,5 +1,5 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { ProverCoordination, type AztecNode } from '@aztec/circuit-types';
+import { type ProverCoordination } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';

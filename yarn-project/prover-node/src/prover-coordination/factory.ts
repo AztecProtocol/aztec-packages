@@ -1,10 +1,6 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import {
-  type ProverCoordination,
-  type WorldStateSynchronizer,
-  createAztecNodeClient,
-} from '@aztec/circuit-types';
+import { type ProverCoordination, type WorldStateSynchronizer, createAztecNodeClient } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { createP2PClient } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';

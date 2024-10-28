@@ -259,9 +259,8 @@ async function createAndSyncProverNode(
   // Disable stopping the aztec node as the prover coordination test will kill it otherwise
   // This is only required when stopping the prover node for testing
   const aztecNodeWithoutStop = {
-    p2pClient: (aztecNode as any).p2pClient,
-    addEpochProofQuote: aztecNode.addEpochProofQuote,
-    getTxByHash: aztecNode.getTxByHash,
+    addEpochProofQuote: aztecNode.addEpochProofQuote.bind(aztecNode),
+    getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
     stop: () => Promise.resolve(),
   };
 
