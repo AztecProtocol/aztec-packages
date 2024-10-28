@@ -74,15 +74,20 @@ handle_network_shaping() {
         fi
 
         echo "Deploying network shaping configuration..."
-        helm upgrade --install network-shaping "$REPO/spartan/network-shaping/" \
+        if ! helm upgrade --install network-shaping "$REPO/spartan/network-shaping/" \
             --namespace chaos-mesh \
             --values "$REPO/spartan/network-shaping/values/$CHAOS_VALUES" \
             --set global.targetNamespace="$NAMESPACE" \
             --wait \
-            --timeout=5m
+            --timeout=5m; then
+            echo "Error: failed to deploy network shaping configuration!"
+            return 1
+        fi
 
         echo "Network shaping configuration applied successfully"
+        return 0
     fi
+    return 0
 }
 
 show_status_until_pxe_ready &
@@ -117,7 +122,16 @@ ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
 
-handle_network_shaping
+# If we are unable to apply network shaping, as we cannot change existing chaos configurations, then delete existing configurations and try again
+if ! handle_network_shaping; then
+  echo "Deleting existing network chaos experiments..."
+  kubectl delete networkchaos --all --all-namespaces
+
+  if ! handle_network_shaping; then
+    echo "Error: failed to apply network shaping configuration!"
+    exit 1
+  fi
+fi
 
 # Start port-forwarding with dynamically allocated free ports
 (kubectl port-forward --namespace $NAMESPACE svc/spartan-aztec-network-pxe $PXE_PORT:8080 2>/dev/null >/dev/null || true) &
