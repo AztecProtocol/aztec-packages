@@ -1,86 +1,92 @@
-# Aztec Monorepo
+# 🌐 Aztec Monorepo
 
-All the packages that make up [Aztec](https://docs.aztec.network).
+**All packages that power the Aztec Network in one place.**
 
-- [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
-- [**`yarn-project`**](/yarn-project): Typescript code for client and backend
-- [**`docs`**](/docs): Documentation source for the docs site
+---
 
-## Popular packages
+## 📂 Repository Structure
 
-- [Aztec.nr](./noir-projects/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
-- [Aztec](./yarn-project/aztec/): A package for starting up local dev net modules, including a local 'sandbox' devnet, an Ethereum network, deployed rollup contracts and Aztec execution environment.
-- [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
-- [Example contracts](./noir-projects/noir-contracts/): Example contracts for the Aztec network, written in Noir.
-- [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
-- [Aztec Boxes](./boxes/): Example starter projects.
+| Directory       | Description                                                                                     |
+|-----------------|-------------------------------------------------------------------------------------------------|
+| [**l1-contracts**](https://github.com/AztecProtocol/aztec-packages/tree/master/l1-contracts) | Solidity contracts for Ethereum rollups.                  |
+| [**yarn-project**](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project) | TypeScript code for client and backend.                   |
+| [**docs**](https://github.com/AztecProtocol/aztec-packages/tree/master/docs) | Source files for the Aztec Documentation.                |
 
-## Issues Board
+---
 
-All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
+## 🔥 Popular Packages
 
-## Development Setup
+### 📦 Core Packages
+- [**Aztec.nr**](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr) - Framework for Aztec smart contracts in [Noir](https://noir-lang.org/).
+- [**Aztec**](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec) - Tools for starting local devnets with deployed rollup contracts.
+- [**Aztec.js**](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js) - API for interacting with Aztec's PXE ([Private Execution Environment](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe)).
 
-Run `bootstrap.sh full` in the project root to set up your environment. This will update git submodules, download ignition transcripts, install Foundry, compile Solidity contracts, install the current node version via nvm, and build all typescript packages.
+### 📝 Example Contracts
+- [**Example Contracts**](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts) - Sample contracts written in Noir.
+- [**End-to-End Tests**](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/end-to-end) - TypeScript tests, a great reference for various use cases.
+- [**Aztec Boxes**](https://github.com/AztecProtocol/aztec-packages/tree/master/boxes) - Starter projects for Aztec development.
 
-Alternatively, to just hack on Noir contracts and Typescript, run `./bootstrap.sh fast`, which will download existing builds for barretenberg and nargo from the CI cache. Note that this requires AWS ECR credentials, and only works on Ubuntu.
+---
 
-To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
+## 🗂 Issues Board
 
-## Continuous Integration
+- Track all issues on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22).
+- For a high-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
 
-This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
+---
 
-All packages need to be included in the [build manifest](`build_manifest.json`), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
+## ⚙️ Development Setup
 
-It is faster to debug CI failures within a persistent ssh session compared to pushing and waiting. You can create a session with "Rerun step with SSH" on CircleCI which will generate an ssh command for debugging on a worker. Run that command locally and then do
+1. **Full Setup:** Run `bootstrap.sh full` in the project root to initialize your environment.
+   - Updates git submodules, downloads ignition transcripts, installs Foundry, compiles Solidity contracts, installs the current node version via `nvm`, and builds all TypeScript packages.
+   - Requires [nvm](https://github.com/nvm-sh/nvm) to manage Node.js versions.
 
-```bash
-cd project
-./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" https://github.com/AztecProtocol/aztec-packages
-source /tmp/.bash_env*
-set +euo
-{start testing your CI commands here}
-```
+2. **Fast Setup:** Run `./bootstrap.sh fast` for a quicker setup focused on Noir contracts and TypeScript. This downloads builds for Barretenberg and Nargo from the CI cache. _Note: Requires AWS ECR credentials and works only on Ubuntu._
 
-This provide an interactive environment for debugging the CI test.
+---
 
-## Debugging
+## 🚀 Continuous Integration
 
-Logging goes through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. To see the log output, set a `DEBUG` environment variable to the name of the module you want to debug, to `aztec:*`, or to `*` to see all logs.
+- **CI System:** This repository uses CircleCI for continuous integration. Build steps are managed using the [build-system](https://github.com/AztecProtocol/build-system) repository.
+- **Docker Builds:** Packages are built in Docker; small packages are tested in Docker, while larger packages and end-to-end tests are run on AWS spot instances.
+- **Debugging CI:** You can create a persistent SSH session on CircleCI by selecting "Rerun step with SSH" for debugging.
 
-## Releases
+For more details on CI configurations, refer to the [build-system README](https://github.com/AztecProtocol/build-system).
 
-Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release_please.yml) will create the tagged release triggering CircleCI to build and deploy the version at that tag.
+---
 
-## Contribute
+## 🛠 Debugging
 
-There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
+All logging goes through the [DebugLogger module](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/foundation/src/log/debug.ts). Set a `DEBUG` environment variable to the module name (e.g., `aztec:*`) to enable detailed logs.
 
-## Syncing noir
+---
 
-We currently use [git-subrepo](https://github.com/ingydotnet/git-subrepo) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
+## 📦 Releases
 
-There is an automatic mirror pushing noir to a PR on noir side. If the mirror is not working, generally we need to do a "git subrepo pull noir".
+Releases are automated with [release-please](https://github.com/googleapis/release-please), which creates a 'Release PR' with an updated `CHANGELOG.md`. Merging this PR triggers a GitHub workflow to create a tagged release and deploy it through CircleCI.
 
-Recovering if the sync is not happening with basic pull commands:
+---
 
-- manually editing the commit variable in noir/noir-repo/.gitrepo:
-  this needs to exist in the branch we push to, and have the same content as our base. This is similar to submodules, except instead of pointing to the final state of the module, it points to the last commit we have sync'd from, for purposes of commit replay. This can be fixed to match the commit in master after merges.
-- manually editing the parent variable in noir/noir-repo/.gitrepo: this is the parent of the last sync commit on aztec side. If you get errors with a commit not being found in the upstream repo, and the commit mentioned is not the commit variable above, it might indicate this is somehow incorrect. This can happen when commit content is ported without its history, e.g. squashes.
-- use pull --force ONLY where you would use git reset. That is, if you really want to match some upstream noir for a purpose its fine, but you'll lose local changes (if any)
+## 🤝 Contribute
 
-## Earthly
+Check out the [contribution guide](https://github.com/AztecProtocol/aztec-packages/blob/master/CONTRIBUTING.md) to learn how you can participate and help build high-quality software!
 
-Earthly is a reproducible build tool that aims to combine the functionality of Docker, Makefiles and BASH.
-Non-build earthly targets should start with 'test', 'run', or 'bench' as a general rule (but not hard rule) while builds can be nouns or start with build-.
-If something is a bundle of targets for CI, we can do e.g. build-ci, test-ci etc.
-See barretenberg/cpp/Earthfile for an example of a fairly involved Earthfile that can be used for inspiration.
-[Earthly docs](https://docs.earthly.dev/) are extensive and show the various build patterns.
+---
 
-In a nutshell:
+## 🔄 Syncing Noir
 
-- Docker-like syntax defines all builds. We lean on docker heavily for when to rebuild and cache, and how to run in a reproducible manner.
-- It supports modularization of the build manifest into multiple directories that can be imported. Simple functions and conditional logic can be used.
-- We provide two modes, one for CI by passing --ci and one for local with incremental builds.
-- We do NOT provide a native execution story for anything but Linux and WASM currently.
+Aztec uses [git-subrepo](https://github.com/ingydotnet/git-subrepo) to manage a mirror of Noir. If syncing issues arise, follow these steps to recover:
+- Manually edit `.gitrepo` file to match the commit in the master branch after merges.
+- For further issues, refer to the [git-subrepo documentation](https://github.com/ingydotnet/git-subrepo).
+
+---
+
+## 🌍 Earthly
+
+[Earthly](https://docs.earthly.dev/) is a reproducible build tool used in this project. It combines Docker, Makefiles, and Bash functionalities to create modular and reusable build scripts.
+
+- **Docker-Based:** Leverages Docker for caching and reproducibility.
+- **CI-Compatible:** Supports both CI and local incremental builds.
+- **Cross-Platform:** Currently, only Linux and WASM are supported.
+
+For more examples, see the `Earthfile` in `barretenberg/cpp`.
