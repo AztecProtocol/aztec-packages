@@ -51,7 +51,7 @@ async function main() {
   process.once('SIGTERM', shutdown);
 }
 
-// See https://twitter.com/Rich_Harris/status/1355289863130673153
+// See https://x.com/Rich_Harris/status/1355289863130673153
 if (process.argv[1] === fileURLToPath(import.meta.url).replace(/\/index\.js$/, '')) {
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   main().catch(err => {
