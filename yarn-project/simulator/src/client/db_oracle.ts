@@ -217,6 +217,6 @@ export interface DBOracle extends CommitmentsDB {
    */
   getAppTaggingSecretsForSenders(
     contractAddress: AztecAddress,
-    recipient: CompleteAddress,
+    recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]>;
 }

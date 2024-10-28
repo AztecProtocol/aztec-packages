@@ -607,6 +607,13 @@ export class TXEService {
     return toForeignCallResult([toArray(secret.toFields())]);
   }
 
+  async getAppTaggingSecretsForSenders(recipient: ForeignCallSingle) {
+    const secrets = await this.typedOracle.getAppTaggingSecretsForSenders(
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
+    return toForeignCallResult([toArray(secrets.flatMap(secret => secret.toFields()))]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {

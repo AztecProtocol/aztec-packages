@@ -308,4 +308,14 @@ export class ViewDataOracle extends TypedOracle {
   ): Promise<IndexedTaggingSecret> {
     return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
   }
+
+  /**
+   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * @param contractAddress - The contract address to silo the secret for
+   * @param recipient - The address receiving the notes
+   * @returns A list of siloed tagging secrets
+   */
+  public override async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+    return await this.db.getAppTaggingSecretsForSenders(this.contractAddress, recipient);
+  }
 }

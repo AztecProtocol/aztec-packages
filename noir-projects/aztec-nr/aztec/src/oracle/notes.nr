@@ -229,10 +229,17 @@ pub unconstrained fn get_app_tagging_secrets_for_senders(
     recipient: AztecAddress,
 ) -> [IndexedTaggingSecret] {
     let results = get_app_tagging_secrets_for_senders_oracle(recipient);
-    results.map(|result| IndexedTaggingSecret::deserialize(result))
+    let mut indexed_tagging_secrets = &[];
+    for i in 0..results.len() {
+        if i % 2 != 0 {
+            continue;
+        }
+        indexed_tagging_secrets = indexed_tagging_secrets.push_back(
+            IndexedTaggingSecret::deserialize([results[i], results[i + 1]]),
+        );
+    }
+    indexed_tagging_secrets
 }
 
 #[oracle(getAppTaggingSecretsForSenders)]
-unconstrained fn get_app_tagging_secrets_for_senders_oracle(
-    _recipient: AztecAddress,
-) -> [[Field; INDEXED_TAGGING_SECRET_LENGTH]] {}
+unconstrained fn get_app_tagging_secrets_for_senders_oracle(_recipient: AztecAddress) -> [Field] {}
