@@ -46,21 +46,31 @@ describe('Client IVC Integration', () => {
     logger.debug(`bbBinaryPath is ${bbBinaryPath}`);
   });
 
+  function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+    // Convert each byte in the Uint8Array to a character, then join them into a binary string
+    const binaryString = Array.from(uint8Array)
+        .map(byte => String.fromCharCode(byte))
+        .join('');
+
+    // Encode the binary string to base64
+    return btoa(binaryString);
+  }
+
   async function proveAndVerifyAztecClient(witnessStack: Uint8Array[], bytecodes: string[]): Promise<boolean> {
     await fs.writeFile(
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
+      path.join(bbWorkingDirectory, 'acir.msgpack.b64'),
+      uint8ArrayToBase64(encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64')))),
     );
-    logger.debug('wrote acir.msgpack');
+    logger.debug('wrote acir.msgpack.b64');
 
-    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
-    logger.debug('wrote witnesses.msgpack');
+    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack.b64'), uint8ArrayToBase64(encode(witnessStack)));
+    logger.debug('wrote witnesses.msgpack.b64');
 
     const provingResult = await executeBbClientIvcProveAndVerify(
       bbBinaryPath,
       bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      path.join(bbWorkingDirectory, 'witnesses.msgpack'),
+      path.join(bbWorkingDirectory, 'acir.msgpack.b64'),
+      path.join(bbWorkingDirectory, 'witnesses.msgpack.b64'),
       logger.info,
     );
 

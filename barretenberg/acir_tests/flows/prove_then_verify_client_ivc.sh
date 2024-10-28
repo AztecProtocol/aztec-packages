@@ -2,7 +2,7 @@
 set -eux
 
 VFLAG=${VERBOSE:+-v}
-BFLAG="-b ./target/acirs.msgpack"
+BFLAG="-b ./target/acir.msgpack"
 FLAGS="-c $CRS_PATH $VFLAG"
 
 $BIN client_ivc_prove_output_all $FLAGS $BFLAG

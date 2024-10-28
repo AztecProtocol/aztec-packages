@@ -265,10 +265,11 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     std::vector<Program> folding_stack;
 
     for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
+        info("constructed witnesses");
         acir_format::AcirFormat constraints =
             acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/false);
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
-
+        info("constructed constraints");
         folding_stack.push_back(Program{ constraints, witness });
     }
     info("created folding stack");
