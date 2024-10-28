@@ -1,7 +1,7 @@
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "chaos-mesh.fullname" -}}
+{{- define "network-shaping.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -17,9 +17,9 @@ Create a default fully qualified app name.
 {{/*
 Common labels
 */}}
-{{- define "chaos-mesh.labels" -}}
-helm.sh/chart: {{ include "chaos-mesh.chart" . }}
-{{ include "chaos-mesh.selectorLabels" . }}
+{{- define "network-shaping.labels" -}}
+helm.sh/chart: {{ include "network-shaping.chart" . }}
+{{ include "network-shaping.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -30,6 +30,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "chaos-mesh.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "chaos-mesh.name" . }}
+app.kubernetes.io/name: {{ include "network-shaping.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

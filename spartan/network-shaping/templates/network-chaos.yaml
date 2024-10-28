@@ -6,9 +6,9 @@ apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
   name: {{ .Values.global.namespace }}-latency
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
-    {{- include "chaos-mesh.labels" . | nindent 4 }}
+    {{- include "network-shaping.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"
@@ -18,7 +18,7 @@ spec:
   mode: all
   selector:
     namespaces:
-      - {{ .Values.global.namespace }}
+      - {{ .Values.global.targetNamespace }}
   delay:
     {{- toYaml .Values.networkShaping.conditions.latency.delay | nindent 4 }}
   duration: 8760h  # 1 year
@@ -30,9 +30,9 @@ apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
   name: {{ .Values.global.namespace }}-bandwidth
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
-    {{- include "chaos-mesh.labels" . | nindent 4 }}
+    {{- include "network-shaping.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"
@@ -42,7 +42,7 @@ spec:
   mode: all
   selector:
     namespaces:
-      - {{ .Values.global.namespace }}
+      - {{ .Values.global.targetNamespace }}
   bandwidth:
     rate: {{ .Values.networkShaping.conditions.bandwidth.rate }}
     limit: {{ .Values.networkShaping.conditions.bandwidth.limit }}
@@ -56,9 +56,9 @@ apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
   name: {{ .Values.global.namespace }}-packet-loss
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
-    {{- include "chaos-mesh.labels" . | nindent 4 }}
+    {{- include "network-shaping.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"
@@ -68,7 +68,7 @@ spec:
   mode: all
   selector:
     namespaces:
-      - {{ .Values.global.namespace }}
+      - {{ .Values.global.targetNamespace }}
   loss:
     loss: {{ .Values.networkShaping.conditions.packetLoss.loss }}
     correlation: {{ .Values.networkShaping.conditions.packetLoss.correlation }}
