@@ -127,8 +127,6 @@ ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 ENV PORT=8080
 
-RUN apt-get update && apt-get install -y ipset
-
 # Create necessary directories
 RUN mkdir -p $BB_WORKING_DIRECTORY \
     $ACVM_WORKING_DIRECTORY \
