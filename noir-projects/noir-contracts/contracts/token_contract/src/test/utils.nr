@@ -44,7 +44,23 @@ pub unconstrained fn setup(
     (&mut env, token_contract_address, owner, recipient)
 }
 
-pub unconstrained fn setup_and_mint(
+pub unconstrained fn setup_and_mint_public(
+    with_account_contracts: bool,
+) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+    // Setup
+    let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
+    let mint_amount = 10000;
+    // Mint some tokens
+    let secret = random();
+    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
+
+    // Time travel so we can read keys from the registry
+    env.advance_block_by(6);
+
+    (env, token_contract_address, owner, recipient, mint_amount)
+}
+
+pub unconstrained fn setup_and_mint_private(
     with_account_contracts: bool,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
@@ -54,7 +70,6 @@ pub unconstrained fn setup_and_mint(
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
     Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
-    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
 
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
