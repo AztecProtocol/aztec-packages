@@ -29,7 +29,7 @@ use dep::aztec::macros::aztec;
 ///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
 contract AMM {
-    use crate::lib::{get_amount_in, get_amount_out, get_amounts_to_add, get_quote};
+    use crate::lib::{get_amount_in, get_amount_out, get_amounts_to_add};
     use dep::aztec::{
         macros::{
             events::event,
@@ -315,36 +315,36 @@ contract AMM {
     /// TODO(#8271): Type the args as U128
     #[private]
     fn swap_exact_tokens_for_tokens(
+        token_in: AztecAddress,
+        token_out: AztecAddress,
         amount_in: Field,
         amount_out_min: Field,
-        from_0_to_1: bool,
         nonce: Field,
     ) {
         let state = storage.state.read_private();
 
-        let (token_address_in, token_address_out) = if from_0_to_1 {
-            (state.token0, state.token1)
-        } else {
-            (state.token1, state.token0)
-        };
+        // We check the tokens are valid
+        assert(token_in != token_out);
+        assert(token_in == state.token0 | token_in == state.token1);
+        assert(token_out == state.token0 | token_out == state.token1);
 
-        let token_in = Token::at(token_address_in);
-        let token_out = Token::at(token_address_out);
+        let token_in_contract = Token::at(token_in);
+        let token_out_contract = Token::at(token_out);
 
         // We transfer the `amount_in` to this contract and we prepare partial note for the output token.
-        token_in.transfer_to_public(msg.sender, context.this_address(), amount_in, nonce).call(
-            &mut context,
-        );
-        let token_out_slot_commitment = token_out
+        token_in_contract
+            .transfer_to_public(msg.sender, context.this_address(), amount_in, nonce)
+            .call(&mut context);
+        let token_out_slot_commitment = token_out_contract
             .prepare_transfer_to_private(context.this_address(), msg.sender)
             .call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_exact_tokens_for_tokens(
+                token_in,
+                token_out,
                 amount_in,
                 amount_out_min,
-                token_address_in,
-                token_address_out,
                 token_out_slot_commitment,
             )
             .enqueue(&mut context);
@@ -353,25 +353,25 @@ contract AMM {
     #[public]
     #[internal]
     fn _swap_exact_tokens_for_tokens(
+        token_in: AztecAddress,
+        token_out: AztecAddress,
         amount_in: Field,
         amount_out_min: Field,
-        token_address_in: AztecAddress,
-        token_address_out: AztecAddress,
         token_out_slot_commitment: Field,
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_in = U128::from_integer(amount_in);
         let amount_out_min = U128::from_integer(amount_out_min);
 
-        let token_in = Token::at(token_address_in);
-        let token_out = Token::at(token_address_out);
+        let token_in_contract = Token::at(token_in);
+        let token_out_contract = Token::at(token_out);
 
         // We get the reserves. The `amount_in` was already transferred to this contract so we need to subtract it.
-        let reserve_in_with_amount_in = U128::from_integer(token_in
+        let reserve_in_with_amount_in = U128::from_integer(token_in_contract
             .balance_of_public(context.this_address())
             .view(&mut context));
         let reserve_in = reserve_in_with_amount_in - amount_in;
-        let reserve_out = U128::from_integer(token_out
+        let reserve_out = U128::from_integer(token_out_contract
             .balance_of_public(context.this_address())
             .view(&mut context));
 
@@ -380,7 +380,7 @@ contract AMM {
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
         // Transfer the output token to the user.
-        token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(
+        token_out_contract.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(
             &mut context,
         );
     }
@@ -390,9 +390,10 @@ contract AMM {
     /// purpose is to isolate authwits to this specific call.
     #[private]
     fn swap_tokens_for_exact_tokens(
+        token_in: AztecAddress,
+        token_out: AztecAddress,
         amount_out: Field,
         amount_in_max: Field,
-        from_0_to_1: bool,
         nonce: Field,
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
@@ -401,35 +402,34 @@ contract AMM {
 
         let state = storage.state.read_private();
 
-        let (token_address_in, token_address_out) = if from_0_to_1 {
-            (state.token0, state.token1)
-        } else {
-            (state.token1, state.token0)
-        };
+        // We check the tokens are valid
+        assert(token_in != token_out);
+        assert(token_in == state.token0 | token_in == state.token1);
+        assert(token_out == state.token0 | token_out == state.token1);
 
-        let token_in = Token::at(token_address_in);
-        let token_out = Token::at(token_address_out);
+        let token_in_contract = Token::at(token_in);
+        let token_out_contract = Token::at(token_out);
 
         // We transfer the `amount_in_max` to this contract and we prepare partial notes for refund and for the output
         // token.
         token_in.transfer_to_public(msg.sender, context.this_address(), amount_in_max, nonce).call(
             &mut context,
         );
-        let refund_token_in_slot_commitment = token_in
+        let refund_token_in_slot_commitment = token_in_contract
             .prepare_transfer_to_private(msg.sender, context.this_address(), nonce)
             .call(&mut context);
-        let token_out_slot_commitment = token_out
+        let token_out_slot_commitment = token_out_contract
             .prepare_transfer_to_private(context.this_address(), msg.sender)
             .call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_tokens_for_exact_tokens(
+                token_in,
+                token_out,
+                amount_in_max.to_integer(),
+                amount_out.to_integer(),
                 refund_token_in_slot_commitment,
                 token_out_slot_commitment,
-                amount_out,
-                amount_in_max,
-                token_address_in,
-                token_address_out,
             )
             .enqueue(&mut context);
     }
@@ -437,19 +437,19 @@ contract AMM {
     #[public]
     #[internal]
     fn _swap_tokens_for_exact_tokens(
+        token_in: AztecAddress,
+        token_out: AztecAddress,
+        amount_in_max: Field,
+        amount_out: Field,
         refund_token_in_slot_commitment: Field,
         token_out_slot_commitment: Field,
-        amount_out: Field,
-        amount_in_max: Field,
-        token_address_in: AztecAddress,
-        token_address_out: AztecAddress,
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_out = U128::from_integer(amount_out);
         let amount_in_max = U128::from_integer(amount_in_max);
 
-        let token_in = Token::at(token_address_in);
-        let token_out = Token::at(token_address_out);
+        let token_in_contract = Token::at(token_in);
+        let token_out_contract = Token::at(token_out);
 
         // We get the reserves. The `amount_in_max` was already transferred to this contract so we need to subtract it.
         let reserve_in_with_amount_in_max = U128::from_integer(token_in
@@ -467,13 +467,13 @@ contract AMM {
         // If less than amount_in_max of input token was needed we refund the difference.
         let refund_amount = amount_in_max - amount_in;
         if (refund_amount > U128::zero()) {
-            token_in
+            token_in_contract
                 .finalize_transfer_to_private(refund_token_in_slot_commitment, refund_amount)
                 .call(&mut context);
         }
 
         // Transfer the output token to the user.
-        token_out.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(
+        token_out_contract.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(
             &mut context,
         );
     }
