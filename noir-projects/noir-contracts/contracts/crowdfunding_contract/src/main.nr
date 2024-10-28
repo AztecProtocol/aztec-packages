@@ -89,7 +89,6 @@ contract Crowdfunding {
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             donor_keys.ovpk_m,
-            donor_keys.ivpk_m,
             donor,
         ));
     }

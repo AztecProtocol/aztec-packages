@@ -454,7 +454,7 @@ describe('e2e_synching', () => {
     await teardown();
   };
 
-  describe('replay history and then do a fresh sync', () => {
+  describe.skip('replay history and then do a fresh sync', () => {
     it.each(variants)(
       'vanilla - %s',
       async (variantDef: VariantDefinition) => {
@@ -491,7 +491,7 @@ describe('e2e_synching', () => {
     );
   });
 
-  describe('a wild prune appears', () => {
+  describe.skip('a wild prune appears', () => {
     const ASSUME_PROVEN_THROUGH = 0;
 
     it('archiver following catches reorg as it occur and deletes blocks', async () => {

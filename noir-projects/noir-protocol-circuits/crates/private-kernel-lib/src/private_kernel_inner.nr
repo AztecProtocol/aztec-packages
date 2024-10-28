@@ -88,7 +88,7 @@ mod tests {
     };
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INIT_INDEX},
+        constants::{EMPTY_NESTED_INDEX, PRIVATE_KERNEL_INIT_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
@@ -170,7 +170,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
         let _res = builder.execute();
     }
 }

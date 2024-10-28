@@ -9,10 +9,10 @@ import {
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
+  AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BaseRollupInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -23,13 +23,11 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   Proof,
-  type PublicKernelCircuitPrivateInputs,
-  type PublicKernelCircuitPublicInputs,
-  type PublicKernelInnerCircuitPrivateInputs,
-  type PublicKernelTailCircuitPrivateInputs,
+  type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   RootParityInput,
@@ -38,13 +36,13 @@ import {
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   type TubeInputs,
-  type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ProtocolCircuitVkIndexes,
@@ -53,8 +51,6 @@ import {
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
-  convertBaseRollupInputsToWitnessMap,
-  convertBaseRollupOutputsFromWitnessMap,
   convertBlockMergeRollupInputsToWitnessMap,
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockRootRollupInputsToWitnessMap,
@@ -63,14 +59,12 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPrivateBaseRollupInputsToWitnessMap,
+  convertPrivateBaseRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
   convertPrivateKernelEmptyOutputsFromWitnessMap,
-  convertPublicInnerInputsToWitnessMap,
-  convertPublicInnerOutputFromWitnessMap,
-  convertPublicMergeInputsToWitnessMap,
-  convertPublicMergeOutputFromWitnessMap,
-  convertPublicTailInputsToWitnessMap,
-  convertPublicTailOutputFromWitnessMap,
+  convertPublicBaseRollupInputsToWitnessMap,
+  convertPublicBaseRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -208,77 +202,35 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
     [Attributes.APP_CIRCUIT_NAME]: inputs.functionName,
   }))
-  public async getAvmProof(inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
+  public async getAvmProof(
+    inputs: AvmCircuitInputs,
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>> {
     const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey);
     return proofAndVk;
   }
 
   /**
-   * Requests that a public kernel inner circuit be executed and the proof generated
-   * @param kernelRequest - The object encapsulating the request for a proof
-   * @returns The requested circuit's public inputs and proof
+   * Simulates the base rollup circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
    */
-  @trackSpan('BBNativeRollupProver.getPublicKernelInnerProof', {
-    [Attributes.PROTOCOL_CIRCUIT_NAME]: 'public-kernel-inner',
-  })
-  public async getPublicKernelInnerProof(
-    inputs: PublicKernelInnerCircuitPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
-    const artifact = 'PublicKernelInnerArtifact';
+  public async getPrivateBaseRollupProof(
+    inputs: PrivateBaseRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    const artifactName = 'PrivateBaseRollupArtifact';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
-      artifact,
+      artifactName,
       NESTED_RECURSIVE_PROOF_LENGTH,
-      convertPublicInnerInputsToWitnessMap,
-      convertPublicInnerOutputFromWitnessMap,
+      convertPrivateBaseRollupInputsToWitnessMap,
+      convertPrivateBaseRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit(artifact);
+    const verificationKey = await this.getVerificationKeyDataForCircuit(artifactName);
 
-    await this.verifyProof(artifact, proof.binaryProof);
-
-    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
-  }
-
-  /**
-   * Requests that a public kernel merge circuit be executed and the proof generated
-   * @param kernelRequest - The object encapsulating the request for a proof
-   * @returns The requested circuit's public inputs and proof
-   */
-  @trackSpan('BBNativeRollupProver.getPublicKernelMergeProof', {
-    [Attributes.PROTOCOL_CIRCUIT_NAME]: 'public-kernel-merge',
-  })
-  public async getPublicKernelMergeProof(
-    inputs: PublicKernelCircuitPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
-    const artifact = 'PublicKernelMergeArtifact';
-
-    // We may need to convert the recursive proof into fields format
-    inputs.previousKernel.proof = await this.ensureValidProof(
-      inputs.previousKernel.proof,
-      artifact,
-      inputs.previousKernel.vk,
-    );
-
-    await this.verifyWithKey(
-      getUltraHonkFlavorForCircuit(artifact),
-      inputs.previousKernel.vk,
-      inputs.previousKernel.proof.binaryProof,
-    );
-
-    const { circuitOutput, proof } = await this.createRecursiveProof(
-      inputs,
-      artifact,
-      NESTED_RECURSIVE_PROOF_LENGTH,
-      convertPublicMergeInputsToWitnessMap,
-      convertPublicMergeOutputFromWitnessMap,
-    );
-
-    const verificationKey = await this.getVerificationKeyDataForCircuit(artifact);
-
-    await this.verifyProof(artifact, proof.binaryProof);
+    await this.verifyProof(artifactName, proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
@@ -288,52 +240,22 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param kernelRequest - The object encapsulating the request for a proof
    * @returns The requested circuit's public inputs and proof
    */
-  public async getPublicTailProof(
-    inputs: PublicKernelTailCircuitPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  public async getPublicBaseRollupProof(
+    inputs: PublicBaseRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+    const artifactName = 'PublicBaseRollupArtifact';
+
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
-      'PublicKernelTailArtifact',
+      artifactName,
       NESTED_RECURSIVE_PROOF_LENGTH,
-      convertPublicTailInputsToWitnessMap,
-      convertPublicTailOutputFromWitnessMap,
+      convertPublicBaseRollupInputsToWitnessMap,
+      convertPublicBaseRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('PublicKernelTailArtifact');
+    const verificationKey = await this.getVerificationKeyDataForCircuit(artifactName);
 
-    await this.verifyProof('PublicKernelTailArtifact', proof.binaryProof);
-
-    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
-  }
-
-  /**
-   * Simulates the base rollup circuit from its inputs.
-   * @param baseRollupInput - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
-   */
-  public async getBaseRollupProof(
-    baseRollupInput: BaseRollupInputs, // TODO: remove tail proof from here
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
-    // We may need to convert the recursive proof into fields format
-    logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
-    logger.debug(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
-    baseRollupInput.kernelData.proof = await this.ensureValidProof(
-      baseRollupInput.kernelData.proof,
-      'BaseRollupArtifact',
-      baseRollupInput.kernelData.vk,
-    );
-
-    const { circuitOutput, proof } = await this.createRecursiveProof(
-      baseRollupInput, // BaseRollupInputs
-      'BaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO: this should be BASE_ROLLUP_PROOF_LENGTH or something like this
-      convertBaseRollupInputsToWitnessMap,
-      convertBaseRollupOutputsFromWitnessMap,
-    );
-
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
-
-    await this.verifyProof('BaseRollupArtifact', proof.binaryProof);
+    await this.verifyProof(artifactName, proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
@@ -677,20 +599,21 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
-  private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
-    const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey<Proof>> => {
+  private async createAvmProof(
+    input: AvmCircuitInputs,
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>> {
+    const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
-      const rawProof = await fs.readFile(provingResult.proofPath!);
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6773): this VK data format is wrong.
       // In particular, the number of public inputs, etc will be wrong.
       const verificationKey = await extractAvmVkData(provingResult.vkPath!);
-      const proof = new Proof(rawProof, verificationKey.numPublicInputs);
+      const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!, verificationKey);
 
       const circuitType = 'avm-circuit' as const;
       const appCircuitName = 'unknown' as const;
       this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, provingResult.durationMs);
-      this.instrumentation.recordAvmSize('proofSize', appCircuitName, proof.buffer.length);
+      this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
       this.instrumentation.recordAvmSize('circuitPublicInputCount', appCircuitName, verificationKey.numPublicInputs);
       this.instrumentation.recordAvmSize('circuitSize', appCircuitName, verificationKey.circuitSize);
 
@@ -701,7 +624,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           appCircuitName: input.functionName,
           // does not include reading the proof from disk
           duration: provingResult.durationMs,
-          proofSize: proof.buffer.length,
+          proofSize: avmProof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
           inputSize: input.toBuffer().length,
           circuitSize: verificationKey.circuitSize, // FIX: wrong in VK
@@ -709,7 +632,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         } satisfies CircuitProvingStats,
       );
 
-      return makeProofAndVerificationKey(proof, verificationKey);
+      return makeProofAndVerificationKey(avmProof, verificationKey);
     };
     return await this.runInDirectory(operation);
   }
@@ -724,7 +647,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
-      const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
+      const tubeProof = await this.readProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
 
       this.instrumentation.recordDuration('provingDuration', 'tubeCircuit', provingResult.durationMs);
       this.instrumentation.recordSize('proofSize', 'tubeCircuit', tubeProof.binaryProof.buffer.length);
@@ -774,7 +697,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
 
       // Read the proof as fields
-      const proof = await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
+      const proof = await this.readProofAsFields(provingResult.proofPath!, vkData, proofLength);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
       this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
@@ -914,10 +837,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         .slice(0, 3)
         .map(Fr.fromString)
         .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
-      return new RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
+      return new RecursiveProof(
         fields,
         new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
         true,
+        NESTED_RECURSIVE_PROOF_LENGTH,
       );
     };
     return await this.runInDirectory(operation);
@@ -969,53 +893,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return promise;
   }
 
-  /**
-   * Parses and returns the proof data stored at the specified directory
-   * @param filePath - The directory containing the proof data
-   * @param circuitType - The type of circuit proven
-   * @returns The proof
-   */
   private async readProofAsFields<PROOF_LENGTH extends number>(
-    filePath: string,
-    circuitType: ServerProtocolArtifact,
-    proofLength: PROOF_LENGTH,
-  ): Promise<RecursiveProof<PROOF_LENGTH>> {
-    const proofFilename = path.join(filePath, PROOF_FILENAME);
-    const proofFieldsFilename = path.join(filePath, PROOF_FIELDS_FILENAME);
-
-    const [binaryProof, proofString] = await Promise.all([
-      fs.readFile(proofFilename),
-      fs.readFile(proofFieldsFilename, { encoding: 'utf-8' }),
-    ]);
-    const json = JSON.parse(proofString);
-    const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    const fieldsWithoutPublicInputs = json
-      .slice(0, 3)
-      .map(Fr.fromString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
-    logger.debug(`num pub inputs ${vkData.numPublicInputs} circuit=${circuitType}`);
-
-    const proof = new RecursiveProof<PROOF_LENGTH>(
-      fieldsWithoutPublicInputs,
-      new Proof(binaryProof, numPublicInputs),
-      true,
-    );
-    if (proof.proof.length !== proofLength) {
-      throw new Error(`Proof length doesn't match expected length (${proof.proof.length} != ${proofLength})`);
-    }
-
-    return proof;
-  }
-
-  /**
-   * Parses and returns a tube proof stored in the specified directory. TODO merge wih above
-   * @param filePath - The directory containing the proof data
-   * @param circuitType - The type of circuit proven
-   * @returns The proof
-   * TODO(#7369) This is entirely redundant now with the above method, deduplicate
-   */
-  private async readTubeProofAsFields<PROOF_LENGTH extends number>(
     filePath: string,
     vkData: VerificationKeyData,
     proofLength: PROOF_LENGTH,
@@ -1031,23 +909,31 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const json = JSON.parse(proofString);
 
     const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    if (numPublicInputs === 0) {
-      throw new Error(`Tube proof should have public inputs (e.g. the number of public inputs from PrivateKernelTail)`);
-    }
 
-    const proofFields = json
+    const fieldsWithoutPublicInputs = json
       .slice(0, 3)
       .map(Fr.fromString)
       .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
     logger.debug(
-      `Circuit type: tube circuit, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
+      `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
-    const proof = new RecursiveProof<PROOF_LENGTH>(proofFields, new Proof(binaryProof, numPublicInputs), true);
-    if (proof.proof.length !== proofLength) {
-      throw new Error(`Proof length doesn't match expected length (${proof.proof.length} != ${proofLength})`);
-    }
 
-    return proof;
+    return new RecursiveProof(fieldsWithoutPublicInputs, new Proof(binaryProof, numPublicInputs), true, proofLength);
+  }
+
+  private async readAvmProofAsFields(
+    proofFilename: string,
+    vkData: VerificationKeyData,
+  ): Promise<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+    const rawProof = await fs.readFile(proofFilename);
+
+    const reader = BufferReader.asReader(rawProof);
+    const fields = reader.readArray(rawProof.length / Fr.SIZE_IN_BYTES, Fr);
+    const fieldsWithoutPublicCols = fields.slice(-1 * AVM_PROOF_LENGTH_IN_FIELDS);
+
+    const proof = new Proof(rawProof, vkData.numPublicInputs);
+
+    return new RecursiveProof(fieldsWithoutPublicCols, proof, true, AVM_PROOF_LENGTH_IN_FIELDS);
   }
 
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {

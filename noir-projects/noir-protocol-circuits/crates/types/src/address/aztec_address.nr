@@ -19,6 +19,7 @@ use crate::{
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
+use crate::public_keys::AddressPoint;
 use std::{
     ec::{pow, sqrt},
     embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
@@ -65,8 +66,12 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
-impl ToPoint for AztecAddress {
-    fn to_point(self) -> Point {
+impl AztecAddress {
+    pub fn zero() -> Self {
+        Self { inner: 0 }
+    }
+
+    pub fn to_address_point(self) -> AddressPoint {
         // We compute the address point by taking our address, setting it to x, and then solving for y in the
         // equation which defines our bn curve:
         // y^2 = x^3 - 17; x = address
@@ -83,13 +88,7 @@ impl ToPoint for AztecAddress {
             y = (MAX_FIELD_VALUE + 1) - y;
         }
 
-        Point { x: self.inner, y, is_infinite: false }
-    }
-}
-
-impl AztecAddress {
-    pub fn zero() -> Self {
-        Self { inner: 0 }
+        AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } }
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {

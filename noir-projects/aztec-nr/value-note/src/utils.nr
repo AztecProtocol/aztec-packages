@@ -32,7 +32,6 @@ pub fn increment(
     balance.insert(&mut note).emit(encode_and_encrypt_note(
         balance.context,
         outgoing_viewer_ovpk_m,
-        recipient_keys.ivpk_m,
         recipient,
     ));
 }

@@ -128,6 +128,14 @@ enum class EnvironmentVariable {
     MAX_ENV_VAR
 };
 
+enum class ContractInstanceMember {
+    DEPLOYER,
+    CLASS_ID,
+    INIT_HASH,
+    // sentinel
+    MAX_MEMBER,
+};
+
 class Bytecode {
   public:
     static bool is_valid(uint8_t byte);

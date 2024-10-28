@@ -8,7 +8,8 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, kernel_data::KernelData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_update_request::PublicDataUpdateRequest,
     },
@@ -18,8 +19,7 @@ use dep::types::{
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
         PRIVATE_KERNEL_EMPTY_INDEX, PUBLIC_DATA_SUBTREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_KERNEL_TAIL_INDEX,
-        TUBE_INDEX,
+        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
     },
     data::{
         hash::{compute_public_data_tree_index, compute_public_data_tree_value},
@@ -39,8 +39,10 @@ use dep::types::{
     utils::field::{full_field_greater_than, full_field_less_than},
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS =
-    [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_INDEX, PUBLIC_KERNEL_TAIL_INDEX];
+// Temporary struct to avoid changing all the references to kernel_data. Will remove it and just pass in the public_inputs.
+struct KernelData {
+    public_inputs: KernelCircuitPublicInputs,
+}
 
 pub struct BaseRollupInputs {
     kernel_data: KernelData,
@@ -63,11 +65,6 @@ pub struct BaseRollupInputs {
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        if !dep::std::runtime::is_unconstrained() {
-            // Recursively verify the tube proof if straight from private, or the public kernel tail
-            self.kernel_data.verify();
-            self.kernel_data.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
-        }
         // Verify the kernel chain_id and versions
         assert(
             self.kernel_data.public_inputs.constants.tx_context.chain_id
@@ -512,28 +509,28 @@ mod tests {
             constant_rollup_data::ConstantRollupData,
         },
         base::{
-            base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot},
+            base_rollup_inputs::{
+                BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot, KernelData,
+            },
             state_diff_hints::StateDiffHints,
         },
         components::TX_EFFECTS_HASH_INPUT_FIELDS,
     };
     use dep::types::{
         abis::{
-            append_only_tree_snapshot::AppendOnlyTreeSnapshot, kernel_data::KernelData,
+            append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             nullifier_leaf_preimage::NullifierLeafPreimage,
             public_data_update_request::PublicDataUpdateRequest,
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-            MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
-            NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+            ARCHIVE_HEIGHT, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
             PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_SUBTREE_HEIGHT,
             PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
-            PUBLIC_KERNEL_TAIL_INDEX, TUBE_INDEX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -800,7 +797,8 @@ mod tests {
         }
 
         unconstrained fn build_inputs(mut self) -> BaseRollupInputs {
-            let mut kernel_data = self.kernel_data.to_kernel_data();
+            let mut kernel_data =
+                KernelData { public_inputs: self.kernel_data.to_kernel_circuit_public_inputs() };
 
             let start_note_hash_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_notes,
@@ -1482,28 +1480,6 @@ mod tests {
             BaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
         };
 
-        let _res = builder.execute();
-    }
-
-    #[test]
-    fn valid_previous_kernel_tube() {
-        let builder = unsafe { BaseRollupInputsBuilder::new_with_previous_kernel(TUBE_INDEX) };
-
-        let _res = builder.execute();
-    }
-
-    #[test]
-    fn valid_previous_kernel_public_tail() {
-        let builder =
-            unsafe { BaseRollupInputsBuilder::new_with_previous_kernel(PUBLIC_KERNEL_TAIL_INDEX) };
-
-        let _res = builder.execute();
-    }
-
-    #[test(should_fail_with = "Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = BaseRollupInputsBuilder::new();
-        builder.kernel_data = builder.kernel_data.in_vk_tree(BASE_ROLLUP_INDEX);
         let _res = builder.execute();
     }
 }
