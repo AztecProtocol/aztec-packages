@@ -18,7 +18,7 @@ if [ "$CMD" = "clean" ]; then
 fi
 
 # Generate l1-artifacts before creating lock file
-(cd l1-artifacts && yarn generate)
+(cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
 
 if [ "$CMD" = "full" ]; then
   yarn install --immutable
