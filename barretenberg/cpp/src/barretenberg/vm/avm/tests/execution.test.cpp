@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/constants.hpp"
@@ -55,6 +56,8 @@ class AvmExecutionTests : public ::testing::Test {
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
         public_inputs_vec.at(ADDRESS_PCPI_OFFSET) = 0xdeadbeef;
+
+        public_inputs = convert_public_inputs(public_inputs_vec);
     };
 
     /**
