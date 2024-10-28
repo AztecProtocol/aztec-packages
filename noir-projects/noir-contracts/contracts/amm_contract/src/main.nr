@@ -2,11 +2,28 @@ mod lib;
 
 use dep::aztec::macros::aztec;
 
-/// This contract is a demonstration of how an Automated Market Maker (AMM) that requires public state while still
-/// achieving identity privacy can be implemented. It does not, however, provide function privacy: anyone can see
-/// what actions were performed and all amounts involved (but not _who_ performed the action).
+/// ## Overview
+/// This contract demonstrates how to implement an **Automated Market Maker (AMM)** that maintains **public state**
+/// while still achieving **identity privacy**. However, it does **not provide function privacy**:
+/// - Anyone can observe **what actions** were performed.
+/// - All amounts involved are visible, but **who** performed the action remains private.
 ///
-/// Note: This is only a demonstration and we (Aztec team) do not think this is the best way to build a DEX.
+/// **Note:**
+/// This is purely a demonstration. The **Aztec team** does not consider this the optimal design for building a DEX.
+///
+/// ## Reentrancy Guard Considerations
+///
+/// ### 1. Private Functions:
+/// Reentrancy protection is typically necessary if entering an intermediate state that is only valid when
+/// the action completes uninterrupted. This follows the **Checks-Effects-Interactions** pattern.
+///
+/// - In this contract, **private functions** do not introduce intermediate states.
+/// - All operations will be fully executed in **public** without needing intermediate checks.
+///
+/// ### 2. Public Functions:
+/// No **reentrancy guard** is required for public functions because:
+/// - All public functions are marked as **internal** with a **single callsite** - from a private function.
+/// - Public functions **cannot call private functions**, eliminating the risk of reentrancy into them.
 #[aztec]
 contract AMM {
     use crate::lib::{get_amount_in, get_amount_out, get_quote};
@@ -66,7 +83,6 @@ contract AMM {
         amount1_min: u64,
         nonce: Field,
     ) {
-        // TODO: Do we need reentrancy guards in the private funcs? And if yes how to do it?
         assert(amount0_desired > 0 & amount1_desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
         let state = storage.state.read_private();
@@ -202,7 +218,6 @@ contract AMM {
     /// value and its purpose is to isolate authwits to this specific call.
     #[private]
     fn remove_liquidity(liquidity: u64, amount0_min: u64, amount1_min: u64, nonce: Field) {
-        // TODO: Do we need reentrancy guards in the private funcs? And if yes how to do it?
         let state = storage.state.read_private();
 
         let liquidity_token = Token::at(state.liquidity_token);
@@ -245,9 +260,6 @@ contract AMM {
         amount0_min: u64,
         amount1_min: u64,
     ) {
-        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
-        // `remove_liquidity` which is private and since public functions cannot call private ones it's impossible to
-        // reenter this function.
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
         let liquidity_token = Token::at(state.liquidity_token);
@@ -321,9 +333,6 @@ contract AMM {
         token_address_out: AztecAddress,
         token_out_slot_commitment: Field,
     ) {
-        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
-        // `swap_exact_tokens_for_tokens` which is private and since public functions cannot call private ones
-        // it's impossible to reenter this function.
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
@@ -399,9 +408,6 @@ contract AMM {
         token_address_in: AztecAddress,
         token_address_out: AztecAddress,
     ) {
-        // We don't need any kind of reentrancy guard here because the only way to enter this public function is from
-        // `swap_tokens_for_exact_tokens` which is private and since public functions cannot call private ones
-        // it's impossible to reenter this function.
         let token_in = Token::at(token_address_in);
         let token_out = Token::at(token_address_out);
 
