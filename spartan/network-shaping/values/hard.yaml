@@ -17,7 +17,7 @@ networkShaping:
       enabled: true
       # 20Mbps
       rate: 20mbps
-      limit: 10mb
+      limit: 10000000 # 10 MB
       buffer: 4000
     packetLoss:
       enabled: true

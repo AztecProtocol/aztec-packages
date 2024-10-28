@@ -18,7 +18,7 @@ networkShaping:
       enabled: true
       # 5Mbps
       rate: 5mbps
-      limit: 2mb
+      limit: 2000000 # 2 MB
       buffer: 2000
     packetLoss:
       enabled: true

@@ -24,11 +24,11 @@ networkShaping:
       delay:
         # Base latency of all network traffic
         # can be defined in ms / s
-        latency: 100ms
+        latency: "100ms"
 
         # Random variation in latency
         # Actual will be latency +- jitter
-        jitter: 50ms
+        jitter: "50ms"
 
         # Correlation
         # This means previous delays will impact the immediate next delay
@@ -54,10 +54,11 @@ networkShaping:
 
       # Target bandwidth rate
       # kbps, mbps, gbps
-      rate: 1024kbps
+      rate: "1024kbps"
 
       # Burst size, buffer to allow before bandwidth limiting is applied
-      limit: 2048kbps
+      # Not a string!
+      limit: 20971520
 
       # Buffer = smoother bandwidth restriction but higher memory usage
       buffer: 1000

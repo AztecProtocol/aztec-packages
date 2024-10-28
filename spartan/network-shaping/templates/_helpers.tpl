@@ -15,21 +15,19 @@ Create a default fully qualified app name.
 {{- end }}
 
 {{/*
+Selector labels
+*/}}
+{{- define "chaos-mesh.selectorLabels" -}}
+{{- end }}
+
+{{/*
 Common labels
 */}}
 {{- define "network-shaping.labels" -}}
-helm.sh/chart: {{ include "network-shaping.chart" . }}
-{{ include "network-shaping.selectorLabels" . }}
+app.kubernetes.io/name: {{ include "network-shaping.fullname" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end }}
-
-{{/*
-Selector labels
-*/}}
-{{- define "chaos-mesh.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "network-shaping.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
