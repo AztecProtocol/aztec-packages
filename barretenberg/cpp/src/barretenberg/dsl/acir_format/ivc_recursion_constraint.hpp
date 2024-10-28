@@ -8,6 +8,8 @@ namespace acir_format {
 
 using namespace bb;
 
+ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints);
+
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc(const PROOF_TYPE proof_type);
 
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure& trace_structure,

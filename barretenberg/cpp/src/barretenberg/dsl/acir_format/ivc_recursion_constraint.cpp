@@ -16,6 +16,26 @@ using field_ct = stdlib::field_t<Builder>;
 // using bn254 = stdlib::bn254<Builder>;
 // using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
+ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
+{
+    ClientIVC ivc;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
+
+    for (const auto& constraint : constraints) {
+        if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
+            ClientIVC::VerifierInputs oink_entry =
+                acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_structure, constraint.public_inputs.size());
+            ivc.verification_queue.emplace_back(oink_entry);
+            ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
+            // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
+        } else if (static_cast<uint32_t>(PROOF_TYPE::PG) == constraint.proof_type) {
+            // do other stuff
+        }
+    }
+
+    return ivc;
+}
+
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc([[maybe_unused]] const PROOF_TYPE proof_type,
                                                               [[maybe_unused]] size_t num_public_inputs = 0)
 {

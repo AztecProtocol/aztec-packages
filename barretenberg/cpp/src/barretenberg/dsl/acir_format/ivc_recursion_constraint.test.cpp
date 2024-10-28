@@ -77,6 +77,22 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         };
     }
 
+    static RecursionConstraint create_empty_recursion_constraint(PROOF_TYPE proof_type, const size_t num_public_inputs)
+    {
+        // Assemble simple vectors of witnesses for vkey and proof
+        const size_t CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
+        std::vector<uint32_t> key_indices(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+        std::vector<uint32_t> public_inputs_indices(num_public_inputs);
+
+        return RecursionConstraint{
+            .key = key_indices,
+            .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
+            .public_inputs = public_inputs_indices,
+            .key_hash = 0, // not used
+            .proof_type = proof_type,
+        };
+    }
+
     /**
      * @brief Create an arithmetic constraint fixing the first public input witness to it's present value
      * @details Meant to mimic the "business logic" of the aztec kernel. Used to facilitate failure testing since this
@@ -328,6 +344,78 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         // Construct kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc);
+        // WORKTODO: this would normally happen in accumulate()
+        kernel.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_structure);
+        MegaProver prover(proving_key);
+        kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
+    }
+
+    // PCS verification keys will not match so set to null before comparing
+    kernel_vk->pcs_verification_key = nullptr;
+    expected_kernel_vk->pcs_verification_key = nullptr;
+
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
+
+// Test generation of "init" kernel VK via dummy IVC data
+TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
+{
+    const TraceStructure trace_structure = TraceStructure::SMALL_TEST;
+
+    std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
+    size_t num_app_public_inputs = 0;
+    {
+        ClientIVC ivc;
+        ivc.trace_structure = trace_structure;
+
+        // Construct and accumulate mock app_circuit
+        Builder app_circuit = construct_mock_app_circuit(ivc);
+        ivc.accumulate(app_circuit);
+        num_app_public_inputs = app_circuit.public_inputs.size();
+
+        // Construct and accumulate kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc, program.witness);
+
+        ivc.accumulate(kernel);
+        expected_kernel_vk = ivc.verification_queue.back().honk_verification_key;
+    }
+
+    std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
+    {
+        // WORKTODO: I was trying to just construct a mock program like this but it seems like for some reason varnum
+        // must be known/correct? The witness does not have to be populated tho. I'm not sure whether varnum is set
+        // correctly in the porgrams sent to write_ivc but plausibly since it is a member of "constraints".
+
+        // // Construct kernel consisting only of the kernel completion logic
+        // AcirProgram program;
+        // program.constraints.varnum = 0;
+        // program.constraints.recursive = false;
+        // program.constraints.num_acir_opcodes = 1;
+        // program.constraints.ivc_recursion_constraints.push_back(
+        //     create_empty_recursion_constraint(PROOF_TYPE::OINK, num_app_public_inputs -
+        //     bb::AGGREGATION_OBJECT_SIZE));
+        // program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
+
+        ClientIVC ivc;
+        ivc.trace_structure = trace_structure;
+
+        ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
+            trace_structure, num_app_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
+        ivc.verification_queue.emplace_back(oink_entry);
+        ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
+        // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
+
+        // Construct kernel consisting only of the kernel completion logic
+        AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
+        // program.constraints.varnum = 0; // NOTE: this cannot be overwritten to zero
+        program.witness = {};
+
+        ClientIVC mock_ivc = create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints);
+
+        Builder kernel = acir_format::create_kernel_circuit(program.constraints, mock_ivc);
         // WORKTODO: this would normally happen in accumulate()
         kernel.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
