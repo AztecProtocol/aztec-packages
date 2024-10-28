@@ -1,11 +1,14 @@
 use dep::protocol_types::{
-    address::AztecAddress, hash::poseidon2_hash_with_separator,
-    constants::GENERATOR_INDEX__CONSTRUCTOR, abis::function_selector::FunctionSelector,
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    constants::GENERATOR_INDEX__CONSTRUCTOR, hash::poseidon2_hash_with_separator,
 };
 
 use crate::{
-    context::{PrivateContext, PublicContext}, oracle::get_contract_instance::get_contract_instance,
-    oracle::get_contract_instance::get_contract_instance_avm,
+    context::{PrivateContext, PublicContext},
+    oracle::get_contract_instance::{
+        get_contract_instance, get_contract_instance_deployer_avm,
+        get_contract_instance_initialization_hash_avm,
+    },
 };
 
 pub fn mark_as_initialized_public(context: &mut PublicContext) {
@@ -36,11 +39,12 @@ fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> 
 
 pub fn assert_initialization_matches_address_preimage_public(context: PublicContext) {
     let address = context.this_address();
-    let instance = get_contract_instance_avm(address).unwrap();
+    let deployer = get_contract_instance_deployer_avm(address).unwrap();
+    let initialization_hash = get_contract_instance_initialization_hash_avm(address).unwrap();
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
-    assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
+    assert(initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()),
+        (deployer.is_zero()) | (deployer == context.msg_sender()),
         "Initializer address is not the contract deployer",
     );
 }

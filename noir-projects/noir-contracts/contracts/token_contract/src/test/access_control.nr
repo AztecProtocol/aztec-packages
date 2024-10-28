@@ -5,7 +5,7 @@ use crate::Token;
 unconstrained fn access_control() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
 
     // Set a new admin
     Token::at(token_contract_address).set_admin(recipient).call(&mut env.public());

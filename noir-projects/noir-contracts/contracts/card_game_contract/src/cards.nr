@@ -1,11 +1,15 @@
-use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteGetterOptions, NoteViewerOptions};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    keys::getters::get_public_keys,
+    note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{
-        traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    }, encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-    keys::getters::get_public_keys, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE,
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        traits::{FromField, Serialize, ToField},
+    },
+    state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
 
@@ -106,7 +110,6 @@ impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let owner_keys = get_public_keys(owner);
 
-        let owner_ivpk_m = owner_keys.ivpk_m;
         let owner_npk_m_hash = owner_keys.npk_m.hash();
         let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
 
@@ -116,7 +119,6 @@ impl Deck<&mut PrivateContext> {
             self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
                 msg_sender_ovpk_m,
-                owner_ivpk_m,
                 owner,
             ));
             inserted_cards = inserted_cards.push_back(card_note);
@@ -177,5 +179,5 @@ pub fn get_pack_cards(
 }
 
 pub fn compute_deck_strength<let N: u32>(cards: [Card; N]) -> Field {
-    cards.fold(0, |acc, card: Card| { acc + card.strength as Field })
+    cards.fold(0, |acc, card: Card| acc + card.strength as Field)
 }

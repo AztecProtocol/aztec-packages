@@ -2,16 +2,20 @@ use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
         function_selector::FunctionSelector,
-        log_hash::{LogHash, ScopedLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
+        log_hash::{LogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-    }, address::{AztecAddress, EthAddress},
+    },
+    address::{AztecAddress, EthAddress},
     constants::{
-        FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
+        FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
+        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__VK,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    }, merkle_tree::root::root_from_sibling_path,
+    },
+    merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
+    proof::verification_key::VerificationKey,
+    traits::{is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
 use super::utils::field::field_from_bytes;

@@ -1,8 +1,8 @@
 use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
-use dep::types::constants::BLOCK_ROOT_ROLLUP_INDEX;
-use dep::types::tests::fixtures;
 use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use dep::types::constants::BLOCK_ROOT_ROLLUP_INDEX;
 use dep::types::merkle_tree::MembershipWitness;
+use dep::types::tests::fixtures;
 use types::merkle_tree::merkle_tree::MerkleTree;
 
 pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {

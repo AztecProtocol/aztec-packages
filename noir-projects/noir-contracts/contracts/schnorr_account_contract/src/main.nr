@@ -8,18 +8,20 @@ use dep::aztec::macros::aztec;
 contract SchnorrAccount {
     use dep::std;
 
-    use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::authwit::{
-        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
+        account::AccountActions,
+        auth::{compute_authwit_message_hash, compute_authwit_nullifier},
         auth_witness::get_auth_witness,
-        auth::{compute_authwit_nullifier, compute_authwit_message_hash},
+        entrypoint::{app::AppPayload, fee::FeePayload},
     };
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_public_keys};
-    use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
     use dep::aztec::macros::{
-        storage::storage, functions::{private, initializer, view, noinitcheck},
+        functions::{initializer, noinitcheck, private, view},
+        storage::storage,
     };
+    use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
+    use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;
 
@@ -42,7 +44,6 @@ contract SchnorrAccount {
         storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this_keys.ovpk_m,
-            this_keys.ivpk_m,
             this,
         ));
     }

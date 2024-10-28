@@ -30,9 +30,3 @@ echo "Deployed L2 contracts"
 # Use file just as done signal
 echo "" > state/l2-contracts.env
 echo "Wrote to state/l2-contracts.env to signal completion"
-
-# sleep 5
-# function close_tmux_pane() {
-#   tmux kill-pane -t $(tmux display -p '#{pane_id}')
-# }
-# close_tmux_pane 2>/dev/null || true

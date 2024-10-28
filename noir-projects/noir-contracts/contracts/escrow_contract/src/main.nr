@@ -3,12 +3,12 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Escrow {
-    use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{storage::storage, functions::{private, initializer}},
+        macros::{functions::{initializer, private}, storage::storage},
     };
+    use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
 
     // docs:start:addressnote_import
     use dep::address_note::address_note::AddressNote;
@@ -32,7 +32,6 @@ contract Escrow {
         storage.owner.initialize(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
     }

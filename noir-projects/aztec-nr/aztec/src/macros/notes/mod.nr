@@ -1,11 +1,14 @@
-use std::{
-    meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
-};
+use crate::{note::{note_getter_options::PropertySelector, note_header::NoteHeader}, prelude::Point};
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
-use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
+use std::{
+    collections::umap::UHashMap,
+    hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
+    meta::{typ::fresh_type_variable, type_of, unquote},
+};
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
+// The following is a fixed ciphertext overhead as defined by `compute_private_log_payload`
+comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 353;
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -200,7 +203,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| { quote { $name: $property_selector_type } })
+        .map(|(name, _): (Quoted, Type)| quote { $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
@@ -309,7 +312,6 @@ comptime fn generate_multi_scalar_mul(
     let mut scalars_list = &[];
     let mut args_list = &[];
     let mut aux_vars_list = &[];
-    // TODO(#8648): Generate generators at comptime instead of importing here.
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
@@ -317,8 +319,17 @@ comptime fn generate_multi_scalar_mul(
         for j in 0..flattened_field.len() {
             let flattened_as_field = flattened_field[j];
             let generator_index = start_generator_index + j;
-            generators_list = generators_list.push_back(f"aztec::generators::Ga{generator_index}"
-                .quoted_contents());
+
+            let generators: [Point; 1] =
+                derive_generators("aztec_nr_generators".as_bytes(), generator_index);
+            let generator_x = generators[0].x;
+            let generator_y = generators[0].y;
+
+            generators_list = generators_list.push_back(
+                quote {
+                aztec::protocol_types::point::Point { x: $generator_x, y: $generator_y, is_infinite: false }
+                },
+            );
             scalars_list =
                 scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
         }
@@ -377,7 +388,20 @@ comptime fn generate_multi_scalar_mul(
 ///             hiding_point
 ///         }
 ///     }
-/// }
+///
+///     fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; 17] {
+///         let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
+///
+///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_private_log_payload(
+///             context.this_address(),
+///             ovsk_app,
+///             recipient_keys.ovpk_m,
+///             recipient,
+///             self.log_plaintext
+///         );
+///
+///         aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
+///     }
 ///
 /// impl aztec::protocol_types::traits::Empty for TokenNoteSetupPayload {
 ///     fn empty() -> Self {
@@ -411,6 +435,12 @@ comptime fn generate_setup_payload(
     let setup_log_plaintext =
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
+    // Then we compute values for `encrypt_log(...)` function
+    let encrypted_log_byte_length = NOTE_CIPHERTEXT_OVERHEAD + log_plaintext_length;
+    // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
+    // --> we achieve rouding by adding 30 and then dividing without remainder
+    let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
+
     (
         quote {
         struct $setup_payload_name {
@@ -431,6 +461,21 @@ comptime fn generate_setup_payload(
                     log_plaintext,
                     hiding_point
                 }
+            }
+
+            fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
+                let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
+
+                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_private_log_payload(
+                    context.this_address(),
+                    ovsk_app,
+                    recipient_keys.ovpk_m,
+                    recipient,
+                    self.log_plaintext,
+                    true
+                );
+
+                aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
             }
         }
 
@@ -499,30 +544,70 @@ comptime fn get_setup_log_plaintext_body(
 /// Example:
 /// ```
 /// struct TokenNoteFinalizationPayload {
-///     log: [Field; 2],
-///     note_hash: Field
+///     context: &mut aztec::prelude::PublicContext,
+///     hiding_point_slot: Field,
+///     setup_log_slot: Field,
+///     public_values: [Field; 2]
 /// }
 ///
 /// impl TokenNoteFinalizationPayload {
-///     fn new(mut self, hiding_point: aztec::protocol_types::point::Point, amount: U128) -> TokenNoteFinalizationPayload {
-///         self.log = [amount.lo as Field, amount.hi as Field];
-///
-///         let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
-///             [aztec::generators::Ga3, aztec::generators::Ga4],
-///             [
-///                 std::hash::from_field_unsafe(amount.lo),
-///                 std::hash::from_field_unsafe(amount.hi)
-///             ]
-///         ) + hiding_point;
-///
-///         self.note_hash = finalization_hiding_point.x;
+///     fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, amount: U128) -> TokenNoteFinalizationPayload {
+///         self.context = context;
+///         self.hiding_point_slot = slot;
+///         self.setup_log_slot = slot + aztec::protocol_types::point::POINT_LENGTH as Field;
+///         self.public_values = [amount.lo as Field, amount.hi as Field];
 ///         self
+///     }
+///
+///     fn emit(self) {
+///         self.emit_note_hash();
+///         self.emit_log();
+///     }
+///
+///     fn emit_note_hash(self) {
+///         let hiding_point: aztec::prelude::Point = self.context.storage_read(self.hiding_point_slot);
+///         assert(!aztec::protocol_types::traits::is_empty(hiding_point), "transfer not prepared");
+///
+///         let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul([aztec::generators::Ga3, aztec::generators::Ga4], [std::hash::from_field_unsafe(self.public_values[0]), std::hash::from_field_unsafe(self.public_values[1])]) + hiding_point;
+///
+///         let note_hash = finalization_hiding_point.x;
+///
+///         self.context.push_note_hash(note_hash);
+///
+///         // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
+///         // the writes
+///         // self.context.storage_write(self.hiding_point_slot, [0; aztec::protocol_types::point::POINT_LENGTH]);
+///     }
+///
+///     fn emit_log(self) {
+///         let setup_log_fields: [Field; 16] = self.context.storage_read(self.setup_log_slot);
+///
+///         let setup_log: [u8; 481] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
+///
+///         let mut finalization_log = [0; 513];
+///
+///         for i in 0..setup_log.len() {
+///             finalization_log[i] = setup_log[i];
+///         }
+///
+///         for i in 0..self.public_values.len() {
+///             let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
+///             for j in 0..public_value_bytes.len() {
+///                 finalization_log[160 + i * 32 + j] = public_value_bytes[j];
+///             }
+///         }
+///
+///         self.context.emit_unencrypted_log(finalization_log);
+///
+///         // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
+///         // the writes
+///         // self.context.storage_write(self.setup_log_slot, [0; 16]);
 ///     }
 /// }
 ///
 /// impl aztec::protocol_types::traits::Empty for TokenNoteFinalizationPayload {
 ///     fn empty() -> Self {
-///         Self { log: [0; 2], note_hash: 0 }
+///         Self { context: &mut aztec::prelude::PublicContext::empty(), hiding_point_slot: 0, setup_log_slot: 0, public_values: [0, 0] }
 ///     }
 /// }
 /// ```
@@ -551,28 +636,63 @@ comptime fn generate_finalization_payload(
     };
 
     // We compute the log length and we concatenate the fields into a single quote.
-    let log_length = fields_list.len();
+    let public_values_length = fields_list.len();
     let fields = fields_list.join(quote {,});
 
     // Now we compute quotes relevant to the multi-scalar multiplication.
-    let (generators_list, scalars_list, args_list, msm_aux_vars) =
+    let (generators_list, _, args_list, msm_aux_vars) =
         generate_multi_scalar_mul(indexed_nullable_fields);
+
+    // We generate scalars_list manually as we need it to refer self.public_values
+    let mut scalars_list: [Quoted] = &[];
+    for i in 0..public_values_length {
+        scalars_list =
+            scalars_list.push_back(quote { std::hash::from_field_unsafe(self.public_values[$i]) });
+    }
 
     let generators = generators_list.join(quote {,});
     let scalars = scalars_list.join(quote {,});
     let args = args_list.join(quote {,});
 
+    // Then we compute values for `encrypt_log(...)` function
+    let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
+    let setup_log_byte_length = NOTE_CIPHERTEXT_OVERHEAD + setup_log_plaintext_length;
+    // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
+    // --> we achieve rouding by adding 30 and then dividing without remainder
+    let setup_log_field_length = (setup_log_byte_length + 30) / 31;
+    let finalization_log_byte_length = setup_log_byte_length + public_values_length * 32;
+
     (
         quote {
         struct $finalization_payload_name {
-            log: [Field; $log_length],
-            note_hash: Field,
+            context: &mut aztec::prelude::PublicContext,
+            hiding_point_slot: Field,
+            setup_log_slot: Field,
+            public_values: [Field; $public_values_length],
         }
 
         impl $finalization_payload_name {
-            fn new(mut self, hiding_point: aztec::protocol_types::point::Point, $args) -> $finalization_payload_name {
+            fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, $args) -> $finalization_payload_name {
+                self.context = context;
+
+                self.hiding_point_slot = slot;
+                self.setup_log_slot = slot + aztec::protocol_types::point::POINT_LENGTH as Field;
+
                 $aux_vars_for_serialization
-                self.log = [$fields];
+                self.public_values = [$fields];
+
+                self
+            }
+
+            fn emit(self) {
+                self.emit_note_hash();
+                self.emit_log();
+            }
+
+            fn emit_note_hash(self) {
+                // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
+                let hiding_point: aztec::prelude::Point = self.context.storage_read(self.hiding_point_slot);
+                assert(!aztec::protocol_types::traits::is_empty(hiding_point), "transfer not prepared");
 
                 $msm_aux_vars
                 let finalization_hiding_point = std::embedded_curve_ops::multi_scalar_mul(
@@ -580,14 +700,55 @@ comptime fn generate_finalization_payload(
                     [$scalars]
                 ) + hiding_point;
 
-                self.note_hash = finalization_hiding_point.x;
-                self
+                let note_hash = finalization_hiding_point.x;
+
+                self.context.push_note_hash(note_hash);
+
+                // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
+                // the writes
+                // TODO(#9376): Uncomment the following line.
+                // self.context.storage_write(self.hiding_point_slot, [0; aztec::protocol_types::point::POINT_LENGTH]);
+            }
+
+            fn emit_log(self) {
+                // We load the setup log from storage
+                let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
+
+                // We convert the log from fields to bytes
+                let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
+
+                // We append the public value to the log and emit it as unencrypted log
+                let mut finalization_log = [0; $finalization_log_byte_length];
+
+                // Iterate over the partial log and copy it to the final log
+                for i in 1..setup_log.len() {
+                    finalization_log[i] = setup_log[i];
+                }
+
+                // Now we populate the first byte with number of public values
+                finalization_log[0] = $public_values_length;
+
+                // Iterate over the public values and append them to the log
+                for i in 0..$public_values_length {
+                    let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
+                    for j in 0..public_value_bytes.len() {
+                        finalization_log[$setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
+                    }
+                }
+
+                // We emit the finalization log via the unencrypted logs stream
+                self.context.emit_unencrypted_log(finalization_log);
+
+                // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
+                // the writes
+                // TODO(#9376): Uncomment the following line.
+                // self.context.storage_write(self.setup_log_slot, [0; $setup_log_field_length]);
             }
         }
 
         impl aztec::protocol_types::traits::Empty for $finalization_payload_name {
             fn empty() -> Self {
-                Self { log: [0; $log_length], note_hash: 0 }
+                Self { context: &mut aztec::prelude::PublicContext::empty(), public_values: [0; $public_values_length], hiding_point_slot: 0, setup_log_slot: 0 }
             }
         }
     },

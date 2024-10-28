@@ -4,16 +4,17 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract EcdsaKAccount {
-    use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
-        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}},
+        macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
     };
+    use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
 
     use dep::authwit::{
-        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
+        account::AccountActions,
         auth_witness::get_auth_witness,
+        entrypoint::{app::AppPayload, fee::FeePayload},
     };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
@@ -37,7 +38,6 @@ contract EcdsaKAccount {
         storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this_keys.ovpk_m,
-            this_keys.ivpk_m,
             this,
         ));
     }

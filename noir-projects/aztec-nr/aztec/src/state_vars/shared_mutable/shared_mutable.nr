@@ -1,16 +1,18 @@
 use dep::protocol_types::{
-    hash::{poseidon2_hash, poseidon2_hash_with_separator}, address::AztecAddress,
-    traits::{FromField, ToField}, utils::arrays::array_concat,
+    address::AztecAddress,
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    traits::{Deserialize, FromField, Serialize, ToField},
+    utils::arrays::array_concat,
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::state_vars::{
-    storage::Storage,
-    shared_mutable::{
-        scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange,
-    },
-};
 use crate::oracle::storage::storage_read;
+use crate::state_vars::{
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+    },
+    storage::Storage,
+};
 use dep::std::mem::zeroed;
 
 mod test;
@@ -32,7 +34,10 @@ global HASH_SEPARATOR: u32 = 2;
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
 // can actually use it here
-impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
+impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)

@@ -1,7 +1,9 @@
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    }, constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, utils::arrays::find_index_hint,
+    },
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
+    utils::arrays::find_index_hint,
 };
 
 pub struct PreviousKernelValidatorHints {

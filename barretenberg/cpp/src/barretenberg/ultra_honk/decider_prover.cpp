@@ -41,11 +41,11 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
- * Sumcheck and then produce an opening proof with a univariate PCS.
- * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
+ * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
+ * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
+ * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
- * */
+ */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     if (proving_key->proving_key.commitment_key == nullptr) {
@@ -82,8 +82,8 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
-    vinfo("executing pcd opening rounds...");
+    // Execute Shplemini PCS
+    vinfo("executing pcs opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

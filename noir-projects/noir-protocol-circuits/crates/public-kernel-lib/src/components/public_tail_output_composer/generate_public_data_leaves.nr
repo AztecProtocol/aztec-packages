@@ -1,6 +1,7 @@
 use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest},
-    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint, PublicDataTreeLeaf}, traits::Empty,
+    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint, PublicDataTreeLeaf},
+    traits::Empty,
     utils::arrays::{get_sorted_result, SortedResult},
 };
 

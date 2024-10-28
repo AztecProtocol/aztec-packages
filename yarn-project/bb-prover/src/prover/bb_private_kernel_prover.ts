@@ -376,6 +376,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       fieldsWithoutPublicInputs,
       new Proof(binaryProof, vkData.numPublicInputs),
       true,
+      fieldsWithoutPublicInputs.length,
     );
     return proof;
   }

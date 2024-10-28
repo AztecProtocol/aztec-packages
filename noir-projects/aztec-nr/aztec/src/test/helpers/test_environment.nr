@@ -1,15 +1,16 @@
 use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
+use crate::context::{call_interfaces::CallInterface, packed_returns::PackedReturns};
 use crate::context::inputs::PrivateContextInputs;
-use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::test::helpers::{cheatcodes, utils::Deployer};
 use crate::hash::hash_args;
+use crate::test::helpers::{cheatcodes, utils::Deployer};
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
 use crate::oracle::{
-    execution::{get_block_number, get_contract_address}, notes::notify_created_note,
+    execution::{get_block_number, get_contract_address},
+    notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
@@ -47,7 +48,7 @@ impl TestEnvironment {
     }
 
     unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
-        let mut context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
         context.args_hash = Option::some(hash_args(args));
         context
     }

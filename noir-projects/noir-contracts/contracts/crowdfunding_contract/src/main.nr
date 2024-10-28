@@ -8,18 +8,23 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
-        utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
+        keys::getters::get_public_keys,
         macros::{
-            storage::storage, events::event, functions::{public, initializer, private, internal},
-        }, protocol_types::traits::Serialize,
+            events::event,
+            functions::{initializer, internal, private, public},
+            storage::storage,
+        },
+        prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        protocol_types::traits::Serialize,
+        unencrypted_logs::unencrypted_event_emission::encode_event,
+        utils::comparison::Comparator,
     };
     use std::meta::derive;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
-    use token::Token;
     use router::utils::privately_check_timestamp;
+    use token::Token;
     // docs:end:all-deps
 
     #[event]
@@ -84,7 +89,6 @@ contract Crowdfunding {
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             donor_keys.ovpk_m,
-            donor_keys.ivpk_m,
             donor,
         ));
     }

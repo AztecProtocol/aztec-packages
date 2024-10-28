@@ -1,20 +1,21 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { createAccount } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
   type DebugLogger,
   EpochProofQuote,
   EpochProofQuotePayload,
-  EthCheatCodes,
   createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
-import { beforeAll } from '@jest/globals';
 import {
   type Account,
   type Chain,
@@ -44,7 +45,6 @@ describe('e2e_prover_coordination', () => {
   let contract: StatefulTestContract;
   let rollupContract: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, Chain, Account>>;
   let publicClient: PublicClient;
-  let cc: EthCheatCodes;
   let publisherAddress: EthAddress;
   let feeJuiceContract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;
   let escrowContract: GetContractReturnType<
@@ -58,7 +58,7 @@ describe('e2e_prover_coordination', () => {
   let logger: DebugLogger;
   let snapshotManager: ISnapshotManager;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     logger = createDebugLogger('aztec:prover_coordination:e2e_json_coordination');
     snapshotManager = createSnapshotManager(
       `prover_coordination/e2e_json_coordination`,
@@ -93,8 +93,6 @@ describe('e2e_prover_coordination', () => {
     // Don't run the prover node work loop - we manually control within this test
     await ctx.proverNode!.stop();
 
-    cc = new EthCheatCodes(ctx.aztecNodeConfig.l1RpcUrl);
-
     publicClient = ctx.deployL1ContractsValues.publicClient;
     publisherAddress = EthAddress.fromString(ctx.deployL1ContractsValues.walletClient.account.address);
     rollupContract = getContract({
@@ -123,6 +121,9 @@ describe('e2e_prover_coordination', () => {
       abi: ProofCommitmentEscrowAbi,
       client: ctx.deployL1ContractsValues.walletClient,
     });
+
+    // Ensure the prover has enough funds to put in escrow
+    await performEscrow(10000000n);
   });
 
   const expectProofClaimOnL1 = async (expected: {
@@ -142,7 +143,7 @@ describe('e2e_prover_coordination', () => {
 
   const performEscrow = async (amount: bigint) => {
     // Fund with ether
-    await cc.setBalance(proverSigner.address, 10_000n * 10n ** 18n);
+    await ctx.cheatCodes.eth.setBalance(proverSigner.address, 10_000n * 10n ** 18n);
     // Fund with fee juice
     await feeJuiceContract.write.mint([proverWallet.account.address, amount]);
 
@@ -187,6 +188,12 @@ describe('e2e_prover_coordination', () => {
     });
   };
 
+  const expectTips = async (expected: { pending: bigint; proven: bigint }) => {
+    const tips = await ctx.cheatCodes.rollup.getTips();
+    expect(tips.pending).toEqual(expected.pending);
+    expect(tips.proven).toEqual(expected.proven);
+  };
+
   const logState = async () => {
     logger.info(`Pending block: ${await getPendingBlockNumber()}`);
     logger.info(`Proven block: ${await getProvenBlockNumber()}`);
@@ -200,7 +207,7 @@ describe('e2e_prover_coordination', () => {
     const slotsUntilNextEpoch = BigInt(AZTEC_EPOCH_DURATION) - (slot % BigInt(AZTEC_EPOCH_DURATION)) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * BigInt(AZTEC_SLOT_DURATION);
     const l1Timestamp = await getL1Timestamp();
-    await cc.warp(Number(l1Timestamp + timeToNextEpoch));
+    await ctx.cheatCodes.eth.warp(Number(l1Timestamp + timeToNextEpoch));
     await logState();
   };
 
@@ -346,5 +353,83 @@ describe('e2e_prover_coordination', () => {
 
     // The quote state on L1 is the same as before
     await expectProofClaimOnL1({ ...expectedQuote.payload, proposer: publisherAddress });
+  });
+
+  it('Can claim proving rights after a prune', async () => {
+    // Here we are creating a proof quote for epoch 0
+    const quoteForEpoch0 = await makeEpochProofQuote({
+      epochToProve: 0n,
+      validUntilSlot: BigInt(AZTEC_EPOCH_DURATION + 10),
+      bondAmount: 10000n,
+      basisPointFee: 1,
+      signer: proverSigner,
+    });
+
+    await ctx.proverNode!.sendEpochProofQuote(quoteForEpoch0);
+
+    // Build a block in epoch 1, we should see the quote for epoch 0 submitted earlier published to L1
+    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+
+    // Verify that we can claim the current epoch
+    await expectProofClaimOnL1({ ...quoteForEpoch0.payload, proposer: publisherAddress });
+    await expectTips({ pending: 3n, proven: 0n });
+
+    // Now go to epoch 1
+    await advanceToNextEpoch();
+
+    // now 'prove' epoch 0
+    const epoch0BlockNumber = await getPendingBlockNumber();
+    await rollupContract.write.setAssumeProvenThroughBlockNumber([BigInt(epoch0BlockNumber)]);
+
+    // Go to epoch 2
+    await advanceToNextEpoch();
+
+    // Progress epochs with a block in each until we hit a reorg
+    // Note tips are block numbers, not slots
+    await expectTips({ pending: 3n, proven: 3n });
+    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+    await expectTips({ pending: 4n, proven: 3n });
+
+    // Go to epoch 3
+    await advanceToNextEpoch();
+    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+    await expectTips({ pending: 5n, proven: 3n });
+
+    // Go to epoch 4 !!! REORG !!! ay caramba !!!
+    await advanceToNextEpoch();
+
+    // Wait a bit for the sequencer / node to notice a re-org
+    await sleep(2000);
+
+    // new pxe, as it does not support reorgs
+    const pxeServiceConfig = { ...getPXEServiceConfig() };
+    const newPxe = await createPXEService(ctx.aztecNode, pxeServiceConfig);
+    const newWallet = await createAccount(newPxe);
+    const newWalletAddress = newWallet.getAddress();
+
+    // The chain will re-org back to block 3, but creating a new account will produce a block, so we expect
+    // 4 blocks in the pending chain here!
+    await expectTips({ pending: 4n, proven: 3n });
+
+    // Submit proof claim for the new epoch
+    const quoteForEpoch4 = await makeEpochProofQuote({
+      epochToProve: 4n,
+      validUntilSlot: BigInt(AZTEC_EPOCH_DURATION * 4 + 10),
+      bondAmount: 10000n,
+      basisPointFee: 1,
+      signer: proverSigner,
+    });
+    await ctx.proverNode!.sendEpochProofQuote(quoteForEpoch4);
+
+    logger.info(`Registering contract at ${contract.address} in new pxe`);
+    await newPxe.registerContract({ instance: contract.instance, artifact: StatefulTestContractArtifact });
+    const contractFromNewPxe = await StatefulTestContract.at(contract.address, newWallet);
+
+    logger.info('Sending new tx on reorged chain');
+    await contractFromNewPxe.methods.create_note(newWalletAddress, newWalletAddress, 10).send().wait();
+    await expectTips({ pending: 5n, proven: 3n });
+
+    // Expect the proof claim to be accepted for the chain after the reorg
+    await expectProofClaimOnL1({ ...quoteForEpoch4.payload, proposer: publisherAddress });
   });
 });

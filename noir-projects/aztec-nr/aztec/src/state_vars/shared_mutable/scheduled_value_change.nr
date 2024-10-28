@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Serialize, Deserialize, FromField, ToField};
+use dep::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
 use std::cmp::min;
 
 mod test;

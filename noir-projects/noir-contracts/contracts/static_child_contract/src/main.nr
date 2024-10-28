@@ -3,13 +3,14 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract StaticChild {
-    use dep::aztec::prelude::{AztecAddress, PublicMutable, PrivateSet};
+    use dep::aztec::prelude::{AztecAddress, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        note::note_getter_options::NoteGetterOptions,
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys, utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public, view}},
+        keys::getters::get_public_keys,
+        macros::{functions::{private, public, view}, storage::storage},
+        note::note_getter_options::NoteGetterOptions,
+        utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -52,7 +53,6 @@ contract StaticChild {
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
         new_value
@@ -72,7 +72,6 @@ contract StaticChild {
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             outgoing_viewer_keys.ovpk_m,
-            owner_keys.ivpk_m,
             owner,
         ));
         new_value

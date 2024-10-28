@@ -17,14 +17,15 @@ contract Lending {
     use dep::aztec::prelude::{AztecAddress, Map, PublicMutable};
 
     use crate::asset::Asset;
-    use crate::position::Position;
+    use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};
     use crate::interest_math::compute_multiplier;
-    use crate::helpers::{covered_by_collateral, debt_updates, debt_value, compute_identifier};
-    use dep::token::Token;
+    use crate::position::Position;
     use dep::price_feed::PriceFeed;
+    use dep::token::Token;
 
     use dep::aztec::macros::{
-        storage::storage, functions::{private, public, initializer, internal, view},
+        functions::{initializer, internal, private, public, view},
+        storage::storage,
     };
 
     // Storage structure, containing all storage, and specifying what slots they use.

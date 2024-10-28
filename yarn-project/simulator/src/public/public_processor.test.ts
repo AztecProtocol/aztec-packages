@@ -108,7 +108,7 @@ describe('public_processor', () => {
         clientIvcProof: tx.clientIvcProof,
         isEmpty: false,
         revertReason: undefined,
-        publicProvingRequests: [],
+        avmProvingRequest: undefined,
         gasUsed: {},
         finalPublicDataUpdateRequests: times(
           MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

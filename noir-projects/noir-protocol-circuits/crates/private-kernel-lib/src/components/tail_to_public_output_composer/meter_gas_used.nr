@@ -1,9 +1,10 @@
 use dep::types::{
     abis::{accumulated_data::PublicAccumulatedData, gas::Gas, log_hash::{LogHash, ScopedLogHash}},
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE,
-    }, utils::arrays::array_length,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+    },
+    utils::arrays::array_length,
 };
 
 fn meter_gas_used(data: PublicAccumulatedData) -> Gas {

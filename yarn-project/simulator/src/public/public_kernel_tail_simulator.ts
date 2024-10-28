@@ -1,4 +1,3 @@
-import { ProvingRequestType, type PublicKernelTailRequest } from '@aztec/circuit-types';
 import {
   type KernelCircuitPublicInputs,
   MAX_NULLIFIERS_PER_TX,
@@ -7,10 +6,11 @@ import {
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
+  VerificationKeyData,
   makeEmptyRecursiveProof,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
-import { ProtocolCircuitVks, getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { HintsBuilder } from './hints_builder.js';
@@ -28,19 +28,10 @@ export class PublicKernelTailSimulator {
     return new PublicKernelTailSimulator(db, publicKernelSimulator, hintsBuilder);
   }
 
-  async simulate(
-    previousOutput: PublicKernelCircuitPublicInputs,
-  ): Promise<{ output: KernelCircuitPublicInputs; provingRequest: PublicKernelTailRequest }> {
+  async simulate(previousOutput: PublicKernelCircuitPublicInputs): Promise<KernelCircuitPublicInputs> {
     const inputs = await this.buildPrivateInputs(previousOutput);
 
-    const output = await this.publicKernelSimulator.publicKernelCircuitTail(inputs);
-
-    const provingRequest: PublicKernelTailRequest = {
-      type: ProvingRequestType.PUBLIC_KERNEL_TAIL,
-      inputs,
-    };
-
-    return { output, provingRequest };
+    return await this.publicKernelSimulator.publicKernelCircuitTail(inputs);
   }
 
   private async buildPrivateInputs(previousOutput: PublicKernelCircuitPublicInputs) {
@@ -98,8 +89,8 @@ export class PublicKernelTailSimulator {
 
   private getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    const vk = ProtocolCircuitVks.PublicKernelMergeArtifact;
-    const vkIndex = getVKIndex(vk);
+    const vk = VerificationKeyData.makeFakeHonk();
+    const vkIndex = 0;
     const siblingPath = getVKSiblingPath(vkIndex);
     return new PublicKernelData(previousOutput, proof, vk, vkIndex, siblingPath);
   }

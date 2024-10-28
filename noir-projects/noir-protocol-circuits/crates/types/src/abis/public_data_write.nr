@@ -1,8 +1,10 @@
 use crate::{
     abis::{
-        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+        public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest,
         side_effect::{Inner, Ordered, Overridable, Readable},
-    }, traits::Empty,
+    },
+    traits::Empty,
 };
 
 pub struct OverridablePublicDataWrite {
