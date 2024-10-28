@@ -191,7 +191,8 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
         honk_recursion = true;
     }
     // Construct a bberg circuit from the acir representation
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, /*recursive=*/false, 0, witness, honk_recursion);
+    auto builder =
+        acir_format::create_circuit<Builder>(constraint_system, /*recursive=*/false, 0, witness, honk_recursion);
 
     // Construct Honk proof
     Prover prover{ builder };
@@ -367,7 +368,8 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     bool is_kernel = false;
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = create_circuit<Builder>(program.constraints, recursive, 0, program.witness, false, ivc.goblin.op_queue);
+        auto circuit =
+            create_circuit<Builder>(program.constraints, recursive, 0, program.witness, false, ivc.goblin.op_queue);
 
         // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
         if (!circuit.databus_propagation_data.is_kernel) {
@@ -464,8 +466,12 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto builder = acir_format::create_circuit<Builder>(
-            stack_item.constraints, /*recursive=*/false, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
+        auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
+                                                            /*recursive=*/false,
+                                                            0,
+                                                            stack_item.witness,
+                                                            /*honk_recursion=*/false,
+                                                            ivc.goblin.op_queue);
 
         // Set the internal is_kernel flag to trigger automatic appending of kernel logic if true
         builder.databus_propagation_data.is_kernel = is_kernel;
@@ -658,7 +664,10 @@ void prove_tube(const std::string& output_path)
  * @param outputPath Path to write the proof to
  * @param recursive Whether to use recursive proof generation of non-recursive
  */
-void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath, const bool recursive)
+void prove(const std::string& bytecodePath,
+           const std::string& witnessPath,
+           const std::string& outputPath,
+           const bool recursive)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     auto witness = get_witness(witnessPath);
@@ -688,7 +697,8 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
-template <typename Builder = UltraCircuitBuilder> void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recursion)
+template <typename Builder = UltraCircuitBuilder>
+void gateCount(const std::string& bytecodePath, bool recursive, bool honk_recursion)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
@@ -1073,7 +1083,9 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
  * @return UltraProver_<Flavor>
  */
 template <typename Flavor>
-UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const std::string& witnessPath, const bool recursive)
+UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
+                                          const std::string& witnessPath,
+                                          const bool recursive)
 {
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
@@ -1106,7 +1118,10 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
  * @param outputPath Path to write the proof to
  */
 template <IsUltraFlavor Flavor>
-void prove_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath, const bool recursive)
+void prove_honk(const std::string& bytecodePath,
+                const std::string& witnessPath,
+                const std::string& outputPath,
+                const bool recursive)
 {
     // using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
@@ -1174,7 +1189,8 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param outputPath Path to write the verification key to
  */
-template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath, const bool recursive)
+template <IsUltraFlavor Flavor>
+void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath, const bool recursive)
 {
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;

@@ -406,9 +406,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {
-    Builder builder{
-        size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive
-    };
+    Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(
@@ -472,7 +470,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
 
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
-                                                      /*recursive=*/ false,
+                                                      /*recursive=*/false,
                                                       size_hint,
                                                       witness,
                                                       /*honk_recursion=*/false,

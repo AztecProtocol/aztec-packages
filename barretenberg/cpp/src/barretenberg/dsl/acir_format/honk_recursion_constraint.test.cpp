@@ -125,7 +125,8 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        auto builder = create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        auto builder =
+            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
         return builder;
     }
@@ -174,7 +175,8 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit = create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        auto outer_circuit =
+            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
         return outer_circuit;
     }

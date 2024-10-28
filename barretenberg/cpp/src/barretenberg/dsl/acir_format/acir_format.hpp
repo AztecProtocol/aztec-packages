@@ -202,8 +202,8 @@ Builder create_circuit(AcirFormat& constraint_system,
                        // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
                        // The proof produced when this flag is true should be friendly for recursive verification inside
                        // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
-                       // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in order
-                       // to be able to verify SNARKs on Ethereum.
+                       // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in
+                       // order to be able to verify SNARKs on Ethereum.
                        bool recursive,
                        const size_t size_hint = 0,
                        const WitnessVector& witness = {},
