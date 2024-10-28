@@ -5,6 +5,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   computeAddressSecret,
+  computePoint,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
@@ -168,7 +169,7 @@ export class NoteProcessor {
                   await produceNoteDaos(
                     this.simulator,
                     this.db,
-                    incomingNotePayload ? this.account.publicKeys.masterIncomingViewingPublicKey : undefined,
+                    incomingNotePayload ? computePoint(this.account.address) : undefined,
                     outgoingNotePayload ? this.account.publicKeys.masterOutgoingViewingPublicKey : undefined,
                     payload!,
                     txEffect.txHash,
@@ -250,10 +251,7 @@ export class NoteProcessor {
     const nullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
-    const removedNotes = await this.db.removeNullifiedNotes(
-      nullifiers,
-      this.account.publicKeys.masterIncomingViewingPublicKey,
-    );
+    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, computePoint(this.account.address));
     removedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${
@@ -312,7 +310,7 @@ export class NoteProcessor {
     for (const deferredNote of deferredNoteDaos) {
       const { publicKey, payload, txHash, noteHashes, dataStartIndexForTx, unencryptedLogs } = deferredNote;
 
-      const isIncoming = publicKey.equals(this.account.publicKeys.masterIncomingViewingPublicKey);
+      const isIncoming = publicKey.equals(computePoint(this.account.address));
       const isOutgoing = publicKey.equals(this.account.publicKeys.masterOutgoingViewingPublicKey);
 
       if (!isIncoming && !isOutgoing) {
@@ -323,7 +321,7 @@ export class NoteProcessor {
       const { incomingNote, outgoingNote } = await produceNoteDaos(
         this.simulator,
         this.db,
-        isIncoming ? this.account.publicKeys.masterIncomingViewingPublicKey : undefined,
+        isIncoming ? computePoint(this.account.address) : undefined,
         isOutgoing ? this.account.publicKeys.masterOutgoingViewingPublicKey : undefined,
         payload,
         txHash,
