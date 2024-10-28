@@ -92,7 +92,7 @@ export default {
             },
             {
               label: 'Twitter',
-              href: 'https://twitter.com/NoirLang',
+              href: 'https://x.com/NoirLang',
             },
             {
               label: 'Discord',
