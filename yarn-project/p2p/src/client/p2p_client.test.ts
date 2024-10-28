@@ -105,8 +105,8 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     expect(client.isReady()).toEqual(true);
 
-    // await client.stop();
-    // expect(client.isReady()).toEqual(false);
+    await client.stop();
+    expect(client.isReady()).toEqual(false);
   });
 
   it('adds txs to pool', async () => {
