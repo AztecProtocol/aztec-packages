@@ -52,7 +52,6 @@ contract AppSubscription {
         storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             keys.ovpk_m,
-            keys.ivpk_m,
             user_address,
         ));
 
@@ -118,12 +117,7 @@ contract AppSubscription {
         let mut subscription_note =
             SubscriptionNote::new(subscriber_keys.npk_m.hash(), expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                msg_sender_ovpk_m,
-                subscriber_keys.ivpk_m,
-                subscriber,
-            ),
+            encode_and_encrypt_note(&mut context, msg_sender_ovpk_m, subscriber),
         );
     }
 

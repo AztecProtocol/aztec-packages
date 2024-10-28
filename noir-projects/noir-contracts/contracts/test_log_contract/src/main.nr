@@ -47,7 +47,6 @@ contract TestLog {
             randomness[0],
             // outgoing is set to other, incoming is set to msg sender
             other_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
 
@@ -57,7 +56,6 @@ contract TestLog {
             randomness[0],
             // outgoing is set to msg sender, incoming is set to other
             msg_sender_keys.ovpk_m,
-            other_keys.ivpk_m,
             other,
         ));
 
@@ -71,7 +69,6 @@ contract TestLog {
             randomness[1],
             // outgoing is set to other, incoming is set to msg sender
             other_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
     }

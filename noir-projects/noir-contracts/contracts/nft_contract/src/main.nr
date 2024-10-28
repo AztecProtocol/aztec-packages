@@ -309,7 +309,6 @@ contract NFT {
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(
             &mut context,
             from_ovpk_m,
-            to_keys.ivpk_m,
             to,
         ));
     }

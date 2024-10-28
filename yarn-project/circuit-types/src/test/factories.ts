@@ -43,7 +43,7 @@ export function makeBloatedProcessedTx(
 
   kernelOutput.constants.txContext.gasSettings = GasSettings.default({ inclusionFee: overrides.inclusionFee });
 
-  const processedTx = makeProcessedTx(tx, kernelOutput, []);
+  const processedTx = makeProcessedTx(tx, kernelOutput);
 
   processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, i => new Fr(i), seed + 0x100);
   processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, i => new Fr(i), seed + 0x100000);

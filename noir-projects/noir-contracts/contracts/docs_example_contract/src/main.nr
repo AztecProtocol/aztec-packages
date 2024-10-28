@@ -180,7 +180,6 @@ contract DocsExample {
         storage.private_immutable.initialize(&mut new_card).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
     }
@@ -196,7 +195,6 @@ contract DocsExample {
         storage.legendary_card.initialize(&mut legendary_card).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
     }
@@ -210,7 +208,6 @@ contract DocsExample {
             storage.set.insert(&mut note).emit(encode_and_encrypt_note(
                 &mut context,
                 msg_sender_keys.ovpk_m,
-                msg_sender_keys.ivpk_m,
                 context.msg_sender(),
             ));
         }
@@ -223,7 +220,6 @@ contract DocsExample {
         storage.set.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
     }
@@ -241,7 +237,6 @@ contract DocsExample {
         storage.legendary_card.replace(&mut new_card).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(
@@ -263,7 +258,6 @@ contract DocsExample {
         storage.legendary_card.replace(&mut new_card).emit(encode_and_encrypt_note(
             &mut context,
             msg_sender_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
             context.msg_sender(),
         ));
         // docs:end:state_vars-PrivateMutableReplace

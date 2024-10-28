@@ -13,6 +13,7 @@ include "gadgets/poseidon2.pil";
 include "gadgets/poseidon2_full.pil";
 include "gadgets/keccakf1600.pil";
 include "gadgets/mem_slice.pil";
+include "gadgets/merkle_tree.pil";
 
 namespace main(256);
     //===== CONSTANT POLYNOMIALS ==================================================
