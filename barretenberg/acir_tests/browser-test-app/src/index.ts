@@ -1,8 +1,8 @@
 import createDebug from "debug";
 import { ungzip } from "pako";
 import { decode } from "@msgpack/msgpack";
-import acirs from "./assets/acir.b64";
-import witnesses from "./assets/witnesses.b64";
+import acirs from "./assets/acirs.msgpack.b64";
+import witnesses from "./assets/witnesses.msgpack.b64";
 
 const readStack = (read: Uint8Array, numToDrop: number): Uint8Array[] => {
   const unpacked = decode(read.subarray(0, read.length - numToDrop)) as Uint8Array[];
@@ -14,29 +14,29 @@ createDebug.enable("*");
 const debug = createDebug("browser-test-app");
 
 async function runTest(
-  bytecode: string,
-  witness: Uint8Array,
+  bytecode: Uint8Array[],
+  witness: Uint8Array[],
   threads?: number
 ) {
   const { AztecClientBackend } = await import("@aztec/bb.js");
 
   debug("starting test...");
-  const backend = new AztecClientBackend(acirs, { threads });
-  const proof = await backend.generateProof(witnesses);
+  const backend = new AztecClientBackend(bytecode, { threads });
+  const proof = await backend.generateProof(witness);
   debug("generated proof");
 
   await backend.destroy();
 
   return false;
-  debug(`verifying...`);
-  const verifier = new BarretenbergVerifier({ threads });
-  const verified = await verifier.verifyUltraHonkProof(proof, verificationKey);
-  debug(`verified: ${verified}`);
+  // debug(`verifying...`);
+  // const verifier = new BarretenbergVerifier({ threads });
+  // const verified = await verifier.verifyUltraHonkProof(proof, verificationKey);
+  // debug(`verified: ${verified}`);
 
-  await verifier.destroy();
+  // await verifier.destroy();
 
-  debug("test complete.");
-  return verified;
+  // debug("test complete.");
+  // return verified;
 }
 
 (window as any).runTest = runTest;

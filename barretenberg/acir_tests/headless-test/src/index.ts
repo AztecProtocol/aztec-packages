@@ -28,7 +28,8 @@ function formatAndPrintLog(message: string): void {
 
     if (colorValue === "inherit" || !colorValue) {
       formattedMessage += parts[i];
-    } else if (colorValue.startsWit
+    } else if (colorValue.startsWith("#")) {
+      formattedMessage += chalk.hex(colorValue)(parts[i]);
     } else {
       formattedMessage += parts[i];
     }
@@ -77,15 +78,16 @@ program
   .option(
     "-b, --bytecode-path <path>",
     "Specify the path to the ACIR artifact json file",
-    "./target/acir.json"
+    "./target/acirs.msgpack.b64"
   )
   .option(
     "-w, --witness-path <path>",
     "Specify the path to the gzip encoded ACIR witness",
-    "./target/witnesses.b64"
+    "./target/witnesses.msgpack.b64"
   )
   .action(async ({ bytecodePath, witnessPath, recursive }) => {
-    const acir = readStack(bytecodePath, 1);
+    console.log("reading stacks...");
+    const acir = readStack(bytecodePath, 0);
     const witness = readStack(witnessPath, 0);
     const threads = Math.min(os.cpus().length, 16);
 
@@ -101,10 +103,10 @@ program
       const context = await browser.newContext();
       const page = await context.newPage();
 
-      if (program.opts().verbose) {
+      // if (program.opts().verbose) {
         console.log("verbose is turned on!");
         page.on("console", (msg) => formatAndPrintLog(msg.text()));
-      }
+      // }
 
       console.log('going to page');
       await page.goto("http://localhost:8080");
