@@ -604,7 +604,7 @@ export class TXEService {
       AztecAddress.fromField(fromSingle(sender)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
-    return toForeignCallResult([toSingle(secret)]);
+    return toForeignCallResult([toArray(secret.toFields())]);
   }
 
   // AVM opcodes

@@ -11,6 +11,7 @@ import {
 import {
   type ContractInstance,
   type Header,
+  IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
@@ -253,7 +254,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('debugLog');
   }
 
-  getAppTaggingSecret(_sender: AztecAddress, _recipient: AztecAddress): Promise<Fr> {
+  getAppTaggingSecret(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
     throw new OracleMethodNotAvailableError('getAppTaggingSecret');
   }
 }

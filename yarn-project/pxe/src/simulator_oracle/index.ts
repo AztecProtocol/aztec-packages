@@ -1,5 +1,7 @@
 import {
   type AztecNode,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
   type L2Block,
   MerkleTreeId,
   type NoteStatus,
@@ -14,6 +16,7 @@ import {
   type Fr,
   type FunctionSelector,
   type Header,
+  IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   computeTaggingSecret,
@@ -231,20 +234,48 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Includes the last known index used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
+   * @returns A siloed tagging secret that can be used to tag notes.
    */
   public async getAppTaggingSecret(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<Fr> {
+  ): Promise<IndexedTaggingSecret> {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
-    return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+    const secret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+    const [index] = await this.db.getTaggingSecretsIndexes([secret]);
+    return new IndexedTaggingSecret(secret, index);
+  }
+
+  /**
+   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * @param contractAddress - The contract address to silo the secret for
+   * @param recipient - The address receiving the notes
+   * @returns A list of siloed tagging secrets
+   */
+  public async getAppTaggingSecretsForSenders(
+    contractAddress: AztecAddress,
+    recipient: CompleteAddress,
+  ): Promise<IndexedTaggingSecret[]> {
+    const completeAddresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses corresponding to accounts
+    const accounts = await this.keyStore.getAccounts();
+    const senders = completeAddresses.filter(
+      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
+    );
+    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+    const secrets = senders.map(({ address: sender }) => {
+      const sharedSecret = computeTaggingSecret(recipient, recipientIvsk, sender);
+      return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+    });
+    const indexes = await this.db.getTaggingSecretsIndexes(secrets);
+    return secrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 }

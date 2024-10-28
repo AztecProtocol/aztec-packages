@@ -66,6 +66,8 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByIvpkMAndScope: Map<string, AztecMultiMap<string, string>>;
 
+  #taggingSecretIndices: AztecMap<string, number>;
+
   constructor(private db: AztecKVStore) {
     this.#db = db;
 
@@ -111,6 +113,8 @@ export class KVPxeDatabase implements PxeDatabase {
       this.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
       this.#notesByIvpkMAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_ivpk_m`));
     }
+
+    this.#taggingSecretIndices = db.openMap('tagging_secret_indices');
   }
 
   public async getContract(
@@ -571,5 +575,21 @@ export class KVPxeDatabase implements PxeDatabase {
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
+  }
+
+  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
+    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+    await this.db.transaction(() => {
+      indexes.forEach(index => {
+        const nextIndex = index ? index + 1 : 1;
+        void this.#taggingSecretIndices.set(appTaggingSecrets.toString(), nextIndex);
+      });
+    });
+  }
+
+  async getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+    return this.db.transaction(() =>
+      appTaggingSecrets.map(secret => this.#taggingSecretIndices.get(secret.toString()) ?? 0),
+    );
   }
 }
