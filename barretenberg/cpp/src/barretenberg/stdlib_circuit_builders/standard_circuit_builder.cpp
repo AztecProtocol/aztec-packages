@@ -473,57 +473,6 @@ void StandardCircuitBuilder_<FF>::fix_witness(const uint32_t witness_index, cons
     ++this->num_gates;
 }
 
-template <typename FF> void StandardCircuitBuilder_<FF>::print_boomerang_variables()
-{
-    std::set<uint32_t> var_left;
-    std::set<uint32_t> var_right;
-    std::set<uint32_t> var_out;
-    std::unordered_set<uint32_t> boomerang_idx;
-    std::set<uint32_t> left_right_union;
-    for (size_t i = 0; i < this->num_gates; i++) {
-        uint32_t left_idx = blocks.arithmetic.w_l()[i];
-        uint32_t right_idx = blocks.arithmetic.w_r()[i];
-        uint32_t out_idx = blocks.arithmetic.w_o()[i];
-        var_left.insert(left_idx);
-        var_right.insert(right_idx);
-        var_out.insert(out_idx);
-    }
-
-    std::set_union(var_left.begin(),
-                   var_left.end(),
-                   var_right.begin(),
-                   var_right.end(),
-                   std::inserter(left_right_union, left_right_union.begin()));
-    std::set_difference(left_right_union.begin(),
-                        left_right_union.end(),
-                        var_out.begin(),
-                        var_out.end(),
-                        std::inserter(boomerang_idx, boomerang_idx.begin()));
-    for (size_t i = 0; i < this->num_gates; i++) {
-        uint32_t left_idx = blocks.arithmetic.w_l()[i];
-        uint32_t right_idx = blocks.arithmetic.w_r()[i];
-        if (boomerang_idx.contains(left_idx) && boomerang_idx.contains(right_idx)) {
-            if (left_idx == right_idx) {
-                std::cout << "possible boomerang variable with the index " << left_idx
-                          << " is the left and right value for the gate with number " << i << "\n";
-            } else {
-                std::cout << "possible boomerang variable with index " << left_idx
-                          << " is the left value for the gate with number " << i << '\n';
-                std::cout << "possible boomerang variable with the index " << right_idx
-                          << " is the right value for the gate with number " << i << "\n";
-            }
-        }
-        if (boomerang_idx.contains(left_idx) && !boomerang_idx.contains(right_idx)) {
-            std::cout << "possible boomerang variable with the index" << left_idx
-                      << " is the left value for the gate with number " << i << "\n";
-        }
-        if (!boomerang_idx.contains(left_idx) && boomerang_idx.contains(right_idx)) {
-            std::cout << "possible boomerang variable with the index" << right_idx
-                      << " is the right value for the gate with number " << i << "\n";
-        }
-    }
-}
-
 template <typename FF> uint32_t StandardCircuitBuilder_<FF>::put_constant_variable(const FF& variable)
 {
     if (constant_variable_indices.contains(variable)) {

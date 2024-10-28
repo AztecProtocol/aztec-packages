@@ -55,7 +55,7 @@ bool check_in_range_lists(const uint32_t& real_var_index, const uint64_t& target
  * and they are not dangerous.
  */
 
-TEST(ultra_circuit_constructor, test_variables_gate_counts_for_sha256_55_bytes)
+TEST(stdlib_sha256, test_variables_gate_counts_for_sha256_55_bytes)
 {
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
@@ -79,7 +79,7 @@ TEST(ultra_circuit_constructor, test_variables_gate_counts_for_sha256_55_bytes)
     }
 }
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector_one)
+TEST(stdlib_sha256, test_variable_gates_count_for_sha256_NIST_vector_one)
 {
     auto builder = Builder();
     packed_byte_array_ct input(&builder, "abc");
@@ -96,7 +96,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector
     }
 }
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector_two)
+TEST(stdlib_sha256, test_variable_gates_count_for_sha256_NIST_vector_two)
 {
     auto builder = Builder();
 
@@ -114,7 +114,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector
     }
 }
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_sha256_NIST_vector_three)
+TEST(stdlib_sha256, test_variable_gates_count_sha256_NIST_vector_three)
 {
     auto builder = Builder();
 
@@ -132,7 +132,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_sha256_NIST_vector_thr
     }
 }
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_sha256_NIST_vector_four)
+TEST(stdlib_sha256, test_variable_gates_count_sha256_NIST_vector_four)
 {
     auto builder = Builder();
 
@@ -150,7 +150,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_sha256_NIST_vector_fou
     }
 }
 
-HEAVY_TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector_five)
+HEAVY_TEST(stdlib_sha256, test_variable_gates_count_for_sha256_NIST_vector_five)
 {
     auto builder = Builder();
 

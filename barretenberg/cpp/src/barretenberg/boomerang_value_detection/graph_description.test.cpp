@@ -465,6 +465,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constrain
     Graph graph = Graph(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 2);
     bool result = true;
     for (size_t i = 0; i < connected_components[0].size(); i++) {
         result = result && (variables_gate_counts[connected_components[0][i]] == 1);

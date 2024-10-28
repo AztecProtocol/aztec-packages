@@ -6,6 +6,29 @@ using namespace bb::plookup;
 using namespace bb;
 
 /**
+ * @brief this method removes duplicate variables from a gate,
+ * converts variables from a gate to real variables, and then
+ * updates variable gates count for real variable indexes
+ */
+
+template <typename FF>
+void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circuit_builder,
+                                        std::vector<uint32_t>& gate_variables)
+{
+    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
+    gate_variables.erase(unique_variables, gate_variables.end());
+    if (gate_variables.empty()) {
+    } else {
+        for (size_t i = 0; i < gate_variables.size(); i++) {
+            gate_variables[i] = to_real(ultra_circuit_builder, gate_variables[i]);
+        }
+        for (const auto& variable_index : gate_variables) {
+            variables_gate_counts[variable_index] += 1;
+        }
+    }
+}
+
+/**
  * @brief this method implements connected components from arithmetic gates
  * @tparam FF
  * @param ultra_circuit_builder
@@ -61,15 +84,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component
             }
         }
     }
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
-    gate_variables.erase(unique_variables, gate_variables.end());
-    std::transform(gate_variables.cbegin(), gate_variables.cend(), gate_variables.begin(), to_real);
-    if (!gate_variables.empty()) {
-        for (const auto& real_variable_index : gate_variables) {
-            variables_gate_counts[real_variable_index] += 1;
-        }
-    }
+    process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
@@ -85,7 +100,6 @@ template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
     auto& elliptic_block = ultra_circuit_builder.blocks.elliptic;
     std::vector<uint32_t> gate_variables = {};
     bool is_elliptic_gate = elliptic_block.q_elliptic()[index] == 1;
@@ -111,14 +125,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
             }
         }
     }
-    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
-    gate_variables.erase(unique_variables, gate_variables.end());
-    std::transform(gate_variables.cbegin(), gate_variables.cend(), gate_variables.begin(), to_real);
-    if (!gate_variables.empty()) {
-        for (const auto& real_variable_index : gate_variables) {
-            variables_gate_counts[real_variable_index] += 1;
-        }
-    }
+    process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
@@ -146,18 +153,12 @@ inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component
     }
     auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
     gate_variables.erase(unique_variables, gate_variables.end());
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    std::transform(gate_variables.cbegin(), gate_variables.cend(), gate_variables.begin(), to_real);
-    if (!gate_variables.empty()) {
-        for (const auto& real_variable_index : gate_variables) {
-            variables_gate_counts[real_variable_index] += 1;
-        }
-    }
+    process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
 /**
- * @brief this method creates connected_components from plookup gates
+ * @brief this method creates connected components from plookup gates
  *
  * @tparam FF
  * @param ultra_circuit_builder
@@ -169,8 +170,7 @@ template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    std::vector<uint32_t> variable_indices = {};
+    std::vector<uint32_t> gate_variables;
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     auto q_2 = lookup_block.q_2()[index];
     auto q_m = lookup_block.q_m()[index];
@@ -178,31 +178,24 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
     auto left_idx = lookup_block.w_l()[index];
     auto right_idx = lookup_block.w_r()[index];
     auto out_idx = lookup_block.w_o()[index];
-    variable_indices.emplace_back(left_idx);
-    variable_indices.emplace_back(right_idx);
-    variable_indices.emplace_back(out_idx);
+    gate_variables.emplace_back(left_idx);
+    gate_variables.emplace_back(right_idx);
+    gate_variables.emplace_back(out_idx);
     if (index < lookup_block.size() - 1) {
         if (q_2 != 0 || q_m != 0 || q_c != 0) {
             if (q_2 != 0) {
-                variable_indices.emplace_back(lookup_block.w_l()[index + 1]);
+                gate_variables.emplace_back(lookup_block.w_l()[index + 1]);
             }
             if (q_m != 0) {
-                variable_indices.emplace_back(lookup_block.w_r()[index + 1]);
+                gate_variables.emplace_back(lookup_block.w_r()[index + 1]);
             }
             if (q_c != 0) {
-                variable_indices.emplace_back(lookup_block.w_o()[index + 1]);
+                gate_variables.emplace_back(lookup_block.w_o()[index + 1]);
             }
         }
     }
-    auto unique_variables = std::unique(variable_indices.begin(), variable_indices.end());
-    variable_indices.erase(unique_variables, variable_indices.end());
-    std::transform(variable_indices.cbegin(), variable_indices.cend(), variable_indices.begin(), to_real);
-    if (!variable_indices.empty()) {
-        for (const auto& real_variable_index : variable_indices) {
-            variables_gate_counts[real_variable_index] += 1;
-        }
-    }
-    return variable_indices;
+    process_gate_variables(ultra_circuit_builder, gate_variables);
+    return gate_variables;
 }
 
 /**
@@ -272,7 +265,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
 }
 
 /**
- * @brief this method checks that variable with given index is not constant
+ * @brief this method checks whether the variable with given index is not constant
  *
  * @tparam FF
  * @param ultra_circuit_builder
@@ -297,9 +290,8 @@ bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_c
 }
 
 /**
- * @brief this method connects between each other variables that have different indexes, if their indexes are not equal
- * zero_idx and they are not constant variables, so they are not in constant_variable_indices from ultra circuit
- * builder data structure
+ * @brief this method adds connection between 2 variables, if they are in one gate, they are not constrant variables,
+ * and they have different indexes
  * @tparam FF
  * @param ultra_circuit_builder
  * @param variables_vector
@@ -394,7 +386,7 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
 }
 
 /**
- * @brief this methond finds connected components from the graph described by adjacency lists
+ * @brief this methond finds all connected components in the graph described by adjacency lists
  * @tparam FF
  * @return std::vector<std::vector<uint32_t>>
  */
@@ -431,9 +423,6 @@ inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilde
                                                           std::unordered_set<uint32_t>& variables_in_one_gate,
                                                           size_t index)
 {
-    auto to_real = [&](uint32_t variable_index) {
-        return ultra_circuit_constructor.real_variable_index[variable_index];
-    };
     auto& arithmetic_block = ultra_circuit_constructor.blocks.arithmetic;
     auto zero_idx = ultra_circuit_constructor.zero_idx;
     size_t current_index = index;
@@ -442,18 +431,18 @@ inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilde
         // we have to remove left, right and output wires of the current gate, cause they'are new_limbs, and they are
         // useless for the analyzer
         auto fourth_idx = arithmetic_block.w_4()[current_index];
-        accumulators_indices.emplace_back(to_real(fourth_idx));
+        accumulators_indices.emplace_back(to_real(ultra_circuit_constructor, fourth_idx));
         auto left_idx = arithmetic_block.w_l()[current_index];
         if (left_idx != zero_idx) {
-            variables_in_one_gate.erase(to_real(left_idx));
+            variables_in_one_gate.erase(to_real(ultra_circuit_constructor, left_idx));
         }
         auto right_idx = arithmetic_block.w_r()[current_index];
         if (right_idx != zero_idx) {
-            variables_in_one_gate.erase(to_real(right_idx));
+            variables_in_one_gate.erase(to_real(ultra_circuit_constructor, right_idx));
         }
         auto out_idx = arithmetic_block.w_o()[current_index];
         if (out_idx != zero_idx) {
-            variables_in_one_gate.erase(to_real(out_idx));
+            variables_in_one_gate.erase(to_real(ultra_circuit_constructor, out_idx));
         }
         auto q_arith = arithmetic_block.q_arith()[current_index];
         if (q_arith == 1 || current_index == arithmetic_block.size() - 1) {
@@ -492,8 +481,9 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
                                                                const std::unordered_set<uint32_t>& decompose_variables)
 {
     auto is_power_two = [&](const uint256_t& number) { return number > 0 && ((number & (number - 1)) == 0); };
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto find_position = [&](uint32_t variable_index) { return decompose_variables.contains(to_real(variable_index)); };
+    auto find_position = [&](uint32_t variable_index) {
+        return decompose_variables.contains(to_real(ultra_circuit_builder, variable_index));
+    };
     auto& arithmetic_block = ultra_circuit_builder.blocks.arithmetic;
     if (arithmetic_block.size() > 0) {
         for (size_t i = 0; i < arithmetic_block.size(); i++) {
@@ -528,7 +518,10 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
     }
 }
 /**
- * @brief this method removes false cases variables in aes plookup tables
+ * @brief this method removes false cases variables from aes plookup tables.
+ * AES_SBOX_MAP, AES_SPARSE_MAP, AES_SPARSE_NORMALIZE tables are used in read_from_1_to_2_table function which
+ * return values C2[0], so C3[0] isn't used anymore in these cases, but this situation isn't dangerous.
+ * So, we have to remove these variables.
  * @tparam FF
  * @param variables_in_one_gate
  * @param ultra_circuit_builder
@@ -542,30 +535,22 @@ inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_
                                                                  size_t gate_index)
 {
 
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto find_position = [&](uint32_t variable_index) {
-        return variables_in_one_gate.contains(to_real(variable_index));
+    auto find_position = [&](uint32_t real_variable_index) {
+        return variables_in_one_gate.contains(real_variable_index);
     };
     std::unordered_set<BasicTableId> aes_plookup_tables{ BasicTableId::AES_SBOX_MAP,
                                                          BasicTableId::AES_SPARSE_MAP,
                                                          BasicTableId::AES_SPARSE_NORMALIZE };
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     if (aes_plookup_tables.contains(table_id)) {
-        uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
-        uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+        uint32_t real_out_idx = to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
+        uint32_t real_right_idx = to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
         if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
             bool find_out = find_position(real_out_idx);
-            bool find_right = find_position(real_right_idx);
-            auto q_m = lookup_block.q_m()[gate_index];
             auto q_c = lookup_block.q_c()[gate_index];
             if (q_c == 0) {
                 if (find_out) {
                     variables_in_one_gate.erase(real_out_idx);
-                }
-            }
-            if (q_m == 0) {
-                if (find_right) {
-                    variables_in_one_gate.erase(real_right_idx);
                 }
             }
         }
@@ -588,9 +573,8 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
                                                                     size_t gate_index)
 {
 
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto find_position = [&](uint32_t variable_index) {
-        return variables_in_one_gate.contains(to_real(variable_index));
+    auto find_position = [&](uint32_t real_variable_index) {
+        return variables_in_one_gate.contains(real_variable_index);
     };
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     std::unordered_set<BasicTableId> sha256_plookup_tables{ BasicTableId::SHA256_WITNESS_SLICE_3,
@@ -606,26 +590,21 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
                                                             BasicTableId::SHA256_BASE28_ROTATE3,
                                                             BasicTableId::SHA256_BASE28_ROTATE6 };
     if (sha256_plookup_tables.contains(table_id)) {
-        uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
-        uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+        uint32_t real_right_idx = to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
+        uint32_t real_out_idx = to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
         if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
-            auto q_m = lookup_block.q_m()[gate_index];
+            // auto q_m = lookup_block.q_m()[gate_index];
             auto q_c = lookup_block.q_c()[gate_index];
             bool find_out = find_position(real_out_idx);
-            bool find_right = find_position(real_right_idx);
+            // bool find_right = find_position(real_right_idx);
             if (q_c == 0) {
                 if (find_out) {
                     variables_in_one_gate.erase(real_out_idx);
                 }
             }
-            if (q_m == 0) {
-                if (find_right) {
-                    variables_in_one_gate.erase(real_right_idx);
-                }
-            }
             if (table_id == SHA256_BASE16_ROTATE2 || table_id == SHA256_BASE28_ROTATE6) {
                 // we want to remove false cases for special tables even though their selectors != 0
-                // because it's from_1_to_2_table cases, and they aren't dangerous
+                // because they are used in read_from_1_to_2_table function, and they aren't dangerous
                 variables_in_one_gate.erase(real_out_idx);
             }
         }
@@ -645,9 +624,8 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
                                                      std::unordered_set<uint32_t>& variables_in_one_gate,
                                                      size_t gate_index)
 {
-    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto find_position = [&](uint32_t variable_index) {
-        return variables_in_one_gate.contains(to_real(variable_index));
+    auto find_position = [&](uint32_t real_variable_index) {
+        return variables_in_one_gate.contains(real_variable_index);
     };
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     auto& lookup_tables = ultra_circuit_builder.lookup_tables;
@@ -666,23 +644,21 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
                 variables_in_one_gate, ultra_circuit_builder, table_id, gate_index);
             if (column_1.size() == 1) {
                 uint32_t left_idx = lookup_block.w_l()[gate_index];
-                uint32_t real_left_idx = to_real(left_idx);
+                uint32_t real_left_idx = to_real(ultra_circuit_builder, left_idx);
                 bool find_left = find_position(real_left_idx);
                 if (find_left) {
                     variables_in_one_gate.erase(real_left_idx);
                 }
             }
             if (column_2.size() == 1) {
-                uint32_t right_idx = lookup_block.w_r()[gate_index];
-                uint32_t real_right_idx = to_real(right_idx);
+                uint32_t real_right_idx = to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
                 bool find_right = find_position(real_right_idx);
                 if (find_right) {
                     variables_in_one_gate.erase(real_right_idx);
                 }
             }
             if (column_3.size() == 1) {
-                uint32_t out_idx = lookup_block.w_o()[gate_index];
-                uint32_t real_out_idx = to_real(out_idx);
+                uint32_t real_out_idx = to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
                 bool find_out = find_position(real_out_idx);
                 if (find_out) {
                     variables_in_one_gate.erase(real_out_idx);
@@ -746,7 +722,8 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
 
 /**
  * @brief this method returns connected component with a given index and size of this component
- *
+ * sometimes for debugging we want to check the size one of the connected component, so it would be
+ * useful to know its size
  * @param connected_components
  * @param index
  * @return std::pair<std::vector<uint32_t>, size_t>
@@ -761,7 +738,13 @@ std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
 }
 
 /**
- * @brief this method prints graph as vertice and its adjacency list
+ * @brief this method prints graph as vertices and their adjacency lists
+ * example: we have an undirected graph from 3 variables: a, b, c.
+ * we have edges: a - b, b - c, c - a.
+ * so, there will be next adjacency lists:
+ * a: b -> c -> 0\
+ * b: a -> c -> 0\
+ * c: a -> b -> 0\
  * @tparam FF
  */
 

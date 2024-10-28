@@ -8,6 +8,14 @@
 #include <utility>
 #include <vector>
 
+/*
+ * this class describes arithmetic circuit as an undirected graph, where vertices are variables from circuit.
+ * edges describe connections between variables through gates. We want to find variables that weren't properly
+ * constrainted/some connections were missed using additional metrics, like in how much gate variable was and number of
+ * connected components in the graph. if variable was in one connected component, it means that this variable wasn't
+ * constrained properly. if number of connected components > 1, it means that there were missed some connections between
+ * variables.
+ */
 template <typename FF> class Graph_ {
   public:
     Graph_() = default;
@@ -17,6 +25,13 @@ template <typename FF> class Graph_ {
     Graph_&& operator=(Graph_&& other) = delete;
     Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
     Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
+
+    uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index)
+    {
+        return ultra_circuit_constructor.real_variable_index[variable_index];
+    };
+    void process_gate_variables(bb::UltraCircuitBuilder& ultra_circuit_constructor,
+                                std::vector<uint32_t>& gate_variables);
 
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 

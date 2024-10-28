@@ -32,7 +32,7 @@ bool check_in_vector(const std::vector<field_pt>& input_vector, const uint32_t& 
  * graph must be consist from one connected component
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_aes_64_bytes)
+TEST(stdlib_aes, test_graph_for_aes_64_bytes)
 {
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
     uint8_t iv[16]{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
@@ -68,6 +68,7 @@ TEST(ultra_circuit_constructor, test_graph_for_aes_64_bytes)
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool graph_result = num_connected_components == 1;
+
     EXPECT_EQ(graph_result, true);
 }
 
@@ -77,7 +78,7 @@ TEST(ultra_circuit_constructor, test_graph_for_aes_64_bytes)
  * gates count = 1, because it's the circuit for test. So, we can ignore these variables
  */
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_for_aes128cbc)
+TEST(stdlib_aes, test_variable_gates_count_for_aes128cbc)
 {
 
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
