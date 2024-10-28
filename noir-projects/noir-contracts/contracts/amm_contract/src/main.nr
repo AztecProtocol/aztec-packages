@@ -210,9 +210,10 @@ contract AMM {
         let total_supply = U128::from_integer(liquidity_token.total_supply().view(&mut context));
         let mut liquidity = U128::zero();
         if (total_supply == U128::zero()) {
-            // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
-            liquidity = U128::from_integer(std::ec::sqrt((amount0 * amount1).to_integer()))
-                - MINIMUM_LIQUIDITY;
+            // Since we don't collect a protocol fee (unlike Uniswap V2) we can set initial liquidity to an arbitrary
+            // value instead of sqrt(amount0 * amount1). We set it to 9 times the minimum liquidity. That way
+            // the initial depositor gets 90% of the value of his deposit.
+            liquidity = MINIMUM_LIQUIDITY * U128::from_integer(9);
             liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY.to_integer()).call(
                 &mut context,
             ); // permanently lock the first MINIMUM_LIQUIDITY tokens
