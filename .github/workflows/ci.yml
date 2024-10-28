@@ -232,13 +232,18 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
+      - name: Determine runner type
+        id: runner_type
+        run: |
+          runner=$(./scripts/ci/select_runner.sh ${{ matrix.test }})
+          echo "type=$runner" >> $GITHUB_OUTPUT
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         timeout-minutes: 45
         with:
-          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
+          runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
@@ -589,7 +594,7 @@ jobs:
 
   yarn-project-formatting:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master' 
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -603,7 +608,7 @@ jobs:
 
   yarn-project-test:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master' 
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -618,7 +623,7 @@ jobs:
   prover-client-test:
     needs: [build, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master' 
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
