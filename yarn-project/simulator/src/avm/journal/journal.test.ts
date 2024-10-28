@@ -1,4 +1,3 @@
-import { randomContractInstanceWithAddress } from '@aztec/circuit-types';
 import { SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -147,18 +146,17 @@ describe('journal', () => {
 
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
-      const contractInstance = randomContractInstanceWithAddress(/*(base instance) opts=*/ {}, /*address=*/ address);
-      mockGetContractInstance(worldStateDB, contractInstance);
+      const contractInstance = SerializableContractInstance.default();
+      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: true, ...contractInstance });
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
     });
     it('Can get undefined contract instance', async () => {
-      const defaultContractInstance = SerializableContractInstance.default().withAddress(address);
       await persistableState.getContractInstance(address);
-
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: false, ...defaultContractInstance });
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ false);
     });
   });
 

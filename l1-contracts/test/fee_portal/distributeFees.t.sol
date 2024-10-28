@@ -32,7 +32,7 @@ contract DistributeFees is Test {
     token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
 
-    sysstia = new Sysstia(token, registry);
+    sysstia = new Sysstia(token, registry, address(this));
     rollup =
       new Rollup(feeJuicePortal, sysstia, bytes32(0), bytes32(0), address(this), new address[](0));
 

@@ -13,10 +13,7 @@ contract NFT {
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::{
-            encode_and_encrypt_note, encrypt_and_emit_partial_log,
-        },
-        hash::pedersen_hash,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{
             events::event,
@@ -29,7 +26,7 @@ contract NFT {
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicMutable, SharedImmutable,
         },
-        protocol_types::{point::Point, traits::{is_empty, Serialize}},
+        protocol_types::{point::Point, traits::Serialize},
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
@@ -192,8 +189,8 @@ contract NFT {
         let note_setup_payload =
             NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
 
-        // We encrypt and emit the partial note log
-        encrypt_and_emit_partial_log(context, note_setup_payload.log_plaintext, to_keys, to);
+        // We encrypt the note log
+        let setup_log = note_setup_payload.encrypt_log(context, to_keys, to);
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -212,19 +209,30 @@ contract NFT {
         // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
         // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
         NFT::at(context.this_address())
-            ._store_point_in_transient_storage_unsafe(
+            ._store_payload_in_transient_storage_unsafe(
                 hiding_point_slot,
                 note_setup_payload.hiding_point,
+                setup_log,
             )
             .enqueue(context);
 
         hiding_point_slot
     }
 
+    // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
+    // users to derive manually. This will however go away once we have a real transient storage since we will not need
+    // the public call and instead we would do something like `context.transient_storage_write(slot, payload)` and that
+    // will allow us to use generics and hence user will not need to define it explicitly. We cannot use generics here
+    // as it is an entrypoint function.
     #[public]
     #[internal]
-    fn _store_point_in_transient_storage_unsafe(slot: Field, point: Point) {
+    fn _store_payload_in_transient_storage_unsafe(
+        slot: Field,
+        point: Point,
+        setup_log: [Field; 16],
+    ) {
         context.storage_write(slot, point);
+        context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
     }
 
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
@@ -250,32 +258,22 @@ contract NFT {
     fn _finalize_transfer_to_private(
         from: AztecAddress,
         token_id: Field,
-        hiding_point_slot: Field,
+        note_transient_storage_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from), "invalid NFT owner");
 
-        // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
-        let hiding_point: Point = context.storage_read(hiding_point_slot);
-        assert(!is_empty(hiding_point), "transfer not prepared");
-
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
         // Finalize the partial note with the `token_id`
-        let finalization_payload = NFTNote::finalization_payload().new(hiding_point, token_id);
+        let finalization_payload =
+            NFTNote::finalization_payload().new(context, note_transient_storage_slot, token_id);
 
-        // We insert the finalization note hash
-        context.push_note_hash(finalization_payload.note_hash);
-
-        // We emit the `token_id` as unencrypted event such that the `NoteProcessor` can use it to reconstruct the note
-        context.emit_unencrypted_log(finalization_payload.log);
-
-        // At last we reset public storage to zero to achieve the effect of transient storage - kernels will squash
-        // the writes
-        context.storage_write(hiding_point_slot, Point::empty());
+        // At last we emit the note hash and the final log
+        finalization_payload.emit();
     }
 
     /**

@@ -30,6 +30,7 @@ import {
   type PublicDataTreeLeafPreimage,
   TxContext,
   computeContractClassId,
+  computeTaggingSecret,
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -43,6 +44,7 @@ import {
   countArgumentsSize,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -745,6 +747,14 @@ export class TXE implements TypedOracle {
   ): void {
     this.sideEffectsCounter = counter + 1;
     return;
+  }
+
+  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
+    // Silo the secret to the app so it can't be used to track other app's notes
+    return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
   }
 
   // AVM oracles

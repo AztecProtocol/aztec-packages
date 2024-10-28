@@ -1,16 +1,17 @@
 use crate::{
     abis::function_selector::FunctionSelector,
-    public_keys::{ToPoint, PublicKeys, NpkM, IvpkM, OvpkM, TpkM},
     address::{
         partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
         salted_initialization_hash::SaltedInitializationHash,
     },
     constants::{
-        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-        GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE,
-    }, contract_class_id::ContractClassId,
+        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+        GENERATOR_INDEX__PUBLIC_KEYS_HASH, MAX_FIELD_VALUE,
+    },
+    contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
+    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils,
 };
@@ -18,9 +19,10 @@ use crate::{
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
+use crate::public_keys::AddressPoint;
 use std::{
-    ec::{sqrt, pow},
-    embedded_curve_ops::{fixed_base_scalar_mul as derive_public_key, EmbeddedCurveScalar},
+    ec::{pow, sqrt},
+    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
 };
 
 // Aztec address
@@ -64,8 +66,12 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
-impl ToPoint for AztecAddress {
-    fn to_point(self) -> Point {
+impl AztecAddress {
+    pub fn zero() -> Self {
+        Self { inner: 0 }
+    }
+
+    pub fn to_address_point(self) -> AddressPoint {
         // We compute the address point by taking our address, setting it to x, and then solving for y in the
         // equation which defines our bn curve:
         // y^2 = x^3 - 17; x = address
@@ -82,13 +88,7 @@ impl ToPoint for AztecAddress {
             y = (MAX_FIELD_VALUE + 1) - y;
         }
 
-        Point { x: self.inner, y, is_infinite: false }
-    }
-}
-
-impl AztecAddress {
-    pub fn zero() -> Self {
-        Self { inner: 0 }
+        AddressPoint { inner: Point { x: self.inner, y, is_infinite: false } }
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {

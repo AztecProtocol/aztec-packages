@@ -340,6 +340,14 @@ export class BufferReader {
     return this.buffer.length;
   }
 
+  /**
+   * Gets bytes remaining to be read from the buffer.
+   * @returns Bytes remaining to be read from the buffer.
+   */
+  public remainingBytes(): number {
+    return this.buffer.length - this.index;
+  }
+
   #rangeCheck(numBytes: number) {
     if (this.index + numBytes > this.buffer.length) {
       throw new Error(

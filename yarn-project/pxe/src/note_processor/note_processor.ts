@@ -128,7 +128,9 @@ export class NoteProcessor {
     // Iterate over both blocks and encrypted logs.
     for (const block of blocks) {
       this.stats.blocks++;
-      const { txLogs } = block.body.noteEncryptedLogs;
+      const { txLogs: encryptedTxLogs } = block.body.noteEncryptedLogs;
+      const { txLogs: unencryptedTxLogs } = block.body.unencryptedLogs;
+
       const dataStartIndexForBlock =
         block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
         block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
@@ -139,65 +141,72 @@ export class NoteProcessor {
       const outgoingNotes: OutgoingNoteDao[] = [];
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
-      for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
+      for (let indexOfTxInABlock = 0; indexOfTxInABlock < encryptedTxLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
         const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
-        const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
+        const encryptedTxFunctionLogs = encryptedTxLogs[indexOfTxInABlock].functionLogs;
+        const unencryptedTxFunctionLogs = unencryptedTxLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
-        for (const functionLogs of txFunctionLogs) {
-          for (const log of functionLogs.logs) {
-            this.stats.seen++;
-            const incomingNotePayload = L1NotePayload.decryptAsIncoming(log, addressSecret);
-            const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(log, ovskM);
 
-            if (incomingNotePayload || outgoingNotePayload) {
-              if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
-                throw new Error(
-                  `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
-                    incomingNotePayload,
-                  )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
-                );
-              }
+        // We iterate over both encrypted and unencrypted logs to decrypt the notes since partial notes are passed
+        // via the unencrypted logs stream.
+        for (const txFunctionLogs of [encryptedTxFunctionLogs, unencryptedTxFunctionLogs]) {
+          for (const functionLogs of txFunctionLogs) {
+            for (const unprocessedLog of functionLogs.logs) {
+              this.stats.seen++;
+              const incomingNotePayload = L1NotePayload.decryptAsIncoming(unprocessedLog.data, addressSecret);
+              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(unprocessedLog.data, ovskM);
 
-              const payload = incomingNotePayload || outgoingNotePayload;
+              if (incomingNotePayload || outgoingNotePayload) {
+                if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
+                  throw new Error(
+                    `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+                      incomingNotePayload,
+                    )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
+                  );
+                }
 
-              const txEffect = block.body.txEffects[indexOfTxInABlock];
-              const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
-                this.simulator,
-                this.db,
-                incomingNotePayload ? this.ivpkM : undefined,
-                outgoingNotePayload ? this.ovpkM : undefined,
-                payload!,
-                txEffect.txHash,
-                noteHashes,
-                dataStartIndexForTx,
-                excludedIndices,
-                this.log,
-                txEffect.unencryptedLogs,
-              );
+                const payload = incomingNotePayload || outgoingNotePayload;
 
-              if (incomingNote) {
-                incomingNotes.push(incomingNote);
-                this.stats.decryptedIncoming++;
-              }
-              if (outgoingNote) {
-                outgoingNotes.push(outgoingNote);
-                this.stats.decryptedOutgoing++;
-              }
-              if (incomingDeferredNote) {
-                deferredIncomingNotes.push(incomingDeferredNote);
-                this.stats.deferredIncoming++;
-              }
-              if (outgoingDeferredNote) {
-                deferredOutgoingNotes.push(outgoingDeferredNote);
-                this.stats.deferredOutgoing++;
-              }
+                const txEffect = block.body.txEffects[indexOfTxInABlock];
+                const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } =
+                  await produceNoteDaos(
+                    this.simulator,
+                    this.db,
+                    incomingNotePayload ? this.ivpkM : undefined,
+                    outgoingNotePayload ? this.ovpkM : undefined,
+                    payload!,
+                    txEffect.txHash,
+                    noteHashes,
+                    dataStartIndexForTx,
+                    excludedIndices,
+                    this.log,
+                    txEffect.unencryptedLogs,
+                  );
 
-              if (incomingNote == undefined && outgoingNote == undefined && incomingDeferredNote == undefined) {
-                this.stats.failed++;
+                if (incomingNote) {
+                  incomingNotes.push(incomingNote);
+                  this.stats.decryptedIncoming++;
+                }
+                if (outgoingNote) {
+                  outgoingNotes.push(outgoingNote);
+                  this.stats.decryptedOutgoing++;
+                }
+                if (incomingDeferredNote) {
+                  deferredIncomingNotes.push(incomingDeferredNote);
+                  this.stats.deferredIncoming++;
+                }
+                if (outgoingDeferredNote) {
+                  deferredOutgoingNotes.push(outgoingDeferredNote);
+                  this.stats.deferredOutgoing++;
+                }
+
+                if (incomingNote == undefined && outgoingNote == undefined && incomingDeferredNote == undefined) {
+                  this.stats.failed++;
+                }
               }
             }
           }
@@ -273,15 +282,15 @@ export class NoteProcessor {
       await this.db.addDeferredNotes([...deferredIncomingNotes, ...deferredOutgoingNotes]);
       deferredIncomingNotes.forEach(noteDao => {
         this.log.verbose(
-          `Deferred incoming note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
+          `Deferred incoming note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
           } in tx ${noteDao.txHash.toString()}`,
         );
       });
       deferredOutgoingNotes.forEach(noteDao => {
         this.log.verbose(
-          `Deferred outgoing note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
+          `Deferred outgoing note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
           } in tx ${noteDao.txHash.toString()}`,
         );
       });
@@ -306,18 +315,7 @@ export class NoteProcessor {
     const outgoingNotes: OutgoingNoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
-      const {
-        publicKey,
-        note,
-        contractAddress,
-        storageSlot,
-        noteTypeId,
-        txHash,
-        noteHashes,
-        dataStartIndexForTx,
-        unencryptedLogs,
-      } = deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const { publicKey, payload, txHash, noteHashes, dataStartIndexForTx, unencryptedLogs } = deferredNote;
 
       const isIncoming = publicKey.equals(this.ivpkM);
       const isOutgoing = publicKey.equals(this.ovpkM);

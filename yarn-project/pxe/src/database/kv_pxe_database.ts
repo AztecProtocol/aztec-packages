@@ -215,7 +215,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const newLength = await this.#deferredNotes.push(...deferredNotes.map(note => note.toBuffer()));
     for (const [index, note] of deferredNotes.entries()) {
       const noteId = newLength - deferredNotes.length + index;
-      await this.#deferredNotesByContract.set(note.contractAddress.toString(), noteId);
+      await this.#deferredNotesByContract.set(note.payload.contractAddress.toString(), noteId);
     }
   }
 

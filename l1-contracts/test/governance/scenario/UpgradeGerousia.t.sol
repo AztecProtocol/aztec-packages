@@ -60,7 +60,7 @@ contract UpgradeGerousiaTest is TestBase {
       initialValidators[i - 1] = validator;
     }
 
-    Sysstia sysstia = new Sysstia(token, registry);
+    Sysstia sysstia = new Sysstia(token, registry, address(this));
     rollup = new Rollup(
       new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), initialValidators
     );

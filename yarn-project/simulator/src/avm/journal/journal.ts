@@ -1,10 +1,16 @@
-import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  type Gas,
+  SerializableContractInstance,
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import assert from 'assert';
+
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -210,22 +216,26 @@ export class AvmPersistableStateManager {
   /**
    * Get a contract instance.
    * @param contractAddress - address of the contract instance to retrieve.
-   * @returns the contract instance with an "exists" flag
+   * @returns the contract instance or undefined if it does not exist.
    */
-  public async getContractInstance(contractAddress: Fr): Promise<TracedContractInstance> {
-    let exists = true;
-    const aztecAddress = AztecAddress.fromField(contractAddress);
-    let instance = await this.worldStateDB.getContractInstance(aztecAddress);
-    if (instance === undefined) {
-      instance = SerializableContractInstance.default().withAddress(aztecAddress);
-      exists = false;
+  public async getContractInstance(contractAddress: Fr): Promise<SerializableContractInstance | undefined> {
+    this.log.debug(`Getting contract instance for address ${contractAddress}`);
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(AztecAddress.fromField(contractAddress));
+    const exists = instanceWithAddress !== undefined;
+
+    if (exists) {
+      const instance = new SerializableContractInstance(instanceWithAddress);
+      this.log.debug(
+        `Got contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
+      );
+      this.trace.traceGetContractInstance(contractAddress, exists, instance);
+
+      return Promise.resolve(instance);
+    } else {
+      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
+      this.trace.traceGetContractInstance(contractAddress, exists);
+      return Promise.resolve(undefined);
     }
-    this.log.debug(
-      `Get Contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
-    );
-    const tracedInstance = { ...instance, exists };
-    this.trace.traceGetContractInstance(tracedInstance);
-    return Promise.resolve(tracedInstance);
   }
 
   /**
@@ -237,10 +247,43 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Get a contract's bytecode from the contracts DB
+   * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
-  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return await this.worldStateDB.getBytecode(contractAddress, selector);
+  public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
+    this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
+    const exists = instanceWithAddress !== undefined;
+
+    if (exists) {
+      const instance = new SerializableContractInstance(instanceWithAddress);
+
+      const contractClass = await this.worldStateDB.getContractClass(instance.contractClassId);
+      assert(
+        contractClass,
+        `Contract class not found in DB, but a contract instance was found with this class ID (${instance.contractClassId}). This should not happen!`,
+      );
+
+      const contractClassPreimage = {
+        artifactHash: contractClass.artifactHash,
+        privateFunctionsRoot: contractClass.privateFunctionsRoot,
+        publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+      };
+
+      this.trace.traceGetBytecode(
+        contractAddress,
+        exists,
+        contractClass.packedBytecode,
+        instance,
+        contractClassPreimage,
+      );
+      return contractClass.packedBytecode;
+    } else {
+      // If the contract instance is not found, we assume it has not been deployed.
+      // It doesnt matter what the values of the contract instance are in this case, as long as we tag it with exists=false.
+      // This will hint to the avm circuit to just perform the non-membership check on the address and disregard the bytecode hash
+      this.trace.traceGetBytecode(contractAddress, exists); // bytecode, instance, class undefined
+      return undefined;
+    }
   }
 
   /**

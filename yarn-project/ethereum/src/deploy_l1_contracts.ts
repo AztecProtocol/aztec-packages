@@ -315,19 +315,6 @@ export const deployL1Contracts = async (
   const feeJuiceAddress = await govDeployer.deploy(l1Artifacts.feeJuice);
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
-    feeJuiceAddress.toString(),
-    1n * 10n ** 18n, // @todo  #8084
-    account.address.toString(),
-  ]);
-  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
-
-  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
-    feeJuiceAddress.toString(),
-    registryAddress.toString(),
-  ]);
-  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
-
   // @todo  #8084
   // @note These numbers are just chosen to make testing simple.
   const quorumSize = 6n;
@@ -344,6 +331,20 @@ export const deployL1Contracts = async (
     gerousiaAddress.toString(),
   ]);
   logger.info(`Deployed Apella at ${apellaAddress}`);
+
+  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
+    feeJuiceAddress.toString(),
+    1n * 10n ** 18n, // @todo  #8084
+    apellaAddress.toString(),
+  ]);
+  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
+
+  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
+    feeJuiceAddress.toString(),
+    registryAddress.toString(),
+    apellaAddress.toString(),
+  ]);
+  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
 
   await govDeployer.waitForDeployments();
   logger.info(`All governance contracts deployed`);

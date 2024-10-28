@@ -181,5 +181,5 @@ pub fn get_pack_cards(
 }
 
 pub fn compute_deck_strength<let N: u32>(cards: [Card; N]) -> Field {
-    cards.fold(0, |acc, card: Card| { acc + card.strength as Field })
+    cards.fold(0, |acc, card: Card| acc + card.strength as Field)
 }
