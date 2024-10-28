@@ -60,11 +60,11 @@ export type ContractClassIdPreimage = {
 };
 
 export function computePublicBytecodeCommitment(packedBytecode: Buffer) {
-  // Encode the buffer into field elements (chunked into 31 bytes each)
-  const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 500);
+  // Encode the buffer into field elements (chunked into 32 bytes each)
+  const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   // The first element is the length of the bytecode (in bytes)
   const bytecodeLength = Math.ceil(encodedBytecode[0].toNumber() / (Fr.SIZE_IN_BYTES - 1));
-  // assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
+  assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
 
   let bytecodeCommitment = new Fr(0);
   for (let i = 0; i < bytecodeLength; i++) {

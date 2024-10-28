@@ -77,7 +77,7 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        // TODO: modify call opcode and remove <0>.
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/9061): modify call opcode and remove <0>.
         let (_, success) = call::<0>(
             gas_for_call(gas_opts),
             contract_address,
@@ -101,7 +101,7 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        // TODO: modify call_static opcode and remove <0>.
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/9061): modify call_static opcode and remove <0>.
         let (_, success) = call_static::<0>(
             gas_for_call(gas_opts),
             contract_address,

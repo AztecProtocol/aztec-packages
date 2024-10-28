@@ -20,8 +20,7 @@ contract StaticParent {
                 target_selector,
                 [arg].as_slice(),
                 GasOpts::default(),
-            )
-            .deserialize_into()
+            )[0]
     }
 
     // Private function to directly call another private function to the target_contract using the selector and args provided
@@ -120,8 +119,7 @@ contract StaticParent {
                 target_selector,
                 args.as_slice(),
                 GasOpts::default(),
-            )
-            .deserialize_into()
+            )[0]
     }
 
     // Same as above but using a specific function from the interface
