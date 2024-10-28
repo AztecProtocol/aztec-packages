@@ -224,7 +224,7 @@ unconstrained fn get_app_tagging_secret_oracle(
 /// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
 // siloed for the current contract address.
 /// Includes the last known index used for tagging with this secret.
-/// For this to work, PXE must know the ivpsk_m of the recipient.
+/// For this to work, PXE must know the ivsk_m of the recipient.
 pub unconstrained fn get_app_tagging_secrets_for_senders(
     recipient: AztecAddress,
 ) -> [IndexedTaggingSecret] {
