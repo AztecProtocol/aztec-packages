@@ -30,18 +30,20 @@ std::unordered_set<uint32_t> UltraCircuitBuilder_<Arithmetization>::get_all_used
 #ifndef NO_MULTITHREADING
     std::mutex common_set_merge_mutex;
 #endif
-    parallel_for(/*NUM_WIRES=*/4, [&](size_t wire_index) {
-        std::unordered_set<uint32_t> this_wire_variables;
-        for (auto& block : this->blocks.get()) {
-            for (size_t i = 0; i < block.size(); i++) {
-                this_wire_variables.insert(this->real_variable_index[block.wires[wire_index][i]]);
+    for (auto& block : this->blocks.get()) {
+        parallel_for_range(block.size(), [&](size_t start, size_t end) {
+            std::unordered_set<uint32_t> this_wire_variables;
+            for (const auto& wire : block.wires) {
+                for (size_t i = start; i < end; i++) {
+                    this_wire_variables.insert(this->real_variable_index[wire[i]]);
+                }
             }
-        }
 #ifndef NO_MULTITHREADING
-        std::unique_lock<std::mutex> lock(common_set_merge_mutex);
+            std::unique_lock<std::mutex> lock(common_set_merge_mutex);
 #endif
-        all_used_real_variables.merge(this_wire_variables);
-    });
+            all_used_real_variables.merge(this_wire_variables);
+        });
+    }
     return all_used_real_variables;
 }
 
