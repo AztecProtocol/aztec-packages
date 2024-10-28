@@ -34,22 +34,11 @@ function getBytecode(bytecodePath: string) {
   return decompressed;
 }
 
-function base64ToUint8Array(base64: string) {
-  let binaryString = atob(base64);
-  let len = binaryString.length;
-  let bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function readStack(bytecodePath: string, numToDrop=0) {
-  const encodedPackedZippedBytecodeArray= readFileSync(bytecodePath, 'utf-8');
-  const packedZippedBytecodeArray = base64ToUint8Array(encodedPackedZippedBytecodeArray);
-  const zipped = decode(packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop)) as Uint8Array[];
-  const bytecodeArray = zipped.map((arr: Uint8Array) => ungzip(arr));
-  return bytecodeArray;
+function readStack(bytecodePath: string, numToDrop: number) {
+  const encodedCircuit = readFileSync(bytecodePath);
+  const unpacked = decode(encodedCircuit.subarray(0, encodedCircuit.length - numToDrop)) as Uint8Array[];
+  const decompressed = unpacked.map((arr: Uint8Array) => ungzip(arr));
+  return decompressed;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
@@ -209,8 +198,8 @@ export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPat
   /* eslint-disable camelcase */
   const { api } = await initClientIVC(crsPath);
   try {
-    const bytecode = readStack(bytecodePath);
-    const witness = readStack(witnessPath);
+    const bytecode = readStack(bytecodePath, 0);
+    const witness = readStack(witnessPath, 0);
 
     const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
     return verified;
@@ -225,8 +214,8 @@ export async function proveAztecClient(bytecodePath: string, witnessPath: string
   const { api } = await initClientIVC(crsPath);
   try {
     debug(`creating proof...`);
-    const bytecode = readStack(bytecodePath);
-    const witness = readStack(witnessPath);
+    const bytecode = readStack(bytecodePath, 0);
+    const witness = readStack(witnessPath, 0);
     const proof = await api.acirProveAztecClient(bytecode, witness);
     debug(`finished creating proof.`);
 
@@ -516,13 +505,13 @@ export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string
 
 const program = new Command('bb');
 
-program.option('-v, --verbose', 'enable verbose logging', true);
+program.option('-v, --verbose', 'enable verbose logging', false);
 program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
-  // if (program.opts().verbose) {
+  if (program.opts().verbose) {
     createDebug.enable('bb.js*');
-  // }
+  }
 }
 
 program
@@ -561,11 +550,10 @@ program
 program
   .command('client_ivc_prove_and_verify')
   .description('Generate a ClientIVC proof.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acirs.msgpack.b64')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack.b64')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acirs.msgpack')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    debug("Calling proveAndVerifyAztecClient");
     const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
