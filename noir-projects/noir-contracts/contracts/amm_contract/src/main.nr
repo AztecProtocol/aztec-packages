@@ -3,7 +3,8 @@ mod lib;
 use dep::aztec::macros::aztec;
 
 /// This contract is a demonstration of how an Automated Market Maker (AMM) that requires public state while still
-/// achieving identity privacy can be implemented. It does not, however, provide function privacy.
+/// achieving identity privacy can be implemented. It does not, however, provide function privacy: anyone can see
+/// what actions were performed and all amounts involved (but not _who_ performed the action).
 ///
 /// Note: This is only a demonstration and we (Aztec team) do not think this is the best way to build a DEX.
 #[aztec]
@@ -73,7 +74,8 @@ contract AMM {
         token0.transfer_to_public(msg.sender, context.this_address(), amount0_desired, nonce).call(&mut context);
         token1.transfer_to_public(msg.sender, context.this_address(), amount1_desired, nonce).call(&mut context);
 
-        // Since not all the desired amounts of tokens might be accepted we prepare partial notes for the refunds.
+        // We may need to return some token amounts depending on public state (i.e. if the desired amounts do
+        // not have the same ratio as the live reserves), so we prepare partial notes for the refunds.
         let refund_token0_slot_commitment = token0.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
         let refund_token1_slot_commitment = token1.prepare_transfer_to_private(msg.sender, context.this_address(), nonce).call(&mut context);
         // We prepare a partial note for the liquidity tokens.
@@ -142,9 +144,8 @@ contract AMM {
         let refund_amount_token0 = amount0_desired - amount0;
         let refund_amount_token1 = amount1_desired - amount1;
 
-        // The refund does not need to be finalized if the refund amount is 0 --> the partial note will either be wiped
-        // out from transient storage at the end of the tx (which is fine) or it will stay in public storage (which is
-        // also fine).
+        // The refund does not need to be finalized if the refund amount is 0 --> the partial note will simply stay in
+        // public storage, which is fine.
         if (refund_amount_token0 > 0) {
             token0.finalize_transfer_to_private(refund_token0_slot_commitment, refund_amount_token0).call(&mut context);
         }
@@ -179,7 +180,9 @@ contract AMM {
         let token0 = Token::at(state.token0);
         let token1 = Token::at(state.token1);
 
-        // We transfer the liquidity tokens to this contract and prepare partial notes for the output tokens.
+        // We transfer the liquidity tokens to this contract and prepare partial notes for the output tokens. We are
+        // forced to first transfer into the AMM because it is not possible to burn in private - the enqueued public
+        // call would reveal who the owner was. The only way to preserve their identity is to first privately transfer.
         liquidity_token.transfer_to_public(msg.sender, context.this_address(), liquidity, nonce).call(&mut context);
         let token0_slot_commitment = token0.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
         let token1_slot_commitment = token1.prepare_transfer_to_private(context.this_address(), msg.sender, nonce).call(&mut context);
