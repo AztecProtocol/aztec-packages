@@ -52,7 +52,13 @@ async function computeCircuitSize(bytecodePath: string, recursive: boolean, honk
   return { total, subgroup };
 }
 
-async function initUltraPlonk(bytecodePath: string, recursive: boolean, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
+async function initUltraPlonk(
+  bytecodePath: string,
+  recursive: boolean,
+  crsPath: string,
+  subgroupSizeOverride = -1,
+  honkRecursion = false,
+) {
   const api = await Barretenberg.new({ threads });
 
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraPlonk function
@@ -203,7 +209,13 @@ export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: st
   /* eslint-enable camelcase */
 }
 
-export async function prove(bytecodePath: string, recursive: boolean, witnessPath: string, crsPath: string, outputPath: string) {
+export async function prove(
+  bytecodePath: string,
+  recursive: boolean,
+  witnessPath: string,
+  crsPath: string,
+  outputPath: string,
+) {
   const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
   try {
     debug(`creating proof...`);
@@ -363,7 +375,13 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
   }
 }
 
-export async function proveUltraHonk(bytecodePath: string, recursive: boolean, witnessPath: string, crsPath: string, outputPath: string) {
+export async function proveUltraHonk(
+  bytecodePath: string,
+  recursive: boolean,
+  witnessPath: string,
+  crsPath: string,
+  outputPath: string,
+) {
   const { api } = await initUltraHonk(bytecodePath, recursive, crsPath);
   try {
     debug(`creating proof...`);

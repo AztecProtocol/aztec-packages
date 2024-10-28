@@ -27,7 +27,7 @@ export type BackendOptions = {
 export type CircuitOptions = {
   /** @description Whether to produce SNARK friendly proofs */
   recursive: boolean;
-}
+};
 
 /**
  * The main class library consumers interact with.

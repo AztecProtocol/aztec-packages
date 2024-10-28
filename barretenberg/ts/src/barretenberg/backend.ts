@@ -24,7 +24,7 @@ export class UltraPlonkBackend {
   constructor(
     acirBytecode: string,
     protected backendOptions: BackendOptions = { threads: 1 },
-    protected circuitOptions: CircuitOptions = { recursive: false }
+    protected circuitOptions: CircuitOptions = { recursive: false },
   ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
@@ -36,7 +36,11 @@ export class UltraPlonkBackend {
 
       const honkRecursion = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
+      const [_total, subgroupSize] = await api.acirGetCircuitSizes(
+        this.acirUncompressedBytecode,
+        this.circuitOptions.recursive,
+        honkRecursion,
+      );
 
       await api.initSRSForCircuitSize(subgroupSize);
       this.acirComposer = await api.acirNewAcirComposer(subgroupSize);
@@ -154,7 +158,7 @@ export class UltraHonkBackend {
   constructor(
     acirBytecode: string,
     protected backendOptions: BackendOptions = { threads: 1 },
-    protected circuitOptions: CircuitOptions = { recursive: false}
+    protected circuitOptions: CircuitOptions = { recursive: false },
   ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }

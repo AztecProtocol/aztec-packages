@@ -909,7 +909,11 @@ export class BarretenbergApiSync {
     return;
   }
 
-  acirGetCircuitSizes(constraintSystemBuf: Uint8Array, recursive: boolean, honkRecursion: boolean): [number, number, number] {
+  acirGetCircuitSizes(
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    honkRecursion: boolean,
+  ): [number, number, number] {
     const inArgs = [constraintSystemBuf, recursive, honkRecursion].map(serializeBufferable);
     const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -957,7 +961,12 @@ export class BarretenbergApiSync {
     return;
   }
 
-  acirCreateProof(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, recursive: boolean, witnessBuf: Uint8Array): Uint8Array {
+  acirCreateProof(
+    acirComposerPtr: Ptr,
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    witnessBuf: Uint8Array,
+  ): Uint8Array {
     const inArgs = [acirComposerPtr, constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
