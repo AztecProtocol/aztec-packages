@@ -3012,6 +3012,7 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     auto read_b = constrained_read_from_memory(
         call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
+    info("TAG MATCH: ", tag_match);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);

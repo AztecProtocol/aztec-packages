@@ -193,6 +193,7 @@ class AvmTraceBuilder {
         bool tag_match;
         FF val;
     };
+    AvmGasTraceBuilder gas_trace_builder;
 
   private:
     std::vector<Row> main_trace;
@@ -212,7 +213,6 @@ class AvmTraceBuilder {
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
     AvmKernelTraceBuilder kernel_trace_builder;
-    AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;
     AvmPoseidon2TraceBuilder poseidon2_trace_builder;

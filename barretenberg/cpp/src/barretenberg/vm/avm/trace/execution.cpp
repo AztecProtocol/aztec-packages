@@ -288,9 +288,12 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
     // is determined by this value which require read access to the code below.
     uint32_t pc = 0;
+    uint32_t counter = 0;
     while ((pc = trace_builder.getPc()) < instructions.size()) {
         auto inst = instructions.at(pc);
-        debug("[@" + std::to_string(pc) + "] " + inst.to_string());
+        debug("[@" + std::to_string(pc) + "] " + inst.to_string() +
+              " L2 Gas REM: " + std::to_string(trace_builder.gas_trace_builder.get_l2_gas_left()) +
+              " Counter: " + std::to_string(counter++));
 
         switch (inst.op_code) {
             // Compute
@@ -654,6 +657,8 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             break;
         }
         case OpCode::REVERT_8: {
+            info("HIT REVERT_8 ", "[@" + std::to_string(pc) + "] " + inst.to_string());
+            // throw_or_abort("REVERT_8 not implemented");
             auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint8_t>(inst.operands.at(1)),
                                                std::get<uint8_t>(inst.operands.at(2)));
@@ -662,6 +667,8 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
             break;
         }
         case OpCode::REVERT_16: {
+            info("HIT REVERT_16 ", "[@" + std::to_string(pc) + "] " + inst.to_string());
+            // throw_or_abort("REVERT_16 not implemented");
             auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint16_t>(inst.operands.at(1)),
                                                std::get<uint16_t>(inst.operands.at(2)));

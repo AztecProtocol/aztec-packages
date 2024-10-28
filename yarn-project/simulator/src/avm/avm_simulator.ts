@@ -72,6 +72,7 @@ export class AvmSimulator {
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
+      let counter = 0;
       while (!machineState.getHalted()) {
         const instruction = instructions[machineState.pc];
         assert(
@@ -80,11 +81,12 @@ export class AvmSimulator {
         );
 
         const gasLeft = `l2=${machineState.l2GasLeft} da=${machineState.daGasLeft}`;
-        this.log.debug(`@${machineState.pc} ${instruction.toString()} (${gasLeft})`);
+        this.log.debug(`@${machineState.pc} ${instruction.toString()} (${gasLeft}) | ${counter}`);
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
         await instruction.execute(this.context);
+        counter += 1;
 
         if (machineState.pc >= instructions.length) {
           this.log.warn('Passed end of program');
