@@ -210,13 +210,14 @@ unconstrained fn address() -> AztecAddress {
 unconstrained fn sender() -> AztecAddress {
     sender_opcode()
 }
+// TODO(9396): Remove.
 unconstrained fn portal() -> EthAddress {
     portal_opcode()
 }
-// UNUSED: Remove.
-// unconstrained fn function_selector() -> u32 {
-//     function_selector_opcode()
-// }
+// TODO(9396): Remove.
+//unconstrained fn function_selector() -> u32 {
+//    function_selector_opcode()
+//}
 unconstrained fn transaction_fee() -> Field {
     transaction_fee_opcode()
 }
@@ -325,9 +326,9 @@ unconstrained fn sender_opcode() -> AztecAddress {}
 #[oracle(avmOpcodePortal)]
 unconstrained fn portal_opcode() -> EthAddress {}
 
-// UNUSED: Remove.
-// #[oracle(avmOpcodeFunctionSelector)]
-// unconstrained fn function_selector_opcode() -> u32 {}
+// TODO(9396): Remove.
+//#[oracle(avmOpcodeFunctionSelector)]
+//unconstrained fn function_selector_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTransactionFee)]
 unconstrained fn transaction_fee_opcode() -> Field {}
