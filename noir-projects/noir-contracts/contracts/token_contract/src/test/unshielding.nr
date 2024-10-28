@@ -14,7 +14,7 @@ unconstrained fn unshield_on_behalf_of_self() {
         &mut env.private(),
     );
     utils::check_private_balance(token_contract_address, owner, mint_amount - unshield_amount);
-    utils::check_public_balance(token_contract_address, owner, mint_amount + unshield_amount);
+    utils::check_public_balance(token_contract_address, owner, unshield_amount);
 }
 
 #[test]

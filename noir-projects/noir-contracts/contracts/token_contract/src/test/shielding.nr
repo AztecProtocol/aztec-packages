@@ -30,7 +30,7 @@ unconstrained fn shielding_on_behalf_of_self() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount - shield_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount + shield_amount);
+    utils::check_private_balance(token_contract_address, owner, shield_amount);
 }
 
 #[test]
@@ -70,7 +70,7 @@ unconstrained fn shielding_on_behalf_of_other() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount - shield_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount + shield_amount);
+    utils::check_private_balance(token_contract_address, owner, shield_amount);
 }
 
 #[test]
@@ -88,7 +88,7 @@ unconstrained fn shielding_failure_on_behalf_of_self_more_than_balance() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount);
+    utils::check_private_balance(token_contract_address, owner, 0);
 }
 
 #[test]
@@ -106,7 +106,7 @@ unconstrained fn shielding_failure_on_behalf_of_self_invalid_nonce() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount);
+    utils::check_private_balance(token_contract_address, owner, 0);
 }
 
 #[test]
@@ -132,7 +132,7 @@ unconstrained fn shielding_failure_on_behalf_of_other_more_than_balance() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount);
+    utils::check_private_balance(token_contract_address, owner, 0);
 }
 
 #[test]
@@ -154,7 +154,7 @@ unconstrained fn shielding_failure_on_behalf_of_other_wrong_caller() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount);
+    utils::check_private_balance(token_contract_address, owner, 0);
 }
 
 #[test]
@@ -175,5 +175,5 @@ unconstrained fn shielding_failure_on_behalf_of_other_without_approval() {
 
     // Check balances
     utils::check_public_balance(token_contract_address, owner, mint_amount);
-    utils::check_private_balance(token_contract_address, owner, mint_amount);
+    utils::check_private_balance(token_contract_address, owner, 0);
 }
