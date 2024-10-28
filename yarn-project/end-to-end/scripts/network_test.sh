@@ -26,6 +26,7 @@ fi
 
 # Default values for environment variables
 VALUES_FILE="${VALUES_FILE:-default.yaml}"
+INSTALL_CHAOS_MESH="${INSTALL_CHAOS_MESH:-}"
 CHAOS_VALUES="${CHAOS_VALUES:-}"
 FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
@@ -66,11 +67,19 @@ function show_status_until_pxe_ready() {
 handle_network_shaping() {
     if [ -n "${CHAOS_VALUES:-}" ]; then
         echo "Checking chaos-mesh setup..."
-        if ! kubectl get namespace chaos-mesh &>/dev/null; then
-            echo "Error: chaos-mesh namespace not found!"
-            echo "Please set up chaos-mesh first. You can do this by running:"
-            echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
-            exit 1
+
+        if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
+            # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
+            # to determine if we should install it.
+            if [ "$INSTALL_CHAOS_MESH" ]; then
+              echo "Installing chaos-mesh..."
+              cd "$REPO/spartan/chaos-mesh" && ./install.sh
+            else
+              echo "Error: chaos-mesh namespace not found!"
+              echo "Please set up chaos-mesh first. You can do this by running:"
+              echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
+              exit 1
+            fi
         fi
 
         echo "Deploying network shaping configuration..."
