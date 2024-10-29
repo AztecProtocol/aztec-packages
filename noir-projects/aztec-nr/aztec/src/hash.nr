@@ -50,7 +50,7 @@ pub fn compute_l1_to_l2_message_hash(
     secret_hash: Field,
     leaf_index: Field,
 ) -> Field {
-    let mut hash_bytes = [0 as u8; 192];
+    let mut hash_bytes = [0 as u8; 224];
     let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
     let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
     let recipient_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
