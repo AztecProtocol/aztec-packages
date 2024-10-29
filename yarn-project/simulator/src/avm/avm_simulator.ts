@@ -85,6 +85,7 @@ export class AvmSimulator {
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
+      let instrCounter = 0;
       while (!machineState.getHalted()) {
         const instruction = instructions[machineState.pc];
         assert(
@@ -96,7 +97,9 @@ export class AvmSimulator {
         const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
 
         this.log.debug(
-          `@${machineState.pc} ${instruction.toString()} (l2=${machineState.l2GasLeft} da=${machineState.daGasLeft})`,
+          `[PC:${machineState.pc}] [IC:${instrCounter++}] ${instruction.toString()} (gasLeft l2=${
+            machineState.l2GasLeft
+          } da=${machineState.daGasLeft})`,
         );
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
