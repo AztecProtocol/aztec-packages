@@ -1559,13 +1559,14 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 void AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
 
     auto [resolved_dst_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
 
-    FF returndata_size = tag_match ? FF(returndata.size()) : FF(0);
+    FF returndata_size = tag_match ? FF(nested_returndata.size()) : FF(0);
     // TODO: constrain
-    write_slice_to_memory(resolved_dst_offset, AvmMemoryTag::U32, std::vector<FF>{ returndata_size });
+    write_to_memory(resolved_dst_offset, returndata_size, AvmMemoryTag::U32);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
@@ -1613,7 +1614,8 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     // Write the return data to memory
     // TODO: validate bounds
-    auto returndata_slice = std::vector(returndata.begin() + rd_offset, returndata.begin() + rd_offset + copy_size);
+    auto returndata_slice =
+        std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
     write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
 }
 
