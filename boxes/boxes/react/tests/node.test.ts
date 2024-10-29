@@ -20,7 +20,6 @@ describe('BoxReact Contract Tests', () => {
       wallet,
       Fr.random(),
       accountCompleteAddress.address,
-      masterNullifierPublicKey.hash(),
       masterOutgoingViewingPublicKey.toWrappedNoirStruct()
     )
       .send({ contractAddressSalt: salt })
@@ -37,7 +36,6 @@ describe('BoxReact Contract Tests', () => {
       .setNumber(
         numberToSet,
         accountCompleteAddress.address,
-        masterNullifierPublicKey.hash(),
         masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
       )
       .send()
