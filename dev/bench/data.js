@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730232811238,
+  "lastUpdate": 1730242398838,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4c1163a9e9516d298e55421f1cf0ed81081151dd",
-          "message": "chore!: remove keccak256 opcode from ACIR/Brillig (#9104)\n\nThis PR removes the keccak256 opcode as we never emit this now,\r\npreferring keccakf1600. As we have #8989 making a breaking change to\r\nserialisation, this is a good time to do this to avoid an extra\r\nserialisation change.",
-          "timestamp": "2024-10-11T15:45:13Z",
-          "tree_id": "76aa125674afe1f33ac20cc043568690febd1d72",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c1163a9e9516d298e55421f1cf0ed81081151dd"
-        },
-        "date": 1728663334361,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31290.522675999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28796.047745 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5527.366165999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5136.880841000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93958.84548300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93958847000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15551.484994999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15551486000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8364026173,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8364026173 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 164602531,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 164602531 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6772403891,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6772403891 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126241974,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126241974 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3060,6 +2988,66 @@ window.BENCHMARK_DATA = {
             "value": 126471477,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126471477 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "10874f402c48c0721491f0db8bc0266653193d9b",
+          "message": "feat: reorder blocks for efficiency (#9560)\n\nReorders blocks (Mega only) so that data bus reads are close to the top\r\nof the trace and lookups are at the bottom. This helps minimize both the\r\nmemory required to store the log-deriv inverse polynomials as well as\r\nthe \"active\" region of the trace by minimizing the distance (maximizing\r\nthe overlap) of the various lookup gates with the data from which they\r\nread. (Note: tables are constructed at the bottom of the trace).",
+          "timestamp": "2024-10-29T15:16:31-07:00",
+          "tree_id": "dd55b09c26fe5ba1cdec96dbadeb75b468fad307",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/10874f402c48c0721491f0db8bc0266653193d9b"
+        },
+        "date": 1730242391172,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30572.905143000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28699.815508 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5352.307101000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5051.848772 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91708.771418,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91708773000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15118.753338999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15118753000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2664636702,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2664636702 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126149529,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126149529 ns\nthreads: 1"
           }
         ]
       }
