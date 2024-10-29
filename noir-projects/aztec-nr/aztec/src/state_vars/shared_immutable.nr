@@ -13,7 +13,10 @@ pub struct SharedImmutable<T, Context> {
     storage_slot: Field,
 }
 
-impl<T, Context> Storage<T> for SharedImmutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for SharedImmutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<T, Context> SharedImmutable<T, Context> {
     pub fn new(

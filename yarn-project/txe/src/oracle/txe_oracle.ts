@@ -18,6 +18,7 @@ import {
   type ContractInstanceWithAddress,
   Gas,
   Header,
+  IndexedTaggingSecret,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
@@ -749,12 +750,31 @@ export class TXE implements TypedOracle {
     return;
   }
 
-  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
-    return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
+    const secret = poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([secret]);
+    return new IndexedTaggingSecret(secret, index);
+  }
+
+  async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
+    const completeAddresses = await this.txeDatabase.getCompleteAddresses();
+    // Filter out the addresses corresponding to accounts
+    const accounts = await this.keyStore.getAccounts();
+    const senders = completeAddresses.filter(
+      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
+    );
+    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
+    const secrets = senders.map(({ address: sender }) => {
+      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
+      return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
+    });
+    const indexes = await this.txeDatabase.getTaggingSecretsIndexes(secrets);
+    return secrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
   // AVM oracles

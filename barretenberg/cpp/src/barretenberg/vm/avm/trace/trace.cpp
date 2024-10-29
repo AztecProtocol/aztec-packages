@@ -267,7 +267,7 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
-    , bytecode_trace_builder(execution_hints_.all_contract_bytecode)
+    , bytecode_trace_builder(execution_hints.all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
@@ -1064,12 +1064,16 @@ void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_off
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
+    // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
+    bool tag_match = read_a.tag_match;
 
     FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF b = tag_match ? read_b : FF(0);
 
     FF c = tag_match ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
 
@@ -1083,24 +1087,24 @@ void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
-        .main_ib = read_b.val,
+        .main_ib = read_b,
         .main_ic = write_c.val,
         .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
+        //.main_ind_addr_b = FF(read_b.indirect_address),
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
+        //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
+        //.main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_shl = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -1117,12 +1121,16 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
+    // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
+    bool tag_match = read_a.tag_match;
 
     FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF b = tag_match ? read_b : FF(0);
 
     FF c = tag_match ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
 
@@ -1136,24 +1144,28 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
-        .main_ib = read_b.val,
+        .main_ib = read_b,
         .main_ic = write_c.val,
         .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
+        // TODO(8603): uncomment
+        //.main_ind_addr_b = FF(read_b.indirect_address),
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
+        // TODO(8603): uncomment
+        //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
+        // TODO(8603): uncomment
+        //.main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_shr = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        // TODO(8603): uncomment
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -1261,51 +1273,70 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
 
 void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
 {
-    ASSERT(env_var < static_cast<int>(EnvironmentVariable::MAX_ENV_VAR));
-    EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+    if (env_var >= static_cast<int>(EnvironmentVariable::MAX_ENV_VAR)) {
+        // Error, bad enum operand
+        // TODO(9395): constrain this via range check
+        auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+        const auto row = Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc++,
+            .main_sel_op_address = FF(1), // TODO(9407): what selector should this be?
+        };
 
-    switch (var) {
-    case EnvironmentVariable::ADDRESS:
-        op_address(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::SENDER:
-        op_sender(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FUNCTIONSELECTOR:
-        op_function_selector(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::TRANSACTIONFEE:
-        op_transaction_fee(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::CHAINID:
-        op_chain_id(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::VERSION:
-        op_version(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::BLOCKNUMBER:
-        op_block_number(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::TIMESTAMP:
-        op_timestamp(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FEEPERL2GAS:
-        op_fee_per_l2_gas(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FEEPERDAGAS:
-        op_fee_per_da_gas(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::ISSTATICCALL:
-        op_is_static_call(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::L2GASLEFT:
-        op_l2gasleft(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::DAGASLEFT:
-        op_dagasleft(indirect, dst_offset);
-        break;
-    default:
-        throw std::runtime_error("Invalid environment variable");
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+
+        main_trace.push_back(row);
+    } else {
+        EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+
+        switch (var) {
+        case EnvironmentVariable::ADDRESS:
+            op_address(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::SENDER:
+            op_sender(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FUNCTIONSELECTOR:
+            op_function_selector(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::TRANSACTIONFEE:
+            op_transaction_fee(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::CHAINID:
+            op_chain_id(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::VERSION:
+            op_version(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::BLOCKNUMBER:
+            op_block_number(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::TIMESTAMP:
+            op_timestamp(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FEEPERL2GAS:
+            op_fee_per_l2_gas(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FEEPERDAGAS:
+            op_fee_per_da_gas(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::ISSTATICCALL:
+            op_is_static_call(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::L2GASLEFT:
+            op_l2gasleft(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::DAGASLEFT:
+            op_dagasleft(indirect, dst_offset);
+            break;
+        default:
+            throw std::runtime_error("Invalid environment variable");
+            break;
+        }
     }
 }
 
@@ -2359,48 +2390,100 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
 }
 
-void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_get_contract_instance(
+    uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    auto [resolved_address_offset, resolved_dst_offset] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ address_offset, dst_offset }, mem_trace_builder);
-
-    auto read_address = constrained_read_from_memory(
-        call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    bool tag_match = read_address.tag_match;
-
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
 
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ia = read_address.val,
-        .main_ind_addr_a = FF(read_address.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(read_address.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-        .main_sel_mem_op_a = FF(1),
-        .main_sel_op_get_contract_instance = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-    });
+    if (member_enum >= static_cast<int>(ContractInstanceMember::MAX_MEMBER)) {
+        // Error, bad enum operand
+        // TODO(9393): constrain this via range check
+        const auto row = Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc++,
+            .main_sel_op_get_contract_instance = FF(1),
+        };
+        main_trace.push_back(row);
 
-    // Read the contract instance
-    ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
-    std::vector<FF> public_key_fields = contract_instance.public_keys.to_fields();
-    // NOTE: we don't write the first entry (the contract instance's address/key) to memory
-    std::vector<FF> contract_instance_vec = { contract_instance.exists ? FF::one() : FF::zero(),
-                                              contract_instance.salt,
-                                              contract_instance.deployer_addr,
-                                              contract_instance.contract_class_id,
-                                              contract_instance.initialisation_hash };
-    contract_instance_vec.insert(contract_instance_vec.end(), public_key_fields.begin(), public_key_fields.end());
-    write_slice_to_memory(resolved_dst_offset, AvmMemoryTag::FF, contract_instance_vec);
+    } else {
 
-    debug("contract_instance cnt: ", side_effect_counter);
-    side_effect_counter++;
+        ContractInstanceMember chosen_member = static_cast<ContractInstanceMember>(member_enum);
+
+        auto [resolved_address_offset, resolved_dst_offset, resolved_exists_offset] =
+            Addressing<3>::fromWire(indirect, call_ptr)
+                .resolve({ address_offset, dst_offset, exists_offset }, mem_trace_builder);
+
+        auto read_address = constrained_read_from_memory(
+            call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+        bool tag_match = read_address.tag_match;
+
+        // Read the contract instance
+        ContractInstanceHint instance = execution_hints.contract_instance_hints.at(read_address.val);
+
+        FF member_value;
+        switch (chosen_member) {
+        case ContractInstanceMember::DEPLOYER:
+            member_value = instance.deployer_addr;
+            break;
+        case ContractInstanceMember::CLASS_ID:
+            member_value = instance.contract_class_id;
+            break;
+        case ContractInstanceMember::INIT_HASH:
+            member_value = instance.initialisation_hash;
+            break;
+        default:
+            member_value = 0;
+            break;
+        }
+
+        // TODO(8603): once instructions can have multiple different tags for writes, write dst as FF and exists as U1
+        // auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst_offset, member_value,
+        // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC); auto write_exists =
+        // constrained_write_to_memory(call_ptr, clk, resolved_exists_offset, instance.instance_found_in_address,
+        // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
+
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ia = read_address.val,
+            // TODO(8603): uncomment this and below blocks once instructions can have multiple different tags for
+            // writes
+            //.main_ic = write_dst.val,
+            //.main_id = write_exists.val,
+            .main_ind_addr_a = FF(read_address.indirect_address),
+            //.main_ind_addr_c = FF(write_dst.indirect_address),
+            //.main_ind_addr_d = FF(write_exists.indirect_address),
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_mem_addr_a = FF(read_address.direct_address),
+            //.main_mem_addr_c = FF(write_dst.direct_address),
+            //.main_mem_addr_d = FF(write_exists.direct_address),
+            .main_pc = FF(pc++),
+            .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .main_sel_mem_op_a = FF(1),
+            //.main_sel_mem_op_c = FF(1),
+            //.main_sel_mem_op_d = FF(1),
+            .main_sel_op_get_contract_instance = FF(1),
+            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
+            //.main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_dst.is_indirect)),
+            //.main_sel_resolve_ind_addr_d = FF(static_cast<uint32_t>(write_exists.is_indirect)),
+            .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        });
+
+        // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
+        // writes
+        write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
+        write_to_memory(resolved_exists_offset, FF(static_cast<uint32_t>(instance.exists)), AvmMemoryTag::U1);
+
+        // TODO(dbanks12): compute contract address nullifier from instance preimage and perform membership check
+
+        debug("contract_instance cnt: ", side_effect_counter);
+        side_effect_counter++;
+    }
 }
 
 /**************************************************************************************************
@@ -2419,7 +2502,9 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     auto [resolved_log_offset, resolved_log_size_offset] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ log_offset, log_size_offset }, mem_trace_builder);
 
-    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_KERNEL_INPUTS_COL_OFFSET];
+    // This is a hack to get the contract address from the first contract instance
+    // Once we have 1-enqueued call and proper nested contexts, this should use that address of the current contextt
+    FF contract_address = execution_hints.all_contract_bytecode.at(0).contract_instance.address;
     std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
 
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
@@ -3203,17 +3288,17 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
  **************************************************************************************************/
 
 /**
- * @brief To_Radix_LE with direct or indirect memory access.
+ * @brief To_Radix_BE with direct or indirect memory access.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
+ * @param src_offset An index in memory pointing to the input of the To_Radix_BE conversion.
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb <
  * radix.
  * @param num_limbs The number of limbs to the value into.
  * @param output_bits Should the output be U1s instead of U8s?
  */
-void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
+void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
                                      uint32_t src_offset,
                                      uint32_t dst_offset,
                                      uint32_t radix_offset,
@@ -3232,13 +3317,14 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
 
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
-    // TODO:(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag!
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 
     FF input = read_src.val;
-    // TODO:(8603): uncomment
+    // TODO(8603): uncomment
     // uint32_t radix = static_cast<uint32_t>(read_radix.val);
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
@@ -3249,12 +3335,12 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
     // Therefore, we do not create any entry in gadget table and we return a vector of 0.
     std::vector<uint8_t> res = error
                                    ? std::vector<uint8_t>(num_limbs, 0)
-                                   : conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, output_bits, clk);
+                                   : conversion_trace_builder.op_to_radix_be(input, radix, num_limbs, output_bits, clk);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXLE, num_limbs);
+    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
 
-    // This is the row that contains the selector to trigger the sel_op_radix_le
+    // This is the row that contains the selector to trigger the sel_op_radix_be
     // In this row, we read the input value and the destination address into register A and B respectively
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3264,21 +3350,21 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
         .main_ic = num_limbs,
         .main_id = output_bits,
         .main_ind_addr_a = read_src.indirect_address,
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_ind_addr_b = read_radix.indirect_address,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = read_src.direct_address,
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_mem_addr_b = read_radix.direct_address,
         .main_op_err = error ? FF(1) : FF(0),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_sel_mem_op_b = FF(1),
-        .main_sel_op_radix_le = FF(1),
+        .main_sel_op_radix_be = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_src.is_indirect)),
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_radix.is_indirect)),
         .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
     });
@@ -3487,7 +3573,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (size_t i = 0; i < conv_trace_size; i++) {
         auto const& src = conv_trace.at(i);
         auto& dest = main_trace.at(i);
-        dest.conversion_sel_to_radix_le = FF(static_cast<uint8_t>(src.to_radix_le_sel));
+        dest.conversion_sel_to_radix_be = FF(static_cast<uint8_t>(src.to_radix_be_sel));
         dest.conversion_clk = FF(src.conversion_clk);
         dest.conversion_input = src.input;
         dest.conversion_radix = FF(src.radix);
@@ -3565,10 +3651,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
      * BYTECODE TRACE INCLUSION
      **********************************************************************************************/
 
-    bytecode_trace_builder.build_bytecode_columns();
+    bytecode_trace_builder.build_bytecode_hash_columns();
     // Should not have to resize in the future, but for now we do
-    if (bytecode_trace_builder.size() > main_trace_size) {
-        main_trace_size = bytecode_trace_builder.size();
+    if (bytecode_trace_builder.total_bytecode_length() > main_trace_size) {
+        main_trace_size = bytecode_trace_builder.total_bytecode_length();
         main_trace.resize(main_trace_size);
     }
     bytecode_trace_builder.finalize(main_trace);

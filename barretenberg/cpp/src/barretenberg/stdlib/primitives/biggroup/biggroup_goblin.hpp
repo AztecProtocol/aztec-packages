@@ -69,6 +69,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return out;
     }
 
+    /**
+     * @brief Creates fixed witnesses from a constant element.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        this->x.convert_constant_to_fixed_witness(builder);
+        this->y.convert_constant_to_fixed_witness(builder);
+    }
+
     void validate_on_curve() const
     {
         // happens in goblin eccvm

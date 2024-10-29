@@ -104,7 +104,7 @@ enum class OpCode : uint8_t {
     ECADD,
     MSM,
     // Conversions
-    TORADIXLE,
+    TORADIXBE,
 
     // Sentinel
     LAST_OPCODE_SENTINEL,
@@ -126,6 +126,14 @@ enum class EnvironmentVariable {
     DAGASLEFT,
     // sentinel
     MAX_ENV_VAR
+};
+
+enum class ContractInstanceMember {
+    DEPLOYER,
+    CLASS_ID,
+    INIT_HASH,
+    // sentinel
+    MAX_MEMBER,
 };
 
 class Bytecode {

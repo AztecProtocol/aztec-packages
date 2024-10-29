@@ -23,11 +23,15 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PreviousRollupData,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
+  TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
+  VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
@@ -43,7 +47,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
-  buildBaseRollupInput,
+  buildBaseRollupHints,
   buildHeaderFromCircuitOutputs,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
@@ -219,7 +223,7 @@ describe('LightBlockBuilder', () => {
       getTopMerges = rollupOutputs => Promise.resolve([rollupOutputs[0], rollupOutputs[1]]);
     }
 
-    const rollupOutputs = await getRollupOutputs(txs);
+    const rollupOutputs = await getPrivateBaseRollupOutputs(txs);
     const [mergeLeft, mergeRight] = await getTopMerges!(rollupOutputs);
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
@@ -250,18 +254,23 @@ describe('LightBlockBuilder', () => {
     return { messageTreeSnapshot, newL1ToL2MessageTreeRootSiblingPath, l1ToL2Messages };
   };
 
-  const getRollupOutputs = async (txs: ProcessedTx[]) => {
+  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
     for (const tx of txs) {
-      const inputs = await buildBaseRollupInput(tx, emptyProof, globals, expectsFork, TubeVk);
-      const result = await simulator.getBaseRollupProof(inputs);
+      const vkIndex = TUBE_VK_INDEX;
+      const vkPath = getVKSiblingPath(vkIndex);
+      const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
+      const tubeData = new PrivateTubeData(tx.data, emptyProof, vkData);
+      const hints = await buildBaseRollupHints(tx, globals, expectsFork);
+      const inputs = new PrivateBaseRollupInputs(tubeData, hints);
+      const result = await simulator.getPrivateBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
     }
     return rollupOutputs;
   };
 
   const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
-    const baseRollupVk = ProtocolCircuitVks['BaseRollupArtifact'].keyAsFields;
+    const baseRollupVk = ProtocolCircuitVks['PrivateBaseRollupArtifact'].keyAsFields;
     const baseRollupVkWitness = getVkMembershipWitness(baseRollupVk);
     const leftInput = new PreviousRollupData(left, emptyProof, baseRollupVk, baseRollupVkWitness);
     const rightInput = new PreviousRollupData(right, emptyProof, baseRollupVk, baseRollupVkWitness);

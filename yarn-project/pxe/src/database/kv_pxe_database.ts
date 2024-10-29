@@ -14,7 +14,7 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import {
   type AztecArray,
   type AztecKVStore,
@@ -66,6 +66,8 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByIvpkMAndScope: Map<string, AztecMultiMap<string, string>>;
 
+  #taggingSecretIndexes: AztecMap<string, number>;
+
   constructor(private db: AztecKVStore) {
     this.#db = db;
 
@@ -111,6 +113,8 @@ export class KVPxeDatabase implements PxeDatabase {
       this.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
       this.#notesByIvpkMAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_ivpk_m`));
     }
+
+    this.#taggingSecretIndexes = db.openMap('tagging_secret_indices');
   }
 
   public async getContract(
@@ -545,12 +549,12 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
   }
 
-  getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {
-    return this.#syncedBlockPerPublicKey.get(publicKey.toString());
+  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
+    return this.#syncedBlockPerPublicKey.get(account.toString());
   }
 
-  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<void> {
-    return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
+  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void> {
+    return this.#syncedBlockPerPublicKey.set(account.toString(), blockNumber);
   }
 
   async estimateSize(): Promise<number> {
@@ -571,5 +575,21 @@ export class KVPxeDatabase implements PxeDatabase {
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
+  }
+
+  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
+    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+    await this.db.transaction(() => {
+      indexes.forEach(index => {
+        const nextIndex = index ? index + 1 : 1;
+        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
+      });
+    });
+  }
+
+  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+    return this.db.transaction(() =>
+      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
+    );
   }
 }

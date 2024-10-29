@@ -158,7 +158,7 @@ describe('Note Processor', () => {
     );
   });
 
-  beforeEach(async () => {
+  beforeEach(() => {
     database = new KVPxeDatabase(openTmpStore());
     addNotesSpy = jest.spyOn(database, 'addNotes');
 
@@ -179,7 +179,7 @@ describe('Note Processor', () => {
     keyStore.getMasterIncomingViewingPublicKey.mockResolvedValue(account.publicKeys.masterIncomingViewingPublicKey);
     keyStore.getMasterOutgoingViewingPublicKey.mockResolvedValue(account.publicKeys.masterOutgoingViewingPublicKey);
 
-    noteProcessor = await NoteProcessor.create(account, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
+    noteProcessor = NoteProcessor.create(account, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
 
     simulator.computeNoteHashAndOptionallyANullifier.mockImplementation((...args) =>
       Promise.resolve({
@@ -358,7 +358,7 @@ describe('Note Processor', () => {
     const blocks = mockBlocks([request]);
     await noteProcessor.process(blocks);
 
-    const newNoteProcessor = await NoteProcessor.create(
+    const newNoteProcessor = NoteProcessor.create(
       account,
       keyStore,
       database,

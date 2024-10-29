@@ -395,9 +395,6 @@ fn handle_foreign_call(
         "avmOpcodeNullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
         "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
         "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
-        "avmOpcodeGetContractInstance" => {
-            handle_get_contract_instance(avm_instrs, destinations, inputs);
-        }
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
@@ -407,6 +404,10 @@ fn handle_foreign_call(
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
+        }
+        // Get contract instance variations.
+        _ if function.starts_with("avmOpcodeGetContractInstance") => {
+            handle_get_contract_instance(avm_instrs, function, destinations, inputs);
         }
         // Anything else.
         _ => panic!("Transpiler doesn't know how to process ForeignCall function {}", function),
@@ -1042,7 +1043,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let radix_offset = radix.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::TORADIXLE,
+                opcode: AvmOpcode::TORADIXBE,
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)
@@ -1304,22 +1305,42 @@ fn handle_storage_write(
 /// Emit a GETCONTRACTINSTANCE opcode
 fn handle_get_contract_instance(
     avm_instrs: &mut Vec<AvmInstruction>,
+    function: &str,
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
+    enum ContractInstanceMember {
+        DEPLOYER,
+        CLASS_ID,
+        INIT_HASH,
+    }
+
     assert!(inputs.len() == 1);
-    assert!(destinations.len() == 1);
+    assert!(destinations.len() == 2);
+
+    let member_idx = match function {
+        "avmOpcodeGetContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
+        "avmOpcodeGetContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
+        "avmOpcodeGetContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
+        _ => panic!("Transpiler doesn't know how to process function {:?}", function),
+    };
 
     let address_offset_maybe = inputs[0];
     let address_offset = match address_offset_maybe {
-        ValueOrArray::MemoryAddress(slot_offset) => slot_offset,
+        ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("GETCONTRACTINSTANCE address should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer,
-        _ => panic!("GETCONTRACTINSTANCE destination should be an array"),
+        ValueOrArray::MemoryAddress(offset) => offset,
+        _ => panic!("GETCONTRACTINSTANCE dst destination should be a single value"),
+    };
+
+    let exists_offset_maybe = destinations[1];
+    let exists_offset = match exists_offset_maybe {
+        ValueOrArray::MemoryAddress(offset) => offset,
+        _ => panic!("GETCONTRACTINSTANCE exists destination should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
@@ -1327,12 +1348,15 @@ fn handle_get_contract_instance(
         indirect: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&address_offset)
-                .indirect_operand(&dest_offset)
+                .direct_operand(&dest_offset)
+                .direct_operand(&exists_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U32 { value: address_offset.to_usize() as u32 },
-            AvmOperand::U32 { value: dest_offset.to_usize() as u32 },
+            AvmOperand::U8 { value: member_idx as u8 },
+            AvmOperand::U16 { value: address_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: exists_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });

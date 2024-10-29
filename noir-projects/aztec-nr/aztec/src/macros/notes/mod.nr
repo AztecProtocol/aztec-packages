@@ -396,7 +396,6 @@ comptime fn generate_multi_scalar_mul(
 ///             context.this_address(),
 ///             ovsk_app,
 ///             recipient_keys.ovpk_m,
-///             recipient_keys.ivpk_m,
 ///             recipient,
 ///             self.log_plaintext
 ///         );
@@ -471,7 +470,6 @@ comptime fn generate_setup_payload(
                     context.this_address(),
                     ovsk_app,
                     recipient_keys.ovpk_m,
-                    recipient_keys.ivpk_m,
                     recipient,
                     self.log_plaintext,
                     true

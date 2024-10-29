@@ -35,7 +35,9 @@ class AvmTraceBuilder {
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
 
-    uint32_t getPc() const { return pc; }
+    uint32_t get_pc() const { return pc; }
+    uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
+    uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
     // Compute - Arithmetic
     void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
@@ -113,7 +115,8 @@ class AvmTraceBuilder {
                                 uint32_t log_offset,
                                 uint32_t leaf_index_offset,
                                 uint32_t dest_offset);
-    void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
+    void op_get_contract_instance(
+        uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset);
 
     // Accrued Substate
     void op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset);
@@ -158,7 +161,7 @@ class AvmTraceBuilder {
                          uint32_t output_offset,
                          uint32_t point_length_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect,
+    void op_to_radix_be(uint8_t indirect,
                         uint32_t src_offset,
                         uint32_t dst_offset,
                         uint32_t radix_offset,

@@ -64,13 +64,13 @@ mod tests {
             nullifier::{Nullifier, ScopedNullifier},
         },
         address::{AztecAddress, EthAddress},
-        constants::PRIVATE_KERNEL_INNER_INDEX,
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
     use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, FIXED_AVM_STARTUP_L2_GAS,
+        GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+        PRIVATE_KERNEL_INNER_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -420,10 +420,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-    // #[test(should_fail_with = "Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with = "Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        let _res = builder.execute();
+    }
 }
