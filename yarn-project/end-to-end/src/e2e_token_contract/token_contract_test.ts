@@ -6,7 +6,8 @@ import {
   ExtendedNote,
   Fr,
   Note,
-  type TxHash, createDebugLogger
+  type TxHash,
+  createDebugLogger,
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -19,8 +20,8 @@ import {
   createSnapshotManager,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { TokenSimulator } from '../simulators/token_simulator.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 

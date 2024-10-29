@@ -35,6 +35,8 @@ import {
   getContract,
 } from 'viem';
 
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
+
 // docs:start:deployAndInitializeTokenAndBridgeContracts
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
@@ -244,9 +246,8 @@ export class CrossChainTestHarness {
     await this.l2Token.methods.mint_public(this.ownerAddress, amount).send().wait();
   }
 
-  async mintTokensPrivateOnL2(amount: bigint, secretHash: Fr) {
-    const receipt = await this.l2Token.methods.mint_private(amount, secretHash).send().wait();
-    await this.addPendingShieldNoteToPXE(amount, secretHash, receipt.txHash);
+  async mintTokensPrivateOnL2(amount: bigint) {
+    await mintTokensToPrivate(this.l2Token, this.ownerWallet, this.ownerAddress, amount);
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
