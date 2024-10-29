@@ -86,7 +86,7 @@ template <typename Curve_> class IPA {
    using CK = CommitmentKey<Curve>;
    using VK = VerifierCommitmentKey<Curve>;
    using Polynomial = bb::Polynomial<Fr>;
-   using VerifierAccumulator = bool;
+   using VerifierPolyCommitmentPair = stdlib::recursion::honk::IpaPolyCommitmentPair<Curve>;
    using IpaAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
@@ -301,7 +301,7 @@ template <typename Curve_> class IPA {
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify_internal(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -343,6 +343,7 @@ template <typename Curve_> class IPA {
             if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -439,11 +440,11 @@ template <typename Curve_> class IPA {
      * @param vk
      * @param opening_claim
      * @param transcript
-     * @return VerifierAccumulator
+     * @return VerifierPolyCommitmentPair
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
      * function with parallelisation
      */
-    static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
+    static VerifierPolyCommitmentPair reduce_verify_internal(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
@@ -553,7 +554,9 @@ template <typename Curve_> class IPA {
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         ipa_relation.assert_equal(-opening_claim.commitment);
 
-        return (ipa_relation.get_value() == -opening_claim.commitment.get_value());
+        ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
+        // This should return an actual VerifierPolyCommitmentPair
+        return {round_challenges, G_zero};
     }
 
   public:
@@ -586,8 +589,6 @@ template <typename Curve_> class IPA {
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
-    // implemented
     static bool reduce_verify(const std::shared_ptr<VK>& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
@@ -603,13 +604,13 @@ template <typename Curve_> class IPA {
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
-     * @return VerifierAccumulator
+     * @return VerifierPolyCommitmentPair
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierPolyCommitmentPair once
     // implemented
-    static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
+    static VerifierPolyCommitmentPair reduce_verify(const std::shared_ptr<VK>& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(Curve::is_stdlib_type)
@@ -667,9 +668,9 @@ template <typename Curve_> class IPA {
      * @param batch_opening_claim
      * @param vk
      * @param transcript
-     * @return VerifierAccumulator
+     * @return VerifierPolyCommitmentPair
      */
-    static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
+    static VerifierPolyCommitmentPair reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
                                                                  const std::shared_ptr<VK>& vk,
                                                                  auto& transcript)
         requires(Curve::is_stdlib_type)
@@ -682,17 +683,31 @@ template <typename Curve_> class IPA {
     static IpaAccumulator accumulate(const std::shared_ptr<CK>& ck, auto& transcript, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
     {
         // Step 1: Run the verifier for each IPA instance
-        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
-        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_2);
+        VerifierPolyCommitmentPair pair_1 = reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
+        VerifierPolyCommitmentPair pair_2 = reduce_verify(ck, {{ acc_2.eval_point, acc_2.eval }, acc_2.comm}, transcript_2);
 
         // Step 2: Generate the challenges
         auto [alpha, r] = transcript->template get_challenges<Fr>("IPA:accum_alpha", "IPA:accum_r");
 
         // Step 3: Compute the new accumulator
         IpaAccumulator output_accumulator;
-        output_accumulator.comm = acc_1.comm + alpha * acc_2.comm;
+        output_accumulator.comm = pair_1.comm + alpha * pair_2.comm;
         output_accumulator.eval_point = r;
-        // output_accumulator.eval = 
+        // evaluate the h polys at r
+        Fr h_1_eval = 1;
+        Fr h_2_eval = 1;
+        Fr r_pow = r;
+        for (Fr u_i : pair_1.u_chals) {
+            h_1_eval *= (1 + u_i * r_pow);
+            r_pow *= r_pow;
+        }
+        r_pow = r;
+        for (Fr u_i : pair_2.u_chals) {
+            h_2_eval *= (1 + u_i * r_pow);
+            r_pow *= r_pow;
+        }
+        output_accumulator.eval = h_1_eval + alpha * h_2_eval;
+        return output_accumulator;
     }
 };
 
