@@ -36,6 +36,8 @@ export type BBSuccess = {
   proofPath?: string;
   /** Full path of the contract. */
   contractPath?: string;
+  /** The number of gates in the circuit. */
+  circuitSize?: number;
 };
 
 export type BBFailure = {
@@ -870,6 +872,79 @@ export async function generateContractForCircuit(
     join(workingDirectory, 'contract', circuitName, contractName),
     log,
   );
+}
+
+
+export async function getGateCount(
+  pathToBB: string,
+  workingDirectory: string,
+  circuitName: string,
+  bytecode: Buffer,
+  flavor: UltraHonkFlavor | 'mega_honk',
+  log: LogFn,
+): Promise<BBFailure | BBSuccess> {
+  // Check that the working directory exists
+  try {
+    await fs.access(workingDirectory);
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
+
+  // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
+  const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+  }
+
+  let stdout = '';
+  const logHandler = (message: string) => {
+    stdout += message;
+    log(`getGateCount(${circuitName}) BB out - ${message}`);
+  };
+
+  try {
+    // Write the bytecode to the working directory
+    await fs.writeFile(bytecodePath, bytecode);
+    const timer = new Timer();
+
+    const result = await executeBB(
+      pathToBB,
+      flavor === 'mega_honk' ? `gates_mega_honk` : `gates`,
+      ['-b', bytecodePath, '-v'],
+      logHandler,
+    );
+    if (result.status == BB_RESULT.FAILURE) {
+      return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
+    }
+    const duration = timer.ms();
+
+    if (result.status == BB_RESULT.SUCCESS) {
+      // Look for "circuit_size" in the stdout and parse the number
+      const circuitSizeMatch = stdout.match(/circuit_size": (\d+)/);
+      if (!circuitSizeMatch) {
+        return { status: BB_RESULT.FAILURE, reason: 'Failed to parse circuit_size from stdout.' };
+      }
+      const circuitSize = parseInt(circuitSizeMatch[1]);
+
+      return {
+        status: BB_RESULT.SUCCESS,
+        durationMs: duration,
+        circuitSize: circuitSize,
+      };
+    }
+    // Not a great error message here but it is difficult to decipher what comes from bb
+    return {
+      status: BB_RESULT.FAILURE,
+      reason: `Failed to write VK. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+    };
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
 }
 
 const CACHE_FILENAME = '.cache';
