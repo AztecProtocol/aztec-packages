@@ -401,8 +401,8 @@ describe('Private Execution test suite', () => {
       );
 
       const notes = [
-        buildNote(60n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, valueNoteTypeId),
-        buildNote(80n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, valueNoteTypeId),
+        buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
+        buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ];
       oracle.getNotes.mockResolvedValue(notes);
 
@@ -468,14 +468,7 @@ describe('Private Execution test suite', () => {
 
       const storageSlot = deriveStorageSlotInMap(new Fr(1n), owner);
 
-      const notes = [
-        buildNote(
-          balance,
-          ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(),
-          storageSlot,
-          valueNoteTypeId,
-        ),
-      ];
+      const notes = [buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>

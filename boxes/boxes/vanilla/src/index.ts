@@ -26,7 +26,6 @@ document.querySelector('#deploy').addEventListener('click', async ({ target }: a
     wallet,
     Fr.random(),
     wallet.getCompleteAddress().address,
-    masterNullifierPublicKey.hash(),
     masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
   )
     .send({ contractAddressSalt: Fr.random() })
@@ -49,7 +48,6 @@ document.querySelector('#set').addEventListener('submit', async (e: Event) => {
     .setNumber(
       parseInt(value),
       owner,
-      masterNullifierPublicKey.hash(),
       masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
     )
     .send()
