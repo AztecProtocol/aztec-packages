@@ -1,21 +1,23 @@
 use dep::protocol_types::{
-    traits::{Deserialize, Serialize}, address::AztecAddress,
-    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, abis::function_selector::FunctionSelector,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
     contract_instance::ContractInstance,
+    public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
+    traits::{Deserialize, Serialize},
 };
 
+use crate::context::call_interfaces::{CallInterface, PublicCallInterface};
 use crate::context::{
-    PrivateContext, PublicContext, UnconstrainedContext, inputs::PrivateContextInputs,
+    inputs::PrivateContextInputs, PrivateContext, PublicContext, UnconstrainedContext,
 };
-use crate::context::call_interfaces::{PublicCallInterface, CallInterface};
 use crate::test::helpers::cheatcodes;
 
-use crate::oracle::execution::{get_block_number, get_contract_address};
-use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
-use crate::context::gas::GasOpts;
 use crate::context::call_interfaces::PublicVoidCallInterface;
+use crate::context::gas::GasOpts;
 use crate::hash::hash_args;
 use crate::oracle::arguments::pack_arguments;
+use crate::oracle::execution::{get_block_number, get_contract_address};
+use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 
 pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
@@ -70,7 +72,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         cheatcodes::advance_blocks_by(1);
 
-        let mut public_context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
         public_context
             .call_public_function(
@@ -101,7 +103,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         cheatcodes::advance_blocks_by(1);
 
-        let mut public_context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
         let _: T = public_context
             .call_public_function(

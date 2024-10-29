@@ -1,11 +1,11 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::random::random, hash::compute_secret_hash};
-use crate::{types::transparent_note::TransparentNote, Token};
+use crate::{Token, types::transparent_note::TransparentNote};
+use dep::aztec::{hash::compute_secret_hash, oracle::random::random, test::helpers::cheatcodes};
 
 #[test]
 unconstrained fn mint_public_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _) = utils::setup( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let mint_amount = 10000;
     Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
@@ -20,7 +20,7 @@ unconstrained fn mint_public_success() {
 unconstrained fn mint_public_failures() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
 
     // As non-minter
     let mint_amount = 10000;
@@ -60,7 +60,7 @@ unconstrained fn mint_public_failures() {
 #[test]
 unconstrained fn mint_private_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _) = utils::setup( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
     let secret = random();
@@ -91,7 +91,7 @@ unconstrained fn mint_private_success() {
 unconstrained fn mint_private_failure_double_spend() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
     let secret = random();
@@ -127,7 +127,7 @@ unconstrained fn mint_private_failure_double_spend() {
 unconstrained fn mint_private_failure_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Try to mint some tokens impersonating recipient
     env.impersonate(recipient);
@@ -140,7 +140,7 @@ unconstrained fn mint_private_failure_non_minter() {
 #[test(should_fail_with = "call to assert_max_bit_size")]
 unconstrained fn mint_private_failure_overflow() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, _, _) = utils::setup( /* with_account_contracts */ false);
+    let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
     // Overflow recipient
     let mint_amount = 2.pow_32(128);
@@ -152,7 +152,7 @@ unconstrained fn mint_private_failure_overflow() {
 #[test(should_fail_with = "attempt to add with overflow")]
 unconstrained fn mint_private_failure_overflow_recipient() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _) = utils::setup( /* with_account_contracts */ false);
+    let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
     let secret = random();
@@ -186,7 +186,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
 unconstrained fn mint_private_failure_overflow_total_supply() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
     let mint_amount = 10000;
     // Mint some tokens
     let secret_owner = random();

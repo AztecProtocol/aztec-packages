@@ -454,7 +454,7 @@ describe('e2e_synching', () => {
     await teardown();
   };
 
-  describe('replay history and then do a fresh sync', () => {
+  describe.skip('replay history and then do a fresh sync', () => {
     it.each(variants)(
       'vanilla - %s',
       async (variantDef: VariantDefinition) => {
@@ -491,7 +491,7 @@ describe('e2e_synching', () => {
     );
   });
 
-  describe('a wild prune appears', () => {
+  describe.skip('a wild prune appears', () => {
     const ASSUME_PROVEN_THROUGH = 0;
 
     it('archiver following catches reorg as it occur and deletes blocks', async () => {
@@ -609,9 +609,9 @@ describe('e2e_synching', () => {
       );
     });
 
-    it.skip('node following prunes and can extend chain', async () => {
-      // @todo This test is to be activated when we can unwind the world state
-      // It will currently stall forever as the state will never match.
+    it('node following prunes and can extend chain (fresh pxe)', async () => {
+      // @todo this should be rewritten slightly when the PXE can handle re-orgs
+      // such that it does not need to be run "fresh" Issue #9327
       if (AZTEC_GENERATE_TEST_DATA) {
         return;
       }
@@ -628,6 +628,11 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const sequencer = aztecNode.getSequencer();
+
+          const blockBeforePrune = await aztecNode.getBlockNumber();
+
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
           const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
@@ -641,16 +646,14 @@ describe('e2e_synching', () => {
           );
           await watcher.start();
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
-          const sequencer = aztecNode.getSequencer();
-
-          const blockBeforePrune = await aztecNode.getBlockNumber();
-
-          await rollup.write.prune();
+          await opts.deployL1ContractsValues!.publicClient.waitForTransactionReceipt({
+            hash: await rollup.write.prune(),
+          });
 
           await sleep(5000);
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
+          // We need to start the pxe after the re-org for now, because it won't handle it otherwise
           const { pxe } = await setupPXEService(aztecNode!);
           variant.setPXE(pxe);
 

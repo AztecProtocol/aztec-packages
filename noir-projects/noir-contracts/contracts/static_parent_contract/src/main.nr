@@ -3,8 +3,8 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract StaticParent {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public, view}};
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     use dep::static_child_contract::StaticChild;
 
     // Public function to directly call another public function to the target_contract using the selector and value provided

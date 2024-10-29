@@ -1,14 +1,14 @@
+use crate::NFT;
 use crate::test::utils;
+use dep::authwit::cheatcodes as authwit_cheatcodes;
 use dep::aztec::test::helpers::cheatcodes;
 use aztec::oracle::random::random;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::NFT;
 
 #[test]
 unconstrained fn transfer_in_private() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, recipient, token_id) =
-        utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
+        utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT to the recipient
     NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 0).call(
@@ -23,7 +23,7 @@ unconstrained fn transfer_in_private() {
 unconstrained fn transfer_in_private_to_self() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, _, token_id) =
-        utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
+        utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT back to the owner
     NFT::at(nft_contract_address).transfer_in_private(owner, owner, token_id, 0).call(
@@ -38,7 +38,7 @@ unconstrained fn transfer_in_private_to_self() {
 unconstrained fn transfer_in_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, _, token_id) =
-        utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
+        utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
     let not_deployed = cheatcodes::create_account();
 
     // Transfer the NFT to the recipient
@@ -54,7 +54,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
 unconstrained fn transfer_in_private_on_behalf_of_other() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, nft_contract_address, sender, recipient, token_id) =
-        utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ true);
+        utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
 
     // Transfer the NFT to the recipient
     let transfer_in_private_call_interface =
@@ -78,7 +78,7 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
 unconstrained fn transfer_in_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, not_owner, token_id) =
-        utils::setup_mint_and_transfer_to_private( /* with_account_contracts */ false);
+        utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
     // Try transferring the NFT from not_owner
     env.impersonate(not_owner);
     NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0).call(
@@ -92,7 +92,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() 
     // The nonce check is in the beginning so we don't need to waste time on minting the NFT and transferring
     // it to private.
     let (env, nft_contract_address, sender, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
 
     // We set random value for the token_id as the nonce check is before we use the value.
     let token_id = random();
@@ -109,7 +109,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
     // it to private.
     let (env, nft_contract_address, sender, recipient) =
-        utils::setup( /* with_account_contracts */ true);
+        utils::setup(/* with_account_contracts */ true);
 
     // We set random value for the token_id as the nonce check is before we use the value.
     let token_id = random();
@@ -128,7 +128,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
     // it to private.
     let (env, nft_contract_address, sender, recipient) =
-        utils::setup( /* with_account_contracts */ true);
+        utils::setup(/* with_account_contracts */ true);
 
     // We set random value for the token_id as the nonce check is before we use the value.
     let token_id = random();

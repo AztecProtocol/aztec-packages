@@ -1,12 +1,14 @@
-use dep::types::{
-    traits::Empty,
-    recursion::{
-        verification_key::{VerificationKey, HonkVerificationKey}, proof::NestedRecursiveProof,
-        traits::Verifiable,
-    }, constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
-    merkle_tree::membership::assert_check_membership,
-};
 use crate::parity_public_inputs::ParityPublicInputs;
+use dep::types::{
+    constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
+    merkle_tree::membership::assert_check_membership,
+    proof::{
+        recursive_proof::NestedRecursiveProof,
+        traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
+};
 
 pub struct RootRollupParityInput {
     proof: NestedRecursiveProof,

@@ -31,8 +31,8 @@ global MAX_NULLIFIERS_PER_CALL: u32 = 16;
 global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 4;
 global MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL: u32 = 16;
 global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
-global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 32;
-global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 32;
+global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 64;
+global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
 global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
 global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
@@ -111,18 +111,17 @@ comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
 comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
 comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
 comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-comptime global PUBLIC_KERNEL_MERGE_INDEX: u32 = 6;
-comptime global PUBLIC_KERNEL_TAIL_INDEX: u32 = 7;
-comptime global PUBLIC_KERNEL_INNER_INDEX: u32 = 8; // TODO(#7124): To be deprecated.
+comptime global TUBE_VK_INDEX: u32 = 6;
+comptime global AVM_VK_INDEX: u32 = 7;
+comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 8;
+comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 9;
 comptime global BASE_PARITY_INDEX: u32 = 10;
 comptime global ROOT_PARITY_INDEX: u32 = 11;
-comptime global BASE_ROLLUP_INDEX: u32 = 12;
-comptime global MERGE_ROLLUP_INDEX: u32 = 13;
-comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 14;
-comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 15;
-comptime global ROOT_ROLLUP_INDEX: u32 = 16;
-comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 17;
-comptime global TUBE_INDEX: u32 = 18;
+comptime global MERGE_ROLLUP_INDEX: u32 = 12;
+comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 13;
+comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
+comptime global ROOT_ROLLUP_INDEX: u32 = 15;
+comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 16;
 comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -153,7 +152,7 @@ global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
 global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
 // CONTRACT CLASS CONSTANTS
-global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 20000;
+global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
@@ -183,7 +182,7 @@ global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
 // GAS DEFAULTS
 global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 100_000_000;
-global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 6_000_000;
+global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
 global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
 global DEFAULT_INCLUSION_FEE: Field = 0;
 global DA_BYTES_PER_FIELD: u32 = 32;
@@ -237,6 +236,22 @@ global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(3);
 global MULTI_CALL_ENTRYPOINT_ADDRESS = AztecAddress::from_field(4);
 global FEE_JUICE_ADDRESS = AztecAddress::from_field(5);
 global ROUTER_ADDRESS = AztecAddress::from_field(6);
+
+// CANONICAL DEFAULT KEYS
+// This below are:
+// "az_null_npk"
+// "az_null_ivpk"
+// "az_null_ovpk"
+// "az_null_tpk"
+// as bytes, hashed to curve using grumpkin::g1::affine_element::hash_to_curve(<X>, 0);
+global DEFAULT_NPK_M_X = 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd;
+global DEFAULT_NPK_M_Y = 0x170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e344;
+global DEFAULT_IVPK_M_X = 0x00c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c;
+global DEFAULT_IVPK_M_Y = 0x1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb151;
+global DEFAULT_OVPK_M_X = 0x1b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287;
+global DEFAULT_OVPK_M_Y = 0x080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833;
+global DEFAULT_TPK_M_X = 0x019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb;
+global DEFAULT_TPK_M_Y = 0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH: u32 = 1;
@@ -464,7 +479,7 @@ global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these c
 
 global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
 
-global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 145;
+global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -475,7 +490,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3949;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4166;
 global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -650,7 +665,7 @@ global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 261;
 global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 300;
 global AVM_ECADD_BASE_L2_GAS: u32 = 62;
 global AVM_MSM_BASE_L2_GAS: u32 = 1000;
-global AVM_TORADIXLE_BASE_L2_GAS: u32 = 46;
+global AVM_TORADIXBE_BASE_L2_GAS: u32 = 46;
 
 // Dynamic L2 GAS
 global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
@@ -661,7 +676,7 @@ global AVM_STATICCALL_DYN_L2_GAS: u32 = 4;
 global AVM_RETURN_DYN_L2_GAS: u32 = 6;
 global AVM_REVERT_DYN_L2_GAS: u32 = 6;
 global AVM_MSM_DYN_L2_GAS: u32 = 100;
-global AVM_TORADIXLE_DYN_L2_GAS: u32 = 20;
+global AVM_TORADIXBE_DYN_L2_GAS: u32 = 20;
 
 // Base DA Gas
 global AVM_SSTORE_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;

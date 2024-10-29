@@ -2,7 +2,8 @@ use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{PRIVATE_KERNEL_RESET_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
-    recursion::verification_key::ClientIVCVerificationKey, utils::arrays::find_index_hint,
+    proof::verification_key::ClientIVCVerificationKey,
+    utils::arrays::find_index_hint,
 };
 
 pub struct PrivateKernelData {

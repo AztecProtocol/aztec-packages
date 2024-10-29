@@ -7,16 +7,17 @@ use dep::aztec::macros::aztec;
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
-    use aztec::{
-        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
-        keys::getters::get_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
-        utils::comparison::Comparator,
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        macros::{storage::storage, functions::{public, initializer, private}},
-    };
     use authwit::auth::assert_current_call_valid_authwit;
-    use token::Token;
+    use aztec::{
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        keys::getters::get_public_keys,
+        macros::{functions::{initializer, private, public}, storage::storage},
+        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
+        protocol_types::constants::MAX_FIELD_VALUE,
+        utils::comparison::Comparator,
+    };
     use router::utils::privately_check_block_number;
+    use token::Token;
 
     #[storage]
     struct Storage<Context> {
@@ -51,7 +52,6 @@ contract AppSubscription {
         storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
             &mut context,
             keys.ovpk_m,
-            keys.ivpk_m,
             user_address,
         ));
 
@@ -111,18 +111,12 @@ contract AppSubscription {
             &mut context,
         );
 
-        let subscriber_keys = get_public_keys(subscriber);
         let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
         let mut subscription_note =
-            SubscriptionNote::new(subscriber_keys.npk_m.hash(), expiry_block_number, tx_count);
+            SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                msg_sender_ovpk_m,
-                subscriber_keys.ivpk_m,
-                subscriber,
-            ),
+            encode_and_encrypt_note(&mut context, msg_sender_ovpk_m, subscriber),
         );
     }
 

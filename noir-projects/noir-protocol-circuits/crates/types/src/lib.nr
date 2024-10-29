@@ -25,12 +25,12 @@ mod tests;
 
 mod state_reference;
 mod partial_state_reference;
-
-mod recursion;
+pub mod proof;
 mod data;
 mod storage;
 mod validate;
 mod meta;
+mod indexed_tagging_secret;
 
 pub use abis::kernel_circuit_public_inputs::{
     KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,

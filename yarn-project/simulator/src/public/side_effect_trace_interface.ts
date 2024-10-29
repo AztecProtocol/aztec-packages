@@ -1,9 +1,8 @@
-import { type Gas } from '@aztec/circuits.js';
+import { type ContractClassIdPreimage, type Gas, type SerializableContractInstance } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type TracedContractInstance } from './side_effect_trace.js';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -18,8 +17,14 @@ export interface PublicSideEffectTraceInterface {
   traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
   traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr): void;
   traceUnencryptedLog(contractAddress: Fr, log: Fr[]): void;
-  // TODO(dbanks12): odd that getContractInstance is a one-off in that it accepts an entire object instead of components
-  traceGetContractInstance(instance: TracedContractInstance): void;
+  traceGetContractInstance(contractAddress: Fr, exists: boolean, instance?: SerializableContractInstance): void;
+  traceGetBytecode(
+    contractAddress: Fr,
+    exists: boolean,
+    bytecode?: Buffer,
+    contractInstance?: SerializableContractInstance,
+    contractClass?: ContractClassIdPreimage,
+  ): void;
   traceNestedCall(
     /** The trace of the nested call. */
     nestedCallTrace: PublicSideEffectTraceInterface,

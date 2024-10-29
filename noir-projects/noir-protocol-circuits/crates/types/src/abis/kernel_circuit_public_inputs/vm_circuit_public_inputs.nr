@@ -1,11 +1,15 @@
 use crate::{
     abis::{
         accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
-        combined_constant_data::CombinedConstantData, gas::Gas,
-        public_call_request::PublicCallRequest, public_inner_call_request::PublicInnerCallRequest,
-        validation_requests::{PublicValidationRequests, PublicValidationRequestArrayLengths},
-    }, constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, VM_CIRCUIT_PUBLIC_INPUTS_LENGTH},
-    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
+        combined_constant_data::CombinedConstantData,
+        gas::Gas,
+        public_call_request::PublicCallRequest,
+        public_inner_call_request::PublicInnerCallRequest,
+        validation_requests::{PublicValidationRequestArrayLengths, PublicValidationRequests},
+    },
+    constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, VM_CIRCUIT_PUBLIC_INPUTS_LENGTH},
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct VMCircuitPublicInputs {

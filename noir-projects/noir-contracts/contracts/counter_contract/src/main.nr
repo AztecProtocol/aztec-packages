@@ -5,10 +5,10 @@ use dep::aztec::macros::aztec;
 contract Counter {
     // docs:end:setup
     // docs:start:imports
+    use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
-    use value_note::{balance_utils, value_note::ValueNote};
     use easy_private_state::EasyPrivateUint;
-    use aztec::macros::{storage::storage, functions::{initializer, private}};
+    use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports
 
     // docs:start:storage_struct
@@ -49,10 +49,10 @@ contract Counter {
 
     // docs:end:get_counter
     // docs:start:test_imports
-    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
-    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
     // docs:end:test_imports
     // docs:start:txe_test_increment
     #[test]

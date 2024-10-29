@@ -1,3 +1,5 @@
+import { FunctionSelector } from '@aztec/circuits.js';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -11,7 +13,7 @@ import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { mockGetBytecode, mockTraceFork } from '../test_utils.js';
+import { mockGetBytecode, mockGetContractClass, mockGetContractInstance, mockTraceFork } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
 import { type Instruction } from './instruction.js';
@@ -93,6 +95,14 @@ describe('External Calls', () => {
       );
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
+      const contractClass = makeContractClassPublic(0, {
+        bytecode: otherContextInstructionsBytecode,
+        selector: FunctionSelector.random(),
+      });
+      mockGetContractClass(worldStateDB, contractClass);
+      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      mockGetContractInstance(worldStateDB, contractInstance);
+
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
       context.machineState.memory.set(0, new Field(l2Gas));
@@ -149,6 +159,14 @@ describe('External Calls', () => {
         ]),
       );
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+
+      const contractClass = makeContractClassPublic(0, {
+        bytecode: otherContextInstructionsBytecode,
+        selector: FunctionSelector.random(),
+      });
+      mockGetContractClass(worldStateDB, contractClass);
+      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      mockGetContractInstance(worldStateDB, contractInstance);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -237,6 +255,14 @@ describe('External Calls', () => {
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
+      const contractClass = makeContractClassPublic(0, {
+        bytecode: otherContextInstructionsBytecode,
+        selector: FunctionSelector.random(),
+      });
+      mockGetContractClass(worldStateDB, contractClass);
+      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      mockGetContractInstance(worldStateDB, contractInstance);
+
       const instruction = new StaticCall(
         /*indirect=*/ 0,
         gasOffset,
@@ -290,9 +316,9 @@ describe('External Calls', () => {
         Opcode.REVERT_16, // opcode
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // returnOffset
-        ...Buffer.from('a234', 'hex'), // retSize
+        ...Buffer.from('a234', 'hex'), // retSizeOffset
       ]);
-      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*retSize=*/ 0xa234).as(
+      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*retSizeOffset=*/ 0xa234).as(
         Opcode.REVERT_16,
         Revert.wireFormat16,
       );
@@ -305,9 +331,10 @@ describe('External Calls', () => {
       const returnData = [...'assert message'].flatMap(c => new Field(c.charCodeAt(0)));
       returnData.unshift(new Field(0n)); // Prepend an error selector
 
-      context.machineState.memory.setSlice(0, returnData);
+      context.machineState.memory.set(0, new Uint32(returnData.length));
+      context.machineState.memory.setSlice(10, returnData);
 
-      const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
+      const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 10, /*retSizeOffset=*/ 0);
       await instruction.execute(context);
 
       expect(context.machineState.getHalted()).toBe(true);

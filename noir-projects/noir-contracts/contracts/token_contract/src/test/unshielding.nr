@@ -1,26 +1,26 @@
 use crate::test::utils;
-use dep::aztec::oracle::random::random;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
+use dep::authwit::cheatcodes as authwit_cheatcodes;
+use dep::aztec::oracle::random::random;
 
 #[test]
 unconstrained fn unshield_on_behalf_of_self() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+        utils::setup_and_mint_private(/* with_account_contracts */ false);
 
     let unshield_amount = mint_amount / 10;
     Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(
         &mut env.private(),
     );
     utils::check_private_balance(token_contract_address, owner, mint_amount - unshield_amount);
-    utils::check_public_balance(token_contract_address, owner, mint_amount + unshield_amount);
+    utils::check_public_balance(token_contract_address, owner, unshield_amount);
 }
 
 #[test]
 unconstrained fn unshield_on_behalf_of_other() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+        utils::setup_and_mint_private(/* with_account_contracts */ true);
 
     let unshield_amount = mint_amount / 10;
     let unshield_call_interface =
@@ -42,7 +42,7 @@ unconstrained fn unshield_on_behalf_of_other() {
 unconstrained fn unshield_failure_more_than_balance() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+        utils::setup_and_mint_private(/* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
     Token::at(token_contract_address).unshield(owner, owner, unshield_amount, 0).call(
@@ -54,7 +54,7 @@ unconstrained fn unshield_failure_more_than_balance() {
 unconstrained fn unshield_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ false);
+        utils::setup_and_mint_private(/* with_account_contracts */ false);
 
     let unshield_amount = mint_amount + 1;
     Token::at(token_contract_address).unshield(owner, owner, unshield_amount, random()).call(
@@ -65,7 +65,7 @@ unconstrained fn unshield_failure_on_behalf_of_self_non_zero_nonce() {
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn unshield_failure_on_behalf_of_other_more_than_balance() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+        utils::setup_and_mint_private(/* with_account_contracts */ true);
 
     let unshield_amount = mint_amount + 1;
     let unshield_call_interface =
@@ -84,7 +84,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_more_than_balance() {
 #[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+        utils::setup_and_mint_private(/* with_account_contracts */ true);
 
     let unshield_amount = mint_amount + 1;
     let unshield_call_interface =
@@ -103,7 +103,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller()
 #[test(should_fail_with = "Authorization not found for message hash")]
 unconstrained fn unshield_failure_on_behalf_of_other_no_approval() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint( /* with_account_contracts */ true);
+        utils::setup_and_mint_private(/* with_account_contracts */ true);
 
     let unshield_amount = mint_amount + 1;
     let unshield_call_interface =

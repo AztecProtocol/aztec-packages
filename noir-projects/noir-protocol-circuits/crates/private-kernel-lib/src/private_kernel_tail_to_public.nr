@@ -5,8 +5,8 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
@@ -53,20 +53,24 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_tail_to_public::{
-        PrivateKernelTailToPublicCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
-    };
-    use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, FIXED_AVM_STARTUP_L2_GAS,
+        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelTailToPublicCircuitPrivateInputs,
     };
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
-            note_hash::ScopedNoteHash, nullifier::{Nullifier, ScopedNullifier},
+            gas::Gas,
+            kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             log_hash::{LogHash, NoteLogHash},
-        }, address::{AztecAddress, EthAddress},
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, point::Point,
-        constants::PRIVATE_KERNEL_INNER_INDEX,
+            note_hash::ScopedNoteHash,
+            nullifier::{Nullifier, ScopedNullifier},
+        },
+        address::{AztecAddress, EthAddress},
+        point::Point,
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+    };
+    use dep::types::constants::{
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, FIXED_AVM_STARTUP_L2_GAS,
+        GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+        PRIVATE_KERNEL_INNER_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -416,10 +420,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-    // #[test(should_fail_with = "Invalid vk index")]
-    // fn invalid_previous_kernel() {
-    //     let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-    //     let _res = builder.execute();
-    // }
+
+    #[test(should_fail_with = "Invalid vk index")]
+    fn invalid_previous_kernel() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        let _res = builder.execute();
+    }
 }

@@ -299,6 +299,33 @@ jobs:
             --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
+  publish-aztec-up:
+    needs: [configure, publish-manifests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GIT_COMMIT }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Publish aztec-up
+        working-directory: ./aztec-up/terraform
+        run: |
+          terraform init
+          TAG=${{ env.DEPLOY_TAG }}
+          export TF_VAR_VERSION=${TAG#aztec-packages-v}
+          terraform apply -auto-approve
+
   # Sometimes runners get killed because they can be spot, we try once more for good measure
   rerun-check:
     runs-on: ubuntu-latest

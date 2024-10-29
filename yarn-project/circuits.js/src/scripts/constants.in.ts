@@ -78,9 +78,10 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
   'MAX_L2_GAS_PER_ENQUEUED_CALL',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
-const CPP_GENERATORS: string[] = [];
+const CPP_GENERATORS: string[] = ['PARTIAL_ADDRESS', 'CONTRACT_ADDRESS_V1', 'CONTRACT_LEAF', 'PUBLIC_KEYS_HASH'];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -126,6 +127,7 @@ const PIL_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
 /**
@@ -169,7 +171,7 @@ function processConstantsCpp(
 ): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
+    if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
       // stringify large numbers
       code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
     }
@@ -322,7 +324,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
     }
 
     {
-      const [, name, _type, value, end] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*([^;]+)(;)?/) || [];
+      const [, name, _type, value, end] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*([^;]*)(;)?/) || [];
       if (name && value) {
         const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
         if (indexName) {
@@ -335,6 +337,10 @@ function parseNoirFile(fileContent: string): ParsedContent {
           // The first line of an expression.
           expression = { name, content: [value] };
         }
+        return;
+      } else if (name) {
+        // This case happens if we have only a name, with the value being on the next line
+        expression = { name, content: [] };
         return;
       }
     }
@@ -389,8 +395,11 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')
+        // We also make some space around common operators
+        .replace(/\+/g, ' + ')
+        .replace(/(?<!\/)\*(?!\/)/, ' * ')
         // We split the expression into terms...
-        .split(' ')
+        .split(/\s+/)
         // ...and then we convert each term to a BigInt if it is a number.
         .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
         // .. also, we convert the known bigints to BigInts.

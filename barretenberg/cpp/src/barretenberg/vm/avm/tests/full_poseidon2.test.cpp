@@ -29,13 +29,15 @@ TEST(AvmFullPoseidon2, shouldHashCorrectly)
     // Create a bunch of random elements and hash them.
     size_t num_elems = 10;
     std::vector<FF> random_elems;
+    uint32_t clk = 0;
     for (uint32_t i = 0; i < 8; ++i) {
         for (size_t i = 0; i < num_elems; ++i) {
             random_elems.push_back(FF::random_element());
         }
-        FF builder_result = poseidon2_builder.poseidon2_hash(random_elems, i);
+        FF builder_result = poseidon2_builder.poseidon2_hash(random_elems, static_cast<uint32_t>(clk));
         FF expected_result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(random_elems);
         EXPECT_EQ(builder_result, expected_result);
+        clk += i + (static_cast<uint32_t>(random_elems.size()) + 2) / 3 * 3;
     }
 
     poseidon2_builder.finalize_full(trace);

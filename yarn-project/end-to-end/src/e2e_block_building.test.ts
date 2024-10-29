@@ -299,8 +299,9 @@ describe('e2e_block_building', () => {
       // compare logs
       expect(rct.status).toEqual('success');
       const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
-        const notePayload = L1NotePayload.decryptAsIncoming(l, keys.masterIncomingViewingSecretKey);
-        return notePayload?.note.items[0];
+        const notePayload = L1NotePayload.decryptAsIncoming(l.data, thisWallet.getEncryptionSecret());
+        // In this test we care only about the privately delivered values
+        return notePayload?.privateNoteValues[0];
       });
       expect(noteValues[0]).toEqual(new Fr(10));
       expect(noteValues[1]).toEqual(new Fr(11));

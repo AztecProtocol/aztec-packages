@@ -12,5 +12,5 @@ pub use membership::{
     conditionally_assert_check_membership, MembershipWitness,
 };
 pub use merkle_tree::MerkleTree;
-pub use variable_merkle_tree::VariableMerkleTree;
 pub use root::{calculate_empty_tree_root, calculate_subtree_root, root_from_sibling_path};
+pub use variable_merkle_tree::VariableMerkleTree;

@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 /// the `msg_sender` in the public call is the address of this contract.
 #[aztec]
 contract Router {
-    use aztec::{macros::functions::{private, public, view, internal}, utils::comparison::compare};
+    use aztec::{macros::functions::{internal, private, public, view}, utils::comparison::compare};
 
     // docs:start:check_timestamp
     /// Asserts that the current timestamp in the enqueued public call satisfies the `operation` with respect

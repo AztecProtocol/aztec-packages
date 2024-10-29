@@ -2,8 +2,11 @@ use crate::{
     address::{
         aztec_address::AztecAddress, partial_address::PartialAddress,
         public_keys_hash::PublicKeysHash,
-    }, public_keys::PublicKeys, contract_class_id::ContractClassId,
-    constants::CONTRACT_INSTANCE_LENGTH, traits::{Deserialize, Hash, Serialize},
+    },
+    constants::CONTRACT_INSTANCE_LENGTH,
+    contract_class_id::ContractClassId,
+    public_keys::PublicKeys,
+    traits::{Deserialize, Hash, Serialize},
 };
 
 pub struct ContractInstance {
@@ -81,7 +84,7 @@ impl Hash for ContractInstance {
 impl ContractInstance {
     fn to_address(self) -> AztecAddress {
         AztecAddress::compute(
-            self.public_keys.hash(),
+            self.public_keys,
             PartialAddress::compute(
                 self.contract_class_id,
                 self.salt,

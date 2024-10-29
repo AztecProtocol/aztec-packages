@@ -136,7 +136,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT16,
         /*TODO: leafIndexOffset is not constrained*/ OperandType::UINT16,
         OperandType::UINT16 } },
-    { OpCode::GETCONTRACTINSTANCE, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::GETCONTRACTINSTANCE,
+      { OperandType::INDIRECT8, OperandType::UINT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::EMITUNENCRYPTEDLOG,
       {
           OperandType::INDIRECT8,
@@ -162,7 +163,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::POSEIDON2PERM, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::SHA256COMPRESSION,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
     // TEMP ECADD without relative memory
     { OpCode::ECADD,
       { OperandType::INDIRECT16,
@@ -176,7 +177,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::MSM,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     // Gadget - Conversion
-    { OpCode::TORADIXLE,
+    { OpCode::TORADIXBE,
       { OperandType::INDIRECT8,
         OperandType::UINT16,
         OperandType::UINT16,

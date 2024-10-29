@@ -1,10 +1,10 @@
-use crate::test::utils;
 use crate::NFT;
+use crate::test::utils;
 
 #[test]
 unconstrained fn mint_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, nft_contract_address, owner, _) = utils::setup( /* with_account_contracts */ false);
+    let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let token_id = 10000;
     NFT::at(nft_contract_address).mint(owner, token_id).call(&mut env.public());
@@ -16,7 +16,7 @@ unconstrained fn mint_success() {
 unconstrained fn mint_failures() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
 
     // MINTING AS A NON-MINTER
     let token_id = 10000;

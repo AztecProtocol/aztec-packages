@@ -8,18 +8,23 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
-        utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
+        keys::getters::get_public_keys,
         macros::{
-            storage::storage, events::event, functions::{public, initializer, private, internal},
-        }, protocol_types::traits::Serialize,
+            events::event,
+            functions::{initializer, internal, private, public},
+            storage::storage,
+        },
+        prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        protocol_types::traits::Serialize,
+        unencrypted_logs::unencrypted_event_emission::encode_event,
+        utils::comparison::Comparator,
     };
     use std::meta::derive;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
-    use token::Token;
     use router::utils::privately_check_timestamp;
+    use token::Token;
     // docs:end:all-deps
 
     #[event]
@@ -77,14 +82,14 @@ contract Crowdfunding {
         // docs:end:do-transfer
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let donor_keys = get_public_keys(donor);
         // docs:start:valuenote_new
-        let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount as Field, donor);
+
+        let donor_ovpk_m = get_public_keys(donor).ovpk_m;
         // docs:end:valuenote_new
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            donor_keys.ovpk_m,
-            donor_keys.ivpk_m,
+            donor_ovpk_m,
             donor,
         ));
     }

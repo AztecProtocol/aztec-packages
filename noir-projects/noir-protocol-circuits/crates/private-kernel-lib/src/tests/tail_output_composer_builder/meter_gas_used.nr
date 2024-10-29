@@ -2,9 +2,10 @@ use crate::components::tail_output_composer::meter_gas_used::meter_gas_used;
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        L2_GAS_PER_LOG_BYTE,
-    }, tests::fixture_builder::FixtureBuilder,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 fn new_builder() -> FixtureBuilder {

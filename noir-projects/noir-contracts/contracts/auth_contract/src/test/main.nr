@@ -1,5 +1,5 @@
-use crate::test::utils;
 use crate::Auth;
+use crate::test::utils;
 
 use dep::aztec::prelude::AztecAddress;
 

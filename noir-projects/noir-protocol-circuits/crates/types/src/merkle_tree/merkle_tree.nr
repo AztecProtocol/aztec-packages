@@ -1,4 +1,4 @@
-use crate::{traits::Empty, hash::merkle_hash};
+use crate::{hash::merkle_hash, traits::Empty};
 
 pub struct MerkleTree<let N: u32> {
     leaves: [Field; N],

@@ -1,8 +1,8 @@
-use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
-use dep::aztec::note::note_getter_options::SortOrder;
+use crate::{filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
 use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 use dep::aztec::keys::getters::get_public_keys;
-use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
+use dep::aztec::note::note_getter_options::SortOrder;
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
@@ -24,15 +24,13 @@ pub fn increment(
     recipient: AztecAddress,
     outgoing_viewer: AztecAddress, // docs:end:increment_args
 ) {
-    let recipient_keys = get_public_keys(recipient);
     let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-    let mut note = ValueNote::new(amount, recipient_keys.npk_m.hash());
+    let mut note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     balance.insert(&mut note).emit(encode_and_encrypt_note(
         balance.context,
         outgoing_viewer_ovpk_m,
-        recipient_keys.ivpk_m,
         recipient,
     ));
 }

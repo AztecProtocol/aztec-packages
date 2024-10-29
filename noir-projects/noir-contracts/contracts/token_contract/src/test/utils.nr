@@ -1,13 +1,16 @@
 use dep::aztec::{
-    hash::compute_secret_hash, prelude::AztecAddress,
-    test::helpers::{cheatcodes, test_environment::TestEnvironment},
-    protocol_types::storage::map::derive_storage_slot_in_map,
+    hash::compute_secret_hash,
     oracle::{
-        execution::{get_block_number, get_contract_address}, random::random, storage::storage_read,
+        execution::{get_block_number, get_contract_address},
+        random::random,
+        storage::storage_read,
     },
+    prelude::AztecAddress,
+    protocol_types::storage::map::derive_storage_slot_in_map,
+    test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
 
-use crate::{types::transparent_note::TransparentNote, Token};
+use crate::{Token, types::transparent_note::TransparentNote};
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
@@ -41,7 +44,19 @@ pub unconstrained fn setup(
     (&mut env, token_contract_address, owner, recipient)
 }
 
-pub unconstrained fn setup_and_mint(
+pub unconstrained fn setup_and_mint_public(
+    with_account_contracts: bool,
+) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+    // Setup
+    let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
+    let mint_amount = 10000;
+    // Mint some tokens
+    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
+
+    (env, token_contract_address, owner, recipient, mint_amount)
+}
+
+pub unconstrained fn setup_and_mint_private(
     with_account_contracts: bool,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
@@ -51,10 +66,6 @@ pub unconstrained fn setup_and_mint(
     let secret = random();
     let secret_hash = compute_secret_hash(secret);
     Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
-    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
-
-    // Time travel so we can read keys from the registry
-    env.advance_block_by(6);
 
     // docs:start:txe_test_add_note
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.

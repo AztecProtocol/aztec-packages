@@ -1,23 +1,29 @@
 use crate::{
     abis::{
-        previous_rollup_data::PreviousRollupData,
         block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-    }, components,
+        previous_rollup_data::PreviousRollupData,
+    },
+    components,
 };
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        AZTEC_EPOCH_DURATION, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX,
-        MERGE_ROLLUP_INDEX,
-    }, header::Header, content_commitment::ContentCommitment,
-    merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
+        ARCHIVE_HEIGHT, AZTEC_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PRIVATE_BASE_ROLLUP_VK_INDEX,
+        PUBLIC_BASE_ROLLUP_VK_INDEX,
+    },
+    content_commitment::ContentCommitment,
+    header::Header,
+    merkle_tree::{append_only_tree, calculate_empty_tree_root},
+    state_reference::StateReference,
     traits::Empty,
 };
 use types::debug_log::debug_log_format;
 
-global ALLOWED_PREVIOUS_CIRCUITS = [BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups

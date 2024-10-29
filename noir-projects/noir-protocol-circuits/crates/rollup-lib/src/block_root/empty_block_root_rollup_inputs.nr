@@ -1,9 +1,9 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
+use crate::abis::block_root_or_block_merge_public_inputs::FeeRecipient;
 use types::abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
 };
 use types::constants::AZTEC_EPOCH_DURATION;
-use crate::abis::block_root_or_block_merge_public_inputs::FeeRecipient;
 
 pub struct EmptyBlockRootRollupInputs {
     archive: AppendOnlyTreeSnapshot,

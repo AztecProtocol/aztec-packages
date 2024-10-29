@@ -1,7 +1,8 @@
 mod get_order_hints;
 
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered,
+    traits::{Empty, is_empty},
     utils::arrays::{
         array_length, assert_exposed_sorted_transformed_value_array::get_order_hints::OrderHint,
     },

@@ -137,6 +137,11 @@ class ECCVMTranscriptTests : public ::testing::Test {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
         }
+        round++;
+
+        manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
+        // get the challenge for the ZK Sumcheck claim
+        manifest_expected.add_challenge(round, "Libra:Challenge");
 
         for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             round++;
@@ -147,7 +152,15 @@ class ECCVMTranscriptTests : public ::testing::Test {
         }
 
         round++;
+
+        for (size_t i = 0; i < log_n; i++) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Libra:evaluation_" + idx, frs_per_Fr);
+        }
+        // manifest_expected.add_entry(round, "Libra:evaluation", log_n * frs_per_Fr);
+
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
+
         manifest_expected.add_challenge(round, "rho");
 
         round++;
@@ -256,6 +269,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = this->construct_eccvm_honk_manifest(prover.key->circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
+
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;

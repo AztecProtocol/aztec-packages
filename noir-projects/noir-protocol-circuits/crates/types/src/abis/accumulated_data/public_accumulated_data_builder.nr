@@ -1,14 +1,21 @@
 use crate::{
     abis::{
-        gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
-        note_hash::ScopedNoteHash, nullifier::Nullifier, public_call_request::PublicCallRequest,
-        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        accumulated_data::public_accumulated_data::PublicAccumulatedData,
+        gas::Gas,
+        log_hash::{LogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::Nullifier,
+        public_call_request::PublicCallRequest,
+        public_data_update_request::PublicDataUpdateRequest,
+    },
     constants::{
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    }, traits::Empty, utils::arrays::array_to_bounded_vec,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::Empty,
+    utils::arrays::array_to_bounded_vec,
 };
 
 pub struct PublicAccumulatedDataBuilder {

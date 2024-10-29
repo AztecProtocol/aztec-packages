@@ -2,14 +2,14 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract TestLog {
-    use std::meta::derive;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
+    use dep::aztec::keys::getters::get_public_keys;
+    use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
-    use dep::aztec::keys::getters::get_public_keys;
-    use dep::value_note::value_note::ValueNote;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
-    use dep::aztec::macros::{storage::storage, events::event, functions::{private, public}};
+    use dep::value_note::value_note::ValueNote;
+    use std::meta::derive;
 
     use std::embedded_curve_ops::EmbeddedCurveScalar;
 
@@ -39,15 +39,14 @@ contract TestLog {
     fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        let other_keys = get_public_keys(other);
-        let msg_sender_keys = get_public_keys(context.msg_sender());
+        let other_ovpk_m = get_public_keys(other).ovpk_m;
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
         event0.emit(encode_and_encrypt_event_with_randomness(
             &mut context,
             randomness[0],
             // outgoing is set to other, incoming is set to msg sender
-            other_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
+            other_ovpk_m,
             context.msg_sender(),
         ));
 
@@ -56,8 +55,7 @@ contract TestLog {
             &mut context,
             randomness[0],
             // outgoing is set to msg sender, incoming is set to other
-            msg_sender_keys.ovpk_m,
-            other_keys.ivpk_m,
+            msg_sender_ovpk_m,
             other,
         ));
 
@@ -70,8 +68,7 @@ contract TestLog {
             &mut context,
             randomness[1],
             // outgoing is set to other, incoming is set to msg sender
-            other_keys.ovpk_m,
-            msg_sender_keys.ivpk_m,
+            other_ovpk_m,
             context.msg_sender(),
         ));
     }

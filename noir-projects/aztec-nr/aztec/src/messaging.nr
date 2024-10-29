@@ -1,10 +1,11 @@
 use crate::{
-    hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier},
+    hash::{compute_message_hash, compute_message_nullifier, compute_secret_hash},
     oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness,
 };
 
 use dep::protocol_types::{
-    address::{AztecAddress, EthAddress}, merkle_tree::root::root_from_sibling_path,
+    address::{AztecAddress, EthAddress},
+    merkle_tree::root::root_from_sibling_path,
 };
 
 pub fn process_l1_to_l2_message(

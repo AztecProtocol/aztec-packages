@@ -4,9 +4,10 @@ use dep::types::{
         gas_settings::GasSettings,
     },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        L2_GAS_PER_LOG_BYTE,
-    }, utils::arrays::array_length,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER,
+    },
+    utils::arrays::array_length,
 };
 
 pub fn meter_gas_used(data: CombinedAccumulatedData, gas_settings: GasSettings) -> Gas {

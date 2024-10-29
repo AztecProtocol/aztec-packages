@@ -1,8 +1,8 @@
-use dep::aztec::{
-    context::UnconstrainedContext, state_vars::PrivateSet,
-    note::note_viewer_options::NoteViewerOptions,
-};
 use crate::value_note::ValueNote;
+use dep::aztec::{
+    context::UnconstrainedContext, note::note_viewer_options::NoteViewerOptions,
+    state_vars::PrivateSet,
+};
 
 pub unconstrained fn get_balance(set: PrivateSet<ValueNote, UnconstrainedContext>) -> Field {
     get_balance_with_offset(set, 0)

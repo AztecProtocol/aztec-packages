@@ -118,7 +118,7 @@ export class TXEService {
       skipArgsDecoding: true,
       salt: Fr.ONE,
       // TODO: Modify this to allow for passing public keys.
-      publicKeys: PublicKeys.empty(),
+      publicKeys: PublicKeys.default(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -599,6 +599,21 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  async getAppTaggingSecret(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
+    const secret = await this.typedOracle.getAppTaggingSecret(
+      AztecAddress.fromField(fromSingle(sender)),
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
+    return toForeignCallResult([toArray(secret.toFields())]);
+  }
+
+  async getAppTaggingSecretsForSenders(recipient: ForeignCallSingle) {
+    const secrets = await this.typedOracle.getAppTaggingSecretsForSenders(
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
+    return toForeignCallResult([toArray(secrets.flatMap(secret => secret.toFields()))]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
@@ -616,18 +631,30 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeGetContractInstance(address: ForeignCallSingle) {
+  async avmOpcodeGetContractInstanceDeployer(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(fromSingle(address));
     return toForeignCallResult([
-      toArray([
-        // AVM requires an extra boolean indicating the instance was found
-        new Fr(1),
-        instance.salt,
-        instance.deployer,
-        instance.contractClassId,
-        instance.initializationHash,
-        ...instance.publicKeys.toFields(),
-      ]),
+      toSingle(instance.deployer),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
+    ]);
+  }
+
+  async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toSingle(instance.contractClassId),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
+    ]);
+  }
+
+  async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toSingle(instance.initializationHash),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
     ]);
   }
 

@@ -12,7 +12,9 @@ use crate::components::public_tail_output_composer::{
 use dep::types::{
     abis::kernel_circuit_public_inputs::{
         KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    }, data::PublicDataLeafHint, partial_state_reference::PartialStateReference,
+    },
+    data::PublicDataLeafHint,
+    partial_state_reference::PartialStateReference,
 };
 
 pub struct PublicTailOutputComposer<let NUM_PUBLIC_DATA_LEAVES: u32> {

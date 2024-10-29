@@ -1,8 +1,8 @@
-use dep::types::merkle_tree::MerkleTree;
 use crate::{
     parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
     utils::sha256_merkle_tree::Sha256MerkleTree,
 };
+use dep::types::merkle_tree::MerkleTree;
 
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
@@ -59,9 +59,9 @@ mod tests {
         parity_public_inputs::ParityPublicInputs,
         root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs},
     };
-    use dep::types::recursion::{verification_key::VerificationKey, proof::RecursiveProof};
-    use dep::types::tests::fixtures;
     use dep::types::constants::BASE_PARITY_INDEX;
+    use dep::types::proof::{recursive_proof::RecursiveProof, verification_key::VerificationKey};
+    use dep::types::tests::fixtures;
 
     use super::NUM_BASE_PARITY_PER_ROOT_PARITY;
     use types::hash::verification_key_hash;
