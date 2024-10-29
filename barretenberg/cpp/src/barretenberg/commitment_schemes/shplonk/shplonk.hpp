@@ -106,15 +106,16 @@ template <typename Curve> class ShplonkProver_ {
     {
         const size_t num_opening_claims = opening_claims.size();
 
-        // {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
+        // {ẑⱼ(z)}ⱼ , where ẑⱼ(r) = 1/zⱼ(z) = 1/(z - xⱼ)
         std::vector<Fr> inverse_vanishing_evals;
         inverse_vanishing_evals.reserve(num_opening_claims);
         for (const auto& claim : opening_claims) {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
+
+        // Add the terms (z - uₖ) for k = 0, …, d−1 where d is the number of rounds in Sumcheck
         for (const auto& claim : libra_opening_claims) {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
-            info("libra denominator P ", z_challenge - claim.opening_pair.challenge);
         }
         Fr::batch_invert(inverse_vanishing_evals);
 
@@ -139,17 +140,17 @@ template <typename Curve> class ShplonkProver_ {
             current_nu *= nu_challenge;
             idx++;
         }
+
+        // Take into account the constant proof size in Gemini
         for (size_t idx = opening_claims.size(); idx < CONST_PROOF_SIZE_LOG_N + 2; idx++) {
             current_nu *= nu_challenge;
         };
 
         for (const auto& claim : libra_opening_claims) {
-
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
-            // tmp.factor_roots(claim.opening_pair.challenge);
 
             // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(tmp, -scaling_factor);

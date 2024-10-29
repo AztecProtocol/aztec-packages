@@ -20,7 +20,7 @@ template <typename Curve> class ShpleminiProver_ {
     using ShplonkProver = ShplonkProver_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
 
-    template <typename Transcript, size_t LENGTH = 0>
+    template <typename Transcript>
     static OpeningClaim prove(const FF circuit_size,
                               RefSpan<Polynomial> f_polynomials,
                               RefSpan<Polynomial> g_polynomials,
@@ -460,14 +460,12 @@ template <typename Curve> class ShpleminiVerifier_ {
     static void add_zk_data(BatchOpeningClaim<Curve>& batch_opening_claim,
                             RefSpan<Commitment> libra_univariate_commitments,
                             const std::vector<Fr>& libra_univariate_evaluations,
-                            RefSpan<Commitment> masking_scalar_commitments,
-                            const std::vector<Fr>& multivariate_challenge,
-                            const Fr& quadratic_challenge,
-                            const Fr& shplonk_batching_challenge,
-                            const Fr& shplonk_evaluation_challenge,
-                            const size_t first_witness_index)
+                            const std::vector<Fr>& multivariate_challenge)
 
     {
+        const auto shplonk_batching_challenge = batch_opening_claim.batching_challenge;
+
+        const auto shplonk_evaluation_challenge = batch_opening_claim.evaluation_point;
         // compute the correct power of \nu
         Fr shplonk_challenge_power = Fr{ 1 };
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2; ++j) {
@@ -488,7 +486,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         };
         Fr::batch_invert(denominators);
 
-        Fr& constant_term = scalars[idx_of_constant_term];
+        Fr constant_term = 0;
         for (const auto [libra_univariate_commitment, denominator, libra_univariate_evaluation] :
              zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
             commitments.push_back(libra_univariate_commitment);
@@ -497,15 +495,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             shplonk_challenge_power *= shplonk_batching_challenge;
             constant_term += scaling_factor * libra_univariate_evaluation;
         }
-
-        const size_t num_masked_witnesses = masking_scalar_commitments.size();
-
-        for (size_t idx = 0; idx < num_masked_witnesses; idx++) {
-            commitments.push_back(masking_scalar_commitments[idx]);
-            size_t witness_idx = first_witness_index + 1;
-            Fr corresponding_witness_scalar = scalars[witness_idx];
-            scalars.push_back(corresponding_witness_scalar * quadratic_challenge);
-        }
+        scalars[idx_of_constant_term] += constant_term;
     }
 };
 } // namespace bb
