@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730184669265,
+  "lastUpdate": 1730190742984,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1323a34c50e7727435129aa31a05ae7bdfb0ca09",
-          "message": "feat!: unrevert \"feat: new per-enqueued-call gas limit\" (#9140)\n\nReverts AztecProtocol/aztec-packages#9139\r\n\r\nRealized the title should have the exclamation because this will break\r\napps that use more gas in a public enqueued call.",
-          "timestamp": "2024-10-10T13:34:52+01:00",
-          "tree_id": "7de6b667c8c8efafbcc2d423de9c0ad838f79950",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1323a34c50e7727435129aa31a05ae7bdfb0ca09"
-        },
-        "date": 1728565172331,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31367.66525099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28704.635477 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5506.144810999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5165.359020000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93593.718466,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93593721000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15673.543629000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15673545000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8350091301,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8350091301 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153455074,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153455074 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6724415873,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6724415873 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127649366,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127649366 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3156,6 +3084,66 @@ window.BENCHMARK_DATA = {
             "value": 127908149,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127908149 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7c2d67a7c63a2b05d8f8d48b1690c87e8bacfc49",
+          "message": "chore: align debug logging between AVM sim & witgen (#9498)",
+          "timestamp": "2024-10-29T08:51:47+01:00",
+          "tree_id": "1b58bf437fc3645ee06c3612ee2e354ecb1b2a34",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7c2d67a7c63a2b05d8f8d48b1690c87e8bacfc49"
+        },
+        "date": 1730190735237,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31000.684504999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29207.877119 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5385.0720280000105,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5059.5087650000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 93101.393078,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 93101395000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15322.41921,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15322419000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2695476910,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2695476910 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126755173,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126755173 ns\nthreads: 1"
           }
         ]
       }
