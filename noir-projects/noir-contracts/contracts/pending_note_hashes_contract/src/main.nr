@@ -139,10 +139,20 @@ contract PendingNoteHashes {
         // Insert note
         let emission = owner_balance.insert(&mut note);
 
-        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner, context.msg_sender()));
+        emission.emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+            context.msg_sender(),
+        ));
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner, context.msg_sender()));
+        emission.emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+            context.msg_sender(),
+        ));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value

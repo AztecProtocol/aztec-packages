@@ -191,7 +191,12 @@ contract TokenBlacklist {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.add(to, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, msg_sender_ovpk_m, to, context.msg_sender()),
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                msg_sender_ovpk_m,
+                to,
+                context.msg_sender(),
+            ),
         );
     }
 

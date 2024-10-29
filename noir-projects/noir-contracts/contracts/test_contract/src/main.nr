@@ -304,6 +304,7 @@ contract Test {
             5,
             outgoing_viewer_ovpk_m,
             owner,
+            outgoing_viewer,
         ));
 
         // this contract has reached max number of functions, so using this one fn
@@ -321,6 +322,7 @@ contract Test {
                 0,
                 outgoing_viewer_ovpk_m,
                 owner,
+                outgoing_viewer,
             ));
         }
     }
