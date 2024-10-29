@@ -260,6 +260,8 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_or{};
     FF main_sel_op_poseidon2{};
     FF main_sel_op_radix_be{};
+    FF main_sel_op_returndata_copy{};
+    FF main_sel_op_returndata_size{};
     FF main_sel_op_sender{};
     FF main_sel_op_set{};
     FF main_sel_op_sha256{};

@@ -357,6 +357,8 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_or.set_if_valid_index(i, rows[i].main_sel_op_or);
                 polys.main_sel_op_poseidon2.set_if_valid_index(i, rows[i].main_sel_op_poseidon2);
                 polys.main_sel_op_radix_be.set_if_valid_index(i, rows[i].main_sel_op_radix_be);
+                polys.main_sel_op_returndata_copy.set_if_valid_index(i, rows[i].main_sel_op_returndata_copy);
+                polys.main_sel_op_returndata_size.set_if_valid_index(i, rows[i].main_sel_op_returndata_size);
                 polys.main_sel_op_sender.set_if_valid_index(i, rows[i].main_sel_op_sender);
                 polys.main_sel_op_set.set_if_valid_index(i, rows[i].main_sel_op_set);
                 polys.main_sel_op_sha256.set_if_valid_index(i, rows[i].main_sel_op_sha256);
