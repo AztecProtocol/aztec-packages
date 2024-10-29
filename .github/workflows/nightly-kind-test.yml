@@ -87,7 +87,7 @@ jobs:
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
             export FORCE_COLOR=1
-            NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${{ matrix.values_file }} ./yarn-project/end-to-end/scripts/network_test.sh ./yarn-project/end-to-end/src/spartan/transfer.test.ts || true
+            NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${{ matrix.values_file }} ./yarn-project/end-to-end/scripts/network_test.sh ./yarn-project/end-to-end/src/spartan/transfer.test.ts
 
   success-check:
     runs-on: ubuntu-20.04
