@@ -152,7 +152,8 @@ template <typename Builder> class cycle_group {
         straus_lookup_table(Builder* context,
                             const cycle_group& base_point,
                             const cycle_group& offset_generator,
-                            size_t table_bits);
+                            size_t table_bits,
+                            std::optional<std::vector<cycle_group>> hints = std::optional<std::vector<cycle_group>>());
         cycle_group read(const field_t& index);
         size_t _table_bits;
         Builder* _context;
@@ -186,17 +187,22 @@ template <typename Builder> class cycle_group {
     void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
     cycle_group get_standard_form() const;
     void validate_is_on_curve() const;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<cycle_group> hint = std::optional<cycle_group>()) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<cycle_group> hint = std::optional<cycle_group>()) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<cycle_group> hint = std::optional<cycle_group>()) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<cycle_group> hint = std::optional<cycle_group>()) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_subtract(const cycle_group& other) const;
-    cycle_group checked_unconditional_add(const cycle_group& other) const;
-    cycle_group checked_unconditional_subtract(const cycle_group& other) const;
+    cycle_group unconditional_subtract(const cycle_group& other,
+                                       const std::optional<cycle_group> hint = std::optional<cycle_group>()) const;
+    cycle_group checked_unconditional_add(const cycle_group& other,
+                                          const std::optional<cycle_group> hint = std::optional<cycle_group>()) const;
+    cycle_group checked_unconditional_subtract(
+        const cycle_group& other, const std::optional<cycle_group> hint = std::optional<cycle_group>()) const;
     cycle_group operator+(const cycle_group& other) const;
     cycle_group operator-(const cycle_group& other) const;
     cycle_group operator-() const;

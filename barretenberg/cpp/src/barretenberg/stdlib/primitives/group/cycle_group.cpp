@@ -203,7 +203,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::dbl() const
+cycle_group<Builder> cycle_group<Builder>::dbl([[maybe_unused]] const std::optional<cycle_group> /*unused*/) const
     requires IsNotUltraArithmetic<Builder>
 {
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
@@ -220,29 +220,36 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::dbl() const
+cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<cycle_group> hint) const
     requires IsUltraArithmetic<Builder>
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
-    auto x1 = x.get_value();
-    auto y1 = modified_y.get_value();
 
-    // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
-    // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
-    // i.e. x^4 = x * (y^2 - b)
-    // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
-    auto y_pow_2 = y1.sqr();
-    auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
-    auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
-    auto lambda = (x1 * x1 * 3) / (y1 + y1);
-    auto x3 = lambda_squared - x1 - x1;
-    auto y3 = lambda * (x1 - x3) - y1;
-    if (is_constant()) {
-        return cycle_group(x3, y3, is_point_at_infinity().get_value());
+    cycle_group result;
+    if (hint.has_value()) {
+        result = hint.value();
+    } else {
+        auto x1 = x.get_value();
+        auto y1 = modified_y.get_value();
+
+        // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
+        // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
+        // i.e. x^4 = x * (y^2 - b)
+        // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
+        auto y_pow_2 = y1.sqr();
+        auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
+        auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
+        auto lambda = (x1 * x1 * 3) / (y1 + y1);
+        auto x3 = lambda_squared - x1 - x1;
+        auto y3 = lambda * (x1 - x3) - y1;
+
+        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     }
-    cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+    if (is_constant()) {
+        return result;
+    }
     context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.normalize().get_witness_index(),
@@ -263,7 +270,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other) const
+cycle_group<Builder> cycle_group<Builder>::unconditional_add(
+    const cycle_group& other, [[maybe_unused]] const std::optional<cycle_group> /*unused*/ /*unused*/) const
     requires IsNotUltraArithmetic<Builder>
 {
     auto x_diff = other.x - x;
@@ -288,7 +296,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other) const
+cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
+                                                             const std::optional<cycle_group> hint) const
     requires IsUltraArithmetic<Builder>
 {
     auto context = get_context(other);
@@ -303,17 +312,21 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
         return unconditional_add(rhs);
     }
+    cycle_group result;
+    if (hint.has_value()) {
+        result = hint.value();
+    } else {
 
-    const auto p1 = get_value();
-    const auto p2 = other.get_value();
-    AffineElement p3(Element(p1) + Element(p2));
-    if (lhs_constant && rhs_constant) {
-        return cycle_group(p3);
+        const auto p1 = get_value();
+        const auto p2 = other.get_value();
+        AffineElement p3(Element(p1) + Element(p2));
+        field_t r_x(witness_t(context, p3.x));
+        field_t r_y(witness_t(context, p3.y));
+        result = cycle_group(r_x, r_y, false);
     }
-    field_t r_x(witness_t(context, p3.x));
-    field_t r_y(witness_t(context, p3.y));
-    cycle_group result(r_x, r_y, false);
-
+    if (lhs_constant && rhs_constant) {
+        return result;
+    }
     bb::ecc_add_gate_<FF> add_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
@@ -338,10 +351,11 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other) const
+cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other,
+                                                                  const std::optional<cycle_group> hint) const
 {
     if constexpr (!IS_ULTRA) {
-        return unconditional_add(-other);
+        return unconditional_add(-other, hint);
     } else {
         auto context = get_context(other);
 
@@ -350,22 +364,28 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
 
         if (lhs_constant && !rhs_constant) {
             auto lhs = cycle_group<Builder>::from_constant_witness(context, get_value());
-            return lhs.unconditional_subtract(other);
+            return lhs.unconditional_subtract(other, hint);
         }
         if (!lhs_constant && rhs_constant) {
             auto rhs = cycle_group<Builder>::from_constant_witness(context, other.get_value());
-            return unconditional_subtract(rhs);
+            return unconditional_subtract(rhs, hint);
         }
-        auto p1 = get_value();
-        auto p2 = other.get_value();
-        AffineElement p3(Element(p1) - Element(p2));
-        if (lhs_constant && rhs_constant) {
-            return cycle_group(p3);
-        }
-        field_t r_x(witness_t(context, p3.x));
-        field_t r_y(witness_t(context, p3.y));
-        cycle_group result(r_x, r_y, false);
+        cycle_group result;
+        if (hint.has_value()) {
+            result = hint.value();
+        } else {
 
+            auto p1 = get_value();
+            auto p2 = other.get_value();
+            AffineElement p3(Element(p1) - Element(p2));
+
+            field_t r_x(witness_t(context, p3.x));
+            field_t r_y(witness_t(context, p3.y));
+            result = cycle_group(r_x, r_y, false);
+        }
+        if (lhs_constant && rhs_constant) {
+            return result;
+        }
         bb::ecc_add_gate_<FF> add_gate{
             .x1 = x.get_witness_index(),
             .y1 = y.get_witness_index(),
@@ -394,11 +414,12 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other) const
+cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other,
+                                                                     const std::optional<cycle_group> hint) const
 {
     field_t x_delta = x - other.x;
     x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
-    return unconditional_add(other);
+    return unconditional_add(other, hint);
 }
 
 /**
@@ -414,11 +435,12 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other) const
+cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other,
+                                                                          const std::optional<cycle_group> hint) const
 {
     field_t x_delta = x - other.x;
     x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
-    return unconditional_subtract(other);
+    return unconditional_subtract(other, hint);
 }
 
 /**
@@ -870,7 +892,8 @@ template <typename Builder>
 cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                                                                const cycle_group& base_point,
                                                                const cycle_group& offset_generator,
-                                                               size_t table_bits)
+                                                               size_t table_bits,
+                                                               std::optional<std::vector<cycle_group>> hints)
     : _table_bits(table_bits)
     , _context(context)
 {
@@ -891,7 +914,8 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
     for (size_t i = 1; i < table_size; ++i) {
-        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point);
+        std::optional<cycle_group> hint = hints.has_value() ? hints.value()[i - 1] : std::optional<cycle_group>();
+        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
         field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
         field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
         point_table[i] = cycle_group(x, y, false);
