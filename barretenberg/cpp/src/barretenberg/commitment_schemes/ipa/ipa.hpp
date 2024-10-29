@@ -627,11 +627,11 @@ template <typename Curve_> class IPA {
     }
 
 
-    static IpaAccumulator accumulate(const std::shared_ptr<CK>& ck, auto& transcript, IpaAccumulator acc_1, IpaAccumulator acc_2)
+    static IpaAccumulator accumulate(const std::shared_ptr<CK>& ck, auto& transcript, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
     {
         // Step 1: Run the verifier for each IPA instance
-        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript);
-        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript);
+        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
+        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_2);
 
         // Step 2: Generate the challenges
         auto [alpha, r] = transcript->template get_challenges<Fr>("IPA:accum_alpha", "IPA:accum_r");
@@ -641,8 +641,6 @@ template <typename Curve_> class IPA {
         output_accumulator.comm = acc_1.comm + alpha * acc_2.comm;
         output_accumulator.eval_point = r;
         // output_accumulator.eval = 
-        // compute_opening_proof(ck, )
-        // output_accumulator.ipa_proof = 
     }
 };
 
