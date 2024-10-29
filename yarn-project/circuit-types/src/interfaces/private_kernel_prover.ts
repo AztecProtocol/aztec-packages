@@ -87,7 +87,7 @@ export interface PrivateKernelProver {
    * @param acirs The program bytecode.
    * @param witnessStack The witnessses for each program bytecode.
    */
-  createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
+  createClientIvcProof(acirs: Buffer[], recursive: boolean, witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
 
   /**
    * Creates a proof for an app circuit.
@@ -97,5 +97,5 @@ export interface PrivateKernelProver {
    * @param appCircuitName - Optionally specify the name of the app circuit
    * @returns A Promise resolving to a Proof object
    */
-  computeAppCircuitVerificationKey(bytecode: Buffer, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
+  computeAppCircuitVerificationKey(bytecode: Buffer, recursive: boolean, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
 }

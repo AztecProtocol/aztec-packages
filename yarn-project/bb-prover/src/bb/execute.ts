@@ -115,6 +115,7 @@ export async function generateKeyForNoirCircuit(
   workingDirectory: string,
   circuitName: string,
   compiledCircuit: NoirCompiledCircuit,
+  recursive: boolean,
   flavor: UltraHonkFlavor,
   log: LogFn,
   force = false,
@@ -148,7 +149,7 @@ export async function generateKeyForNoirCircuit(
       await fs.writeFile(bytecodePath, bytecode);
 
       // args are the output path and the input bytecode path
-      const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
+      const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath, recursive ? '--recursive' : ''];
       const timer = new Timer();
       let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, log);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
@@ -195,6 +196,7 @@ export async function executeBbClientIvcProof(
   workingDirectory: string,
   bytecodeStackPath: string,
   witnessStackPath: string,
+  recursive: boolean,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -219,7 +221,7 @@ export async function executeBbClientIvcProof(
     // Write the bytecode to the working directory
     log(`bytecodePath ${bytecodeStackPath}`);
     log(`outputPath ${outputPath}`);
-    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
+    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v', recursive ? '--recursive' : ''];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`client ivc proof BB out - ${message}`);
@@ -263,6 +265,7 @@ export async function computeVerificationKey(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  recursive: boolean,
   flavor: UltraHonkFlavor | 'mega_honk',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
@@ -294,10 +297,11 @@ export async function computeVerificationKey(
     const logFunction = (message: string) => {
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
+    const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
     let result = await executeBB(
       pathToBB,
       `write_vk_${flavor}`,
-      ['-o', outputPath, '-b', bytecodePath, '-v'],
+      args,
       logFunction,
     );
     if (result.status == BB_RESULT.FAILURE) {
@@ -345,6 +349,7 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: LogFn,
@@ -373,7 +378,7 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
-    const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v'];
+    const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v', recursive ? '--recursive' : ''];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
@@ -840,6 +845,7 @@ export async function generateContractForCircuit(
   workingDirectory: string,
   circuitName: string,
   compiledCircuit: NoirCompiledCircuit,
+  recursive: boolean,
   contractName: string,
   log: LogFn,
   force = false,
@@ -849,6 +855,7 @@ export async function generateContractForCircuit(
     workingDirectory,
     circuitName,
     compiledCircuit,
+    recursive,
     'ultra_keccak_honk',
     log,
     force,

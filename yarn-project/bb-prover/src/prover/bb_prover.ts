@@ -504,11 +504,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Now prove the circuit from the generated witness
     logger.debug(`Proving ${circuitType}...`);
 
+    // All `ServerProtocolArtifact` types are recursive.
+    const recursive = true;
+
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
       workingDirectory,
       circuitType,
       Buffer.from(artifact.bytecode, 'base64'),
+      recursive,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
       logger.debug,

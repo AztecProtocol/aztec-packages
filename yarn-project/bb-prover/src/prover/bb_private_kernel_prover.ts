@@ -89,6 +89,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private async _createClientIvcProof(
     directory: string,
     acirs: Buffer[],
+    recursive: boolean,
     witnessStack: WitnessMap[],
   ): Promise<ClientIvcProof> {
     // TODO(#7371): Longer term we won't use this hacked together msgpack format
@@ -103,6 +104,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       directory,
       path.join(directory, 'acir.msgpack'),
       path.join(directory, 'witnesses.msgpack'),
+      recursive,
       this.log.info,
     );
 
@@ -185,11 +187,12 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
 
   public async computeAppCircuitVerificationKey(
     bytecode: Buffer,
+    recursive: boolean,
     appCircuitName?: string,
   ): Promise<AppCircuitSimulateOutput> {
     const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
-      return await this.computeVerificationKey(directory, bytecode, 'App', appCircuitName);
+      return await this.computeVerificationKey(directory, bytecode, recursive, 'App', appCircuitName);
     };
 
     return await this.runInDirectory(operation);

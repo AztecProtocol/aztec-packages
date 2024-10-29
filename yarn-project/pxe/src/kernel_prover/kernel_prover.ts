@@ -118,7 +118,9 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
+      // TODO(#6185): Should this be recursive or not? Only the last one?
+      const recursive = true;
+      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, recursive, functionName);
       // TODO(#7368): This used to be associated with getDebugFunctionName
       // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);

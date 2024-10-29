@@ -79,8 +79,8 @@ export class UltraPlonkBackend {
    * Instead of passing the proof and verification key as a byte array, we pass them
    * as fields which makes it cheaper to verify in a circuit.
    *
-   * The proof that is passed here will have been created using a circuit
-   * that has the #[recursive] attribute on its `main` method.
+   * The proof that is passed here will have been created by passing the `recursive`
+   * parameter to a backend.
    *
    * The number of public inputs denotes how many public inputs are in the inner proof.
    *
