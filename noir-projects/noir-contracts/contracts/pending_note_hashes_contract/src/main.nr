@@ -38,15 +38,14 @@ contract PendingNoteHashes {
     ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note
         owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
         ));
 
@@ -72,10 +71,8 @@ contract PendingNoteHashes {
 
         assert(notes.len() == 0);
 
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
-
         // Insert note
-        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+        let mut note = ValueNote::new(amount, owner);
         owner_balance.insert(&mut note).discard();
 
         0
@@ -90,15 +87,14 @@ contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note
         owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
         ));
     }
@@ -114,16 +110,15 @@ contract PendingNoteHashes {
     ) {
         let mut owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
         note.randomness = 2;
 
         // Insert note
         owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
         ));
     }
@@ -134,18 +129,17 @@ contract PendingNoteHashes {
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let mut owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note
         let emission = owner_balance.insert(&mut note);
 
-        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_keys.ovpk_m, owner));
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner));
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_keys.ovpk_m, owner));
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -357,28 +351,26 @@ contract PendingNoteHashes {
     fn test_emit_bad_note_log(owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let owner_npk_m_hash = owner_keys.npk_m.hash();
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut good_note = ValueNote::new(10, owner_npk_m_hash);
+        let mut good_note = ValueNote::new(10, owner);
         // Insert good note with real log
         owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
         ));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
         // This note has not been inserted...
-        let mut bad_note = ValueNote::new(5, owner_npk_m_hash);
+        let mut bad_note = ValueNote::new(5, owner);
         // ...but we need a 'good' note header to get the context to add the note log
         let existing_note_header = good_note.get_header();
         bad_note.set_header(existing_note_header);
 
         NoteEmission::new(bad_note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
         ));
     }
@@ -392,12 +384,10 @@ contract PendingNoteHashes {
     ) {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let owner_npk_m_hash = owner_keys.npk_m.hash();
         let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         for i in 0..max_notes_per_call() {
-            let mut note = ValueNote::new(i as Field, owner_npk_m_hash);
+            let mut note = ValueNote::new(i as Field, owner);
             owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
                 context,
                 outgoing_viewer_ovpk_m,

@@ -569,8 +569,8 @@ contract AvmTest {
         let _ = read_storage_map(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
         let _ = keccak_hash(args_u8);
-        dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = sha256_hash(args_u8);
+        // dep::aztec::oracle::debug_log::debug_log("sha256_hash");
+        // let _ = sha256_hash(args_u8);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
         let _ = poseidon2_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
@@ -617,9 +617,9 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        //let _ = nested_call_to_add(1, 2);
-        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        //let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
     }
 }
