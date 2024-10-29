@@ -643,7 +643,15 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        test: [test-transfer.sh, test-4epochs.sh]
+        scenario:
+          - validators: 3
+            test: test-transfer.sh
+          - validators: 3
+            test: test-4epochs.sh}
+          - validators: 16
+            test: test-4epochs.sh}
+          - validators: 48
+            test: test-4epochs.sh}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -653,8 +661,8 @@ jobs:
       - name: "Setup and Local Network Tests"
         timeout-minutes: 60
         # Only allow transfer test to run on every (non-network-all) PR
-        if: matrix.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
-        run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
+        if: matrix.scenario.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+        run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.scenario.test }} --validators=${{ matrix.scenario.validators }}
 
   # note: proving disabled
   kind-network-test:

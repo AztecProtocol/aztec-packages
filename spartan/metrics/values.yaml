@@ -28,9 +28,6 @@ opentelemetry-collector:
       protocol: TCP
 
   presets:
-    logsCollection:
-      enabled: true
-      includeCollectorLogs: true
     kubernetesAttributes:
       enabled: true
   config:

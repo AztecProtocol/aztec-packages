@@ -34,4 +34,4 @@ echo "ETHEREUM_HOST: $ETHEREUM_HOST"
 
 # hack to ensure L2 contracts are considered deployed
 touch $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env
-bash -x $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/test-transfer.sh
+bash -x $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/test-4epochs.sh

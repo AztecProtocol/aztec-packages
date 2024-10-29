@@ -69,7 +69,7 @@ export function registerOtelLoggerProvider(resource: IResource, otelLogsUrl?: UR
     return loggerProvider;
   }
   const logExporter = new OTLPLogExporter({
-    url: otelLogsUrl.toString(),
+    url: otelLogsUrl.href,
   });
   // Add a processor to the logger provider
   loggerProvider.addLogRecordProcessor(new SimpleLogRecordProcessor(logExporter));
