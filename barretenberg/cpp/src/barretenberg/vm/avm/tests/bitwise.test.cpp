@@ -118,6 +118,7 @@ void common_validate_shift_op(std::vector<Row> const& trace,
     EXPECT_EQ(row->main_rwa, FF(0));
 
     // Check that ib register is correctly set with memory load operations.
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
     // EXPECT_EQ(row->main_ib, b);
     // EXPECT_EQ(row->main_mem_addr_b, addr_b);
     // EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
