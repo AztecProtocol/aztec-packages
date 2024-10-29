@@ -43,8 +43,9 @@ import {
   type Contract,
   type DebugLogger,
   Fr,
-  GrumpkinScalar, createDebugLogger,
-  sleep
+  GrumpkinScalar,
+  createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
@@ -61,8 +62,8 @@ import * as fs from 'fs';
 import { getContract } from 'viem';
 
 import { addAccounts } from './fixtures/snapshot_manager.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -178,11 +179,7 @@ class TestVariant {
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      await Promise.all(
-        this.wallets.map((w, _) =>
-          mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT),
-        ),
-      );
+      await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
     }
   }
 
