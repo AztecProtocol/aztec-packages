@@ -781,24 +781,17 @@ export class TXE implements TypedOracle {
 
   // AVM oracles
 
-  async avmOpcodeCall(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    args: Fr[],
-    isStaticCall: boolean,
-  ) {
+  async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean) {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
     const currentMessageSender = AztecAddress.fromField(this.msgSender);
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
 
     const callContext = new CallContext(
       /* msgSender */ currentContractAddress,
       targetContractAddress,
-      functionSelector,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       isStaticCall,
     );
 
@@ -821,7 +814,6 @@ export class TXE implements TypedOracle {
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
 
     return executionResult;
   }

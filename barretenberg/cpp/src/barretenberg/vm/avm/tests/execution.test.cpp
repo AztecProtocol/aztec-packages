@@ -2101,31 +2101,33 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                + to_hex(AvmMemoryTag::U32) +
                                "07" // val
                                "01" +
-                               to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset
-                               "0001"                         // copy_size
-                               "0000"                         // dst_offset
-                               + bytecode_preamble            // Load up memory offsets
-                               + to_hex(OpCode::CALL) +       // opcode CALL
-                               "003f"                         // Indirect flag
-                               "0011"                         // gas offset
-                               "0012"                         // addr offset
-                               "0013"                         // args offset
-                               "0014"                         // args size offset
-                               "0015"                         // ret offset
-                               "0002"                         // ret size
-                               "0016"                         // success offset
-                               "0017"                         // function_selector_offset
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "0100"                         // ret offset 8
-                               "0003";                        // ret size 3 (extra read is for the success flag)
+                               to_hex(OpCode::CALLDATACOPY) +     // opcode CALLDATACOPY
+                               "00"                               // Indirect flag
+                               "0000"                             // cd_offset
+                               "0001"                             // copy_size
+                               "0000"                             // dst_offset
+                               + bytecode_preamble                // Load up memory offsets
+                               + to_hex(OpCode::CALL) +           // opcode CALL
+                               "001f"                             // Indirect flag
+                               "0011"                             // gas offset
+                               "0012"                             // addr offset
+                               "0013"                             // args offset
+                               "0014"                             // args size offset
+                               "0016"                             // success offset
+                               + to_hex(OpCode::RETURNDATACOPY) + // opcode RETURNDATACOPY
+                               "00"                               // Indirect flag
+                               "0011"                             // start offset (0)
+                               "0012"                             // ret size (2)
+                               "0100"                             // dst offset
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0100"                             // ret offset 8
+                               "0003";                            // ret size 3 (extra read is for the success flag)
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    std::vector<FF> returndata = {};
+    std::vector<FF> returndata;
 
     // Generate Hint for call operation
     auto execution_hints = ExecutionHints().with_externalcall_hints({ {
@@ -2219,7 +2221,6 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
 TEST_F(AvmExecutionTests, opGetContractInstanceOpcodeBadEnum)
 {
     const uint8_t address_byte = 0x42;
-    const FF address(address_byte);
 
     std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
                                "00"                                                // Indirect flag

@@ -77,16 +77,10 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/9061): modify call opcode and remove <0>.
-        let (_, success) = call::<0>(
-            gas_for_call(gas_opts),
-            contract_address,
-            args,
-            PUBLIC_DISPATCH_SELECTOR,
-        );
+        let success = call(gas_for_call(gas_opts), contract_address, args);
 
         let result_data = returndata_copy(0, returndata_size());
-        if success == 0 {
+        if !success {
             // Rethrow the revert data.
             avm_revert(result_data);
         }
@@ -101,16 +95,10 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/9061): modify call_static opcode and remove <0>.
-        let (_, success) = call_static::<0>(
-            gas_for_call(gas_opts),
-            contract_address,
-            args,
-            PUBLIC_DISPATCH_SELECTOR,
-        );
+        let success = call_static(gas_for_call(gas_opts), contract_address, args);
 
         let result_data = returndata_copy(0, returndata_size());
-        if success == 0 {
+        if !success {
             // Rethrow the revert data.
             avm_revert(result_data);
         }
@@ -277,21 +265,11 @@ unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> 
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
-unconstrained fn call<let RET_SIZE: u32>(
-    gas: [Field; 2],
-    address: AztecAddress,
-    args: [Field],
-    function_selector: Field,
-) -> ([Field; RET_SIZE], u8) {
-    call_opcode(gas, address, args, function_selector)
+unconstrained fn call(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
+    call_opcode(gas, address, args)
 }
-unconstrained fn call_static<let RET_SIZE: u32>(
-    gas: [Field; 2],
-    address: AztecAddress,
-    args: [Field],
-    function_selector: Field,
-) -> ([Field; RET_SIZE], u8) {
-    call_static_opcode(gas, address, args, function_selector)
+unconstrained fn call_static(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
+    call_static_opcode(gas, address, args)
 }
 
 pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
@@ -417,24 +395,18 @@ unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 unconstrained fn revert_opcode(revertdata: [Field]) {}
 
 #[oracle(avmOpcodeCall)]
-unconstrained fn call_opcode<let RET_SIZE: u32>(
+unconstrained fn call_opcode(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
-    // TODO(5110): consider passing in calldata directly
-    function_selector: Field,
-) -> ([Field; RET_SIZE], u8) {}
-//    ^ return data      ^ success
+) -> bool {}
 
 #[oracle(avmOpcodeStaticCall)]
-unconstrained fn call_static_opcode<let RET_SIZE: u32>(
+unconstrained fn call_static_opcode(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
-    // TODO(5110): consider passing in calldata directly
-    function_selector: Field,
-) -> ([Field; RET_SIZE], u8) {}
-//    ^ return data      ^ success
+) -> bool {}
 
 #[oracle(avmOpcodeStorageRead)]
 unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
