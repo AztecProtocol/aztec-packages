@@ -209,8 +209,6 @@ describe('Aztec persistence', () => {
     });
 
     it('pxe does not know of the deployed contract', async () => {
-      await context.pxe.registerRecipient(ownerAddress);
-
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
       await expect(TokenBlacklistContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
@@ -220,7 +218,6 @@ describe('Aztec persistence', () => {
         artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
-      await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
       const contract = await TokenBlacklistContract.at(contractAddress, wallet);
