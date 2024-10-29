@@ -117,7 +117,7 @@ export async function generateKeyForNoirCircuit(
   compiledCircuit: NoirCompiledCircuit,
   flavor: UltraHonkFlavor,
   log: LogFn,
-  force = true,
+  force = false,
 ): Promise<BBSuccess | BBFailure> {
   const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
@@ -845,7 +845,7 @@ export async function generateContractForCircuit(
   compiledCircuit: NoirCompiledCircuit,
   contractName: string,
   log: LogFn,
-  force = true,
+  force = false,
 ) {
   const vkResult = await generateKeyForNoirCircuit(
     pathToBB,
