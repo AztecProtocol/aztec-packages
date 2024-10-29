@@ -265,11 +265,7 @@ class UltraFlavor {
                                ShiftedEntities<DataType>::get_shifted_witnesses());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:
