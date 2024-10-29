@@ -9,13 +9,13 @@ fn main(
     public_inputs: pub [Field; 1],
     // This is currently not public. It is fine given that the vk is a part of the circuit definition.
     // I believe we want to eventually make it public too though.
-    key_hash: Field
+    key_hash: Field,
 ) {
     std::verify_proof_with_type(
         verification_key,
         proof,
         public_inputs,
         key_hash,
-        HONK_IDENTIFIER
+        HONK_IDENTIFIER,
     );
 }
