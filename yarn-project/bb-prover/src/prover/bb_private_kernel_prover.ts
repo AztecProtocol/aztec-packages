@@ -54,6 +54,7 @@ import {
   PROOF_FILENAME,
   computeVerificationKey,
   executeBbClientIvcProof,
+  getGateCount,
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
@@ -222,6 +223,26 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     }
 
     this.log.info(`Successfully verified ${circuitType} proof in ${Math.ceil(result.durationMs)} ms`);
+  }
+
+  public async getGateCount(
+    circuitName: string,
+    bytecode: Buffer,
+    logFunction: (message: string) => void = () => {},
+  ): Promise<number> {
+    const result = await getGateCount(
+      this.bbBinaryPath,
+      this.bbWorkingDirectory,
+      circuitName,
+      bytecode,
+      'mega_honk',
+      logFunction,
+    );
+    if (result.status === BB_RESULT.FAILURE) {
+      throw new Error(result.reason);
+    }
+
+    return result.circuitSize as number;
   }
 
   private async verifyProofFromKey(

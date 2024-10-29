@@ -28,6 +28,8 @@ export type PrivateKernelSimulateOutput<PublicInputsType> = {
   outputWitness: WitnessMap;
 
   bytecode: Buffer;
+
+  gateCountPerCircuit?: { circuitName: string, gateCount: number }[];
 };
 
 /**
@@ -98,4 +100,6 @@ export interface PrivateKernelProver {
    * @returns A Promise resolving to a Proof object
    */
   computeAppCircuitVerificationKey(bytecode: Buffer, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
+
+  getGateCount(circuitName: string, bytecode: Buffer): Promise<number>;
 }

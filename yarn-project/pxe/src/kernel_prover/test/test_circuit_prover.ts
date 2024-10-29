@@ -107,6 +107,10 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public getGateCount(circuitName: string, bytecode: Buffer): Promise<number> {
+    return Promise.resolve(0);
+  }
+
   computeAppCircuitVerificationKey(
     _bytecode: Buffer,
     _appCircuitName?: string | undefined,
