@@ -66,8 +66,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        values_file:
-          ["3-validators.yaml"]
+        values_file: ["3-validators.yaml", "16-validators.yaml"]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
