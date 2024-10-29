@@ -367,6 +367,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     // has been integrated into noir kernel programs
     bool is_kernel = false;
     for (Program& program : folding_stack) {
+        // TODO(#6185): Should `recursive` only be applied on the last one?
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit =
             create_circuit<Builder>(program.constraints, recursive, 0, program.witness, false, ivc.goblin.op_queue);

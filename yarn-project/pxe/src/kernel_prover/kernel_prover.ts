@@ -86,8 +86,8 @@ export class KernelProver {
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
 
-    // TODO(#6185): Should this be recursive or not? Only the last one?
-    const recursive = true;
+    // TODO(#6185): The PrivateKernel**Builder here are ClientCircuitArtifact which are not recursive.
+    const recursive = false;
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -121,7 +121,11 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, recursive, functionName);
+      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
+        currentExecution.acir,
+        recursive,
+        functionName,
+      );
       // TODO(#7368): This used to be associated with getDebugFunctionName
       // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
