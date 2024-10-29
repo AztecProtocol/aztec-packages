@@ -2726,9 +2726,9 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    // TODO: This is wrong because we may not be using all of it!
-    // The return data hint is used for now, we check it has the same length as the ret_size
-    // ASSERT(hint.return_data.size() == ret_size);
+    // The hint contains the FULL return data.
+    // TODO: Don't fail if we ask for too much data.
+    ASSERT(ret_size <= hint.return_data.size());
 
     // Write the return data to memory
     write_slice_to_memory(resolved_ret_offset,
