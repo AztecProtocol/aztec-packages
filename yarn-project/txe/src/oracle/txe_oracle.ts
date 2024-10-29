@@ -82,6 +82,8 @@ export class TXE implements TypedOracle {
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
+  // Return/revert data of the latest nested call.
+  private nestedCallReturndata: Fr[] = [];
 
   private contractDataOracle: ContractDataOracle;
 
@@ -801,6 +803,8 @@ export class TXE implements TypedOracle {
     );
 
     const executionResult = await this.executePublicFunction(args, callContext, this.sideEffectsCounter);
+    // Save return/revert data for later.
+    this.nestedCallReturndata = executionResult.returnValues;
 
     // Apply side effects
     if (!executionResult.reverted) {
@@ -820,6 +824,14 @@ export class TXE implements TypedOracle {
     this.setFunctionSelector(currentFunctionSelector);
 
     return executionResult;
+  }
+
+  avmOpcodeReturndataSize(): number {
+    return this.nestedCallReturndata.length;
+  }
+
+  avmOpcodeReturndataCopy(rdOffset: number, copySize: number): Fr[] {
+    return this.nestedCallReturndata.slice(rdOffset, rdOffset + copySize);
   }
 
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
