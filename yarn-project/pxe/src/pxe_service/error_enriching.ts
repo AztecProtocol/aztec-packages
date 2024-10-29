@@ -71,10 +71,10 @@ export async function enrichPublicSimulationError(
   const noirCallStack = err.getNoirCallStack();
   if (debugInfo) {
     if (isNoirCallStackUnresolved(noirCallStack)) {
-      const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
-      if (assertionMessage) {
-        err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
-      }
+      // const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
+      // if (assertionMessage) {
+      //   err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
+      // }
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.

@@ -10,7 +10,7 @@ use acir::{
             AcirFunctionId, BlockId, ConstantOrWitnessEnum, FunctionInput, InvalidInputBitSize,
         },
         AssertionPayload, ErrorSelector, ExpressionOrMemory, Opcode, OpcodeLocation,
-        RawAssertionPayload, ResolvedAssertionPayload, STRING_ERROR_SELECTOR,
+        RawAssertionPayload, ResolvedAssertionPayload,
     },
     native_types::{Expression, Witness, WitnessMap},
     AcirField, BlackBoxFunc,
@@ -445,59 +445,32 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> ACVM<'a, F, B> {
         &self,
         location: OpcodeLocation,
     ) -> Option<ResolvedAssertionPayload<F>> {
-        let (_, found_assertion_payload) =
+        let (_, assertion_descriptor) =
             self.assertion_payloads.iter().find(|(loc, _)| location == *loc)?;
-        match found_assertion_payload {
-            AssertionPayload::StaticString(string) => {
-                Some(ResolvedAssertionPayload::String(string.clone()))
-            }
-            AssertionPayload::Dynamic(error_selector, expression) => {
-                let mut fields = vec![];
-                for expr in expression {
-                    match expr {
-                        ExpressionOrMemory::Expression(expr) => {
-                            let value = get_value(expr, &self.witness_map).ok()?;
-                            fields.push(value);
-                        }
-                        ExpressionOrMemory::Memory(block_id) => {
-                            let memory_block = self.block_solvers.get(block_id)?;
-                            fields.extend((0..memory_block.block_len).map(|memory_index| {
-                                *memory_block
-                                    .block_value
-                                    .get(&memory_index)
-                                    .expect("All memory is initialized on creation")
-                            }));
-                        }
-                    }
+        let mut fields = vec![];
+        for expr in assertion_descriptor.payload.iter() {
+            match expr {
+                ExpressionOrMemory::Expression(expr) => {
+                    let value = get_value(expr, &self.witness_map).ok()?;
+                    fields.push(value);
                 }
-                let error_selector = ErrorSelector::new(*error_selector);
-
-                Some(match error_selector {
-                    STRING_ERROR_SELECTOR => {
-                        // If the error selector is 0, it means the error is a string
-                        let string = fields
-                            .iter()
-                            .map(|field| {
-                                let as_u8: u8 = field
-                                    .try_to_u64()
-                                    .expect("String character doesn't fit in u64")
-                                    .try_into()
-                                    .expect("String character doesn't fit in u8");
-                                as_u8 as char
-                            })
-                            .collect();
-                        ResolvedAssertionPayload::String(string)
-                    }
-                    _ => {
-                        // If the error selector is not 0, it means the error is a custom error
-                        ResolvedAssertionPayload::Raw(RawAssertionPayload {
-                            selector: error_selector,
-                            data: fields,
-                        })
-                    }
-                })
+                ExpressionOrMemory::Memory(block_id) => {
+                    let memory_block = self.block_solvers.get(block_id)?;
+                    fields.extend((0..memory_block.block_len).map(|memory_index| {
+                        *memory_block
+                            .block_value
+                            .get(&memory_index)
+                            .expect("All memory is initialized on creation")
+                    }));
+                }
             }
         }
+        let error_selector = ErrorSelector::new(assertion_descriptor.error_selector);
+
+        Some(ResolvedAssertionPayload::Raw(RawAssertionPayload {
+            selector: error_selector,
+            data: fields,
+        }))
     }
 
     fn solve_brillig_call_opcode(
@@ -530,7 +503,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> ACVM<'a, F, B> {
             )?,
         };
 
-        let result = solver.solve().map_err(|err| self.map_brillig_error(err))?;
+        let result = solver.solve()?;
 
         match result {
             BrilligSolverStatus::ForeignCallWait(foreign_call) => {
@@ -567,31 +540,6 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> ACVM<'a, F, B> {
 
                 Ok(None)
             }
-        }
-    }
-
-    fn map_brillig_error(&self, mut err: OpcodeResolutionError<F>) -> OpcodeResolutionError<F> {
-        match &mut err {
-            OpcodeResolutionError::BrilligFunctionFailed { call_stack, payload, .. } => {
-                // Some brillig errors have static strings as payloads, we can resolve them here
-                let last_location =
-                    call_stack.last().expect("Call stacks should have at least one item");
-                let assertion_descriptor =
-                    self.assertion_payloads.iter().find_map(|(loc, payload)| {
-                        if loc == last_location {
-                            Some(payload)
-                        } else {
-                            None
-                        }
-                    });
-
-                if let Some(AssertionPayload::StaticString(string)) = assertion_descriptor {
-                    *payload = Some(ResolvedAssertionPayload::String(string.clone()));
-                }
-
-                err
-            }
-            _ => err,
         }
     }
 

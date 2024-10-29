@@ -5,6 +5,18 @@ import { type FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
 /**
+ * An error could be a custom error of any regular type or a string error.
+ */
+export type AbiErrorType =
+  | { error_kind: 'string'; string: string }
+  | {
+      error_kind: 'fmtstring';
+      length: number;
+      item_types: AbiType[];
+    }
+  | ({ error_kind: 'custom' } & AbiType);
+
+/**
  * A basic value.
  */
 export interface BasicValue<T extends string, V> {
@@ -194,6 +206,8 @@ export interface FunctionAbi {
    * The types of the return values.
    */
   returnTypes: AbiType[];
+
+  errorTypes: Partial<Record<string, AbiErrorType>>;
   /**
    * Whether the function is flagged as an initializer.
    */
@@ -210,10 +224,6 @@ export interface FunctionArtifact extends FunctionAbi {
   verificationKey?: string;
   /** Maps opcodes to source code pointers */
   debugSymbols: string;
-  /**
-   * Public functions store their static assertion messages externally to the bytecode.
-   */
-  assertMessages?: Record<number, string>;
   /** Debug metadata for the function. */
   debug?: FunctionDebugMetadata;
 }
@@ -390,7 +400,7 @@ export interface FunctionDebugMetadata {
   /**
    * Public functions store their static assertion messages externally to the bytecode.
    */
-  assertMessages?: Record<number, string>;
+  errorTypes: Partial<Record<string, AbiErrorType>>;
 }
 
 /**
@@ -432,7 +442,7 @@ export function getFunctionDebugMetadata(
     return {
       debugSymbols: programDebugSymbols.debug_infos[0],
       files: contractArtifact.fileMap,
-      assertMessages: functionArtifact.assertMessages,
+      errorTypes: functionArtifact.errorTypes,
     };
   }
   return undefined;

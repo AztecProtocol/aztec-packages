@@ -45,7 +45,9 @@ PARALLEL_VK=${PARALLEL_VK:-true}
 if [[ AVAILABLE_MEMORY -gt MIN_PARALLEL_VK_GENERATION_MEMORY ]] && [[ $PARALLEL_VK == "true" ]]; then
   echo "Generating vks in parallel..."
   for pathname in "./target"/*.json; do
-      BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
+      if [[ $pathname != *"_simulated_"* ]]; then
+        BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
+      fi
   done
 
   for job in $(jobs -p); do

@@ -22,6 +22,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const field = Fr.random();
@@ -47,6 +48,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const arr = [Fr.random(), Fr.random()];
@@ -71,6 +73,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const str = 'abc';
@@ -103,6 +106,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const address = AztecAddress.random();
@@ -139,6 +143,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const value = Fr.random();
@@ -164,6 +169,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
     const args = ['garbage'];
 
@@ -189,6 +195,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
     const args = ['garbage'];
     expect(() => encodeArguments(testFunctionAbi, args)).toThrow(`Cannot convert garbage to a BigInt`);
@@ -211,6 +218,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
     const args = [
       {

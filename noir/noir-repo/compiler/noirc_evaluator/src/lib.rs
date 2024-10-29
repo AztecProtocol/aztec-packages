@@ -12,3 +12,5 @@ pub mod ssa;
 pub mod brillig;
 
 pub use ssa::create_program;
+
+pub use ssa::ir::instruction::ErrorType;

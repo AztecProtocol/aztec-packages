@@ -82,9 +82,9 @@ pub enum ExpressionOrMemory<F> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AssertionPayload<F> {
-    StaticString(String),
-    Dynamic(/* error_selector */ u64, Vec<ExpressionOrMemory<F>>),
+pub struct AssertionPayload<F> {
+    pub error_selector: u64,
+    pub payload: Vec<ExpressionOrMemory<F>>,
 }
 
 #[derive(Debug, Copy, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
@@ -119,12 +119,6 @@ impl<'de> Deserialize<'de> for ErrorSelector {
         Ok(ErrorSelector(as_u64))
     }
 }
-
-/// This selector indicates that the payload is a string.
-/// This is used to parse any error with a string payload directly,
-/// to avoid users having to parse the error externally to the ACVM.
-/// Only non-string errors need to be parsed externally to the ACVM using the circuit ABI.
-pub const STRING_ERROR_SELECTOR: ErrorSelector = ErrorSelector(0);
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct RawAssertionPayload<F> {

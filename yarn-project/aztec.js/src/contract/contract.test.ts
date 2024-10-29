@@ -87,6 +87,7 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
       },
       {
@@ -97,6 +98,7 @@ describe('Contract Class', () => {
         isInternal: false,
         parameters: [],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
@@ -124,6 +126,7 @@ describe('Contract Class', () => {
         ],
         bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
+        errorTypes: {},
       },
     ],
     outputs: {

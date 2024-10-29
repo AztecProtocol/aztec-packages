@@ -1,8 +1,10 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
+use acvm::acir::circuit::ErrorSelector;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::brillig::brillig_ir::procedures::ProcedureId;
 use crate::ssa::ir::{basic_block::BasicBlockId, dfg::CallStack, function::FunctionId};
+use crate::ErrorType;
 
 /// Represents a parameter or a return value of an entry point function.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -22,7 +24,7 @@ pub(crate) enum BrilligParameter {
 pub(crate) struct GeneratedBrillig<F> {
     pub(crate) byte_code: Vec<BrilligOpcode<F>>,
     pub(crate) locations: BTreeMap<OpcodeLocation, CallStack>,
-    pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
+    pub(crate) error_types: BTreeMap<ErrorSelector, ErrorType>,
     pub(crate) name: String,
 }
 
@@ -31,10 +33,7 @@ pub(crate) struct GeneratedBrillig<F> {
 /// It includes the bytecode of the function and all the metadata that allows linking with other functions.
 pub(crate) struct BrilligArtifact<F> {
     pub(crate) byte_code: Vec<BrilligOpcode<F>>,
-    /// A map of bytecode positions to assertion messages.
-    /// Some error messages (compiler intrinsics) are not emitted via revert data,
-    /// instead, they are handled externally so they don't add size to user programs.
-    pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
+    pub(crate) error_types: BTreeMap<ErrorSelector, ErrorType>,
     /// The set of jumps that need to have their locations
     /// resolved.
     unresolved_jumps: Vec<(JumpInstructionPosition, UnresolvedJumpLocation)>,
@@ -147,7 +146,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
         GeneratedBrillig {
             byte_code: self.byte_code,
             locations: self.locations,
-            assert_messages: self.assert_messages,
+            error_types: self.error_types,
             name: self.name,
         }
     }
@@ -165,6 +164,10 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
     pub(crate) fn link_with(&mut self, obj: &BrilligArtifact<F>) {
         // Add the unresolved jumps of the linked function to this artifact.
         self.add_unresolved_jumps_and_calls(obj);
+
+        for (error_selector, error_type) in &obj.error_types {
+            self.error_types.insert(*error_selector, error_type.clone());
+        }
 
         let mut byte_code = obj.byte_code.clone();
 
@@ -209,10 +212,6 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
 
         for (position_in_bytecode, label_id) in &obj.unresolved_external_call_labels {
             self.unresolved_external_call_labels.push((position_in_bytecode + offset, *label_id));
-        }
-
-        for (position_in_bytecode, message) in &obj.assert_messages {
-            self.assert_messages.insert(position_in_bytecode + offset, message.clone());
         }
 
         for (position_in_bytecode, call_stack) in obj.locations.iter() {
@@ -325,10 +324,5 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
 
     pub(crate) fn set_call_stack(&mut self, call_stack: CallStack) {
         self.call_stack = call_stack;
-    }
-
-    pub(crate) fn add_assert_message_to_last_opcode(&mut self, message: String) {
-        let position = self.index_of_next_opcode() - 1;
-        self.assert_messages.insert(position, message);
     }
 }

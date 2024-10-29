@@ -86,6 +86,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     } as FunctionAbi;
   }
 }

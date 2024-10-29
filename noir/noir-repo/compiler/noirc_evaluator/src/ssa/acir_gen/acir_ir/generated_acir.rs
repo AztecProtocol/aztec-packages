@@ -5,13 +5,16 @@ use std::{collections::BTreeMap, u32};
 use crate::{
     brillig::{brillig_gen::brillig_directive, brillig_ir::artifact::GeneratedBrillig},
     errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::dfg::CallStack,
+    ssa::ir::{
+        dfg::CallStack,
+        instruction::{error_selector_from_type, ErrorType},
+    },
 };
 use acvm::acir::{
     circuit::{
         brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
-        AssertionPayload, BrilligOpcodeLocation, OpcodeLocation,
+        AssertionPayload, BrilligOpcodeLocation, ErrorSelector, OpcodeLocation,
     },
     native_types::Witness,
     BlackBoxFunc,
@@ -61,6 +64,9 @@ pub(crate) struct GeneratedAcir<F: AcirField> {
 
     /// Correspondence between an opcode index and the error message associated with it.
     pub(crate) assertion_payloads: BTreeMap<OpcodeLocation, AssertionPayload<F>>,
+
+    /// Correspondence between error selectors and types associated with them.
+    pub(crate) error_types: BTreeMap<ErrorSelector, ErrorType>,
 
     pub(crate) warnings: Vec<SsaReport>,
 
@@ -576,15 +582,8 @@ impl<F: AcirField> GeneratedAcir<F> {
             return;
         }
 
-        // TODO(https://github.com/noir-lang/noir/issues/5792)
-        for (brillig_index, message) in generated_brillig.assert_messages.iter() {
-            self.assertion_payloads.insert(
-                OpcodeLocation::Brillig {
-                    acir_index: self.opcodes.len() - 1,
-                    brillig_index: *brillig_index,
-                },
-                AssertionPayload::StaticString(message.clone()),
-            );
+        for (error_selector, error_type) in generated_brillig.error_types.iter() {
+            self.record_error_type(*error_selector, error_type.clone());
         }
 
         if inserted_func_before {
@@ -618,6 +617,20 @@ impl<F: AcirField> GeneratedAcir<F> {
 
     pub(crate) fn last_acir_opcode_location(&self) -> OpcodeLocation {
         OpcodeLocation::Acir(self.opcodes.len() - 1)
+    }
+
+    pub(crate) fn record_error_type(&mut self, selector: ErrorSelector, typ: ErrorType) {
+        self.error_types.insert(selector, typ);
+    }
+
+    pub(crate) fn generate_assertion_message_payload(
+        &mut self,
+        message: String,
+    ) -> AssertionPayload<F> {
+        let error_type = ErrorType::String(message);
+        let error_selector = error_selector_from_type(&error_type);
+        self.record_error_type(error_selector, error_type);
+        AssertionPayload { error_selector: error_selector.as_u64(), payload: Vec::new() }
     }
 }
 

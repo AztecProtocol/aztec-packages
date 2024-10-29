@@ -1,7 +1,12 @@
 use acvm::{
-    acir::brillig::{HeapVector, MemoryAddress},
+    acir::{
+        brillig::{HeapVector, MemoryAddress},
+        circuit::ErrorSelector,
+    },
     AcirField,
 };
+
+use crate::{ssa::ir::instruction::error_selector_from_type, ErrorType};
 
 use super::{
     artifact::BrilligParameter,
@@ -152,7 +157,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         condition: SingleAddrVariable,
         revert_data_items: Vec<BrilligVariable>,
         revert_data_types: Vec<BrilligParameter>,
-        error_selector: u64,
+        error_selector: ErrorSelector,
     ) {
         assert!(condition.bit_size == 1);
 
@@ -169,7 +174,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             ctx.indirect_const_instruction(
                 current_revert_data_pointer,
                 64,
-                (error_selector as u128).into(),
+                (error_selector.as_u64() as u128).into(),
             );
 
             ctx.codegen_usize_op_in_place(current_revert_data_pointer, BrilligBinaryOp::Add, 1);
@@ -224,15 +229,27 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         assert!(condition.bit_size == 1);
 
         self.codegen_if_not(condition.address, |ctx| {
-            let revert_data_size_var = ctx.make_usize_constant_instruction(F::zero());
-            ctx.trap_instruction(HeapVector {
-                pointer: MemoryAddress::direct(0),
-                size: revert_data_size_var.address,
-            });
-            ctx.deallocate_single_addr(revert_data_size_var);
             if let Some(assert_message) = assert_message {
-                ctx.obj.add_assert_message_to_last_opcode(assert_message);
-            }
+                let error_type = ErrorType::String(assert_message);
+                let error_selector = error_selector_from_type(&error_type);
+                ctx.obj.error_types.insert(error_selector, error_type);
+                ctx.indirect_const_instruction(
+                    ReservedRegisters::free_memory_pointer(),
+                    64,
+                    (error_selector.as_u64() as u128).into(),
+                );
+                ctx.trap_instruction(HeapVector {
+                    pointer: ReservedRegisters::free_memory_pointer(),
+                    size: ReservedRegisters::usize_one(),
+                });
+            } else {
+                let revert_data = HeapVector {
+                    pointer: ReservedRegisters::free_memory_pointer(),
+                    size: ctx.make_usize_constant_instruction(0_usize.into()).address,
+                };
+                ctx.trap_instruction(revert_data);
+                ctx.deallocate_register(revert_data.size);
+            };
         });
     }
 
