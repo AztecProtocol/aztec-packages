@@ -3,6 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
+  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -117,7 +118,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return Promise.resolve(this.p2pClient.broadcastEpochProofQuote(quote));
+    return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
   }
 
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
@@ -164,7 +165,7 @@ export class AztecNodeService implements AztecNode {
     const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
-    const sequencer = config.disableSequencer
+    const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(
           config,
@@ -309,6 +310,16 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.encryptedLogsSource.getLogsByTags(tags);
+  }
+
+  /**
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
@@ -386,7 +397,7 @@ export class AztecNodeService implements AztecNode {
    * @returns - The tx if it exists.
    */
   public getTxByHash(txHash: TxHash) {
-    return Promise.resolve(this.p2pClient!.getTxByHash(txHash));
+    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
   }
 
   /**

@@ -73,6 +73,7 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 export {
   AztecAddress,
   EthAddress,
+  PublicKeys,
   Fq,
   Fr,
   GlobalVariables,
@@ -158,12 +159,7 @@ export { elapsed } from '@aztec/foundation/timer';
 export { type FieldsOf } from '@aztec/foundation/types';
 export { fileURLToPath } from '@aztec/foundation/url';
 
-export {
-  type DeployL1Contracts,
-  type L1ContractArtifactsForDeployment,
-  deployL1Contract,
-  deployL1Contracts,
-} from '@aztec/ethereum';
+export { type DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 
 // Start of section that exports public api via granular api.
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.

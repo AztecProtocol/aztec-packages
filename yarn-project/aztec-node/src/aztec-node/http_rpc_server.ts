@@ -1,5 +1,6 @@
 import {
   type AztecNode,
+  EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
   EpochProofQuote,
   ExtendedUnencryptedL2Log,
@@ -15,7 +16,7 @@ import {
   TxReceipt,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { FunctionSelector, Header } from '@aztec/circuits.js';
+import { FunctionSelector, Header, PublicKeys } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -44,10 +45,12 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       TxHash,
       Buffer32,
       PublicDataWitness,
+      PublicKeys,
       SiblingPath,
     },
     {
       EncryptedNoteL2BlockL2Logs,
+      EncryptedL2NoteLog,
       NoteSelector,
       NullifierMembershipWitness,
       PublicSimulationOutput,

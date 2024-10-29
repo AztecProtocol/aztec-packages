@@ -68,8 +68,8 @@ Now let's do the same for partial notes.
 
 ## Partial notes life cycle
 
-1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `TokenNote`),
-2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`, where each `G_` is a generator point for a specific field in the note,
+1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `UintNote`),
+2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `UintNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`, where each `G_` is a generator point for a specific field in the note,
 3. emit partial note log,
 4. pass the note hiding point to a public function,
 5. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the note hiding point (e.g. `NOTE_HIDING_POINT + G_amt * amount`),
@@ -104,7 +104,7 @@ $$
 
 We also need to create a point for the owner of the FPC (whom we call Bob) to receive the transaction fee, which will also need randomness.
 
-So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg_sender})$.
+So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg sender})$.
 
 :::warning
 We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L491) of `setup_refund` function)
@@ -116,7 +116,7 @@ $$
 
 Here, the $P'$s "partially encode" the notes that we are _going to create_ for Alice and Bob. So we can use points as "Partial Notes".
 
-We pass these points and the funded amount to public, and at the end of public execution, we compute tx fee point $P_{fee} := (\text{transaction fee}) * G_{amount}$ and refund point $P_{refund} := (\text{funded_amount - transaction_fee}) * G_{amount}$
+We pass these points and the funded amount to public, and at the end of public execution, we compute tx fee point $P_{fee} := (\text{transaction fee}) * G_{amount}$ and refund point $P_{refund} := (\text{funded amount} - \text{transaction fee}) * G_{amount}$
 
 Then, we arrive at the point that corresponds to the complete note by
 
@@ -136,7 +136,7 @@ Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
 
 This is implemented by applying the `partial_note` attribute:
 
-#include_code TokenNote noir-projects/noir-contracts/contracts/token_contract/src/types/token_note.nr rust
+#include_code UintNote noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
 Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-projects/aztec-nr/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
 

@@ -1,3 +1,3 @@
-l1-contracts.env
-l2-contracts.env
+state/*.env
+state/*.json
 *.log

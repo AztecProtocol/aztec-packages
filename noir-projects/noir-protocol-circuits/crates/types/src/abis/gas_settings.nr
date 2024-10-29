@@ -1,10 +1,11 @@
 use crate::{
     abis::{gas::Gas, gas_fees::GasFees},
     constants::{
-    GAS_SETTINGS_LENGTH, DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_MAX_FEE_PER_GAS,
-    DEFAULT_INCLUSION_FEE
-},
-    traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
+        DEFAULT_GAS_LIMIT, DEFAULT_INCLUSION_FEE, DEFAULT_MAX_FEE_PER_GAS,
+        DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH,
+    },
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct GasSettings {
@@ -19,7 +20,7 @@ impl GasSettings {
         gas_limits: Gas,
         teardown_gas_limits: Gas,
         max_fees_per_gas: GasFees,
-        inclusion_fee: Field
+        inclusion_fee: Field,
     ) -> Self {
         Self { gas_limits, teardown_gas_limits, max_fees_per_gas, inclusion_fee }
     }
@@ -29,7 +30,7 @@ impl GasSettings {
             Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
             Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
             GasFees::new(DEFAULT_MAX_FEE_PER_GAS, DEFAULT_MAX_FEE_PER_GAS),
-            DEFAULT_INCLUSION_FEE
+            DEFAULT_INCLUSION_FEE,
         )
     }
 }
@@ -69,7 +70,7 @@ impl Deserialize<GAS_SETTINGS_LENGTH> for GasSettings {
             reader.read_struct(Gas::deserialize),
             reader.read_struct(Gas::deserialize),
             reader.read_struct(GasFees::deserialize),
-            reader.read()
+            reader.read(),
         )
     }
 }

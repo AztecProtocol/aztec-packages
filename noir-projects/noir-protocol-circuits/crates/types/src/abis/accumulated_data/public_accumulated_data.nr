@@ -1,16 +1,21 @@
 use crate::{
     abis::{
-    public_data_update_request::PublicDataUpdateRequest, gas::Gas, note_hash::ScopedNoteHash,
-    nullifier::Nullifier, log_hash::{LogHash, ScopedLogHash}, public_call_request::PublicCallRequest
-},
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        gas::Gas,
+        log_hash::{LogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::Nullifier,
+        public_call_request::PublicCallRequest,
+        public_data_update_request::PublicDataUpdateRequest,
+    },
     constants::{
-    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS,
-    PUBLIC_ACCUMULATED_DATA_LENGTH
-},
-    traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_length, reader::Reader}
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS, PUBLIC_ACCUMULATED_DATA_LENGTH,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_length, reader::Reader},
 };
 
 pub struct PublicAccumulatedData {
@@ -38,9 +43,11 @@ impl Empty for PublicAccumulatedData {
             note_encrypted_logs_hashes: [LogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
             encrypted_logs_hashes: [ScopedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
             unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
-            public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            public_data_update_requests: [
+                PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+            ],
             public_call_stack: [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-            gas_used: Gas::empty()
+            gas_used: Gas::empty(),
         }
     }
 }
@@ -96,37 +103,37 @@ impl Deserialize<PUBLIC_ACCUMULATED_DATA_LENGTH> for PublicAccumulatedData {
         let item = PublicAccumulatedData {
             note_hashes: reader.read_struct_array(
                 ScopedNoteHash::deserialize,
-                [ScopedNoteHash::empty(); MAX_NOTE_HASHES_PER_TX]
+                [ScopedNoteHash::empty(); MAX_NOTE_HASHES_PER_TX],
             ),
             nullifiers: reader.read_struct_array(
                 Nullifier::deserialize,
-                [Nullifier::empty(); MAX_NULLIFIERS_PER_TX]
+                [Nullifier::empty(); MAX_NULLIFIERS_PER_TX],
             ),
             l2_to_l1_msgs: reader.read_struct_array(
                 ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX]
+                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             ),
             note_encrypted_logs_hashes: reader.read_struct_array(
                 LogHash::deserialize,
-                [LogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
+                [LogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
             ),
             encrypted_logs_hashes: reader.read_struct_array(
                 ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX]
+                [ScopedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
             ),
             unencrypted_logs_hashes: reader.read_struct_array(
                 ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]
+                [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             ),
             public_data_update_requests: reader.read_struct_array(
                 PublicDataUpdateRequest::deserialize,
-                [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+                [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             ),
             public_call_stack: reader.read_struct_array(
                 PublicCallRequest::deserialize,
-                [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
+                [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
             ),
-            gas_used: reader.read_struct(Gas::deserialize)
+            gas_used: reader.read_struct(Gas::deserialize),
         };
         reader.finish();
         item
@@ -141,8 +148,7 @@ impl Eq for PublicAccumulatedData {
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
             & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
-            & (self.public_data_update_requests
-                                    == other.public_data_update_requests)
+            & (self.public_data_update_requests == other.public_data_update_requests)
             & (self.public_call_stack == other.public_call_stack)
             & (self.gas_used == other.gas_used)
     }
@@ -169,7 +175,7 @@ impl PublicAccumulatedDataArrayLengths {
             encrypted_logs_hashes: array_length(data.encrypted_logs_hashes),
             unencrypted_logs_hashes: array_length(data.unencrypted_logs_hashes),
             public_data_update_requests: array_length(data.public_data_update_requests),
-            public_call_stack: array_length(data.public_call_stack)
+            public_call_stack: array_length(data.public_call_stack),
         }
     }
 }
@@ -184,7 +190,7 @@ impl Empty for PublicAccumulatedDataArrayLengths {
             encrypted_logs_hashes: 0,
             unencrypted_logs_hashes: 0,
             public_data_update_requests: 0,
-            public_call_stack: 0
+            public_call_stack: 0,
         }
     }
 }
@@ -197,8 +203,7 @@ impl Eq for PublicAccumulatedDataArrayLengths {
             & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
             & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
             & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
-            & (self.public_data_update_requests
-                                    == other.public_data_update_requests)
+            & (self.public_data_update_requests == other.public_data_update_requests)
             & (self.public_call_stack == other.public_call_stack)
     }
 }
@@ -221,7 +226,9 @@ impl Serialize<NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> for PublicAccumulatedDataArra
 }
 
 impl Deserialize<NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> for PublicAccumulatedDataArrayLengths {
-    fn deserialize(fields: [Field; NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS]) -> PublicAccumulatedDataArrayLengths {
+    fn deserialize(
+        fields: [Field; NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS],
+    ) -> PublicAccumulatedDataArrayLengths {
         let mut reader = Reader::new(fields);
 
         let item = Self {
@@ -232,7 +239,7 @@ impl Deserialize<NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> for PublicAccumulatedDataAr
             encrypted_logs_hashes: reader.read_u32(),
             unencrypted_logs_hashes: reader.read_u32(),
             public_data_update_requests: reader.read_u32(),
-            public_call_stack: reader.read_u32()
+            public_call_stack: reader.read_u32(),
         };
 
         reader.finish();

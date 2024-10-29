@@ -1,34 +1,47 @@
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
-    messaging::process_l1_to_l2_message, hash::{hash_args_array, ArgsHasher},
-    keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
+    hash::{ArgsHasher, hash_args_array},
+    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
+    messaging::process_l1_to_l2_message,
     oracle::{
-    key_validation_request::get_key_validation_request, arguments, returns::pack_returns,
-    call_private_function::call_private_function_internal, header::get_header_at,
-    logs::{emit_encrypted_note_log, emit_encrypted_event_log},
-    enqueue_public_function_call::{
-    enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
-    set_public_teardown_function_call_internal
-}
-}
+        arguments,
+        call_private_function::call_private_function_internal,
+        enqueue_public_function_call::{
+            enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
+            set_public_teardown_function_call_internal,
+        },
+        header::get_header_at,
+        key_validation_request::get_key_validation_request,
+        logs::{emit_encrypted_event_log, emit_encrypted_note_log},
+        returns::pack_returns,
+    },
 };
 use dep::protocol_types::{
     abis::{
-    call_context::CallContext, function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
-    validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
-    private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_request::PublicCallRequest, read_request::ReadRequest, note_hash::NoteHash,
-    nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
-},
+        call_context::CallContext,
+        function_selector::FunctionSelector,
+        log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
+        max_block_number::MaxBlockNumber,
+        note_hash::NoteHash,
+        nullifier::Nullifier,
+        private_call_request::PrivateCallRequest,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        public_call_request::PublicCallRequest,
+        read_request::ReadRequest,
+        validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
+    },
     address::{AztecAddress, EthAddress},
     constants::{
-    MAX_NOTE_HASHES_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-    MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, PUBLIC_DISPATCH_SELECTOR
-},
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::Empty
+        MAX_ENCRYPTED_LOGS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_DISPATCH_SELECTOR,
+    },
+    header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message,
+    traits::Empty,
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -52,10 +65,10 @@ pub struct PrivateContext {
     note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
 
-    private_call_requests : BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_requests : BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     public_teardown_call_request: PublicCallRequest,
-    l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
@@ -94,7 +107,7 @@ impl PrivateContext {
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES]
+            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }
 
@@ -103,7 +116,7 @@ impl PrivateContext {
     }
 
     fn this_address(self) -> AztecAddress {
-        self.inputs.call_context.storage_contract_address
+        self.inputs.call_context.contract_address
     }
 
     fn chain_id(self) -> Field {
@@ -127,11 +140,19 @@ impl PrivateContext {
     }
 
     fn push_nullifier(&mut self, nullifier: Field) {
-        self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() });
+        self.nullifiers.push(
+            Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
+        );
     }
 
     fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
-        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash, counter: self.next_counter() });
+        self.nullifiers.push(
+            Nullifier {
+                value: nullifier,
+                note_hash: nullified_note_hash,
+                counter: self.next_counter(),
+            },
+        );
     }
 
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
@@ -161,7 +182,9 @@ impl PrivateContext {
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
-            key_validation_requests_and_generators: self.key_validation_requests_and_generators.storage,
+            key_validation_requests_and_generators: self
+                .key_validation_requests_and_generators
+                .storage,
             note_hashes: self.note_hashes.storage,
             nullifiers: self.nullifiers.storage,
             private_call_requests: self.private_call_requests.storage,
@@ -174,12 +197,15 @@ impl PrivateContext {
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             historical_header: self.historical_header,
-            tx_context: self.inputs.tx_context
+            tx_context: self.inputs.tx_context,
         }
     }
 
     pub fn set_as_fee_payer(&mut self) {
-        dep::protocol_types::debug_log::debug_log_format("Setting {0} as fee payer", [self.this_address().to_field()]);
+        dep::protocol_types::debug_log::debug_log_format(
+            "Setting {0} as fee payer",
+            [self.this_address().to_field()],
+        );
         self.is_fee_payer = true;
     }
 
@@ -195,7 +221,8 @@ impl PrivateContext {
     // docs:start:max-block-number
     pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
         // docs:end:max-block-number
-        self.max_block_number = MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
+        self.max_block_number =
+            MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -217,7 +244,8 @@ impl PrivateContext {
     }
 
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
+        let cached_request =
+            self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
         if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one
@@ -226,7 +254,10 @@ impl PrivateContext {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
             let request = get_key_validation_request(pk_m_hash, key_index);
-            let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index] };
+            let request_and_generator = KeyValidationRequestAndGenerator {
+                request,
+                sk_app_generator: sk_generators[key_index],
+            };
             // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
             // valid key request and not the one corresponding to pk_m_hash).
             assert(request.pk_m.hash() == pk_m_hash);
@@ -254,7 +285,7 @@ impl PrivateContext {
             self.chain_id(),
             self.version(),
             content,
-            secret
+            secret,
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
@@ -268,7 +299,7 @@ impl PrivateContext {
         &mut self,
         randomness: Field,
         log: [u8; M],
-        log_hash: Field
+        log_hash: Field,
     ) {
         let counter = self.next_counter();
         let contract_address = self.this_address();
@@ -279,7 +310,12 @@ impl PrivateContext {
         emit_encrypted_event_log(contract_address, randomness, log, counter);
     }
 
-    pub fn emit_raw_note_log<let M: u32>(&mut self, note_hash_counter: u32, log: [u8; M], log_hash: Field) {
+    pub fn emit_raw_note_log<let M: u32>(
+        &mut self,
+        note_hash_counter: u32,
+        log: [u8; M],
+        log_hash: Field,
+    ) {
         let counter = self.next_counter();
         let len = log.len() as Field + 4;
         let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
@@ -292,57 +328,48 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        self.call_private_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            false,
+        )
     }
 
     pub fn static_call_private_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
-    }
-
-    pub fn delegate_call_private_function<let ARGS_COUNT: u32>(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> PackedReturns {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
+        self.call_private_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            true,
+        )
     }
 
     pub fn call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector
+        function_selector: FunctionSelector,
     ) -> PackedReturns {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, false)
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector
+        function_selector: FunctionSelector,
     ) -> PackedReturns {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true, false)
-    }
-
-    pub fn delegate_call_private_function_no_args(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> PackedReturns {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, true)
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
     }
 
     pub fn call_private_function_with_packed_args(
@@ -351,7 +378,6 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-        is_delegate_call: bool
     ) -> PackedReturns {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
@@ -361,7 +387,6 @@ impl PrivateContext {
             args_hash,
             start_side_effect_counter,
             is_static_call,
-            is_delegate_call
         );
 
         self.side_effect_counter = end_side_effect_counter + 1;
@@ -373,28 +398,25 @@ impl PrivateContext {
         //     | (item.public_inputs.min_revertible_side_effect_counter
         //         > self.min_revertible_side_effect_counter)
         // );
-
         // if item.public_inputs.min_revertible_side_effect_counter
         //     > self.min_revertible_side_effect_counter {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
-
-        let call_context = self.generate_call_context(
+        let call_context = CallContext {
+            msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
-            is_delegate_call
-        );
+        };
 
         self.private_call_requests.push(
             PrivateCallRequest {
-            contract_address,
-            call_context,
-            args_hash,
-            returns_hash,
-            start_side_effect_counter,
-            end_side_effect_counter
-        }
+                call_context,
+                args_hash,
+                returns_hash,
+                start_side_effect_counter,
+                end_side_effect_counter,
+            },
         );
 
         PackedReturns::new(returns_hash)
@@ -404,57 +426,48 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        self.call_public_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            false,
+        )
     }
 
     pub fn static_call_public_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
-    }
-
-    pub fn delegate_call_public_function<let ARGS_COUNT: u32>(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
+        self.call_public_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            true,
+        )
     }
 
     pub fn call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector
+        function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector
+        function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
-    }
-
-    pub fn delegate_call_public_function_no_args(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
     }
 
     pub fn call_public_function_with_packed_args(
@@ -463,7 +476,6 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-        is_delegate_call: bool
     ) {
         let counter = self.next_counter();
 
@@ -480,21 +492,18 @@ impl PrivateContext {
             args_hash,
             counter,
             is_static_call,
-            is_delegate_call
         );
 
         // Public calls are rerouted through the dispatch function.
-        let function_selector = comptime {
-            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
-        };
-        let call_context = self.generate_call_context(
+        let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
+        let call_context = CallContext {
+            msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
-            is_delegate_call
-        );
+        };
 
-        let call_request = PublicCallRequest { contract_address, call_context, args_hash, counter };
+        let call_request = PublicCallRequest { call_context, args_hash, counter };
         self.public_call_requests.push(call_request);
     }
 
@@ -502,11 +511,16 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        self.set_public_teardown_function_with_packed_args(
+            contract_address,
+            function_selector,
+            args_hash,
+            false,
+        )
     }
 
     pub fn set_public_teardown_function_with_packed_args(
@@ -515,7 +529,6 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-        is_delegate_call: bool
     ) {
         let counter = self.next_counter();
 
@@ -532,45 +545,17 @@ impl PrivateContext {
             args_hash,
             counter,
             is_static_call,
-            is_delegate_call
         );
 
-        let function_selector = comptime {
-            FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR)
-        };
-        let call_context = self.generate_call_context(
+        let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
+        let call_context = CallContext {
+            msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
-            is_delegate_call
-        );
+        };
 
-        self.public_teardown_call_request = PublicCallRequest {
-            contract_address,
-            call_context,
-            args_hash,
-            counter,
-        };
-    }
-
-    fn generate_call_context(
-        self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        is_static_call: bool,
-        is_delegate_call: bool
-    ) -> CallContext {
-        let msg_sender = if is_delegate_call {
-            self.msg_sender()
-        } else {
-            self.this_address()
-        };
-        let storage_contract_address = if is_delegate_call {
-            self.this_address()
-        } else {
-            contract_address
-        };
-        CallContext { msg_sender, storage_contract_address, function_selector, is_static_call, is_delegate_call }
+        self.public_teardown_call_request = PublicCallRequest { call_context, args_hash, counter };
     }
 
     fn next_counter(&mut self) -> u32 {
@@ -603,7 +588,7 @@ impl Empty for PrivateContext {
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES]
+            last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }
 }

@@ -1,6 +1,10 @@
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 
-use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
+use dep::protocol_types::{
+    address::AztecAddress,
+    indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
+    utils::arr_copy_slice,
+};
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 /// transaction. This note should only be added to the non-volatile database if found in an actual block.
@@ -9,11 +13,17 @@ pub fn notify_created_note<let N: u32>(
     note_type_id: Field,
     serialized_note: [Field; N],
     note_hash: Field,
-    counter: u32
+    counter: u32,
 ) {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
     unsafe {
-        notify_created_note_oracle_wrapper(storage_slot, note_type_id, serialized_note, note_hash, counter)
+        notify_created_note_oracle_wrapper(
+            storage_slot,
+            note_type_id,
+            serialized_note,
+            note_hash,
+            counter,
+        )
     };
 }
 
@@ -22,9 +32,7 @@ pub fn notify_created_note<let N: u32>(
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
     // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
-    unsafe {
-        notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter)
-    };
+    unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
 }
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
@@ -32,9 +40,15 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     note_type_id: Field,
     serialized_note: [Field; N],
     note_hash: Field,
-    counter: u32
+    counter: u32,
 ) {
-    let _ = notify_created_note_oracle(storage_slot, note_type_id, serialized_note, note_hash, counter);
+    let _ = notify_created_note_oracle(
+        storage_slot,
+        note_type_id,
+        serialized_note,
+        note_hash,
+        counter,
+    );
 }
 
 #[oracle(notifyCreatedNote)]
@@ -43,19 +57,23 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
     _note_type_id: Field,
     _serialized_note: [Field; N],
     _note_hash: Field,
-    _counter: u32
+    _counter: u32,
 ) -> Field {}
 
 unconstrained fn notify_nullified_note_oracle_wrapper(
     nullifier: Field,
     note_hash: Field,
-    counter: u32
+    counter: u32,
 ) {
     let _ = notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
 #[oracle(notifyNullifiedNote)]
-unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) -> Field {}
+unconstrained fn notify_nullified_note_oracle(
+    _nullifier: Field,
+    _note_hash: Field,
+    _counter: u32,
+) -> Field {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
@@ -74,7 +92,7 @@ unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
     _offset: u32,
     _status: u8,
     _return_size: u32,
-    _placeholder_fields: [Field; S]
+    _placeholder_fields: [Field; S],
 ) -> [Field; S] {}
 
 unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
@@ -92,7 +110,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
     limit: u32,
     offset: u32,
     status: u8,
-    mut placeholder_fields: [Field; S]
+    mut placeholder_fields: [Field; S],
 ) -> [Field; S] {
     let return_size = placeholder_fields.len() as u32;
     get_notes_oracle(
@@ -111,7 +129,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
         offset,
         status,
         return_size,
-        placeholder_fields
+        placeholder_fields,
     )
 }
 
@@ -132,8 +150,11 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     status: u8,
     mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
-    _placeholder_note_length: [Field; N] // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
-) -> [Option<Note>; S] where Note: NoteInterface<N> {
+    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
+) -> [Option<Note>; S]
+where
+    Note: NoteInterface<N>,
+{
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -149,7 +170,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
         limit,
         offset,
         status,
-        placeholder_fields
+        placeholder_fields,
     );
     let num_notes = fields[0] as u32;
     let contract_address = AztecAddress::from_field(fields[1]);
@@ -181,3 +202,44 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+
+/// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
+/// Includes the last known index used for tagging with this secret.
+/// For this to work, PXE must know the ivpsk_m of the sender.
+/// For the recipient's side, only the address is needed.
+pub unconstrained fn get_app_tagging_secret(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> IndexedTaggingSecret {
+    let result = get_app_tagging_secret_oracle(sender, recipient);
+    IndexedTaggingSecret::deserialize(result)
+}
+
+#[oracle(getAppTaggingSecret)]
+unconstrained fn get_app_tagging_secret_oracle(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
+
+/// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
+// siloed for the current contract address.
+/// Includes the last known index used for tagging with this secret.
+/// For this to work, PXE must know the ivsk_m of the recipient.
+pub unconstrained fn get_app_tagging_secrets_for_senders(
+    recipient: AztecAddress,
+) -> [IndexedTaggingSecret] {
+    let results = get_app_tagging_secrets_for_senders_oracle(recipient);
+    let mut indexed_tagging_secrets = &[];
+    for i in 0..results.len() {
+        if i % 2 != 0 {
+            continue;
+        }
+        indexed_tagging_secrets = indexed_tagging_secrets.push_back(
+            IndexedTaggingSecret::deserialize([results[i], results[i + 1]]),
+        );
+    }
+    indexed_tagging_secrets
+}
+
+#[oracle(getAppTaggingSecretsForSenders)]
+unconstrained fn get_app_tagging_secrets_for_senders_oracle(_recipient: AztecAddress) -> [Field] {}

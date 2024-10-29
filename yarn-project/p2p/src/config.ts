@@ -174,12 +174,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     ...numberConfigHelper(1_000),
   },
   tcpListenAddress: {
-    env: 'TCP_LISTEN_ADDR',
+    env: 'P2P_TCP_LISTEN_ADDR',
     defaultValue: '0.0.0.0:40400',
     description: 'The listen address for TCP. Format: <IP_ADDRESS>:<PORT>.',
   },
   udpListenAddress: {
-    env: 'UDP_LISTEN_ADDR',
+    env: 'P2P_UDP_LISTEN_ADDR',
     defaultValue: '0.0.0.0:40400',
     description: 'The listen address for UDP. Format: <IP_ADDRESS>:<PORT>.',
   },
@@ -302,7 +302,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
  * Gets the config values for p2p client from environment variables.
  * @returns The config values for p2p client.
  */
-export function getP2PConfigEnvVars(): P2PConfig {
+export function getP2PConfigFromEnv(): P2PConfig {
   return getConfigFromMappings<P2PConfig>(p2pConfigMappings);
 }
 

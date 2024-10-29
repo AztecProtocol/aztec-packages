@@ -46,8 +46,6 @@ export async function produceNoteDaos(
   incomingDeferredNote: DeferredNoteDao | undefined;
   outgoingDeferredNote: DeferredNoteDao | undefined;
 }> {
-  // WARNING: This code is full of tech debt and will be refactored once we have final design of partial notes
-  // delivery.
   if (!ivpkM && !ovpkM) {
     throw new Error('Both ivpkM and ovpkM are undefined. Cannot create note.');
   }
@@ -78,11 +76,11 @@ export async function produceNoteDaos(
       // Incoming note is defined meaning that this PXE has both the incoming and outgoing keys. We can skip computing
       // note hash and note index since we already have them in the incoming note.
       outgoingNote = new OutgoingNoteDao(
-        payload.note,
-        payload.contractAddress,
-        payload.storageSlot,
-        payload.noteTypeId,
-        txHash,
+        incomingNote.note,
+        incomingNote.contractAddress,
+        incomingNote.storageSlot,
+        incomingNote.noteTypeId,
+        incomingNote.txHash,
         incomingNote.nonce,
         incomingNote.noteHash,
         incomingNote.index,
