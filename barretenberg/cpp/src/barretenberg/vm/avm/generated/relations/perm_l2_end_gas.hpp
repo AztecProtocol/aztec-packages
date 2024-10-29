@@ -11,7 +11,7 @@ namespace bb {
 class perm_l2_end_gas_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 0;
+    constexpr static size_t COLUMNS_PER_SET = 1;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -23,7 +23,9 @@ class perm_l2_end_gas_permutation_settings {
         return std::forward_as_tuple(in.perm_l2_end_gas_inv,
                                      in.main_sel_execution_end,
                                      in.main_sel_execution_end,
-                                     in.main_sel_l2_end_gas_kernel_input);
+                                     in.main_sel_l2_end_gas_kernel_input,
+                                     in.main_l2_gas_remaining,
+                                     in.main_kernel_inputs);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
@@ -31,7 +33,9 @@ class perm_l2_end_gas_permutation_settings {
         return std::forward_as_tuple(in.perm_l2_end_gas_inv,
                                      in.main_sel_execution_end,
                                      in.main_sel_execution_end,
-                                     in.main_sel_l2_end_gas_kernel_input);
+                                     in.main_sel_l2_end_gas_kernel_input,
+                                     in.main_l2_gas_remaining,
+                                     in.main_kernel_inputs);
     }
 };
 
