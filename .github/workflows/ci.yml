@@ -647,11 +647,11 @@ jobs:
           - validators: 3
             test: test-transfer.sh
           - validators: 3
-            test: test-4epochs.sh}
+            test: test-4epochs.sh
           - validators: 16
-            test: test-4epochs.sh}
+            test: test-4epochs.sh
           - validators: 48
-            test: test-4epochs.sh}
+            test: test-4epochs.sh
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
