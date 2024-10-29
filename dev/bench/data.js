@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730224044189,
+  "lastUpdate": 1730227072139,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7872d092c359298273d7ab1fc23fa61ae1973f8b",
-          "message": "fix: Revert \"feat: use s3 cache in bootstrap fast\" (#9181)",
-          "timestamp": "2024-10-11T14:47:45+01:00",
-          "tree_id": "d23f55bf87c8c2a0b0c47bfcacff643809368308",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7872d092c359298273d7ab1fc23fa61ae1973f8b"
-        },
-        "date": 1728656122053,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31225.41787,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29055.793897 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5497.206693000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5172.367360000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93032.34833899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93032350000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15634.479376,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15634479000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8345559759,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8345559759 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 153053369,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 153053369 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6731858674,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6731858674 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125927462,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125927462 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3084,6 +3012,66 @@ window.BENCHMARK_DATA = {
             "value": 126126358,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126126358 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "26adc55771a204f96e8594f6defde2a4872c88d2",
+          "message": "feat(avm)!: cleanup CALL (#9551)\n\n* (Static)CALL now returns just the success bit\n* Properly returns U1 instead of U8\n* Removed FunctionSelector\n\nFixes #8998. Part of #9061.",
+          "timestamp": "2024-10-29T17:57:21Z",
+          "tree_id": "1fba5264a5faefaa4166f84df6ded362598266a8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/26adc55771a204f96e8594f6defde2a4872c88d2"
+        },
+        "date": 1730227064645,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30850.779605000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29019.381799 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5349.200418000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5004.156865999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92386.64418,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92386646000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15173.086461,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15173086000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2704267986,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2704267986 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127341546,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127341546 ns\nthreads: 1"
           }
         ]
       }
