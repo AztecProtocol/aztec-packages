@@ -337,7 +337,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(const i
 
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error("Data for block unavailable");
+                    throw std::runtime_error((std::stringstream() << "Unable to get meta data for block " << blockNumber
+                                                                  << ", failed to get block data.")
+                                                 .str());
                 }
 
                 response.inner.meta.size = blockData.size;
@@ -367,12 +369,15 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Invalid block number");
+                    throw std::runtime_error("Unable to get sibling path at block 0");
                 }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error("Data for block unavailable");
+                    throw std::runtime_error((std::stringstream()
+                                              << "Unable to get sibling path for index " << index << " at block "
+                                              << blockNumber << ", failed to get block data.")
+                                                 .str());
                 }
 
                 RequestContext requestContext;
@@ -591,15 +596,21 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Invalid block number");
+                    throw std::runtime_error("Unable to get leaf at block 0");
                 }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error("Data for block unavailable");
+                    throw std::runtime_error((std::stringstream()
+                                              << "Unable to get leaf at index " << leaf_index << " for block "
+                                              << blockNumber << ", failed to get block data.")
+                                                 .str());
                 }
                 if (blockData.size < leaf_index) {
-                    response.message = "Data for block unavailable";
+                    response.message =
+                        (std::stringstream() << "Unable to get leaf at index " << leaf_index << " for block "
+                                             << blockNumber << ", leaf index is too high.")
+                            .str();
                     response.success = false;
                     return;
                 }
@@ -670,12 +681,15 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Invalid block number");
+                    throw std::runtime_error("Unable to find leaf index for block number 0");
                 }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
-                    throw std::runtime_error("Data for block unavailable");
+                    throw std::runtime_error((std::stringstream()
+                                              << "Unable to find leaf from index " << start_index << " for block "
+                                              << blockNumber << ", failed to get block data.")
+                                                 .str());
                 }
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
@@ -744,7 +758,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
         execute_and_report(
             [=, this]() {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Invalid block number");
+                    throw std::runtime_error("Unable to remove historic block 0");
                 }
                 store_->remove_historical_block(blockNumber);
             },
@@ -761,7 +775,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
         execute_and_report(
             [=, this]() {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Invalid block number");
+                    throw std::runtime_error("Unable to unwind block 0");
                 }
                 store_->unwind_block(blockNumber);
             },
@@ -778,7 +792,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalise_block(const 
         execute_and_report(
             [=, this]() {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Invalid block number");
+                    throw std::runtime_error("Unable to finalise block 0");
                 }
                 store_->advance_finalised_block(blockNumber);
             },
@@ -850,7 +864,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     }
 
     if (new_size > max_size_) {
-        throw std::runtime_error("Tree is full");
+        throw std::runtime_error((std::stringstream() << "Unable to append leaves to tree " << meta.name
+                                                      << " new size: " << new_size << " max size: " << max_size_)
+                                     .str());
     }
 
     // Add the values at the leaf nodes of the tree

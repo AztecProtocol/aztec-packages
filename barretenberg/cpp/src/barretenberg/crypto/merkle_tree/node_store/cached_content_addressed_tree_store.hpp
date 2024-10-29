@@ -10,6 +10,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "msgpack/assert.hpp"
+#include <arpa/inet.h>
 #include <cstdint>
 #include <exception>
 #include <memory>
@@ -679,7 +680,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
             tx->commit();
         } catch (std::exception& e) {
             tx->try_abort();
-            throw;
+            throw std::runtime_error(
+                (std::stringstream() << "Unable to commit data to tree: " << name_ << " Error: " << e.what()).str());
         }
     }
 
@@ -803,7 +805,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
     TreeMeta uncommittedMeta;
     BlockPayload blockPayload;
     if (blockNumber < 1) {
-        throw std::runtime_error("Unable to remove block");
+        throw std::runtime_error(
+            (std::stringstream() << "Unable to advance finalised block: " << blockNumber << ". Tree name: " << name_)
+                .str());
     }
     if (initialised_from_block_.has_value()) {
         throw std::runtime_error("Advancing the finalised block on a fork is forbidden");
@@ -814,7 +818,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
         if (!dataStore_->read_block_data(blockNumber, blockPayload, *tx)) {
-            throw std::runtime_error("Failed to retrieve block data");
+            throw std::runtime_error((std::stringstream() << "Unable to advance finalised block: " << blockNumber
+                                                          << ". Failed to read block data. Tree name: " << name_)
+                                         .str());
         }
     }
     // can only finalise blocks that are not finalised
@@ -846,7 +852,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
         writeTx->commit();
     } catch (std::exception& e) {
         writeTx->try_abort();
-        throw;
+        throw std::runtime_error((std::stringstream() << "Unable to commit advance of finalised block: " << blockNumber
+                                                      << ". Tree name: " << name_ << " Error: " << e.what())
+                                     .str());
     }
 
     // commit successful, now also update the uncommitted meta
@@ -862,7 +870,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
     BlockPayload blockData;
     BlockPayload previousBlockData;
     if (blockNumber < 1) {
-        throw std::runtime_error("Unable to remove block");
+        throw std::runtime_error(
+            (std::stringstream() << "Unable to remove historical block: " << blockNumber << ". Tree name: " << name_)
+                .str());
     }
     if (initialised_from_block_.has_value()) {
         throw std::runtime_error("Removing a block on a fork is forbidden");
@@ -872,13 +882,23 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
         if (committedMeta != uncommittedMeta) {
-            throw std::runtime_error("Can't unwind with uncommitted data, first rollback before unwinding");
+            throw std::runtime_error(
+                (std::stringstream()
+                 << "Unable to unwind block: " << blockNumber
+                 << " Can't unwind with uncommitted data, first rollback before unwinding. Tree name: " << name_)
+                    .str());
         }
         if (blockNumber != uncommittedMeta.unfinalisedBlockHeight) {
-            throw std::runtime_error("Block number is not the most recent");
+            throw std::runtime_error((std::stringstream()
+                                      << "Unable to unwind block: " << blockNumber << " unfinalisedBlockHeight: "
+                                      << committedMeta.unfinalisedBlockHeight << ". Tree name: " << name_)
+                                         .str());
         }
         if (blockNumber <= uncommittedMeta.finalisedBlockHeight) {
-            throw std::runtime_error("Can't unwind a finalised block");
+            throw std::runtime_error((std::stringstream()
+                                      << "Unable to unwind block: " << blockNumber << " finalisedBlockHeight: "
+                                      << committedMeta.finalisedBlockHeight << ". Tree name: " << name_)
+                                         .str());
         }
 
         // populate the required data for the previous block
@@ -887,12 +907,17 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
             previousBlockData.size = uncommittedMeta.initialSize;
             previousBlockData.blockNumber = 0;
         } else if (!dataStore_->read_block_data(blockNumber - 1, previousBlockData, *tx)) {
-            throw std::runtime_error("Failed to retrieve previous block data");
+            throw std::runtime_error((std::stringstream()
+                                      << "Unable to unwind block: " << blockNumber
+                                      << ". Failed to read previous block data. Tree name: " << name_)
+                                         .str());
         }
 
         // now get the root for the block we want to unwind
         if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
-            throw std::runtime_error("Failed to retrieve block data for block to unwind");
+            throw std::runtime_error((std::stringstream() << "Unable to unwind block: " << blockNumber
+                                                          << ". Failed to read block data. Tree name: " << name_)
+                                         .str());
         }
     }
     WriteTransactionPtr writeTx = create_write_transaction();
@@ -915,7 +940,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
         writeTx->commit();
     } catch (std::exception& e) {
         writeTx->try_abort();
-        throw;
+        throw std::runtime_error((std::stringstream() << "Unable to commit unwind of block: " << blockNumber
+                                                      << ". Tree name: " << name_ << " Error: " << e.what())
+                                     .str());
     }
 
     // now update the uncommitted meta
@@ -929,7 +956,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
     TreeMeta uncommittedMeta;
     BlockPayload blockData;
     if (blockNumber < 1) {
-        throw std::runtime_error("Unable to remove block");
+        throw std::runtime_error(
+            (std::stringstream() << "Unable to remove historical block: " << blockNumber << ". Tree name: " << name_)
+                .str());
     }
     if (initialised_from_block_.has_value()) {
         throw std::runtime_error("Removing a block on a fork is forbidden");
@@ -941,14 +970,22 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
         if (blockNumber != committedMeta.oldestHistoricBlock) {
-            throw std::runtime_error("Block number is not the most historic");
+            throw std::runtime_error(
+                (std::stringstream() << "Unable to remove historical block: " << blockNumber << " oldestHistoricBlock: "
+                                     << committedMeta.oldestHistoricBlock << ". Tree name: " << name_)
+                    .str());
         }
         if (blockNumber >= committedMeta.finalisedBlockHeight) {
-            throw std::runtime_error("Can't remove current finalised block");
+            throw std::runtime_error(
+                (std::stringstream() << "Unable to remove historical block: " << blockNumber << " oldestHistoricBlock: "
+                                     << committedMeta.finalisedBlockHeight << ". Tree name: " << name_)
+                    .str());
         }
 
         if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
-            throw std::runtime_error("Failed to retrieve block data for historical block");
+            throw std::runtime_error((std::stringstream() << "Unable to remove historical block: " << blockNumber
+                                                          << ". Failed to read block data. Tree name: " << name_)
+                                         .str());
         }
     }
     WriteTransactionPtr writeTx = create_write_transaction();
@@ -964,7 +1001,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         writeTx->commit();
     } catch (std::exception& e) {
         writeTx->try_abort();
-        throw;
+        throw std::runtime_error((std::stringstream() << "Unable to commit removal of historical block: " << blockNumber
+                                                      << ". Tree name: " << name_ << " Error: " << e.what())
+                                     .str());
     }
 
     // commit was successful, update the uncommitted meta
@@ -1129,10 +1168,16 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         }
 
         if (meta_.unfinalisedBlockHeight < blockNumber) {
-            throw std::runtime_error("Unable to initialise from future block");
+            throw std::runtime_error((std::stringstream() << "Unable to initialise from future block: " << blockNumber
+                                                          << " unfinalisedBlockHeight: " << meta_.unfinalisedBlockHeight
+                                                          << ". Tree name: " << name_)
+                                         .str());
         }
         if (meta_.oldestHistoricBlock > blockNumber && blockNumber != 0) {
-            throw std::runtime_error("Unable to fork from expired historical block");
+            throw std::runtime_error((std::stringstream() << "Unable to fork from expired historical block: "
+                                                          << blockNumber << " unfinalisedBlockHeight: "
+                                                          << meta_.oldestHistoricBlock << ". Tree name: " << name_)
+                                         .str());
         }
         BlockPayload blockData;
         if (blockNumber == 0) {

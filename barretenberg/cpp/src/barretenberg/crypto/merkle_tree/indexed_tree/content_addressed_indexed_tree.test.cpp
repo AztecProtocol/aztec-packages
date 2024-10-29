@@ -505,10 +505,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_ove
     }
     add_values(tree, values);
 
+    std::stringstream ss;
+    ss << "Unable to insert values into tree " << name << " new size: 17 max size: 16";
+
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
         EXPECT_EQ(response.success, false);
-        EXPECT_EQ(response.message, "Tree is full");
+        EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
     tree.add_or_update_value(NullifierLeafValue(VALUES[16]), add_completion);
@@ -939,10 +942,13 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_conta
     }
     values[8] = values[0];
 
+    std::stringstream ss;
+    ss << "Duplicate key not allowed in same batch, key value: " << values[0].value << ", tree: " << name;
+
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
         EXPECT_EQ(response.success, false);
-        EXPECT_EQ(response.message, "Duplicate key not allowed in same batch");
+        EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
     tree.add_or_update_values(values, add_completion);

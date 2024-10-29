@@ -455,10 +455,13 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     }
     add_values(tree, values);
 
+    std::stringstream ss;
+    ss << "Unable to append leaves to tree " << name << " new size: 17 max size: 16";
+
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddDataResponse>& response) {
         EXPECT_EQ(response.success, false);
-        EXPECT_EQ(response.message, "Tree is full");
+        EXPECT_EQ(response.message, ss.str());
         signal.signal_level();
     };
     tree.add_value(VALUES[16], add_completion);
