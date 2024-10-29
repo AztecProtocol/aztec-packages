@@ -7,6 +7,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
 #include <numeric>
@@ -86,6 +87,7 @@ template <typename Curve_> class IPA {
    using VK = VerifierCommitmentKey<Curve>;
    using Polynomial = bb::Polynomial<Fr>;
    using VerifierAccumulator = bool;
+   using IpaAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
@@ -622,6 +624,25 @@ template <typename Curve_> class IPA {
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         return reduce_verify_internal(vk, opening_claim, transcript);
+    }
+
+
+    static IpaAccumulator accumulate(const std::shared_ptr<CK>& ck, auto& transcript, IpaAccumulator acc_1, IpaAccumulator acc_2)
+    {
+        // Step 1: Run the verifier for each IPA instance
+        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript);
+        reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript);
+
+        // Step 2: Generate the challenges
+        auto [alpha, r] = transcript->template get_challenges<Fr>("IPA:accum_alpha", "IPA:accum_r");
+
+        // Step 3: Compute the new accumulator
+        IpaAccumulator output_accumulator;
+        output_accumulator.comm = acc_1.comm + alpha * acc_2.comm;
+        output_accumulator.eval_point = r;
+        // output_accumulator.eval = 
+        // compute_opening_proof(ck, )
+        // output_accumulator.ipa_proof = 
     }
 };
 
