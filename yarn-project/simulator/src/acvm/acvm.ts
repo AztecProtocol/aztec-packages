@@ -6,8 +6,10 @@ import {
   type ExecutionError,
   type ForeignCallInput,
   type ForeignCallOutput,
+  type RawAssertionPayload,
   executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
+import { abiDecodeError } from '@noir-lang/noirc_abi';
 
 import { traverseCauseChain } from '../common/errors.js';
 import { type ACVMWitness } from './acvm_types.js';
@@ -103,27 +105,34 @@ export function resolveOpcodeLocations(
   );
 }
 
-// /**
-//  * Extracts the source code locations for an array of opcode locations
-//  * @param opcodeLocations - The opcode locations that caused the error.
-//  * @param debug - The debug metadata of the function.
-//  * @returns The source code locations.
-//  */
-// export function resolveAssertionMessage(
-//   opcodeLocations: OpcodeLocation[],
-//   debug: FunctionDebugMetadata,
-// ): string | undefined {
-//   if (opcodeLocations.length === 0) {
-//     return undefined;
-//   }
+export function resolveAssertionMessage(
+  errorPayload: RawAssertionPayload,
+  debug: FunctionDebugMetadata,
+): string | undefined {
+  const decoded = abiDecodeError(
+    { parameters: [], error_types: debug.errorTypes }, // eslint-disable-line camelcase
+    errorPayload,
+  );
 
-//   const lastLocation = extractBrilligLocation(opcodeLocations[opcodeLocations.length - 1]);
-//   if (!lastLocation) {
-//     return undefined;
-//   }
+  console.log(decoded);
 
-//   return debug.assertMessages?.[parseInt(lastLocation, 10)];
-// }
+  if (typeof decoded === 'string') {
+    return decoded;
+  } else {
+    return JSON.stringify(decoded);
+  }
+}
+
+export function resolveAssertionMessageFromError(err: Error, debug?: FunctionDebugMetadata): string {
+  if (debug && typeof err === 'object' && err !== null && 'rawAssertionPayload' in err && err.rawAssertionPayload) {
+    return `Circuit execution failed: ${resolveAssertionMessage(
+      err.rawAssertionPayload as RawAssertionPayload,
+      debug,
+    )}`;
+  } else {
+    return err.message;
+  }
+}
 
 /**
  * The function call that executes an ACIR.

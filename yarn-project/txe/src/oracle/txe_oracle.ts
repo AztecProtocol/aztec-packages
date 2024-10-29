@@ -64,6 +64,7 @@ import {
   extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
+  resolveAssertionMessageFromError,
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator';
@@ -530,7 +531,7 @@ export class TXE implements TypedOracle {
     try {
       const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
         const execError = new ExecutionError(
-          err.message,
+          resolveAssertionMessageFromError(err, artifact.debug),
           {
             contractAddress: targetContractAddress,
             functionSelector,

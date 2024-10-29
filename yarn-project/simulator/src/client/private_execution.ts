@@ -12,7 +12,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
-import { type ACVMWitness, Oracle, acvm, extractCallStack } from '../acvm/index.js';
+import { type ACVMWitness, Oracle, acvm, extractCallStack, resolveAssertionMessageFromError } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 
@@ -34,7 +34,7 @@ export async function executePrivateFunction(
   const timer = new Timer();
   const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
     throw new ExecutionError(
-      err.message,
+      resolveAssertionMessageFromError(err, artifact.debug),
       {
         contractAddress,
         functionSelector,

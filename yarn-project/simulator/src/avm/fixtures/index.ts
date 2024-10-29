@@ -136,6 +136,7 @@ export function getAvmTestContractBytecode(functionName: string): Buffer {
 export function resolveAvmTestContractAssertionMessage(
   functionName: string,
   revertReason: AvmRevertReason,
+  output: Fr[],
 ): string | undefined {
   const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
 
@@ -152,5 +153,17 @@ export function resolveAvmTestContractAssertionMessage(
     return undefined;
   }
 
-  return resolveAssertionMessage(revertReason.noirCallStack, debugMetadata);
+  if (output.length == 0) {
+    return undefined;
+  }
+
+  const [errorSelector, ...errorData] = output;
+
+  return resolveAssertionMessage(
+    {
+      selector: errorSelector.toBigInt().toString(),
+      data: errorData.map(f => f.toString()),
+    },
+    debugMetadata,
+  );
 }

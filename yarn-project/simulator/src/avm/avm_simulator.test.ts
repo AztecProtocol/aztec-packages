@@ -287,9 +287,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
-      expect(resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!)).toMatch(
-        'attempt to add with overflow',
-      );
+      expect(
+        resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
+      ).toMatch('attempt to add with overflow');
     });
 
     it('Expect failure on U128::from_integer() overflow', async () => {
@@ -297,9 +297,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
-      expect(resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!)).toMatch(
-        'call to assert_max_bit_size',
-      );
+      expect(
+        resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!, results.output),
+      ).toMatch('call to assert_max_bit_size');
     });
   });
 
@@ -321,9 +321,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!)).toMatch(
-      "Nullifier doesn't exist!",
-    );
+    expect(
+      resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
+    ).toMatch("Nullifier doesn't exist!");
     expect(results.output).toEqual([]);
   });
 
@@ -1011,9 +1011,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
         expect(results.revertReason).toBeDefined();
-        expect(resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!)).toMatch(
-          'Values are not equal',
-        );
+        expect(
+          resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!, results.output),
+        ).toMatch('Values are not equal');
       });
     });
 

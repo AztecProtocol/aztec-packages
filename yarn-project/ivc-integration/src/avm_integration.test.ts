@@ -221,7 +221,9 @@ const proveAvmTestContract = async (
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
     expect(avmResult.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!, avmResult.output)).toContain(
+      assertionErrString,
+    );
   }
 
   const pxResult = trace.toPublicExecutionResult(
