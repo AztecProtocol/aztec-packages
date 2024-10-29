@@ -612,6 +612,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "witness_buf",
         "type": "const uint8_t *"
       }
@@ -632,6 +636,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "witness_buf",
         "type": "const uint8_t *"
       }
@@ -650,6 +658,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       },
       {
         "name": "witness_buf",

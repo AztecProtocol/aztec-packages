@@ -397,8 +397,12 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  async acirProveAndVerifyUltraHonk(
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    witnessBuf: Uint8Array,
+  ): Promise<boolean> {
+    const inArgs = [constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_and_verify_ultra_honk',
@@ -409,8 +413,12 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveAndVerifyMegaHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  async acirProveAndVerifyMegaHonk(
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    witnessBuf: Uint8Array,
+  ): Promise<boolean> {
+    const inArgs = [constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_and_verify_mega_honk',
@@ -421,8 +429,12 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirFoldAndVerifyProgramStack(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  async acirFoldAndVerifyProgramStack(
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    witnessBuf: Uint8Array,
+  ): Promise<boolean> {
+    const inArgs = [constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_fold_and_verify_program_stack',
@@ -978,8 +990,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, recursive: boolean, witnessBuf: Uint8Array): boolean {
+    const inArgs = [constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_and_verify_ultra_honk',
@@ -990,8 +1002,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAndVerifyMegaHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  acirProveAndVerifyMegaHonk(constraintSystemBuf: Uint8Array, recursive: boolean, witnessBuf: Uint8Array): boolean {
+    const inArgs = [constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_and_verify_mega_honk',
@@ -1002,8 +1014,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirFoldAndVerifyProgramStack(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  acirFoldAndVerifyProgramStack(constraintSystemBuf: Uint8Array, recursive: boolean, witnessBuf: Uint8Array): boolean {
+    const inArgs = [constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_fold_and_verify_program_stack',

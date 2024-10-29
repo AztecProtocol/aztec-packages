@@ -132,10 +132,9 @@ async function initLite() {
   return { api, acirComposer };
 }
 
-export async function proveAndVerify(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerify(bytecodePath: string, recursive: boolean, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
-  const recursive = false;
 
   const { api, acirComposer, circuitSize, subgroupSize } = await initUltraPlonk(bytecodePath, recursive, crsPath);
   try {
@@ -163,14 +162,19 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyUltraHonk(
+  bytecodePath: string,
+  recursive: boolean,
+  witnessPath: string,
+  crsPath: string,
+) {
   /* eslint-disable camelcase */
   const { api } = await initUltraHonk(bytecodePath, false, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
-    const verified = await api.acirProveAndVerifyUltraHonk(bytecode, witness);
+    const verified = await api.acirProveAndVerifyUltraHonk(bytecode, recursive, witness);
     return verified;
   } finally {
     await api.destroy();
@@ -178,14 +182,19 @@ export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath:
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyMegaHonk(
+  bytecodePath: string,
+  recursive: boolean,
+  witnessPath: string,
+  crsPath: string,
+) {
   /* eslint-disable camelcase */
   const { api } = await initUltraPlonk(bytecodePath, false, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
-    const verified = await api.acirProveAndVerifyMegaHonk(bytecode, witness);
+    const verified = await api.acirProveAndVerifyMegaHonk(bytecode, recursive, witness);
     return verified;
   } finally {
     await api.destroy();
@@ -193,14 +202,19 @@ export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: 
   /* eslint-enable camelcase */
 }
 
-export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function foldAndVerifyProgram(
+  bytecodePath: string,
+  recursive: boolean,
+  witnessPath: string,
+  crsPath: string,
+) {
   /* eslint-disable camelcase */
-  const { api } = await initClientIVC(bytecodePath, false, crsPath);
+  const { api } = await initClientIVC(bytecodePath, recursive, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
-    const verified = await api.acirFoldAndVerifyProgramStack(bytecode, witness);
+    const verified = await api.acirFoldAndVerifyProgramStack(bytecode, recursive, witness);
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -490,10 +504,11 @@ program
   .command('prove_and_verify')
   .description('Generate a proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await proveAndVerify(bytecodePath, witnessPath, crsPath);
+    const result = await proveAndVerify(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -501,10 +516,11 @@ program
   .command('prove_and_verify_ultra_honk')
   .description('Generate an UltraHonk proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await proveAndVerifyUltraHonk(bytecodePath, witnessPath, crsPath);
+    const result = await proveAndVerifyUltraHonk(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -512,10 +528,11 @@ program
   .command('prove_and_verify_mega_honk')
   .description('Generate a MegaHonk proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await proveAndVerifyMegaHonk(bytecodePath, witnessPath, crsPath);
+    const result = await proveAndVerifyMegaHonk(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -523,10 +540,11 @@ program
   .command('fold_and_verify_program')
   .description('Accumulate a set of circuits using ClientIvc then verify. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+  .action(async ({ bytecodePath, recursive, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await foldAndVerifyProgram(bytecodePath, witnessPath, crsPath);
+    const result = await foldAndVerifyProgram(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 

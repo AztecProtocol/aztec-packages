@@ -59,14 +59,17 @@ WASM_EXPORT void acir_create_proof(
     *out = to_heap_buffer(proof_data);
 }
 
-WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
+WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec,
+                                                  boolean const* recursive,
+                                                  uint8_t const* witness_vec,
+                                                  bool* result)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(
-        constraint_system, /*recursive=*/false, 0, witness, /*honk_recursion=*/true);
+        constraint_system, recursive, 0, witness, /*honk_recursion=*/true);
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -78,7 +81,10 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     info("verified: ", *result);
 }
 
-WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
+WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec,
+                                                    bool const* recursive,
+                                                    uint8_t const* witness_vec,
+                                                    bool* result)
 {
     using ProgramStack = acir_format::AcirProgramStack;
     using Builder = MegaCircuitBuilder;
@@ -99,7 +105,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
-                                                            /*recursive=*/false,
+                                                            recursive,
                                                             0,
                                                             stack_item.witness,
                                                             /*honk_recursion=*/false,
@@ -116,14 +122,17 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     info("acir_fold_and_verify_program_stack result: ", *result);
 }
 
-WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
+WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec,
+                                                 bool const* recursive,
+                                                 uint8_t const* witness_vec,
+                                                 bool* result)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(
-        constraint_system, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
+        constraint_system, recursive, 0, witness, /*honk_recursion=*/false);
 
     MegaProver prover{ builder };
     auto proof = prover.construct_proof();

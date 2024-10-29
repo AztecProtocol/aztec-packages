@@ -51,7 +51,6 @@ export class UltraPlonkBackend {
 
   /** @description Generates a proof */
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
-    // TODO #6185: Add a recursive argument
     await this.instantiate();
     const proofWithPublicInputs = await this.api.acirCreateProof(
       this.acirComposer,

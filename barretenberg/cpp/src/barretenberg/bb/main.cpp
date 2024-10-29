@@ -148,13 +148,13 @@ std::string honk_vk_to_json(std::vector<bb::fr>& data)
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
-bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath)
+bool proveAndVerify(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/false);
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
-    acir_composer.create_finalized_circuit(constraint_system, /*recursive=*/false, witness);
+    acir_composer.create_finalized_circuit(constraint_system, recursive, witness);
     init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
 
     Timer pk_timer;
@@ -1464,7 +1464,7 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (command == "prove_and_verify") {
-            return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
+            return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_ultra_honk") {
             return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
@@ -1498,7 +1498,7 @@ int main(int argc, char* argv[])
                        : 1;
         }
         if (command == "fold_and_verify_program") {
-            return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
+            return foldAndVerifyProgram(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
 
         if (command == "prove") {

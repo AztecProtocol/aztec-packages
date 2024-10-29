@@ -37,6 +37,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
  */
 WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_system_buf,
                                                   uint8_t const* witness_buf,
+                                                  bool const* recursive,
                                                   bool* result);
 
 /**
@@ -45,6 +46,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_syst
  */
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_system_buf,
                                                  uint8_t const* witness_buf,
+                                                 bool const* recursive,
                                                  bool* result);
 
 /**
@@ -52,6 +54,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
  *
  */
 WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* constraint_system_buf,
+                                                    bool const* recursive,
                                                     uint8_t const* witness_buf,
                                                     bool* result);
 
