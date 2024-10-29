@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730203141766,
+  "lastUpdate": 1730205582975,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "409b7b8c6b43a91fc1b5be48aee0174d56d914d9",
-          "message": "feat!: Brillig with a stack and conditional inlining (#8989)\n\nAdds a stack to brillig by using relative addressing. Also adds\r\nconditional inlining based on a heuristic on function size and callsite\r\nsize. This should succesfully deduplicate any large shared function in\r\nthe program that is not monomorphized.\r\n\r\n---------\r\n\r\nCo-authored-by: fcarreiro <facundo@aztecprotocol.com>\r\nCo-authored-by: Jean M <132435771+jeanmon@users.noreply.github.com>",
-          "timestamp": "2024-10-10T20:19:57+01:00",
-          "tree_id": "105b9cffb4542f2c77855ba303929c2be8371102",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/409b7b8c6b43a91fc1b5be48aee0174d56d914d9"
-        },
-        "date": 1728589808498,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31492.281976000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28991.955277999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5578.271837999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5244.880307999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93650.779931,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93650782000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15618.181896000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15618182000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8500153252,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8500153252 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 163851095,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 163851095 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6856637254,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6856637254 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128760903,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128760903 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3120,6 +3048,66 @@ window.BENCHMARK_DATA = {
             "value": 129529235,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129529235 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc9828e03ba0924c2cfdaffb4b7455c8eebf01e9",
+          "message": "test: use big endian in sha  (#9471)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.\r\n\r\n---------\r\n\r\nCo-authored-by: dbanks12 <david@aztecprotocol.com>\r\nCo-authored-by: David Banks <47112877+dbanks12@users.noreply.github.com>",
+          "timestamp": "2024-10-29T08:02:10-04:00",
+          "tree_id": "03a10da0621bde861d5d4d0c4505632a5e0004f9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bc9828e03ba0924c2cfdaffb4b7455c8eebf01e9"
+        },
+        "date": 1730205575584,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30912.58440300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29276.702808 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5365.898195,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5017.569630999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91530.44902100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91530451000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15167.330012999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15167330000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2698848147,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2698848147 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126757929,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126757929 ns\nthreads: 1"
           }
         ]
       }
