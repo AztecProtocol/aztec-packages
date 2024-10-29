@@ -569,8 +569,8 @@ contract AvmTest {
         let _ = read_storage_map(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
         let _ = keccak_hash(args_u8);
-        // dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        // let _ = sha256_hash(args_u8);
+        dep::aztec::oracle::debug_log::debug_log("sha256_hash");
+        let _ = sha256_hash(args_u8);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
         let _ = poseidon2_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
