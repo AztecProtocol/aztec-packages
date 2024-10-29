@@ -282,9 +282,11 @@ export async function executeBbClientIvcProveAndVerify(
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
+      logFunction("result is a SUCCESS");
       return { status: BB_RESULT.SUCCESS, durationMs: durationMs };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
+    logFunction("result is a FAILURE");
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to prove and verify. Exit code ${result.exitCode}. Signal ${result.signal}.`,

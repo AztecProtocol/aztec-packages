@@ -21,5 +21,5 @@ FLOW_SCRIPT=${FLOW_SCRIPT:-prove_and_verify_client_ivc}
 echo "Testing thread model: $THREAD_MODEL"
 (cd browser-test-app && yarn serve:dest:$THREAD_MODEL) &
 sleep 1
-BIN=./headless-test/bb.js.browser FLOW=prove_and_verify_client_ivc ./run_acir_tests.sh $@
+BIN=./headless-test/bb.js.browser FLOW=prove_and_verify_client_ivc VERBOSE=1 ./run_acir_tests.sh $@
 lsof -i ":8080" | awk 'NR>1 {print $2}' | xargs kill -9

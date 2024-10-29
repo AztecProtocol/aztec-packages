@@ -263,22 +263,10 @@ export class AztecClientBackend {
     }
   }
 
-  async generateProof(witnessMsgpack: Uint8Array[]): Promise<Uint8Array> {
+  async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<Uint8Array> {
     await this.instantiate();
-    return this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
   }
-
-  // async verifyProof(proof: Uint8Array): Promise<boolean> {
-  //   await this.instantiate();
-  //   const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirMsgpack);
-
-  //   return await this.api.acirVerifyAztecClientProof(proof, new RawBuffer(vkBuf));
-  // }
-
-  // async getVerificationKey(): Promise<Uint8Array> {
-  //   await this.instantiate();
-  //   return await this.api.acirWriteVkUltraHonk(this.acirMsgpack);
-  // }
 
   async destroy(): Promise<void> {
     if (!this.api) {

@@ -297,8 +297,9 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
         ivc.accumulate(circuit);
     }
 
-    info("calling ivc.prove");
+    info("calling ivc.prove_and_verify");
     bool result = ivc.prove_and_verify();
+    info("verified?: ", result);
 
     *verified = result;
 }

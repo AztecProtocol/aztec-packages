@@ -298,6 +298,11 @@ class GoblinVerifier {
         // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
 
+        info("merge_verified?: ", merge_verified);
+        info("eccvm_verified?: ", eccvm_verified);
+        info("accumulator_construction_verified?: ", accumulator_construction_verified);
+        info("translation_verified?: ", translation_verified);
+
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };

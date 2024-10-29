@@ -244,6 +244,7 @@ bool ClientIVC::verify(const Proof& proof,
 
     ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
+    info("decider verified?: ", decision);
     return goblin_verified && decision;
 }
 

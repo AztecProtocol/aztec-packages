@@ -123,7 +123,7 @@ async function initClientIVC(crsPath: string) {
 
   debug('loading BN254 and Grumpkin crs...');
   const crs = await Crs.new(2 ** 21 + 1, crsPath); // WORKTODO: size?
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 15 + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -213,6 +213,7 @@ export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPat
     const witness = readStack(witnessPath);
 
     const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
+    console.log("verified?");
     return verified;
   } finally {
     await api.destroy();

@@ -9,6 +9,7 @@ import os from "os";
 const { BROWSER } = process.env;
 
 function formatAndPrintLog(message: string): void {
+  console.log(message);
   const parts = message.split("%c");
   if (parts.length === 1) {
     console.log(parts[0]);
@@ -49,8 +50,12 @@ function base64ToUint8Array(base64: string) {
 }
 
 function readStack(bytecodePath: string, numToDrop: number) {
-  const encodedCircuit = base64ToUint8Array(fs.readFileSync(bytecodePath, 'utf8'));
-  const unpacked = decode(encodedCircuit.subarray(0, encodedCircuit.length - numToDrop)) as Uint8Array[];
+  const encodedCircuit = base64ToUint8Array(
+    fs.readFileSync(bytecodePath, "utf8")
+  );
+  const unpacked = decode(
+    encodedCircuit.subarray(0, encodedCircuit.length - numToDrop)
+  ) as Uint8Array[];
   const decompressed = unpacked.map((arr: Uint8Array) => ungzip(arr));
   return decompressed;
 }
@@ -101,30 +106,34 @@ program
       const browser = await browserType.launch();
 
       const context = await browser.newContext();
+      context.on("console", (msg) => {
+        console.log(`[${msg.type()}] ${msg.text()}`);
+      });
+
       const page = await context.newPage();
 
       // if (program.opts().verbose) {
-        console.log("verbose is turned on!");
-        page.on("console", (msg) => formatAndPrintLog(msg.text()));
+      console.log("verbose is turned on!");
+      page.on("console", (msg) => formatAndPrintLog(msg.text()));
       // }
 
-      console.log('going to page');
+      console.log("going to page");
       await page.goto("http://localhost:8080");
-      console.log('went to page');
+      console.log("went to page");
 
+      await page.evaluate(() => console.log("This is a log from the browser!"));
+      await page.evaluate(() =>
+        console.debug("This is a debug log from the browser!")
+      );
+      await page.evaluate(() =>
+        console.info("This is an info log from the browser!")
+      );
       const result: boolean = await page.evaluate(
-        ([acir, witnessData, threads]: [string, number[], number]) => {
-          // Convert the input data to Uint8Arrays within the browser context
-          const witnessUint8Array = new Uint8Array(witnessData);
-
+        ([acir, witness, threads]: [Uint8Array[], Uint8Array[], number]) => {
           // Call the desired function and return the result
-          return (window as any).runTest(
-            acir,
-            witnessUint8Array,
-            threads
-          );
+          return (window as any).runTest(acir, witness, threads);
         },
-        [acir, Array.from(witness), threads] // WORKTODO: not an array?
+        [acir, witness, threads]
       );
 
       await browser.close();
