@@ -142,7 +142,10 @@ class LMDBTreeStore {
 
     template <typename TxType> bool read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx);
 
-    fr find_low_leaf(const fr& leafValue, Indices& indices, std::optional<index_t> sizeLimit, ReadTransaction& tx);
+    fr find_low_leaf(const fr& leafValue,
+                     Indices& indices,
+                     const std::optional<index_t>& sizeLimit,
+                     ReadTransaction& tx);
 
     void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
 

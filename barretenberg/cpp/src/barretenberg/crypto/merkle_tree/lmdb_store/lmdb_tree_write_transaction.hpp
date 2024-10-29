@@ -38,25 +38,9 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
 
     void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db);
 
-    // There are a the following two 'getters' here copied from LMDBTreeReadTransaction
-    // This could be rationalised to prevent the duplication
-    template <typename T> bool get_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
-
-    template <typename T>
-    void get_all_values_greater_or_equal_key(const T& key,
-                                             std::vector<std::vector<uint8_t>>& data,
-                                             const LMDBDatabase& db) const;
-
     template <typename T> void delete_all_values_greater_or_equal_key(const T& key, const LMDBDatabase& db) const;
 
-    template <typename T>
-    void get_all_values_lesser_or_equal_key(const T& key,
-                                            std::vector<std::vector<uint8_t>>& data,
-                                            const LMDBDatabase& db) const;
-
     template <typename T> void delete_all_values_lesser_or_equal_key(const T& key, const LMDBDatabase& db) const;
-
-    bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
     void commit();
 
@@ -64,45 +48,22 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
 };
 
 template <typename T>
-bool LMDBTreeWriteTransaction::get_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const
-{
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
-    return get_value(keyBuffer, data, db);
-}
-
-template <typename T>
 void LMDBTreeWriteTransaction::put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
-    put_value(keyBuffer, data, db);
+    lmdb_queries::put_value(keyBuffer, data, db, *this);
 }
 
 template <typename T> void LMDBTreeWriteTransaction::delete_value(T& key, const LMDBDatabase& db)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
-    delete_value(keyBuffer, db);
-}
-
-template <typename T>
-void LMDBTreeWriteTransaction::get_all_values_greater_or_equal_key(const T& key,
-                                                                   std::vector<std::vector<uint8_t>>& data,
-                                                                   const LMDBDatabase& db) const
-{
-    lmdb_queries::get_all_values_greater_or_equal_key(key, data, db, *this);
+    lmdb_queries::delete_value(keyBuffer, db, *this);
 }
 
 template <typename T>
 void LMDBTreeWriteTransaction::delete_all_values_greater_or_equal_key(const T& key, const LMDBDatabase& db) const
 {
     lmdb_queries::delete_all_values_greater_or_equal_key(key, db, *this);
-}
-
-template <typename T>
-void LMDBTreeWriteTransaction::get_all_values_lesser_or_equal_key(const T& key,
-                                                                  std::vector<std::vector<uint8_t>>& data,
-                                                                  const LMDBDatabase& db) const
-{
-    lmdb_queries::get_all_values_lesser_or_equal_key(key, data, db, *this);
 }
 
 template <typename T>

@@ -55,7 +55,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
 
     ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                 std::shared_ptr<ThreadPool> workers,
-                                index_t initial_size);
+                                const index_t& initial_size);
     ContentAddressedIndexedTree(ContentAddressedIndexedTree const& other) = delete;
     ContentAddressedIndexedTree(ContentAddressedIndexedTree&& other) = delete;
     ~ContentAddressedIndexedTree() = default;
@@ -122,7 +122,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      */
     void find_leaf_index_from(
         const LeafValueType& leaf,
-        index_t start_index,
+        const index_t& start_index,
         bool includeUncommitted,
         const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
@@ -151,7 +151,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     void find_leaf_index_from(
         const LeafValueType& leaf,
         const index_t& blockNumber,
-        index_t start_index,
+        const index_t& start_index,
         bool includeUncommitted,
         const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
@@ -230,7 +230,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     void perform_insertions(size_t total_leaves,
                             std::shared_ptr<std::vector<LeafInsertion>> insertions,
                             const InsertionCompletionCallback& completion);
-    void perform_insertions_without_witness(index_t highest_index,
+    void perform_insertions_without_witness(const index_t& highest_index,
                                             std::shared_ptr<std::vector<LeafInsertion>> insertions,
                                             const InsertionCompletionCallback& completion);
 
@@ -257,7 +257,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
 template <typename Store, typename HashingPolicy>
 ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                                                                std::shared_ptr<ThreadPool> workers,
-                                                                               index_t initial_size)
+                                                                               const index_t& initial_size)
     : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(std::move(store), workers)
 {
     if (initial_size < 2) {
@@ -415,7 +415,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     const LeafValueType& leaf,
-    index_t start_index,
+    const index_t& start_index,
     bool includeUncommitted,
     const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
@@ -442,7 +442,7 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     const LeafValueType& leaf,
     const index_t& blockNumber,
-    index_t start_index,
+    const index_t& start_index,
     bool includeUncommitted,
     const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
@@ -557,7 +557,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(
     const std::vector<LeafValueType>& values,
-    const uint32_t subtree_depth,
+    uint32_t subtree_depth,
     const AddCompletionCallbackWithWitness& completion)
 {
     add_or_update_values_internal(values, subtree_depth, completion, true);
@@ -565,7 +565,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
-                                                                             const uint32_t subtree_depth,
+                                                                             uint32_t subtree_depth,
                                                                              const AddCompletionCallback& completion)
 {
     auto final_completion = [=](const TypedResponse<AddIndexedDataResponse<LeafValueType>>& add_data_response) {
@@ -584,7 +584,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_internal(
     const std::vector<LeafValueType>& values,
-    const uint32_t subtree_depth,
+    uint32_t subtree_depth,
     const AddCompletionCallbackWithWitness& completion,
     bool capture_witness)
 {
@@ -845,7 +845,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions_without_witness(
-    index_t highest_index,
+    const index_t& highest_index,
     std::shared_ptr<std::vector<LeafInsertion>> insertions,
     const InsertionCompletionCallback& completion)
 {

@@ -19,7 +19,7 @@ int size_cmp(const MDB_val* a, const MDB_val* b);
 
 std::vector<uint8_t> serialise_key(uint8_t key);
 std::vector<uint8_t> serialise_key(uint64_t key);
-std::vector<uint8_t> serialise_key(uint256_t key);
+std::vector<uint8_t> serialise_key(const uint256_t& key);
 
 void deserialise_key(void* data, uint8_t& key);
 void deserialise_key(void* data, uint64_t& key);

@@ -125,12 +125,12 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Writes the provided data at the given node coordinates. Only writes to uncommitted data.
      */
-    void put_cached_node_by_index(uint32_t level, index_t index, const fr& data, bool overwriteIfPresent = true);
+    void put_cached_node_by_index(uint32_t level, const index_t& index, const fr& data, bool overwriteIfPresent = true);
 
     /**
      * @brief Returns the data at the given node coordinates if available.
      */
-    bool get_cached_node_by_index(uint32_t level, index_t index, fr& data) const;
+    bool get_cached_node_by_index(uint32_t level, const index_t& index, fr& data) const;
 
     /**
      * @brief Writes the provided meta data to uncommitted state
@@ -159,7 +159,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
      */
     std::optional<index_t> find_leaf_index_from(const LeafValueType& leaf,
-                                                index_t start_index,
+                                                const index_t& start_index,
                                                 const RequestContext& requestContext,
                                                 ReadTransaction& tx,
                                                 bool includeUncommitted) const;
@@ -202,7 +202,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     std::optional<index_t> get_fork_block() const;
 
-    void advance_finalised_block(index_t blockNumber);
+    void advance_finalised_block(const index_t& blockNumber);
 
   private:
     std::string name_;
@@ -244,7 +244,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void persist_leaf_indices(WriteTransaction& tx);
 
-    void persist_leaf_keys(index_t startIndex, WriteTransaction& tx);
+    void persist_leaf_keys(const index_t& startIndex, WriteTransaction& tx);
 
     void persist_leaf_pre_image(const fr& hash, WriteTransaction& tx);
 
@@ -252,10 +252,10 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void remove_node(const std::optional<fr>& optional_hash,
                      uint32_t level,
-                     std::optional<index_t> maxIndex,
+                     const std::optional<index_t>& maxIndex,
                      WriteTransaction& tx);
 
-    void remove_leaf(const fr& hash, std::optional<index_t> maxIndex, WriteTransaction& tx);
+    void remove_leaf(const fr& hash, const std::optional<index_t>& maxIndex, WriteTransaction& tx);
 
     void remove_leaf_indices(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
 
@@ -445,7 +445,7 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
 template <typename LeafValueType>
 std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index_from(
     const LeafValueType& leaf,
-    index_t start_index,
+    const index_t& start_index,
     const RequestContext& requestContext,
     ReadTransaction& tx,
     bool includeUncommitted) const
@@ -521,7 +521,7 @@ bool ContentAddressedCachedTreeStore<LeafValueType>::get_node_by_hash(const fr& 
 
 template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_node_by_index(uint32_t level,
-                                                                              index_t index,
+                                                                              const index_t& index,
                                                                               const fr& data,
                                                                               bool overwriteIfPresent)
 {
@@ -540,7 +540,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_node_by_index(ui
 
 template <typename LeafValueType>
 bool ContentAddressedCachedTreeStore<LeafValueType>::get_cached_node_by_index(uint32_t level,
-                                                                              index_t index,
+                                                                              const index_t& index,
                                                                               fr& data) const
 {
     // Accessing nodes_by_index_ under a lock
@@ -697,7 +697,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_indices(WriteT
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_keys(index_t startIndex, WriteTransaction& tx)
+void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_keys(const index_t& startIndex, WriteTransaction& tx)
 {
     for (auto& idx : indices_) {
         FrKeyType key = idx.first;
@@ -797,7 +797,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_meta(TreeMeta& m, W
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(index_t blockNumber)
+void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(const index_t& blockNumber)
 {
     TreeMeta committedMeta;
     TreeMeta uncommittedMeta;
@@ -1017,7 +1017,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf_indices(const f
 
 template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
-                                                                 std::optional<index_t> maxIndex,
+                                                                 const std::optional<index_t>& maxIndex,
                                                                  WriteTransaction& tx)
 {
     // std::cout << "Removing leaf " << hash << std::endl;
@@ -1045,7 +1045,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
 template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::remove_node(const std::optional<fr>& optional_hash,
                                                                  uint32_t level,
-                                                                 std::optional<index_t> maxIndex,
+                                                                 const std::optional<index_t>& maxIndex,
                                                                  WriteTransaction& tx)
 {
     if (!optional_hash.has_value()) {

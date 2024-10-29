@@ -128,7 +128,7 @@ template <typename LeafType> struct IndexedLeaf {
 
     IndexedLeaf() = default;
 
-    IndexedLeaf(const LeafType& val, index_t nextIdx, fr nextVal)
+    IndexedLeaf(const LeafType& val, const index_t& nextIdx, const fr& nextVal)
         : value(val)
         , nextIndex(nextIdx)
         , nextValue(nextVal)

@@ -2,6 +2,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
@@ -237,7 +238,7 @@ void LMDBTreeStore::delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx
 
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
                                 Indices& indices,
-                                std::optional<index_t> sizeLimit,
+                                const std::optional<index_t>& sizeLimit,
                                 ReadTransaction& tx)
 {
     std::vector<uint8_t> data;

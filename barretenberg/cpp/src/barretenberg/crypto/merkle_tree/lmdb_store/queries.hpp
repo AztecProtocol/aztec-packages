@@ -7,7 +7,13 @@
 #include <functional>
 #include <vector>
 
-namespace bb::crypto::merkle_tree::lmdb_queries {
+namespace bb::crypto::merkle_tree {
+
+class LMDBTransaction;
+class LMDBTreeWriteTransaction;
+
+namespace lmdb_queries {
+
 template <typename TKey, typename TxType>
 bool get_value_or_previous(TKey& key, std::vector<uint8_t>& data, const LMDBDatabase& db, const TxType& tx)
 {
@@ -394,4 +400,17 @@ void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& 
     }
     call_lmdb_func(mdb_cursor_close, cursor);
 }
-} // namespace bb::crypto::merkle_tree::lmdb_queries
+
+void put_value(std::vector<uint8_t>& key,
+               std::vector<uint8_t>& data,
+               const LMDBDatabase& db,
+               LMDBTreeWriteTransaction& tx);
+
+void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
+
+bool get_value(std::vector<uint8_t>& key,
+               std::vector<uint8_t>& data,
+               const LMDBDatabase& db,
+               const LMDBTransaction& tx);
+} // namespace lmdb_queries
+} // namespace bb::crypto::merkle_tree
