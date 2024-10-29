@@ -419,27 +419,34 @@ fn handle_foreign_call(
 /// Handle an AVM CALL
 /// (an external 'call' brillig foreign call was encountered)
 /// Adds the new instruction to the avm instructions list.
+// #[oracle(avmOpcodeCall)]
+// unconstrained fn call_opcode(
+//     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
+//     address: AztecAddress,
+//     args: [Field],
+// ) -> bool {}
 fn handle_external_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
     opcode: AvmOpcode,
 ) {
-    if destinations.len() != 2 || inputs.len() != 5 {
+    if destinations.len() != 1 || inputs.len() != 4 {
         panic!(
-            "Transpiler expects ForeignCall (Static)Call to have 2 destinations and 5 inputs, got {} and {}.
-            Make sure your call instructions's input/return arrays have static length (`[Field; <size>]`)!",
+            "Transpiler expects ForeignCall (Static)Call to have 1 destinations and 4 inputs, got {} and {}.",
             destinations.len(),
             inputs.len()
         );
     }
-    let gas = inputs[0];
-    let gas_offset_ptr = match gas {
+
+    let gas_offset_ptr = match &inputs[0] {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            assert!(size == 2, "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)");
+            assert!(
+                *size == 2,
+                "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)"
+            );
             pointer
         }
-        ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 2 (`[l2Gas, daGas]`)!"),
         _ => panic!("Call instruction's gas input should be a HeapArray"),
     };
     let address_offset = match &inputs[1] {
@@ -450,45 +457,25 @@ fn handle_external_call(
     // The field is the length (memory address) and the HeapVector has the data and length again.
     // This is an ACIR internal representation detail that leaks to the SSA.
     // Observe that below, we use `inputs[3]` and therefore skip the length field.
-    let args = inputs[3];
+    let args = &inputs[3];
     let (args_offset_ptr, args_size_offset) = match args {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
-    let function_selector_offset = match &inputs[4] {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Call instruction's function selector input should be a basic MemoryAddress",),
-    };
 
-    let ret_offset_maybe = destinations[0];
-    let (ret_offset_ptr, ret_size) = match ret_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
-        ValueOrArray::HeapVector(_) => panic!("Call instruction's return data must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`let returnData: [Field; <size>] = ...`)!"),
-        _ => panic!("Call instruction's returnData destination should be a HeapArray input"),
-    };
-    let success_offset = match &destinations[1] {
+    let success_offset = match &destinations[0] {
         ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
     };
     avm_instrs.push(AvmInstruction {
         opcode,
-        //   * gas offset INDIRECT
-        //   * address offset direct
-        //   * args offset INDIRECT
-        //   * arg size offset direct
-        //   * ret offset INDIRECT
-        //   * (n/a) ret size is an immediate
-        //   * success offset direct
-        //   * selector direct
         indirect: Some(
             AddressingModeBuilder::default()
                 .indirect_operand(&gas_offset_ptr)
                 .direct_operand(address_offset)
                 .indirect_operand(&args_offset_ptr)
                 .direct_operand(&args_size_offset)
-                .indirect_operand(&ret_offset_ptr)
                 .direct_operand(success_offset)
-                .direct_operand(function_selector_offset)
                 .build(),
         ),
         operands: vec![
@@ -496,10 +483,7 @@ fn handle_external_call(
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: ret_offset_ptr.to_usize() as u16 },
-            AvmOperand::U16 { value: ret_size as u16 },
             AvmOperand::U16 { value: success_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: function_selector_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
