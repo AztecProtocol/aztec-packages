@@ -9,7 +9,7 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
+        hash::poseidon2_hash_with_separator, traits::Serialize,
     },
 };
 
@@ -17,6 +17,7 @@ use dep::aztec::{
 // docs:start:address_note_struct
 // Stores an address
 #[note]
+#[derive(Serialize)]
 pub struct AddressNote {
     address: AztecAddress,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
@@ -26,7 +27,6 @@ pub struct AddressNote {
 // docs:end:address_note_struct
 
 impl NullifiableNote for AddressNote {
-
     fn compute_nullifier(
         self,
         context: &mut PrivateContext,
@@ -61,4 +61,12 @@ impl AddressNote {
         AddressNote { address, owner, randomness, header: NoteHeader::empty() }
     }
     // docs:end:address_note_def
+}
+
+impl Eq for AddressNote {
+    fn eq(self, other: Self) -> bool {
+        (self.address == other.address)
+            & (self.owner == other.owner)
+            & (self.randomness == other.randomness)
+    }
 }
