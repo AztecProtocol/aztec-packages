@@ -33,8 +33,6 @@ describe('Logs', () => {
     await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
 
     testLogContract = await TestLogContract.deploy(wallets[0]).send().deployed();
-
-    await pxe.registerRecipient(wallets[1].getCompleteAddress());
   });
 
   afterAll(() => teardown());

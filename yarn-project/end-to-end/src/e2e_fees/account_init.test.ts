@@ -187,9 +187,6 @@ describe('e2e_fees account_init', () => {
       const bobsSigningPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
       const bobsInstance = bobsAccountManager.getInstance();
 
-      // alice registers bobs keys in the pxe
-      await pxe.registerRecipient(bobsCompleteAddress);
-
       // and deploys bob's account, paying the fee from her balance
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const tx = await SchnorrAccountContract.deployWithPublicKeys(

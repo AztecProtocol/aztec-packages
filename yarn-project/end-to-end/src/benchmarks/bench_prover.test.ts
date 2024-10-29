@@ -154,8 +154,6 @@ describe('benchmarks/proving', () => {
       await pxe.registerContract(initialTestContract);
       await pxe.registerContract(initialFpContract);
 
-      await pxe.registerRecipient(recipient);
-
       provingPxes.push(pxe);
     }
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up 4 nodes.
