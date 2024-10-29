@@ -123,10 +123,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return proof;
   }
 
-  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+  async createClientIvcProof(acirs: Buffer[], recursive: boolean, witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     this.log.info(`Generating Client IVC proof`);
     const operation = async (directory: string) => {
-      return await this._createClientIvcProof(directory, acirs, witnessStack);
+      return await this._createClientIvcProof(directory, acirs, recursive, witnessStack);
     };
     return await this.runInDirectory(operation);
   }
@@ -296,6 +296,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private async computeVerificationKey(
     directory: string,
     bytecode: Buffer,
+    recursive: boolean,
     circuitType: ClientProtocolArtifact | 'App',
     appCircuitName?: string,
   ): Promise<{
@@ -311,6 +312,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       directory,
       circuitType,
       bytecode,
+      recursive,
       circuitType === 'App' ? 'mega_honk' : getUltraHonkFlavorForCircuit(circuitType),
       this.log.debug,
     );

@@ -60,7 +60,7 @@ WASM_EXPORT void acir_create_proof(
 }
 
 WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec,
-                                                  boolean const* recursive,
+                                                  bool const* recursive,
                                                   uint8_t const* witness_vec,
                                                   bool* result)
 {

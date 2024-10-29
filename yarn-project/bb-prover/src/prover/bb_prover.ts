@@ -103,6 +103,9 @@ import { extractAvmVkData, extractVkData } from '../verification_key/verificatio
 
 const logger = createDebugLogger('aztec:bb-prover');
 
+// All `ServerCircuitArtifact` are recursive.
+const SERVER_CIRCUIT_RECURSIVE = true;
+
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
   circuitFilter?: ServerProtocolArtifact[];
@@ -504,15 +507,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Now prove the circuit from the generated witness
     logger.debug(`Proving ${circuitType}...`);
 
-    // All `ServerProtocolArtifact` types are recursive.
-    const recursive = true;
-
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
       workingDirectory,
       circuitType,
       Buffer.from(artifact.bytecode, 'base64'),
-      recursive,
+      SERVER_CIRCUIT_RECURSIVE,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
       logger.debug,
@@ -865,6 +865,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         this.config.bbWorkingDirectory,
         circuitType,
         ServerCircuitArtifacts[circuitType],
+        SERVER_CIRCUIT_RECURSIVE,
         flavor,
         logger.debug,
       ).then(result => {

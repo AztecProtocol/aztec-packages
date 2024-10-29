@@ -444,7 +444,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     return verified;
 }
 
-bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
+bool foldAndVerifyProgram(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -467,7 +467,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
-                                                            /*recursive=*/false,
+                                                            recursive,
                                                             0,
                                                             stack_item.witness,
                                                             /*honk_recursion=*/false,
