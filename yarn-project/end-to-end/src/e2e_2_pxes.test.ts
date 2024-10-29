@@ -128,11 +128,6 @@ describe('e2e_2_pxes', () => {
 
     const token = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
 
-    // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
-    // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
-
     // Add token to PXE B (PXE A already has it because it was deployed through it)
     await pxeB.registerContract(token);
 
@@ -215,11 +210,6 @@ describe('e2e_2_pxes', () => {
     const token = await deployTokenContract(userABalance, walletA.getAddress(), pxeA);
     const contractWithWalletA = await TokenContract.at(token.address, walletA);
 
-    // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
-    // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
-
     // Add token to PXE B (PXE A already has it because it was deployed through it)
     await pxeB.registerContract(token);
 
@@ -266,11 +256,6 @@ describe('e2e_2_pxes', () => {
     const token = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
     const tokenAddress = token.address;
 
-    // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
-    // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
-
     // Check initial balances and logs are as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     // don't check userB yet
@@ -302,9 +287,6 @@ describe('e2e_2_pxes', () => {
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
-
-    // Register wallet B in the pxe of wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
 
     // deploy the contract on PXE A
     const token = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
@@ -376,8 +358,6 @@ describe('e2e_2_pxes', () => {
 
     // 4. Adds the nullified public key note to PXE B
     {
-      // We need to register the recipient to be able to obtain IvpkM for the note
-      await pxeB.registerRecipient(walletA.getCompleteAddress());
       // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_optionally_a_nullifier(...)
       await pxeB.registerContract(testContract);
       await pxeB.addNullifiedNote(note);
