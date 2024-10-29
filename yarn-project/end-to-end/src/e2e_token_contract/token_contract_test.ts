@@ -6,9 +6,7 @@ import {
   ExtendedNote,
   Fr,
   Note,
-  type TxHash,
-  computeSecretHash,
-  createDebugLogger,
+  type TxHash, createDebugLogger
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -22,6 +20,7 @@ import {
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -140,20 +139,14 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
-        const { asset, accounts } = this;
+        const { asset, wallets } = this;
         const amount = 10000n;
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.methods.mint_public(wallets[0].getAddress(), amount).send().wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
-
-        await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-        const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true });
+        await mintTokensToPrivate(asset, wallets[0], wallets[0].getAddress(), amount);
         this.logger.verbose(`Minting complete.`);
 
         return { amount };
