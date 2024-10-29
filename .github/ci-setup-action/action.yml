@@ -35,6 +35,10 @@ runs:
     # TODO reconsider how jq gets into image
     - name: Setup jq
       uses: dcarbone/install-jq-action@v2.1.0
+    - name: Setup yq
+      uses: dcarbone/install-yq-action@v1.1.1
+      with:
+        version: v4.44.3
 
     - name: Setup Earthly
       uses: earthly/actions-setup@v1

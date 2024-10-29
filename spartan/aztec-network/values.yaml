@@ -1,6 +1,13 @@
+nameOverride: ""
+fullnameOverride: ""
+
 network:
   public: false
-  enableBots: true
+  setupL2Contracts: true
+
+telemetry:
+  enabled: false
+  otelCollectorEndpoint:
 
 images:
   aztec:
@@ -12,26 +19,19 @@ images:
   foundry:
     image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
     pullPolicy: IfNotPresent
-  otelCollector:
-    image: otel/opentelemetry-collector-contrib
-    pullPolicy: IfNotPresent
-  prometheus:
-    image: prom/prometheus
-    pullPolicy: IfNotPresent
-  grafana:
-    image: grafana/grafana
-    pullPolicy: IfNotPresent
-  jaeger:
-    image: jaegertracing/all-in-one
-    pullPolicy: IfNotPresent
 
 bootNode:
+  external: false
+  externalTcpHost: ""
+  externalUdpHost: ""
   replicas: 1
   service:
-    p2pPort: 40400
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
+  coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -43,18 +43,31 @@ bootNode:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "4"
+  deployContracts: true # Set to false to use manual contract addresses
+  contracts:
+    rollupAddress: ""
+    registryAddress: ""
+    inboxAddress: ""
+    outboxAddress: ""
+    feeJuiceAddress: ""
+    feeJuicePortalAddress: ""
   storage: "8Gi"
 
 validator:
+  external: false
+  externalTcpHost: ""
+  externalUdpHost: ""
   replicas: 1
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
-    p2pPort: 40400
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -66,35 +79,34 @@ validator:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "28Gi"
-      cpu: "7"
   storage: "8Gi"
 
 proverNode:
+  external: false
+  externalHost: ""
   replicas: 1
   service:
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   realProofs: false
   proverAgentEnabled: true
   resources:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "120Gi"
-      cpu: "15"
   storage: "8Gi"
 
 pxe:
+  external: false
+  externalHost: ""
   logLevel: "debug"
-  debug: "aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   service:
     port: 8080
     targetPort: 8080
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -105,19 +117,18 @@ pxe:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "1"
 
 bot:
+  enabled: true
   logLevel: "debug"
-  debug: "aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   botPrivateKey: "0xcafe"
-  txIntervalSeconds: 5
+  txIntervalSeconds: 24
   privateTransfersPerTx: 1
   publicTransfersPerTx: 0
-  noWaitForTransfers: true
+  # Do not wait for transactions
+  followChain: "NONE"
   botNoStart: false
   pxeProverEnabled: false
   proverRealProofs: false
@@ -125,6 +136,7 @@ bot:
     type: ClusterIP
     port: 8080
     targetPort: 8080
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -135,11 +147,10 @@ bot:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "1"
 
 ethereum:
+  external: false
+  externalHost: ""
   replicas: 1
   chainId: 31337
   blockTime: 12
@@ -153,6 +164,7 @@ ethereum:
     type: ClusterIP
     port: 8545
     targetPort: 8545
+    nodePort: ""
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -163,22 +175,4 @@ ethereum:
     requests:
       memory: "2Gi"
       cpu: "200m"
-    limits:
-      memory: "4Gi"
-      cpu: "1"
-
-metrics:
-  ports:
-    otlp: 4316
-    metrics: 4315
-    prometheus: 9090
-    grafana: 3000
-    jaeger: 16686
-  readinessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 5
-    successThreshold: 1
-    failureThreshold: 3
   storage: "8Gi"
-  fileSystemUser: 472

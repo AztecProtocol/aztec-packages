@@ -1,4 +1,5 @@
 import {
+  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,15 +11,16 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type Fr, type Header } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
+  type Fr,
+  type Header,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -134,6 +136,14 @@ export interface ArchiverDataStore {
     limit: number,
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

@@ -7,13 +7,17 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract PendingNoteHashes {
     // Libs
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteGetterOptions, PrivateContext, Map, PrivateSet};
-    use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
-    use dep::aztec::protocol_types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL};
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::note::note_emission::NoteEmission;
     use dep::aztec::keys::getters::get_public_keys;
-    use dep::aztec::macros::{storage::storage, functions::private};
+    use dep::aztec::macros::{functions::private, storage::storage};
+    use dep::aztec::note::note_emission::NoteEmission;
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateContext, PrivateSet,
+    };
+    use dep::aztec::protocol_types::constants::{
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+    };
+    use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
     #[storage]
     struct Storage<Context> {
@@ -30,24 +34,20 @@ contract PendingNoteHashes {
     fn test_insert_then_get_then_nullify_flat(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress
+        outgoing_viewer: AztecAddress,
     ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+        ));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -71,10 +71,8 @@ contract PendingNoteHashes {
 
         assert(notes.len() == 0);
 
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
-
         // Insert note
-        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+        let mut note = ValueNote::new(amount, owner);
         owner_balance.insert(&mut note).discard();
 
         0
@@ -89,20 +87,16 @@ contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+        ));
     }
 
     // Nested/inner function to create and insert a note
@@ -112,25 +106,21 @@ contract PendingNoteHashes {
     fn insert_note_static_randomness(
         amount: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress
+        outgoing_viewer: AztecAddress,
     ) {
         let mut owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
         note.randomness = 2;
 
         // Insert note
-        owner_balance.insert(&mut note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+        ));
     }
 
     // Nested/inner function to create and insert a note
@@ -139,32 +129,17 @@ contract PendingNoteHashes {
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let mut owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(amount, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note
         let emission = owner_balance.insert(&mut note);
 
-        emission.emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner));
 
         // Emit note again
-        emission.emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -200,19 +175,19 @@ contract PendingNoteHashes {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // nested call to create/insert note
         let _res = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
-            [amount, owner.to_field(), outgoing_viewer.to_field()]
+            [amount, owner.to_field(), outgoing_viewer.to_field()],
         );
         // nested call to read and nullify that note
         let _res = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
-            [amount, owner.to_field()]
+            [amount, owner.to_field()],
         );
     }
 
@@ -223,7 +198,7 @@ contract PendingNoteHashes {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // args for nested calls
         let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
@@ -231,29 +206,29 @@ contract PendingNoteHashes {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
-            insertArgs
+            insertArgs,
         );
         let _callStackItem2 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
-            insertArgs
+            insertArgs,
         );
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
-            getNullifyArgs
+            getNullifyArgs,
         );
         let _callStackItem4 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
-            getNullifyArgs
+            getNullifyArgs,
         );
         // nested call to confirm that balance is zero
         // TODO(dbanks12): once > 4 nested calls is supported, can confirm 0 balance:
-        //let _callStackItem5 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+        //let _callStackItem5 = context.call_private_function(inputs.call_context.contract_address, get_note_zero_fn_selector, [owner]);
     }
 
     // same test as above, but insert 2, get 1, nullify 1
@@ -263,7 +238,7 @@ contract PendingNoteHashes {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // args for nested calls
         let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
@@ -271,20 +246,20 @@ contract PendingNoteHashes {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
-            insertArgs
+            insertArgs,
         );
         let _callStackItem2 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
-            insertArgs
+            insertArgs,
         );
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
-            getNullifyArgs
+            getNullifyArgs,
         );
     }
 
@@ -297,7 +272,7 @@ contract PendingNoteHashes {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector,
     ) {
         // args for nested calls
         let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
@@ -305,20 +280,20 @@ contract PendingNoteHashes {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             insert_fn_selector,
-            insertArgs
+            insertArgs,
         );
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
-            getNullifyArgs
+            getNullifyArgs,
         );
         let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
+            inputs.call_context.contract_address,
             get_then_nullify_fn_selector,
-            getNullifyArgs
+            getNullifyArgs,
         );
     }
     // Confirm cannot get/read a pending note hash in a nested call
@@ -329,7 +304,7 @@ contract PendingNoteHashes {
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
     // #[private]
-    //fn test_bad_get_in_nested_call_then_insert(
+    // fn test_bad_get_in_nested_call_then_insert(
     //    amount: Field,
     //    owner: AztecAddress,
     //    get_then_nullify_fn_selector: FunctionSelector,
@@ -340,18 +315,20 @@ contract PendingNoteHashes {
     fn test_recursively_create_notes(
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
-        how_many_recursions: u64
+        how_many_recursions: u64,
     ) {
         create_max_notes(owner, outgoing_viewer, storage, &mut context);
 
-        PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, outgoing_viewer, how_many_recursions).call(&mut context);
+        PendingNoteHashes::at(context.this_address())
+            .recursively_destroy_and_create_notes(owner, outgoing_viewer, how_many_recursions)
+            .call(&mut context);
     }
 
     #[private]
     fn recursively_destroy_and_create_notes(
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
-        executions_left: u64
+        executions_left: u64,
     ) {
         assert(executions_left > 0);
 
@@ -361,7 +338,9 @@ contract PendingNoteHashes {
         let executions_left = executions_left - 1;
 
         if executions_left > 0 {
-            PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, outgoing_viewer, executions_left).call(&mut context);
+            PendingNoteHashes::at(context.this_address())
+                .recursively_destroy_and_create_notes(owner, outgoing_viewer, executions_left)
+                .call(&mut context);
         }
     }
 
@@ -372,36 +351,28 @@ contract PendingNoteHashes {
     fn test_emit_bad_note_log(owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let owner_npk_m_hash = owner_keys.npk_m.hash();
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut good_note = ValueNote::new(10, owner_npk_m_hash);
+        let mut good_note = ValueNote::new(10, owner);
         // Insert good note with real log
-        owner_balance.insert(&mut good_note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+        ));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
         // This note has not been inserted...
-        let mut bad_note = ValueNote::new(5, owner_npk_m_hash);
+        let mut bad_note = ValueNote::new(5, owner);
         // ...but we need a 'good' note header to get the context to add the note log
         let existing_note_header = good_note.get_header();
         bad_note.set_header(existing_note_header);
 
-        NoteEmission::new(bad_note).emit(
-            encode_and_encrypt_note(
-                &mut context,
-                outgoing_viewer_keys.ovpk_m,
-                owner_keys.ivpk_m,
-                owner
-            )
-        );
+        NoteEmission::new(bad_note).emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+        ));
     }
 
     #[contract_library_method]
@@ -409,18 +380,19 @@ contract PendingNoteHashes {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
         storage: Storage<&mut PrivateContext>,
-        context: &mut PrivateContext
+        context: &mut PrivateContext,
     ) {
         let owner_balance = storage.balances.at(owner);
 
-        let owner_keys = get_public_keys(owner);
-        let owner_npk_m_hash = owner_keys.npk_m.hash();
-        let owner_ivpk_m = owner_keys.ivpk_m;
         let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         for i in 0..max_notes_per_call() {
-            let mut note = ValueNote::new(i as Field, owner_npk_m_hash);
-            owner_balance.insert(&mut note).emit(encode_and_encrypt_note(context, outgoing_viewer_ovpk_m, owner_ivpk_m, owner));
+            let mut note = ValueNote::new(i as Field, owner);
+            owner_balance.insert(&mut note).emit(encode_and_encrypt_note(
+                context,
+                outgoing_viewer_ovpk_m,
+                owner,
+            ));
         }
     }
 

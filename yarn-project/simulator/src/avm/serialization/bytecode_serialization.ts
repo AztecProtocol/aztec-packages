@@ -1,7 +1,6 @@
 import {
   Add,
   And,
-  CMov,
   Call,
   CalldataCopy,
   Cast,
@@ -20,7 +19,6 @@ import {
   InternalReturn,
   Jump,
   JumpI,
-  Keccak,
   KeccakF1600,
   L1ToL2MessageExists,
   Lt,
@@ -31,8 +29,6 @@ import {
   NoteHashExists,
   NullifierExists,
   Or,
-  Pedersen,
-  PedersenCommitment,
   Poseidon2,
   Return,
   Revert,
@@ -114,7 +110,6 @@ const INSTRUCTION_SET = () =>
     [Opcode.SET_FF, Set.as(Set.wireFormatFF).deserialize],
     [Opcode.MOV_8, Mov.as(Mov.wireFormat8).deserialize],
     [Opcode.MOV_16, Mov.as(Mov.wireFormat16).deserialize],
-    [CMov.opcode, Instruction.deserialize.bind(CMov)],
 
     // World State
     [SLoad.opcode, Instruction.deserialize.bind(SLoad)], // Public Storage
@@ -133,7 +128,6 @@ const INSTRUCTION_SET = () =>
     // Control Flow - Contract Calls
     [Call.opcode, Instruction.deserialize.bind(Call)],
     [StaticCall.opcode, Instruction.deserialize.bind(StaticCall)],
-    //[DelegateCall.opcode, Instruction.deserialize.bind(DelegateCall)],
     [Return.opcode, Instruction.deserialize.bind(Return)],
     [Opcode.REVERT_8, Revert.as(Revert.wireFormat8).deserialize],
     [Opcode.REVERT_16, Revert.as(Revert.wireFormat16).deserialize],
@@ -143,12 +137,9 @@ const INSTRUCTION_SET = () =>
 
     // Gadgets
     [EcAdd.opcode, Instruction.deserialize.bind(EcAdd)],
-    [Keccak.opcode, Instruction.deserialize.bind(Keccak)],
     [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
     [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
-    [Pedersen.opcode, Instruction.deserialize.bind(Pedersen)],
     [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
-    [PedersenCommitment.opcode, Instruction.deserialize.bind(PedersenCommitment)],
     // Conversions
     [ToRadixLE.opcode, Instruction.deserialize.bind(ToRadixLE)],
     // Future Gadgets -- pending changes in noir

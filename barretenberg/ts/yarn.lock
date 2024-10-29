@@ -41,6 +41,7 @@ __metadata:
     debug: ^4.3.4
     eslint: ^8.35.0
     eslint-config-prettier: ^8.8.0
+    fflate: ^0.8.0
     html-webpack-plugin: ^5.5.1
     idb-keyval: ^6.2.1
     jest: ^29.5.0
@@ -3268,6 +3269,13 @@ __metadata:
   dependencies:
     bser: 2.1.1
   checksum: b15a124cef28916fe07b400eb87cbc73ca082c142abf7ca8e8de6af43eca79ca7bd13eb4d4d48240b3bd3136eaac40d16e42d6edf87a8e5d1dd8070626860c78
+  languageName: node
+  linkType: hard
+
+"fflate@npm:^0.8.0":
+  version: 0.8.2
+  resolution: "fflate@npm:0.8.2"
+  checksum: 29470337b85d3831826758e78f370e15cda3169c5cd4477c9b5eea2402261a74b2975bae816afabe1c15d21d98591e0d30a574f7103aa117bff60756fa3035d4
   languageName: node
   linkType: hard
 

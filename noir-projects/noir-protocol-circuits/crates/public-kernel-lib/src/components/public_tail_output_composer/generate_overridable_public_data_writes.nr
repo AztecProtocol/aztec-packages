@@ -1,6 +1,11 @@
 use dep::types::{
-    abis::{public_data_update_request::PublicDataUpdateRequest, public_data_write::OverridablePublicDataWrite},
-    data::OverridablePublicDataTreeLeaf, traits::Empty, utils::arrays::{array_length, find_index_hint}
+    abis::{
+        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::OverridablePublicDataWrite,
+    },
+    data::OverridablePublicDataTreeLeaf,
+    traits::Empty,
+    utils::arrays::{array_length, find_index_hint},
 };
 
 pub struct LinkedIndexHint {
@@ -14,9 +19,9 @@ impl Empty for LinkedIndexHint {
     }
 }
 
-unconstrained pub fn generate_overridable_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
+pub unconstrained fn generate_overridable_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     public_data_writes: [PublicDataUpdateRequest; NUM_WRITES],
-    public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES]
+    public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES],
 ) -> ([OverridablePublicDataWrite; NUM_WRITES], [LinkedIndexHint; NUM_WRITES]) {
     let mut overridable_public_data_writes = [OverridablePublicDataWrite::empty(); NUM_WRITES];
     let mut hints = [LinkedIndexHint::empty(); NUM_WRITES];
@@ -47,7 +52,10 @@ unconstrained pub fn generate_overridable_public_data_writes<let NUM_WRITES: u32
 
         if prev_counter == 0 {
             is_first_write = true;
-            prev_index = find_index_hint(public_data_leaves, |leaf: OverridablePublicDataTreeLeaf| leaf.leaf.slot == write.leaf_slot);
+            prev_index = find_index_hint(
+                public_data_leaves,
+                |leaf: OverridablePublicDataTreeLeaf| leaf.leaf.slot == write.leaf_slot,
+            );
         }
 
         overridable_public_data_writes[i] = OverridablePublicDataWrite { write, override_counter };

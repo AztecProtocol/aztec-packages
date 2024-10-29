@@ -51,7 +51,6 @@ pub enum AvmOpcode {
     SET_FF,
     MOV_8,
     MOV_16,
-    CMOV,
     // World state
     SLOAD,
     SSTORE,
@@ -66,21 +65,17 @@ pub enum AvmOpcode {
     // External calls
     CALL,
     STATICCALL,
-    DELEGATECALL,
     RETURN,
     REVERT_8,
     REVERT_16,
     // Misc
     DEBUGLOG,
     // Gadgets
-    KECCAK,
     POSEIDON2,
     SHA256COMPRESSION,
     KECCAKF1600,
-    PEDERSEN, // temp - may be removed, but alot of contracts rely on it
     ECADD,
     MSM,
-    PEDERSENCOMMITMENT, // temp
     // Conversions
     TORADIXLE,
 }
@@ -144,7 +139,6 @@ impl AvmOpcode {
             AvmOpcode::SET_FF => "SET_FF",
             AvmOpcode::MOV_8 => "MOV_8",
             AvmOpcode::MOV_16 => "MOV_16",
-            AvmOpcode::CMOV => "CMOV",
 
             // World State
             AvmOpcode::SLOAD => "SLOAD",   // Public Storage
@@ -163,7 +157,6 @@ impl AvmOpcode {
             // Control Flow - Contract Calls
             AvmOpcode::CALL => "CALL",
             AvmOpcode::STATICCALL => "STATICCALL",
-            AvmOpcode::DELEGATECALL => "DELEGATECALL",
             AvmOpcode::RETURN => "RETURN",
             AvmOpcode::REVERT_8 => "REVERT_8",
             AvmOpcode::REVERT_16 => "REVERT_16",
@@ -172,14 +165,11 @@ impl AvmOpcode {
             AvmOpcode::DEBUGLOG => "DEBUGLOG",
 
             // Gadgets
-            AvmOpcode::KECCAK => "KECCAK",
-            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
-            AvmOpcode::PEDERSEN => "PEDERSEN",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
-            AvmOpcode::PEDERSENCOMMITMENT => "PEDERSENCOMMITMENT",
             // Conversions
             AvmOpcode::TORADIXLE => "TORADIXLE",
         }

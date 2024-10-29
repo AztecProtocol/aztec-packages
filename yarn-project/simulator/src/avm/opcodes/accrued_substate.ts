@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { TypeTag, Uint8 } from '../avm_memory_types.js';
+import { TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { NullifierCollisionError } from '../journal/nullifiers.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -13,9 +13,9 @@ export class NoteHashExists extends Instruction {
   static readonly wireFormat = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -39,12 +39,8 @@ export class NoteHashExists extends Instruction {
     const noteHash = memory.get(noteHashOffset).toFr();
     const leafIndex = memory.get(leafIndexOffset).toFr();
 
-    const exists = await context.persistableState.checkNoteHashExists(
-      context.environment.storageAddress,
-      noteHash,
-      leafIndex,
-    );
-    memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
+    const exists = await context.persistableState.checkNoteHashExists(context.environment.address, noteHash, leafIndex);
+    memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
@@ -55,7 +51,7 @@ export class EmitNoteHash extends Instruction {
   static type: string = 'EMITNOTEHASH';
   static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(private indirect: number, private noteHashOffset: number) {
     super();
@@ -75,7 +71,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(context.environment.storageAddress, noteHash);
+    context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert({ reads: 1, addressing });
     context.machineState.incrementPc();
@@ -89,9 +85,9 @@ export class NullifierExists extends Instruction {
   static readonly wireFormat = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -116,7 +112,7 @@ export class NullifierExists extends Instruction {
     const address = memory.get(addressOffset).toFr();
     const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
-    memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
+    memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
@@ -127,7 +123,7 @@ export class EmitNullifier extends Instruction {
   static type: string = 'EMITNULLIFIER';
   static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(private indirect: number, private nullifierOffset: number) {
     super();
@@ -148,12 +144,12 @@ export class EmitNullifier extends Instruction {
 
     const nullifier = memory.get(nullifierOffset).toFr();
     try {
-      await context.persistableState.writeNullifier(context.environment.storageAddress, nullifier);
+      await context.persistableState.writeNullifier(context.environment.address, nullifier);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         // Error is known/expected, raise as InstructionExecutionError that the will lead the simulator to revert this call
         throw new InstructionExecutionError(
-          `Attempted to emit duplicate nullifier ${nullifier} (storage address: ${context.environment.storageAddress}).`,
+          `Attempted to emit duplicate nullifier ${nullifier} (contract address: ${context.environment.address}).`,
         );
       } else {
         throw e;
@@ -172,9 +168,9 @@ export class L1ToL2MessageExists extends Instruction {
   static readonly wireFormat = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(
@@ -202,7 +198,7 @@ export class L1ToL2MessageExists extends Instruction {
       msgHash,
       msgLeafIndex,
     );
-    memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
+    memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
 
     memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
@@ -213,7 +209,7 @@ export class EmitUnencryptedLog extends Instruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(private indirect: number, private logOffset: number, private logSizeOffset: number) {
     super();
@@ -248,7 +244,7 @@ export class SendL2ToL1Message extends Instruction {
   static type: string = 'SENDL2TOL1MSG';
   static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
+  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(private indirect: number, private recipientOffset: number, private contentOffset: number) {
     super();

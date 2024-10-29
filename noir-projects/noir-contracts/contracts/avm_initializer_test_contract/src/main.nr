@@ -3,7 +3,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract AvmInitializerTest {
     // Libs
-    use dep::aztec::{state_vars::PublicImmutable, macros::{storage::storage, functions::{initializer, public}}};
+    use dep::aztec::{
+        macros::{functions::{initializer, public}, storage::storage},
+        state_vars::PublicImmutable,
+    };
 
     #[storage]
     struct Storage<Context> {

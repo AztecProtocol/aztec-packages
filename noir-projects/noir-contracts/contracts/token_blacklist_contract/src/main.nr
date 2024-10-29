@@ -14,17 +14,22 @@ use dep::aztec::macros::aztec;
 contract TokenBlacklist {
     // Libs
     use dep::aztec::{
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
         hash::compute_secret_hash,
+        keys::getters::get_public_keys,
+        macros::{functions::{initializer, internal, private, public, view}, storage::storage},
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note_unconstrained, encode_and_encrypt_note},
         utils::comparison::Comparator,
-        macros::{storage::storage, functions::{private, public, initializer, view, internal}},
-        keys::getters::get_public_keys
     };
 
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
+    use dep::authwit::auth::{
+        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+    };
 
-    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap, roles::UserFlags};
+    use crate::types::{
+        balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
+        transparent_note::TransparentNote,
+    };
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
@@ -173,19 +178,21 @@ contract TokenBlacklist {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
-            TransparentNote::properties().secret_hash,
-            Comparator.EQ,
-            secret_hash
-        ).set_limit(1);
+        options = options
+            .select(TransparentNote::properties().amount, Comparator.EQ, amount)
+            .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
+            .set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        let msg_sender_keys = get_public_keys(context.msg_sender());
-        let to_keys = get_public_keys(to);
-        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, to_keys.ivpk_m, to));
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.add(to, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, msg_sender_ovpk_m, to),
+        );
     }
 
     #[private]
@@ -201,10 +208,16 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.sub(from, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+        );
 
-        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
+            &mut context,
+        );
     }
 
     // docs:start:transfer_private
@@ -221,14 +234,19 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
-        let to_keys = get_public_keys(to);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
-        );
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_ovpk_m,
+            from,
+        ));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            from_ovpk_m,
+            to,
+        ));
     }
 
     #[private]
@@ -242,14 +260,17 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
+        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
+        // https://github.com/noir-lang/noir/issues/5771
+        storage.balances.sub(from, U128::from_integer(amount)).emit(
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+        );
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
     /// Internal ///
-
     #[public]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
@@ -266,7 +287,6 @@ contract TokenBlacklist {
     }
 
     /// Unconstrained ///
-
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
     }

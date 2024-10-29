@@ -1,9 +1,13 @@
 import { type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header, type PublicKey } from '@aztec/circuits.js';
+import {
+  type CompleteAddress,
+  type ContractInstanceWithAddress,
+  type Header,
+  type PublicKey,
+} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
@@ -165,16 +169,16 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Updates up to which block number we have processed notes for a given public key.
-   * @param publicKey - The public key to set the synched block number for.
+   * @param account - The account to set the synched block number for.
    * @param blockNumber - The block number to set.
    */
-  setSynchedBlockNumberForPublicKey(publicKey: PublicKey, blockNumber: number): Promise<void>;
+  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void>;
 
   /**
    * Get the synched block number for a given public key.
-   * @param publicKey - The public key to get the synched block number for.
+   * @param account - The account to get the synched block number for.
    */
-  getSynchedBlockNumberForPublicKey(publicKey: PublicKey): number | undefined;
+  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined;
 
   /**
    * Returns the estimated size in bytes of this db.

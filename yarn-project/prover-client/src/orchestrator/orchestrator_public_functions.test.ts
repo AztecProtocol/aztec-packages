@@ -1,8 +1,8 @@
 import { PublicExecutionRequest, mockTx } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/circuits.js';
 import { makeCallContext } from '@aztec/circuits.js/testing';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PublicExecutionResult, PublicExecutionResultBuilder } from '@aztec/simulator';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -39,6 +39,7 @@ describe('prover/orchestrator/public-functions', () => {
         });
         tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
+        tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
@@ -64,11 +65,12 @@ describe('prover/orchestrator/public-functions', () => {
       });
       tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
+      tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
       const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
       const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
       const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
-      const mockNestedRequest = () => new PublicExecutionRequest(AztecAddress.random(), makeCallContext(1), []);
+      const mockNestedRequest = () => new PublicExecutionRequest(makeCallContext(1), []);
 
       const simulatorResults: PublicExecutionResult[] = [
         // Setup

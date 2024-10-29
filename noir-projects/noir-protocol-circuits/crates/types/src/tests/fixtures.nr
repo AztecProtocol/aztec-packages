@@ -1,6 +1,7 @@
 mod contract_functions;
 mod contracts;
-mod vk_tree;
+mod protocol_contract_tree;
+pub mod vk_tree;
 
 use crate::{address::AztecAddress, point::Point};
 

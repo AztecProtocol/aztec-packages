@@ -5,7 +5,7 @@ import { type CompiledCircuit } from '@noir-lang/types';
 import { pascalCase } from 'change-case';
 import fs from 'fs/promises';
 
-const log = createConsoleLogger('aztec:noir-contracts');
+const log = createConsoleLogger('aztec:autogenerate');
 
 const circuits = [
   'parity_base',
@@ -15,10 +15,11 @@ const circuits = [
   'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',
-  'public_kernel_inner',
-  'public_kernel_merge',
-  'public_kernel_tail',
-  'rollup_base',
+  'public_kernel_inner_simulated',
+  'public_kernel_merge_simulated',
+  'public_kernel_tail_simulated',
+  'rollup_base_private',
+  'rollup_base_public',
   'rollup_merge',
   'rollup_block_root',
   'rollup_block_merge',

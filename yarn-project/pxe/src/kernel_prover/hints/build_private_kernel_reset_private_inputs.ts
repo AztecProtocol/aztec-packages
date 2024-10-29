@@ -1,4 +1,4 @@
-import { type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { type PrivateExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
 import {
   type Fr,
   KeyValidationHint,
@@ -38,22 +38,17 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types';
-import { type ExecutionResult, collectNested } from '@aztec/simulator';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 
 function collectNestedReadRequests(
-  executionStack: ExecutionResult[],
-  extractReadRequests: (execution: ExecutionResult) => ReadRequest[],
+  executionStack: PrivateExecutionResult[],
+  extractReadRequests: (execution: PrivateExecutionResult) => ReadRequest[],
 ): ScopedReadRequest[] {
   return collectNested(executionStack, executionResult => {
     const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
     return nonEmptyReadRequests.map(
-      readRequest =>
-        new ScopedReadRequest(
-          readRequest,
-          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
-        ),
+      readRequest => new ScopedReadRequest(readRequest, executionResult.publicInputs.callContext.contractAddress),
     );
   });
 }
@@ -106,7 +101,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
   constructor(
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
-    private executionStack: ExecutionResult[],
+    private executionStack: PrivateExecutionResult[],
     private noteHashNullifierCounterMap: Map<number, number>,
     private validationRequestsSplitCounter: number,
   ) {
@@ -118,7 +113,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       MAX_NULLIFIERS_PER_TX,
       () => new TransientDataIndexHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
     );
-    this.nextIteration = executionStack[this.executionStack.length - 1]?.callStackItem.publicInputs;
+    this.nextIteration = executionStack[this.executionStack.length - 1]?.publicInputs;
   }
 
   needsReset(): boolean {
@@ -245,10 +240,9 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const futureNoteHashes = collectNested(this.executionStack, executionResult => {
-      const nonEmptyNoteHashes = getNonEmptyItems(executionResult.callStackItem.publicInputs.noteHashes);
+      const nonEmptyNoteHashes = getNonEmptyItems(executionResult.publicInputs.noteHashes);
       return nonEmptyNoteHashes.map(
-        noteHash =>
-          new ScopedNoteHash(noteHash, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
+        noteHash => new ScopedNoteHash(noteHash, executionResult.publicInputs.callContext.contractAddress),
       );
     });
 
@@ -298,10 +292,9 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const futureNullifiers = collectNested(this.executionStack, executionResult => {
-      const nonEmptyNullifiers = getNonEmptyItems(executionResult.callStackItem.publicInputs.nullifiers);
+      const nonEmptyNullifiers = getNonEmptyItems(executionResult.publicInputs.nullifiers);
       return nonEmptyNullifiers.map(
-        nullifier =>
-          new ScopedNullifier(nullifier, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
+        nullifier => new ScopedNullifier(nullifier, executionResult.publicInputs.callContext.contractAddress),
       );
     });
 
@@ -377,11 +370,11 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     const futureNoteHashReads = collectNestedReadRequests(
       this.executionStack,
-      executionResult => executionResult.callStackItem.publicInputs.noteHashReadRequests,
+      executionResult => executionResult.publicInputs.noteHashReadRequests,
     );
     const futureNullifierReads = collectNestedReadRequests(
       this.executionStack,
-      executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
+      executionResult => executionResult.publicInputs.nullifierReadRequests,
     );
     if (this.nextIteration) {
       // If it's not the final reset, only one dimension will be reset at a time.

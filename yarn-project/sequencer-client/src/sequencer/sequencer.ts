@@ -8,10 +8,13 @@ import {
   Tx,
   type TxHash,
   type TxValidator,
-  type WorldStateStatus,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type AllowedElement, BlockProofError } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedElement,
+  BlockProofError,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -37,7 +40,7 @@ import { inspect } from 'util';
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
-import { prettyLogViemError } from '../publisher/utils.js';
+import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -67,7 +70,6 @@ export class Sequencer {
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
-  private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
   private allowedInSetup: AllowedElement[] = [];
   private allowedInTeardown: AllowedElement[] = [];
@@ -135,6 +137,10 @@ export class Sequencer {
     if (config.allowedInTeardown) {
       this.allowedInTeardown = config.allowedInTeardown;
     }
+    if (config.gerousiaPayload) {
+      this.publisher.setPayload(config.gerousiaPayload);
+    }
+
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
     this.config = config;
   }
@@ -142,13 +148,12 @@ export class Sequencer {
   /**
    * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
    */
-  public async start() {
-    await this.initialSync();
-
+  public start() {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
     this.state = SequencerState.IDLE;
     this.log.info('Sequencer started');
+    return Promise.resolve();
   }
 
   /**
@@ -178,11 +183,6 @@ export class Sequencer {
    */
   public status() {
     return { state: this.state };
-  }
-
-  protected async initialSync() {
-    // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
-    this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
   }
 
   /**
@@ -227,6 +227,15 @@ export class Sequencer {
       return;
     }
 
+    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+      new Fr(newBlockNumber),
+      this._coinbase,
+      this._feeRecipient,
+      slot,
+    );
+
+    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt());
+
     if (!this.shouldProposeBlock(historicalHeader, {})) {
       return;
     }
@@ -240,13 +249,6 @@ export class Sequencer {
       return;
     }
     this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
-
-    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-      new Fr(newBlockNumber),
-      this._coinbase,
-      this._feeRecipient,
-      slot,
-    );
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new Header(
@@ -279,15 +281,14 @@ export class Sequencer {
       // @note  It is very important that the following function will FAIL and not just return early
       //        if it have made any state changes. If not, we won't rollback the state, and you will
       //        be in for a world of pain.
-      await this.buildBlockAndPublish(validTxs, proposalHeader, historicalHeader);
+      await this.buildBlockAndAttemptToPublish(validTxs, proposalHeader, historicalHeader);
     } catch (err) {
       if (BlockProofError.isBlockProofError(err)) {
         const txHashes = err.txHashes.filter(h => !h.isZero());
         this.log.warn(`Proving block failed, removing ${txHashes.length} txs from pool`);
         await this.p2pClient.deleteTxs(txHashes);
       }
-      this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
-      await this.worldState.getLatest().rollback();
+      this.log.error(`Error assembling block`, (err as any).stack);
     }
   }
 
@@ -314,7 +315,10 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      prettyLogViemError(err, this.log);
+      const msg = prettyLogViemErrorMsg(err);
+      this.log.verbose(
+        `Rejected from being able to propose at next block with ${tipArchive.toString('hex')}: ${msg ? `${msg}` : ''}`,
+      );
       throw err;
     }
   }
@@ -395,10 +399,10 @@ export class Sequencer {
    * @param proposalHeader - The partial header constructed for the proposal
    * @param historicalHeader - The historical header of the parent
    */
-  @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
+  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndPublish(
+  private async buildBlockAndAttemptToPublish(
     validTxs: Tx[],
     proposalHeader: Header,
     historicalHeader: Header | undefined,
@@ -419,85 +423,90 @@ export class Sequencer {
       `Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newGlobalVariables.blockNumber.toNumber()}`,
     );
 
-    // We create a fresh processor each time to reset any cached state (eg storage writes)
-    const processor = this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
-
     const numRealTxs = validTxs.length;
     const blockSize = Math.max(2, numRealTxs);
 
-    const blockBuildingTimer = new Timer();
-    const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
-    await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
-
-    const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
-    );
-    if (failedTxs.length > 0) {
-      const failedTxData = failedTxs.map(fail => fail.tx);
-      this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
-      await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
-    }
-
-    await this.publisher.validateBlockForSubmission(proposalHeader);
-
-    if (
-      !this.shouldProposeBlock(historicalHeader, {
-        validTxsCount: validTxs.length,
-        processedTxsCount: processedTxs.length,
-      })
-    ) {
-      // TODO: Roll back changes to world state
-      throw new Error('Should not propose the block');
-    }
-
-    // All real transactions have been added, set the block as full and complete the proving.
-    const block = await blockBuilder.setBlockCompleted();
-
-    // TODO(@PhilWindle) We should probably periodically check for things like another
-    // block being published before ours instead of just waiting on our block
-
-    await this.publisher.validateBlockForSubmission(block.header);
-
-    const workDuration = workTimer.ms();
-    this.log.verbose(
-      `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
-        'hex',
-      )})`,
-      {
-        eventName: 'l2-block-built',
-        duration: workDuration,
-        publicProcessDuration: publicProcessorDuration,
-        rollupCircuitsDuration: blockBuildingTimer.ms(),
-        ...block.getStats(),
-      } satisfies L2BlockBuiltStats,
-    );
-
-    if (this.isFlushing) {
-      this.log.verbose(`Flushing completed`);
-    }
-
-    const txHashes = validTxs.map(tx => tx.getTxHash());
-
-    this.isFlushing = false;
-    this.log.verbose('Collecting attestations');
-    const attestations = await this.collectAttestations(block, txHashes);
-    this.log.verbose('Attestations collected');
-
-    this.log.verbose('Collecting proof quotes');
-    const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
-    this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
-
+    const fork = await this.worldState.fork();
     try {
-      await this.publishL2Block(block, attestations, txHashes, proofQuote);
-      this.metrics.recordPublishedBlock(workDuration);
-      this.log.info(
-        `Submitted rollup block ${block.number} with ${
-          processedTxs.length
-        } transactions duration=${workDuration}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+      // We create a fresh processor each time to reset any cached state (eg storage writes)
+      const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
+      const blockBuildingTimer = new Timer();
+      const blockBuilder = this.blockBuilderFactory.create(fork);
+      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+        processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(fork)),
       );
-    } catch (err) {
-      this.metrics.recordFailedBlock();
-      throw err;
+      if (failedTxs.length > 0) {
+        const failedTxData = failedTxs.map(fail => fail.tx);
+        this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
+        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+      }
+
+      await this.publisher.validateBlockForSubmission(proposalHeader);
+
+      if (
+        !this.shouldProposeBlock(historicalHeader, {
+          validTxsCount: validTxs.length,
+          processedTxsCount: processedTxs.length,
+        })
+      ) {
+        // TODO: Roll back changes to world state
+        throw new Error('Should not propose the block');
+      }
+
+      // All real transactions have been added, set the block as full and complete the proving.
+      const block = await blockBuilder.setBlockCompleted();
+
+      // TODO(@PhilWindle) We should probably periodically check for things like another
+      // block being published before ours instead of just waiting on our block
+
+      await this.publisher.validateBlockForSubmission(block.header);
+
+      const workDuration = workTimer.ms();
+      this.log.verbose(
+        `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
+          'hex',
+        )})`,
+        {
+          eventName: 'l2-block-built',
+          creator: this.publisher.getSenderAddress().toString(),
+          duration: workDuration,
+          publicProcessDuration: publicProcessorDuration,
+          rollupCircuitsDuration: blockBuildingTimer.ms(),
+          ...block.getStats(),
+        } satisfies L2BlockBuiltStats,
+      );
+
+      if (this.isFlushing) {
+        this.log.verbose(`Flushing completed`);
+      }
+
+      const txHashes = validTxs.map(tx => tx.getTxHash());
+
+      this.isFlushing = false;
+      this.log.verbose('Collecting attestations');
+      const attestations = await this.collectAttestations(block, txHashes);
+      this.log.verbose('Attestations collected');
+
+      this.log.verbose('Collecting proof quotes');
+      const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
+      this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
+
+      try {
+        await this.publishL2Block(block, attestations, txHashes, proofQuote);
+        this.metrics.recordPublishedBlock(workDuration);
+        this.log.info(
+          `Submitted rollup block ${block.number} with ${processedTxs.length} transactions duration=${Math.ceil(
+            workDuration,
+          )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+        );
+      } catch (err) {
+        this.metrics.recordFailedBlock();
+        throw err;
+      }
+    } finally {
+      await fork.close();
     }
   }
 
@@ -506,6 +515,11 @@ export class Sequencer {
     this.isFlushing = true;
   }
 
+  @trackSpan('Sequencer.collectAttestations', (block, txHashes) => ({
+    [Attributes.BLOCK_NUMBER]: block.number,
+    [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
+    [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
+  }))
   protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
@@ -542,20 +556,12 @@ export class Sequencer {
   protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
     try {
       // Find out which epoch we are currently in
-      const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
-      if (epochForBlock < 1n) {
-        // It's the 0th epoch, nothing to be proven yet
-        this.log.verbose(`First epoch has no claim`);
+      const epochToProve = await this.publisher.getClaimableEpoch();
+      if (epochToProve === undefined) {
+        this.log.verbose(`No epoch to prove`);
         return undefined;
       }
-      const epochToProve = epochForBlock - 1n;
-      // Find out the next epoch that can be claimed
-      const canClaim = await this.publisher.nextEpochToClaim();
-      if (canClaim != epochToProve) {
-        // It's not the one we are looking to claim
-        this.log.verbose(`Unable to claim previous epoch (${canClaim} != ${epochToProve})`);
-        return undefined;
-      }
+
       // Get quotes for the epoch to be proven
       const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
       this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
@@ -600,9 +606,7 @@ export class Sequencer {
     this.state = SequencerState.PUBLISHING_BLOCK;
 
     const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
-    if (publishedL2Block) {
-      this.lastPublishedBlock = block.number;
-    } else {
+    if (!publishedL2Block) {
       throw new Error(`Failed to publish block ${block.number}`);
     }
   }
@@ -638,24 +642,37 @@ export class Sequencer {
   }
 
   /**
-   * Returns whether the previous block sent has been mined, and all dependencies have caught up with it.
+   * Returns whether all dependencies have caught up.
+   * We don't check against the previous block submitted since it may have been reorg'd out.
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
   protected async isBlockSynced() {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
-      this.p2pClient.getStatus().then(s => s.syncedToL2Block),
-      this.l2BlockSource.getBlockNumber(),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
+      this.l2BlockSource.getL2Tips().then(t => t.latest),
+      this.p2pClient.getStatus().then(s => s.syncedToL2Block.number),
       this.l1ToL2MessageSource.getBlockNumber(),
-    ]);
-    const min = Math.min(...syncedBlocks);
-    const [worldState, p2p, l2BlockSource, l1ToL2MessageSource] = syncedBlocks;
-    const result = min >= this.lastPublishedBlock;
-    this.log.debug(`Sync check to last published block ${this.lastPublishedBlock} ${result ? 'succeeded' : 'failed'}`, {
-      worldState,
-      p2p,
-      l2BlockSource,
-      l1ToL2MessageSource,
+    ] as const);
+    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource] = syncedBlocks;
+    const result =
+      // check that world state has caught up with archiver
+      // note that the archiver reports undefined hash for the genesis block
+      // because it doesn't have access to world state to compute it (facepalm)
+      (l2BlockSource.hash === undefined || worldState.hash === l2BlockSource.hash) &&
+      // and p2p client and message source are at least at the same block
+      // this should change to hashes once p2p client handles reorgs
+      // and once we stop pretending that the l1tol2message source is not
+      // just the archiver under a different name
+      p2p >= l2BlockSource.number &&
+      l1ToL2MessageSource >= l2BlockSource.number;
+
+    this.log.verbose(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
+      worldStateNumber: worldState.number,
+      worldStateHash: worldState.hash,
+      l2BlockSourceNumber: l2BlockSource.number,
+      l2BlockSourceHash: l2BlockSource.hash,
+      p2pNumber: p2p,
+      l1ToL2MessageSourceNumber: l1ToL2MessageSource,
     });
     return result;
   }

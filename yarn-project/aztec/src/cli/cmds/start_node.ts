@@ -12,7 +12,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
-import { extractL1ContractAddresses, extractNamespacedOptions, extractRelevantOptions } from '../util.js';
+import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 
 export const startNode = async (
   options: any,
@@ -28,7 +28,6 @@ export const startNode = async (
   // All options that are relevant to the Aztec Node
   const nodeConfig = {
     ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
-    l1Contracts: extractL1ContractAddresses(options),
   };
 
   if (options.proverNode) {
@@ -64,7 +63,7 @@ export const startNode = async (
   }
 
   if (!options.sequencer) {
-    nodeConfig.disableSequencer = true;
+    nodeConfig.disableValidator = true;
   } else {
     const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
     let account;

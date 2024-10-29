@@ -1,18 +1,16 @@
 import {
   type AztecAddress,
   type CompleteAddress,
-  type Fr,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type PartialAddress,
-  type Point,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
-import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
+  type Fr,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NodeInfo,
+  type PartialAddress,
+  type Point,
   type ProtocolContractAddresses,
-} from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
+} from '@aztec/circuits.js';
+import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
@@ -24,9 +22,10 @@ import {
 } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
+import { type PrivateExecutionResult } from '../private_execution_result.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
-import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type Tx, type TxHash, type TxProvingResult, type TxReceipt, type TxSimulationResult } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
 import { type SyncStatus } from './sync-status.js';
@@ -147,24 +146,23 @@ export interface PXE {
   getContracts(): Promise<AztecAddress[]>;
 
   /**
-   * Creates a transaction based on the provided preauthenticated execution request. This will
-   * run a local simulation of the private execution (and optionally of public as well), assemble
-   * the zero-knowledge proof for the private execution, and return the transaction object.
+   * Creates a proving result based on the provided preauthenticated execution request and the results
+   * of executing the private part of the transaction. This will assemble the zero-knowledge proof for the private execution.
+   * It returns an object that contains the proof and public inputs of the tail circuit, which can be converted into a Tx ready to be sent to the network
    *
-   * @param txRequest - An authenticated tx request ready for simulation
-   * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param txRequest - An authenticated tx request ready for proving
+   * @param privateExecutionResult - The result of the private execution of the transaction
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, scopes?: AztecAddress[]): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
-   * This will run a local simulation of private execution (and optionally of public as well), assemble
-   * the zero-knowledge proof for the private execution, and return the transaction object along
-   * with simulation results (return values).
+   * This will run a local simulation of private execution (and optionally of public as well), run the
+   * kernel circuits to ensure adherence to protocol rules (without generating a proof), and return the
+   * simulation results .
    *
    *
    * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
@@ -176,8 +174,7 @@ export interface PXE {
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns A simulated transaction object that includes a transaction that is potentially ready
-   * to be sent to the network for execution, along with public and private return values.
+   * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
@@ -187,7 +184,7 @@ export interface PXE {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     scopes?: AztecAddress[],
-  ): Promise<SimulatedTx>;
+  ): Promise<TxSimulationResult>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.

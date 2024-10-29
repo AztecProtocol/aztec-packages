@@ -57,7 +57,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let claimContract: ClaimContract;
 
   let crowdfundingSecretKey;
-  let crowdfundingPublicKeysHash;
+  let crowdfundingPublicKeys;
   let pxe: PXE;
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
@@ -114,10 +114,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     crowdfundingSecretKey = Fr.random();
-    crowdfundingPublicKeysHash = deriveKeys(crowdfundingSecretKey).publicKeys.hash();
+    crowdfundingPublicKeys = deriveKeys(crowdfundingSecretKey).publicKeys;
 
-    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeysHash(
-      crowdfundingPublicKeysHash,
+    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
+      crowdfundingPublicKeys,
       operatorWallet,
       donationToken.address,
       operatorWallet.getAddress(),
@@ -140,7 +140,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   afterAll(async () => {
     await teardownA();
-    await teardownB();
+    await teardownB?.();
   });
 
   const mintDNTToDonors = async () => {
@@ -195,7 +195,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       value: uniqueNote.note.items[0],
       // eslint-disable-next-line camelcase
-      npk_m_hash: uniqueNote.note.items[1],
+      owner: uniqueNote.note.items[1],
       randomness: uniqueNote.note.items[2],
     };
   };
@@ -322,7 +322,7 @@ describe('e2e_crowdfunding_and_claim', () => {
           .methods.claim(anotherDonationNote, unrelatedWallet.getAddress())
           .send()
           .wait(),
-      ).rejects.toThrow('Could not find key prefix.');
+      ).rejects.toThrow('No public key registered for address');
     }
   });
 

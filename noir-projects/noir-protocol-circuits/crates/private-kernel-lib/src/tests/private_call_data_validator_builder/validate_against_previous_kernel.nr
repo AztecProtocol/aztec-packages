@@ -1,16 +1,21 @@
 use crate::{
     components::private_call_data_validator::PrivateCallDataValidator,
-    tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder
+    tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder,
 };
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    tests::fixture_builder::FixtureBuilder
+    tests::fixture_builder::FixtureBuilder,
 };
 
 impl PrivateCallDataValidatorBuilder {
-    pub fn validate_against_previous_kernel(self, previous_kernel: PrivateKernelCircuitPublicInputs) {
+    pub fn validate_against_previous_kernel(
+        self,
+        previous_kernel: PrivateKernelCircuitPublicInputs,
+    ) {
         let private_call = self.private_call.to_private_call_data();
-        PrivateCallDataValidator::new(private_call).validate_against_previous_kernel(previous_kernel);
+        PrivateCallDataValidator::new(private_call).validate_against_previous_kernel(
+            previous_kernel,
+        );
     }
 }
 
@@ -28,7 +33,7 @@ fn validate_against_previous_kernel_succeeds() {
     builder.validate_against_previous_kernel(previous_kernel);
 }
 
-#[test(should_fail_with="mismatch historical header")]
+#[test(should_fail_with = "mismatch historical header")]
 fn validate_against_previous_kernel_mismatch_header_version_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
@@ -38,7 +43,7 @@ fn validate_against_previous_kernel_mismatch_header_version_fails() {
     builder.validate_against_previous_kernel(previous_kernel);
 }
 
-#[test(should_fail_with="mismatch tx context")]
+#[test(should_fail_with = "mismatch tx context")]
 fn validate_against_previous_kernel_mismatch_chain_id_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 

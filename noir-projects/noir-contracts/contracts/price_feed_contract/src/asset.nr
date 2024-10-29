@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
 pub struct Asset {
     price: U128,

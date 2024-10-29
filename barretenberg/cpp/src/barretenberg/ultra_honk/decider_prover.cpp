@@ -17,7 +17,6 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
                                        const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::move(proving_key))
     , transcript(transcript)
-    , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 /**
@@ -32,9 +31,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
 
-#ifdef TRACY_MEMORY
-        ZoneScopedN("sumcheck.prove");
-#endif
+        PROFILE_THIS_NAME("sumcheck.prove");
+
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                          proving_key->relation_parameters,
                                          proving_key->alphas,
@@ -43,13 +41,18 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 }
 
 /**
- * @brief Execute the ZeroMorph protocol to produce an opening claim for the multilinear evaluations produced by
- * Sumcheck and then produce an opening proof with a univariate PCS.
- * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
+ * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
+ * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
+ * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
- * */
+ */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
+    if (proving_key->proving_key.commitment_key == nullptr) {
+        proving_key->proving_key.commitment_key =
+            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    }
+    vinfo("made commitment key");
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
     const OpeningClaim prover_opening_claim =
@@ -57,9 +60,11 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                        proving_key->proving_key.polynomials.get_unshifted(),
                                        proving_key->proving_key.polynomials.get_to_be_shifted(),
                                        sumcheck_output.challenge,
-                                       commitment_key,
+                                       proving_key->proving_key.commitment_key,
                                        transcript);
-    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+    vinfo("executed multivariate-to-univarite reduction");
+    PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
+    vinfo("computed opening proof");
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
@@ -70,13 +75,15 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
-    BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
+    PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
+    vinfo("executing relation checking rounds...");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
+    // Execute Shplemini PCS
+    vinfo("executing pcs opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

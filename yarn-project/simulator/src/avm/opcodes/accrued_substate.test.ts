@@ -27,7 +27,6 @@ describe('Accrued Substate', () => {
   let context: AvmContext;
 
   const address = new Fr(1);
-  const storageAddress = new Fr(2);
   const sender = new Fr(42);
   const value0 = new Fr(69); // noteHash or nullifier...
   const value0Offset = 100;
@@ -41,7 +40,7 @@ describe('Accrued Substate', () => {
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
-    context = initContext({ persistableState, env: initExecutionEnvironment({ address, storageAddress, sender }) });
+    context = initContext({ persistableState, env: initExecutionEnvironment({ address, sender }) });
   });
 
   describe('NoteHashExists', () => {
@@ -49,15 +48,15 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         NoteHashExists.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // noteHashOffset
-        ...Buffer.from('23456789', 'hex'), // leafIndexOffset
-        ...Buffer.from('456789AB', 'hex'), // existsOffset
+        ...Buffer.from('1234', 'hex'), // noteHashOffset
+        ...Buffer.from('2345', 'hex'), // leafIndexOffset
+        ...Buffer.from('4567', 'hex'), // existsOffset
       ]);
       const inst = new NoteHashExists(
         /*indirect=*/ 0x01,
-        /*noteHashOffset=*/ 0x12345678,
-        /*leafIndexOffset=*/ 0x23456789,
-        /*existsOffset=*/ 0x456789ab,
+        /*noteHashOffset=*/ 0x1234,
+        /*leafIndexOffset=*/ 0x2345,
+        /*existsOffset=*/ 0x4567,
       );
 
       expect(NoteHashExists.deserialize(buf)).toEqual(inst);
@@ -96,7 +95,7 @@ describe('Accrued Substate', () => {
         const expectedValue = gotExists.toNumber() === 1 ? value0 : Fr.ZERO;
         expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
-          storageAddress,
+          address,
           /*noteHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
@@ -110,9 +109,9 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitNoteHash.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // offset
+        ...Buffer.from('1234', 'hex'), // offset
       ]);
-      const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*offset=*/ 0x12345678);
+      const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
       expect(EmitNoteHash.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -122,10 +121,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(
-        expect.objectContaining(storageAddress),
-        /*noteHash=*/ value0,
-      );
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ value0);
     });
   });
 
@@ -134,15 +130,15 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         NullifierExists.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // nullifierOffset
-        ...Buffer.from('02345678', 'hex'), // addressOffset
-        ...Buffer.from('456789AB', 'hex'), // existsOffset
+        ...Buffer.from('1234', 'hex'), // nullifierOffset
+        ...Buffer.from('0234', 'hex'), // addressOffset
+        ...Buffer.from('4567', 'hex'), // existsOffset
       ]);
       const inst = new NullifierExists(
         /*indirect=*/ 0x01,
-        /*nullifierOffset=*/ 0x12345678,
-        /*addressOffset=*/ 0x02345678,
-        /*existsOffset=*/ 0x456789ab,
+        /*nullifierOffset=*/ 0x1234,
+        /*addressOffset=*/ 0x0234,
+        /*existsOffset=*/ 0x4567,
       );
 
       expect(NullifierExists.deserialize(buf)).toEqual(inst);
@@ -152,18 +148,18 @@ describe('Accrued Substate', () => {
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
       const existsStr = exists ? 'DOES exist' : 'does NOT exist';
       it(`Should return ${exists} (and be traced) when noteHash ${existsStr}`, async () => {
-        const storageAddressOffset = 1;
+        const addressOffset = 1;
 
         if (exists) {
           mockNullifierExists(worldStateDB, leafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
-        context.machineState.memory.set(storageAddressOffset, new Field(storageAddress));
+        context.machineState.memory.set(addressOffset, new Field(address));
         await new NullifierExists(
           /*indirect=*/ 0,
           /*nullifierOffset=*/ value0Offset,
-          storageAddressOffset,
+          addressOffset,
           existsOffset,
         ).execute(context);
 
@@ -175,7 +171,7 @@ describe('Accrued Substate', () => {
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
         const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
         expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          storageAddress,
+          address,
           /*nullifier=*/ value0,
           tracedLeafIndex,
           exists,
@@ -190,9 +186,9 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitNullifier.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // offset
+        ...Buffer.from('1234', 'hex'), // offset
       ]);
-      const inst = new EmitNullifier(/*indirect=*/ 0x01, /*offset=*/ 0x12345678);
+      const inst = new EmitNullifier(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
       expect(EmitNullifier.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -202,10 +198,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(
-        expect.objectContaining(storageAddress),
-        /*nullifier=*/ value0,
-      );
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {
@@ -213,14 +206,11 @@ describe('Accrued Substate', () => {
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
-          `Attempted to emit duplicate nullifier ${value0} (storage address: ${storageAddress}).`,
+          `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
       );
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(
-        expect.objectContaining(storageAddress),
-        /*nullifier=*/ value0,
-      );
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
@@ -228,7 +218,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
-          `Attempted to emit duplicate nullifier ${value0} (storage address: ${storageAddress}).`,
+          `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
       );
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(0); // the only attempt should fail before tracing
@@ -240,15 +230,15 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         L1ToL2MessageExists.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // msgHashOffset
-        ...Buffer.from('456789AB', 'hex'), // msgLeafIndexOffset
-        ...Buffer.from('CDEF0123', 'hex'), // existsOffset
+        ...Buffer.from('1234', 'hex'), // msgHashOffset
+        ...Buffer.from('4567', 'hex'), // msgLeafIndexOffset
+        ...Buffer.from('CDEF', 'hex'), // existsOffset
       ]);
       const inst = new L1ToL2MessageExists(
         /*indirect=*/ 0x01,
-        /*msgHashOffset=*/ 0x12345678,
-        /*msgLeafIndexOffset=*/ 0x456789ab,
-        /*existsOffset=*/ 0xcdef0123,
+        /*msgHashOffset=*/ 0x1234,
+        /*msgLeafIndexOffset=*/ 0x4567,
+        /*existsOffset=*/ 0xcdef,
       );
 
       expect(L1ToL2MessageExists.deserialize(buf)).toEqual(inst);
@@ -306,10 +296,10 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // log offset
-        ...Buffer.from('a2345678', 'hex'), // length offset
+        ...Buffer.from('1234', 'hex'), // log offset
+        ...Buffer.from('a234', 'hex'), // length offset
       ]);
-      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x12345678, /*lengthOffset=*/ 0xa2345678);
+      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x1234, /*lengthOffset=*/ 0xa234);
 
       expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -338,14 +328,10 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         SendL2ToL1Message.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // recipientOffset
-        ...Buffer.from('a2345678', 'hex'), // contentOffset
+        ...Buffer.from('1234', 'hex'), // recipientOffset
+        ...Buffer.from('a234', 'hex'), // contentOffset
       ]);
-      const inst = new SendL2ToL1Message(
-        /*indirect=*/ 0x01,
-        /*recipientOffset=*/ 0x12345678,
-        /*contentOffset=*/ 0xa2345678,
-      );
+      const inst = new SendL2ToL1Message(/*indirect=*/ 0x01, /*recipientOffset=*/ 0x1234, /*contentOffset=*/ 0xa234);
 
       expect(SendL2ToL1Message.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);

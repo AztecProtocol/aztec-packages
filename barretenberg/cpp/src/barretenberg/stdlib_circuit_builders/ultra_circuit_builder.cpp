@@ -2866,7 +2866,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
 
 template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetization>::hash_circuit()
 {
-    finalize_circuit();
+    finalize_circuit(/*ensure_nonzero=*/false);
 
     size_t sum_of_block_sizes(0);
     for (auto& block : blocks.get()) {

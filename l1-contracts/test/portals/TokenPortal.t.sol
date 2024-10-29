@@ -13,14 +13,14 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 // Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
+import {Sysstia} from "@aztec/governance/Sysstia.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -28,9 +28,10 @@ contract TokenPortalTest is Test {
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
-
+  Sysstia internal sysstia;
   IInbox internal inbox;
   IOutbox internal outbox;
 
@@ -61,12 +62,9 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
+    sysstia = new Sysstia(testERC20, registry, address(this));
     rollup = new Rollup(
-      IFeeJuicePortal(address(0)),
-      IProofCommitmentEscrow(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
+      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
     );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
@@ -126,7 +124,8 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
     // event we will get
 
     // Perform op
@@ -151,7 +150,8 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
 
     // Perform op
     bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);

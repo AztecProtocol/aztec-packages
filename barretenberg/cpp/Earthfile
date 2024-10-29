@@ -1,7 +1,7 @@
 VERSION 0.8
 
 # Note, this is only used on the main build path, caching test artifacts is less useful
-# As those only run if there are changes anyway
+# As those only run if there are changes anyway.
 CACHE_BUILD_BIN:
   FUNCTION
   ARG command
@@ -131,7 +131,7 @@ preset-sol:
 
 preset-wasm-threads:
   FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads-v1 \
+  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
     --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm"
   SAVE ARTIFACT build/bin
 

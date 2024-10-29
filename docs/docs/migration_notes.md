@@ -6,7 +6,46 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.X.X
+### [TXE] Single execution environment
+Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
+This ensures every single test runs in a consistent environment and allows for clearer test syntax:
+
+```diff
+-let my_call_interface = MyContract::at(address).my_function(args);
+-env.call_private(my_contract_interface)
++MyContract::at(address).my_function(args).call(&mut env.private());
+```
+This implies every contract has to be deployed before it can be tested (via `env.deploy` or `env.deploy_self`) and of course it has to be recompiled if its code was changed before TXE can use the modified bytecode.
+
+## 0.58.0
+### [l1-contracts] Inbox's MessageSent event emits global tree index
+Earlier `MessageSent` event in Inbox emitted a subtree index (index of the message in the subtree of the l2Block). But the nodes and Aztec.nr expects the index in the global L1_TO_L2_MESSAGES_TREE. So to make it easier to parse this, Inbox now emits this global index.
+
+## 0.57.0
+
+### Changes to PXE API and `ContractFunctionInteraction``
+
+PXE APIs have been refactored to better reflext the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
+
+* `.simulateTx`: Now returns a `TxSimulationResult`, containing the output of private execution, kernel simulation and public simulation (optional).
+* `.proveTx`: Now accepts the result of executing the private part of a transaction, so simulation doesn't have to happen again.
+
+Thanks to this refactor, `ContractFunctionInteraction` has been updated to remove its internal cache and avoid bugs due to its mutable nature. As a result our type-safe interfaces now have to be used as follows:
+
+```diff
+-const action = MyContract.at(address).method(args);
+-await action.prove();
+-await action.send().wait();
++const action = MyContract.at(address).method(args);
++const provenTx = await action.prove();
++await provenTx.send().wait();
+```
+
+It's still possible to use `.send()` as before, which will perform proving under the hood.
+
+More changes are coming to these APIs to better support gas estimation mechanisms and advanced features.
+
 
 ### Changes to public calling convention
 

@@ -5,11 +5,15 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
+import {
+  type CompleteAddress,
+  type ContractInstance,
+  type Header,
+  type KeyValidationRequest,
+} from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db_interfaces.js';
@@ -189,4 +193,13 @@ export interface DBOracle extends CommitmentsDB {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * @param contractAddress - The contract address to silo the secret for
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   * @returns A tagging secret that can be used to tag notes.
+   */
+  getAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
 }

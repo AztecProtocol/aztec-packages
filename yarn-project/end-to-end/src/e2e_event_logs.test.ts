@@ -6,7 +6,6 @@ import {
   L1EventPayload,
   type PXE,
 } from '@aztec/aztec.js';
-import { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -14,7 +13,7 @@ import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/
 
 import { jest } from '@jest/globals';
 
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
@@ -31,7 +30,7 @@ describe('Logs', () => {
   beforeAll(async () => {
     ({ teardown, wallets, aztecNode: node, pxe } = await setup(2));
 
-    await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
+    await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
 
     testLogContract = await TestLogContract.deploy(wallets[0]).send().deployed();
 
@@ -55,10 +54,7 @@ describe('Logs', () => {
       const encryptedLogs = txEffect!.encryptedLogs.unrollLogs();
       expect(encryptedLogs.length).toBe(3);
 
-      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(
-        encryptedLogs[0],
-        deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
-      )!;
+      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(encryptedLogs[0], wallets[0].getEncryptionSecret())!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
       expect(decryptedEvent0.randomness).toStrictEqual(randomness[0]);
@@ -75,10 +71,7 @@ describe('Logs', () => {
       const badEvent0 = TestLogContract.events.ExampleEvent1.decode(decryptedEvent0);
       expect(badEvent0).toBe(undefined);
 
-      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(
-        encryptedLogs[2],
-        deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
-      )!;
+      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(encryptedLogs[2], wallets[0].getEncryptionSecret())!;
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);
       expect(decryptedEvent1.randomness).toStrictEqual(randomness[1]);

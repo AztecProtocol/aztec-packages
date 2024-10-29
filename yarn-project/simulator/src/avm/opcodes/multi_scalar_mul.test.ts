@@ -16,17 +16,17 @@ describe('MultiScalarMul Opcode', () => {
     const buf = Buffer.from([
       MultiScalarMul.opcode, // opcode
       7, // indirect
-      ...Buffer.from('12345678', 'hex'), // pointsOffset
-      ...Buffer.from('23456789', 'hex'), // scalars Offset
-      ...Buffer.from('3456789a', 'hex'), // outputOffset
-      ...Buffer.from('456789ab', 'hex'), // pointsLengthOffset
+      ...Buffer.from('1234', 'hex'), // pointsOffset
+      ...Buffer.from('2345', 'hex'), // scalars Offset
+      ...Buffer.from('3456', 'hex'), // outputOffset
+      ...Buffer.from('4567', 'hex'), // pointsLengthOffset
     ]);
     const inst = new MultiScalarMul(
       /*indirect=*/ 7,
-      /*pointsOffset=*/ 0x12345678,
-      /*scalarsOffset=*/ 0x23456789,
-      /*outputOffset=*/ 0x3456789a,
-      /*pointsLengthOffset=*/ 0x456789ab,
+      /*pointsOffset=*/ 0x1234,
+      /*scalarsOffset=*/ 0x2345,
+      /*outputOffset=*/ 0x3456,
+      /*pointsLengthOffset=*/ 0x4567,
     );
 
     expect(MultiScalarMul.deserialize(buf)).toEqual(inst);

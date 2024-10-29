@@ -5,10 +5,16 @@ import {
   type OutgoingNotesFilter,
   type PublicKey,
 } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  Header,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import {
   type AztecArray,
   type AztecKVStore,
@@ -18,7 +24,6 @@ import {
   type AztecSingleton,
 } from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
-import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
@@ -210,7 +215,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const newLength = await this.#deferredNotes.push(...deferredNotes.map(note => note.toBuffer()));
     for (const [index, note] of deferredNotes.entries()) {
       const noteId = newLength - deferredNotes.length + index;
-      await this.#deferredNotesByContract.set(note.contractAddress.toString(), noteId);
+      await this.#deferredNotesByContract.set(note.payload.contractAddress.toString(), noteId);
     }
   }
 
@@ -540,12 +545,12 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
   }
 
-  getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {
-    return this.#syncedBlockPerPublicKey.get(publicKey.toString());
+  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
+    return this.#syncedBlockPerPublicKey.get(account.toString());
   }
 
-  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<void> {
-    return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
+  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void> {
+    return this.#syncedBlockPerPublicKey.set(account.toString(), blockNumber);
   }
 
   async estimateSize(): Promise<number> {

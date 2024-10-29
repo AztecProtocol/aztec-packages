@@ -254,24 +254,41 @@ function getStorageLayout(input: NoirCompiledContract) {
  * @return A record of the note types and their ids
  */
 function getNoteTypes(input: NoirCompiledContract) {
-  type t = {
-    kind: string;
-    fields: [{ kind: string; sign: boolean; value: string }, { kind: string; value: string }];
-  };
-
-  const notes = input.outputs.globals.notes as t[];
+  // The type is useless here as it does not give us any guarantee (e.g. `AbiValue` can be one of many different
+  // types) so we nuke it and later we manually check the values are as we expect.
+  const notes = input.outputs.globals.notes as any[];
 
   if (!notes) {
     return {};
   }
 
   return notes.reduce((acc: Record<string, ContractNote>, note) => {
-    const name = note.fields[1].value as string;
-    // Note id is encoded as a hex string
-    const id = NoteSelector.fromField(Fr.fromString(note.fields[0].value));
+    const noteFields = note.fields;
+
+    // We find note type id by looking for respective kinds as each of them is unique
+    const rawNoteTypeId = noteFields.find((field: any) => field.kind === 'integer');
+    const rawName = noteFields.find((field: any) => field.kind === 'string');
+    const rawNoteFields = noteFields.find((field: any) => field.kind === 'struct');
+
+    if (!rawNoteTypeId || !rawName || !rawNoteFields) {
+      throw new Error(`Could not find note type id, name or fields for note ${note}`);
+    }
+
+    const noteTypeId = NoteSelector.fromField(Fr.fromString(rawNoteTypeId.value));
+    const name = rawName.value as string;
+
+    // Note type id is encoded as a hex string
+    const fields = rawNoteFields.fields.map((field: any) => {
+      return {
+        name: field.name,
+        index: parseInt(field.value.fields[0].value.value, 16),
+        nullable: field.value.fields[1].value.value,
+      };
+    });
     acc[name] = {
-      id,
+      id: noteTypeId,
       typ: name,
+      fields,
     };
     return acc;
   }, {});

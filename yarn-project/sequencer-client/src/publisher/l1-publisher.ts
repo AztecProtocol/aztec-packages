@@ -9,6 +9,7 @@ import {
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
+  AZTEC_EPOCH_DURATION,
   ETHEREUM_SLOT_DURATION,
   EthAddress,
   type FeeRecipient,
@@ -18,14 +19,14 @@ import {
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { areArraysEqual, times } from '@aztec/foundation/collection';
+import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { GerousiaAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -34,6 +35,7 @@ import {
   type BaseError,
   type Chain,
   type Client,
+  type ContractFunctionExecutionError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -60,12 +62,14 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemError } from './utils.js';
+import { prettyLogViemError, prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
  */
 export type TransactionStats = {
+  /** Address of the sender. */
+  sender: string;
   /** Hash of the transaction. */
   transactionHash: string;
   /** Size in bytes of the tx calldata */
@@ -81,13 +85,15 @@ export type MinimalTransactionReceipt = {
   /** True if the tx was successful, false if reverted. */
   status: boolean;
   /** Hash of the transaction. */
-  transactionHash: string;
+  transactionHash: `0x${string}`;
   /** Effective gas used by the tx. */
   gasUsed: bigint;
   /** Effective gas price paid by the tx. */
   gasPrice: bigint;
   /** Logs emitted in this tx. */
   logs: any[];
+  /** Block number in which this tx was mined. */
+  blockNumber: bigint;
 };
 
 /** Arguments to the process method of the rollup contract */
@@ -116,7 +122,7 @@ export type L1SubmitEpochProofArgs = {
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
-  fees: Tuple<FeeRecipient, 32>;
+  fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>;
   proof: Proof;
 };
 
@@ -133,19 +139,27 @@ export class L1Publisher {
   private sleepTimeMs: number;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
-  private log = createDebugLogger('aztec:sequencer:publisher');
+
+  private payload: EthAddress = EthAddress.ZERO;
+  private myLastVote: bigint = 0n;
+
+  protected log = createDebugLogger('aztec:sequencer:publisher');
 
   private rollupContract: GetContractReturnType<
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
+  private gerousiaContract?: GetContractReturnType<
+    typeof GerousiaAbi,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  > = undefined;
 
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
   private account: PrivateKeyAccount;
 
-  public static PROPOSE_GAS_GUESS: bigint = 500_000n;
-  public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = 600_000n;
+  public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
+  public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
   constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -165,6 +179,7 @@ export class L1Publisher {
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
+      pollingInterval: config.viemPollingIntervalMS,
     });
 
     this.rollupContract = getContract({
@@ -172,6 +187,22 @@ export class L1Publisher {
       abi: RollupAbi,
       client: this.walletClient,
     });
+
+    if (l1Contracts.gerousiaAddress) {
+      this.gerousiaContract = getContract({
+        address: getAddress(l1Contracts.gerousiaAddress.toString()),
+        abi: GerousiaAbi,
+        client: this.walletClient,
+      });
+    }
+  }
+
+  public getPayLoad() {
+    return this.payload;
+  }
+
+  public setPayload(payload: EthAddress) {
+    this.payload = payload;
   }
 
   public getSenderAddress(): EthAddress {
@@ -205,13 +236,31 @@ export class L1Publisher {
    * @return blockNumber - The L2 block number of the next L2 block
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
+    // FIXME: This should not throw if unable to propose but return a falsey value, so
+    // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
+    // which may require a retry, vs actually not being the turn for proposing.
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
   }
 
-  public async nextEpochToClaim(): Promise<bigint> {
-    return await this.rollupContract.read.nextEpochToClaim();
+  public async getClaimableEpoch(): Promise<bigint | undefined> {
+    try {
+      return await this.rollupContract.read.getClaimableEpoch();
+    } catch (err: any) {
+      const errorName = tryGetCustomErrorName(err);
+      // getting the error name from the abi is redundant,
+      // but it enforces that the error name is correct.
+      // That is, if the error name is not found, this will not compile.
+      const acceptedErrors = (['Rollup__NoEpochToProve', 'Rollup__ProofRightAlreadyClaimed'] as const).map(
+        name => getAbiItem({ abi: RollupAbi, name }).name,
+      );
+
+      if (errorName && acceptedErrors.includes(errorName as any)) {
+        return undefined;
+      }
+      throw err;
+    }
   }
 
   public async getEpochForSlotNumber(slotNumber: bigint): Promise<bigint> {
@@ -258,7 +307,7 @@ export class L1Publisher {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
       const errorName = tryGetCustomErrorName(err);
-      this.log.verbose(`Proof quote validation failed: ${errorName}`);
+      this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
     }
     return quote;
@@ -320,10 +369,73 @@ export class L1Publisher {
     }
     const calldata = hexToBytes(tx.input);
     return {
+      sender: tx.from.toString(),
       transactionHash: tx.hash,
       calldataSize: calldata.length,
       calldataGas: getCalldataGasUsage(calldata),
     };
+  }
+
+  public async castVote(slotNumber: bigint, timestamp: bigint): Promise<boolean> {
+    if (this.payload.equals(EthAddress.ZERO)) {
+      return false;
+    }
+
+    if (!this.gerousiaContract) {
+      return false;
+    }
+
+    if (this.myLastVote >= slotNumber) {
+      return false;
+    }
+
+    // @todo This can be optimized A LOT by doing the computation instead of making calls to L1, but it is  very convenient
+    // for when we keep changing the values and don't want to have multiple versions of the same logic implemented.
+
+    const [proposer, roundNumber] = await Promise.all([
+      this.rollupContract.read.getProposerAt([timestamp]),
+      this.gerousiaContract.read.computeRound([slotNumber]),
+    ]);
+
+    if (proposer != this.account.address) {
+      return false;
+    }
+
+    const [slotForLastVote] = await this.gerousiaContract.read.rounds([this.rollupContract.address, roundNumber]);
+
+    if (slotForLastVote >= slotNumber) {
+      return false;
+    }
+
+    // Storing these early such that a quick entry again would not send another tx,
+    // revert the state if there is a failure.
+    const cachedMyLastVote = this.myLastVote;
+    this.myLastVote = slotNumber;
+
+    let txHash;
+    try {
+      txHash = await this.gerousiaContract.write.vote([this.payload.toString()], {
+        account: this.account,
+      });
+    } catch (err) {
+      const msg = prettyLogViemErrorMsg(err);
+      this.log.error(`Governance: Failed to vote`, msg);
+      this.myLastVote = cachedMyLastVote;
+      return false;
+    }
+
+    if (txHash) {
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        this.log.info(`Failed to get receipt for tx ${txHash}`);
+        this.myLastVote = cachedMyLastVote;
+        return false;
+      }
+    }
+
+    this.log.info(`Governance: Cast vote for ${this.payload}`);
+
+    return true;
   }
 
   /**
@@ -374,14 +486,16 @@ export class L1Publisher {
 
     this.log.verbose(`Submitting propose transaction`);
 
-    const txHash = proofQuote
+    const tx = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
       : await this.sendProposeTx(proposeTxArgs);
 
-    if (!txHash) {
+    if (!tx) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
+
+    const { hash: txHash, args, functionName, gasLimit } = tx;
 
     const receipt = await this.getTransactionReceipt(txHash);
     if (!receipt) {
@@ -394,7 +508,7 @@ export class L1Publisher {
       const tx = await this.getTransactionStats(txHash);
       const stats: L1PublishBlockStats = {
         ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-        ...pick(tx!, 'calldataGas', 'calldataSize'),
+        ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
         eventName: 'rollup-published-to-l1',
       };
@@ -406,9 +520,43 @@ export class L1Publisher {
 
     this.metrics.recordFailedTx('process');
 
-    this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`, ctx);
+    const errorMsg = await this.tryGetErrorFromRevertedTx({
+      args,
+      functionName,
+      gasLimit,
+      abi: RollupAbi,
+      address: this.rollupContract.address,
+      blockNumber: receipt.blockNumber,
+    });
+    this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
+      ...ctx,
+      txHash: receipt.transactionHash,
+    });
     await this.sleepOrInterrupted();
     return false;
+  }
+
+  private async tryGetErrorFromRevertedTx(args: {
+    args: any[];
+    functionName: string;
+    gasLimit: bigint;
+    abi: any;
+    address: Hex;
+    blockNumber: bigint | undefined;
+  }) {
+    try {
+      await this.publicClient.simulateContract({ ...args, account: this.walletClient.account });
+      return undefined;
+    } catch (err: any) {
+      if (err.name === 'ContractFunctionExecutionError') {
+        const execErr = err as ContractFunctionExecutionError;
+        return compactArray([
+          execErr.shortMessage,
+          ...(execErr.metaMessages ?? []).slice(0, 2).map(s => s.trim()),
+        ]).join(' ');
+      }
+      this.log.error(`Error getting error from simulation`, err);
+    }
   }
 
   public async submitEpochProof(args: {
@@ -441,7 +589,7 @@ export class L1Publisher {
         const tx = await this.getTransactionStats(txHash);
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
-          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
           eventName: 'proof-published-to-l1',
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
@@ -600,7 +748,7 @@ export class L1Publisher {
         args.publicInputs.outHash.toString(),
         args.publicInputs.proverId.toString(),
       ],
-      makeTuple(64, i =>
+      makeTuple(AZTEC_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),
@@ -609,17 +757,24 @@ export class L1Publisher {
     ] as const;
   }
 
-  private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
+  private async sendProposeTx(
+    encodedData: L1ProcessArgs,
+  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
     if (this.interrupted) {
-      return;
+      return undefined;
     }
     try {
       const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
 
-      return await this.rollupContract.write.propose(args, {
-        account: this.account,
-        gas: gasGuesstimate,
-      });
+      return {
+        hash: await this.rollupContract.write.propose(args, {
+          account: this.account,
+          gas: gasGuesstimate,
+        }),
+        args,
+        functionName: 'propose',
+        gasLimit: gasGuesstimate,
+      };
     } catch (err) {
       prettyLogViemError(err, this.log);
       this.log.error(`Rollup publish failed`, err);
@@ -627,9 +782,12 @@ export class L1Publisher {
     }
   }
 
-  private async sendProposeAndClaimTx(encodedData: L1ProcessArgs, quote: EpochProofQuote): Promise<string | undefined> {
+  private async sendProposeAndClaimTx(
+    encodedData: L1ProcessArgs,
+    quote: EpochProofQuote,
+  ): Promise<{ hash: string; args: any; functionName: string; gasLimit: bigint } | undefined> {
     if (this.interrupted) {
-      return;
+      return undefined;
     }
     try {
       const { args, gasGuesstimate } = await this.prepareProposeTx(
@@ -639,10 +797,15 @@ export class L1Publisher {
       this.log.info(`ProposeAndClaim`);
       this.log.info(inspect(quote.payload));
 
-      return await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
-        account: this.account,
-        gas: gasGuesstimate,
-      });
+      return {
+        hash: await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
+          account: this.account,
+          gas: gasGuesstimate,
+        }),
+        functionName: 'proposeAndClaim',
+        args,
+        gasLimit: gasGuesstimate,
+      };
     } catch (err) {
       prettyLogViemError(err, this.log);
       this.log.error(`Rollup publish failed`, err);
@@ -673,6 +836,7 @@ export class L1Publisher {
             gasUsed: receipt.gasUsed,
             gasPrice: receipt.effectiveGasPrice,
             logs: receipt.logs,
+            blockNumber: receipt.blockNumber,
           };
         }
 
@@ -702,7 +866,7 @@ function getCalldataGasUsage(data: Uint8Array) {
 function tryGetCustomErrorName(err: any) {
   try {
     // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors
-    if (err.name === 'ViemError') {
+    if (err.name === 'ViemError' || err.name === 'ContractFunctionExecutionError') {
       const baseError = err as BaseError;
       const revertError = baseError.walk(err => (err as Error).name === 'ContractFunctionRevertedError');
       if (revertError) {

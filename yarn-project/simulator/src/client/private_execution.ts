@@ -1,15 +1,20 @@
+import { PrivateExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { Fr, FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import type { FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import {
+  Fr,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
+  PrivateCircuitPublicInputs,
+} from '@aztec/circuits.js';
+import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
-import { witnessMapToFields } from '../acvm/deserialize.js';
-import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
+import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
+import { type ACVMWitness, Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
-import { type ExecutionResult } from './execution_result.js';
 
 /**
  * Execute a private function and return the execution result.
@@ -20,7 +25,7 @@ export async function executePrivateFunction(
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createDebugLogger('aztec:simulator:private_execution'),
-): Promise<ExecutionResult> {
+): Promise<PrivateExecutionResult> {
   const functionName = await context.getDebugFunctionName();
   log.verbose(`Executing external function ${functionName}@${contractAddress}`);
   const acir = artifact.bytecode;
@@ -40,8 +45,7 @@ export async function executePrivateFunction(
   });
   const duration = timer.ms();
   const partialWitness = acirExecutionResult.partialWitness;
-  const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
-  const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
+  const publicInputs = extractPrivateCircuitPublicInputs(artifact, partialWitness);
 
   // TODO (alexg) estimate this size
   const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
@@ -58,12 +62,6 @@ export async function executePrivateFunction(
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
 
-  const callStackItem = new PrivateCallStackItem(
-    contractAddress,
-    new FunctionData(functionSelector, true),
-    publicInputs,
-  );
-
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
@@ -75,20 +73,44 @@ export async function executePrivateFunction(
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
-  return {
+  return new PrivateExecutionResult(
     acir,
+    Buffer.from(artifact.verificationKey!, 'hex'),
     partialWitness,
-    callStackItem,
-    returnValues: rawReturnValues,
+    publicInputs,
     noteHashLeafIndexMap,
     newNotes,
     noteHashNullifierCounterMap,
-    vk: Buffer.from(artifact.verificationKey!, 'hex'),
+    rawReturnValues,
     nestedExecutions,
     enqueuedPublicFunctionCalls,
-    noteEncryptedLogs,
     publicTeardownFunctionCall,
+    noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,
-  };
+  );
+}
+
+/**
+ * Get the private circuit public inputs from the partial witness.
+ * @param artifact - The function artifact
+ * @param partialWitness - The partial witness, result of simulating the function.
+ * @returns - The public inputs.
+ */
+export function extractPrivateCircuitPublicInputs(
+  artifact: FunctionArtifact,
+  partialWitness: ACVMWitness,
+): PrivateCircuitPublicInputs {
+  const parametersSize = countArgumentsSize(artifact) + PRIVATE_CONTEXT_INPUTS_LENGTH;
+  const returnsSize = PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+  const returnData = [];
+  // Return values always appear in the witness after arguments.
+  for (let i = parametersSize; i < parametersSize + returnsSize; i++) {
+    const returnedField = partialWitness.get(i);
+    if (returnedField === undefined) {
+      throw new Error(`Missing return value for index ${i}`);
+    }
+    returnData.push(fromACVMField(returnedField));
+  }
+  return PrivateCircuitPublicInputs.fromFields(returnData);
 }
