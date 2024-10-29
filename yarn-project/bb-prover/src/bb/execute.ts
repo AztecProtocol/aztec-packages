@@ -117,7 +117,7 @@ export async function generateKeyForNoirCircuit(
   compiledCircuit: NoirCompiledCircuit,
   flavor: UltraHonkFlavor,
   log: LogFn,
-  force = false,
+  force = true,
 ): Promise<BBSuccess | BBFailure> {
   const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
@@ -151,6 +151,9 @@ export async function generateKeyForNoirCircuit(
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
       let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, log);
+
+      console.log("writing the vk");
+
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS) {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
@@ -842,7 +845,7 @@ export async function generateContractForCircuit(
   compiledCircuit: NoirCompiledCircuit,
   contractName: string,
   log: LogFn,
-  force = false,
+  force = true,
 ) {
   const vkResult = await generateKeyForNoirCircuit(
     pathToBB,
@@ -856,6 +859,8 @@ export async function generateContractForCircuit(
   if (vkResult.status === BB_RESULT.FAILURE) {
     return vkResult;
   }
+
+  console.log('vkResult', vkResult);
 
   return generateContractForVerificationKey(
     pathToBB,
