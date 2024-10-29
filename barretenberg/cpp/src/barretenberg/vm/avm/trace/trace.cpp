@@ -1556,6 +1556,69 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     });
 }
 
+void AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // This boolean will not be a trivial constant anymore once we constrain address resolution.
+    bool tag_match = true;
+
+    auto [resolved_dst_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
+
+    FF returndata_size = tag_match ? FF(nested_returndata.size()) : FF(0);
+    // TODO: constrain
+    write_to_memory(resolved_dst_offset, returndata_size, AvmMemoryTag::U32);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_pc = FF(pc++),
+        .main_sel_op_returndata_size = FF(1),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
+    });
+}
+
+void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
+                                         uint32_t rd_offset_address,
+                                         uint32_t copy_size_offset,
+                                         uint32_t dst_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto [rd_offset_resolved, copy_size_offset_resolved, dst_offset_resolved] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ rd_offset_address, copy_size_offset, dst_offset }, mem_trace_builder);
+
+    // This boolean will not be a trivial constant anymore once we constrain address resolution.
+    bool tag_match = true;
+
+    // TODO: constrain these.
+    const uint32_t rd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(rd_offset_resolved));
+    const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
+
+    gas_trace_builder.constrain_gas(clk,
+                                    OpCode::RETURNDATACOPY,
+                                    /*dyn_gas_multiplier=*/copy_size);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_pc = FF(pc++),
+        .main_sel_op_returndata_copy = FF(1),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+    });
+
+    // Write the return data to memory
+    // TODO: validate bounds
+    auto returndata_slice =
+        std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
+    write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
+}
+
 /**************************************************************************************************
  *                            MACHINE STATE - GAS
  **************************************************************************************************/
@@ -2665,13 +2728,20 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    // The return data hint is used for now, we check it has the same length as the ret_size
-    ASSERT(hint.return_data.size() == ret_size);
+    // The hint contains the FULL return data.
+    // TODO: Don't fail if we ask for too much data.
+    ASSERT(ret_size <= hint.return_data.size());
+
     // Write the return data to memory
-    write_slice_to_memory(resolved_ret_offset, AvmMemoryTag::FF, hint.return_data);
+    write_slice_to_memory(resolved_ret_offset,
+                          AvmMemoryTag::FF,
+                          std::vector(hint.return_data.begin(), hint.return_data.begin() + ret_size));
     // Write the success flag to memory
     write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U8, std::vector<FF>{ hint.success });
     external_call_counter++;
+
+    // Save return data for later.
+    nested_returndata = hint.return_data;
 
     // Adjust the side_effect_counter to the value at the end of the external call but not static call.
     if (opcode == OpCode::CALL) {
@@ -2835,7 +2905,7 @@ std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
 
-    gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
+    gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
 
     // TODO: fix and set sel_op_revert
     if (ret_size == 0) {

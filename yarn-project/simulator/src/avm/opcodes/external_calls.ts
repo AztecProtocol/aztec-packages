@@ -106,9 +106,12 @@ abstract class ExternalCall extends Instruction {
       throw new RethrownError(nestedCallResults.revertReason.message, nestedCallResults.revertReason);
     }
 
+    const fullReturnData = nestedCallResults.output;
+    context.machineState.nestedReturndata = fullReturnData;
+
     // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller
     // than the specified size in order to prevent that memory to be left with garbage
-    const returnData = nestedCallResults.output.slice(0, this.retSize);
+    const returnData = fullReturnData.slice(0, this.retSize);
     const convertedReturnData = padArrayEnd(
       returnData.map(f => new Field(f)),
       new Field(0),

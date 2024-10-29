@@ -260,6 +260,8 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_or{};
     FF main_sel_op_poseidon2{};
     FF main_sel_op_radix_be{};
+    FF main_sel_op_returndata_copy{};
+    FF main_sel_op_returndata_size{};
     FF main_sel_op_sender{};
     FF main_sel_op_set{};
     FF main_sel_op_sha256{};
@@ -778,7 +780,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 764;
+    static constexpr size_t SIZE = 766;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

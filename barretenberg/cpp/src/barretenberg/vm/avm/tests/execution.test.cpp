@@ -1733,7 +1733,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
     // Trust me bro for now, this is the truncated sha output
-    FF expected_hash = FF(std::string("0x00c826495d6e1248a170accc2790424505d5d20204053143bda20812e360299e"));
+    FF expected_hash = FF(std::string("0x00b5c135991581f3049df936e35ef23af34bb04a4775426481d944d35a618e9d"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
     // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).

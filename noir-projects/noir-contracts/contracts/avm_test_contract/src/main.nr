@@ -251,6 +251,14 @@ contract AvmTest {
     }
 
     #[public]
+    fn returndata_copy_oracle() {
+        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let returndatasize = dep::aztec::context::public_context::returndata_size();
+        let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
+        assert(returndata == &[1, 2, 3], "Returndata copy failed");
+    }
+
+    #[public]
     fn return_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.

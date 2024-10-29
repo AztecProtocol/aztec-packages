@@ -490,7 +490,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4166;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4176;
 global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -638,6 +638,8 @@ global AVM_SHR_BASE_L2_GAS: u32 = 32;
 global AVM_CAST_BASE_L2_GAS: u32 = 30;
 global AVM_GETENVVAR_BASE_L2_GAS: u16 = 20;
 global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 29;
+global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 20;
+global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 29;
 global AVM_JUMP_BASE_L2_GAS: u32 = 12;
 global AVM_JUMPI_BASE_L2_GAS: u32 = 18;
 global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 18;
@@ -669,6 +671,7 @@ global AVM_TORADIXBE_BASE_L2_GAS: u32 = 46;
 
 // Dynamic L2 GAS
 global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
+global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 6;
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 global AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS: u32 = 18 + (DA_BYTES_PER_FIELD * L2_GAS_PER_LOG_BYTE);
 global AVM_CALL_DYN_L2_GAS: u32 = 4;

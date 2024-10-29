@@ -88,6 +88,9 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::RETURNDATASIZE, { OperandType::INDIRECT8, OperandType::UINT16 } },
+    { OpCode::RETURNDATACOPY,
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
     // Machine State - Internal Control Flow
     { OpCode::JUMP_16, { OperandType::UINT16 } },

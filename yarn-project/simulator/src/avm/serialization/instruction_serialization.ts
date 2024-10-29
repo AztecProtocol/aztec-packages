@@ -41,6 +41,8 @@ export enum Opcode {
   // Execution environment
   GETENVVAR_16,
   CALLDATACOPY,
+  RETURNDATASIZE,
+  RETURNDATACOPY,
   // Control flow
   JUMP_16,
   JUMPI_16,
