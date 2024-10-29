@@ -3,8 +3,8 @@ use crate::{
     address::SaltedInitializationHash,
     constants::{FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT},
     merkle_tree::membership::MembershipWitness,
+    proof::verification_key::ClientIVCVerificationKey,
     public_keys::PublicKeys,
-    recursion::verification_key::ClientIVCVerificationKey,
 };
 
 pub struct PrivateCallData {

@@ -1,4 +1,3 @@
-import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type KernelCircuitPublicInputs,
   type PublicKernelCircuitPrivateInputs,
@@ -10,7 +9,9 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
-  SimulatedServerCircuitArtifacts,
+  SimulatedPublicKernelInnerArtifact,
+  SimulatedPublicKernelMergeArtifact,
+  SimulatedPublicKernelTailArtifact,
   convertSimulatedPublicInnerInputsToWitnessMap,
   convertSimulatedPublicInnerOutputFromWitnessMap,
   convertSimulatedPublicMergeInputsToWitnessMap,
@@ -19,7 +20,6 @@ import {
   convertSimulatedPublicTailOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 
-import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type SimulationProvider } from '../providers/simulation_provider.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -28,9 +28,6 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
  */
 export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimulator {
   private log = createDebugLogger('aztec:public-kernel-simulator');
-
-  // Some circuits are so small it is faster to use WASM
-  private wasmSimulator: WASMSimulator = new WASMSimulator();
 
   constructor(private simulator: SimulationProvider) {}
 
@@ -42,7 +39,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   public async publicKernelCircuitInner(input: PublicKernelInnerCircuitPrivateInputs): Promise<VMCircuitPublicInputs> {
     const inputWitness = convertSimulatedPublicInnerInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.wasmSimulator.simulateCircuit(inputWitness, SimulatedServerCircuitArtifacts.PublicKernelInnerArtifact),
+      this.simulator.simulateCircuit(inputWitness, SimulatedPublicKernelInnerArtifact),
     );
     const result = convertSimulatedPublicInnerOutputFromWitnessMap(witness);
     this.log.debug(`Simulated public kernel inner circuit`, {
@@ -51,7 +48,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
-    } satisfies CircuitSimulationStats);
+    });
     return result;
   }
 
@@ -65,7 +62,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   ): Promise<PublicKernelCircuitPublicInputs> {
     const inputWitness = convertSimulatedPublicMergeInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.wasmSimulator.simulateCircuit(inputWitness, SimulatedServerCircuitArtifacts.PublicKernelMergeArtifact),
+      this.simulator.simulateCircuit(inputWitness, SimulatedPublicKernelMergeArtifact),
     );
     const result = convertSimulatedPublicMergeOutputFromWitnessMap(witness);
     this.log.debug(`Simulated public kernel merge circuit`, {
@@ -74,7 +71,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
-    } satisfies CircuitSimulationStats);
+    });
     return result;
   }
 
@@ -88,7 +85,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   ): Promise<KernelCircuitPublicInputs> {
     const inputWitness = convertSimulatedPublicTailInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.wasmSimulator.simulateCircuit(inputWitness, SimulatedServerCircuitArtifacts.PublicKernelTailArtifact),
+      this.simulator.simulateCircuit(inputWitness, SimulatedPublicKernelTailArtifact),
     );
     const result = convertSimulatedPublicTailOutputFromWitnessMap(witness);
     this.log.debug(`Simulated public kernel tail circuit`, {
@@ -97,7 +94,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
-    } satisfies CircuitSimulationStats);
+    });
     return result;
   }
 }

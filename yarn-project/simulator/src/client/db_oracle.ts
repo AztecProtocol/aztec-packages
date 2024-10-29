@@ -9,6 +9,7 @@ import {
   type CompleteAddress,
   type ContractInstance,
   type Header,
+  type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
@@ -196,10 +197,26 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * Includes the last known index used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  getAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
+  getAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret>;
+
+  /**
+   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * @param contractAddress - The contract address to silo the secret for
+   * @param recipient - The address receiving the notes
+   * @returns A list of siloed tagging secrets
+   */
+  getAppTaggingSecretsForSenders(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret[]>;
 }

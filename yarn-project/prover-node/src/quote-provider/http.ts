@@ -27,7 +27,7 @@ export class HttpQuoteProvider implements QuoteProvider {
 
     const data = await response.json();
     if (!data.basisPointFee || !data.bondAmount) {
-      throw new Error(`Missing required fields in response: ${JSON.stringify(data)}`);
+      throw new Error(`Missing required fields (basisPointFee | bondAmount) in response: ${JSON.stringify(data)}`);
     }
 
     const basisPointFee = Number(data.basisPointFee);

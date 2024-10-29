@@ -15,10 +15,20 @@ import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import {
+  type BootstrapNode,
+  InMemoryAttestationPool,
+  InMemoryTxPool,
+  MemoryEpochProofQuotePool,
+  P2PClient,
+} from '@aztec/p2p';
+import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type BondManager } from './bond/bond-manager.js';
@@ -37,7 +47,7 @@ describe('prover-node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let coordination: MockProxy<ProverCoordination>;
+  let coordination: MockProxy<ProverCoordination> | ProverCoordination;
   let simulator: MockProxy<SimulationProvider>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
@@ -274,6 +284,93 @@ describe('prover-node', () => {
       await sleep(100);
 
       expect(jobs[0].epochNumber).toEqual(10n);
+    });
+  });
+
+  // Things to test
+  // - Another aztec node receives the proof quote via p2p
+  // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
+  describe('Using a p2p coordination', () => {
+    let bootnode: BootstrapNode;
+    let p2pClient: P2PClient;
+    let otherP2PClient: P2PClient;
+
+    const createP2PClient = async (bootnodeAddr: string, port: number) => {
+      const mempools = {
+        txPool: new InMemoryTxPool(telemetryClient),
+        attestationPool: new InMemoryAttestationPool(telemetryClient),
+        epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
+      };
+      const libp2pService = await createTestLibP2PService(
+        [bootnodeAddr],
+        l2BlockSource,
+        worldState,
+        mempools,
+        telemetryClient,
+        port,
+      );
+      const kvStore = openTmpStore();
+      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0, telemetryClient);
+    };
+
+    beforeEach(async () => {
+      bootnode = await createBootstrapNode(40400);
+      await sleep(1000);
+
+      const bootnodeAddr = bootnode.getENR().encodeTxt();
+      p2pClient = await createP2PClient(bootnodeAddr, 8080);
+      otherP2PClient = await createP2PClient(bootnodeAddr, 8081);
+
+      // Set the p2p client to be the coordination method
+      coordination = p2pClient;
+
+      await Promise.all([p2pClient.start(), otherP2PClient.start()]);
+
+      // Sleep to enable peer discovery
+      await sleep(3000);
+    }, 10000);
+
+    afterEach(async () => {
+      await bootnode.stop();
+      await p2pClient?.stop();
+      await otherP2PClient.stop();
+    });
+
+    describe('with mocked monitors', () => {
+      let claimsMonitor: MockProxy<ClaimsMonitor>;
+      let epochMonitor: MockProxy<EpochMonitor>;
+
+      beforeEach(() => {
+        claimsMonitor = mock<ClaimsMonitor>();
+        epochMonitor = mock<EpochMonitor>();
+
+        proverNode = createProverNode(claimsMonitor, epochMonitor);
+      });
+
+      afterEach(async () => {
+        await proverNode.stop();
+      });
+
+      it('Should send a proof quote via p2p to another node', async () => {
+        // Check that the p2p client receives the quote (casted as any to access private property)
+        const p2pEpochReceivedSpy = jest.spyOn((otherP2PClient as any).p2pService, 'processEpochProofQuoteFromPeer');
+
+        // Check the other node's pool has no quotes yet
+        const peerInitialState = await otherP2PClient.getEpochProofQuotes(10n);
+        expect(peerInitialState.length).toEqual(0);
+
+        await proverNode.handleEpochCompleted(10n);
+
+        // Wait for message to be propagated
+        await sleep(1000);
+
+        // Check the other node received a quote via p2p
+        expect(p2pEpochReceivedSpy).toHaveBeenCalledTimes(1);
+
+        // We should be able to retreive the quote from the other node
+        const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(10n);
+        expect(peerFinalStateQuotes[0]).toEqual(toExpectedQuote(10n));
+      });
     });
   });
 
