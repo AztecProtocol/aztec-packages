@@ -3,17 +3,15 @@ import {
   type AztecAddress,
   BatchCall,
   type DebugLogger,
-  ExtendedNote,
   Fr,
-  Note,
   type PXE,
-  computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
 import { type PublicKeys, computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
@@ -56,25 +54,7 @@ describe('e2e_escrow_contract', () => {
     // Deploy Token contract and mint funds for the escrow contract
     token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
-    const mintAmount = 100n;
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-
-    const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
-
-    const note = new Note([new Fr(mintAmount), secretHash]);
-
-    const extendedNote = new ExtendedNote(
-      note,
-      owner,
-      token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      receipt.txHash,
-    );
-    await wallet.addNote(extendedNote);
-
-    await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait();
+    await mintTokensToPrivate(token, wallet, escrowContract.address, 100n);
 
     // We allow our wallet to see the escrow contract's notes.
     wallet.setScopes([wallet.getAddress(), escrowContract.address]);
@@ -112,32 +92,17 @@ describe('e2e_escrow_contract', () => {
   it('moves funds using multiple keys on the same tx (#1010)', async () => {
     logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
 
-    const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
-
-    const note = new Note([new Fr(mintAmount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      owner,
-      token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      receipt.txHash,
-    );
-    await wallet.addNote(extendedNote);
-
-    await token.methods.redeem_shield(owner, mintAmount, secret).send().wait();
+    await mintTokensToPrivate(token, wallet, owner, mintAmount);
 
     await expectBalance(owner, 50n);
 
-    const actions = [
+    await new BatchCall(wallet, [
       token.methods.transfer(recipient, 10).request(),
       escrowContract.methods.withdraw(token.address, 20, recipient).request(),
-    ];
-
-    await new BatchCall(wallet, actions).send().wait();
+    ])
+      .send()
+      .wait();
     await expectBalance(recipient, 30n);
   });
 });
