@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730227072139,
+  "lastUpdate": 1730232811238,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3a01ad93e21e9e6cd27b7a2a4c1e2c9f24d6363e",
-          "message": "feat(avm)!: more instr wire format takes u16 (#9174)\n\nMake most instructions take offsets as u16. The ones that were not\nmigrated are expected to change or be removed.\n\nYields ~2% bytecode size improvement in public_dispatch.\n\nPart of #9059.",
-          "timestamp": "2024-10-11T16:19:36+01:00",
-          "tree_id": "347d549c566408f70a356a2bb33f72a477d3e42e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3a01ad93e21e9e6cd27b7a2a4c1e2c9f24d6363e"
-        },
-        "date": 1728660788497,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31382.160291999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28604.540396 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5542.1403060000075,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5204.132187 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93639.303629,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93639305000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15520.793241,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15520794000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8452375385,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8452375385 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 151137904,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 151137904 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6824909103,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6824909103 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125222938,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125222938 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3072,6 +3000,66 @@ window.BENCHMARK_DATA = {
             "value": 127341546,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127341546 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4bd3e14f6cde05f4d59bc48142e9ef4bc78f0ae",
+          "message": "feat: 20-30% cost reduction in recursive ipa algorithm (#9420)\n\neccvm_recursive_verifier_test measurements (size-512 eccvm recursive\r\nverification)\r\n\r\nOld: 876,214\r\nNew: 678,751\r\n\r\nThe relative performance delta should be much greater for large eccvm\r\ninstances as this PR removes an nlogn algorithm.\r\n\r\nThis PR resolves issue\r\n[#857](https://github.com/AztecProtocol/barretenberg/issues/857) and\r\nissue [#1023](https://github.com/AztecProtocol/barretenberg/issues/1023)\r\n(single batch mul in IPA)\r\n\r\nRe: [#1023](https://github.com/AztecProtocol/barretenberg/issues/1023).\r\nThe code still performs 2 batch muls, but all additional * operator\r\ncalls have been combined into the batch muls.\r\n\r\nIt is not worth combining both batch muls, as it would require a\r\nmultiplication operation on a large number of scalar multipliers. In the\r\nrecursive setting the scalars are bigfield elements - the extra\r\nbigfield::operator* cost is not worth combining both batch_mul calls.\r\n\r\nAdditional improvements:\r\n\r\nremoved unneccessary uses of `pow` operator in ipa - in the recursive\r\nsetting these were stdlib::bigfield::pow calls and very expensive\r\n\r\nremoved the number of distinct multiplication calls in\r\nipa::reduce_verify_internal\r\n\r\ncycle_scalar::cycle_scalar(stdlib::bigfield) constructor now more\r\noptimally constructs a cycle_scalar out of a bigfield element. New\r\nmethod leverages the fact that `scalar.lo` and `scalar.hi` are\r\nimplicitly range-constrained to remove reundant bigfield constructor\r\ncalls and arithmetic calls, and the process of performing a scalar\r\nmultiplication applies a modular reduction to the imput, which makes the\r\nexplicit call to `validate_scalar_is_in_field` unneccessary\r\n\r\n---------\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>",
+          "timestamp": "2024-10-29T19:33:43Z",
+          "tree_id": "5bfa9fcb50af6a23b007b7468c9bddb518c11ac9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a4bd3e14f6cde05f4d59bc48142e9ef4bc78f0ae"
+        },
+        "date": 1730232804114,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30870.16600800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29020.958751000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5343.219687000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4971.285772 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 92672.39028,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 92672392000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15116.009784999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15116010000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2712001183,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2712001183 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126471477,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126471477 ns\nthreads: 1"
           }
         ]
       }
