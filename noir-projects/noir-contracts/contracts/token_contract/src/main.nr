@@ -486,7 +486,6 @@ contract Token {
     #[private]
     fn transfer_to_private(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-
         let token = Token::at(context.this_address());
 
         // We prepare the transfer.
