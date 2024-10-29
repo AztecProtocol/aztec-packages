@@ -96,6 +96,13 @@ export class TxProvingState {
 
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
+public resetState() {
+  this.tube = undefined;
+  this.avm = undefined;
+
+  this.treeSnapshots.clear();
+}
+
 
   public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>) {
     this.tube = tubeProofAndVk;
