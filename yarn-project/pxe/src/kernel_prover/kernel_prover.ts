@@ -86,6 +86,9 @@ export class KernelProver {
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
 
+    // TODO(#6185): Should this be recursive or not? Only the last one?
+    const recursive = true;
+
     while (executionStack.length) {
       if (!firstIteration) {
         let resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -118,8 +121,6 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      // TODO(#6185): Should this be recursive or not? Only the last one?
-      const recursive = true;
       const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, recursive, functionName);
       // TODO(#7368): This used to be associated with getDebugFunctionName
       // TODO(#7368): Is there any way to use this with client IVC proving?
@@ -198,7 +199,7 @@ export class KernelProver {
     witnessStack.push(tailOutput.outputWitness);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
-    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
+    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, recursive, witnessStack);
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }
