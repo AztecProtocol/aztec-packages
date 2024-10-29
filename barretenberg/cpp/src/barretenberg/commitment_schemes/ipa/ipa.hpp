@@ -576,7 +576,7 @@ template <typename Curve_> class IPA {
     }
 
     /**
-     * @brief Verify the correctness of a Proof
+     * @brief Natively verify the correctness of an IPA Proof
      *
      * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
@@ -588,9 +588,31 @@ template <typename Curve_> class IPA {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
     // implemented
+    static bool reduce_verify(const std::shared_ptr<VK>& vk,
+                                             const OpeningClaim<Curve>& opening_claim,
+                                             const auto& transcript)
+        requires(!Curve::is_stdlib_type)
+    {
+        return reduce_verify_internal(vk, opening_claim, transcript);
+    }
+
+    /**
+     * @brief Recursively verify the correctness of a proof
+     *
+     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
+     * @param transcript Transcript with elements from the prover and generated challenges
+     *
+     * @return VerifierAccumulator
+     *
+     *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
+     */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
+    // implemented
     static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
+        requires(Curve::is_stdlib_type)
     {
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
@@ -621,8 +643,26 @@ template <typename Curve_> class IPA {
         // Output an opening claim to be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
     }
+
     /**
-     * @brief Verify the IPA opening claim obtained from a Shplemini accumulator
+     * @brief Natively verify the IPA opening claim obtained from a Shplemini accumulator
+     *
+     * @param batch_opening_claim
+     * @param vk
+     * @param transcript
+     * @return bool
+     */
+    static bool reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
+                                                                 const std::shared_ptr<VK>& vk,
+                                                                 auto& transcript)
+        requires(!Curve::is_stdlib_type)
+    {
+        const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
+        return reduce_verify_internal(vk, opening_claim, transcript);
+    }
+
+    /**
+     * @brief Recursively verify the IPA opening claim obtained from a Shplemini accumulator
      *
      * @param batch_opening_claim
      * @param vk
@@ -632,6 +672,7 @@ template <typename Curve_> class IPA {
     static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
                                                                  const std::shared_ptr<VK>& vk,
                                                                  auto& transcript)
+        requires(Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         return reduce_verify_internal(vk, opening_claim, transcript);
