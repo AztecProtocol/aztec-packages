@@ -667,6 +667,14 @@ fn test_absorbed_too_few_blob_fields() {
 }
 
 #[test]
+fn test_empty_blob() {
+    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+    let mut sponge_blob = SpongeBlob::new(0);
+    // The below should not throw
+    let _ = check_blob_sponge(blob, sponge_blob);
+}
+
+#[test]
 fn test_barycentric() {
     let z: F = BigNum { limbs: [2, 0, 0] };
 

@@ -327,14 +327,26 @@ fn poseidon2_absorb_chunks<let N: u32>(
     let two_pow_64 = 18446744073709551616;
     let iv: Field = (in_len as Field) * two_pow_64;
     let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-    // cache_size = 0, init absorb
-    sponge.cache[0] = input[0];
-    sponge.cache_size = 1;
-    // shift = num elts already added to make cache_size 1 = 1 for a fresh sponge
-    // M = max_chunks = (N - 1 - (N - 1) % 3) / 3: (must be written as a fn of N to compile)
-    // max_remainder = (N - 1) % 3;
-    // max_chunks = (N - 1 - max_remainder) / 3;
-    poseidon2_absorb_chunks_loop::<N, (N - 1 - (N - 1) % 3) / 3>(sponge, input, in_len, variable, 1)
+    // Even though shift is always 1 here, if we input in_len = 0 we get an underflow
+    // since we cannot isolate computation branches. The below is just to avoid that.
+    let shift = if in_len == 0 { 0 } else { 1 };
+    if in_len != 0 {
+        // cache_size = 0, init absorb
+        sponge.cache[0] = input[0];
+        sponge.cache_size = 1;
+        // shift = num elts already added to make cache_size 1 = 1 for a fresh sponge
+        // M = max_chunks = (N - 1 - (N - 1) % 3) / 3: (must be written as a fn of N to compile)
+        // max_remainder = (N - 1) % 3;
+        // max_chunks = (N - 1 - max_remainder) / 3;
+        sponge = poseidon2_absorb_chunks_loop::<N, (N - 1 - (N - 1) % 3) / 3>(
+            sponge,
+            input,
+            in_len,
+            variable,
+            shift,
+        );
+    }
+    sponge
 }
 
 #[no_predicates]
@@ -345,16 +357,26 @@ pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
     variable: bool,
 ) -> std::hash::poseidon2::Poseidon2 {
     let mut sponge = in_sponge;
-    // this is to account for already added inputs
+    // 'shift' is to account for already added inputs
     let mut shift = 0;
+    // 'stop' is to avoid an underflow when inputting in_len = 0
+    let mut stop = false;
     for i in 0..3 {
-        if sponge.cache_size != 1 {
+        if shift == in_len {
+            stop = true;
+        }
+        if (sponge.cache_size != 1) & (!stop) {
             sponge.absorb(input[i]);
             shift += 1;
         }
     }
-    // max_chunks = (N - (N % 3)) / 3;
-    poseidon2_absorb_chunks_loop::<N, (N - (N % 3)) / 3>(sponge, input, in_len, variable, shift)
+    sponge = if stop {
+        sponge
+    } else {
+        // max_chunks = (N - (N % 3)) / 3;
+        poseidon2_absorb_chunks_loop::<N, (N - (N % 3)) / 3>(sponge, input, in_len, variable, shift)
+    };
+    sponge
 }
 
 // The below is the loop to absorb elts into a poseidon sponge in chunks of 3
@@ -396,10 +418,13 @@ fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
         } else if (!variable) & (i != chunks) {
             // if we are hashing a fixed len array which is a subarray, we check the remaining elts are 0
             // NB: we don't check at i == chunks, because that chunk contains elts to be absorbed or checked below
-            let all_0 = (input[k] == 0) & (input[k + 1] == 0) & (input[k + 2] == 0);
+            let last_0 = if k + 2 == N { 0 } else { input[k + 2] };
+            let all_0 = (input[k] == 0) & (input[k + 1] == 0) & (last_0 == 0);
             assert(all_0, "Found non-zero field after breakpoint");
         }
     }
+    let overflow_check = (should_add) & (M != chunks);
+    assert(!overflow_check, "Given in_len to absorb is larger than the input array len");
     // we have 'remainder' num of items left to absorb
     should_add = true;
     // below is to avoid overflows (i.e. if inlen is close to N)
@@ -501,13 +526,22 @@ fn existing_sponge_poseidon_chunks_matches_fixed() {
     }
     // absorb 250 of the 501 things
     let two_pow_64 = 18446744073709551616;
-    let empty_sponge =
-        std::hash::poseidon2::Poseidon2::new((in_len as Field) * 18446744073709551616);
+    let empty_sponge = std::hash::poseidon2::Poseidon2::new((in_len as Field) * two_pow_64);
     let first_sponge = poseidon2_absorb_chunks_existing_sponge(empty_sponge, input, 250, true);
     // now absorb the final 251 (since they are all 3s, im being lazy and not making a new array)
     let mut final_sponge = poseidon2_absorb_chunks_existing_sponge(first_sponge, input, 251, true);
     let fixed_len_hash = std::hash::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
     assert(final_sponge.squeeze() == fixed_len_hash);
+}
+
+#[test]
+fn poseidon_chunks_empty_inputs() {
+    let in_len = 0;
+    let mut input: [Field; 4096] = [0; 4096];
+    let mut contructed_empty_sponge = poseidon2_absorb_chunks(input, in_len, true);
+    let mut first_sponge =
+        poseidon2_absorb_chunks_existing_sponge(contructed_empty_sponge, input, in_len, true);
+    assert(first_sponge.squeeze() == contructed_empty_sponge.squeeze());
 }
 
 #[test]

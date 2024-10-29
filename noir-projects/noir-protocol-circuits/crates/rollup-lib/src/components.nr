@@ -12,7 +12,10 @@ use dep::types::{
         AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    }, utils::arrays::{array_length, array_merge},
+        REVERT_CODE_PREFIX, TX_FEE_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX, L2_L1_MSGS_PREFIX,
+        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, NOTE_ENCRYPTED_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX,
+        UNENCRYPTED_LOGS_PREFIX,
+    }, utils::{arrays::{array_length, array_merge, array_concat}, field::field_from_bytes},
     abis::{
         accumulated_data::CombinedAccumulatedData,
         public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
@@ -164,8 +167,8 @@ pub fn accumulate_blob_public_inputs(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
 ) -> [BlobPublicInputs; AZTEC_EPOCH_DURATION] {
-    let left_len = array_length(left.fees);
-    let right_len = array_length(right.fees);
+    let left_len = array_length(left.blob_public_inputs);
+    let right_len = array_length(right.blob_public_inputs);
     assert(
         left_len + right_len <= AZTEC_EPOCH_DURATION,
         "too many blob public input structs accumulated in rollup",
@@ -241,41 +244,34 @@ pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
     );
 }
 
-// Tx effects hash consists of
+// Tx effects consist of
 // 1 field for revert code
 // 1 field for transaction fee
 // MAX_NOTE_HASHES_PER_TX fields for note hashes
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
-// 1 field for L2 to L1 messages (represented by the out_hash)
+// MAX_L2_TO_L1_MSGS_PER_TX for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
-//                                          __
-// 1 note encrypted logs length --> 1 field   |
-// 1 encrypted logs length --> 1 field        | -> 3 types of logs - 3 fields for its lengths
-// 1 unencrypted logs length --> 1 field    __|
-//                                                                                                                                   __
-// 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
-// 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
-// 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-
-// TODO(Miranda): For now just absorbing effects to poseidon sponge in the same structure as the old tx_effects hash
-// Idea is to recreate all below effects in block_root, then add to a blob
-
-global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS = 1
+// TODO(#8954): When logs are refactored into fields, we will append the values here, for now appending the log hashes:
+// MAX_NOTE_ENCRYPTED_LOGS_PER_TX fields for note encrypted logs
+// MAX_ENCRYPTED_LOGS_PER_TX fields for encrypted logs
+// MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
+// 7 fields for prefixes for each of the above categories
+global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
-    + 1
+    + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    + 3
     + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
     + MAX_ENCRYPTED_LOGS_PER_TX
-    + MAX_UNENCRYPTED_LOGS_PER_TX;
+    + MAX_UNENCRYPTED_LOGS_PER_TX
+    + 7;
 pub fn append_tx_effects_for_blob(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    out_hash: Field,
+    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
     start_sponge_blob: SpongeBlob,
 ) -> SpongeBlob {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
@@ -287,9 +283,7 @@ pub fn append_tx_effects_for_blob(
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
         get_all_update_requests_for_tx_effects(all_public_data_update_requests);
-    let note_logs_length = combined.note_encrypted_log_preimages_length;
-    let encrypted_logs_length = combined.encrypted_log_preimages_length;
-    let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
+
     let note_encrypted_logs = combined.note_encrypted_logs_hashes.map(|log: LogHash| log.value);
     let encrypted_logs =
         combined.encrypted_logs_hashes.map(|log: ScopedLogHash| silo_encrypted_log_hash(log));
@@ -297,75 +291,131 @@ pub fn append_tx_effects_for_blob(
         combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
 
     let mut offset = 0;
+    let mut array_len = 0;
 
     // REVERT CODE
     // upcast to Field to have the same size for the purposes of the hash
-    tx_effects_hash_input[offset] = revert_code as Field;
+    tx_effects_hash_input[offset] = field_from_bytes([REVERT_CODE_PREFIX, 0, revert_code], true);
     offset += 1;
 
     // TX FEE
-    tx_effects_hash_input[offset] = transaction_fee;
+    // TODO(Miranda): how many bytes do we expect tx fee to be? Using 29 for now
+    tx_effects_hash_input[offset] = field_from_bytes(
+        array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+        true,
+    );
     offset += 1;
 
     // NOTE HASHES
-    for j in 0..MAX_NOTE_HASHES_PER_TX {
-        tx_effects_hash_input[offset + j] = note_hashes[j];
+    array_len = array_length(note_hashes);
+    if array_len != 0 {
+        let notes_prefix = field_from_bytes([NOTES_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = notes_prefix;
+        offset += 1;
+
+        for j in 0..MAX_NOTE_HASHES_PER_TX {
+            tx_effects_hash_input[offset + j] = note_hashes[j];
+        }
+        offset += array_len;
     }
-    offset += MAX_NOTE_HASHES_PER_TX;
 
     // NULLIFIERS
-    for j in 0..MAX_NULLIFIERS_PER_TX {
-        tx_effects_hash_input[offset + j] = nullifiers[j];
+    array_len = array_length(nullifiers);
+    if array_len != 0 {
+        let nullifiers_prefix = field_from_bytes([NULLIFIERS_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = nullifiers_prefix;
+        offset += 1;
+
+        for j in 0..MAX_NULLIFIERS_PER_TX {
+            tx_effects_hash_input[offset + j] = nullifiers[j];
+        }
+        offset += array_len;
     }
-    offset += MAX_NULLIFIERS_PER_TX;
 
     // L2 TO L1 MESSAGES
-    tx_effects_hash_input[offset] = out_hash;
-    offset += 1;
+    array_len = array_length(l2_to_l1_msgs);
+    if array_len != 0 {
+        let l2_to_l1_msgs_prefix = field_from_bytes([L2_L1_MSGS_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
+        offset += 1;
+
+        for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
+            tx_effects_hash_input[offset + j] = l2_to_l1_msgs[j];
+        }
+        offset += array_len;
+    }
 
     // PUBLIC DATA UPDATE REQUESTS
-    for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
-        tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
+    array_len = array_length(public_data_update_requests);
+    if array_len != 0 {
+        let public_data_update_requests_prefix = field_from_bytes(
+            [PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, 0, (array_len as u8) * 2],
+            true,
+        );
+        tx_effects_hash_input[offset] = public_data_update_requests_prefix;
+        offset += 1;
+
+        for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
+            tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
+        }
+        offset += array_len * 2;
     }
-    offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
-    // NOTE ENCRYPTED LOGS LENGTH
-    tx_effects_hash_input[offset] = note_logs_length;
-    offset += 1;
-
-    // ENCRYPTED LOGS LENGTH
-    tx_effects_hash_input[offset] = encrypted_logs_length;
-    offset += 1;
-
-    // UNENCRYPTED LOGS LENGTH
-    tx_effects_hash_input[offset] = unencrypted_logs_length;
-    offset += 1;
-
+    // TODO(#8954): When logs are refactored into fields, we will append the values here
+    // Currently appending the single log hash as an interim solution
     // NOTE ENCRYPTED LOGS
-    for j in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
-        tx_effects_hash_input[offset + j] = note_encrypted_logs[j];
+    array_len = array_length(note_encrypted_logs);
+    if array_len != 0 {
+        let note_encrypted_logs_prefix =
+            field_from_bytes([NOTE_ENCRYPTED_LOGS_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = note_encrypted_logs_prefix;
+        offset += 1;
+
+        for j in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+            tx_effects_hash_input[offset + j] = note_encrypted_logs[j];
+        }
+        offset += array_len;
     }
-    offset += MAX_NOTE_ENCRYPTED_LOGS_PER_TX;
 
     // ENCRYPTED LOGS
-    for j in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        tx_effects_hash_input[offset + j] = encrypted_logs[j];
-    }
-    offset += MAX_ENCRYPTED_LOGS_PER_TX;
+    array_len = array_length(encrypted_logs);
+    if array_len != 0 {
+        let encrypted_logs_prefix =
+            field_from_bytes([ENCRYPTED_LOGS_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = encrypted_logs_prefix;
+        offset += 1;
 
-    // UNENCRYPTED LOGS HASH
-    for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
-        tx_effects_hash_input[offset + j] = unencrypted_logs[j];
+        for j in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+            tx_effects_hash_input[offset + j] = encrypted_logs[j];
+        }
+        offset += array_len;
     }
-    offset += MAX_UNENCRYPTED_LOGS_PER_TX;
 
-    assert_eq(offset, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS); // Sanity check
+    // UNENCRYPTED LOGS
+    array_len = array_length(unencrypted_logs);
+    if array_len != 0 {
+        let unencrypted_logs_prefix =
+            field_from_bytes([UNENCRYPTED_LOGS_PREFIX, 0, array_len as u8], true);
+        tx_effects_hash_input[offset] = unencrypted_logs_prefix;
+        offset += 1;
+
+        for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
+            tx_effects_hash_input[offset + j] = unencrypted_logs[j];
+        }
+        offset += array_len;
+    }
+
     // NB: using start.absorb & returning start caused issues in ghost values appearing in
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
     let mut out_sponge = start_sponge_blob;
 
-    out_sponge.absorb(tx_effects_hash_input, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
+    // If we have an empty tx (usually a padding tx), we don't want to absorb anything
+    // An empty tx will only have 2 effects - revert code and fee - hence offset = 2
+    if offset != 2 {
+        out_sponge.absorb(tx_effects_hash_input, offset);
+    }
+
     out_sponge
 }
 

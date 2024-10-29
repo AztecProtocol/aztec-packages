@@ -1,6 +1,7 @@
 import {
   ClientIvcProof,
   ContractClassRegisteredEvent,
+  Fr,
   PrivateKernelTailCircuitPublicInputs,
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -13,8 +14,10 @@ import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
+import { PublicDataWrite } from '../public_data_write.js';
 import { PublicExecutionRequest } from '../public_execution_request.js';
 import { type TxStats } from '../stats/stats.js';
+import { TxEffect } from '../tx_effect.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -237,6 +240,31 @@ export class Tx extends Gossipable {
     );
   }
 
+  toNumTxEffects() {
+    // If this tx has public calls, we cannot predict the number of public update requests
+    // and this method may give an inaccurate answer. Returning 0 to be sure we don't use it.
+    if (this.hasPublicCalls()) {
+      return 0;
+    }
+    // Create a temporary tx effect, just to count the number of fields
+    const temp = new TxEffect(
+      this.data.revertCode,
+      Fr.ZERO,
+      this.data.getNonEmptyNoteHashes(),
+      this.data.getNonEmptyNullifiers(),
+      this.data.getNonEmptyL2toL1Msgs().map(msg => msg.message.content),
+      this.data.getNonEmptyPublicDataUpdateRequests().map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      // TODO(Miranda): the below are log byte lens which will be removed anyway
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      this.noteEncryptedLogs,
+      this.encryptedLogs,
+      this.unencryptedLogs,
+    );
+    return temp.toFields().length;
+  }
+
   /**
    * Convenience function to get a hash out of a tx or a tx-like.
    * @param tx - Tx-like object.
@@ -311,6 +339,12 @@ export class Tx extends Gossipable {
       EncryptedNoteTxL2Logs.empty(),
     );
   }
+}
+
+export function unprocessedToNumTxsEffects(txs: Tx[]) {
+  return txs.reduce((acc, tx) => {
+    return acc + tx.toNumTxEffects();
+  }, 0);
 }
 
 /** Utility type for an entity that has a hash property for a txhash */

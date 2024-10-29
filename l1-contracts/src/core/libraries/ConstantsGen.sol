@@ -235,7 +235,6 @@ library Constants {
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 51;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 156;
   uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 140;
-  uint256 internal constant TX_EFFECTS_BLOB_HASH_INPUT_FIELDS = 342;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
@@ -284,6 +283,15 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
+  uint256 internal constant REVERT_CODE_PREFIX = 1;
+  uint256 internal constant TX_FEE_PREFIX = 2;
+  uint256 internal constant NOTES_PREFIX = 3;
+  uint256 internal constant NULLIFIERS_PREFIX = 4;
+  uint256 internal constant L2_L1_MSGS_PREFIX = 5;
+  uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
+  uint256 internal constant NOTE_ENCRYPTED_LOGS_PREFIX = 7;
+  uint256 internal constant ENCRYPTED_LOGS_PREFIX = 8;
+  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 9;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;

@@ -470,18 +470,6 @@ global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LEN
     + 8
     + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
-// TODO(Miranda): REMOVE BELOW - this is just while we still use empty tx effects in blobs to get padding txs to work and match. This shouldn't survive merging w master.
-global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
-    + 1
-    + MAX_NOTE_HASHES_PER_TX
-    + MAX_NULLIFIERS_PER_TX
-    + 1
-    + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    + 3
-    + MAX_NOTE_ENCRYPTED_LOGS_PER_TX
-    + MAX_ENCRYPTED_LOGS_PER_TX
-    + MAX_UNENCRYPTED_LOGS_PER_TX;
-
 global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
@@ -712,6 +700,18 @@ global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+
+// BLOB PREFIXES
+// Used when decoding blobs of tightly packed effects
+global REVERT_CODE_PREFIX: u8 = 1;
+global TX_FEE_PREFIX: u8 = 2;
+global NOTES_PREFIX: u8 = 3;
+global NULLIFIERS_PREFIX: u8 = 4;
+global L2_L1_MSGS_PREFIX: u8 = 5;
+global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
+global NOTE_ENCRYPTED_LOGS_PREFIX: u8 = 7;
+global ENCRYPTED_LOGS_PREFIX: u8 = 8;
+global UNENCRYPTED_LOGS_PREFIX: u8 = 9;
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp

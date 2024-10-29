@@ -10,7 +10,6 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { TX_EFFECTS_BLOB_HASH_INPUT_FIELDS } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -84,6 +83,7 @@ export class EpochProvingJob {
         const globalVariables = block.header.globalVariables;
         const txHashes = block.body.txEffects.map(tx => tx.txHash);
         const txCount = block.body.numberOfTxsIncludingPadded;
+        const txEffectsCount = block.body.toFields().length;
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
         const txs = await this.getTxs(txHashes);
 
@@ -98,14 +98,8 @@ export class EpochProvingJob {
           uuid: this.uuid,
           ...globalVariables,
         });
-        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
         // Start block proving
-        await this.prover.startNewBlock(
-          txCount,
-          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * txCount,
-          globalVariables,
-          l1ToL2Messages,
-        );
+        await this.prover.startNewBlock(txCount, txEffectsCount, globalVariables, l1ToL2Messages);
 
         // Process public fns
         const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);

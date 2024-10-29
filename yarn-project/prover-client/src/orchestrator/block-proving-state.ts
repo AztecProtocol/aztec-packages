@@ -110,6 +110,17 @@ export class BlockProvingState {
     return this.txs.length - 1;
   }
 
+  // Reinitialises the blob state if more tx effects are required
+  // See public_processor.ts for use case
+  public reInitSpongeBlob(totalNumTxsEffects: number) {
+    if (this.spongeBlobState!.fields > 0) {
+      throw new Error(
+        'Cannot reinitialise blob state after txs have been added. Ensure the correct number of tx effects has been passed to BlockProvingState constructor.',
+      );
+    }
+    this.spongeBlobState = SpongeBlob.init(totalNumTxsEffects);
+  }
+
   // Returns the number of received transactions
   public get transactionsReceived() {
     return this.txs.length;

@@ -35,7 +35,6 @@ import {
   RootParityInput,
   RootParityInputs,
   SpongeBlob,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   makeEmptyRecursiveProof,
@@ -196,8 +195,7 @@ describe('LightBlockBuilder', () => {
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     const txCount = Math.max(2, txs.length);
-    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-    const numTxsEffects = Math.max(toNumTxsEffects(txs, globals.gasFees), TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * txCount);
+    const numTxsEffects = toNumTxsEffects(txs, globals.gasFees);
     await builder.startNewBlock(txCount, numTxsEffects, globals, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);

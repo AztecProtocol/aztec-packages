@@ -9,6 +9,7 @@ import {
   type TxHash,
   type TxValidator,
   type WorldStateSynchronizer,
+  unprocessedToNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   type AllowedElement,
@@ -22,7 +23,6 @@ import {
   GENESIS_ARCHIVE_ROOT,
   Header,
   StateReference,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -425,10 +425,9 @@ export class Sequencer {
       const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(fork);
-      // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
       await blockBuilder.startNewBlock(
         blockSize,
-        TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * numRealTxs,
+        unprocessedToNumTxsEffects(validTxs),
         newGlobalVariables,
         l1ToL2Messages,
       );

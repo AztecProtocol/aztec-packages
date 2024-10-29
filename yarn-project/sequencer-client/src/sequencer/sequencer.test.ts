@@ -19,6 +19,7 @@ import {
   makeProcessedTx,
   mockEpochProofQuote,
   mockTxForRollup,
+  unprocessedToNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   AZTEC_EPOCH_DURATION,
@@ -29,7 +30,6 @@ import {
   GasFees,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -209,8 +209,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
+      tx.toNumTxEffects(),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -253,7 +252,7 @@ describe('sequencer', () => {
     await sequencer.work();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
+      tx.toNumTxEffects(),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -266,7 +265,8 @@ describe('sequencer', () => {
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const validTxHashes = txs.filter((_, i) => i !== doubleSpendTxIndex).map(tx => tx.getTxHash());
+    const validTxs = txs.filter((_, i) => i !== doubleSpendTxIndex);
+    const validTxHashes = validTxs.map(tx => tx.getTxHash());
 
     const doubleSpendTx = txs[doubleSpendTxIndex];
 
@@ -288,7 +288,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * validTxHashes.length,
+      unprocessedToNumTxsEffects(validTxs),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -303,7 +303,8 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
     });
     const invalidChainTx = txs[invalidChainTxIndex];
-    const validTxHashes = txs.filter((_, i) => i !== invalidChainTxIndex).map(tx => tx.getTxHash());
+    const validTxs = txs.filter((_, i) => i !== invalidChainTxIndex);
+    const validTxHashes = validTxs.map(tx => tx.getTxHash());
 
     p2p.getTxs.mockReturnValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
@@ -318,7 +319,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * validTxHashes.length,
+      unprocessedToNumTxsEffects(validTxs),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -333,7 +334,8 @@ describe('sequencer', () => {
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const validTxHashes = txs.filter((_, i) => i !== invalidTransactionIndex).map(tx => tx.getTxHash());
+    const validTxs = txs.filter((_, i) => i !== invalidTransactionIndex);
+    const validTxHashes = validTxs.map(tx => tx.getTxHash());
 
     p2p.getTxs.mockReturnValueOnce(txs);
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
@@ -350,7 +352,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * validTxHashes.length,
+      unprocessedToNumTxsEffects(validTxs),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -385,13 +387,15 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
-    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
-    const txHashes = txs.slice(0, 4).map(tx => tx.getTxHash());
+    const validTxs = txs.slice(0, 4);
+    p2p.getTxs.mockReturnValueOnce(validTxs);
+
+    const txHashes = validTxs.map(tx => tx.getTxHash());
 
     await sequencer.work();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       4,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * 4,
+      unprocessedToNumTxsEffects(validTxs),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -477,7 +481,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       3,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * postFlushTxs.length,
+      unprocessedToNumTxsEffects(postFlushTxs),
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

@@ -6,9 +6,8 @@ import {
   LogType,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { GENESIS_ARCHIVE_ROOT, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS } from '@aztec/circuits.js';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { Blob } from '@aztec/foundation/blob';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -443,14 +442,7 @@ function makeMessageSentEventWithIndexInL2BlockSubtree(
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const body = toHex(l2Block.body.toBuffer());
-  // TODO(Miranda): Remove padding below once not using zero value tx effects, just use body.toFields()
-  const blobInput = new Blob(
-    padArrayEnd(
-      l2Block.body.toFields(),
-      Fr.ZERO,
-      l2Block.header.contentCommitment.numTxs.toNumber() * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
-    ),
-  ).getEthBlobEvaluationInputs();
+  const blobInput = new Blob(l2Block.body.toFields()).getEthBlobEvaluationInputs();
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex(l2Block.header.hash().toBuffer());
   const input = encodeFunctionData({

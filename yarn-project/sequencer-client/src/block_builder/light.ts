@@ -16,7 +16,6 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   SpongeBlob,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -49,8 +48,6 @@ export class LightweightBlockBuilder implements BlockBuilder {
   ): Promise<void> {
     this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
     this.numTxs = numTxs;
-    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-    numTxsEffects = numTxs == 2 ? 2 * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS : numTxsEffects;
     this.spongeBlobState = SpongeBlob.init(numTxsEffects);
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
@@ -103,6 +100,17 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
     const block = new L2Block(newArchive, header, body);
     return block;
+  }
+
+  // Reinitialises the blob state if more tx effects are required
+  // See public_processor.ts for use case
+  public reInitSpongeBlob(totalNumTxsEffects: number) {
+    if (this.spongeBlobState!.fields > 0) {
+      throw new Error(
+        'Cannot reinitialise blob state after txs have been added. Ensure the correct number of tx effects has been passed to BlockProvingState constructor.',
+      );
+    }
+    this.spongeBlobState = SpongeBlob.init(totalNumTxsEffects);
   }
 }
 

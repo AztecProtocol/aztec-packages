@@ -1,4 +1,4 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver, toNumTxsEffects } from '@aztec/circuit-types';
 import {
   Fr,
   type GlobalVariables,
@@ -85,9 +85,10 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, 1, globalVariables, []);
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 1));
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 2));
+        const txs = [makeBloatedProcessedTx(context.actualDb, 1), makeBloatedProcessedTx(actualDb, 2)];
+        await orchestrator.startNewBlock(2, toNumTxsEffects(txs, context.globalVariables.gasFees), globalVariables, []);
+        await orchestrator.addNewTx(txs[0]);
+        await orchestrator.addNewTx(txs[1]);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);

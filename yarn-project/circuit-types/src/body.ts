@@ -37,8 +37,7 @@ export class Body {
   }
 
   /**
-   * Returns a flat array of fields of all tx effects - used for blobs.
-   * TODO(Miranda): Remove 0s and tightly pack to fill blobs.
+   * Returns a flat packed array of fields of all tx effects - used for blobs.
    */
   toFields() {
     let flattened: Fr[] = [];
@@ -46,6 +45,44 @@ export class Body {
       flattened = flattened.concat(effect.toFields());
     });
     return flattened;
+  }
+
+  /**
+   * Decodes a block from blob fields.
+   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromFields.
+   * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
+   */
+  static fromFields(
+    fields: Fr[],
+    noteEncryptedLogs?: EncryptedNoteL2BlockL2Logs,
+    encryptedLogs?: EncryptedL2BlockL2Logs,
+    unencryptedLogs?: UnencryptedL2BlockL2Logs,
+  ) {
+    // TODO(Miranda): Probably also encode a length per tx in the first (revertcode) elt to avoid doing the below
+    const txEffectsFields: Fr[][] = [];
+    let startIndex = -1;
+    fields.forEach((field, i) => {
+      if (
+        // Checking that we start with the revert code...
+        TxEffect.fromPrefix(field).type == 1 &&
+        // ... and the value is a valid revert code..
+        TxEffect.fromPrefix(field).length < 4 &&
+        // ... and the next value is a tx fee:
+        fields[i + 1].toBuffer().readUint8(1) == 2
+      ) {
+        if (startIndex !== -1) {
+          // push each tx effect's fields
+          txEffectsFields.push(fields.slice(startIndex, i));
+        }
+        startIndex = i;
+      }
+    });
+    // push the final tx effect's fields
+    txEffectsFields.push(fields.slice(startIndex, fields.length));
+    const txEffects = txEffectsFields.map((effect, i) =>
+      TxEffect.fromFields(effect, noteEncryptedLogs?.txLogs[i], encryptedLogs?.txLogs[i], unencryptedLogs?.txLogs[i]),
+    );
+    return new this(txEffects);
   }
 
   [inspect.custom]() {

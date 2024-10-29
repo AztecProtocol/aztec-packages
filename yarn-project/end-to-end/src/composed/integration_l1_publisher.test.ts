@@ -33,7 +33,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
   ScopedLogHash,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -426,12 +425,7 @@ describe('L1Publisher integration', () => {
 
         const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
 
-        // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
-        const txEffectsInBlob = padArrayEnd(
-          block.body.toFields(),
-          Fr.ZERO,
-          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
-        );
+        const txEffectsInBlob = padArrayEnd(block.body.toFields(), Fr.ZERO, block.body.toFields().length);
         const blob = new Blob(txEffectsInBlob);
 
         const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
@@ -536,12 +530,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
-        const txEffectsInBlob = padArrayEnd(
-          block.body.toFields(),
-          Fr.ZERO,
-          TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
-        );
+        const txEffectsInBlob = padArrayEnd(block.body.toFields(), Fr.ZERO, block.body.toFields().length);
         const blob = new Blob(txEffectsInBlob);
 
         const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);

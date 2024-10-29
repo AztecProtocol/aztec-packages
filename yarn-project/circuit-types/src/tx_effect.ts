@@ -1,25 +1,40 @@
 import {
+  type EncryptedL2Log,
+  EncryptedL2NoteLog,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
   TxHash,
+  type TxL2Logs,
+  type UnencryptedL2Log,
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
+  ENCRYPTED_LOGS_PREFIX,
   Fr,
-  MAX_ENCRYPTED_LOGS_PER_TX,
+  L2_L1_MSGS_PREFIX,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
+  NOTES_PREFIX,
+  NOTE_ENCRYPTED_LOGS_PREFIX,
+  NULLIFIERS_PREFIX,
+  PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+  REVERT_CODE_PREFIX,
   RevertCode,
+  TX_FEE_PREFIX,
+  UNENCRYPTED_LOGS_PREFIX,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  serializeArrayOfBufferableToVector,
+  serializeToBuffer,
+} from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -181,7 +196,7 @@ export class TxEffect {
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
     return new TxEffect(
       RevertCode.random(),
-      Fr.random(),
+      new Fr(Math.floor(Math.random() * 100_000)),
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
@@ -224,46 +239,164 @@ export class TxEffect {
   }
 
   /**
-   * Returns a flat array of fields of all tx effects.
-   * TODO(Miranda): Remove 0s and tightly pack to fill blobs.
+   * Returns the prefix as used in a blob.
+   * Used to prefix a 'block' of tx effects with its type and length.
+   */
+  private toPrefix(type: number, length: number): Fr {
+    const buf = Buffer.alloc(3);
+    buf.writeUint8(type);
+    buf.writeUint8(length, 2);
+    return new Fr(buf);
+  }
+
+  /**
+   * Decodes the prefix as used in a blob to tx effect type and length.
+   */
+  static fromPrefix(prefix: Fr) {
+    const buf = prefix.toBuffer().subarray(-3);
+    return { type: buf[0], length: buf[2] };
+  }
+
+  /**
+   * Returns a flat packed array of prefixed fields of all tx effects, used for blobs.
    */
   toFields(): Fr[] {
+    // TODO(Miranda): Check this nullifier trick is sufficient
+    if (this.isEmpty()) {
+      return [];
+    }
     const flattened: Fr[] = [];
-    flattened.push(this.revertCode.toField());
-    flattened.push(this.transactionFee);
-    flattened.push(...padArrayEnd(this.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX));
-    flattened.push(...padArrayEnd(this.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX));
-    flattened.push(Fr.fromBuffer(this.txOutHash()));
+    // Since the revert code and tx fee are always included and < 31 bytes,
+    // we don't need an extra prefix, so we push one value:
+    flattened.push(this.toPrefix(REVERT_CODE_PREFIX, this.revertCode.toField().toNumber()));
+    // TODO: how long should tx fee be? For now, not using toPrefix()
     flattened.push(
-      ...padArrayEnd(this.publicDataWrites, PublicDataWrite.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-        .map(w => [w.leafIndex, w.newValue])
-        .flat(),
-    );
-    flattened.push(this.noteEncryptedLogsLength);
-    flattened.push(this.encryptedLogsLength);
-    flattened.push(this.unencryptedLogsLength);
-    flattened.push(
-      ...padArrayEnd(
-        this.noteEncryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.hash())),
-        Fr.ZERO,
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+      new Fr(
+        Buffer.concat([Buffer.from([TX_FEE_PREFIX]), Buffer.alloc(1), this.transactionFee.toBuffer().subarray(3)]),
       ),
     );
-    flattened.push(
-      ...padArrayEnd(
-        this.encryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())),
-        Fr.ZERO,
-        MAX_ENCRYPTED_LOGS_PER_TX,
-      ),
-    );
-    flattened.push(
-      ...padArrayEnd(
-        this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())),
-        Fr.ZERO,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
-      ),
-    );
+    if (this.noteHashes.length) {
+      flattened.push(this.toPrefix(NOTES_PREFIX, this.noteHashes.length));
+      flattened.push(...this.noteHashes);
+    }
+    if (this.nullifiers.length) {
+      flattened.push(this.toPrefix(NULLIFIERS_PREFIX, this.nullifiers.length));
+      flattened.push(...this.nullifiers);
+    }
+    if (this.l2ToL1Msgs.length) {
+      flattened.push(this.toPrefix(L2_L1_MSGS_PREFIX, this.l2ToL1Msgs.length));
+      flattened.push(...this.l2ToL1Msgs);
+    }
+    if (this.publicDataWrites.length) {
+      flattened.push(this.toPrefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, this.publicDataWrites.length * 2));
+      flattened.push(...this.publicDataWrites.map(w => [w.leafIndex, w.newValue]).flat());
+    }
+    // TODO(#8954): When logs are refactored into fields, we will append the values here
+    // Currently appending the single log hash as an interim solution
+    if (this.noteEncryptedLogs.unrollLogs().length) {
+      flattened.push(this.toPrefix(NOTE_ENCRYPTED_LOGS_PREFIX, this.noteEncryptedLogs.unrollLogs().length));
+      flattened.push(...this.noteEncryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.hash())));
+    }
+    if (this.encryptedLogs.unrollLogs().length) {
+      flattened.push(this.toPrefix(ENCRYPTED_LOGS_PREFIX, this.encryptedLogs.unrollLogs().length));
+      flattened.push(...this.encryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
+    }
+    if (this.unencryptedLogs.unrollLogs().length) {
+      flattened.push(this.toPrefix(UNENCRYPTED_LOGS_PREFIX, this.unencryptedLogs.unrollLogs().length));
+      flattened.push(...this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
+    }
     return flattened;
+  }
+
+  /**
+   * Decodes a flat packed array of prefixed fields to TxEffect
+   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields as below
+   */
+  static fromFields(
+    fields: Fr[] | FieldReader,
+    noteEncryptedLogs?: EncryptedNoteTxL2Logs,
+    encryptedLogs?: EncryptedTxL2Logs,
+    unencryptedLogs?: UnencryptedTxL2Logs,
+  ) {
+    const reader = FieldReader.asReader(fields);
+    const effect = this.empty();
+    const { type: _, length: revertCode } = this.fromPrefix(reader.readField());
+    effect.revertCode = RevertCode.fromField(new Fr(revertCode));
+    // TODO: how long should tx fee be? For now, not using fromPrefix()
+    const prefixedFee = reader.readField();
+    // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
+    effect.transactionFee = Fr.fromBuffer(Buffer.concat([Buffer.alloc(3), prefixedFee.toBuffer().subarray(3)]));
+    // TODO(Miranda): cleanup, use enum
+    while (!reader.isFinished()) {
+      const { type, length } = this.fromPrefix(reader.readField());
+      switch (type) {
+        case NOTES_PREFIX:
+          effect.noteHashes = reader.readFieldArray(length);
+          break;
+        case NULLIFIERS_PREFIX:
+          effect.nullifiers = reader.readFieldArray(length);
+          break;
+        case L2_L1_MSGS_PREFIX:
+          effect.l2ToL1Msgs = reader.readFieldArray(length);
+          break;
+        case PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: {
+          const publicDataPairs = reader.readFieldArray(length);
+          for (let i = 0; i < length; i += 2) {
+            effect.publicDataWrites.push(new PublicDataWrite(publicDataPairs[i], publicDataPairs[i + 1]));
+          }
+          break;
+        }
+        // TODO(#8954): When logs are refactored into fields, we will append the read fields here
+        case NOTE_ENCRYPTED_LOGS_PREFIX:
+          // effect.noteEncryptedLogs = EncryptedNoteTxL2Logs.fromFields(reader.readFieldArray(length));
+          if (!noteEncryptedLogs) {
+            throw new Error(`Tx effect has note logs, but they were not passed raw to .fromFields()`);
+          }
+          this.checkInjectedLogs(noteEncryptedLogs, reader.readFieldArray(length));
+          effect.noteEncryptedLogs = noteEncryptedLogs;
+          effect.noteEncryptedLogsLength = new Fr(noteEncryptedLogs.getKernelLength());
+          break;
+        case ENCRYPTED_LOGS_PREFIX:
+          // effect.encryptedLogs = EncryptedTxL2Logs.fromFields(reader.readFieldArray(length));
+          if (!encryptedLogs) {
+            throw new Error(`Tx effect has encrypted logs, but they were not passed raw to .fromFields()`);
+          }
+          this.checkInjectedLogs(encryptedLogs, reader.readFieldArray(length));
+          effect.encryptedLogs = encryptedLogs;
+          effect.encryptedLogsLength = new Fr(encryptedLogs.getKernelLength());
+          break;
+        case UNENCRYPTED_LOGS_PREFIX:
+          // effect.unencryptedLogs = UnencryptedTxL2Logs.fromFields(reader.readFieldArray(length));
+          if (!unencryptedLogs) {
+            throw new Error(`Tx effect has unencrypted logs, but they were not passed raw to .fromFields()`);
+          }
+          this.checkInjectedLogs(unencryptedLogs, reader.readFieldArray(length));
+          effect.unencryptedLogs = unencryptedLogs;
+          effect.unencryptedLogsLength = new Fr(unencryptedLogs.getKernelLength());
+          break;
+        case REVERT_CODE_PREFIX:
+        default:
+          throw new Error(`Too many fields to decode given to TxEffect.fromFields()`);
+      }
+    }
+    return effect;
+  }
+
+  // TODO(#8954): Remove below when logs are refactored into fields
+  private static checkInjectedLogs<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(
+    injected: TxL2Logs<TLog>,
+    expectedHashes: Fr[],
+  ) {
+    injected.unrollLogs().forEach((log, i) => {
+      const logHash = log instanceof EncryptedL2NoteLog ? log.hash() : log.getSiloedHash();
+      if (!Fr.fromBuffer(logHash).equals(expectedHashes[i])) {
+        throw new Error(
+          `Log hash mismatch when reconstructing tx effect. Expected: ${Fr.fromBuffer(logHash)}, Got: ${
+            expectedHashes[i]
+          }`,
+        );
+      }
+    });
   }
 
   [inspect.custom]() {

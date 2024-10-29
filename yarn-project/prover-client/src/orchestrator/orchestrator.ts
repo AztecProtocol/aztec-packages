@@ -46,7 +46,6 @@ import {
   RootParityInputs,
   TUBE_INDEX,
   type TUBE_PROOF_LENGTH,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
   TubeInputs,
   type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
@@ -227,8 +226,6 @@ export class ProvingOrchestrator implements EpochProver {
         i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO,
       0,
     );
-    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-    numTxsEffects = numTxs == 2 ? 2 * TX_EFFECTS_BLOB_HASH_INPUT_FIELDS : numTxsEffects;
 
     // Update the local trees to include the new l1 to l2 messages
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
@@ -542,6 +539,14 @@ export class ProvingOrchestrator implements EpochProver {
       const txIndex = provingState.addNewTx(txProvingState);
       this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
     }
+  }
+
+  /**
+   * Reinitialises the blob state if more tx effects are required
+   */
+  public reInitSpongeBlob(totalNumTxsEffects: number) {
+    const provingState = this?.provingState?.currentBlock;
+    provingState?.reInitSpongeBlob(totalNumTxsEffects);
   }
 
   /**

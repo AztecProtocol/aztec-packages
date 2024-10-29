@@ -16,12 +16,11 @@ import {
   type Header,
   type Proof,
   type RootRollupPublicInputs,
-  TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
-import { areArraysEqual, compactArray, padArrayEnd, times } from '@aztec/foundation/collection';
+import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -387,18 +386,12 @@ export class L1Publisher {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
     const digest = getHashedSignaturePayload(consensusPayload);
-    // TODO(Miranda): Remove below once not using zero value tx effects, just use block.body.toFields()
-    const txEffectsInBlob = padArrayEnd(
-      block.body.toFields(),
-      Fr.ZERO,
-      TX_EFFECTS_BLOB_HASH_INPUT_FIELDS * block.header.contentCommitment.numTxs.toNumber(),
-    );
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
-      blob: new Blob(txEffectsInBlob),
+      blob: new Blob(block.body.toFields()),
       attestations,
       txHashes: txHashes ?? [],
     };
