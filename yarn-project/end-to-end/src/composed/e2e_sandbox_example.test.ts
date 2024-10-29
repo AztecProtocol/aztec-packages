@@ -1,21 +1,11 @@
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  ExtendedNote,
-  Fr,
-  GrumpkinScalar,
-  Note,
-  type PXE,
-  computeSecretHash,
-  createDebugLogger,
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { Fr, GrumpkinScalar, type PXE, createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
 import { format } from 'util';
-import { deployToken } from '../fixtures/token_utils.js';
+
+import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
@@ -112,27 +102,8 @@ describe('e2e_sandbox_example', () => {
     // Alice is nice and she adds Bob as a minter
     await tokenContractAlice.methods.set_minter(bob, true).send().wait();
 
-    const bobSecret = Fr.random();
-    const bobSecretHash = computeSecretHash(bobSecret);
-    // Bob now has a secret 🥷
-
     const mintQuantity = 10_000n;
-    logger.info(`Minting ${mintQuantity} tokens to Bob...`);
-    const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, bobSecretHash).send().wait();
-
-    const bobPendingShield = new Note([new Fr(mintQuantity), bobSecretHash]);
-    await bobWallet.addNote(
-      new ExtendedNote(
-        bobPendingShield,
-        bob,
-        contract.address,
-        TokenContract.storage.pending_shields.slot,
-        TokenContract.notes.TransparentNote.id,
-        mintPrivateReceipt.txHash,
-      ),
-    );
-
-    await tokenContractBob.methods.redeem_shield(bob, mintQuantity, bobSecret).send().wait();
+    await mintTokensToPrivate(tokenContractBob, bobWallet, bob, mintQuantity);
 
     // Check the new balances
     aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
