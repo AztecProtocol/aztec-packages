@@ -213,7 +213,7 @@ export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPat
     const witness = readStack(witnessPath);
 
     const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
-    console.log("verified?");
+    console.log(`verified?: ${verified}`);
     return verified;
   } finally {
     await api.destroy();
