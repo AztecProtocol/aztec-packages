@@ -151,6 +151,7 @@ export async function generateKeyForNoirCircuit(
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
       let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, log);
+
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS) {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];

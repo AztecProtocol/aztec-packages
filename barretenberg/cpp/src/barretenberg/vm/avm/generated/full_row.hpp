@@ -151,7 +151,7 @@ template <typename FF> struct AvmFullRow {
     FF conversion_num_limbs{};
     FF conversion_output_bits{};
     FF conversion_radix{};
-    FF conversion_sel_to_radix_le{};
+    FF conversion_sel_to_radix_be{};
     FF keccakf1600_clk{};
     FF keccakf1600_input{};
     FF keccakf1600_output{};
@@ -259,7 +259,9 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_nullifier_exists{};
     FF main_sel_op_or{};
     FF main_sel_op_poseidon2{};
-    FF main_sel_op_radix_le{};
+    FF main_sel_op_radix_be{};
+    FF main_sel_op_returndata_copy{};
+    FF main_sel_op_returndata_size{};
     FF main_sel_op_sender{};
     FF main_sel_op_set{};
     FF main_sel_op_sha256{};
@@ -778,7 +780,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 764;
+    static constexpr size_t SIZE = 766;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

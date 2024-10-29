@@ -4,13 +4,13 @@ import { AZTEC_SLOT_DURATION, ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type BootstrapNode } from '@aztec/p2p';
+import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
 import getPort from 'get-port';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
-  createBootstrapNodeFromPrivateKey,
   createValidatorConfig,
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,

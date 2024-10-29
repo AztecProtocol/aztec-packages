@@ -179,15 +179,13 @@ contract NFT {
         storage: Storage<&mut PrivateContext>,
     ) -> Field {
         let to_keys = get_public_keys(to);
-        let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
 
         // We create a setup payload with unpopulated/zero token id for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
         let note_randomness = unsafe { random() };
-        let note_setup_payload =
-            NFTNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+        let note_setup_payload = NFTNote::setup_payload().new(to, note_randomness, to_note_slot);
 
         // We encrypt the note log
         let setup_log = note_setup_payload.encrypt_log(context, to_keys, to);
@@ -303,9 +301,8 @@ contract NFT {
         assert(notes.len() == 1, "NFT not found when transferring");
 
         let from_ovpk_m = get_public_keys(from).ovpk_m;
-        let to_keys = get_public_keys(to);
 
-        let mut new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
+        let mut new_note = NFTNote::new(token_id, to);
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(
             &mut context,
             from_ovpk_m,
