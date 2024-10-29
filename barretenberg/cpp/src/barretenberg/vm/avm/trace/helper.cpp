@@ -94,8 +94,8 @@ std::string to_name(bb::avm_trace::AvmMemoryTag tag)
     case bb::avm_trace::AvmMemoryTag::U128:
         return "Uint128";
     default:
-            throw std::runtime_error("Invalid memory tag");
-            break;
+        throw std::runtime_error("Invalid memory tag");
+        break;
     }
 }
 
