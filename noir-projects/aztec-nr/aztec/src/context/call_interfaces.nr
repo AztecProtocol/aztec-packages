@@ -97,13 +97,14 @@ pub struct PrivateVoidCallInterface<let N: u32, Env> {
 impl<let N: u32, Env> PrivateVoidCallInterface<N, Env> {
     pub fn call(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
-        context.call_private_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        ).assert_empty();
+        context.side_effect_counter = 1;
+        // context.call_private_function_with_packed_args(
+        //     self.target_contract,
+        //     self.selector,
+        //     self.args_hash,
+        //     false,
+        //     false
+        // ).assert_empty();
     }
 
     pub fn view(self, context: &mut PrivateContext) {

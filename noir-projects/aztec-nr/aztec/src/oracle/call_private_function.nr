@@ -10,7 +10,7 @@ unconstrained fn call_private_function_oracle(
     _is_delegate_call: bool
 ) -> [Field; 2] {}
 
-unconstrained pub fn call_private_function_internal(
+pub fn call_private_function_internal(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args_hash: Field,
@@ -18,18 +18,20 @@ unconstrained pub fn call_private_function_internal(
     is_static_call: bool,
     is_delegate_call: bool
 ) -> (u32, Field) {
-    let fields = call_private_function_oracle(
+    let fields = [0, 0]; /*call_private_function_oracle(
         contract_address,
         function_selector,
         args_hash,
         start_side_effect_counter,
         is_static_call,
         is_delegate_call
-    );
+    );*/
 
-    let mut reader = Reader::new(fields);
-    let end_side_effect_counter = reader.read_u32();
-    let returns_hash = reader.read();
+    // let mut reader = Reader::new(fields);
+    // let end_side_effect_counter = reader.read_u32();
+    // let returns_hash = reader.read();
+    let end_side_effect_counter = fields[0] as u32;
+    let returns_hash = fields[1];
 
     (end_side_effect_counter, returns_hash)
 }

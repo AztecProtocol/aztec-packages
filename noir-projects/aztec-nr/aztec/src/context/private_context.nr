@@ -221,18 +221,18 @@ impl PrivateContext {
 
         if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one
-            cached_request.sk_app
+            100
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
             let request = get_key_validation_request(pk_m_hash, key_index);
-            let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index] };
+            // let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index] };
             // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
             // valid key request and not the one corresponding to pk_m_hash).
             // assert(request.pk_m.hash() == pk_m_hash);
-            self.key_validation_requests_and_generators.push(request_and_generator);
+            // self.key_validation_requests_and_generators.push(request_and_generator);
             self.last_key_validation_requests[key_index] = Option::some(request);
-            request.sk_app
+            200
         }
     }
 
@@ -270,13 +270,13 @@ impl PrivateContext {
         log: [u8; M],
         log_hash: Field
     ) {
-        let counter = self.next_counter();
-        let contract_address = self.this_address();
-        let len = log.len() as Field + 4;
-        let side_effect = EncryptedLogHash { value: log_hash, counter, length: len, randomness };
-        self.encrypted_logs_hashes.push(side_effect);
+        self.side_effect_counter += 1;
+        // let contract_address = self.this_address();
+        // let len = log.len() as Field + 4;
+        // let side_effect = EncryptedLogHash { value: log_hash, counter, length: len, randomness };
+        // self.encrypted_logs_hashes.push(side_effect);
 
-        emit_encrypted_event_log(contract_address, randomness, log, counter);
+        // emit_encrypted_event_log(contract_address, randomness, log, counter);
     }
 
     pub fn emit_raw_note_log<let M: u32>(&mut self, note_hash_counter: u32, log: [u8; M], log_hash: Field) {
@@ -353,16 +353,15 @@ impl PrivateContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) -> PackedReturns {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        let start_side_effect_counter = self.side_effect_counter;
-        let (end_side_effect_counter, returns_hash) = call_private_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            start_side_effect_counter,
-            is_static_call,
-            is_delegate_call
-        );
+        let (end_side_effect_counter, returns_hash) = (0, 0);
+        // let (end_side_effect_counter, returns_hash) = call_private_function_internal(
+        //     contract_address,
+        //     function_selector,
+        //     args_hash,
+        //     start_side_effect_counter,
+        //     is_static_call,
+        //     is_delegate_call
+        // );
 
         self.side_effect_counter = end_side_effect_counter + 1;
 
@@ -379,23 +378,23 @@ impl PrivateContext {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
 
-        let call_context = self.generate_call_context(
-            contract_address,
-            function_selector,
-            is_static_call,
-            is_delegate_call
-        );
+        // let call_context = self.generate_call_context(
+        //     contract_address,
+        //     function_selector,
+        //     is_static_call,
+        //     is_delegate_call
+        // );
 
-        self.private_call_requests.push(
-            PrivateCallRequest {
-            contract_address,
-            call_context,
-            args_hash,
-            returns_hash,
-            start_side_effect_counter,
-            end_side_effect_counter
-        }
-        );
+        // self.private_call_requests.push(
+        //     PrivateCallRequest {
+        //     contract_address,
+        //     call_context,
+        //     args_hash,
+        //     returns_hash,
+        //     start_side_effect_counter,
+        //     end_side_effect_counter
+        // }
+        // );
 
         PackedReturns::new(returns_hash)
     }

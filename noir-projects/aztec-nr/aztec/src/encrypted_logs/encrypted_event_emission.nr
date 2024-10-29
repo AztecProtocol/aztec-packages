@@ -5,20 +5,18 @@ use crate::{
 };
 use dep::protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
-fn compute_raw_event_log<Event, let N: u32>(
-    context: PrivateContext,
-    event: Event,
-    randomness: Field,
+fn compute_raw_event_log(
     ovsk_app: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
-    let contract_address: AztecAddress = context.this_address();
-    let plaintext = event.private_to_be_bytes(randomness);
-    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
-    let log_hash = sha256_to_field(encrypted_log);
-    (encrypted_log, log_hash)
+) -> ([u8; 416 + 1 * 32], Field) {
+    let contract_address: AztecAddress = recipient;// context.this_address();
+    // let plaintext = event.private_to_be_bytes(randomness);
+    let plaintext: [_; 128] = std::mem::zeroed();
+    let encrypted_log: [u8; 416 + 1 * 32] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+    // let log_hash = sha256_to_field(encrypted_log);
+    (encrypted_log, 0)
 }
 
 unconstrained fn compute_raw_event_log_unconstrained<Event, let N: u32>(
@@ -28,9 +26,9 @@ unconstrained fn compute_raw_event_log_unconstrained<Event, let N: u32>(
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress
-) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+) -> ([u8; 416 + 1 * 32], Field) where Event: EventInterface<N> {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_raw_event_log(context, event, randomness, ovsk_app, ovpk, ivpk, recipient)
+    compute_raw_event_log(ovsk_app, ovpk, ivpk, recipient)
 }
 
 pub fn encode_and_encrypt_event<Event, let N: u32>(
@@ -44,7 +42,7 @@ pub fn encode_and_encrypt_event<Event, let N: u32>(
             unsafe_rand()
         };
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-        let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
+        let (encrypted_log, log_hash) = compute_raw_event_log(ovsk_app, ovpk, ivpk, recipient);
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
@@ -69,17 +67,14 @@ pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
 // This function seems to be affected by the following Noir bug:
 // https://github.com/noir-lang/noir/issues/5771
 // If you get weird behavior it might be because of it.
-pub fn encode_and_encrypt_event_with_randomness<Event, let N: u32>(
-    context: &mut PrivateContext,
-    randomness: Field,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, Field, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
-    | e: Event | {
+pub fn encode_and_encrypt_event_with_randomness(context: &mut PrivateContext) -> fn[(&mut PrivateContext,)]() -> () {
+    || {
+        let ovpk: OvpkM = std::mem::zeroed();
+        let ivpk: IvpkM = std::mem::zeroed();
+        let recipient: AztecAddress = std::mem::zeroed();
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-        let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
-        context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
+        let _ = compute_raw_event_log(ovsk_app, ovpk, ivpk, recipient);
+        context.side_effect_counter += 1;
     }
 }
 
