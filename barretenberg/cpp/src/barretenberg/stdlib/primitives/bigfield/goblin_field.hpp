@@ -74,6 +74,16 @@ template <class Builder> class goblin_field {
         return goblin_field(lo, hi);
     }
 
+    /**
+     * Create a witness from a constant. This way the value of the witness is fixed and public.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        for (auto& limb : limbs) {
+            limb.convert_constant_to_fixed_witness(builder);
+        }
+    }
+
     static goblin_field conditional_assign(const bool_ct& predicate, const goblin_field& lhs, goblin_field& rhs)
     {
         goblin_field result;

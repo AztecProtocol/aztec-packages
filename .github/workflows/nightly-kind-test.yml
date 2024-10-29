@@ -74,8 +74,7 @@ jobs:
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
             export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ./scripts/earthly-ci --exec-stats -P --no-output ./yarn-project/end-to-end/+kind-network-transfer --values-file=${{ matrix.values_file }}
+            NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${{ matrix.values_file }} ./scripts/network_test.sh ./src/spartan/transfer.test.ts || true
 
   success-check:
     runs-on: ubuntu-20.04

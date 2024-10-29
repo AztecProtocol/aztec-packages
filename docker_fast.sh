@@ -30,8 +30,14 @@ elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
   S3_BUILD_CACHE_DOWNLOAD=true
 elif [ -f ~/.aws/credentials ]; then
   # Retrieve credentials if available in AWS config
+
+  # Do not trace this information
+  set +x
   AWS_ACCESS_KEY_ID=$(aws configure get default.aws_access_key_id)
   AWS_SECRET_ACCESS_KEY=$(aws configure get default.aws_secret_access_key)
+
+  # Resume tracing
+  set -x
   S3_BUILD_CACHE_DOWNLOAD=true
 else
   S3_BUILD_CACHE_UPLOAD=false
@@ -46,8 +52,11 @@ function on_exit() {
 trap on_exit EXIT
 
 # Save each secret environment variable into a separate file in $TMP directory
+set +x
 echo "${AWS_ACCESS_KEY_ID:-}" > "$TMP/aws_access_key_id.txt"
 echo "${AWS_SECRET_ACCESS_KEY:-}" > "$TMP/aws_secret_access_key.txt"
+set -x
+
 echo "${S3_BUILD_CACHE_MINIO_URL:-}" > "$TMP/s3_build_cache_minio_url.txt"
 echo "${S3_BUILD_CACHE_UPLOAD:-}" > "$TMP/s3_build_cache_upload.txt"
 echo "${S3_BUILD_CACHE_DOWNLOAD:-}" > "$TMP/s3_build_cache_download.txt"

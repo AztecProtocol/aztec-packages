@@ -6,6 +6,7 @@ import { strict as assert } from 'assert';
 import { SideEffectLimitReachedError } from '../public/side_effect_errors.js';
 import type { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
+import { type Gas } from './avm_gas.js';
 import { isAvmBytecode } from './bytecode_utils.js';
 import {
   AvmExecutionError,
@@ -17,9 +18,21 @@ import {
 import type { Instruction } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 
+type OpcodeTally = {
+  count: number;
+  gas: Gas;
+};
+type PcTally = {
+  opcode: string;
+  count: number;
+  gas: Gas;
+};
+
 export class AvmSimulator {
   private log: DebugLogger;
   private bytecode: Buffer | undefined;
+  public opcodeTallies: Map<string, OpcodeTally> = new Map();
+  public pcTallies: Map<number, PcTally> = new Map();
 
   constructor(private context: AvmContext) {
     assert(
@@ -79,12 +92,23 @@ export class AvmSimulator {
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
         );
 
-        const gasLeft = `l2=${machineState.l2GasLeft} da=${machineState.daGasLeft}`;
-        this.log.debug(`@${machineState.pc} ${instruction.toString()} (${gasLeft})`);
+        const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
+        const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
+
+        this.log.debug(
+          `@${machineState.pc} ${instruction.toString()} (l2=${machineState.l2GasLeft} da=${machineState.daGasLeft})`,
+        );
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
         await instruction.execute(this.context);
+
+        // gas used by this instruction - used for profiling/tallying
+        const gasUsed: Gas = {
+          l2Gas: instrStartGas.l2Gas - machineState.l2GasLeft,
+          daGas: instrStartGas.daGas - machineState.daGasLeft,
+        };
+        this.tallyInstruction(instrPc, instruction.constructor.name, gasUsed);
 
         if (machineState.pc >= instructions.length) {
           this.log.warn('Passed end of program');
@@ -97,6 +121,8 @@ export class AvmSimulator {
       const revertReason = reverted ? revertReasonFromExplicitRevert(output, this.context) : undefined;
       const results = new AvmContractCallResult(reverted, output, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
+
+      this.printOpcodeTallies();
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
@@ -110,8 +136,45 @@ export class AvmSimulator {
       // Note: "exceptional halts" cannot return data, hence []
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
+
+      this.printOpcodeTallies();
       // Return results for processing by calling context
       return results;
+    }
+  }
+
+  private tallyInstruction(pc: number, opcode: string, gasUsed: Gas) {
+    const opcodeTally = this.opcodeTallies.get(opcode) || ({ count: 0, gas: { l2Gas: 0, daGas: 0 } } as OpcodeTally);
+    opcodeTally.count++;
+    opcodeTally.gas.l2Gas += gasUsed.l2Gas;
+    opcodeTally.gas.daGas += gasUsed.daGas;
+    this.opcodeTallies.set(opcode, opcodeTally);
+
+    const pcTally = this.pcTallies.get(pc) || ({ opcode: opcode, count: 0, gas: { l2Gas: 0, daGas: 0 } } as PcTally);
+    pcTally.count++;
+    pcTally.gas.l2Gas += gasUsed.l2Gas;
+    pcTally.gas.daGas += gasUsed.daGas;
+    this.pcTallies.set(pc, pcTally);
+  }
+
+  private printOpcodeTallies() {
+    this.log.debug(`Printing tallies per opcode sorted by gas...`);
+    // sort descending by L2 gas consumed
+    const sortedOpcodes = Array.from(this.opcodeTallies.entries()).sort((a, b) => b[1].gas.l2Gas - a[1].gas.l2Gas);
+    for (const [opcode, tally] of sortedOpcodes) {
+      // NOTE: don't care to clutter the logs with DA gas for now
+      this.log.debug(`${opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`);
+    }
+
+    this.log.debug(`Printing tallies per PC sorted by #times each PC was executed...`);
+    const sortedPcs = Array.from(this.pcTallies.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .filter((_, i) => i < 20);
+    for (const [pc, tally] of sortedPcs) {
+      // NOTE: don't care to clutter the logs with DA gas for now
+      this.log.debug(
+        `PC:${pc} containing opcode ${tally.opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`,
+      );
     }
   }
 }
