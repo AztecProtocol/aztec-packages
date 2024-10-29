@@ -1,13 +1,7 @@
 import {
   type CheatCodes,
   type CompleteAddress,
-  EthAddress,
-  ExtendedNote,
-  Fr,
-  Note,
-  type PXE,
-  type Wallet,
-  computeSecretHash,
+  EthAddress, Fr, type Wallet
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
@@ -25,12 +19,12 @@ import {
 import type * as chains from 'viem/chains';
 
 import { setup } from './fixtures/utils.js';
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 
 describe('e2e_cheat_codes', () => {
   let wallet: Wallet;
   let admin: CompleteAddress;
   let cc: CheatCodes;
-  let pxe: PXE;
   let teardown: () => Promise<void>;
 
   let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
@@ -40,7 +34,7 @@ describe('e2e_cheat_codes', () => {
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
@@ -185,31 +179,17 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('load private', async () => {
-      // mint note and check if it exists in pending_shield.
+      // mint a token note and check it exists in balances.
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
-      const secret = Fr.random();
-      const secretHash = computeSecretHash(secret);
-      const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-      // docs:start:pxe_add_note
-      const note = new Note([new Fr(mintAmount), secretHash]);
-      const extendedNote = new ExtendedNote(
-        note,
-        admin.address,
-        token.address,
-        TokenContract.storage.pending_shields.slot,
-        TokenContract.notes.TransparentNote.id,
-        receipt.txHash,
-      );
-      await pxe.addNote(extendedNote);
-      // docs:end:pxe_add_note
+      await mintTokensToPrivate(token, wallet, admin.address, mintAmount);
 
       // check if note was added to pending shield:
       const notes = await cc.aztec.loadPrivate(
         admin.address,
         token.address,
-        TokenContract.storage.pending_shields.slot,
+        TokenContract.storage.balances.slot,
       );
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
