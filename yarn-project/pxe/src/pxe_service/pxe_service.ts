@@ -221,33 +221,6 @@ export class PXEService implements PXE {
     return Promise.resolve(account);
   }
 
-  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
-    const wasAdded = await this.db.addCompleteAddress(recipient);
-
-    if (wasAdded) {
-      this.log.info(`Added recipient:\n ${recipient.toReadableString()}`);
-    } else {
-      this.log.info(`Recipient:\n "${recipient.toReadableString()}"\n already registered.`);
-    }
-  }
-
-  public async getRecipients(): Promise<CompleteAddress[]> {
-    // Get complete addresses of both the recipients and the accounts
-    const completeAddresses = await this.db.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const recipients = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
-    return recipients;
-  }
-
-  public async getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRecipients();
-    const recipient = result.find(r => r.address.equals(address));
-    return Promise.resolve(recipient);
-  }
-
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
     await this.db.addContractArtifact(contractClassId, artifact);

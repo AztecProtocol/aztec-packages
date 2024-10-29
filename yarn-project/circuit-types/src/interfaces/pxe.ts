@@ -74,20 +74,6 @@ export interface PXE {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
-   * Registers a recipient in PXE. This is required when sending encrypted notes to
-   * a user who hasn't deployed their account contract yet. Since their account is not deployed, their
-   * encryption public key has not been broadcasted, so we need to manually register it on the PXE Service
-   * in order to be able to encrypt data for this recipient.
-   *
-   * @param recipient - The complete address of the recipient
-   * @remarks Called recipient because we can only send notes to this account and not receive them via this PXE Service.
-   * This is because we don't have the associated private key and for this reason we can't decrypt
-   * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
-   * public key.
-   */
-  registerRecipient(recipient: CompleteAddress): Promise<void>;
-
-  /**
    * Retrieves the user accounts registered on this PXE Service.
    * @returns An array of the accounts registered on this PXE Service.
    */
@@ -101,21 +87,6 @@ export interface PXE {
    * @returns The complete address of the requested account if found.
    */
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
-
-  /**
-   * Retrieves the recipients added to this PXE Service.
-   * @returns An array of recipients registered on this PXE Service.
-   */
-  getRecipients(): Promise<CompleteAddress[]>;
-
-  /**
-   * Retrieves the complete address of the recipient corresponding to the provided aztec address.
-   * Complete addresses include the address, the partial address, and the encryption public key.
-   *
-   * @param address - The aztec address of the recipient.
-   * @returns The complete address of the requested recipient.
-   */
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
