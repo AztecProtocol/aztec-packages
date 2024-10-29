@@ -1064,12 +1064,16 @@ void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_off
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
+    // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
+    bool tag_match = read_a.tag_match;
 
     FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF b = tag_match ? read_b : FF(0);
 
     FF c = tag_match ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
 
@@ -1083,24 +1087,24 @@ void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
-        .main_ib = read_b.val,
+        .main_ib = read_b,
         .main_ic = write_c.val,
         .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
+        //.main_ind_addr_b = FF(read_b.indirect_address),
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
+        //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
+        //.main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_shl = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -1117,12 +1121,16 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
+    // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
+    bool tag_match = read_a.tag_match;
 
     FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF b = tag_match ? read_b : FF(0);
 
     FF c = tag_match ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
 
@@ -1136,24 +1144,28 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
-        .main_ib = read_b.val,
+        .main_ib = read_b,
         .main_ic = write_c.val,
         .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
+        // TODO(8603): uncomment
+        //.main_ind_addr_b = FF(read_b.indirect_address),
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
+        // TODO(8603): uncomment
+        //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
+        // TODO(8603): uncomment
+        //.main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_shr = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        // TODO(8603): uncomment
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -2429,7 +2441,7 @@ void AvmTraceBuilder::op_get_contract_instance(
             break;
         }
 
-        // TODO:(8603): once instructions can have multiple different tags for writes, write dst as FF and exists as U1
+        // TODO(8603): once instructions can have multiple different tags for writes, write dst as FF and exists as U1
         // auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst_offset, member_value,
         // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC); auto write_exists =
         // constrained_write_to_memory(call_ptr, clk, resolved_exists_offset, instance.instance_found_in_address,
@@ -2439,7 +2451,7 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_clk = clk,
             .main_call_ptr = call_ptr,
             .main_ia = read_address.val,
-            // TODO:(8603): uncomment this and below blocks once instructions can have multiple different tags for
+            // TODO(8603): uncomment this and below blocks once instructions can have multiple different tags for
             // writes
             //.main_ic = write_dst.val,
             //.main_id = write_exists.val,
@@ -2462,7 +2474,7 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         });
 
-        // TODO:(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
+        // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
         // writes
         write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
         write_to_memory(resolved_exists_offset, FF(static_cast<uint32_t>(instance.exists)), AvmMemoryTag::U1);
@@ -3305,13 +3317,14 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
 
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
-    // TODO:(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag!
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 
     FF input = read_src.val;
-    // TODO:(8603): uncomment
+    // TODO(8603): uncomment
     // uint32_t radix = static_cast<uint32_t>(read_radix.val);
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
@@ -3337,21 +3350,21 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
         .main_ic = num_limbs,
         .main_id = output_bits,
         .main_ind_addr_a = read_src.indirect_address,
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_ind_addr_b = read_radix.indirect_address,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = read_src.direct_address,
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_mem_addr_b = read_radix.direct_address,
         .main_op_err = error ? FF(1) : FF(0),
         .main_pc = FF(pc++),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_sel_mem_op_b = FF(1),
         .main_sel_op_radix_le = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_src.is_indirect)),
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_radix.is_indirect)),
         .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
     });
