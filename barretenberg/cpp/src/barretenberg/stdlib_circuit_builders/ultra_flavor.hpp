@@ -195,26 +195,11 @@ class UltraFlavor {
     /**
      * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
      */
-    template <typename DataType> class ShiftedTables {
+    template <typename DataType> class ShiftedEntities : public ShiftedWitnessEntities<DataType> {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(ShiftedWitnessEntities<DataType>)
 
         auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
     };
 
     /**
@@ -256,8 +241,6 @@ class UltraFlavor {
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // getter for shifted witnesses
         auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_shifted_witnesses(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
         // getter for all witnesses including shifted ones
         auto get_all_witnesses()
         {
@@ -265,11 +248,7 @@ class UltraFlavor {
                                ShiftedEntities<DataType>::get_shifted_witnesses());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:
