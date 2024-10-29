@@ -4,7 +4,7 @@ import {
   type DebugLogger,
   EthAddress,
   L1FeeJuicePortalManager,
-  L1TokenManager,
+  type L1TokenManager,
   type L2AmountClaim,
   type PXE,
   type Wallet,
