@@ -155,17 +155,17 @@ describe('End-to-end tests for devnet', () => {
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toBeGreaterThan(0n);
 
     const amount = 1_000_000_000_000n;
-    const { claimAmount, claimSecret } = await cli<{ claimAmount: string; claimSecret: { value: string } }>(
-      'bridge-fee-juice',
-      [amount, l2Account.getAddress()],
-      {
-        'l1-rpc-url': ETHEREUM_HOST!,
-        'l1-chain-id': l1ChainId.toString(),
-        'l1-private-key': l1Account.privateKey,
-        'rpc-url': pxeUrl,
-        mint: true,
-      },
-    );
+    const { claimAmount, claimSecret, messageLeafIndex } = await cli<{
+      claimAmount: string;
+      claimSecret: { value: string };
+      messageLeafIndex: string;
+    }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
+      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-chain-id': l1ChainId.toString(),
+      'l1-private-key': l1Account.privateKey,
+      'rpc-url': pxeUrl,
+      mint: true,
+    });
 
     if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
       await advanceChainWithEmptyBlocks(pxe);
@@ -177,11 +177,11 @@ describe('End-to-end tests for devnet', () => {
       .deploy({
         fee: {
           gasSettings: GasSettings.default(),
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(
-            l2Account.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret.value),
-          ),
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
+            claimAmount: Fr.fromString(claimAmount),
+            claimSecret: Fr.fromString(claimSecret.value),
+            messageLeafIndex: BigInt(messageLeafIndex),
+          }),
         },
       })
       .wait(waitOpts);

@@ -3,10 +3,11 @@ import {
   type AztecNode,
   type DebugLogger,
   EthAddress,
-  Fr,
+  L1FeeJuicePortalManager,
+  L1TokenManager,
+  type L2AmountClaim,
   type PXE,
   type Wallet,
-  computeSecretHash,
 } from '@aztec/aztec.js';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js';
@@ -24,13 +25,9 @@ import {
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
-  prepareTokensOnL1(
-    l1TokenBalance: bigint,
-    bridgeAmount: bigint,
-    owner: AztecAddress,
-  ): Promise<{ secret: Fr; secretHash: Fr; msgHash: Fr }>;
-  bridgeFromL1ToL2(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
-  l2Token: FeeJuiceContract;
+  prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress): Promise<L2AmountClaim>;
+  bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
+  feeJuice: FeeJuiceContract;
   l1FeeJuiceAddress: EthAddress;
 }
 
@@ -106,6 +103,9 @@ export class FeeJuicePortalTestingHarnessFactory {
  * shared between cross chain tests.
  */
 export class GasBridgingTestHarness implements IGasBridgingTestHarness {
+  private readonly l1TokenManager: L1TokenManager;
+  private readonly feeJuicePortalManager: L1FeeJuicePortalManager;
+
   constructor(
     /** Aztec node */
     public aztecNode: AztecNode,
@@ -115,7 +115,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     public logger: DebugLogger,
 
     /** L2 Token/Bridge contract. */
-    public l2Token: FeeJuiceContract,
+    public feeJuice: FeeJuiceContract,
 
     /** Eth account to interact with. */
     public ethAccount: EthAddress,
@@ -131,60 +131,45 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Viem Public client instance. */
     public publicClient: PublicClient<HttpTransport, Chain>,
     /** Viem Wallet Client instance. */
-    public walletClient: WalletClient,
-  ) {}
+    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+  ) {
+    this.feeJuicePortalManager = new L1FeeJuicePortalManager(
+      EthAddress.fromString(this.tokenPortal.address),
+      EthAddress.fromString(this.underlyingERC20.address),
+      this.publicClient,
+      this.walletClient,
+      this.logger,
+    );
+
+    this.l1TokenManager = this.feeJuicePortalManager.getTokenManager();
+  }
 
   get l1FeeJuiceAddress() {
     return EthAddress.fromString(this.underlyingERC20.address);
   }
 
-  generateClaimSecret(): [Fr, Fr] {
-    this.logger.debug("Generating a claim secret using pedersen's hash function");
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-    this.logger.info('Generated claim secret: ' + secretHash.toString());
-    return [secret, secretHash];
-  }
-
   async mintTokensOnL1(amount: bigint, to: EthAddress = this.ethAccount) {
-    this.logger.info('Minting tokens on L1');
     const balanceBefore = await this.underlyingERC20.read.balanceOf([to.toString()]);
-    await this.publicClient.waitForTransactionReceipt({
-      hash: await this.underlyingERC20.write.mint([to.toString(), amount]),
-    });
+    await this.l1TokenManager.mint(amount, to.toString());
     expect(await this.underlyingERC20.read.balanceOf([to.toString()])).toBe(balanceBefore + amount);
   }
 
   async getL1FeeJuiceBalance(address: EthAddress) {
-    return await this.underlyingERC20.read.balanceOf([address.toString()]);
+    return await this.l1TokenManager.getL1TokenBalance(address.toString());
   }
 
-  async sendTokensToPortalPublic(bridgeAmount: bigint, l2Address: AztecAddress, secretHash: Fr) {
-    await this.publicClient.waitForTransactionReceipt({
-      hash: await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount]),
-    });
-
-    // Deposit tokens to the TokenPortal
-    this.logger.info('Sending messages to L1 portal to be consumed publicly');
-    const args = [l2Address.toString(), bridgeAmount, secretHash.toString()] as const;
-    const { result: messageHash } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
-      account: this.ethAccount.toString(),
-    } as any);
-    await this.publicClient.waitForTransactionReceipt({
-      hash: await this.tokenPortal.write.depositToAztecPublic(args),
-    });
-
-    return Fr.fromString(messageHash);
+  sendTokensToPortalPublic(bridgeAmount: bigint, l2Address: AztecAddress, mint = false) {
+    return this.feeJuicePortalManager.bridgeTokensPublic(l2Address, bridgeAmount, mint);
   }
 
-  async consumeMessageOnAztecAndClaimPrivately(bridgeAmount: bigint, owner: AztecAddress, secret: Fr) {
+  async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claim: L2AmountClaim) {
     this.logger.info('Consuming messages on L2 Privately');
-    // Call the claim function on the Aztec.nr Fee Juice contract
-    await this.l2Token.methods.claim(owner, bridgeAmount, secret).send().wait();
+    const { claimAmount, claimSecret, messageLeafIndex } = claim;
+    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send().wait();
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_public(owner).simulate();
+    return await this.feeJuice.methods.balance_of_public(owner).simulate();
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -192,29 +177,22 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
-  async prepareTokensOnL1(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress) {
-    const [secret, secretHash] = this.generateClaimSecret();
-
-    // Mint tokens on L1
-    await this.mintTokensOnL1(l1TokenBalance);
-
-    // Deposit tokens to the TokenPortal
-    const msgHash = await this.sendTokensToPortalPublic(bridgeAmount, owner, secretHash);
-    expect(await this.getL1FeeJuiceBalance(this.ethAccount)).toBe(l1TokenBalance - bridgeAmount);
+  async prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress) {
+    const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner, true);
 
     // Perform an unrelated transactions on L2 to progress the rollup by 2 blocks.
-    await this.l2Token.methods.check_balance(0).send().wait();
-    await this.l2Token.methods.check_balance(0).send().wait();
+    await this.feeJuice.methods.check_balance(0).send().wait();
+    await this.feeJuice.methods.check_balance(0).send().wait();
 
-    return { secret, msgHash, secretHash };
+    return claim;
   }
 
-  async bridgeFromL1ToL2(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress) {
+  async bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress) {
     // Prepare the tokens on the L1 side
-    const { secret } = await this.prepareTokensOnL1(l1TokenBalance, bridgeAmount, owner);
+    const claim = await this.prepareTokensOnL1(bridgeAmount, owner);
 
-    // Consume L1-> L2 message and claim tokens privately on L2
-    await this.consumeMessageOnAztecAndClaimPrivately(bridgeAmount, owner, secret);
+    // Consume L1 -> L2 message and claim tokens privately on L2
+    await this.consumeMessageOnAztecAndClaimPrivately(owner, claim);
     await this.expectPublicBalanceOnL2(owner, bridgeAmount);
   }
 }

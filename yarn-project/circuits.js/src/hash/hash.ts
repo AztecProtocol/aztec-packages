@@ -115,16 +115,8 @@ export function computeSecretHash(secret: Fr) {
   return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
-export function computeL1ToL2MessageNullifier(
-  contract: AztecAddress,
-  messageHash: Fr,
-  secret: Fr,
-  messageIndex: bigint,
-) {
-  const innerMessageNullifier = poseidon2HashWithSeparator(
-    [messageHash, secret, messageIndex],
-    GeneratorIndex.MESSAGE_NULLIFIER,
-  );
+export function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
+  const innerMessageNullifier = poseidon2HashWithSeparator([messageHash, secret], GeneratorIndex.MESSAGE_NULLIFIER);
   return siloNullifier(contract, innerMessageNullifier);
 }
 

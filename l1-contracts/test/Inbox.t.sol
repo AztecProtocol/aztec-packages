@@ -95,17 +95,21 @@ contract InboxTest is Test {
     // event we expect
     emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf);
     // event we will get
-    bytes32 insertedLeaf =
+    (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     assertEq(insertedLeaf, leaf);
+    assertEq(insertedIndex, globalLeafIndex);
   }
 
   function testSendDuplicateL2Messages() public checkInvariant {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 leaf1 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    bytes32 leaf2 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    bytes32 leaf3 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf1, uint256 index1) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf2, uint256 index2) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf3, uint256 index3) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
     assertEq(inbox.getNumTrees(), 1);
@@ -113,6 +117,10 @@ contract InboxTest is Test {
     // All the leaves should be different since the index gets mixed in
     assertNotEq(leaf1, leaf2);
     assertNotEq(leaf2, leaf3);
+
+    // Check indices
+    assertEq(index1 + 1, index2);
+    assertEq(index1 + 2, index3);
   }
 
   function testRevertIfActorTooLarge() public {

@@ -57,13 +57,13 @@ contract Inbox is IInbox {
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
    *
-   * @return Hash of the sent message.
+   * @return Hash of the sent message and its leaf index in the tree.
    */
   function sendL2Message(
     DataStructures.L2Actor memory _recipient,
     bytes32 _content,
     bytes32 _secretHash
-  ) external override(IInbox) returns (bytes32) {
+  ) external override(IInbox) returns (bytes32, uint256) {
     require(
       uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
       Errors.Inbox__ActorTooLarge(_recipient.actor)
@@ -99,7 +99,7 @@ contract Inbox is IInbox {
     totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 
-    return leaf;
+    return (leaf, index);
   }
 
   /**

@@ -119,24 +119,25 @@ contract TokenPortalTest is Test {
     testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    uint256 expectedIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
     DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPrivateL1ToL2Message(globalLeafIndex);
+      _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
     // event we will get
 
     // Perform op
-    bytes32 leaf = tokenPortal.depositToAztecPrivate(
+    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPrivate(
       secretHashForRedeemingMintedNotes, amount, secretHashForL2MessageConsumption
     );
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
+    assertEq(index, expectedIndex, "returned index and calculated index should match");
 
     return leaf;
   }
@@ -147,20 +148,22 @@ contract TokenPortalTest is Test {
     testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    uint256 expectedIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
     DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPublicL1ToL2Message(globalLeafIndex);
+      _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
 
     // Perform op
-    bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
+    (bytes32 leaf, uint256 index) =
+      tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
+    assertEq(index, expectedIndex, "returned index and calculated index should match");
 
     return leaf;
   }

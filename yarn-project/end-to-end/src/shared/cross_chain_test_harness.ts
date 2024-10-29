@@ -1,24 +1,26 @@
 // docs:start:cross_chain_test_harness
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   type DebugLogger,
   EthAddress,
   ExtendedNote,
   type FieldsOf,
   Fr,
+  L1TokenManager,
+  L1TokenPortalManager,
+  L2AmountClaim,
+  L2RedeemableAmountClaim,
   Note,
   type PXE,
   type SiblingPath,
   type TxHash,
   type TxReceipt,
   type Wallet,
-  computeSecretHash,
   deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
-import { sha256ToField } from '@aztec/foundation/crypto';
 import {
   InboxAbi,
   OutboxAbi,
@@ -34,11 +36,11 @@ import {
   type Account,
   type Chain,
   type GetContractReturnType,
+  Hex,
   type HttpTransport,
   type PublicClient,
   type WalletClient,
   getContract,
-  toFunctionSelector,
 } from 'viem';
 
 // docs:start:deployAndInitializeTokenAndBridgeContracts
@@ -198,6 +200,9 @@ export class CrossChainTestHarness {
     );
   }
 
+  private readonly l1TokenManager: L1TokenManager;
+  private readonly l1TokenPortalManager: L1TokenPortalManager;
+
   constructor(
     /** Aztec node instance. */
     public aztecNode: AztecNode,
@@ -237,75 +242,33 @@ export class CrossChainTestHarness {
 
     /** Wallet of the owner. */
     public readonly ownerWallet: Wallet,
-  ) {}
-
-  /**
-   * Used to generate a claim secret using pedersen's hash function.
-   * @dev Used for both L1 to L2 messages and transparent note (pending shields) secrets.
-   * @returns A tuple of the secret and its hash.
-   */
-  generateClaimSecret(): [Fr, Fr] {
-    this.logger.debug("Generating a claim secret using pedersen's hash function");
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-    this.logger.info('Generated claim secret: ' + secretHash.toString());
-    return [secret, secretHash];
+  ) {
+    this.l1TokenPortalManager = new L1TokenPortalManager(
+      EthAddress.fromString(this.tokenPortal.address),
+      EthAddress.fromString(this.underlyingERC20.address),
+      EthAddress.fromString(this.outbox.address),
+      this.publicClient,
+      this.walletClient,
+      this.logger,
+    );
+    this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
   }
 
   async mintTokensOnL1(amount: bigint) {
-    this.logger.info('Minting tokens on L1');
-    const txHash = await this.underlyingERC20.write.mint([this.ethAccount.toString(), amount], {} as any);
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash });
-    expect(await this.underlyingERC20.read.balanceOf([this.ethAccount.toString()])).toBe(amount);
+    await this.l1TokenManager.mint(amount, this.ethAccount.toString());
+    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
   }
 
-  async getL1BalanceOf(address: EthAddress) {
-    return await this.underlyingERC20.read.balanceOf([address.toString()]);
+  getL1BalanceOf(address: EthAddress) {
+    return this.l1TokenManager.getL1TokenBalance(address.toString());
   }
 
-  async sendTokensToPortalPublic(bridgeAmount: bigint, secretHash: Fr) {
-    const txHash1 = await this.underlyingERC20.write.approve(
-      [this.tokenPortalAddress.toString(), bridgeAmount],
-      {} as any,
-    );
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash1 });
-
-    // Deposit tokens to the TokenPortal
-    this.logger.info('Sending messages to L1 portal to be consumed publicly');
-    const args = [this.ownerAddress.toString(), bridgeAmount, secretHash.toString()] as const;
-    const { result: messageHash } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
-      account: this.ethAccount.toString(),
-    } as any);
-    const txHash2 = await this.tokenPortal.write.depositToAztecPublic(args, {} as any);
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash2 });
-
-    return Fr.fromString(messageHash);
+  sendTokensToPortalPublic(bridgeAmount: bigint, mint = false) {
+    return this.l1TokenPortalManager.bridgeTokensPublic(this.ownerAddress, bridgeAmount, mint);
   }
 
-  async sendTokensToPortalPrivate(
-    secretHashForRedeemingMintedNotes: Fr,
-    bridgeAmount: bigint,
-    secretHashForL2MessageConsumption: Fr,
-  ) {
-    const txHash1 = await this.underlyingERC20.write.approve(
-      [this.tokenPortalAddress.toString(), bridgeAmount],
-      {} as any,
-    );
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash1 });
-    // Deposit tokens to the TokenPortal
-    this.logger.info('Sending messages to L1 portal to be consumed privately');
-    const args = [
-      secretHashForRedeemingMintedNotes.toString(),
-      bridgeAmount,
-      secretHashForL2MessageConsumption.toString(),
-    ] as const;
-    const { result: messageHash } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
-      account: this.ethAccount.toString(),
-    } as any);
-    const txHash2 = await this.tokenPortal.write.depositToAztecPrivate(args, {} as any);
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash2 });
-
-    return Fr.fromString(messageHash);
+  sendTokensToPortalPrivate(bridgeAmount: bigint, mint = false) {
+    return this.l1TokenPortalManager.bridgeTokensPrivate(this.ownerAddress, bridgeAmount, mint);
   }
 
   async mintTokensPublicOnL2(amount: bigint) {
@@ -318,30 +281,33 @@ export class CrossChainTestHarness {
     await this.addPendingShieldNoteToPXE(amount, secretHash, receipt.txHash);
   }
 
-  async performL2Transfer(transferAmount: bigint, receiverAddress: AztecAddress) {
+  async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
     // send a transfer tx to force through rollup with the message included
     await this.l2Token.methods.transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
   }
 
   async consumeMessageOnAztecAndMintPrivately(
-    secretHashForRedeemingMintedNotes: Fr,
-    bridgeAmount: bigint,
-    secretForL2MessageConsumption: Fr,
+    claim: Pick<L2RedeemableAmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'redeemSecretHash'>,
   ) {
     this.logger.info('Consuming messages on L2 privately');
-    // Call the mint tokens function on the Aztec.nr contract
+    const { claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex, redeemSecretHash } = claim;
     const consumptionReceipt = await this.l2Bridge.methods
-      .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)
+      .claim_private(redeemSecretHash, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
       .send()
       .wait();
 
-    await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
+    await this.addPendingShieldNoteToPXE(claimAmount.toBigInt(), redeemSecretHash, consumptionReceipt.txHash);
   }
 
-  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, secret: Fr, leafIndex: bigint) {
+  async consumeMessageOnAztecAndMintPublicly(
+    claim: Pick<L2AmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex'>,
+  ) {
     this.logger.info('Consuming messages on L2 Publicly');
-    // Call the mint tokens function on the Aztec.nr contract
-    await this.l2Bridge.methods.claim_public(this.ownerAddress, bridgeAmount, secret, leafIndex).send().wait();
+    const { claimAmount, claimSecret, messageLeafIndex } = claim;
+    await this.l2Bridge.methods
+      .claim_public(this.ownerAddress, claimAmount, claimSecret, messageLeafIndex)
+      .send()
+      .wait();
   }
 
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
@@ -382,52 +348,27 @@ export class CrossChainTestHarness {
   }
 
   getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Fr {
-    const content = sha256ToField([
-      Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
-      this.ethAccount.toBuffer32(),
-      new Fr(withdrawAmount).toBuffer(),
-      callerOnL1.toBuffer32(),
-    ]);
-    const leaf = sha256ToField([
-      this.l2Bridge.address.toBuffer(),
-      new Fr(1).toBuffer(), // aztec version
-      this.tokenPortalAddress.toBuffer32() ?? Buffer.alloc(32, 0),
-      new Fr(this.publicClient.chain.id).toBuffer(), // chain id
-      content.toBuffer(),
-    ]);
-
-    return leaf;
+    return this.l1TokenPortalManager.getL2ToL1MessageLeaf(
+      withdrawAmount,
+      this.ethAccount,
+      this.l2Bridge.address,
+      callerOnL1,
+    );
   }
 
-  async withdrawFundsFromBridgeOnL1(
-    withdrawAmount: bigint,
-    blockNumber: number,
+  withdrawFundsFromBridgeOnL1(
+    amount: bigint,
+    blockNumber: number | bigint,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
-    this.logger.info('Send L1 tx to consume message and withdraw funds');
-    // Call function on L1 contract to consume the message
-    const { request: withdrawRequest } = await this.tokenPortal.simulate.withdraw([
-      this.ethAccount.toString(),
-      withdrawAmount,
-      false,
+    return this.l1TokenPortalManager.withdrawFunds(
+      amount,
+      this.ethAccount,
       BigInt(blockNumber),
       messageIndex,
-      siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
-    ]);
-
-    expect(
-      await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([BigInt(blockNumber), BigInt(messageIndex)], {}),
-    ).toBe(false);
-
-    await this.walletClient.writeContract(withdrawRequest);
-    await expect(async () => {
-      await this.walletClient.writeContract(withdrawRequest);
-    }).rejects.toThrow();
-
-    expect(
-      await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([BigInt(blockNumber), BigInt(messageIndex)], {}),
-    ).toBe(true);
+      siblingPath,
+    );
   }
 
   async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
@@ -471,11 +412,12 @@ export class CrossChainTestHarness {
    * the message is sent to Inbox and when the subtree containing the message is included in the block and then when
    * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
-  async makeMessageConsumable(msgHash: Fr) {
+  async makeMessageConsumable(msgHash: Fr | Hex) {
+    const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
     const currentL2BlockNumber = await this.aztecNode.getBlockNumber();
     // We poll isL1ToL2MessageSynced endpoint until the message is available
     await retryUntil(
-      async () => await this.aztecNode.isL1ToL2MessageSynced(msgHash, currentL2BlockNumber),
+      async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash, currentL2BlockNumber),
       'message sync',
       10,
     );
