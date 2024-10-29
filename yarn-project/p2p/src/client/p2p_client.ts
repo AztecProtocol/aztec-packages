@@ -223,10 +223,10 @@ export class P2PClient extends WithTracer implements P2P {
   ) {
     super(telemetryClient, 'P2PClient');
 
-    const { blockCheckIntervalMS, l2QueueSize } = getP2PConfigFromEnv();
+    const { blockCheckIntervalMS, blockRequestBatchSize } = getP2PConfigFromEnv();
 
     this.blockStream = new L2BlockStream(l2BlockSource, this, this, {
-      batchSize: l2QueueSize,
+      batchSize: blockRequestBatchSize,
       pollIntervalMS: blockCheckIntervalMS,
     });
 
@@ -642,7 +642,6 @@ export class P2PClient extends WithTracer implements P2P {
     const txsToDelete: TxHash[] = [];
     for (const tx of this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
-      // NOTE (alexg): I think this check against block hash instead of block number?
       if (tx.data.constants.globalVariables.blockNumber.toNumber() > latestBlock) {
         txsToDelete.push(tx.getTxHash());
       }
