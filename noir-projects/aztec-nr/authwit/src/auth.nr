@@ -281,13 +281,12 @@ pub unconstrained fn assert_inner_hash_valid_authwit_public(
     on_behalf_of: AztecAddress,
     inner_hash: Field,
 ) {
-    let results: [Field] = context
-        .call_public_function(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
-            comptime { FunctionSelector::from_signature("consume((Field),Field)") },
-            [on_behalf_of.to_field(), inner_hash].as_slice(),
-            GasOpts::default(),
-        );
+    let results: [Field] = context.call_public_function(
+        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        comptime { FunctionSelector::from_signature("consume((Field),Field)") },
+        [on_behalf_of.to_field(), inner_hash].as_slice(),
+        GasOpts::default(),
+    );
     assert(results.len() == 1, "Invalid response from registry");
     assert(results[0] == IS_VALID_SELECTOR, "Message not authorized by account");
 }
@@ -377,14 +376,17 @@ pub fn compute_authwit_message_hash(
  * @param message_hash The hash of the message to authorize
  * @param authorize True if the message should be authorized, false if it should be revoked
  */
-pub unconstrained fn set_authorized(context: &mut PublicContext, message_hash: Field, authorize: bool) {
-    let res = context
-        .call_public_function(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
-            comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
-            [message_hash, authorize as Field].as_slice(),
-            GasOpts::default(),
-        );
+pub unconstrained fn set_authorized(
+    context: &mut PublicContext,
+    message_hash: Field,
+    authorize: bool,
+) {
+    let res = context.call_public_function(
+        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
+        [message_hash, authorize as Field].as_slice(),
+        GasOpts::default(),
+    );
     assert(res.len() == 0);
 }
 
@@ -396,12 +398,11 @@ pub unconstrained fn set_authorized(context: &mut PublicContext, message_hash: F
  * @param reject True if all authwits should be rejected, false otherwise
  */
 pub unconstrained fn set_reject_all(context: &mut PublicContext, reject: bool) {
-    let res = context
-        .call_public_function(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
-            comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
-            [context.this_address().to_field(), reject as Field].as_slice(),
-            GasOpts::default(),
-        );
+    let res = context.call_public_function(
+        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
+        [context.this_address().to_field(), reject as Field].as_slice(),
+        GasOpts::default(),
+    );
     assert(res.len() == 0);
 }

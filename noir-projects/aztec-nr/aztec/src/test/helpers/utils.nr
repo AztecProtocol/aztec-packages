@@ -74,13 +74,12 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 
         let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        let results = public_context
-            .call_public_function(
-                instance.to_address(),
-                call_interface.get_selector(),
-                call_interface.get_args(),
-                GasOpts::default(),
-            );
+        let results = public_context.call_public_function(
+            instance.to_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            GasOpts::default(),
+        );
         assert(results.len() == 0);
 
         instance
@@ -105,13 +104,12 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 
         let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        let _ = public_context
-            .call_public_function(
-                instance.to_address(),
-                call_interface.get_selector(),
-                call_interface.get_args(),
-                GasOpts::default(),
-            );
+        let _ = public_context.call_public_function(
+            instance.to_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            GasOpts::default(),
+        );
 
         instance
     }
