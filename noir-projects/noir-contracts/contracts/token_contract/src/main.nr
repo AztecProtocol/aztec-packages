@@ -518,15 +518,13 @@ contract Token {
         storage: Storage<&mut PrivateContext>,
     ) -> Field {
         let to_keys = get_public_keys(to);
-        let to_npk_m_hash = to_keys.npk_m.hash();
         let to_note_slot = storage.balances.at(to).set.storage_slot;
 
         // We create a setup payload with unpopulated/zero `amount` for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
         let note_randomness = unsafe { random() };
-        let note_setup_payload =
-            UintNote::setup_payload().new(to_npk_m_hash, note_randomness, to_note_slot);
+        let note_setup_payload = UintNote::setup_payload().new(to, note_randomness, to_note_slot);
 
         // We encrypt the note log
         let setup_log = note_setup_payload.encrypt_log(context, to_keys, to);

@@ -72,12 +72,11 @@ pub unconstrained fn setup_and_mint_private(
     // docs:start:txe_test_add_note
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.
-    let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
     let balances_owner_slot =
         derive_storage_slot_in_map(Token::storage_layout().balances.slot, owner);
 
     env.add_note(
-        &mut UintNote::new(U128::from_integer(mint_amount), owner_npk_m_hash),
+        &mut UintNote::new(U128::from_integer(mint_amount), owner),
         balances_owner_slot,
         token_contract_address,
     );
