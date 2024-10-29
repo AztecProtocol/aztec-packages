@@ -23,25 +23,27 @@ template <typename FF_> class MegaArith {
     template <typename T> struct MegaTraceBlocks {
         T ecc_op;
         T pub_inputs;
+        T busread;
         T arithmetic;
         T delta_range;
         T elliptic;
         T aux;
-        T busread;
         T poseidon2_external;
         T poseidon2_internal;
         T lookup;
 
         auto get()
         {
-            return RefArray{ ecc_op, pub_inputs, arithmetic,         delta_range,        elliptic,
-                             aux,    busread,    poseidon2_external, poseidon2_internal, lookup };
+            return RefArray{ ecc_op,     pub_inputs,         busread,
+                             arithmetic, delta_range,        elliptic,
+                             aux,        poseidon2_external, poseidon2_internal,
+                             lookup };
         }
 
         auto get_gate_blocks()
         {
-            return RefArray{ arithmetic, delta_range,        elliptic,           aux,
-                             busread,    poseidon2_external, poseidon2_internal, lookup };
+            return RefArray{ busread, arithmetic,         delta_range,        elliptic,
+                             aux,     poseidon2_external, poseidon2_internal, lookup };
         }
 
         bool operator==(const MegaTraceBlocks& other) const = default;
@@ -55,11 +57,11 @@ template <typename FF_> class MegaArith {
             const uint32_t FIXED_SIZE = 1 << 14;
             this->ecc_op = FIXED_SIZE;
             this->pub_inputs = FIXED_SIZE;
+            this->busread = FIXED_SIZE;
             this->arithmetic = 1 << 15;
             this->delta_range = FIXED_SIZE;
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;
-            this->busread = FIXED_SIZE;
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = 1 << 15;
             this->lookup = FIXED_SIZE;
@@ -72,11 +74,11 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 1 << 7;
+            this->busread = 1 << 7;
             this->arithmetic = 201000;
             this->delta_range = 90000;
             this->elliptic = 9000;
             this->aux = 137000;
-            this->busread = 1 << 7;
             this->poseidon2_external = 2500;
             this->poseidon2_internal = 11500;
             this->lookup = 72000;
@@ -89,11 +91,11 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 4000;
+            this->busread = 6000;
             this->arithmetic = 200000;
             this->delta_range = 25000;
             this->elliptic = 80000;
             this->aux = 100000;
-            this->busread = 6000;
             this->poseidon2_external = 30000;
             this->poseidon2_internal = 150000;
             this->lookup = 200000;
@@ -131,11 +133,11 @@ template <typename FF_> class MegaArith {
         auto& q_2() { return this->selectors[3]; };
         auto& q_3() { return this->selectors[4]; };
         auto& q_4() { return this->selectors[5]; };
-        auto& q_arith() { return this->selectors[6]; };
-        auto& q_delta_range() { return this->selectors[7]; };
-        auto& q_elliptic() { return this->selectors[8]; };
-        auto& q_aux() { return this->selectors[9]; };
-        auto& q_busread() { return this->selectors[10]; };
+        auto& q_busread() { return this->selectors[6]; };
+        auto& q_arith() { return this->selectors[7]; };
+        auto& q_delta_range() { return this->selectors[8]; };
+        auto& q_elliptic() { return this->selectors[9]; };
+        auto& q_aux() { return this->selectors[10]; };
         auto& q_poseidon2_external() { return this->selectors[11]; };
         auto& q_poseidon2_internal() { return this->selectors[12]; };
         auto& q_lookup_type() { return this->selectors[13]; };
@@ -202,11 +204,11 @@ template <typename FF_> class MegaArith {
             info("Gate blocks summary: (actual gates / fixed capacity)");
             info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
             info("pub inputs    :\t", this->pub_inputs.size(), "/", this->pub_inputs.get_fixed_size());
+            info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
             info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
             info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
             info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
             info("auxiliary     :\t", this->aux.size(), "/", this->aux.get_fixed_size());
-            info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
             info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
             info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
             info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
