@@ -109,6 +109,7 @@ contract Test {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
 
@@ -343,6 +344,7 @@ contract Test {
             &mut context,
             msg_sender_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
         storage_slot += 1;
         Test::at(context.this_address())
