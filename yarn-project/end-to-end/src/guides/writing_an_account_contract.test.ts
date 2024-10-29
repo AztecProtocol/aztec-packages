@@ -4,8 +4,10 @@ import {
   AuthWitness,
   type AuthWitnessProvider,
   BatchCall,
-  type CompleteAddress, Fr,
-  GrumpkinScalar, Schnorr
+  type CompleteAddress,
+  Fr,
+  GrumpkinScalar,
+  Schnorr,
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
