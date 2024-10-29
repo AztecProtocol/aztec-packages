@@ -5,7 +5,9 @@ import { ethers } from "ethers";
 import solc from "solc";
 
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 447;
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1093): This is the size of the proof up to Sumcheck, without public inputs, as the Honk contract does not currently have a PCS.
+// This needs to be changed once Shplemini is implemented in the smart contract.
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 303;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
