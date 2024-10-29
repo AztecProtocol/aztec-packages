@@ -47,12 +47,11 @@ class ClientIVCRecursionTests : public testing::Test {
         }
 
         Proof proof = ivc.prove();
-        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.honk_vk } };
         GoblinVerifierInput goblin_verifier_input{ std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key()),
                                                    std::make_shared<TranslatorVK>(
                                                        ivc.goblin.get_translator_proving_key()) };
 
-        return { proof, { fold_verifier_input, goblin_verifier_input } };
+        return { proof, { ivc.honk_vk, goblin_verifier_input } };
     }
 };
 
@@ -67,13 +66,13 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the set of native decider vks to be processed by the folding verifier
-    std::vector<std::shared_ptr<DeciderVerificationKey>> keys{ verifier_input.fold_input.accumulator };
-    for (auto vk : verifier_input.fold_input.decider_vks) {
-        keys.emplace_back(std::make_shared<DeciderVerificationKey>(vk));
-    }
+    // std::vector<std::shared_ptr<DeciderVerificationKey>> keys{ verifier_input.fold_input.accumulator };
+    // for (auto vk : verifier_input.fold_input.decider_vks) {
+    //     keys.emplace_back(std::make_shared<DeciderVerificationKey>(vk));
+    // }
 
     // Confirm that the IVC proof can be natively verified
-    EXPECT_TRUE(ivc.verify(proof, keys));
+    EXPECT_TRUE(ivc.verify(proof));
 }
 
 /**
@@ -89,6 +88,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
+    // builder->add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder));
     ClientIVCVerifier verifier{ builder, verifier_input };
 
     // Generate the recursive verification circuit

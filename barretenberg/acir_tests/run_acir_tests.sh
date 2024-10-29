@@ -10,7 +10,7 @@ pids=()
 source ./bash_helpers/catch.sh
 trap handle_sigchild SIGCHLD
 
-BIN=${BIN:-../cpp/build/bin/bb}
+BIN=${BIN:-../cpp/build-asan/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 HONK=${HONK:-false}
 CRS_PATH=~/.bb-crs

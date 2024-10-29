@@ -18,7 +18,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
 {
     bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided && verification_queue.size() != input_keys.size()) {
-        info("Warning: Incorrect number of verification keys provided in stdlib verification queue instantiation.");
+        // info("Warning: Incorrect number of verification keys provided in stdlib verification queue instantiation.");
         ASSERT(false);
     }
 
@@ -204,24 +204,50 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
 HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
-    max_block_size_tracker.print();               // print minimum structured sizes for each block
+    // max_block_size_tracker.print();               // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;
-    MergeProof& merge_proof = merge_verification_queue[0];
     HonkProof decider_proof = decider_prove();
+    // Free the accumulator to save memory
     fold_output.accumulator = nullptr;
 
-    std::shared_ptr<ClientCircuit> builder;
+    ClientCircuit builder{ goblin.op_queue };
+    goblin.verify_merge(builder, merge_verification_queue[0]);
+    merge_verification_queue.clear();
+
     // Construct stdlib accumulator, vkey and proof
-    auto stdlib_verifier_accum =
-        std::make_shared<RecursiveDeciderVerificationKey>(builder.get(), verification_queue[0].honk_verification_key);
+    auto stdlib_verifier_accumulator =
+        std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
 
     auto stdlib_decider_vk =
-        std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.fold_input.decider_vks[0]);
-    auto stdlib_proof = bb::convert_proof_to_witness(builder.get(), proof.folding_proof);
+        std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
 
-    // Free the accumulator to save memory
+    auto stdlib_proof = bb::convert_proof_to_witness(&builder, fold_proof);
+
+    // Perform recursive folding verification
+    FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
+    auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
+    auto native_verifier_acc = std::make_shared<DeciderVerificationKey>(recursive_verifier_accumulator->get_value());
+    verification_queue.clear();
+    // Perform recursive decider verification
+    DeciderRecursiveVerifier decider{ &builder, native_verifier_acc };
+    decider.verify_proof(decider_proof);
+
+    // TODO: proper aggregation
+    builder.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
+
+    MergeProof merge_proof = goblin.prove_merge(builder);
+    merge_verification_queue.emplace_back(merge_proof);
+
+    auto decider_pk = std::make_shared<DeciderProvingKey>(builder); // finalises here
+    honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
+    UltraProver prover(decider_pk);
+    // info("circuit size of proving key: ", decider_pk->proving_key.circuit_size);
+    // info("circuit size of vk: ", honk_vk->circuit_size);
+    // Add assert equal here?
+    HonkProof proof = prover.construct_proof();
+    // Construct merge proof for the present circuit and add to merge verification queue
 
     return proof;
 }
@@ -234,20 +260,24 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 ClientIVC::Proof ClientIVC::prove()
 {
     HonkProof ultra_proof = construct_and_prove_hiding_circuit();
+    ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+    MergeProof& merge_proof = merge_verification_queue[0];
+    // merge here
     return { ultra_proof, goblin.prove(merge_proof) };
 };
 
 bool ClientIVC::verify(const Proof& proof,
-                       const std::shared_ptr<DeciderVerificationKey>& accumulator,
-                       const std::shared_ptr<DeciderVerificationKey>& final_stack_vk,
+                       const std::shared_ptr<VerificationKey>& ultra_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
+
+    UltraVerifier verifer{ ultra_vk };
+    bool ultra_verified = verifer.verify_proof(proof.ultra_proof);
     // Goblin verification (merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
-
-    return goblin_verified && decision;
+    return goblin_verified && ultra_verified;
 }
 
 /**
@@ -256,11 +286,11 @@ bool ClientIVC::verify(const Proof& proof,
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack)
+bool ClientIVC::verify(const Proof& proof)
 {
     auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    return verify(proof, vk_stack[0], vk_stack[1], eccvm_vk, translator_vk);
+    return verify(proof, honk_vk, eccvm_vk, translator_vk);
 }
 
 /**
@@ -283,9 +313,7 @@ HonkProof ClientIVC::decider_prove() const
 bool ClientIVC::prove_and_verify()
 {
     auto proof = prove();
-
-    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->verification_queue[0].honk_verification_key);
-    return verify(proof, { this->verifier_accumulator, verifier_inst });
+    return verify(proof);
 }
 
 /**

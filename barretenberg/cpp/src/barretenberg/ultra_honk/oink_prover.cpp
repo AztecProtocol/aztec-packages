@@ -70,6 +70,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
     const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+    // info("in oink prover: ", circuit_size);
     const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
     transcript->send_to_verifier(domain_separator + "circuit_size", circuit_size);
     transcript->send_to_verifier(domain_separator + "public_input_size", num_public_inputs);

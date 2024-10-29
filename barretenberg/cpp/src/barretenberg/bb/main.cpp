@@ -378,8 +378,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputDir + "/final_decider_vk"; // the vk of the last circuit in the stack
-    std::string accPath = outputDir + "/pg_acc";
+    std::string vkPath = outputDir + "/mega_vk"; // the vk of the last circuit in the stack
     std::string proofPath = outputDir + "/client_ivc_proof";
     std::string translatorVkPath = outputDir + "/translator_vk";
     std::string eccVkPath = outputDir + "/ecc_vk";
@@ -389,12 +388,11 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
+    vinfo("ensure valid proof: ", ivc.verify(proof));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
     write_file(vkPath, to_buffer(ivc.honk_vk));
-    write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
 }
@@ -435,8 +433,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
     translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-    const bool verified = ClientIVC::verify(
-        proof, accumulator, std::make_shared<ClientIVC::DeciderVerificationKey>(final_vk), eccvm_vk, translator_vk);
+    const bool verified = ClientIVC::verify(proof, final_vk, eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
 }
@@ -493,7 +490,6 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
-    using DeciderVK = ClientIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
@@ -525,8 +521,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/final_decider_vk"; // the vk of the last circuit in the stack
-    std::string accPath = outputPath + "/pg_acc";
+    std::string vkPath = outputPath + "/mega_vk"; // the vk of the last circuit in the stack
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
     std::string eccVkPath = outputPath + "/ecc_vk";
@@ -534,14 +529,11 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto proof = ivc.prove();
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
-
-    auto last_vk = std::make_shared<DeciderVK>(ivc.honk_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
+    vinfo("ensure valid proof: ", ivc.verify(proof));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
     write_file(vkPath, to_buffer(ivc.honk_vk)); // maybe dereference
-    write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
 }
@@ -555,18 +547,15 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 void prove_tube(const std::string& output_path)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using StackDeciderVK = ClientIVC::FoldVerifierInput::DeciderVK;
     using StackHonkVK = typename MegaFlavor::VerificationKey;
     using ECCVMVk = ECCVMFlavor::VerificationKey;
     using TranslatorVk = TranslatorFlavor::VerificationKey;
-    using FoldVerifierInput = ClientIVC::FoldVerifierInput;
     using GoblinVerifierInput = ClientIVC::GoblinVerifierInput;
     using VerifierInput = ClientIVC::VerifierInput;
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/final_decider_vk"; // the vk of the last circuit in the stack
-    std::string accPath = output_path + "/pg_acc";
+    std::string vkPath = output_path + "/mega_vk"; // the vk of the last circuit in the stack
     std::string proofPath = output_path + "/client_ivc_proof";
     std::string translatorVkPath = output_path + "/translator_vk";
     std::string eccVkPath = output_path + "/ecc_vk";
@@ -579,8 +568,6 @@ void prove_tube(const std::string& output_path)
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
     std::shared_ptr<StackHonkVK> final_stack_vk =
         std::make_shared<StackHonkVK>(from_buffer<StackHonkVK>(read_file(vkPath)));
-    std::shared_ptr<StackDeciderVK> verifier_accumulator =
-        std::make_shared<StackDeciderVK>(from_buffer<StackDeciderVK>(read_file(accPath)));
     std::shared_ptr<TranslatorVk> translator_vk =
         std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
     std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
@@ -589,21 +576,21 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
     eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
 
-    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { final_stack_vk } };
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
-    VerifierInput input{ fold_verifier_input, goblin_verifier_input };
+    VerifierInput input{ final_stack_vk, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
+    info("here");
     // Padding needed for sending the right number of public inputs
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
-    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
-    for (size_t i = 0; i < num_public_inputs; i++) {
-        auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
-        builder->add_public_variable(proof.folding_proof[i + offset]);
-    }
+    // auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.ultra_proof[1]));
+    // num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
+    // num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
+    // for (size_t i = 0; i < num_public_inputs; i++) {
+    //     auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+    //     builder->add_public_variable(proof.ultra_proof[i + offset]);
+    // }
     ClientIVC verifier{ builder, input };
 
     verifier.verify(proof);

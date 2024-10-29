@@ -38,6 +38,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
         transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
 
     if (circuit_size != verification_key->verification_key->circuit_size) {
+        // info(circuit_size);
+        // info(verification_key->verification_key->circuit_size);
         throw_or_abort("OinkVerifier::execute_preamble_round: proof circuit size does not match verification key!");
     }
     if (public_input_size != verification_key->verification_key->num_public_inputs) {
