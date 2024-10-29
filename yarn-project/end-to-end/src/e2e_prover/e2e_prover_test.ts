@@ -413,6 +413,7 @@ export class FullProverTest {
     // but also has a reference to L1 artifacts and bb-prover.
     const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
       const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
+      console.log('contract', contract);
       const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
       const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
       this.logger.info(`Deployed real ${artifact} verifier at ${verifierAddress}`);

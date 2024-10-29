@@ -137,6 +137,8 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       this.logger.debug,
     );
 
+    console.log('result', result);
+
     if (result.status === BB_RESULT.FAILURE) {
       throw new Error(`Failed to create verifier contract for ${circuit}, ${result.reason}`);
     }
