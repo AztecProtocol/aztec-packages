@@ -10,7 +10,6 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "msgpack/assert.hpp"
-#include <arpa/inet.h>
 #include <cstdint>
 #include <exception>
 #include <memory>
