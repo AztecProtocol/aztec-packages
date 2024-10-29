@@ -1,10 +1,11 @@
-use dep::protocol_types::{address::AztecAddress, public_keys::PublicKeys};
 use crate::{
+    keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX},
     oracle::{
-        keys::get_public_keys_and_partial_address,
         key_validation_request::get_key_validation_request,
-    }, keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX},
+        keys::get_public_keys_and_partial_address,
+    },
 };
+use dep::protocol_types::{address::AztecAddress, public_keys::PublicKeys};
 
 mod test;
 
@@ -27,7 +28,7 @@ pub fn get_public_keys(account: AztecAddress) -> PublicKeys {
         unsafe { get_public_keys_and_partial_address(account) };
     assert_eq(
         account,
-        AztecAddress::compute(hinted_canonical_public_keys.hash(), partial_address),
+        AztecAddress::compute(hinted_canonical_public_keys, partial_address),
         "Invalid public keys hint for address",
     );
 

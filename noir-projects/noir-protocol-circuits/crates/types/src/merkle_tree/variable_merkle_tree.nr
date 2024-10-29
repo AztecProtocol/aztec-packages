@@ -91,8 +91,8 @@ impl VariableMerkleTree {
 
 mod tests {
     use crate::{
-        merkle_tree::{variable_merkle_tree::VariableMerkleTree, merkle_tree::MerkleTree},
         hash::accumulate_sha256,
+        merkle_tree::{merkle_tree::MerkleTree, variable_merkle_tree::VariableMerkleTree},
     };
 
     fn generate_test_array(non_empty_items: u32) -> [Field; 100] {

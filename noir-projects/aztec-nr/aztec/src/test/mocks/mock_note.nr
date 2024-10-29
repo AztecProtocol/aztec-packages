@@ -1,17 +1,18 @@
 use crate::{
-    context::PrivateContext, generators::Ga1 as G_val,
+    context::PrivateContext,
+    generators::Ga1 as G_val,
     note::{
         note_header::NoteHeader, note_interface::NoteInterface,
         utils::compute_note_hash_for_nullify,
     },
 };
 
+use crate::note::note_interface::NullifiableNote;
 use dep::protocol_types::{
     address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     hash::poseidon2_hash_with_separator,
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
-use crate::note::note_interface::NullifiableNote;
 
 global MOCK_NOTE_LENGTH: u32 = 1;
 

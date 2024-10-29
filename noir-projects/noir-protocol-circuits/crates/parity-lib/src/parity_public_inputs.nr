@@ -1,4 +1,4 @@
-use dep::types::traits::{Empty, Serialize, Deserialize};
+use dep::types::traits::{Deserialize, Empty, Serialize};
 
 pub struct ParityPublicInputs {
     sha_root: Field,

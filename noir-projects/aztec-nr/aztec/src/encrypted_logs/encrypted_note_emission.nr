@@ -1,20 +1,24 @@
 use crate::{
-    context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::getters::get_ovsk_app, encrypted_logs::payload::compute_encrypted_log,
+    context::PrivateContext,
+    encrypted_logs::payload::compute_private_log_payload,
+    keys::getters::get_ovsk_app,
+    note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
-    address::AztecAddress, public_keys::{PublicKeys, OvpkM, IvpkM}, hash::sha256_to_field,
     abis::note_hash::NoteHash,
+    address::AztecAddress,
+    hash::sha256_to_field,
+    public_keys::{OvpkM, PublicKeys},
 };
 
-fn compute_raw_note_log<Note, let N: u32>(
+/// Computes private note log payload and a log hash
+fn compute_payload_and_hash<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
     ovsk_app: Field,
     ovpk: OvpkM,
-    ivpk: IvpkM,
     recipient: AztecAddress,
-) -> (u32, [u8; 416 + N * 32], Field)
+) -> (u32, [u8; 417 + N * 32], Field)
 where
     Note: NoteInterface<N>,
 {
@@ -29,25 +33,26 @@ where
     let contract_address: AztecAddress = context.this_address();
 
     let plaintext = note.to_be_bytes(storage_slot);
-    let encrypted_log: [u8; 416 + N * 32] =
-        compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+
+    // For note logs we always include public values prefix
+    let encrypted_log: [u8; 417 + N * 32] =
+        compute_private_log_payload(contract_address, ovsk_app, ovpk, recipient, plaintext, true);
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
 }
 
-unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32>(
+unconstrained fn compute_payload_and_hash_unconstrained<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
     ovpk: OvpkM,
-    ivpk: IvpkM,
     recipient: AztecAddress,
-) -> (u32, [u8; 416 + N * 32], Field)
+) -> (u32, [u8; 417 + N * 32], Field)
 where
     Note: NoteInterface<N>,
 {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_raw_note_log(context, note, ovsk_app, ovpk, ivpk, recipient)
+    compute_payload_and_hash(context, note, ovsk_app, ovpk, recipient)
 }
 
 // This function seems to be affected by the following Noir bug:
@@ -56,9 +61,8 @@ where
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
-    ivpk: IvpkM,
     recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, OvpkM, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteInterface<N>,
 {
@@ -66,7 +70,7 @@ where
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
 
         let (note_hash_counter, encrypted_log, log_hash) =
-            compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, recipient);
+            compute_payload_and_hash(*context, e.note, ovsk_app, ovpk, recipient);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -74,9 +78,8 @@ where
 pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
-    ivpk: IvpkM,
     recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, OvpkM, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteInterface<N>,
 {
@@ -101,37 +104,7 @@ where
         // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
         // for a note that doesn't exist).
         let (note_hash_counter, encrypted_log, log_hash) =
-            unsafe { compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient) };
+            unsafe { compute_payload_and_hash_unconstrained(*context, e.note, ovpk, recipient) };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
-}
-
-/// Encrypts a partial log and emits it. Takes recipient keys on the input and encrypts both the outgoing and incoming
-/// logs for the recipient. This is necessary because in the partial notes flow the outgoing always has to be the same
-/// as the incoming to not leak any information (typically the `from` party finalizing the partial note in public does
-/// not know who the recipient is).
-pub fn encrypt_and_emit_partial_log<let M: u32>(
-    context: &mut PrivateContext,
-    log_plaintext: [u8; M],
-    recipient_keys: PublicKeys,
-    recipient: AztecAddress,
-) {
-    let ovsk_app: Field = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
-
-    let encrypted_log: [u8; 352 + M] = compute_encrypted_log(
-        context.this_address(),
-        ovsk_app,
-        recipient_keys.ovpk_m,
-        recipient_keys.ivpk_m,
-        recipient,
-        log_plaintext,
-    );
-    let log_hash = sha256_to_field(encrypted_log);
-
-    // Unfortunately we need to push a dummy note hash to the context here because a note log requires having
-    // a counter that corresponds to a note hash in the same call.
-    let note_hash_counter = context.side_effect_counter;
-    context.push_note_hash(5);
-
-    context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
 }

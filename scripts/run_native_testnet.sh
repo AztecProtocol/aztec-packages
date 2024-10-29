@@ -27,7 +27,7 @@ Options:
 '
 
 # Default values
-TEST_SCRIPT=./test-transfer.sh
+TEST_SCRIPT="./test-transfer.sh"
 PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
@@ -38,7 +38,7 @@ display_help() {
     echo
     echo "Options:"
     echo "  -h     Display this help message"
-    echo "  -t     Specify the test file (default: $TEST_FILE)"
+    echo "  -t     Specify the test file (default: $TEST_SCRIPT)"
     echo "  -p     Specify the prover command (default: $PROVER_SCRIPT)"
     echo "  -val     Specify the number of validators (default: $NUM_VALIDATORS)"
     echo "  -v     Set logging level to verbose"

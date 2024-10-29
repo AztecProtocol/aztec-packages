@@ -1,6 +1,6 @@
-use std::option::Option;
-use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
+use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
+use std::option::Option;
 
 pub struct PropertySelector {
     index: u8, // index of the field in the serialized note array

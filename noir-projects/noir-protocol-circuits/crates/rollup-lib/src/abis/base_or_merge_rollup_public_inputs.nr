@@ -1,9 +1,10 @@
+use crate::abis::constant_rollup_data::ConstantRollupData;
 use dep::types::{
-    abis::sponge_blob::SpongeBlob, constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
-    partial_state_reference::PartialStateReference, traits::{Empty, Serialize, Deserialize},
+    constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
+    partial_state_reference::PartialStateReference,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
-use crate::abis::constant_rollup_data::ConstantRollupData;
 
 global BASE_ROLLUP_TYPE = 0;
 global MERGE_ROLLUP_TYPE = 1;

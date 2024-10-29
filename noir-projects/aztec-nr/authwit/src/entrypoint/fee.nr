@@ -1,9 +1,10 @@
+use crate::entrypoint::function_call::FunctionCall;
 use dep::aztec::prelude::PrivateContext;
 use dep::aztec::protocol_types::{
-    constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__FEE_PAYLOAD,
+    hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},
 };
-use crate::entrypoint::function_call::FunctionCall;
 
 // 2 * 5 (FUNCTION_CALL_SIZE) + 2
 global FEE_PAYLOAD_SIZE: u32 = 12;

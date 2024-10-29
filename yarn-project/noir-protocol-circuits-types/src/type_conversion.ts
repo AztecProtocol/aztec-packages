@@ -1,10 +1,12 @@
 import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
+  type AvmProofData,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BaseRollupInputs,
   BlobPublicInputs,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
@@ -34,7 +36,6 @@ import {
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   Header,
   KernelCircuitPublicInputs,
-  type KernelData,
   type KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -83,6 +84,7 @@ import {
   type PreviousRollupBlockData,
   type PreviousRollupData,
   PrivateAccumulatedData,
+  type PrivateBaseRollupInputs,
   type PrivateCallData,
   PrivateCallRequest,
   type PrivateCircuitPublicInputs,
@@ -91,9 +93,11 @@ import {
   type PrivateKernelEmptyInputs,
   type PrivateKernelResetHints,
   PrivateKernelTailCircuitPublicInputs,
+  type PrivateTubeData,
   PrivateValidationRequests,
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
+  type PublicBaseRollupInputs,
   type PublicCallData,
   PublicCallRequest,
   PublicCallStackItemCompressed,
@@ -112,6 +116,7 @@ import {
   type PublicKernelInnerData,
   type PublicKernelTailCircuitPrivateInputs,
   type PublicKeys,
+  type PublicTubeData,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   type RECURSIVE_PROOF_LENGTH,
@@ -135,6 +140,7 @@ import {
   SpongeBlob,
   type StateDiffHints,
   StateReference,
+  type TUBE_PROOF_LENGTH,
   type TransientDataIndexHint,
   TreeLeafReadRequest,
   type TreeLeafReadRequestHint,
@@ -142,15 +148,16 @@ import {
   type TxRequest,
   VMCircuitPublicInputs,
   type VerificationKeyAsFields,
+  type VkWitnessData,
 } from '@aztec/circuits.js';
 import { toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
+  AvmProofData as AvmProofDataNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BaseRollupInputs as BaseRollupInputsNoir,
   BigNum,
   BlobPublicInputs as BlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
@@ -177,7 +184,6 @@ import type {
   EmbeddedCurveScalar as GrumpkinScalarNoir,
   Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
-  KernelData as KernelDataNoir,
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
@@ -210,6 +216,7 @@ import type {
   PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
+  PrivateBaseRollupInputs as PrivateBaseRollupInputsNoir,
   PrivateCallDataWithoutPublicInputs as PrivateCallDataWithoutPublicInputsNoir,
   PrivateCallRequest as PrivateCallRequestNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
@@ -217,9 +224,11 @@ import type {
   PrivateKernelDataWithoutPublicInputs as PrivateKernelDataWithoutPublicInputsNoir,
   PrivateKernelEmptyPrivateInputs as PrivateKernelEmptyPrivateInputsNoir,
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
+  PrivateTubeData as PrivateTubeDataNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
   PublicAccumulatedDataArrayLengths as PublicAccumulatedDataArrayLengthsNoir,
   PublicAccumulatedData as PublicAccumulatedDataNoir,
+  PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicCallData as PublicCallDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicCallStackItemCompressed as PublicCallStackItemCompressedNoir,
@@ -238,6 +247,7 @@ import type {
   PublicKernelMergeCircuitPrivateInputs as PublicKernelMergeCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
   PublicKeys as PublicKeysNoir,
+  PublicTubeData as PublicTubeDataNoir,
   PublicValidationRequestArrayLengths as PublicValidationRequestArrayLengthsNoir,
   PublicValidationRequests as PublicValidationRequestsNoir,
   ReadRequest as ReadRequestNoir,
@@ -266,6 +276,7 @@ import type {
   TxRequest as TxRequestNoir,
   VMCircuitPublicInputs as VMCircuitPublicInputsNoir,
   VerificationKey as VerificationKeyNoir,
+  VkData as VkDataNoir,
 } from './types/index.js';
 
 /* eslint-disable camelcase */
@@ -1667,16 +1678,6 @@ function mapPublicKernelInnerDataToNoir(publicKernelData: PublicKernelInnerData)
   };
 }
 
-function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
-  return {
-    public_inputs: mapKernelCircuitPublicInputsToNoir(kernelData.publicInputs),
-    proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(kernelData.proof),
-    vk: mapVerificationKeyToNoir(kernelData.vk.keyAsFields, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    vk_index: mapFieldToNoir(new Fr(kernelData.vkIndex)),
-    vk_path: mapTuple(kernelData.vkPath, mapFieldToNoir),
-  };
-}
-
 export function mapVerificationKeyToNoir<N extends number>(
   key: VerificationKeyAsFields,
   length: N,
@@ -1687,6 +1688,14 @@ export function mapVerificationKeyToNoir<N extends number>(
   return {
     key: key.key.map(mapFieldToNoir) as FixedLengthArray<NoirField, N>,
     hash: mapFieldToNoir(key.hash),
+  };
+}
+
+function mapVkWitnessDataToNoir<N extends number>(vkData: VkWitnessData, length: N): VkDataNoir<N> {
+  return {
+    vk: mapVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
+    vk_index: mapFieldToNoir(new Fr(vkData.vkIndex)),
+    vk_path: mapTuple(vkData.vkPath, mapFieldToNoir),
   };
 }
 
@@ -2380,7 +2389,7 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
 
 export function mapRecursiveProofToNoir<PROOF_LENGTH extends number>(proof: RecursiveProof<PROOF_LENGTH>) {
   return {
-    fields: mapTuple(proof.proof, mapFieldToNoir),
+    fields: mapTuple(proof.proof, mapFieldToNoir) as FixedLengthArray<string, PROOF_LENGTH>,
   };
 }
 
@@ -2664,27 +2673,87 @@ export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityI
   };
 }
 
+function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
+  return {
+    public_inputs: mapKernelCircuitPublicInputsToNoir(data.publicInputs),
+    proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
+    vk_data: mapVkWitnessDataToNoir(data.vkData, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+  };
+}
+
 /**
  * Maps the inputs to the base rollup to noir.
  * @param input - The circuits.js base rollup inputs.
  * @returns The noir base rollup inputs.
  */
-export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupInputsNoir {
+export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs): PrivateBaseRollupInputsNoir {
   return {
-    kernel_data: mapKernelDataToNoir(inputs.kernelData),
-    start: mapPartialStateReferenceToNoir(inputs.start),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
-    state_diff_hints: mapStateDiffHintsToNoir(inputs.stateDiffHints),
-    sorted_public_data_writes: mapTuple(inputs.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
-    sorted_public_data_writes_indexes: mapTuple(inputs.sortedPublicDataWritesIndexes, mapNumberToNoir),
-    low_public_data_writes_preimages: mapTuple(inputs.lowPublicDataWritesPreimages, mapPublicDataTreePreimageToNoir),
+    tube_data: mapPrivateTubeDataToNoir(inputs.tubeData),
+
+    start: mapPartialStateReferenceToNoir(inputs.hints.start),
+    state_diff_hints: mapStateDiffHintsToNoir(inputs.hints.stateDiffHints),
+
+    sorted_public_data_writes: mapTuple(inputs.hints.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
+
+    sorted_public_data_writes_indexes: mapTuple(inputs.hints.sortedPublicDataWritesIndexes, mapNumberToNoir),
+
+    low_public_data_writes_preimages: mapTuple(
+      inputs.hints.lowPublicDataWritesPreimages,
+      mapPublicDataTreePreimageToNoir,
+    ),
+
     low_public_data_writes_witnesses: mapTuple(
-      inputs.lowPublicDataWritesMembershipWitnesses,
+      inputs.hints.lowPublicDataWritesMembershipWitnesses,
       (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
     ),
-    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.archiveRootMembershipWitness),
-    constants: mapConstantRollupDataToNoir(inputs.constants),
-    fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.feePayerFeeJuiceBalanceReadHint),
+
+    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
+    constants: mapConstantRollupDataToNoir(inputs.hints.constants),
+    fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
+  };
+}
+
+function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
+  return {
+    public_inputs: mapKernelCircuitPublicInputsToNoir(data.publicInputs),
+    proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
+    vk_data: mapVkWitnessDataToNoir(data.vkData, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+  };
+}
+
+function mapAvmProofDataToNoir(data: AvmProofData): AvmProofDataNoir {
+  return {
+    public_inputs: mapVMCircuitPublicInputsToNoir(data.publicInputs),
+    proof: mapRecursiveProofToNoir<typeof AVM_PROOF_LENGTH_IN_FIELDS>(data.proof),
+    vk_data: mapVkWitnessDataToNoir(data.vkData, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+  };
+}
+
+export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs): PublicBaseRollupInputsNoir {
+  return {
+    tube_data: mapPublicTubeDataToNoir(inputs.tubeData),
+    avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
+
+    start: mapPartialStateReferenceToNoir(inputs.hints.start),
+    state_diff_hints: mapStateDiffHintsToNoir(inputs.hints.stateDiffHints),
+
+    sorted_public_data_writes: mapTuple(inputs.hints.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
+
+    sorted_public_data_writes_indexes: mapTuple(inputs.hints.sortedPublicDataWritesIndexes, mapNumberToNoir),
+
+    low_public_data_writes_preimages: mapTuple(
+      inputs.hints.lowPublicDataWritesPreimages,
+      mapPublicDataTreePreimageToNoir,
+    ),
+
+    low_public_data_writes_witnesses: mapTuple(
+      inputs.hints.lowPublicDataWritesMembershipWitnesses,
+      (witness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>) => mapMembershipWitnessToNoir(witness),
+    ),
+
+    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
+    constants: mapConstantRollupDataToNoir(inputs.hints.constants),
+    fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
   };
 }
 

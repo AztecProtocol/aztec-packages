@@ -32,6 +32,10 @@ function createPXEService(): Promise<PXE> {
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
+    apellaAddress: EthAddress.random(),
+    nomismatokopioAddress: EthAddress.random(),
+    sysstiaAddress: EthAddress.random(),
+    gerousiaAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 

@@ -41,7 +41,7 @@ import { inspect } from 'util';
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
-import { prettyLogViemError } from '../publisher/utils.js';
+import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -138,6 +138,10 @@ export class Sequencer {
     if (config.allowedInTeardown) {
       this.allowedInTeardown = config.allowedInTeardown;
     }
+    if (config.gerousiaPayload) {
+      this.publisher.setPayload(config.gerousiaPayload);
+    }
+
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
     this.config = config;
   }
@@ -224,6 +228,15 @@ export class Sequencer {
       return;
     }
 
+    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+      new Fr(newBlockNumber),
+      this._coinbase,
+      this._feeRecipient,
+      slot,
+    );
+
+    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt());
+
     if (!this.shouldProposeBlock(historicalHeader, {})) {
       return;
     }
@@ -237,13 +250,6 @@ export class Sequencer {
       return;
     }
     this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
-
-    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-      new Fr(newBlockNumber),
-      this._coinbase,
-      this._feeRecipient,
-      slot,
-    );
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new Header(
@@ -310,8 +316,10 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      this.log.verbose(`Rejected from being able to propose at next block with ${tipArchive}`);
-      prettyLogViemError(err, this.log);
+      const msg = prettyLogViemErrorMsg(err);
+      this.log.verbose(
+        `Rejected from being able to propose at next block with ${tipArchive.toString('hex')}: ${msg ? `${msg}` : ''}`,
+      );
       throw err;
     }
   }

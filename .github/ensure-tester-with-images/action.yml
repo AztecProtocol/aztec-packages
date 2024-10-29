@@ -5,6 +5,8 @@ description: "Reusable setup steps"
 inputs:
   runner_type:
     required: true
+  spot_strategy:
+    default: BestEffort
   builder_type:
     required: true
   builder_images_to_copy:
@@ -31,7 +33,7 @@ runs:
           for image in ${{ inputs.builder_images_to_copy }} ; do
             if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
               export FORCE_COLOR=1
-              flock submodule.lock git submodule update --init --recursive --recommend-shallow
+              flock /var/lock/submodule.lock git submodule update --init --recursive --recommend-shallow
               ${{ inputs.builder_command }}
               break
             fi
@@ -59,6 +61,7 @@ runs:
       if: ${{ env.CACHE_SUCCESS != 'true' }}
       with:
         runner_type: ${{ inputs.runner_type}}
+        spot_strategy: ${{ inputs.spot_strategy }}
         ttl: ${{ inputs.tester_ttl }}
         run: |
           set -eux

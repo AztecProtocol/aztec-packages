@@ -1,26 +1,27 @@
 use crate::abis::{
     base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-    previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData,
+};
+use crate::abis::{
+    previous_rollup_block_data::PreviousRollupBlockData, previous_rollup_data::PreviousRollupData,
 };
 use dep::types::{
-    hash::{
-        accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
-        compute_tx_note_logs_hash,
-    }, merkle_tree::VariableMerkleTree,
-    constants::{
-        AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        REVERT_CODE_PREFIX, TX_FEE_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX, L2_L1_MSGS_PREFIX,
-        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, NOTE_ENCRYPTED_LOGS_PREFIX, ENCRYPTED_LOGS_PREFIX,
-        UNENCRYPTED_LOGS_PREFIX,
-    }, utils::{arrays::{array_length, array_merge, array_concat}, field::field_from_bytes},
     abis::{
         accumulated_data::CombinedAccumulatedData,
-        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
-        sponge_blob::SpongeBlob,
+        log_hash::{LogHash, ScopedLogHash},
+        public_data_update_request::PublicDataUpdateRequest,
     },
+    constants::{
+        AZTEC_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+    },
+    hash::{
+        accumulate_sha256, compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
+        silo_unencrypted_log_hash,
+    },
+    merkle_tree::VariableMerkleTree,
+    utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlobPublicInputs;
 

@@ -1,7 +1,8 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
-    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::Empty,
+    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness},
+    traits::Empty,
 };
 
 pub struct ReadRequestStateEnum {
@@ -193,13 +194,13 @@ pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
 
 mod tests {
     use crate::reset::read_request::{
-        PendingReadHint, ReadRequestState, ReadRequestStatus, ReadValueHint, SettledReadHint,
-        get_unverified_read_requests, validate_pending_read_requests,
+        get_unverified_read_requests, PendingReadHint, ReadRequestState, ReadRequestStatus,
+        ReadValueHint, SettledReadHint, validate_pending_read_requests,
         validate_settled_read_requests, verify_reset_read_requests,
     };
     use dep::types::{
-        address::AztecAddress,
         abis::{read_request::{ReadRequest, ScopedReadRequest}, side_effect::Readable},
+        address::AztecAddress,
         merkle_tree::{LeafPreimage, MembershipWitness},
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::{Empty, is_empty_array},

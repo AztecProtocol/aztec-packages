@@ -1,7 +1,8 @@
 mod get_combined_order_hints;
 
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered,
+    traits::{Empty, is_empty},
     utils::arrays::{
         array_length,
         assert_combined_sorted_transformed_value_array::get_combined_order_hints::{
@@ -97,16 +98,19 @@ where
 
 mod tests {
     use crate::{
-        tests::utils::pad_end,
-        tests::types::{
-            combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues,
+        tests::{
+            types::{
+                combine_two_values, is_combined_from_two_values, TestCombinedValue, TestTwoValues,
+            },
+            utils::pad_end,
         },
         utils::arrays::{
             array_merge,
             assert_combined_sorted_transformed_value_array::{
                 assert_combined_sorted_transformed_value_array_asc,
                 get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
-            }, sort_by_counter::sort_by_counter_asc,
+            },
+            sort_by_counter::sort_by_counter_asc,
         },
     };
 

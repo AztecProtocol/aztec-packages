@@ -5,9 +5,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract FeeJuice {
     use dep::aztec::{
+        macros::{functions::{internal, private, public, view}, storage::storage},
         protocol_types::{address::{AztecAddress, EthAddress}, constants::FEE_JUICE_INITIAL_MINT},
-        state_vars::{SharedImmutable, PublicMutable, Map},
-        macros::{storage::storage, functions::{private, public, view, internal}},
+        state_vars::{Map, PublicMutable, SharedImmutable},
     };
 
     use crate::lib::get_bridge_gas_msg_hash;

@@ -10,18 +10,11 @@ import {
   makeEmptyProcessedTx,
   toTxEffect,
 } from '@aztec/circuit-types';
-import {
-  Fr,
-  type GlobalVariables,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  SpongeBlob,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, SpongeBlob } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { TubeVk, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { buildBaseRollupInput, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
+import { buildBaseRollupHints, buildHeaderFromTxEffects, getTreeSnapshot } from '@aztec/prover-client/helpers';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -59,14 +52,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   async addNewTx(tx: ProcessedTx): Promise<void> {
     this.logger.verbose('Adding new tx to block', { txHash: tx.hash.toString() });
     this.txs.push(tx);
-    await buildBaseRollupInput(
-      tx,
-      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      this.globalVariables!,
-      this.db,
-      this.spongeBlobState!,
-      TubeVk,
-    );
+    await buildBaseRollupHints(tx, this.globalVariables!, this.db, this.spongeBlobState!);
   }
 
   async setBlockCompleted(): Promise<L2Block> {

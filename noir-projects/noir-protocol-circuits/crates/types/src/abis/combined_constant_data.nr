@@ -1,8 +1,8 @@
-use crate::transaction::tx_context::TxContext;
-use crate::header::Header;
-use crate::traits::{Empty, Serialize, Deserialize};
 use crate::abis::global_variables::GlobalVariables;
 use crate::constants::COMBINED_CONSTANT_DATA_LENGTH;
+use crate::header::Header;
+use crate::traits::{Deserialize, Empty, Serialize};
+use crate::transaction::tx_context::TxContext;
 use crate::utils::reader::Reader;
 
 pub struct CombinedConstantData {

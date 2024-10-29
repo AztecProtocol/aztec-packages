@@ -27,19 +27,19 @@ pub use assert_combined_sorted_transformed_value_array::{
 pub use assert_combined_transformed_array::{
     assert_combined_transformed_array, combine_and_transform_arrays,
 };
+pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
 };
-pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_sorted_array::assert_sorted_array;
+pub use assert_sorted_transformed_value_array::{
+    assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
+};
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
     assert_split_sorted_transformed_value_arrays_desc,
     get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
-};
-pub use assert_sorted_transformed_value_array::{
-    assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
 };
 pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};

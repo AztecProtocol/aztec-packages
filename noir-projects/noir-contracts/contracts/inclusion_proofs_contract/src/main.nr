@@ -3,15 +3,15 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract InclusionProofs {
-    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, Map, PrivateSet, PublicMutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
     };
+    use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
 
     use dep::aztec::{
+        macros::{functions::{initializer, private, public}, storage::storage},
         note::note_getter_options::NoteStatus,
-        macros::{storage::storage, functions::{private, public, initializer}},
     };
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
@@ -33,14 +33,12 @@ contract InclusionProofs {
     // Creates a value note owned by `owner`.
     #[private]
     fn create_note(owner: AztecAddress, value: Field) {
-        let msg_sender_keys = get_public_keys(context.msg_sender());
-        let owner_keys = get_public_keys(owner);
+        let mut note = ValueNote::new(value, owner);
 
-        let mut note = ValueNote::new(value, owner_keys.npk_m.hash());
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         storage.private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_keys.ovpk_m,
-            owner_keys.ivpk_m,
+            msg_sender_ovpk_m,
             owner,
         ));
     }
@@ -82,8 +80,7 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the note exists
     ) {
         let header = context.get_header();
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
-        let mut note = ValueNote::new(1, owner_npk_m_hash);
+        let mut note = ValueNote::new(1, owner);
 
         let header = if (use_block_number) {
             context.get_header_at(block_number)

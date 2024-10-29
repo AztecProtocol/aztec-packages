@@ -4,9 +4,10 @@ use crate::components::tail_to_public_output_composer::meter_gas_used::{
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE,
-    }, tests::fixture_builder::FixtureBuilder,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 #[test]

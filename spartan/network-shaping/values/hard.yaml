@@ -1,0 +1,25 @@
+# Simulates global network conditions
+# High latency, moderate bandwidth
+global:
+  namespace: "smoke"
+
+networkShaping:
+  enabled: true
+  conditions:
+    latency:
+      enabled: true
+      delay:
+        # Global network latency (e.g., intercontinental)
+        latency: 200ms
+        jitter: 40ms
+        correlation: "75"
+    bandwidth:
+      enabled: true
+      # 20Mbps
+      rate: 20mbps
+      limit: 10000000 # 10 MB
+      buffer: 4000
+    packetLoss:
+      enabled: true
+      loss: "1"
+      correlation: "70"

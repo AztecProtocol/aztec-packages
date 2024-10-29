@@ -1,6 +1,7 @@
 use dep::aztec::prelude::PrivateContext;
 use dep::aztec::protocol_types::{
-    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+    hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},
 };
 

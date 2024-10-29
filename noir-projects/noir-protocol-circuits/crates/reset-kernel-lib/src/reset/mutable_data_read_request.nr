@@ -122,14 +122,19 @@ mod tests {
     use crate::reset::{
         mutable_data_read_request::{
             ensure_all_read_requests_are_verified, ReadIndexHint, reset_mutable_data_read_requests,
-            validate_pending_read_requests, validate_leaf_data_read_requests,
-        }, read_request::{ReadRequestState, ReadRequestStatus},
+            validate_leaf_data_read_requests, validate_pending_read_requests,
+        },
+        read_request::{ReadRequestState, ReadRequestStatus},
     };
     use dep::types::{
         abis::{
-            public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-            public_data_write::OverridablePublicDataWrite, side_effect::{Overridable, Readable},
-        }, tests::utils::pad_end, traits::Empty,
+            public_data_read::PublicDataRead,
+            public_data_update_request::PublicDataUpdateRequest,
+            public_data_write::OverridablePublicDataWrite,
+            side_effect::{Overridable, Readable},
+        },
+        tests::utils::pad_end,
+        traits::Empty,
     };
 
     struct TestLeafData {

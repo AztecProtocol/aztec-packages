@@ -143,7 +143,7 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [
-        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), []))),
+        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs()))),
         [],
         [],
       ],
@@ -370,7 +370,7 @@ describe('sequencer', () => {
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
 
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
@@ -414,7 +414,7 @@ describe('sequencer', () => {
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
 
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 
@@ -456,7 +456,7 @@ describe('sequencer', () => {
     blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
 
     sequencer.updateConfig({ minTxsPerBlock: 4 });
 

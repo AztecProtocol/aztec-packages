@@ -1,9 +1,12 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    constants::{VK_TREE_HEIGHT, TUBE_INDEX}, merkle_tree::membership::check_membership,
-    recursion::{
-        proof::NestedRecursiveProof, verification_key::HonkVerificationKey, traits::Verifiable,
-    }, utils::arrays::find_index_hint,
+    constants::{TUBE_VK_INDEX, VK_TREE_HEIGHT},
+    merkle_tree::membership::check_membership,
+    proof::{
+        recursive_proof::NestedRecursiveProof, traits::Verifiable,
+        verification_key::HonkVerificationKey,
+    },
+    utils::arrays::find_index_hint,
 };
 
 pub struct PublicKernelData {
@@ -38,7 +41,7 @@ impl PublicKernelData {
                 self.vk_path,
                 self.public_inputs.constants.vk_tree_root,
             )
-                | (self.vk_index == TUBE_INDEX),
+                | (self.vk_index == TUBE_VK_INDEX),
         );
     }
 }

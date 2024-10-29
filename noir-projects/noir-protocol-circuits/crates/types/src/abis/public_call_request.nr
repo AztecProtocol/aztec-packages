@@ -1,6 +1,8 @@
 use crate::{
-    abis::{call_context::CallContext, side_effect::Ordered}, address::AztecAddress,
-    constants::PUBLIC_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
+    abis::{call_context::CallContext, side_effect::Ordered},
+    address::AztecAddress,
+    constants::PUBLIC_CALL_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
