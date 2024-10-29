@@ -195,7 +195,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       value: uniqueNote.note.items[0],
       // eslint-disable-next-line camelcase
-      npk_m_hash: uniqueNote.note.items[1],
+      owner: uniqueNote.note.items[1],
       randomness: uniqueNote.note.items[2],
     };
   };
@@ -322,7 +322,7 @@ describe('e2e_crowdfunding_and_claim', () => {
           .methods.claim(anotherDonationNote, unrelatedWallet.getAddress())
           .send()
           .wait(),
-      ).rejects.toThrow('Could not find key prefix.');
+      ).rejects.toThrow('No public key registered for address');
     }
   });
 

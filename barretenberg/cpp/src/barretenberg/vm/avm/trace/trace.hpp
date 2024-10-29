@@ -35,7 +35,9 @@ class AvmTraceBuilder {
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
 
-    uint32_t getPc() const { return pc; }
+    uint32_t get_pc() const { return pc; }
+    uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
+    uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
     // Compute - Arithmetic
     void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);

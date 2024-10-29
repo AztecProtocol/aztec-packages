@@ -32,7 +32,6 @@ export function useNumber({ contract }: { contract: Contract }) {
           .setNumber(
             value,
             deployerWallet.getCompleteAddress().address,
-            masterNullifierPublicKey.hash(),
             masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
           )
           .send()

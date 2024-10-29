@@ -23,10 +23,9 @@ impl<Context> EasyPrivateUint<Context> {
 impl EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let owner_keys = get_public_keys(owner);
         let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
         // Creates new note for the owner.
-        let mut addend_note = ValueNote::new(addend as Field, owner_keys.npk_m.hash());
+        let mut addend_note = ValueNote::new(addend as Field, owner);
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
@@ -40,7 +39,6 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let owner_keys = get_public_keys(owner);
         let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
 
         // docs:start:pop_notes
@@ -60,7 +58,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
-        let mut result_note = ValueNote::new(result_value as Field, owner_keys.npk_m.hash());
+        let mut result_note = ValueNote::new(result_value as Field, owner);
         self.set.insert(&mut result_note).emit(encode_and_encrypt_note(
             self.context,
             outgoing_viewer_keys.ovpk_m,

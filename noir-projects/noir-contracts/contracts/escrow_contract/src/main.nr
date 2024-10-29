@@ -24,14 +24,13 @@ contract Escrow {
     #[private]
     #[initializer]
     fn constructor(owner: AztecAddress) {
-        let owner_keys = get_public_keys(owner);
-        let msg_sender_keys = get_public_keys(context.msg_sender());
         // docs:start:addressnote_new
-        let mut note = AddressNote::new(owner, owner_keys.npk_m.hash());
+        let mut note = AddressNote::new(owner, owner);
         // docs:end:addressnote_new
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         storage.owner.initialize(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_keys.ovpk_m,
+            msg_sender_ovpk_m,
             owner,
         ));
     }
