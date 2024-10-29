@@ -97,5 +97,9 @@ export interface PrivateKernelProver {
    * @param appCircuitName - Optionally specify the name of the app circuit
    * @returns A Promise resolving to a Proof object
    */
-  computeAppCircuitVerificationKey(bytecode: Buffer, recursive: boolean, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
+  computeAppCircuitVerificationKey(
+    bytecode: Buffer,
+    recursive: boolean,
+    appCircuitName?: string,
+  ): Promise<AppCircuitSimulateOutput>;
 }

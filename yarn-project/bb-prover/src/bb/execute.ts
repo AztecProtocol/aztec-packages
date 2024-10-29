@@ -221,7 +221,16 @@ export async function executeBbClientIvcProof(
     // Write the bytecode to the working directory
     log(`bytecodePath ${bytecodeStackPath}`);
     log(`outputPath ${outputPath}`);
-    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v', recursive ? '--recursive' : ''];
+    const args = [
+      '-o',
+      outputPath,
+      '-b',
+      bytecodeStackPath,
+      '-w',
+      witnessStackPath,
+      '-v',
+      recursive ? '--recursive' : '',
+    ];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`client ivc proof BB out - ${message}`);
@@ -298,12 +307,7 @@ export async function computeVerificationKey(
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
     const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
-    let result = await executeBB(
-      pathToBB,
-      `write_vk_${flavor}`,
-      args,
-      logFunction,
-    );
+    let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }

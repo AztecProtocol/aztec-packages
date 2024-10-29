@@ -44,9 +44,7 @@ export function mapProtocolArtifactNameToCircuitName(
   }
 }
 
-export function isProtocolArtifactRecursive(
-  artifact: ServerProtocolArtifact | ClientProtocolArtifact,
-): boolean {
+export function isProtocolArtifactRecursive(artifact: ServerProtocolArtifact | ClientProtocolArtifact): boolean {
   switch (artifact) {
     case 'EmptyNestedArtifact':
     case 'PrivateKernelEmptyArtifact':
@@ -68,4 +66,3 @@ export function isProtocolArtifactRecursive(
     }
   }
 }
-
