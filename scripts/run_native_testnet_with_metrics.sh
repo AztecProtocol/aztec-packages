@@ -17,7 +17,7 @@ OTEL_URL=http://$(get_load_balancer_url metrics metrics-opentelemetry-collector)
 
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_URL/v1/metrics
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_URL/v1/trace
-export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=$OTEL_URL/v1/logs
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://127.0.0.1:5000
 
 # re-enter script dir
 cd $(dirname "${BASH_SOURCE[0]}")

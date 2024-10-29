@@ -120,7 +120,7 @@ export class OpenTelemetryClient implements TelemetryClient {
         }),
       ],
     });
-    const loggerProvider = registerOtelLoggerProvider(resource, logsCollector);
+    const loggerProvider = registerOtelLoggerProvider(logsCollector);
 
     const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
     service.start();

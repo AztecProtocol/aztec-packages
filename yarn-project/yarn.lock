@@ -260,6 +260,7 @@ __metadata:
     "@aztec/txe": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@opentelemetry/winston-transport": ^0.7.0
     "@types/chalk": ^2.2.0
     "@types/jest": ^29.5.0
     "@types/koa": ^2.13.6
