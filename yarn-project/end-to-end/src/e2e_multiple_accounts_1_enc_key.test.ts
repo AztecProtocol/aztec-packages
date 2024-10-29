@@ -3,18 +3,13 @@ import {
   type AztecAddress,
   type AztecNode,
   type CompleteAddress,
-  type DebugLogger,
-  ExtendedNote,
-  Fr,
-  GrumpkinScalar,
-  Note,
-  type PXE,
-  type Wallet,
-  computeSecretHash,
-  deriveKeys,
+  type DebugLogger, Fr,
+  GrumpkinScalar, type PXE,
+  type Wallet, deriveKeys
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { deployToken } from './fixtures/token_utils.js';
 import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
@@ -53,28 +48,8 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }
 
-    logger.info(`Deploying Token...`);
-    const token = await TokenContract.deploy(wallets[0], accounts[0], 'TokenName', 'TokenSymbol', 18).send().deployed();
+    const token = await deployToken(wallets[0], initialBalance, logger);
     tokenAddress = token.address;
-    logger.info(`Token deployed at ${tokenAddress}`);
-
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-
-    const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
-
-    const note = new Note([new Fr(initialBalance), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      accounts[0].address,
-      token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      receipt.txHash,
-    );
-    await wallets[0].addNote(extendedNote);
-
-    await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait();
   });
 
   afterEach(() => teardown());

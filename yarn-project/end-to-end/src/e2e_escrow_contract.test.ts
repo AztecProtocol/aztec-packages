@@ -11,7 +11,7 @@ import { type PublicKeys, computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { mintTokensToPrivate } from './fixtures/token_utils.js';
+import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
@@ -64,23 +64,17 @@ describe('e2e_escrow_contract', () => {
 
   afterEach(() => teardown(), 30_000);
 
-  const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
-    const balance = await token.methods.balance_of_private(who).simulate({ from: who });
-    logger.info(`Account ${who} balance: ${balance}`);
-    expect(balance).toBe(expectedBalance);
-  };
-
   it('withdraws funds from the escrow contract', async () => {
-    await expectBalance(owner, 0n);
-    await expectBalance(recipient, 0n);
-    await expectBalance(escrowContract.address, 100n);
+    await expectTokenBalance(wallet, token, owner, 0n, logger);
+    await expectTokenBalance(wallet, token, recipient, 0n, logger);
+    await expectTokenBalance(wallet, token, escrowContract.address, 100n, logger);
 
     logger.info(`Withdrawing funds from token contract to ${recipient}`);
     await escrowContract.methods.withdraw(token.address, 30, recipient).send().wait();
 
-    await expectBalance(owner, 0n);
-    await expectBalance(recipient, 30n);
-    await expectBalance(escrowContract.address, 70n);
+    await expectTokenBalance(wallet, token, owner, 0n, logger);
+    await expectTokenBalance(wallet, token, recipient, 30n, logger);
+    await expectTokenBalance(wallet, token, escrowContract.address, 70n, logger);
   });
 
   it('refuses to withdraw funds as a non-owner', async () => {
@@ -95,7 +89,7 @@ describe('e2e_escrow_contract', () => {
 
     await mintTokensToPrivate(token, wallet, owner, mintAmount);
 
-    await expectBalance(owner, 50n);
+    await expectTokenBalance(wallet, token, owner, 50n, logger);
 
     await new BatchCall(wallet, [
       token.methods.transfer(recipient, 10).request(),
@@ -103,6 +97,6 @@ describe('e2e_escrow_contract', () => {
     ])
       .send()
       .wait();
-    await expectBalance(recipient, 30n);
+    await expectTokenBalance(wallet, token, recipient, 30n, logger);
   });
 });
