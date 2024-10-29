@@ -34,10 +34,7 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
                                                         /*addrOffset=*/OperandType::UINT16,
                                                         /*argsOffset=*/OperandType::UINT16,
                                                         /*argsSize=*/OperandType::UINT16,
-                                                        /*retOffset=*/OperandType::UINT16,
-                                                        /*retSize*/ OperandType::UINT16,
-                                                        /*successOffset=*/OperandType::UINT16,
-                                                        /*functionSelector=*/OperandType::UINT16 };
+                                                        /*successOffset=*/OperandType::UINT16 };
 
 // Contrary to TS, the format does not contain the opcode byte which prefixes any instruction.
 // The format for OpCode::SET has to be handled separately as it is variable based on the tag.

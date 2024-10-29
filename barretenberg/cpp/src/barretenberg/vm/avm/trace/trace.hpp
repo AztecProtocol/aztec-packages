@@ -133,19 +133,13 @@ class AvmTraceBuilder {
                  uint32_t addr_offset,
                  uint32_t args_offset,
                  uint32_t args_size,
-                 uint32_t ret_offset,
-                 uint32_t ret_size,
-                 uint32_t success_offset,
-                 uint32_t function_selector_offset);
+                 uint32_t success_offset);
     void op_static_call(uint16_t indirect,
                         uint32_t gas_offset,
                         uint32_t addr_offset,
                         uint32_t args_offset,
                         uint32_t args_size,
-                        uint32_t ret_offset,
-                        uint32_t ret_size,
-                        uint32_t success_offset,
-                        uint32_t function_selector_offset);
+                        uint32_t success_offset);
     std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // REVERT Opcode (that just call return under the hood for now)
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset);
@@ -263,10 +257,7 @@ class AvmTraceBuilder {
                                  uint32_t addr_offset,
                                  uint32_t args_offset,
                                  uint32_t args_size_offset,
-                                 uint32_t ret_offset,
-                                 uint32_t ret_size,
-                                 uint32_t success_offset,
-                                 [[maybe_unused]] uint32_t function_selector_offset);
+                                 uint32_t success_offset);
 
     void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 

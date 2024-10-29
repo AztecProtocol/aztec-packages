@@ -2655,10 +2655,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
                                               uint32_t addr_offset,
                                               uint32_t args_offset,
                                               uint32_t args_size_offset,
-                                              uint32_t ret_offset,
-                                              uint32_t ret_size,
-                                              uint32_t success_offset,
-                                              uint32_t function_selector_offset)
+                                              uint32_t success_offset)
 {
     ASSERT(opcode == OpCode::CALL || opcode == OpCode::STATICCALL);
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -2668,17 +2665,9 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
           resolved_addr_offset,
           resolved_args_offset,
           resolved_args_size_offset,
-          resolved_ret_offset,
-          resolved_success_offset,
-          resolved_function_selector_offset] = Addressing<7>::fromWire(indirect, call_ptr)
-                                                   .resolve({ gas_offset,
-                                                              addr_offset,
-                                                              args_offset,
-                                                              args_size_offset,
-                                                              ret_offset,
-                                                              success_offset,
-                                                              function_selector_offset },
-                                                            mem_trace_builder);
+          resolved_success_offset] =
+        Addressing<5>::fromWire(indirect, call_ptr)
+            .resolve({ gas_offset, addr_offset, args_offset, args_size_offset, success_offset }, mem_trace_builder);
 
     // Should read the address next to read_gas as well (tuple of gas values (l2Gas, daGas))
     auto read_gas_l2 = constrained_read_from_memory(
@@ -2696,7 +2685,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     gas_trace_builder.constrain_gas(clk,
                                     opcode,
-                                    /*dyn_gas_multiplier=*/args_size + ret_size,
+                                    /*dyn_gas_multiplier=*/args_size,
                                     static_cast<uint32_t>(hint.l2_gas_used),
                                     static_cast<uint32_t>(hint.da_gas_used));
 
@@ -2728,16 +2717,8 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    // The hint contains the FULL return data.
-    // TODO: Don't fail if we ask for too much data.
-    ASSERT(ret_size <= hint.return_data.size());
-
-    // Write the return data to memory
-    write_slice_to_memory(resolved_ret_offset,
-                          AvmMemoryTag::FF,
-                          std::vector(hint.return_data.begin(), hint.return_data.begin() + ret_size));
     // Write the success flag to memory
-    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U8, std::vector<FF>{ hint.success });
+    write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
     external_call_counter++;
 
     // Save return data for later.
@@ -2759,33 +2740,18 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
  * @param addr_offset An index in memory pointing to the target contract address
  * @param args_offset An index in memory pointing to the first value of the input array for the external call
  * @param args_size The number of values in the input array for the external call
- * @param ret_offset An index in memory pointing to where the first value of the external calls return value should
- * be stored.
- * @param ret_size The number of values in the return array
  * @param success_offset An index in memory pointing to where the success flag (U1) of the external call should be
  * stored
- * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
 void AvmTraceBuilder::op_call(uint16_t indirect,
                               uint32_t gas_offset,
                               uint32_t addr_offset,
                               uint32_t args_offset,
                               uint32_t args_size_offset,
-                              uint32_t ret_offset,
-                              uint32_t ret_size,
-                              uint32_t success_offset,
-                              [[maybe_unused]] uint32_t function_selector_offset)
+                              uint32_t success_offset)
 {
-    return constrain_external_call(OpCode::CALL,
-                                   indirect,
-                                   gas_offset,
-                                   addr_offset,
-                                   args_offset,
-                                   args_size_offset,
-                                   ret_offset,
-                                   ret_size,
-                                   success_offset,
-                                   function_selector_offset);
+    return constrain_external_call(
+        OpCode::CALL, indirect, gas_offset, addr_offset, args_offset, args_size_offset, success_offset);
 }
 
 /**
@@ -2798,33 +2764,18 @@ void AvmTraceBuilder::op_call(uint16_t indirect,
  * @param addr_offset An index in memory pointing to the target contract address
  * @param args_offset An index in memory pointing to the first value of the input array for the external call
  * @param args_size The number of values in the input array for the static call
- * @param ret_offset An index in memory pointing to where the first value of the static call return value should
- * be stored.
- * @param ret_size The number of values in the return array
  * @param success_offset An index in memory pointing to where the success flag (U8) of the static call should be
  * stored
- * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
 void AvmTraceBuilder::op_static_call(uint16_t indirect,
                                      uint32_t gas_offset,
                                      uint32_t addr_offset,
                                      uint32_t args_offset,
                                      uint32_t args_size_offset,
-                                     uint32_t ret_offset,
-                                     uint32_t ret_size,
-                                     uint32_t success_offset,
-                                     [[maybe_unused]] uint32_t function_selector_offset)
+                                     uint32_t success_offset)
 {
-    return constrain_external_call(OpCode::STATICCALL,
-                                   indirect,
-                                   gas_offset,
-                                   addr_offset,
-                                   args_offset,
-                                   args_size_offset,
-                                   ret_offset,
-                                   ret_size,
-                                   success_offset,
-                                   function_selector_offset);
+    return constrain_external_call(
+        OpCode::STATICCALL, indirect, gas_offset, addr_offset, args_offset, args_size_offset, success_offset);
 }
 
 /**
