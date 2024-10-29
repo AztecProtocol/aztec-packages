@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730205582975,
+  "lastUpdate": 1730222919085,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "04f4a7b2ae141b7eee4464e8d2cc91460d0c650a",
-          "message": "feat: World State Re-orgs (#9035)\n\nThis PR adds pruning and re-org support to the native world state.\r\n\r\n---------\r\n\r\nCo-authored-by: Alex Gherghisan <alexg@aztecprotocol.com>\r\nCo-authored-by: Alex Gherghisan <alexghr@users.noreply.github.com>",
-          "timestamp": "2024-10-11T11:38:30Z",
-          "tree_id": "ce8b763c687a00a724a03f1a2edbff53310e2709",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/04f4a7b2ae141b7eee4464e8d2cc91460d0c650a"
-        },
-        "date": 1728647523779,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 31227.184443999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29081.646035 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5516.137991000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5183.656888 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93811.08007200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93811082000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15519.678895999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15519679000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 8407476805,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 8407476805 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 154554882,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 154554882 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 6718460621,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 6718460621 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126138227,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126138227 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3108,6 +3036,66 @@ window.BENCHMARK_DATA = {
             "value": 126757929,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126757929 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f710068a10e09fad9c159306c19c555bb3b5bb6",
+          "message": "feat(avm)!: returndatasize + returndatacopy (#9475)\n\nThis PR\n* Introduces RETURNDATASIZE and RETURNDATACOPY (also copies revert data if reverted)\n* Fixes a bug in CALL in witgen\n* Changes the public context to return slices when calling public functions. This was partly done because templated functions would always be inlined and I wanted to avoid that blowup\n\nNote that the rethrowing hack is still present in the simulator, so the rethrowing branch in the public context is still not used. I will make this change once @sirasistant finishes the string encoding changes.\n\nIn a later PR we can remove the returndata from CALL.\n\nPart of #9061.",
+          "timestamp": "2024-10-29T17:01:39Z",
+          "tree_id": "9f9846d0222e5df93ed550c21885ea9804ef68fe",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8f710068a10e09fad9c159306c19c555bb3b5bb6"
+        },
+        "date": 1730222912212,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30950.335728,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29371.197408 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5397.899536000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5075.965949999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91805.27016700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91805272000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15174.790125999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15174790000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2712315314,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2712315314 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126647434,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126647434 ns\nthreads: 1"
           }
         ]
       }
