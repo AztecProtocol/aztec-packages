@@ -531,13 +531,13 @@ template <typename Curve_> class IPA {
 
         // Step 6.
         // Receive a₀ from the prover
-        auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         // Step 7.
         // Compute G₀
         // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
         // batch_mul directly on it.
-        auto srs_elements = vk->get_monomial_points();
+        const std::vector<Commitment> srs_elements = vk->get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
 
         // Step 8.
