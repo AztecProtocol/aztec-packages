@@ -44,8 +44,8 @@ export enum Opcode {
   RETURNDATASIZE,
   RETURNDATACOPY,
   // Control flow
-  JUMP_16,
-  JUMPI_16,
+  JUMP_32,
+  JUMPI_32,
   INTERNALCALL,
   INTERNALRETURN,
   // Memory
