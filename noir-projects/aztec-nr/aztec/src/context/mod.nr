@@ -14,7 +14,7 @@ pub use call_interfaces::{
     PrivateVoidCallInterface, PrivateStaticVoidCallInterface, PublicVoidCallInterface,
     PublicStaticVoidCallInterface
 };
-pub use private_context::PrivateContext;
+pub use private_context::{PrivateContext, TestContext};
 pub use packed_returns::PackedReturns;
 pub use public_context::PublicContext;
 pub use public_context::FunctionReturns;

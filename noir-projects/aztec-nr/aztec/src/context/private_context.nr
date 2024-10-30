@@ -31,6 +31,10 @@ use dep::protocol_types::{
     header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::Empty
 };
 
+pub struct TestContext {
+    side_effect_counter: u32,
+}
+
 // When finished, one can call .finish() to convert back to the abi
 pub struct PrivateContext {
     // docs:start:private-context
@@ -584,6 +588,29 @@ impl Empty for PrivateContext {
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES]
+        }
+    }
+}
+
+impl TestContext {
+    pub fn request_ovsk_app(&mut self, pk_m_hash: Field) -> Field {
+        // let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
+
+        if pk_m_hash + 1 == pk_m_hash {
+            // We get a match so the cached request is the latest one
+            100
+        } else {
+            // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
+            // protocol circuits to validate them by storing the validation request in context.
+            // let request = std::mem::zeroed();
+            // let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index] };
+            // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
+            // valid key request and not the one corresponding to pk_m_hash).
+            // assert(request.pk_m.hash() == pk_m_hash);
+            // self.key_validation_requests_and_generators.push(request_and_generator);
+            // self.last_key_validation_requests[key_index] = Option::some(std::mem::zeroed());
+            self.side_effect_counter = 200;
+            200
         }
     }
 }

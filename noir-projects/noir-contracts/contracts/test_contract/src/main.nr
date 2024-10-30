@@ -29,6 +29,7 @@ contract Test {
 
     use crate::test_note::TestNote;
     use aztec::keys::public_keys::OvpkM;
+    use aztec::context::TestContext;
 
     #[storage]
     struct Storage<Context> {
@@ -37,10 +38,13 @@ contract Test {
     }
 
     // For testing non-note encrypted logs
-    #[private]
+    // #[private]
     fn emit_array_as_encrypted_log(cond: bool) {
+        let mut context = std::mem::zeroed::<TestContext>();
+        context.side_effect_counter = cond as u32 + 7;
+
         // side_effect_counter == 7
-        assert(context.side_effect_counter as Field != 0, "this assert should not be triggered");
+        assert(context.side_effect_counter != 0, "this assert should not be triggered");
 
         // Print a unique constant so that this position is more easily found in SSA printouts
         println(340_282_366_920_938_463_463_374_607_431_768_211_455);
@@ -51,15 +55,11 @@ contract Test {
 
         // For whatever reason after the if branch above the side_effect_counter gets reset to 0 on the context.
         // This should never happen as the counter is always just incremented.
-        assert(context.side_effect_counter as Field != 0, "this assert should be triggered if bug reproduction succeeded");
+        assert(context.side_effect_counter != 0, "this assert should be triggered if bug reproduction succeeded");
     }
 }
 
-
-fn main(
-    inputs: dep::aztec::context::inputs::PrivateContextInputs,
-    cond: bool,
-) -> pub Field {
-    Test::emit_array_as_encrypted_log(inputs, cond);
+fn main(cond: bool) -> pub Field {
+    Test::emit_array_as_encrypted_log(cond);
     0
 }

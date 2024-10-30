@@ -7,16 +7,14 @@ unconstrained fn get_key_validation_request_oracle(
 ) -> [Field; KEY_VALIDATION_REQUEST_LENGTH] {}
 
 unconstrained fn get_key_validation_request_internal(
-    npk_m_hash: Field,
-    key_index: Field
 ) -> KeyValidationRequest {
     let result = [0,0,0,0];
     KeyValidationRequest::deserialize(result)
 }
 
 unconstrained pub fn get_key_validation_request(
-    pk_m_hash: Field,
-    key_index: Field
+_a: Field,
+_b: Field,
 ) -> KeyValidationRequest {
-    get_key_validation_request_internal(pk_m_hash, key_index)
+    get_key_validation_request_internal()
 }
