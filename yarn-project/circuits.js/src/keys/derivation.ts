@@ -136,6 +136,6 @@ export function computeTaggingSecret(knownAddress: CompleteAddress, ivsk: Fq, ex
   // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
 
   // Beware! h_a + ivsk_a (also known as the address secret) can lead to an address point with a negative y-coordinate, since there's two possible candidates
-  // Compute address secret takes care of selecting the one that leads to a positive y-coordinate, which is the only valid address point
+  // computeAddressSecret takes care of selecting the one that leads to a positive y-coordinate, which is the only valid address point
   return curve.mul(externalAddressPoint, computeAddressSecret(knownPreaddress, ivsk));
 }
