@@ -55,7 +55,8 @@ describe('Simulator oracle', () => {
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account
-    recipient = await keyStore.addAccount(new Fr(1), Fr.random());
+    recipient = await keyStore.addAccount(new Fr(69), Fr.random());
+    await database.addCompleteAddress(recipient);
     // Set up the address book
     senders = times(NUM_SENDERS).map((_, index) => {
       const keys = deriveKeys(new Fr(index));
@@ -73,7 +74,7 @@ describe('Simulator oracle', () => {
     // Add a random note from every address in the address book for our account with index 0
     // Compute the tag as sender (knowledge of preaddress and ivsk)
     for (const sender of senders) {
-      const tag = computeTagForIndex(sender, recipient.address, contractAddress, 1);
+      const tag = computeTagForIndex(sender, recipient.address, contractAddress, 0);
       const log = EncryptedL2NoteLog.random(tag);
       logs[tag.toString()] = [log];
     }
@@ -100,7 +101,10 @@ describe('Simulator oracle', () => {
     // Add a random note from every address in the address book for a random recipient with index 0
     // Compute the tag as sender (knowledge of preaddress and ivsk)
     for (const sender of senders) {
-      const tag = computeTagForIndex(sender, AztecAddress.random(), contractAddress, 0);
+      const keys = deriveKeys(Fr.random());
+      const partialAddress = Fr.random();
+      const randomRecipient = computeAddress(keys.publicKeys, partialAddress);
+      const tag = computeTagForIndex(sender, randomRecipient, contractAddress, 0);
       const log = EncryptedL2NoteLog.random(tag);
       logs[tag.toString()] = [log];
     }
@@ -109,13 +113,13 @@ describe('Simulator oracle', () => {
     // Set up the getTaggedLogs mock
 
     aztecNode.getLogsByTags.mockImplementation(tags => {
-      return Promise.resolve(tags.map(tag => logs[tag.toString()]));
+      return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
     });
   });
 
   describe('sync tagged logs', () => {
     it('should sync tagged logs', async () => {
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(recipient.address, contractAddress);
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, recipient.address);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
       expect(syncedLogs).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
@@ -149,10 +153,13 @@ describe('Simulator oracle', () => {
 
       await database.incrementTaggingSecretsIndexes(directionalSecrets);
 
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(recipient.address, contractAddress);
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, recipient.address);
 
       // Only half of the logs should be synced since we start from index 1, the other half should be skipped
       expect(syncedLogs).toHaveLength(NUM_SENDERS / 2);
+
+      // We should have called the node twice, once for index 1 and once for index 2 (which should return no logs)
+      expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
   });
 });

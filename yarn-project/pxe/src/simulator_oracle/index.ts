@@ -279,7 +279,6 @@ export class SimulatorOracle implements DBOracle {
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     // Ensure the directionality (sender -> recipient)
-
     const directionalSecrets = secrets.map(secret => new DirectionalTaggingSecret(secret, recipient));
     const indexes = await this.db.getTaggingSecretsIndexes(directionalSecrets);
     return directionalSecrets.map(
@@ -302,26 +301,31 @@ export class SimulatorOracle implements DBOracle {
     // length, since we don't really know the note they correspond to until we decrypt them.
 
     // 1. Get all the secrets for the recipient and sender pairs (#9365)
-    const appTaggingSecrets = await this.getAppTaggingSecretsForSenders(contractAddress, recipient);
+    let appTaggingSecrets = await this.getAppTaggingSecretsForSenders(contractAddress, recipient);
+
     const logs: EncryptedL2NoteLog[] = [];
-    const secretsToIncrementIndexesFor: DirectionalTaggingSecret[] = [];
     while (appTaggingSecrets.length > 0) {
       // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-      const currentTags = appTaggingSecrets.map(({ secret, index }) => poseidon2Hash([secret, recipient, index]));
+      const currentTags = appTaggingSecrets.map(({ secret, recipient, index }) =>
+        poseidon2Hash([secret, recipient, index]),
+      );
       const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
+      const newTaggingSecrets: IndexedTaggingSecret[] = [];
       logsByTags.forEach((logsByTag, index) => {
         // 3.1. Append logs to the list and increment the index for the tags that have logs (#9380)
         if (logsByTag.length > 0) {
           logs.push(...logsByTag);
-          appTaggingSecrets[index].index++;
-          // Defer the db update until later to do it in a single batch
-          secretsToIncrementIndexesFor.push(new DirectionalTaggingSecret(appTaggingSecrets[index].secret, recipient));
-        } else {
-          // 3.1. Remove the secret from the list if there are no logs for it (#9380)
-          appTaggingSecrets.splice(index, 1);
+          // 3.2. Increment the index for the tags that have logs (#9380)
+          newTaggingSecrets.push(
+            new IndexedTaggingSecret(appTaggingSecrets[index].secret, recipient, appTaggingSecrets[index].index + 1),
+          );
         }
       });
-      await this.db.incrementTaggingSecretsIndexes(secretsToIncrementIndexesFor);
+      // 4. Consolidate in db and replace initial appTaggingSecrets with the new ones (updated indexes)
+      await this.db.incrementTaggingSecretsIndexes(
+        newTaggingSecrets.map(secret => new DirectionalTaggingSecret(secret.secret, recipient)),
+      );
+      appTaggingSecrets = newTaggingSecrets;
     }
     return logs;
   }
