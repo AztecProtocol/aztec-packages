@@ -125,7 +125,7 @@ describe('e2e_fees account_init', () => {
       // the new account should have paid the full fee to the FPC
       await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
 
-      // the FPC got paid through "unshield", so it's got a new public balance
+      // the FPC got paid through "transfer_to_public", so it's got a new public balance
       await expect(t.getBananaPublicBalanceFn(bananaFPC.address)).resolves.toEqual([
         fpcsInitialPublicBananas + actualFee,
       ]);

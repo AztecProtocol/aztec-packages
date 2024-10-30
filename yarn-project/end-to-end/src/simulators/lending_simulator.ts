@@ -117,7 +117,7 @@ export class LendingSimulator {
   }
 
   depositPrivate(from: AztecAddress, onBehalfOf: Fr, amount: bigint) {
-    this.collateralAsset.unshield(from, this.lendingContract.address, amount);
+    this.collateralAsset.transfer_to_public(from, this.lendingContract.address, amount);
     this.deposit(onBehalfOf, amount);
   }
 

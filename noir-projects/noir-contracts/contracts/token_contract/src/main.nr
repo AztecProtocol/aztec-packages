@@ -314,9 +314,9 @@ contract Token {
         ));
     }
     // docs:end:redeem_shield
-    // docs:start:unshield
+    // docs:start:transfer_to_public
     #[private]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -331,7 +331,7 @@ contract Token {
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
-    // docs:end:unshield
+    // docs:end:transfer_to_public
     // docs:start:transfer
     #[private]
     fn transfer(to: AztecAddress, amount: Field) {
