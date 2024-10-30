@@ -596,7 +596,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
       let bridgedAmount = 100n;
 
-      const l1ToL2MessageIndex = 1;
+      const l1ToL2MessageIndex = 0;
       const secretHashForRedeemingNotes = new Fr(2n);
       let secretForL1ToL2MessageConsumption = new Fr(1n);
 
