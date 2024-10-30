@@ -1,4 +1,6 @@
-# Checks bb prover with memory sanitizer
+# Checks bb prover with sanitizers
+# Unlike most jobs uses free 4 core github runners of which we have lots of capacity (of total 1000 concurrency)
+# to run a good number of these, but we should still be mindful that we don't queue, say, dozens of these per person.
 name: BB MSAN
 on:
   push:
@@ -11,8 +13,11 @@ on:
       - 'barretenberg/**'
   workflow_dispatch:
     inputs: {}
-# unlike most jobs, we have no concurrency limits - note that we should have spare capacity (of total 1000 concurrency)
-# to run a good number of these, but we should still be mindful that we don't queue, say, dozens of these.
+
+concurrency:
+  # force parallelism in master
+  group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   bb-msan-check:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
