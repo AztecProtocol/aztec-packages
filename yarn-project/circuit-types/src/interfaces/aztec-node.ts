@@ -15,7 +15,14 @@ import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 
 import type { L2Block } from '../l2_block.js';
-import type { FromLogType, GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
+import type {
+  EncryptedL2NoteLog,
+  FromLogType,
+  GetUnencryptedLogsResponse,
+  L2BlockL2Logs,
+  LogFilter,
+  LogType,
+} from '../logs/index.js';
 import type { MerkleTreeId } from '../merkle_tree_id.js';
 import type { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import type { PublicDataWitness } from '../public_data_witness.js';
@@ -246,6 +253,14 @@ export interface AztecNode extends ProverCoordination {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.

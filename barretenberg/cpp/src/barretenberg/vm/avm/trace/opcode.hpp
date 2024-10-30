@@ -56,6 +56,8 @@ enum class OpCode : uint8_t {
     GETENVVAR_16,
     // Execution Environment - Calldata
     CALLDATACOPY,
+    RETURNDATASIZE,
+    RETURNDATACOPY,
 
     // Machine State
     // Machine State - Internal Control Flow
@@ -104,7 +106,7 @@ enum class OpCode : uint8_t {
     ECADD,
     MSM,
     // Conversions
-    TORADIXLE,
+    TORADIXBE,
 
     // Sentinel
     LAST_OPCODE_SENTINEL,

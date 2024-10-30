@@ -24,10 +24,9 @@ pub fn increment(
     recipient: AztecAddress,
     outgoing_viewer: AztecAddress, // docs:end:increment_args
 ) {
-    let recipient_keys = get_public_keys(recipient);
     let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-    let mut note = ValueNote::new(amount, recipient_keys.npk_m.hash());
+    let mut note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     balance.insert(&mut note).emit(encode_and_encrypt_note(
         balance.context,

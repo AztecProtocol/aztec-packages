@@ -35,7 +35,9 @@ class AvmTraceBuilder {
                     uint32_t side_effect_counter = 0,
                     std::vector<FF> calldata = {});
 
-    uint32_t getPc() const { return pc; }
+    uint32_t get_pc() const { return pc; }
+    uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
+    uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
     // Compute - Arithmetic
     void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
@@ -78,6 +80,11 @@ class AvmTraceBuilder {
 
     // Execution Environment - Calldata
     void op_calldata_copy(uint8_t indirect, uint32_t cd_offset_address, uint32_t copy_size_offset, uint32_t dst_offset);
+    void op_returndata_size(uint8_t indirect, uint32_t dst_offset);
+    void op_returndata_copy(uint8_t indirect,
+                            uint32_t rd_offset_address,
+                            uint32_t copy_size_offset,
+                            uint32_t dst_offset);
 
     // Machine State - Gas
     void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
@@ -126,19 +133,13 @@ class AvmTraceBuilder {
                  uint32_t addr_offset,
                  uint32_t args_offset,
                  uint32_t args_size,
-                 uint32_t ret_offset,
-                 uint32_t ret_size,
-                 uint32_t success_offset,
-                 uint32_t function_selector_offset);
+                 uint32_t success_offset);
     void op_static_call(uint16_t indirect,
                         uint32_t gas_offset,
                         uint32_t addr_offset,
                         uint32_t args_offset,
                         uint32_t args_size,
-                        uint32_t ret_offset,
-                        uint32_t ret_size,
-                        uint32_t success_offset,
-                        uint32_t function_selector_offset);
+                        uint32_t success_offset);
     std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // REVERT Opcode (that just call return under the hood for now)
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset);
@@ -159,7 +160,7 @@ class AvmTraceBuilder {
                          uint32_t output_offset,
                          uint32_t point_length_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect,
+    void op_to_radix_be(uint8_t indirect,
                         uint32_t src_offset,
                         uint32_t dst_offset,
                         uint32_t radix_offset,
@@ -199,6 +200,10 @@ class AvmTraceBuilder {
 
     std::vector<FF> calldata;
     std::vector<FF> returndata;
+
+    // Return/revert data of the last nested call.
+    std::vector<FF> nested_returndata;
+
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
@@ -252,10 +257,7 @@ class AvmTraceBuilder {
                                  uint32_t addr_offset,
                                  uint32_t args_offset,
                                  uint32_t args_size_offset,
-                                 uint32_t ret_offset,
-                                 uint32_t ret_size,
-                                 uint32_t success_offset,
-                                 [[maybe_unused]] uint32_t function_selector_offset);
+                                 uint32_t success_offset);
 
     void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 

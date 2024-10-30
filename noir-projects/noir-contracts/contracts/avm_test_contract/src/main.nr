@@ -251,6 +251,14 @@ contract AvmTest {
     }
 
     #[public]
+    fn returndata_copy_oracle() {
+        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let returndatasize = dep::aztec::context::public_context::returndata_size();
+        let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
+        assert(returndata == &[1, 2, 3], "Returndata copy failed");
+    }
+
+    #[public]
     fn return_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
@@ -617,9 +625,9 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        //let _ = nested_call_to_add(1, 2);
-        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        //let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
     }
 }

@@ -16,4 +16,9 @@ export interface ProverCoordination {
    * @param quote - The quote to store
    */
   addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
+
+  /**
+   * Stops the coordination service.
+   */
+  stop(): Promise<void>;
 }

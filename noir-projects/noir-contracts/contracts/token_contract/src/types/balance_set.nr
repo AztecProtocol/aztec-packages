@@ -1,7 +1,9 @@
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     note::note_emission::OuterNoteEmission,
-    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
+    protocol_types::{
+        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM,
+    },
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
@@ -42,12 +44,12 @@ impl BalanceSet<UnconstrainedContext> {
 }
 
 impl BalanceSet<&mut PrivateContext> {
-    pub fn add(self: Self, owner_npk_m: NpkM, addend: U128) -> OuterNoteEmission<UintNote> {
+    pub fn add(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<UintNote> {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
-            let mut addend_note = UintNote::new(addend, owner_npk_m.hash());
+            let mut addend_note = UintNote::new(addend, owner);
 
             // docs:start:insert
             OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
@@ -55,13 +57,13 @@ impl BalanceSet<&mut PrivateContext> {
         }
     }
 
-    pub fn sub(self: Self, owner_npk_m: NpkM, amount: U128) -> OuterNoteEmission<UintNote> {
+    pub fn sub(self: Self, owner: AztecAddress, amount: U128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
-        self.add(owner_npk_m, subtracted - amount)
+        self.add(owner, subtracted - amount)
     }
 
     // Attempts to remove 'target_amount' from the owner's balance. try_sub returns how much was actually subtracted

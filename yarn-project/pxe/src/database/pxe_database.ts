@@ -185,4 +185,8 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The estimated size in bytes of this db.
    */
   estimateSize(): Promise<number>;
+
+  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]>;
+
+  incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void>;
 }
