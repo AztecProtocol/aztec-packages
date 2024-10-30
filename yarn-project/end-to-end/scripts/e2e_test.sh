@@ -36,7 +36,7 @@ test_config=$(load_test_config "$TEST")
 # Determine the test path
 test_path=$(echo "$test_config" | yq e '.test_path // ""' -)
 if [ -z "$test_path" ]; then
-  test_path="${TEST}"
+  test_path="$(echo "$TEST" | sed 's/-/_/g'}"
 fi
 
 # Check for ignore_failures
