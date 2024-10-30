@@ -13,13 +13,9 @@ import { TypeRegistry } from '../serialize/type_registry.js';
  * and can be serialized/deserialized from a buffer or BufferReader.
  */
 export class EthAddress {
-  /**
-   * The size of an Ethereum address in bytes.
-   */
+  /** The size of an Ethereum address in bytes. */
   public static SIZE_IN_BYTES = 20;
-  /**
-   * Represents a zero Ethereum address with 20 bytes filled with zeros.
-   */
+  /** Represents a zero Ethereum address with 20 bytes filled with zeros. */
   public static ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {

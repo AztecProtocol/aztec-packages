@@ -1,6 +1,7 @@
 import {
   EmptyTxValidator,
   type EpochProver,
+  type EpochProvingJobState,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
@@ -179,10 +180,4 @@ export class EpochProvingJob {
   }
 }
 
-export type EpochProvingJobState =
-  | 'initialized'
-  | 'processing'
-  | 'awaiting-prover'
-  | 'publishing-proof'
-  | 'completed'
-  | 'failed';
+export { type EpochProvingJobState };

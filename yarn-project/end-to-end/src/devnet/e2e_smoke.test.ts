@@ -14,7 +14,7 @@ import {
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { GasSettings, deriveSigningKey } from '@aztec/circuits.js';
-import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createNamespacedJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract, TestContract } from '@aztec/noir-contracts.js';
@@ -109,7 +109,8 @@ describe('End-to-end tests for devnet', () => {
       const localhost = await getLocalhost();
       pxeUrl = `http://${localhost}:${port}`;
       // start a server for the CLI to talk to
-      const server = startHttpRpcServer('pxe', pxe, createPXERpcServer, port);
+      const jsonRpcServer = createNamespacedJsonRpcServer([{ pxe: createPXERpcServer(pxe) }]);
+      const server = startHttpRpcServer(jsonRpcServer, { port });
 
       teardown = async () => {
         const { promise, resolve, reject } = promiseWithResolvers<void>();

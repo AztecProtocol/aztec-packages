@@ -1,8 +1,13 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
+
+// Required so typescript can properly annotate the exported schema
+export { type EthAddress };
 
 export class EpochProofQuotePayload {
   // Cached values
@@ -15,7 +20,15 @@ export class EpochProofQuotePayload {
     public readonly bondAmount: bigint,
     public readonly prover: EthAddress,
     public readonly basisPointFee: number,
-  ) {}
+  ) {
+    if (basisPointFee < 0 || basisPointFee > 10000) {
+      throw new Error(`Invalid basisPointFee ${basisPointFee}`);
+    }
+  }
+
+  static empty() {
+    return new EpochProofQuotePayload(0n, 0n, 0n, EthAddress.ZERO, 0);
+  }
 
   static getFields(fields: FieldsOf<EpochProofQuotePayload>) {
     return [
@@ -68,14 +81,20 @@ export class EpochProofQuotePayload {
     };
   }
 
-  static fromJSON(obj: any) {
-    return new EpochProofQuotePayload(
-      BigInt(obj.epochToProve),
-      BigInt(obj.validUntilSlot),
-      BigInt(obj.bondAmount),
-      EthAddress.fromString(obj.prover),
-      obj.basisPointFee,
-    );
+  static get schema() {
+    return z
+      .object({
+        epochToProve: z.coerce.bigint(),
+        validUntilSlot: z.coerce.bigint(),
+        bondAmount: z.coerce.bigint(),
+        prover: schemas.EthAddress,
+        basisPointFee: z.number(),
+      })
+      .transform(EpochProofQuotePayload.from);
+  }
+
+  static fromJSON(obj: any): EpochProofQuotePayload {
+    return EpochProofQuotePayload.schema.parse(obj);
   }
 
   toViemArgs(): {

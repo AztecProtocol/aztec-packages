@@ -8,6 +8,7 @@ import {
   type L2BlockSource,
   type MerkleTreeWriteOperations,
   type ProverCoordination,
+  type ProverNodeApi,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
@@ -36,7 +37,7 @@ export type ProverNodeOptions = {
  * from a tx source in the p2p network or an external node, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
-export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
+export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi {
   private log = createDebugLogger('aztec:prover-node');
 
   private latestEpochWeAreProving: bigint | undefined;
@@ -207,8 +208,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): { uuid: string; status: EpochProvingJobState }[] {
-    return Array.from(this.jobs.entries()).map(([uuid, job]) => ({ uuid, status: job.getState() }));
+  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
+    return Promise.resolve(Array.from(this.jobs.entries()).map(([uuid, job]) => ({ uuid, status: job.getState() })));
   }
 
   private checkMaximumPendingJobs() {
