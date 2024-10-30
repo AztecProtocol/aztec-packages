@@ -133,13 +133,13 @@ Auth witnesses can belong to the current user executing the local transaction, o
 
 However, during a public function execution, it is not possible to retrieve a value from the local oracle. To support authorizations in public functions, account contracts should save in contract storage what actions have been pre-authorized by their owner.
 
-These two patterns combined allow an account contract to answer whether an action `is_valid` for a given user both in private and public contexts.
+These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
 
 You can read more about authorizing actions with authorization witnesses on [this page](./authwit.md).
 
-:::warn
+:::info
 
-Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that "read" functions may have unintended side-effects and degraded UX. For example, a user will need to authorize an action, even if it is only a "read" operation from a contract. Reading contract state will require a signature or will require 2FA authorization in the case of 2FA account.
+Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. For example, a user will need to authorize an action, even if it is only a simulated operation from a contract. Simulating a `transfer_from` call will require a signature in a Schnorr account or will require 2FA authorization in the case of 2FA account.
 
 :::
 
