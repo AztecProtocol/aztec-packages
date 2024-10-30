@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730320306772,
+  "lastUpdate": 1730327620013,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c008d9a2fad747142e8ca356d6c00cee1663f2c",
-          "message": "feat: Tracy time with instrumentation (#9170)\n\nAt scripts for profiling locally with tracy and samply, add\r\ninstrumentation so that tracy profile is pretty complete, and combine\r\nBB_OP_COUNT macros with tracy macros.",
-          "timestamp": "2024-10-11T23:11:55Z",
-          "tree_id": "73ea0f6f399ec5ae1fd507ab7784445b9a0edea0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c008d9a2fad747142e8ca356d6c00cee1663f2c"
-        },
-        "date": 1728690137382,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29534.589775,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28072.185873000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5528.562555999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5233.683983000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86053.945606,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86053947000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15534.235607999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15534235000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2792561611,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2792561611 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127901215,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127901215 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 126019837,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126019837 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "722ec5c3dfdc2a5e467528ed94a25677f8800087",
+          "message": "feat: faster square roots (#2694)\n\nWe use the Tonelli-Shanks square root algorithm to perform square roots,\r\nrequired for deriving generators on the Grumpkin curve.\r\n\r\nOur existing implementation uses a slow algorithm that requires ~1,000\r\nfield multiplications per square root.\r\n\r\nThis PR implements a newer algorithm by Bernstein that uses precomputed\r\nlookup tables to increase performance\r\n\r\nhttps://cr.yp.to/papers/sqroot-20011123-retypeset20220327.pdf",
+          "timestamp": "2024-10-30T17:54:29-04:00",
+          "tree_id": "9dfa0c8467e712b8f4a9bdfe6b6bde11d20f9510",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/722ec5c3dfdc2a5e467528ed94a25677f8800087"
+        },
+        "date": 1730327613020,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29168.44631999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27502.004968999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5384.818256000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5045.767242 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86206.17749599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86206180000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15132.977390999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15132977000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2498302551,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2498302551 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127878727,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127878727 ns\nthreads: 1"
           }
         ]
       }
