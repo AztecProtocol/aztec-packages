@@ -21,6 +21,8 @@ export class AvmMachineState {
   public daGasLeft: number;
   /** program counter, byte based */
   public pc: number = 0;
+  /** program counter of the next instruction, byte based */
+  public nextPc: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
 

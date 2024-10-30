@@ -9,22 +9,24 @@ use acvm::brillig_vm::brillig::{
 use acvm::FieldElement;
 use noirc_errors::debug_info::DebugInfo;
 
-use crate::bit_traits::bits_needed_for;
+use crate::bit_traits::{bits_needed_for, BitsQueryable};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 /// Transpile a Brillig program to AVM bytecode
-pub fn brillig_to_avm(
-    brillig_bytecode: &[BrilligOpcode<FieldElement>],
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> Vec<u8> {
+/// Returns the bytecode and a mapping from Brillig program counter to AVM program counter.
+pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<u8>, Vec<usize>) {
     dbg_print_brillig_program(brillig_bytecode);
 
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
+    let mut brillig_pcs_to_avm_pcs: Vec<usize> = [0_usize].to_vec();
+    let mut current_avm_pc: usize = 0;
 
     // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in brillig_bytecode {
+        let current_avm_instr_index = avm_instrs.len();
+
         match brillig_instr {
             BrilligOpcode::BinaryFieldOp { destination, op, lhs, rhs } => {
                 let bits_needed =
@@ -231,22 +233,23 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Jump { location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
+                assert!(location.num_bits() <= 16);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_16,
-                    operands: vec![make_operand(16, &avm_loc)],
+                    // operands: vec![make_operand(16, &avm_loc)],
+                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 }],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
+                assert!(location.num_bits() <= 16);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_16,
                     indirect: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![
-                        make_operand(16, &avm_loc),
+                        AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 },
                         make_operand(16, &condition.to_usize()),
                     ],
                     ..Default::default()
@@ -295,10 +298,10 @@ pub fn brillig_to_avm(
                 ));
             }
             BrilligOpcode::Call { location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
+                assert!(location.num_bits() <= 16);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::U16 { value: avm_loc as u16 }],
+                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 }],
                     ..Default::default()
                 });
             }
@@ -342,7 +345,36 @@ pub fn brillig_to_avm(
                 brillig_instr
             ),
         }
+
+        // Increment the AVM program counter.
+        current_avm_pc +=
+            avm_instrs.iter().skip(current_avm_instr_index).map(|i| i.size()).sum::<usize>();
+        brillig_pcs_to_avm_pcs.push(current_avm_pc);
     }
+
+    // Now that we have the general structure of the AVM program, we need to resolve the
+    // Brillig jump locations.
+    let mut avm_instrs = avm_instrs
+        .into_iter()
+        .map(|i| match i.opcode {
+            AvmOpcode::JUMP_16 | AvmOpcode::JUMPI_16 | AvmOpcode::INTERNALCALL => {
+                let new_operands = i
+                    .operands
+                    .into_iter()
+                    .map(|o| match o {
+                        AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
+                            let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
+                            assert!(avm_pc.num_bits() <= 16, "Oops! AVM PC is too large!");
+                            AvmOperand::U16 { value: avm_pc as u16 }
+                        }
+                        _ => o,
+                    })
+                    .collect::<Vec<AvmOperand>>();
+                AvmInstruction { operands: new_operands, ..i }
+            }
+            _ => i,
+        })
+        .collect::<Vec<AvmInstruction>>();
 
     // TEMPORARY: Add a "magic number" instruction to the end of the program.
     // This makes it possible to know that the bytecode corresponds to the AVM.
@@ -362,7 +394,8 @@ pub fn brillig_to_avm(
     for instruction in avm_instrs {
         bytecode.extend_from_slice(&instruction.to_bytes());
     }
-    bytecode
+
+    (bytecode, brillig_pcs_to_avm_pcs)
 }
 
 /// Handle brillig foreign calls
@@ -1506,36 +1539,6 @@ pub fn patch_assert_message_pcs(
         .into_iter()
         .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
         .collect()
-}
-
-/// Compute an array that maps each Brillig pc to an AVM pc.
-/// This must be done before transpiling to properly transpile jump destinations.
-/// This is necessary for two reasons:
-/// 1. The transpiler injects `initial_offset` instructions at the beginning of the program.
-/// 2. Some brillig instructions map to multiple AVM instructions
-/// args:
-///     initial_offset: how many AVM instructions were inserted at the start of the program
-///     brillig: the Brillig program
-/// returns: an array where each index is a Brillig pc,
-///     and each value is the corresponding AVM pc.
-pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> Vec<usize> {
-    let mut pc_map = vec![0; brillig_bytecode.len()];
-
-    pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
-    for i in 0..brillig_bytecode.len() - 1 {
-        let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::ForeignCall { function, .. }
-                if function == "avmOpcodeReturndataCopy" =>
-            {
-                2
-            }
-            _ => 1,
-        };
-        // next Brillig pc will map to an AVM pc offset by the
-        // number of AVM instructions generated for this Brillig one
-        pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
-    }
-    pc_map
 }
 
 fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {

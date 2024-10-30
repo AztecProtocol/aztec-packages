@@ -32,8 +32,6 @@ export class JumpI extends Instruction {
   static type: string = 'JUMPI';
   static readonly opcode: Opcode = Opcode.JUMPI_16;
 
-  private shouldJump: boolean = false;
-
   // Instruction wire format with opcode.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
@@ -56,10 +54,8 @@ export class JumpI extends Instruction {
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     if (condition.toBigInt() == 0n) {
-      this.shouldJump = false;
-      // PC handling is done in the fetch-decode loop.
+      context.machineState.pc = context.machineState.nextPc;
     } else {
-      this.shouldJump = true;
       context.machineState.pc = this.loc;
     }
 
@@ -67,7 +63,7 @@ export class JumpI extends Instruction {
   }
 
   public override handlesPC(): boolean {
-    return this.shouldJump === true;
+    return true;
   }
 }
 
@@ -84,7 +80,7 @@ export class InternalCall extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    context.machineState.internalCallStack.push(context.machineState.pc + 1);
+    context.machineState.internalCallStack.push(context.machineState.nextPc);
     context.machineState.pc = this.loc;
 
     context.machineState.memory.assert({});

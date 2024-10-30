@@ -196,6 +196,12 @@ export class Revert extends Instruction {
     context.machineState.revert(output);
     memory.assert({ reads: retSize + 1, addressing });
   }
+
+  // We don't want to increase the PC after reverting because it breaks messages.
+  // Maybe we can remove this once messages don't depend on PCs.
+  public override handlesPC(): boolean {
+    return true;
+  }
 }
 
 /** Returns the smaller of two bigints. */

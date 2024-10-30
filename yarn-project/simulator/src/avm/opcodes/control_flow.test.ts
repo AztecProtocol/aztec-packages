@@ -70,13 +70,14 @@ describe('Control Flow Opcodes', () => {
     it('Should implement JUMPI - falsy', async () => {
       const jumpLocation = 22;
 
+      context.machineState.nextPc = 30;
       expect(context.machineState.pc).toBe(0);
 
       context.machineState.memory.set(0, new Uint16(0n));
 
       const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
       await instruction.execute(context);
-      expect(context.machineState.pc).toBe(1);
+      expect(context.machineState.pc).toBe(30);
     });
   });
 
@@ -96,6 +97,7 @@ describe('Control Flow Opcodes', () => {
       const jumpLocation = 22;
 
       expect(context.machineState.pc).toBe(0);
+      context.machineState.nextPc = 6;
 
       const instruction = new InternalCall(jumpLocation);
       const returnInstruction = new InternalReturn();
@@ -104,7 +106,7 @@ describe('Control Flow Opcodes', () => {
       expect(context.machineState.pc).toBe(jumpLocation);
 
       await returnInstruction.execute(context);
-      expect(context.machineState.pc).toBe(1);
+      expect(context.machineState.pc).toBe(6);
     });
 
     it('Should error if Internal Return is called without a corresponding Internal Call', async () => {
