@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730292283653,
+  "lastUpdate": 1730309696109,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ce3d08a18684da9f5b1289a2b9bdf60a66342590",
-          "message": "fix: Revert \"fix: Revert \"feat: use s3 cache in bootstrap fast\"\" (#9182)\n\nReverts AztecProtocol/aztec-packages#9181\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2024-10-11T23:17:43+01:00",
-          "tree_id": "1a2e931d086486fd2230dfd5ebf08c38d597d682",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ce3d08a18684da9f5b1289a2b9bdf60a66342590"
-        },
-        "date": 1728686369279,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29632.200125999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27937.362881999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5532.385138999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5229.549459999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86157.205925,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86157208000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15578.442138000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15578442000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3384472781,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3384472781 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 152654408,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 152654408 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2731867905,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2731867905 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126439816,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126439816 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3020,6 +2948,66 @@ window.BENCHMARK_DATA = {
             "value": 124772316,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 124772316 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f386963b06752087c2600949cbb4bb2910b25ef",
+          "message": "feat(avm)!: use 32 bit locations (#9596)\n\nContrary to what was expected months ago, we have to support contracts > 65 kB. So we need 32 bit locations in the upcoming move to byte-indexed PCs. This increseases bytecode ~8% in the short term. In the longer term, we might introduce relative jumps with 8 and 16 bit variants. That would likely leave us in an even better place than where we are today.\r\n\r\nPart of #9059.",
+          "timestamp": "2024-10-30T17:06:17Z",
+          "tree_id": "d69b174f994341af74ea4b06a9a284e4a18f829a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5f386963b06752087c2600949cbb4bb2910b25ef"
+        },
+        "date": 1730309688154,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 30537.163948,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28830.413115000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5378.605791999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5081.097699 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 90934.590223,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 90934592000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15165.98959,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15165989000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2706576734,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2706576734 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126468834,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126468834 ns\nthreads: 1"
           }
         ]
       }
