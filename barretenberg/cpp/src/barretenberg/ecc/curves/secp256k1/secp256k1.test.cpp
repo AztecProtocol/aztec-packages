@@ -134,6 +134,17 @@ TEST(secp256k1, TestSqr)
     }
 }
 
+TEST(secp256k1, SqrtRandom)
+{
+    size_t n = 1;
+    for (size_t i = 0; i < n; ++i) {
+        secp256k1::fq input = secp256k1::fq::random_element().sqr();
+        auto [is_sqr, root] = input.sqrt();
+        secp256k1::fq root_test = root.sqr();
+        EXPECT_EQ(root_test, input);
+    }
+}
+
 TEST(secp256k1, TestArithmetic)
 {
     secp256k1::fq a = secp256k1::fq::random_element();
