@@ -1,5 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { BatchCall, type PXE, type Wallet, createCompatibleClient } from '@aztec/aztec.js';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
 import { type AztecAddress, type EthAddress, Fq, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
@@ -12,8 +13,6 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-
-import { FeeJuicePortalManager } from '../../utils/portal_manager.js';
 
 type ContractDeploymentInfo = {
   address: AztecAddress;
@@ -241,7 +240,7 @@ async function fundFPC(
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await FeeJuicePortalManager.new(
+  const feeJuicePortal = await L1FeeJuicePortalManager.new(
     wallet,
     l1Clients.publicClient,
     l1Clients.walletClient,
@@ -249,7 +248,11 @@ async function fundFPC(
   );
 
   const amount = 10n ** 21n;
-  const { claimAmount, claimSecret } = await feeJuicePortal.bridgeTokensPublic(fpcAddress, amount, true);
+  const { claimAmount, claimSecret, messageLeafIndex } = await feeJuicePortal.bridgeTokensPublic(
+    fpcAddress,
+    amount,
+    true,
+  );
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
@@ -265,7 +268,7 @@ async function fundFPC(
     .wait({ proven: true, provenTimeout: 600 });
 
   await feeJuiceContract.methods
-    .claim(fpcAddress, claimAmount, claimSecret)
+    .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
     .send()
     .wait({ proven: true, provenTimeout: 600 });
 }

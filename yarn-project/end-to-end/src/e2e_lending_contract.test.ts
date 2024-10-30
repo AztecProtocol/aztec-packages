@@ -1,19 +1,11 @@
-import {
-  type AccountWallet,
-  type CheatCodes,
-  type DebugLogger,
-  type DeployL1Contracts,
-  ExtendedNote,
-  Fr,
-  Note,
-  computeSecretHash,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type CheatCodes, type DebugLogger, type DeployL1Contracts, Fr } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { afterAll, jest } from '@jest/globals';
 import { getContract } from 'viem';
 
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
@@ -105,26 +97,10 @@ describe('e2e_lending_contract', () => {
       const assets = [collateralAsset, stableCoin];
       const mintAmount = 10000n;
       for (const asset of assets) {
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-
-        const a = asset.methods.mint_public(lendingAccount.address, mintAmount).send();
-        const b = asset.methods.mint_private(mintAmount, secretHash).send();
-        await Promise.all([a, b].map(tx => tx.wait()));
-
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const txHash = await b.getTxHash();
-        const extendedNote = new ExtendedNote(
-          note,
-          wallet.getAddress(),
-          asset.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          txHash,
-        );
-        await wallet.addNote(extendedNote);
-
-        await asset.methods.redeem_shield(lendingAccount.address, mintAmount, secret).send().wait();
+        await Promise.all([
+          asset.methods.mint_public(lendingAccount.address, mintAmount).send().wait(),
+          mintTokensToPrivate(asset, wallet, lendingAccount.address, mintAmount),
+        ]);
       }
     }
 
