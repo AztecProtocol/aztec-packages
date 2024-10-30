@@ -54,19 +54,12 @@ struct ExecutionTraceUsageTracker {
         }
 
         size_t dyadic_circuit_size = circuit.get_circuit_subgroup_size(fixed_sizes.get_total_structured_size());
-        info("dyadic_circuit_size = ", dyadic_circuit_size);
 
         // Update ranges for databus and lookups to incorporate their respective tables
         active_ranges.busread.first = 0;
         active_ranges.busread.second = std::max(max_databus_size, active_ranges.busread.second);
         active_ranges.lookup.first = std::min(dyadic_circuit_size - max_tables_size, active_ranges.lookup.first);
         active_ranges.lookup.second = dyadic_circuit_size;
-
-        info("Active ranges: ");
-        for (auto range : active_ranges.get()) {
-            info("start = ", range.first);
-            info("end = ", range.second);
-        }
     }
 
     // Check whether an index is contained within the active ranges
@@ -78,7 +71,7 @@ struct ExecutionTraceUsageTracker {
             return true;
         }
         for (auto& range : active_ranges.get()) {
-            if (idx >= range.first && idx <= range.second) {
+            if (idx >= range.first && idx < range.second) {
                 return true;
             }
         }
@@ -96,6 +89,16 @@ struct ExecutionTraceUsageTracker {
         info("Minimum required block sizes for structured trace: ");
         for (auto [label, max_size] : zip_view(block_labels, max_sizes.get())) {
             std::cout << std::left << std::setw(20) << (label + ":") << max_size << std::endl;
+        }
+        info("");
+    }
+
+    void print_active_ranges()
+    {
+        info("Active regions of accumulator: ");
+        for (auto [label, range] : zip_view(block_labels, active_ranges.get())) {
+            std::cout << std::left << std::setw(20) << (label + ":") << "(" << range.first << ", " << range.second
+                      << ")" << std::endl;
         }
         info("");
     }

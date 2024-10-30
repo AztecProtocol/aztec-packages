@@ -221,7 +221,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    trace_usage_tracker.print();                  // print minimum structured sizes for each block
+    trace_usage_tracker.print(); // print minimum structured sizes for each block
+    trace_usage_tracker.print_active_ranges();
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;

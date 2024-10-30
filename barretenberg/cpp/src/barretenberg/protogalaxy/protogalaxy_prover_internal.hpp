@@ -109,7 +109,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const ProverPolynomials& polynomials,
         const RelationSeparator& alphas_,
         const RelationParameters<FF>& relation_parameters,
-        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
+        [[maybe_unused]] ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
 
     {
 
@@ -140,12 +140,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                     aggregated_relation_evaluations[row_idx] =
                         process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
                 }
-
-                // if (!trace_usage_tracker.check_containment(row_idx) &&
-                //     aggregated_relation_evaluations[row_idx] != 0) {
-                //     info("ROW IDX = ", row_idx);
-                //     info("VAL = ", aggregated_relation_evaluations[row_idx]);
-                // }
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
         aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
