@@ -59,12 +59,12 @@ contract FeeJuicePortal is IFeeJuicePortal {
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
    * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
-   * @return - The key of the entry in the Inbox
+   * @return - The key of the entry in the Inbox and its leaf index
    */
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
     override(IFeeJuicePortal)
-    returns (bytes32)
+    returns (bytes32, uint256)
   {
     // Preamble
     address rollup = canonicalRollup();
@@ -80,11 +80,11 @@ contract FeeJuicePortal is IFeeJuicePortal {
     UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    bytes32 key = inbox.sendL2Message(actor, contentHash, _secretHash);
+    (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
 
-    emit DepositToAztecPublic(_to, _amount, _secretHash, key);
+    emit DepositToAztecPublic(_to, _amount, _secretHash, key, index);
 
-    return key;
+    return (key, index);
   }
 
   /**

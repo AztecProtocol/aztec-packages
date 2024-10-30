@@ -1,7 +1,8 @@
 use crate::{
     abis::kernel_circuit_public_inputs::VMCircuitPublicInputs,
-    recursion::{
-        proof::NestedRecursiveProof, traits::Verifiable, verification_key::HonkVerificationKey,
+    proof::{
+        recursive_proof::NestedRecursiveProof, traits::Verifiable,
+        verification_key::HonkVerificationKey,
     },
 };
 

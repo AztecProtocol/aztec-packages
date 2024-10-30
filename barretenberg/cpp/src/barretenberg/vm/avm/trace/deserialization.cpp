@@ -34,10 +34,7 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
                                                         /*addrOffset=*/OperandType::UINT16,
                                                         /*argsOffset=*/OperandType::UINT16,
                                                         /*argsSize=*/OperandType::UINT16,
-                                                        /*retOffset=*/OperandType::UINT16,
-                                                        /*retSize*/ OperandType::UINT16,
-                                                        /*successOffset=*/OperandType::UINT16,
-                                                        /*functionSelector=*/OperandType::UINT16 };
+                                                        /*successOffset=*/OperandType::UINT16 };
 
 // Contrary to TS, the format does not contain the opcode byte which prefixes any instruction.
 // The format for OpCode::SET has to be handled separately as it is variable based on the tag.
@@ -88,11 +85,14 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::RETURNDATASIZE, { OperandType::INDIRECT8, OperandType::UINT16 } },
+    { OpCode::RETURNDATACOPY,
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
     // Machine State - Internal Control Flow
-    { OpCode::JUMP_16, { OperandType::UINT16 } },
-    { OpCode::JUMPI_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::INTERNALCALL, { OperandType::UINT16 } },
+    { OpCode::JUMP_32, { OperandType::UINT32 } },
+    { OpCode::JUMPI_32, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT16 } },
+    { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
 
     // Machine State - Memory
@@ -177,7 +177,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::MSM,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     // Gadget - Conversion
-    { OpCode::TORADIXLE,
+    { OpCode::TORADIXBE,
       { OperandType::INDIRECT8,
         OperandType::UINT16,
         OperandType::UINT16,

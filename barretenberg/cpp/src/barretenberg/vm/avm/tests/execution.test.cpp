@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/constants.hpp"
@@ -55,6 +56,8 @@ class AvmExecutionTests : public ::testing::Test {
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
         public_inputs_vec.at(ADDRESS_PCPI_OFFSET) = 0xdeadbeef;
+
+        public_inputs = convert_public_inputs(public_inputs_vec);
     };
 
     /**
@@ -320,7 +323,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "0004"                           // dst_offset 4
                                + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
-                               "0004"                           // jmp_dest
+                               "00000004"                       // jmp_dest
                                + to_hex(OpCode::ADD_16) +       // opcode ADD
                                "00"                             // Indirect flag
                                "0004"                           // addr a 4
@@ -348,7 +351,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     // INTERNALCALL
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::INTERNALCALL),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(4)))));
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(4)))));
 
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
@@ -385,7 +388,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 {
     auto internalCallInstructionHex = [](std::string const& dst_offset) {
         return to_hex(OpCode::INTERNALCALL) // opcode INTERNALCALL
-               + "00" + dst_offset;
+               + "000000" + dst_offset;
     };
 
     auto setInstructionHex = [](std::string const& val, std::string const& dst_offset) {
@@ -468,8 +471,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "0000"                           // cd_offset
                                "0001"                           // copy_size
                                "000A"                           // dst_offset // M[10] = 13, M[11] = 156
-                               + to_hex(OpCode::JUMP_16) +      // opcode JUMP
-                               "0005"                           // jmp_dest (FDIV located at 3)
+                               + to_hex(OpCode::JUMP_32) +      // opcode JUMP
+                               "00000005"                       // jmp_dest (FDIV located at 3)
                                + to_hex(OpCode::SUB_8) +        // opcode SUB
                                "00"                             // Indirect flag
                                "0B"                             // addr 11
@@ -504,8 +507,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 
     // JUMP
     EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::JUMP_16),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(5)))));
+                AllOf(Field(&Instruction::op_code, OpCode::JUMP_32),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(5)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -563,9 +566,9 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                + to_hex(AvmMemoryTag::U16) +
                                "14"                         // val 20
                                "65"                         // dst_offset 101
-                               + to_hex(OpCode::JUMPI_16) + // opcode JUMPI
+                               + to_hex(OpCode::JUMPI_32) + // opcode JUMPI
                                "00"                         // Indirect flag
-                               "0006"                       // jmp_dest (MUL located at 6)
+                               "00000006"                   // jmp_dest (MUL located at 6)
                                "000A"                       // cond_offset 10
                                + to_hex(OpCode::ADD_16) +   // opcode ADD
                                "00"                         // Indirect flag
@@ -593,9 +596,9 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     // JUMPI
     EXPECT_THAT(
         instructions.at(4),
-        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_16),
+        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_32),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(6), VariantWith<uint16_t>(10)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(6), VariantWith<uint16_t>(10)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -757,8 +760,8 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
     validate_trace(std::move(trace), public_inputs);
 }
 
-// Positive test with TO_RADIX_LE.
-TEST_F(AvmExecutionTests, toRadixLeOpcode)
+// Positive test with TO_RADIX_BE.
+TEST_F(AvmExecutionTests, toRadixBeOpcodeBytes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
                                "00"                    // Indirect flag
@@ -790,7 +793,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
                                + to_hex(AvmMemoryTag::U32) +
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
                                "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXLE) + // opcode TO_RADIX_LE
+                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
                                "0015"                        // dst_offset 21 (indirect)
@@ -811,21 +814,23 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
     auto trace =
         gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, execution_hints);
 
-    // Find the first row enabling the TORADIXLE selector
+    // Find the first row enabling the TORADIXBE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    std::vector<FF> expected_output;
+    size_t num_limbs = 256;
+    std::vector<FF> expected_output(num_limbs);
     // Extract each bit.
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < num_limbs; i++) {
+        auto byte_index = num_limbs - i - 1;
         FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output.emplace_back(expected_limb);
+        expected_output[byte_index] = expected_limb;
     }
     EXPECT_EQ(returndata, expected_output);
 
     validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) }, returndata);
 }
 
-// Positive test with TO_RADIX_LE.
-TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
+// Positive test with TO_RADIX_BE.
+TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
                                "00"                    // Indirect flag
@@ -857,7 +862,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
                                + to_hex(AvmMemoryTag::U32) +
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
                                "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXLE) + // opcode TO_RADIX_LE
+                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
                                "0015"                        // dst_offset 21 (indirect)
@@ -878,13 +883,15 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
     auto trace =
         gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, execution_hints);
 
-    // Find the first row enabling the TORADIXLE selector
+    // Find the first row enabling the TORADIXBE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    std::vector<FF> expected_output;
+    size_t num_limbs = 256;
+    std::vector<FF> expected_output(num_limbs);
     // Extract each bit.
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < num_limbs; i++) {
+        auto byte_index = num_limbs - i - 1;
         FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output.emplace_back(expected_limb);
+        expected_output[byte_index] = expected_limb;
     }
     EXPECT_EQ(returndata, expected_output);
 
@@ -1726,7 +1733,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
     // Trust me bro for now, this is the truncated sha output
-    FF expected_hash = FF(std::string("0x00c826495d6e1248a170accc2790424505d5d20204053143bda20812e360299e"));
+    FF expected_hash = FF(std::string("0x00b5c135991581f3049df936e35ef23af34bb04a4775426481d944d35a618e9d"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
     // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
@@ -2094,31 +2101,33 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                + to_hex(AvmMemoryTag::U32) +
                                "07" // val
                                "01" +
-                               to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset
-                               "0001"                         // copy_size
-                               "0000"                         // dst_offset
-                               + bytecode_preamble            // Load up memory offsets
-                               + to_hex(OpCode::CALL) +       // opcode CALL
-                               "003f"                         // Indirect flag
-                               "0011"                         // gas offset
-                               "0012"                         // addr offset
-                               "0013"                         // args offset
-                               "0014"                         // args size offset
-                               "0015"                         // ret offset
-                               "0002"                         // ret size
-                               "0016"                         // success offset
-                               "0017"                         // function_selector_offset
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "0100"                         // ret offset 8
-                               "0003";                        // ret size 3 (extra read is for the success flag)
+                               to_hex(OpCode::CALLDATACOPY) +     // opcode CALLDATACOPY
+                               "00"                               // Indirect flag
+                               "0000"                             // cd_offset
+                               "0001"                             // copy_size
+                               "0000"                             // dst_offset
+                               + bytecode_preamble                // Load up memory offsets
+                               + to_hex(OpCode::CALL) +           // opcode CALL
+                               "001f"                             // Indirect flag
+                               "0011"                             // gas offset
+                               "0012"                             // addr offset
+                               "0013"                             // args offset
+                               "0014"                             // args size offset
+                               "0016"                             // success offset
+                               + to_hex(OpCode::RETURNDATACOPY) + // opcode RETURNDATACOPY
+                               "00"                               // Indirect flag
+                               "0011"                             // start offset (0)
+                               "0012"                             // ret size (2)
+                               "0100"                             // dst offset
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0100"                             // ret offset 8
+                               "0003";                            // ret size 3 (extra read is for the success flag)
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    std::vector<FF> returndata = {};
+    std::vector<FF> returndata;
 
     // Generate Hint for call operation
     auto execution_hints = ExecutionHints().with_externalcall_hints({ {
@@ -2212,7 +2221,6 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
 TEST_F(AvmExecutionTests, opGetContractInstanceOpcodeBadEnum)
 {
     const uint8_t address_byte = 0x42;
-    const FF address(address_byte);
 
     std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
                                "00"                                                // Indirect flag

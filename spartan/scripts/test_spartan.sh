@@ -16,10 +16,17 @@ fi
 
 echo "Note: Repo should be bootstrapped with ./bootstrap.sh fast."
 
+# Helper function to get load balancer URL based on namespace and service name
+function get_load_balancer_url() {
+  local namespace=$1
+  local service_name=$2
+  kubectl get svc -n $namespace -o jsonpath="{.items[?(@.metadata.name=='$service_name')].status.loadBalancer.ingress[0].hostname}"
+}
+
 # Fetch the service URLs based on the namespace for injection in the test-transfer.sh
-export BOOTNODE_URL=http://$(kubectl get svc -n $NAMESPACE -o jsonpath="{.items[?(@.metadata.name=='$NAMESPACE-aztec-network-boot-node-lb-tcp')].status.loadBalancer.ingress[0].hostname}"):8080
-export PXE_URL=http://$(kubectl get svc -n $NAMESPACE -o jsonpath="{.items[?(@.metadata.name=='$NAMESPACE-aztec-network-pxe-lb')].status.loadBalancer.ingress[0].hostname}"):8080
-export ETHEREUM_HOST=http://$(kubectl get svc -n $NAMESPACE -o jsonpath="{.items[?(@.metadata.name=='$NAMESPACE-aztec-network-ethereum-lb')].status.loadBalancer.ingress[0].hostname}"):8545
+export BOOTNODE_URL=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-boot-node-lb-tcp"):8080
+export PXE_URL=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-pxe-lb"):8080
+export ETHEREUM_HOST=http://$(get_load_balancer_url $NAMESPACE "$NAMESPACE-aztec-network-ethereum-lb"):8545
 
 echo "BOOTNODE_URL: $BOOTNODE_URL"
 echo "PXE_URL: $PXE_URL"
@@ -27,4 +34,4 @@ echo "ETHEREUM_HOST: $ETHEREUM_HOST"
 
 # hack to ensure L2 contracts are considered deployed
 touch $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env
-bash -x $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/test-transfer.sh
+bash -x $SCRIPT_DIR/../../yarn-project/end-to-end/scripts/native-network/test-4epochs.sh

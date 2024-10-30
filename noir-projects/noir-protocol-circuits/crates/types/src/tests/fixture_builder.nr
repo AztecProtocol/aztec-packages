@@ -16,7 +16,6 @@ use crate::{
             KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
             PublicKernelCircuitPublicInputs, VMCircuitPublicInputs,
         },
-        kernel_data::KernelData,
         log_hash::{EncryptedLogHash, LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
         max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
@@ -40,7 +39,7 @@ use crate::{
             ScopedKeyValidationRequestAndGenerator,
         },
     },
-    address::{AztecAddress, EthAddress, PublicKeysHash, SaltedInitializationHash},
+    address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
         FUNCTION_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_FIELD_VALUE,
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
@@ -64,20 +63,12 @@ use crate::{
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference,
     point::Point,
-    public_keys::PublicKeys,
-    recursion::{
-        proof::NestedRecursiveProof,
+    proof::{
+        recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
     },
-    tests::fixtures::{
-        self,
-        contract_functions::ContractFunction,
-        contracts::ContractData,
-        vk_tree::{
-            generate_fake_client_ivc_vk_for_index, generate_fake_honk_vk_for_index,
-            get_vk_merkle_tree, VK_TREE_WIDTH,
-        },
-    },
+    public_keys::PublicKeys,
+    tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
     traits::Empty,
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
@@ -683,17 +674,6 @@ impl FixtureBuilder {
             start_state: self.start_state,
             revert_code: self.revert_code,
             fee_payer: self.fee_payer,
-        }
-    }
-
-    pub fn to_kernel_data(self) -> KernelData {
-        let public_inputs = self.to_kernel_circuit_public_inputs();
-        KernelData {
-            public_inputs,
-            proof: NestedRecursiveProof::empty(),
-            vk: self.honk_vk,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
         }
     }
 

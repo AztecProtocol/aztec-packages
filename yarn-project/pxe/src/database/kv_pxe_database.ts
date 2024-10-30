@@ -11,10 +11,11 @@ import {
   type ContractInstanceWithAddress,
   Header,
   SerializableContractInstance,
+  computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import {
   type AztecArray,
   type AztecKVStore,
@@ -46,7 +47,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #nullifiedNotesByContract: AztecMultiMap<string, string>;
   #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
   #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
-  #nullifiedNotesByIvpkM: AztecMultiMap<string, string>;
+  #nullifiedNotesByAddressPoint: AztecMultiMap<string, string>;
   #deferredNotes: AztecArray<Buffer | null>;
   #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
@@ -64,7 +65,9 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByContractAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByStorageSlotAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
-  #notesByIvpkMAndScope: Map<string, AztecMultiMap<string, string>>;
+  #notesByAddressPointAndScope: Map<string, AztecMultiMap<string, string>>;
+
+  #taggingSecretIndexes: AztecMap<string, number>;
 
   constructor(private db: AztecKVStore) {
     this.#db = db;
@@ -88,7 +91,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#nullifiedNotesByContract = db.openMultiMap('nullified_notes_by_contract');
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
-    this.#nullifiedNotesByIvpkM = db.openMultiMap('nullified_notes_by_ivpk_m');
+    this.#nullifiedNotesByAddressPoint = db.openMultiMap('nullified_notes_by_address_point');
 
     this.#deferredNotes = db.openArray('deferred_notes');
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
@@ -103,14 +106,16 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#notesByContractAndScope = new Map<string, AztecMultiMap<string, string>>();
     this.#notesByStorageSlotAndScope = new Map<string, AztecMultiMap<string, string>>();
     this.#notesByTxHashAndScope = new Map<string, AztecMultiMap<string, string>>();
-    this.#notesByIvpkMAndScope = new Map<string, AztecMultiMap<string, string>>();
+    this.#notesByAddressPointAndScope = new Map<string, AztecMultiMap<string, string>>();
 
     for (const scope of this.#scopes.entries()) {
       this.#notesByContractAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_contract`));
       this.#notesByStorageSlotAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_storage_slot`));
       this.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
-      this.#notesByIvpkMAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_ivpk_m`));
+      this.#notesByAddressPointAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_address_point`));
     }
+
+    this.#taggingSecretIndexes = db.openMap('tagging_secret_indices');
   }
 
   public async getContract(
@@ -197,7 +202,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
         void this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
-        void this.#notesByIvpkMAndScope.get(scope.toString())!.set(dao.ivpkM.toString(), noteIndex);
+        void this.#notesByAddressPointAndScope.get(scope.toString())!.set(dao.addressPoint.toString(), noteIndex);
       }
 
       for (const dao of outgoingNotes) {
@@ -262,9 +267,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner
-      ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterIncomingViewingPublicKey
-      : undefined;
+    const publicKey: PublicKey | undefined = filter.owner ? computePoint(filter.owner) : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
@@ -282,14 +285,14 @@ export class KVPxeDatabase implements PxeDatabase {
 
       activeNoteIdsPerScope.push(
         publicKey
-          ? this.#notesByIvpkMAndScope.get(formattedScopeString)!.getValues(publicKey.toString())
+          ? this.#notesByAddressPointAndScope.get(formattedScopeString)!.getValues(publicKey.toString())
           : filter.txHash
           ? this.#notesByTxHashAndScope.get(formattedScopeString)!.getValues(filter.txHash.toString())
           : filter.contractAddress
           ? this.#notesByContractAndScope.get(formattedScopeString)!.getValues(filter.contractAddress.toString())
           : filter.storageSlot
           ? this.#notesByStorageSlotAndScope.get(formattedScopeString)!.getValues(filter.storageSlot.toString())
-          : this.#notesByIvpkMAndScope.get(formattedScopeString)!.values(),
+          : this.#notesByAddressPointAndScope.get(formattedScopeString)!.values(),
       );
     }
 
@@ -301,7 +304,7 @@ export class KVPxeDatabase implements PxeDatabase {
     if (filter.status == NoteStatus.ACTIVE_OR_NULLIFIED) {
       candidateNoteSources.push({
         ids: publicKey
-          ? this.#nullifiedNotesByIvpkM.getValues(publicKey.toString())
+          ? this.#nullifiedNotesByAddressPoint.getValues(publicKey.toString())
           : filter.txHash
           ? this.#nullifiedNotesByTxHash.getValues(filter.txHash.toString())
           : filter.contractAddress
@@ -334,7 +337,7 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
 
-        if (publicKey && !note.ivpkM.equals(publicKey)) {
+        if (publicKey && !note.addressPoint.equals(publicKey)) {
           continue;
         }
 
@@ -399,7 +402,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(notes);
   }
 
-  removeNullifiedNotes(nullifiers: Fr[], accountIvpkM: PublicKey): Promise<IncomingNoteDao[]> {
+  removeNullifiedNotes(nullifiers: Fr[], accountAddressPoint: PublicKey): Promise<IncomingNoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
@@ -421,7 +424,7 @@ export class KVPxeDatabase implements PxeDatabase {
         }
 
         const note = IncomingNoteDao.fromBuffer(noteBuffer);
-        if (!note.ivpkM.equals(accountIvpkM)) {
+        if (!note.addressPoint.equals(accountAddressPoint)) {
           // tried to nullify someone else's note
           continue;
         }
@@ -431,7 +434,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#notes.delete(noteIndex);
 
         for (const scope in this.#scopes.entries()) {
-          void this.#notesByIvpkMAndScope.get(scope)!.deleteValue(accountIvpkM.toString(), noteIndex);
+          void this.#notesByAddressPointAndScope.get(scope)!.deleteValue(accountAddressPoint.toString(), noteIndex);
           void this.#notesByTxHashAndScope.get(scope)!.deleteValue(note.txHash.toString(), noteIndex);
           void this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
           void this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
@@ -441,7 +444,7 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
         void this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
         void this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
-        void this.#nullifiedNotesByIvpkM.set(note.ivpkM.toString(), noteIndex);
+        void this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
 
         void this.#nullifierToNoteId.delete(nullifier.toString());
       }
@@ -457,7 +460,7 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
     await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
     await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
-    await this.#nullifiedNotesByIvpkM.set(note.ivpkM.toString(), noteIndex);
+    await this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
 
     return Promise.resolve();
   }
@@ -495,7 +498,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#notesByContractAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_contract`));
     this.#notesByStorageSlotAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_storage_slot`));
     this.#notesByTxHashAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_tx_hash`));
-    this.#notesByIvpkMAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_ivpk_m`));
+    this.#notesByAddressPointAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_address_point`));
 
     return true;
   }
@@ -545,12 +548,12 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
   }
 
-  getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {
-    return this.#syncedBlockPerPublicKey.get(publicKey.toString());
+  getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
+    return this.#syncedBlockPerPublicKey.get(account.toString());
   }
 
-  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<void> {
-    return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
+  setSynchedBlockNumberForAccount(account: AztecAddress, blockNumber: number): Promise<void> {
+    return this.#syncedBlockPerPublicKey.set(account.toString(), blockNumber);
   }
 
   async estimateSize(): Promise<number> {
@@ -571,5 +574,21 @@ export class KVPxeDatabase implements PxeDatabase {
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
+  }
+
+  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
+    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+    await this.db.transaction(() => {
+      indexes.forEach(index => {
+        const nextIndex = index ? index + 1 : 1;
+        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
+      });
+    });
+  }
+
+  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+    return this.db.transaction(() =>
+      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
+    );
   }
 }

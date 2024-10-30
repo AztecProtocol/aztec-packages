@@ -5,6 +5,7 @@ import {
   type DebugLogger,
   EpochProofQuote,
   EpochProofQuotePayload,
+  TxStatus,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
@@ -387,12 +388,12 @@ describe('e2e_prover_coordination', () => {
     // Progress epochs with a block in each until we hit a reorg
     // Note tips are block numbers, not slots
     await expectTips({ pending: 3n, proven: 3n });
-    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+    const tx2BeforeReorg = await contract.methods.create_note(recipient, recipient, 10).send().wait();
     await expectTips({ pending: 4n, proven: 3n });
 
     // Go to epoch 3
     await advanceToNextEpoch();
-    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+    const tx3BeforeReorg = await contract.methods.create_note(recipient, recipient, 10).send().wait();
     await expectTips({ pending: 5n, proven: 3n });
 
     // Go to epoch 4 !!! REORG !!! ay caramba !!!
@@ -401,15 +402,32 @@ describe('e2e_prover_coordination', () => {
     // Wait a bit for the sequencer / node to notice a re-org
     await sleep(2000);
 
+    // the sequencer will add valid txs again but in a new block
+    const tx2AfterReorg = await ctx.aztecNode.getTxReceipt(tx2BeforeReorg.txHash);
+    const tx3AfterReorg = await ctx.aztecNode.getTxReceipt(tx3BeforeReorg.txHash);
+
+    // the tx from epoch 2 is still valid since it references a proven block
+    // this will be added back onto the chain
+    expect(tx2AfterReorg.status).toEqual(TxStatus.SUCCESS);
+    expect(tx2AfterReorg.blockNumber).toEqual(tx2BeforeReorg.blockNumber);
+    expect(tx2AfterReorg.blockHash).not.toEqual(tx2BeforeReorg.blockHash);
+
+    // the tx from epoch 3 is not valid anymore, since it was built against a reorged block
+    // should be dropped
+    expect(tx3AfterReorg.status).toEqual(TxStatus.DROPPED);
+
     // new pxe, as it does not support reorgs
     const pxeServiceConfig = { ...getPXEServiceConfig() };
     const newPxe = await createPXEService(ctx.aztecNode, pxeServiceConfig);
     const newWallet = await createAccount(newPxe);
     const newWalletAddress = newWallet.getAddress();
 
-    // The chain will re-org back to block 3, but creating a new account will produce a block, so we expect
-    // 4 blocks in the pending chain here!
-    await expectTips({ pending: 4n, proven: 3n });
+    // The chain will prune back to block 3
+    // then include the txs from the pruned epochs that are still valid
+    // bringing us back to block 4 (same number, different hash)
+    // creating a new account will produce another block
+    // so we expect 5 blocks in the pending chain here!
+    await expectTips({ pending: 5n, proven: 3n });
 
     // Submit proof claim for the new epoch
     const quoteForEpoch4 = await makeEpochProofQuote({
@@ -427,7 +445,7 @@ describe('e2e_prover_coordination', () => {
 
     logger.info('Sending new tx on reorged chain');
     await contractFromNewPxe.methods.create_note(newWalletAddress, newWalletAddress, 10).send().wait();
-    await expectTips({ pending: 5n, proven: 3n });
+    await expectTips({ pending: 6n, proven: 3n });
 
     // Expect the proof claim to be accepted for the chain after the reorg
     await expectProofClaimOnL1({ ...quoteForEpoch4.payload, proposer: publisherAddress });

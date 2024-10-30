@@ -14,14 +14,12 @@ contract StaticParent {
         target_selector: FunctionSelector,
         arg: Field,
     ) -> Field {
-        context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [arg].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.call_public_function(
+            target_contract,
+            target_selector,
+            [arg].as_slice(),
+            GasOpts::default(),
+        )[0]
     }
 
     // Private function to directly call another private function to the target_contract using the selector and args provided
@@ -114,14 +112,12 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 1],
     ) -> Field {
-        context
-            .static_call_public_function(
-                target_contract,
-                target_selector,
-                args.as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.static_call_public_function(
+            target_contract,
+            target_selector,
+            args.as_slice(),
+            GasOpts::default(),
+        )[0]
     }
 
     // Same as above but using a specific function from the interface

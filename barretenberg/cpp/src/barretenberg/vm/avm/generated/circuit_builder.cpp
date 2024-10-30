@@ -241,7 +241,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.conversion_num_limbs.set_if_valid_index(i, rows[i].conversion_num_limbs);
                 polys.conversion_output_bits.set_if_valid_index(i, rows[i].conversion_output_bits);
                 polys.conversion_radix.set_if_valid_index(i, rows[i].conversion_radix);
-                polys.conversion_sel_to_radix_le.set_if_valid_index(i, rows[i].conversion_sel_to_radix_le);
+                polys.conversion_sel_to_radix_be.set_if_valid_index(i, rows[i].conversion_sel_to_radix_be);
                 polys.keccakf1600_clk.set_if_valid_index(i, rows[i].keccakf1600_clk);
                 polys.keccakf1600_input.set_if_valid_index(i, rows[i].keccakf1600_input);
                 polys.keccakf1600_output.set_if_valid_index(i, rows[i].keccakf1600_output);
@@ -356,7 +356,9 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.main_sel_op_nullifier_exists.set_if_valid_index(i, rows[i].main_sel_op_nullifier_exists);
                 polys.main_sel_op_or.set_if_valid_index(i, rows[i].main_sel_op_or);
                 polys.main_sel_op_poseidon2.set_if_valid_index(i, rows[i].main_sel_op_poseidon2);
-                polys.main_sel_op_radix_le.set_if_valid_index(i, rows[i].main_sel_op_radix_le);
+                polys.main_sel_op_radix_be.set_if_valid_index(i, rows[i].main_sel_op_radix_be);
+                polys.main_sel_op_returndata_copy.set_if_valid_index(i, rows[i].main_sel_op_returndata_copy);
+                polys.main_sel_op_returndata_size.set_if_valid_index(i, rows[i].main_sel_op_returndata_size);
                 polys.main_sel_op_sender.set_if_valid_index(i, rows[i].main_sel_op_sender);
                 polys.main_sel_op_set.set_if_valid_index(i, rows[i].main_sel_op_set);
                 polys.main_sel_op_sha256.set_if_valid_index(i, rows[i].main_sel_op_sha256);
@@ -423,6 +425,19 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.mem_tsp.set_if_valid_index(i, rows[i].mem_tsp);
                 polys.mem_val.set_if_valid_index(i, rows[i].mem_val);
                 polys.mem_w_in_tag.set_if_valid_index(i, rows[i].mem_w_in_tag);
+                polys.merkle_tree_clk.set_if_valid_index(i, rows[i].merkle_tree_clk);
+                polys.merkle_tree_expected_tree_root.set_if_valid_index(i, rows[i].merkle_tree_expected_tree_root);
+                polys.merkle_tree_latch.set_if_valid_index(i, rows[i].merkle_tree_latch);
+                polys.merkle_tree_leaf_index.set_if_valid_index(i, rows[i].merkle_tree_leaf_index);
+                polys.merkle_tree_leaf_index_is_even.set_if_valid_index(i, rows[i].merkle_tree_leaf_index_is_even);
+                polys.merkle_tree_leaf_value.set_if_valid_index(i, rows[i].merkle_tree_leaf_value);
+                polys.merkle_tree_left_hash.set_if_valid_index(i, rows[i].merkle_tree_left_hash);
+                polys.merkle_tree_output_hash.set_if_valid_index(i, rows[i].merkle_tree_output_hash);
+                polys.merkle_tree_path_len.set_if_valid_index(i, rows[i].merkle_tree_path_len);
+                polys.merkle_tree_path_len_inv.set_if_valid_index(i, rows[i].merkle_tree_path_len_inv);
+                polys.merkle_tree_right_hash.set_if_valid_index(i, rows[i].merkle_tree_right_hash);
+                polys.merkle_tree_sel_merkle_tree.set_if_valid_index(i, rows[i].merkle_tree_sel_merkle_tree);
+                polys.merkle_tree_sibling_value.set_if_valid_index(i, rows[i].merkle_tree_sibling_value);
                 polys.poseidon2_B_10_0.set_if_valid_index(i, rows[i].poseidon2_B_10_0);
                 polys.poseidon2_B_10_1.set_if_valid_index(i, rows[i].poseidon2_B_10_1);
                 polys.poseidon2_B_10_2.set_if_valid_index(i, rows[i].poseidon2_B_10_2);
@@ -714,6 +729,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                     i, rows[i].poseidon2_full_num_perm_rounds_rem_inv);
                 polys.poseidon2_full_output.set_if_valid_index(i, rows[i].poseidon2_full_output);
                 polys.poseidon2_full_padding.set_if_valid_index(i, rows[i].poseidon2_full_padding);
+                polys.poseidon2_full_sel_merkle_tree.set_if_valid_index(i, rows[i].poseidon2_full_sel_merkle_tree);
                 polys.poseidon2_full_sel_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_sel_poseidon);
                 polys.poseidon2_full_start_poseidon.set_if_valid_index(i, rows[i].poseidon2_full_start_poseidon);
                 polys.poseidon2_input_addr.set_if_valid_index(i, rows[i].poseidon2_input_addr);

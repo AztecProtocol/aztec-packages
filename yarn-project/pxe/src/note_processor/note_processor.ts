@@ -4,8 +4,8 @@ import {
   type CompleteAddress,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
-  type PublicKey,
   computeAddressSecret,
+  computePoint,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
@@ -54,10 +54,6 @@ export class NoteProcessor {
 
   private constructor(
     public readonly account: CompleteAddress,
-    /** The public counterpart to the secret key to be used in the decryption of incoming note logs. */
-    private readonly ivpkM: PublicKey,
-    /** The public counterpart to the secret key to be used in the decryption of outgoing note logs. */
-    private readonly ovpkM: PublicKey,
     private keyStore: KeyStore,
     private db: PxeDatabase,
     private node: AztecNode,
@@ -66,7 +62,7 @@ export class NoteProcessor {
     private log: Logger,
   ) {}
 
-  public static async create(
+  public static create(
     account: CompleteAddress,
     keyStore: KeyStore,
     db: PxeDatabase,
@@ -75,10 +71,7 @@ export class NoteProcessor {
     simulator = getAcirSimulator(db, node, keyStore),
     log = createDebugLogger('aztec:note_processor'),
   ) {
-    const ivpkM = await keyStore.getMasterIncomingViewingPublicKey(account.address);
-    const ovpkM = await keyStore.getMasterOutgoingViewingPublicKey(account.address);
-
-    return new NoteProcessor(account, ivpkM, ovpkM, keyStore, db, node, startingBlock, simulator, log);
+    return new NoteProcessor(account, keyStore, db, node, startingBlock, simulator, log);
   }
 
   /**
@@ -101,7 +94,7 @@ export class NoteProcessor {
   }
 
   private getSyncedToBlock(): number {
-    return this.db.getSynchedBlockNumberForPublicKey(this.ivpkM) ?? this.startingBlock - 1;
+    return this.db.getSynchedBlockNumberForAccount(this.account.address) ?? this.startingBlock - 1;
   }
 
   /**
@@ -120,10 +113,10 @@ export class NoteProcessor {
     const deferredIncomingNotes: DeferredNoteDao[] = [];
     const deferredOutgoingNotes: DeferredNoteDao[] = [];
 
-    const ivskM = await this.keyStore.getMasterSecretKey(this.ivpkM);
+    const ivskM = await this.keyStore.getMasterSecretKey(this.account.publicKeys.masterIncomingViewingPublicKey);
     const addressSecret = computeAddressSecret(this.account.getPreaddress(), ivskM);
 
-    const ovskM = await this.keyStore.getMasterSecretKey(this.ovpkM);
+    const ovskM = await this.keyStore.getMasterSecretKey(this.account.publicKeys.masterOutgoingViewingPublicKey);
 
     // Iterate over both blocks and encrypted logs.
     for (const block of blocks) {
@@ -176,8 +169,8 @@ export class NoteProcessor {
                   await produceNoteDaos(
                     this.simulator,
                     this.db,
-                    incomingNotePayload ? this.ivpkM : undefined,
-                    outgoingNotePayload ? this.ovpkM : undefined,
+                    incomingNotePayload ? computePoint(this.account.address) : undefined,
+                    outgoingNotePayload ? this.account.publicKeys.masterOutgoingViewingPublicKey : undefined,
                     payload!,
                     txEffect.txHash,
                     noteHashes,
@@ -224,7 +217,7 @@ export class NoteProcessor {
     await this.processDeferredNotes(deferredIncomingNotes, deferredOutgoingNotes);
 
     const syncedToBlock = blocks[blocks.length - 1].number;
-    await this.db.setSynchedBlockNumberForPublicKey(this.ivpkM, syncedToBlock);
+    await this.db.setSynchedBlockNumberForAccount(this.account.address, syncedToBlock);
 
     this.log.debug(`Synched block ${syncedToBlock}`);
   }
@@ -258,7 +251,7 @@ export class NoteProcessor {
     const nullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
-    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, this.ivpkM);
+    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, computePoint(this.account.address));
     removedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${
@@ -317,8 +310,8 @@ export class NoteProcessor {
     for (const deferredNote of deferredNoteDaos) {
       const { publicKey, payload, txHash, noteHashes, dataStartIndexForTx, unencryptedLogs } = deferredNote;
 
-      const isIncoming = publicKey.equals(this.ivpkM);
-      const isOutgoing = publicKey.equals(this.ovpkM);
+      const isIncoming = publicKey.equals(computePoint(this.account.address));
+      const isOutgoing = publicKey.equals(this.account.publicKeys.masterOutgoingViewingPublicKey);
 
       if (!isIncoming && !isOutgoing) {
         // The note does not belong to this note processor
@@ -328,8 +321,8 @@ export class NoteProcessor {
       const { incomingNote, outgoingNote } = await produceNoteDaos(
         this.simulator,
         this.db,
-        isIncoming ? this.ivpkM : undefined,
-        isOutgoing ? this.ovpkM : undefined,
+        isIncoming ? computePoint(this.account.address) : undefined,
+        isOutgoing ? this.account.publicKeys.masterOutgoingViewingPublicKey : undefined,
         payload,
         txHash,
         noteHashes,

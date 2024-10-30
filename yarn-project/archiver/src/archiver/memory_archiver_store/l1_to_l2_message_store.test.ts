@@ -25,22 +25,9 @@ describe('l1_to_l2_message_store', () => {
     expect(retrievedMsgs.length).toEqual(10);
 
     const msg = msgs[4];
-    const expectedIndex = store.getMessageIndex(msg.leaf, 0n)!;
+    const expectedIndex = store.getMessageIndex(msg.leaf);
     expect(expectedIndex).toEqual(
       (blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + 4n,
     );
-  });
-
-  it('correctly handles duplicate messages', () => {
-    const messageHash = Fr.random();
-
-    store.addMessage(new InboxLeaf(0n, messageHash)); // l2 block 1
-    store.addMessage(new InboxLeaf(16n, messageHash)); // l2 block 2
-
-    const index1 = store.getMessageIndex(messageHash, 0n)!;
-    const index2 = store.getMessageIndex(messageHash, index1 + 1n);
-
-    expect(index2).toBeDefined();
-    expect(index2).toBeGreaterThan(index1);
   });
 });

@@ -54,6 +54,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES;
+    // Total number of folded polynomials, which is just all polynomials except the shifts
+    static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from Mega
@@ -155,10 +157,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            this->databus_propagation_data.contains_app_return_data_commitment =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->databus_propagation_data.contains_kernel_return_data_commitment =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->databus_propagation_data.app_return_data_public_input_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->databus_propagation_data.kernel_return_data_public_input_idx =

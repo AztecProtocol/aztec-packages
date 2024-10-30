@@ -401,8 +401,8 @@ describe('Private Execution test suite', () => {
       );
 
       const notes = [
-        buildNote(60n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, valueNoteTypeId),
-        buildNote(80n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, valueNoteTypeId),
+        buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
+        buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ];
       oracle.getNotes.mockResolvedValue(notes);
 
@@ -468,14 +468,7 @@ describe('Private Execution test suite', () => {
 
       const storageSlot = deriveStorageSlotInMap(new Fr(1n), owner);
 
-      const notes = [
-        buildNote(
-          balance,
-          ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(),
-          storageSlot,
-          valueNoteTypeId,
-        ),
-      ];
+      const notes = [buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -603,6 +596,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
       let bridgedAmount = 100n;
 
+      const l1ToL2MessageIndex = 0;
       const secretHashForRedeemingNotes = new Fr(2n);
       let secretForL1ToL2MessageConsumption = new Fr(1n);
 
@@ -627,6 +621,7 @@ describe('Private Execution test suite', () => {
           [secretHashForRedeemingNotes, new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
+          l1ToL2MessageIndex,
         );
 
       const computeArgs = () =>
@@ -635,6 +630,7 @@ describe('Private Execution test suite', () => {
           bridgedAmount,
           secretForL1ToL2MessageConsumption,
           crossChainMsgSender ?? preimage.sender.sender,
+          l1ToL2MessageIndex,
         ]);
 
       const mockOracles = async (updateHeader = true) => {
