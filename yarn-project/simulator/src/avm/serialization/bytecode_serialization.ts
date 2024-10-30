@@ -157,6 +157,21 @@ export function encodeToBytecode(instructions: Serializable[]): Buffer {
   return Buffer.concat(instructions.map(i => i.serialize()));
 }
 
+// For testing only
+export function decodeFromBytecode(
+  bytecode: Buffer,
+  instructionSet: InstructionSet = INSTRUCTION_SET(),
+): Instruction[] {
+  const instructions: Instruction[] = [];
+  let pc = 0;
+  while (pc < bytecode.length) {
+    const [instruction, bytesConsumed] = decodeInstructionFromBytecode(bytecode, pc, instructionSet);
+    instructions.push(instruction);
+    pc += bytesConsumed;
+  }
+  return instructions;
+}
+
 // Returns the instruction and the number of bytes consumed.
 export function decodeInstructionFromBytecode(
   bytecode: Buffer,
