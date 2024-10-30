@@ -74,7 +74,7 @@ export class L2BlockStream {
       while (latestBlockNumber < sourceTips.latest.number) {
         const from = latestBlockNumber + 1;
         const limit = Math.min(this.opts.batchSize ?? 20, sourceTips.latest.number - from + 1);
-        this.log.debug(`Requesting blocks from ${from} limit ${limit}`);
+        this.log.debug(`Requesting blocks from ${from} limit ${limit} proven=${this.opts.proven}`);
         const blocks = await this.l2BlockSource.getBlocks(from, limit, this.opts.proven);
         if (blocks.length === 0) {
           break;

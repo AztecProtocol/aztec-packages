@@ -10,7 +10,6 @@ import {
   type PXE,
   SignerlessWallet,
   type TxHash,
-  computeSecretHash,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
@@ -34,6 +33,7 @@ import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import {
   type BalancesFn,
   ensureAccountsPubliclyDeployed,
@@ -130,27 +130,11 @@ export class FeesTest {
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
     const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate();
-    const secret = await this.mintShieldedBananas(amount, address);
-    await this.redeemShieldedBananas(amount, address, secret);
+
+    await mintTokensToPrivate(this.bananaCoin, this.aliceWallet, address, amount);
+
     const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
-  }
-
-  /** Alice mints bananaCoin tokens privately to the target address but does not redeem them yet. */
-  async mintShieldedBananas(amount: bigint, address: AztecAddress) {
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-    this.logger.debug(`Minting ${amount} bananas privately for ${address} with secret ${secretHash.toString()}`);
-    const receipt = await this.bananaCoin.methods.mint_private(amount, secretHash).send().wait();
-    await this.addPendingShieldNoteToPXE(this.aliceAddress, amount, secretHash, receipt.txHash);
-    return secret;
-  }
-
-  /** Redeemer (defaults to Alice) redeems shielded bananas for the target address. */
-  async redeemShieldedBananas(amount: bigint, address: AztecAddress, secret: Fr, redeemer?: AccountWallet) {
-    this.logger.debug(`Redeeming ${amount} bananas for ${address}`);
-    const bananaCoin = redeemer ? this.bananaCoin.withWallet(redeemer) : this.bananaCoin;
-    await bananaCoin.methods.redeem_shield(address, amount, secret).send().wait();
   }
 
   /** Adds a pending shield transparent node for the banana coin token contract to the pxe. */

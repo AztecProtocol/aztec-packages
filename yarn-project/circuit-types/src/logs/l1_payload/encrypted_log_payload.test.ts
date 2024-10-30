@@ -45,7 +45,7 @@ describe('EncryptedLogPayload', () => {
 
       const ephSk = GrumpkinScalar.random();
 
-      encrypted = original.encrypt(ephSk, completeAddress.address, computePoint(completeAddress.address), ovKeys);
+      encrypted = original.encrypt(ephSk, completeAddress.address, ovKeys);
     });
 
     it('decrypt a log as incoming', () => {
@@ -133,13 +133,7 @@ describe('EncryptedLogPayload', () => {
       );
     };
 
-    const encrypted = log.encrypt(
-      ephSk,
-      recipientCompleteAddress.address,
-      computePoint(recipientCompleteAddress.address),
-      ovKeys,
-      fixedRand,
-    );
+    const encrypted = log.encrypt(ephSk, recipientCompleteAddress.address, ovKeys, fixedRand);
     expect(encrypted.length).toBe(PRIVATE_LOG_SIZE_IN_BYTES);
 
     const encryptedStr = encrypted.toString('hex');

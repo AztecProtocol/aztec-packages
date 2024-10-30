@@ -8,6 +8,7 @@ import {
   Point,
   type PublicKey,
   computeOvskApp,
+  computePoint,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -60,16 +61,13 @@ export class EncryptedLogPayload {
   public encrypt(
     ephSk: GrumpkinScalar,
     recipient: AztecAddress,
-    ivpk: PublicKey,
     ovKeys: KeyValidationRequest,
     rand: (len: number) => Buffer = randomBytes,
   ): Buffer {
-    if (ivpk.isZero()) {
-      throw new Error(`Attempting to encrypt an event log with a zero ivpk.`);
-    }
+    const addressPoint = computePoint(recipient);
 
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
-    const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, ivpk);
+    const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
     const outgoingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, ovKeys.pkM);
 
     if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
@@ -80,7 +78,7 @@ export class EncryptedLogPayload {
     }
 
     // The serialization of Fq is [high, low] check `outgoing_body.nr`
-    const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, ivpk.toCompressedBuffer());
+    const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, addressPoint.toCompressedBuffer());
     const outgoingBodyCiphertext = encrypt(
       outgoingBodyPlaintext,
       ovKeys.skAppAsGrumpkinScalar,
@@ -116,7 +114,7 @@ export class EncryptedLogPayload {
       this.incomingBodyPlaintext,
       rand(numPaddedBytes),
     ]);
-    const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, ivpk);
+    const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, addressPoint);
     if (incomingBodyCiphertext.length !== INCOMING_BODY_SIZE) {
       throw new Error(
         `Invalid incoming body size. Expected ${INCOMING_BODY_SIZE}. Got ${incomingBodyCiphertext.length}`,
@@ -129,18 +127,18 @@ export class EncryptedLogPayload {
   /**
    * Decrypts a ciphertext as an incoming log.
    *
-   * This is executable by the recipient of the note, and uses the ivsk to decrypt the payload.
+   * This is executable by the recipient of the note, and uses the addressSecret to decrypt the payload.
    * The outgoing parts of the log are ignored entirely.
    *
    * Produces the same output as `decryptAsOutgoing`.
    *
    * @param ciphertext - The ciphertext for the log
-   * @param ivsk - The incoming viewing secret key, used to decrypt the logs
+   * @param addressSecret - The incoming viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
   public static decryptAsIncoming(
     ciphertext: Buffer | BufferReader,
-    ivsk: GrumpkinScalar,
+    addressSecret: GrumpkinScalar,
   ): EncryptedLogPayload | undefined {
     const reader = BufferReader.asReader(ciphertext);
 
@@ -150,7 +148,7 @@ export class EncryptedLogPayload {
 
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
-      const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
+      const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), addressSecret, ephPk);
 
       // Skipping the outgoing header and body
       reader.readBytes(HEADER_SIZE);
@@ -158,7 +156,7 @@ export class EncryptedLogPayload {
 
       // The incoming can be of variable size, so we read until the end
       const ciphertext = reader.readToEnd();
-      const decrypted = decrypt(ciphertext, ivsk, ephPk);
+      const decrypted = decrypt(ciphertext, addressSecret, ephPk);
       const length = decrypted.readUint8(0);
       const incomingBodyPlaintext = decrypted.subarray(1, 1 + length);
 
@@ -218,19 +216,19 @@ export class EncryptedLogPayload {
       const ovskApp = computeOvskApp(ovsk, contractAddress);
 
       let ephSk: GrumpkinScalar;
-      let recipientIvpk: PublicKey;
+      let recipientAddressPoint: PublicKey;
       {
         const outgoingBody = decrypt(reader.readBytes(OUTGOING_BODY_SIZE), ovskApp, ephPk, derivePoseidonAESSecret);
         const obReader = BufferReader.asReader(outgoingBody);
 
-        // From outgoing body we extract ephSk, recipient and recipientIvpk
+        // From outgoing body we extract ephSk, recipient and recipientAddressPoint
         ephSk = GrumpkinScalar.fromHighLow(obReader.readObject(Fr), obReader.readObject(Fr));
         const _recipient = obReader.readObject(AztecAddress);
-        recipientIvpk = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+        recipientAddressPoint = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
       }
 
       // Now we decrypt the incoming body using the ephSk and recipientIvpk
-      const decryptedIncomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
+      const decryptedIncomingBody = decrypt(reader.readToEnd(), ephSk, recipientAddressPoint);
       const length = decryptedIncomingBody.readUint8(0);
       const incomingBody = decryptedIncomingBody.subarray(1, 1 + length);
 

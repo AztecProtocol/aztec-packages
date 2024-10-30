@@ -39,7 +39,7 @@ export class OutgoingNoteDao {
     payload: L1NotePayload,
     noteInfo: NoteInfo,
     dataStartIndexForTx: number,
-    ivpkM: PublicKey,
+    ovpkM: PublicKey,
   ) {
     const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
     return new OutgoingNoteDao(
@@ -51,7 +51,7 @@ export class OutgoingNoteDao {
       noteInfo.nonce,
       noteInfo.noteHash,
       noteHashIndexInTheWholeTree,
-      ivpkM,
+      ovpkM,
     );
   }
 
