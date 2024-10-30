@@ -62,14 +62,19 @@ describe('Logs', () => {
       expect(decryptedEvent0.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent0(Field,Field)'));
 
       // We decode our event into the event type
-      const event0 = TestLogContract.events.ExampleEvent0.decode(decryptedEvent0);
+      const event0Metadata = new EventMetadata<ExampleEvent0>(
+        TestLogContract.events.ExampleEvent0.eventSelector,
+        TestLogContract.events.ExampleEvent0.abiType,
+        TestLogContract.events.ExampleEvent0.fieldNames,
+      );
+      const event0 = event0Metadata.decode(decryptedEvent0);
 
       // We check that the event was decoded correctly
       expect(event0?.value0).toStrictEqual(preimage[0].toBigInt());
       expect(event0?.value1).toStrictEqual(preimage[1].toBigInt());
 
       // We check that an event that does not match, is not decoded correctly due to an event type id mismatch
-      const badEvent0 = TestLogContract.events.ExampleEvent1.decode(decryptedEvent0);
+      const badEvent0 = event0Metadata.decode(decryptedEvent0);
       expect(badEvent0).toBe(undefined);
 
       const decryptedEvent1 = L1EventPayload.decryptAsIncoming(encryptedLogs[2], wallets[0].getEncryptionSecret())!;
@@ -79,7 +84,12 @@ describe('Logs', () => {
       expect(decryptedEvent1.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent1((Field),u8)'));
 
       // We check our second event, which is a different type
-      const event1 = TestLogContract.events.ExampleEvent1.decode(decryptedEvent1);
+      const event1Metadata = new EventMetadata<ExampleEvent1>(
+        TestLogContract.events.ExampleEvent1.eventSelector,
+        TestLogContract.events.ExampleEvent1.abiType,
+        TestLogContract.events.ExampleEvent1.fieldNames,
+      );
+      const event1 = event1Metadata.decode(decryptedEvent1);
 
       // We expect the fields to have been populated correctly
       expect(event1?.value2).toStrictEqual(preimage[2]);
@@ -87,7 +97,7 @@ describe('Logs', () => {
       expect(event1?.value3).toStrictEqual(BigInt(preimage[3].toBuffer().subarray(31).readUint8()));
 
       // Again, trying to decode another event with mismatching data does not yield anything
-      const badEvent1 = TestLogContract.events.ExampleEvent0.decode(decryptedEvent1);
+      const badEvent1 = event1Metadata.decode(decryptedEvent1);
       expect(badEvent1).toBe(undefined);
     });
 
