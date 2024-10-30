@@ -86,22 +86,20 @@ export class GrumpkinCrs {
 
   async init() {
     mkdirSync(this.path, { recursive: true });
-    const size = await readFile(this.path + '/grumpkin_size', 'ascii').catch(() => undefined);
-    if (size && +size >= this.numPoints) {
-      debug(`using cached crs of size: ${size}`);
+
+    const g1FileSize = await stat(this.path + '/grumpkin_g1.dat')
+      .then(stats => stats.size)
+      .catch(() => 0);
+
+    if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0) {
+      debug(`using cached crs of size: ${g1FileSize / 64}`);
       return;
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/813): implement NetCrs for Grumpkin once SRS is uploaded.
-    const ignitionCrs = new IgnitionFilesCrs(this.numPoints, GRUMPKIN_SRS_DEV_PATH);
-    if (ignitionCrs.pathExists()) {
-      await ignitionCrs.init();
-    }
-    const g1Data = ignitionCrs.pathExists() ? ignitionCrs.getG1Data() : await this.downloadG1Data();
-    debug(`loading ignition file crs of size: ${this.numPoints}`);
-    // await crs.init();
-    writeFileSync(this.path + '/grumpkin_size', this.numPoints.toString());
-    writeFileSync(this.path + '/grumpkin_g1.dat', g1Data);
+    debug(`downloading crs of size: ${this.numPoints}`);
+    const crs = new NetCrs(this.numPoints);
+    await crs.init();
+    writeFileSync(this.path + '/grumpkin_g1.dat', crs.getG1Data());
   }
 
   /**

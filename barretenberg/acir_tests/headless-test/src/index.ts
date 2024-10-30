@@ -1,12 +1,15 @@
 import { chromium, firefox, webkit } from "playwright";
 import fs from "fs";
 import { Command } from "commander";
+import { ungzip } from "pako";
+import { decode } from "@msgpack/msgpack";
 import chalk from "chalk";
 import os from "os";
 
 const { BROWSER } = process.env;
 
 function formatAndPrintLog(message: string): void {
+  console.log(message);
   const parts = message.split("%c");
   if (parts.length === 1) {
     console.log(parts[0]);
@@ -36,6 +39,27 @@ function formatAndPrintLog(message: string): void {
   console.log(formattedMessage);
 }
 
+function base64ToUint8Array(base64: string) {
+  let binaryString = atob(base64);
+  let len = binaryString.length;
+  let bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function readStack(bytecodePath: string, numToDrop: number) {
+  const encodedCircuit = base64ToUint8Array(
+    fs.readFileSync(bytecodePath, "utf8")
+  );
+  const unpacked = decode(
+    encodedCircuit.subarray(0, encodedCircuit.length - numToDrop)
+  ) as Uint8Array[];
+  const decompressed = unpacked.map((arr: Uint8Array) => ungzip(arr));
+  return decompressed;
+}
+
 const readBytecodeFile = (path: string): string => {
   const encodedCircuit = JSON.parse(fs.readFileSync(path, "utf8"));
   return encodedCircuit.bytecode;
@@ -52,23 +76,24 @@ program.option("-v, --verbose", "verbose logging");
 program.option("-c, --crs-path <path>", "ignored (here for compatibility)");
 
 program
-  .command("prove_and_verify")
+  .command("client_ivc_prove_and_verify")
   .description(
     "Generate a proof and verify it. Process exits with success or failure code."
   )
   .option(
     "-b, --bytecode-path <path>",
     "Specify the path to the ACIR artifact json file",
-    "./target/acir.json"
+    "./target/acir.msgpack.b64"
   )
   .option(
     "-w, --witness-path <path>",
     "Specify the path to the gzip encoded ACIR witness",
-    "./target/witness.gz"
+    "./target/witnesses.msgpack.b64"
   )
   .action(async ({ bytecodePath, witnessPath, recursive }) => {
-    const acir = readBytecodeFile(bytecodePath);
-    const witness = readWitnessFile(witnessPath);
+    console.log("reading stacks...");
+    const acir = readStack(bytecodePath, 0);
+    const witness = readStack(witnessPath, 0);
     const threads = Math.min(os.cpus().length, 16);
 
     const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
@@ -81,27 +106,34 @@ program
       const browser = await browserType.launch();
 
       const context = await browser.newContext();
+      context.on("console", (msg) => {
+        console.log(`[${msg.type()}] ${msg.text()}`);
+      });
+
       const page = await context.newPage();
 
-      if (program.opts().verbose) {
-        page.on("console", (msg) => formatAndPrintLog(msg.text()));
-      }
+      // if (program.opts().verbose) {
+      console.log("verbose is turned on!");
+      page.on("console", (msg) => formatAndPrintLog(msg.text()));
+      // }
 
+      console.log("going to page");
       await page.goto("http://localhost:8080");
+      console.log("went to page");
 
+      await page.evaluate(() => console.log("This is a log from the browser!"));
+      await page.evaluate(() =>
+        console.debug("This is a debug log from the browser!")
+      );
+      await page.evaluate(() =>
+        console.info("This is an info log from the browser!")
+      );
       const result: boolean = await page.evaluate(
-        ([acir, witnessData, threads]: [string, number[], number]) => {
-          // Convert the input data to Uint8Arrays within the browser context
-          const witnessUint8Array = new Uint8Array(witnessData);
-
+        ([acir, witness, threads]: [Uint8Array[], Uint8Array[], number]) => {
           // Call the desired function and return the result
-          return (window as any).runTest(
-            acir,
-            witnessUint8Array,
-            threads
-          );
+          return (window as any).runTest(acir, witness, threads);
         },
-        [acir, Array.from(witness), threads]
+        [acir, witness, threads]
       );
 
       await browser.close();

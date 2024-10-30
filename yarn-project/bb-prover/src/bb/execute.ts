@@ -223,7 +223,7 @@ export async function executeBbClientIvcProof(
     const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`client ivc proof BB out - ${message}`);
+      log(`bb - ${message}`);
     };
 
     const result = await executeBB(pathToBB, 'client_ivc_prove_output_all_msgpack', args, logFunction);
@@ -247,6 +247,56 @@ export async function executeBbClientIvcProof(
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
   }
 }
+
+export async function executeBbClientIvcProveAndVerify(
+  pathToBB: string,
+  workingDirectory: string,
+  bytecodeStackPath: string,
+  witnessStackPath: string,
+  log: LogFn,
+): Promise<BBFailure | BBSuccess> {
+  // Check that the working directory exists
+  try {
+    await fs.access(workingDirectory);
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
+
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+  }
+
+  try {
+    // Write the bytecode to the working directory
+    log(`bytecodePath ${bytecodeStackPath}`);
+    const args = ['-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
+    const timer = new Timer();
+    const logFunction = (message: string) => {
+      log(`bb - ${message}`);
+    };
+
+    const result = await executeBB(pathToBB, 'client_ivc_prove_and_verify', args, logFunction);
+    const durationMs = timer.ms();
+
+    if (result.status == BB_RESULT.SUCCESS) {
+      logFunction("result is a SUCCESS");
+      return { status: BB_RESULT.SUCCESS, durationMs: durationMs };
+    }
+    // Not a great error message here but it is difficult to decipher what comes from bb
+    logFunction("result is a FAILURE");
+    return {
+      status: BB_RESULT.FAILURE,
+      reason: `Failed to prove and verify. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+    };
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
+}
+
 
 /**
  * Used for generating verification keys of noir circuits.

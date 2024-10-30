@@ -17,6 +17,10 @@ export default {
         test: /\.tsx?$/,
         use: [{ loader: "ts-loader" }],
       },
+      {
+        test: /\.b64?$/,
+        use: [{loader: "raw-loader"}]
+      }
     ],
   },
   output: {

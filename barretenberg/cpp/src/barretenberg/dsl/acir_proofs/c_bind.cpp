@@ -9,6 +9,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <cstdint>
 #include <memory>
@@ -206,6 +207,103 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
     write(out_key_hash, vk_hash);
 }
 
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack, uint8_t const* witness_stack, uint8_t** out)
+{
+    using Program = acir_format::AcirProgram;
+    std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
+    info("read witnesses from buffer");
+    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    info("read acirs from buffer");
+    std::vector<Program> folding_stack;
+
+    for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/false);
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
+
+        folding_stack.push_back(Program{ constraints, witness });
+    }
+    info("created folding stack");
+    // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
+    ClientIVC ivc;
+    ivc.auto_verify_mode = true;
+    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+
+    // Accumulate the entire program stack into the IVC
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
+    // has been integrated into noir kernel programs
+    bool is_kernel = false;
+    for (Program& program : folding_stack) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        auto circuit =
+            create_circuit<MegaCircuitBuilder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+
+        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
+        if (!circuit.databus_propagation_data.is_kernel) {
+            circuit.databus_propagation_data.is_kernel = is_kernel;
+        }
+        is_kernel = !is_kernel;
+        info("calling ivc.accumulate:");
+        ivc.accumulate(circuit);
+    }
+
+    info("calling ivc.prove");
+    auto proof = ivc.prove();
+    *out = to_heap_buffer(to_buffer(proof));
+}
+
+WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
+                                                    uint8_t const* witness_stack,
+                                                    bool* verified)
+{
+    using Program = acir_format::AcirProgram;
+    std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
+    info("read witnesses from buffer");
+    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    info("read acirs from buffer");
+    std::vector<Program> folding_stack;
+
+    for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
+        info("constructed witnesses");
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/false);
+        info("constructed constraints");
+        folding_stack.push_back(Program{ constraints, witness });
+    }
+    info("created folding stack");
+    // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
+    ClientIVC ivc;
+    ivc.auto_verify_mode = true;
+    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+
+    // Accumulate the entire program stack into the IVC
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
+    // has been integrated into noir kernel programs
+    bool is_kernel = false;
+    for (Program& program : folding_stack) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        auto circuit =
+            create_circuit<MegaCircuitBuilder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+
+        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
+        if (!circuit.databus_propagation_data.is_kernel) {
+            circuit.databus_propagation_data.is_kernel = is_kernel;
+        }
+        is_kernel = !is_kernel;
+        info("calling ivc.accumulate:");
+        ivc.accumulate(circuit);
+    }
+
+    info("calling ivc.prove_and_verify");
+    bool result = ivc.prove_and_verify();
+    info("verified?: ", result);
+
+    *verified = result;
+}
+
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
 {
     auto constraint_system =
@@ -218,6 +316,13 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+}
+
+WASM_EXPORT void acir_verify_aztec_client_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
+{
+    (void)acir_composer_ptr;
+    (void)proof_buf;
+    *result = false; // WORKTODO: build verifier
 }
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)

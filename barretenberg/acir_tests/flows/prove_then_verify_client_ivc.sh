@@ -1,8 +1,8 @@
 #!/bin/sh
-set -eu
+set -eux
 
 VFLAG=${VERBOSE:+-v}
-BFLAG="-b ./target/program.json"
+BFLAG="-b ./target/acir.msgpack"
 FLAGS="-c $CRS_PATH $VFLAG"
 
 $BIN client_ivc_prove_output_all $FLAGS $BFLAG
