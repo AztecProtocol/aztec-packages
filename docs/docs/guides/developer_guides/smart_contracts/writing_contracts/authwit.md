@@ -197,7 +197,7 @@ sequenceDiagram
     activate AC;
     AC->>CC: Swap 1000 token A to B
     activate CC;
-    CC->>T: transfer_to_public 1000 tokens from Alice Account to CCS
+    CC->>T: Transfer to public 1000 tokens from Alice Account to CCS
     activate T;
     T->>AC: Have you approved this??
     AC-->>A: Please give me an AuthWit

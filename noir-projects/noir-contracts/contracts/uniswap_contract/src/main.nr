@@ -115,7 +115,7 @@ contract Uniswap {
         input_asset_bridge: AztecAddress,
         input_amount: Field,
         output_asset_bridge: AztecAddress,
-        // params for using the transfer_to_public_to_public_to_public approval
+        // params for using the transfer_to_public approval
         nonce_for_transfer_to_public_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
