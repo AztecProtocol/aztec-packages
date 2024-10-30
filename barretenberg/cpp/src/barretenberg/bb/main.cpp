@@ -415,8 +415,7 @@ template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesyste
  * @return true (resp., false) if the proof is valid (resp., invalid).
  */
 bool verify_client_ivc(const std::filesystem::path& proof_path,
-                       const std::filesystem::path& accumulator_path,
-                       const std::filesystem::path& final_vk_path,
+                       const std::filesystem::path& mega_vk,
                        const std::filesystem::path& eccvm_vk_path,
                        const std::filesystem::path& translator_vk_path)
 {
@@ -424,15 +423,15 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     init_grumpkin_crs(1 << 15);
 
     const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto accumulator = read_to_shared_ptr<ClientIVC::DeciderVerificationKey>(accumulator_path);
-    accumulator->verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(final_vk_path);
+    const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(mega_vk);
+    final_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
     eccvm_vk->pcs_verification_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
     const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
     translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
+    info("here");
     const bool verified = ClientIVC::verify(proof, final_vk, eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
@@ -583,10 +582,12 @@ void prove_tube(const std::string& output_path)
     // Padding needed for sending the right number of public inputs
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and call
-    // set_public on each witness
-    // auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.ultra_proof[1]));
-    // num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    // num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
+    //  set_public on each witness
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.ultra_proof[1]));
+    info(num_public_inputs);                          // I think the problem here is that thereareno   public inputs
+    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
+    num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
+    info(num_public_inputs);
     // for (size_t i = 0; i < num_public_inputs; i++) {
     //     auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
     //     builder->add_public_variable(proof.ultra_proof[i + offset]);
@@ -1447,15 +1448,11 @@ int main(int argc, char* argv[])
         if (command == "verify_client_ivc") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
             std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
-            std::filesystem::path accumulator_path = output_dir / "pg_acc";
-            std::filesystem::path final_vk_path = output_dir / "final_decider_vk";
+            std::filesystem::path mega_vk_path = output_dir / "mega_vk";
             std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
             std::filesystem::path translator_vk_path = output_dir / "translator_vk";
 
-            return verify_client_ivc(
-                       client_ivc_proof_path, accumulator_path, final_vk_path, eccvm_vk_path, translator_vk_path)
-                       ? 0
-                       : 1;
+            return verify_client_ivc(client_ivc_proof_path, mega_vk_path, eccvm_vk_path, translator_vk_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;

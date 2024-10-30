@@ -424,8 +424,7 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'final_decider_vk.bin'); // the vk of the last instance
-  const accPath = join(workingDirectory, 'pg_acc.bin');
+  const vkPath = join(workingDirectory, 'mega_vk.bin');
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
   const translatorVkPath = join(workingDirectory, 'translator_vk.bin');
   const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
@@ -446,7 +445,6 @@ export async function generateTubeProof(
   try {
     if (
       !filePresent(vkPath) ||
-      !filePresent(accPath) ||
       !filePresent(proofPath) ||
       !filePresent(translatorVkPath) ||
       !filePresent(eccVkPath)
@@ -644,6 +642,7 @@ export async function verifyClientIvcProof(
     const args = ['-o', targetPath];
     const timer = new Timer();
     const command = 'verify_client_ivc';
+    console.log("Client IVC args ",args);
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {

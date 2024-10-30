@@ -149,6 +149,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
 {
     if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
+        info("we are never here I assume?");
         complete_kernel_circuit_logic(circuit);
     }
 
@@ -207,6 +208,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // max_block_size_tracker.print();               // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+    info("Am I ever heere?");
     FoldProof& fold_proof = verification_queue[0].proof;
     HonkProof decider_proof = decider_prove();
     // Free the accumulator to save memory

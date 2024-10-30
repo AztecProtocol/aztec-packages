@@ -12,8 +12,7 @@ export class ClientIvcProof {
     // produced by the sequencer when making the tube proof
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370): Need to precompute private kernel tail VK so we can verify this immediately in the tx pool
     // which parts of these are needed to quickly verify that we have a correct IVC proof
-    public instVkBuffer: Buffer,
-    public pgAccBuffer: Buffer,
+    public megaVkBuffer: Buffer,
     public clientIvcProofBuffer: Buffer,
     public translatorVkBuffer: Buffer,
     public eccVkBuffer: Buffer,
@@ -24,7 +23,7 @@ export class ClientIvcProof {
   }
 
   static empty() {
-    return new ClientIvcProof(Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''));
+    return new ClientIvcProof(Buffer.from(''), Buffer.from(''), Buffer.from(''), Buffer.from(''));
   }
 
   /**
@@ -34,12 +33,12 @@ export class ClientIvcProof {
    * @returns the encapsulated client ivc proof
    */
   static async readFromOutputDirectory(directory: string) {
-    const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
-      ['final_decider_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName =>
+    const [megaVkBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
+      ['mega_vk', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName =>
         fs.readFile(path.join(directory, fileName)),
       ),
     );
-    return new ClientIvcProof(instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer);
+    return new ClientIvcProof(megaVkBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer);
   }
 
   /**
@@ -56,10 +55,9 @@ export class ClientIvcProof {
    * @param directory the directory of results
    */
   async writeToOutputDirectory(directory: string) {
-    const { instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer } = this;
+    const { megaVkBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer } = this;
     const fileData = [
-      ['final_decider_vk', instVkBuffer],
-      ['pg_acc', pgAccBuffer],
+      ['mega_vk', this.megaVkBuffer],
       ['client_ivc_proof', clientIvcProofBuffer],
       ['translator_vk', translatorVkBuffer],
       ['ecc_vk', eccVkBuffer],
@@ -74,16 +72,13 @@ export class ClientIvcProof {
       reader.readBuffer(),
       reader.readBuffer(),
       reader.readBuffer(),
-      reader.readBuffer(),
     );
   }
 
   public toBuffer() {
     return serializeToBuffer(
-      this.instVkBuffer.length,
-      this.instVkBuffer,
-      this.pgAccBuffer.length,
-      this.pgAccBuffer,
+      this.megaVkBuffer.length,
+      this.megaVkBuffer,
       this.clientIvcProofBuffer.length,
       this.clientIvcProofBuffer,
       this.translatorVkBuffer.length,

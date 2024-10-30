@@ -1,4 +1,4 @@
-import { BB_RESULT, executeBbClientIvcProof, verifyClientIvcProof } from '@aztec/bb-prover';
+ import { BB_RESULT, executeBbClientIvcProof, verifyClientIvcProof } from '@aztec/bb-prover';
 import { ClientIvcProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
