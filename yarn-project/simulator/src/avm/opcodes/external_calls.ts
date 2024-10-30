@@ -158,6 +158,10 @@ export class Return extends Instruction {
     context.machineState.return(output);
     memory.assert({ reads: this.copySize, addressing });
   }
+
+  public override handlesPC(): boolean {
+    return true;
+  }
 }
 
 export class Revert extends Instruction {

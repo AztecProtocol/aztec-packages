@@ -417,20 +417,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  // it('conversions', async () => {
-  //   const calldata: Fr[] = [new Fr(0b1011101010100)];
-  //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+  it('conversions', async () => {
+    const calldata: Fr[] = [new Fr(0b1011101010100)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-  //   const bytecode = getAvmTestContractBytecode('to_radix_le');
-  //   const results = await new AvmSimulator(context).executeBytecode(bytecode);
+    const bytecode = getAvmTestContractBytecode('to_radix_le');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-  //   expect(results.reverted).toBe(false);
-  //   const expectedResults = Buffer.concat('0010101011'.split('').map(c => new Fr(Number(c)).toBuffer()));
-  //   const resultBuffer = Buffer.concat(results.output.map(f => f.toBuffer()));
-
-  //   expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
-  //   // expect(resultBuffer).toEqual(expectedResults);
-  // });
+    expect(results.reverted).toBe(false);
+    expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
+  });
 
   describe('Side effects, world state, nested calls', () => {
     const address = new Fr(1);
@@ -1085,7 +1081,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           // infinitely loop back to the tested instruction
           // infinite loop should break on side effect overrun error,
           // but otherwise will run out of gas
-          new Jump(/*jumpOffset*/ 2),
+          // Note: 15 is the byte index, calucalted as 3*size(Set.wireFormat8)
+          new Jump(/*jumpOffset*/ 15),
         ]);
         const context = initContext({ persistableState });
         const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
