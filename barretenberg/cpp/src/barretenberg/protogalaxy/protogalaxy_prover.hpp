@@ -40,7 +40,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     UnivariateRelationParameters relation_parameters;
     UnivariateRelationSeparator alphas;
 
-    MaxBlockSizeTracker max_block_size_tracker;
+    ExecutionTraceUsageTracker trace_usage_tracker;
 
     ProtogalaxyProver_() = default;
     ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys)

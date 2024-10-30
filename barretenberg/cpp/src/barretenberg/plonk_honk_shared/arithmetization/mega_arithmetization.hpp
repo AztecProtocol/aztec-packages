@@ -1,6 +1,9 @@
 #pragma once
 
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 
 namespace bb {
 

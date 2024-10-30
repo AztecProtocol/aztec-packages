@@ -9,7 +9,7 @@ namespace bb {
  * @brief A debugging utility for tracking the max size of each block over all circuits in the IVC
  *
  */
-struct MaxBlockSizeTracker {
+struct ExecutionTraceUsageTracker {
     using Builder = MegaCircuitBuilder;
     using MegaTraceBlockSizes = MegaArithmetization::MegaTraceBlocks<size_t>;
     using MegaTraceActiveRanges = MegaArithmetization::MegaTraceBlocks<std::pair<size_t, size_t>>;
@@ -22,7 +22,10 @@ struct MaxBlockSizeTracker {
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
 
-    MaxBlockSizeTracker(const TraceStructure& trace_structure = TraceStructure::NONE)
+    TraceStructure trace_structure = TraceStructure::NONE;
+
+    ExecutionTraceUsageTracker(const TraceStructure& trace_structure = TraceStructure::NONE)
+        : trace_structure(trace_structure)
     {
         for (auto& size : max_sizes.get()) {
             size = 0; // init max sizes to zero
@@ -67,8 +70,13 @@ struct MaxBlockSizeTracker {
     }
 
     // Check whether an index is contained within the active ranges
-    bool check_containment(const size_t idx)
+    bool check_is_active(const size_t idx)
     {
+        // WORKTODO: if unstructured, just use genuine circuit content here
+        // If structured trace is not in use, assume the whole trace is active
+        if (trace_structure == TraceStructure::NONE) {
+            return true;
+        }
         for (auto& range : active_ranges.get()) {
             if (idx >= range.first && idx <= range.second) {
                 return true;

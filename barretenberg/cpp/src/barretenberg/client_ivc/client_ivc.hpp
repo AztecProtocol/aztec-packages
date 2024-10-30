@@ -83,7 +83,7 @@ class ClientIVC {
     using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
-    MaxBlockSizeTracker max_block_size_tracker;
+    ExecutionTraceUsageTracker trace_usage_tracker;
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;

@@ -105,10 +105,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                                   const RelationSeparator& alphas_,
-                                                   const RelationParameters<FF>& relation_parameters,
-                                                   MaxBlockSizeTracker& max_block_size_tracker)
+    static std::vector<FF> compute_row_evaluations(
+        const ProverPolynomials& polynomials,
+        const RelationSeparator& alphas_,
+        const RelationParameters<FF>& relation_parameters,
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
 
     {
 
@@ -128,7 +129,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             polynomial_size,
             /*accumulator default*/ FF(0),
             [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
-                if (max_block_size_tracker.check_containment(row_idx)) {
+                if (trace_usage_tracker.check_is_active(row_idx)) {
                     const AllValues row = polynomials.get_row(row_idx);
                     // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows
                     // here.
@@ -140,7 +141,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                         process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
                 }
 
-                // if (!max_block_size_tracker.check_containment(row_idx) &&
+                // if (!trace_usage_tracker.check_containment(row_idx) &&
                 //     aggregated_relation_evaluations[row_idx] != 0) {
                 //     info("ROW IDX = ", row_idx);
                 //     info("VAL = ", aggregated_relation_evaluations[row_idx]);
@@ -214,15 +215,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     /**
      * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
      */
-    static Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
-                                              const std::vector<FF>& deltas,
-                                              MaxBlockSizeTracker& max_block_size_tracker)
+    static Polynomial<FF> compute_perturbator(
+        const std::shared_ptr<const DeciderPK>& accumulator,
+        const std::vector<FF>& deltas,
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
         PROFILE_THIS();
         auto full_honk_evaluations = compute_row_evaluations(accumulator->proving_key.polynomials,
                                                              accumulator->alphas,
                                                              accumulator->relation_parameters,
-                                                             max_block_size_tracker);
+                                                             trace_usage_tracker);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
