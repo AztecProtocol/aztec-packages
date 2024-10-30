@@ -143,12 +143,11 @@ const INSTRUCTION_SET = () =>
     [EcAdd.opcode, Instruction.deserialize.bind(EcAdd)],
     [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
     [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
+    [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
     [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
+
     // Conversions
     [ToRadixBE.opcode, Instruction.deserialize.bind(ToRadixBE)],
-    // Future Gadgets -- pending changes in noir
-    // SHA256COMPRESSION,
-    [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
   ]);
 
 /**
@@ -158,30 +157,25 @@ export function encodeToBytecode(instructions: Serializable[]): Buffer {
   return Buffer.concat(instructions.map(i => i.serialize()));
 }
 
-/**
- * Convert a buffer of bytecode into an array of instructions.
- * @param bytecode Buffer of bytecode.
- * @param instructionSet Optional {@code InstructionSet} to be used for deserialization.
- * @returns Bytecode decoded into an ordered array of Instructions
- */
-export function decodeFromBytecode(
+// Returns the instruction and the number of bytes consumed.
+export function decodeInstructionFromBytecode(
   bytecode: Buffer,
+  pc: number,
   instructionSet: InstructionSet = INSTRUCTION_SET(),
-): Instruction[] {
-  const instructions: Instruction[] = [];
-  const cursor = new BufferCursor(bytecode);
+): [Instruction, number] {
+  if (pc >= bytecode.length) {
+    throw new Error(`pc ${pc} is out of bounds for bytecode of length ${bytecode.length}`);
+  }
+  const cursor = new BufferCursor(bytecode, pc);
+  const startingPosition = cursor.position();
+  const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
 
-  while (!cursor.eof()) {
-    const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
-    const instructionDeserializerOrUndef = instructionSet.get(opcode);
-    if (instructionDeserializerOrUndef === undefined) {
-      throw new Error(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
-    }
-
-    const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
-    const i: Instruction = instructionDeserializer(cursor);
-    instructions.push(i);
+  const instructionDeserializerOrUndef = instructionSet.get(opcode);
+  if (instructionDeserializerOrUndef === undefined) {
+    throw new Error(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
   }
 
-  return instructions;
+  const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
+  const instruction = instructionDeserializer(cursor);
+  return [instruction, cursor.position() - startingPosition];
 }

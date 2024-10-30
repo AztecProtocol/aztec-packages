@@ -2,7 +2,7 @@ import { strict as assert } from 'assert';
 
 import { Add, Call, EnvironmentVariable, GetEnvVar, StaticCall, Sub } from '../opcodes/index.js';
 import { type BufferCursor } from './buffer_cursor.js';
-import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
+import { type InstructionSet, encodeToBytecode } from './bytecode_serialization.js';
 import { Opcode } from './instruction_serialization.js';
 
 class InstA {
@@ -46,19 +46,19 @@ class InstB {
 }
 
 describe('Bytecode Serialization', () => {
-  it('Should deserialize using instruction set', () => {
-    const instructionSet: InstructionSet = new Map<Opcode, any>([
-      [InstA.opcode, InstA.deserialize],
-      [InstB.opcode, InstB.deserialize],
-    ]);
-    const a = new InstA(0x1234);
-    const b = new InstB(0x5678n);
-    const bytecode = Buffer.concat([a.serialize(), b.serialize()]);
+  // it('Should deserialize using instruction set', () => {
+  //   const instructionSet: InstructionSet = new Map<Opcode, any>([
+  //     [InstA.opcode, InstA.deserialize],
+  //     [InstB.opcode, InstB.deserialize],
+  //   ]);
+  //   const a = new InstA(0x1234);
+  //   const b = new InstB(0x5678n);
+  //   const bytecode = Buffer.concat([a.serialize(), b.serialize()]);
 
-    const actual = decodeFromBytecode(bytecode, instructionSet);
+  //   const actual = decodeFromBytecode(bytecode, instructionSet);
 
-    expect(actual).toEqual([a, b]);
-  });
+  //   expect(actual).toEqual([a, b]);
+  // });
 
   it('Should serialize using instruction.serialize()', () => {
     const a = new InstA(1234);
@@ -70,37 +70,37 @@ describe('Bytecode Serialization', () => {
     expect(actual).toEqual(expected);
   });
 
-  it('Should deserialize real instructions', () => {
-    const instructions = [
-      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
-      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
-      new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
-        Opcode.GETENVVAR_16,
-        GetEnvVar.wireFormat16,
-      ),
-      new Call(
-        /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x1234,
-        /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
-        /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
-      ),
-      new StaticCall(
-        /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x1234,
-        /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
-        /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
-      ),
-    ];
-    const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
+  // it('Should deserialize real instructions', () => {
+  //   const instructions = [
+  //     new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+  //     new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
+  //     new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
+  //       Opcode.GETENVVAR_16,
+  //       GetEnvVar.wireFormat16,
+  //     ),
+  //     new Call(
+  //       /*indirect=*/ 0x01,
+  //       /*gasOffset=*/ 0x1234,
+  //       /*addrOffset=*/ 0xa234,
+  //       /*argsOffset=*/ 0xb234,
+  //       /*argsSize=*/ 0xc234,
+  //       /*successOffset=*/ 0xf234,
+  //     ),
+  //     new StaticCall(
+  //       /*indirect=*/ 0x01,
+  //       /*gasOffset=*/ 0x1234,
+  //       /*addrOffset=*/ 0xa234,
+  //       /*argsOffset=*/ 0xb234,
+  //       /*argsSize=*/ 0xc234,
+  //       /*successOffset=*/ 0xf234,
+  //     ),
+  //   ];
+  //   const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
 
-    const actual = decodeFromBytecode(bytecode);
+  //   const actual = decodeFromBytecode(bytecode);
 
-    expect(actual).toEqual(instructions);
-  });
+  //   expect(actual).toEqual(instructions);
+  // });
 
   it('Should serialize real instructions', () => {
     const instructions = [

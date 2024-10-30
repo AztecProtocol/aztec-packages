@@ -21,7 +21,6 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
     memory.set(dstOffset, dest);
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;

@@ -70,6 +70,5 @@ export class GetContractInstance extends Instruction {
     memory.set(dstOffset, memberValue);
 
     memory.assert({ reads: 1, writes: 2, addressing });
-    context.machineState.incrementPc();
   }
 }

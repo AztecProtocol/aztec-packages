@@ -19,7 +19,7 @@ export class AvmMachineState {
   /** gas remaining of the gas allocated for a contract call */
   public l2GasLeft: number;
   public daGasLeft: number;
-  /** program counter */
+  /** program counter, byte based */
   public pc: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
@@ -89,13 +89,6 @@ export class AvmMachineState {
     for (const dimension of GAS_DIMENSIONS) {
       this[`${dimension}Left`] += gasRefund[dimension] ?? 0;
     }
-  }
-
-  /**
-   * Most instructions just increment PC before they complete
-   */
-  public incrementPc() {
-    this.pc++;
   }
 
   /**

@@ -22,11 +22,17 @@ export class Jump extends Instruction {
 
     context.machineState.memory.assert({});
   }
+
+  public override handlesPC(): boolean {
+    return true;
+  }
 }
 
 export class JumpI extends Instruction {
   static type: string = 'JUMPI';
   static readonly opcode: Opcode = Opcode.JUMPI_16;
+
+  private shouldJump: boolean = false;
 
   // Instruction wire format with opcode.
   static readonly wireFormat: OperandType[] = [
@@ -50,12 +56,18 @@ export class JumpI extends Instruction {
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     if (condition.toBigInt() == 0n) {
-      context.machineState.incrementPc();
+      this.shouldJump = false;
+      // PC handling is done in the fetch-decode loop.
     } else {
+      this.shouldJump = true;
       context.machineState.pc = this.loc;
     }
 
     memory.assert({ reads: 1, addressing });
+  }
+
+  public override handlesPC(): boolean {
+    return this.shouldJump === true;
   }
 }
 
@@ -76,6 +88,10 @@ export class InternalCall extends Instruction {
     context.machineState.pc = this.loc;
 
     context.machineState.memory.assert({});
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }
 
@@ -99,5 +115,9 @@ export class InternalReturn extends Instruction {
     context.machineState.pc = jumpOffset;
 
     context.machineState.memory.assert({});
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }
