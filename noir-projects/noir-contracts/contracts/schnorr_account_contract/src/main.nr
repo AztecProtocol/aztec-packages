@@ -35,15 +35,14 @@ contract SchnorrAccount {
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        let this_keys = get_public_keys(this);
         // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
         // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
         // important.
-        let mut pub_key_note =
-            PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
+        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        let this_ovpk_m = get_public_keys(this).ovpk_m;
         storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
-            this_keys.ovpk_m,
+            this_ovpk_m,
             this,
         ));
     }

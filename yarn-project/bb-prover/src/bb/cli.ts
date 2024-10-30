@@ -93,6 +93,7 @@ export function getProgram(log: LogFn): Command {
         options.recursive,
         options.contractName,
         log,
+        /*force= */ true,
       );
     });
 

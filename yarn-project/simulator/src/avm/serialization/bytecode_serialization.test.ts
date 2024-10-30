@@ -84,10 +84,7 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*retOffset=*/ 0xd234,
-        /*retSize=*/ 0xe234,
         /*successOffset=*/ 0xf234,
-        /*functionSelectorOffset=*/ 0xf334,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
@@ -95,10 +92,7 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*retOffset=*/ 0xd234,
-        /*retSize=*/ 0xe234,
         /*successOffset=*/ 0xf234,
-        /*functionSelectorOffset=*/ 0xf334,
       ),
     ];
     const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
@@ -122,10 +116,7 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*retOffset=*/ 0xd234,
-        /*retSize=*/ 0xe234,
         /*successOffset=*/ 0xf234,
-        /*functionSelectorOffset=*/ 0xf334,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
@@ -133,10 +124,7 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*retOffset=*/ 0xd234,
-        /*retSize=*/ 0xe234,
         /*successOffset=*/ 0xf234,
-        /*functionSelectorOffset=*/ 0xf334,
       ),
     ];
 
