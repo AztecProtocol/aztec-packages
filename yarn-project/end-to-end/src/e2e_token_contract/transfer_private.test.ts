@@ -1,7 +1,6 @@
 import {
   AztecAddress,
   CompleteAddress,
-  EventMetadata,
   EventType,
   Fr,
   computeAuthWitMessageHash,
@@ -44,11 +43,7 @@ describe('e2e_token_contract transfer private', () => {
 
     const events = await wallets[1].getEvents<Transfer>(
       EventType.Encrypted,
-      new EventMetadata(
-        TokenContract.events.Transfer.eventSelector,
-        TokenContract.events.Transfer.abiType,
-        TokenContract.events.Transfer.fieldNames,
-      ),
+      TokenContract.events.Transfer,
       tx.blockNumber!,
       1,
     );

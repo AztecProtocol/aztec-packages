@@ -10,11 +10,11 @@ import {
   type Point,
   type ProtocolContractAddresses,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import type { AbiType, ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import { type EventMetadata, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
+import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
 import { type PrivateExecutionResult } from '../private_execution_result.js';
@@ -404,7 +404,7 @@ export interface PXE {
   /**
    * Returns the events of a specified type given search parameters.
    * @param type - The type of the event to search for—Encrypted, or Unencrypted.
-   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
    * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
@@ -412,7 +412,7 @@ export interface PXE {
    */
   getEvents<T>(
     type: EventType,
-    eventMetadata: EventMetadata<T>,
+    eventMetadata: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
     vpks: Point[],

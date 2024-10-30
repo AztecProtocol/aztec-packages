@@ -1,4 +1,4 @@
-import { L1EventPayload, type UnencryptedL2Log } from '@aztec/circuit-types';
+import { EventType, L1EventPayload, type UnencryptedL2Log } from '@aztec/circuit-types';
 import { type AbiType } from '@aztec/foundation/abi';
 import { EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,8 +9,18 @@ import { Fr } from '@aztec/foundation/fields';
 export class EventMetadata<T> {
   public readonly decode: (payload: L1EventPayload | UnencryptedL2Log) => T | undefined;
 
-  constructor(public eventSelector: EventSelector, private readonly eventType: AbiType, public fieldNames: string[]) {
-    this.decode = EventMetadata.decodeEvent<T>(eventSelector, eventType);
+  public readonly eventSelector: EventSelector;
+  public readonly abiType: AbiType;
+  public readonly fieldNames: string[];
+
+  constructor(
+    public readonly eventType: EventType,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
+  ) {
+    this.eventSelector = event.eventSelector;
+    this.abiType = event.abiType;
+    this.fieldNames = event.fieldNames;
+    this.decode = EventMetadata.decodeEvent<T>(event.eventSelector, event.abiType);
   }
 
   public static decodeEvent<T>(
@@ -58,6 +68,10 @@ export class EventMetadata<T> {
       throw new Error('Invalid event metadata format');
     }
 
-    return new EventMetadata(EventSelector.fromString(json.eventSelector), json.eventType, json.fieldNames);
+    return new EventMetadata(EventType.Encrypted, {
+      eventSelector: EventSelector.fromString(json.eventSelector),
+      abiType: json.eventType,
+      fieldNames: json.fieldNames,
+    });
   }
 }

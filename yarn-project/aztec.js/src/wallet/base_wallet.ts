@@ -1,6 +1,6 @@
 import {
   type AuthWitness,
-  type EventMetadata,
+  EventMetadata,
   type EventType,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
@@ -34,7 +34,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import type { AbiType, ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -199,14 +199,22 @@ export abstract class BaseWallet implements Wallet {
   }
   getEvents<T>(
     type: EventType,
-    eventMetadata: EventMetadata<T>,
+    event: {
+      /** The event selector */
+      eventSelector: EventSelector;
+      /** The event's abi type */
+      abiType: AbiType;
+      /** The field names */
+      fieldNames: string[];
+    },
     from: number,
     limit: number,
     vpks: Point[] = [
       this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
       this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
     ],
-  ) {
+  ): Promise<T[]> {
+    const eventMetadata = new EventMetadata<T>(type, event);
     return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
   }
   public getL1ToL2MembershipWitness(
