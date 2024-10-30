@@ -75,11 +75,11 @@ spec:
                 - /bin/sh
                 - -c
                 - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
-            initialDelaySeconds: {{ .Values.bootNode.readinessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.bootNode.readinessProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.bootNode.readinessProbe.timeoutSeconds }}
-            successThreshold: {{ .Values.bootNode.readinessProbe.successThreshold }}
-            failureThreshold: {{ .Values.bootNode.readinessProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.bootNode.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.bootNode.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.bootNode.startupProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.bootNode.startupProbe.successThreshold }}
+            failureThreshold: {{ .Values.bootNode.startupProbe.failureThreshold }}
           livenessProbe:
             exec:
               command:
