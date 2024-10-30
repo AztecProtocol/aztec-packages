@@ -642,7 +642,7 @@ export class P2PClient extends WithTracer implements P2P {
     const txsToDelete: TxHash[] = [];
     for (const tx of this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
-      if (tx.data.constants.globalVariables.blockNumber.toNumber() > latestBlock) {
+      if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
         txsToDelete.push(tx.getTxHash());
       }
     }

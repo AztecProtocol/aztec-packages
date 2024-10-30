@@ -284,10 +284,10 @@ describe('In-Memory P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodTx = mockTx();
-      goodTx.data.constants.globalVariables.blockNumber = new Fr(90);
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
 
       const badTx = mockTx();
-      badTx.data.constants.globalVariables.blockNumber = new Fr(95);
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
       txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
 
@@ -306,13 +306,13 @@ describe('In-Memory P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodButOldTx = mockTx();
-      goodButOldTx.data.constants.globalVariables.blockNumber = new Fr(89);
+      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(89);
 
       const goodTx = mockTx();
-      goodTx.data.constants.globalVariables.blockNumber = new Fr(90);
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
 
       const badTx = mockTx();
-      badTx.data.constants.globalVariables.blockNumber = new Fr(95);
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
       txPool.getAllTxs.mockReturnValue([goodButOldTx, goodTx, badTx]);
       txPool.getMinedTxHashes.mockReturnValue([
