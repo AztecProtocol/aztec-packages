@@ -161,3 +161,50 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
   // Leave alone, assume JSON primitive
   return obj;
 }
+
+/**
+ * Converts the given input to a JSON-friendly representation, handling bigints.
+ * Calls toString or toJSON on objects that define it.
+ */
+export function toJSON(obj: any): any {
+  // Bigint is a primitive type that needs special handling since it's not serializable
+  if (typeof obj === 'bigint') {
+    return { type: 'bigint', data: obj.toString() };
+  }
+
+  if (!obj) {
+    return obj; // Primitive type
+  }
+
+  // Is this a Node buffer?
+  if (Buffer.isBuffer(obj)) {
+    return { type: 'Buffer', data: obj.toString('base64') };
+  }
+
+  // Is this an array?
+  if (Array.isArray(obj)) {
+    return obj.map(toJSON);
+  }
+
+  if (typeof obj === 'object') {
+    // Does the object define its own toString?
+    if (typeof obj.toString === 'function' && obj.toString !== Object.prototype.toString) {
+      return obj.toString();
+    }
+    // Does the object define a toJSON of its own?
+    if (typeof obj.toJSON === 'function') {
+      return obj.toJSON();
+    }
+    // Serialize it as a dictionary then
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      if (typeof obj[key] !== 'function' && typeof obj[key] !== 'symbol' && typeof obj[key] !== 'undefined') {
+        newObj[key] = toJSON(obj[key]);
+      }
+    }
+    return newObj;
+  }
+
+  // Leave alone, assume JSON primitive
+  return obj;
+}

@@ -19,7 +19,7 @@ export class JsonRpcServer {
   /**
    * The proxy object.
    */
-  public proxy: JsonProxy;
+  public proxy: Pick<JsonProxy, 'call'>;
 
   /**
    * The HTTP server accepting remote requests.
@@ -110,7 +110,12 @@ export class JsonRpcServer {
     router.post('/', async (ctx: Koa.Context) => {
       const { params = [], jsonrpc, id, method } = ctx.request.body as any;
       // Ignore if not a function
-      if (method === 'constructor' || typeof proto[method] !== 'function' || this.disallowedMethods.includes(method)) {
+      if (
+        typeof method !== 'string' ||
+        method === 'constructor' ||
+        typeof proto[method] !== 'function' ||
+        this.disallowedMethods.includes(method)
+      ) {
         ctx.status = 400;
         ctx.body = {
           jsonrpc,
@@ -126,7 +131,7 @@ export class JsonRpcServer {
           ctx.body = {
             jsonrpc,
             id,
-            result: convertBigintsInObj(result),
+            result: convertBigintsInObj(result), // TODO(palla): We should be able to remove this conversion once we fully migrate to SafeJsonProxy
           };
           ctx.status = 200;
         } catch (err: any) {
@@ -201,7 +206,7 @@ export class JsonRpcServer {
   /**
    * Call an RPC method.
    * @param methodName - The RPC method.
-   * @param jsonParams - The RPG parameters.
+   * @param jsonParams - The RPC parameters.
    * @param skipConversion - Whether to skip conversion of the parameters.
    * @returns The remote result.
    */
@@ -234,26 +239,23 @@ export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = 
 }
 
 /**
- * Creates an http server that forwards calls to the underlying instance and starts it on the given port.
- * @param instance - Instance to wrap in a JSON-RPC server.
- * @param jsonRpcFactoryFunc - Function that wraps the instance in a JSON-RPC server.
- * @param port - Port to listen in.
+ * Wraps a JsonRpcServer in a nodejs http server and starts it.
+ * @dev REFACTOR: Use this function across the board to start the server instead of calling http.createServer directly.
  * @returns A running http server.
  */
-export function startHttpRpcServer<T>(
-  name: string,
-  instance: T,
-  jsonRpcFactoryFunc: (instance: T) => JsonRpcServer,
-  port: string | number,
+export function startHttpRpcServer(
+  rpcServer: JsonRpcServer,
+  options: { port?: string | number; apiPrefix?: string; statusCheckFn?: StatusCheckFn } = {},
 ): http.Server {
-  const rpcServer = jsonRpcFactoryFunc(instance);
+  const app = rpcServer.getApp(options.apiPrefix);
 
-  const namespacedServer = createNamespacedJsonRpcServer([{ [name]: rpcServer }]);
-
-  const app = namespacedServer.getApp();
+  if (options.statusCheckFn) {
+    const statusRouter = createStatusRouter(options.statusCheckFn, options.apiPrefix);
+    app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
+  }
 
   const httpServer = http.createServer(app.callback());
-  httpServer.listen(port);
+  httpServer.listen(options.port);
 
   return httpServer;
 }
@@ -325,7 +327,7 @@ export function createNamespacedJsonRpcServer(
     Object.create(handler),
     classMaps.stringClassMap,
     classMaps.objectClassMap,
-    [],
+    disallowedMethods,
     aggregateHealthCheck,
     log,
   );

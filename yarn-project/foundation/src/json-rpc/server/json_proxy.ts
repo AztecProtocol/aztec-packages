@@ -25,8 +25,8 @@ export class JsonProxy {
   classConverter: ClassConverter;
   constructor(
     private handler: object,
-    private stringClassMap: StringClassConverterInput,
-    private objectClassMap: JsonClassConverterInput,
+    stringClassMap: StringClassConverterInput,
+    objectClassMap: JsonClassConverterInput,
   ) {
     this.classConverter = new ClassConverter(stringClassMap, objectClassMap);
   }
