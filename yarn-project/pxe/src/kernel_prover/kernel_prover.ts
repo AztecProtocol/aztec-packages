@@ -86,7 +86,7 @@ export class KernelProver {
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
 
-    // TODO(#6185): The PrivateKernel**Builder here are ClientCircuitArtifact which are not recursive.
+    // The PrivateKernel**Builder here are `ClientCircuitArtifact` types which are not recursive.
     const recursive = false;
 
     while (executionStack.length) {
@@ -121,6 +121,7 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
+      // TODO (#6185): How do we know if this one should be recursive? The first is the application which comes from the chain (simulateTx).
       const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
         currentExecution.acir,
         recursive,
