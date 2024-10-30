@@ -69,7 +69,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(claim.claimSecretHash, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
         .prove(),
-    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
   it("Can't claim funds publicly which were intended for private deposit from the token portal", async () => {
