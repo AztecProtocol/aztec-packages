@@ -703,27 +703,23 @@ impl<'a> FunctionContext<'a> {
         let Some(assert_message_payload) = assert_message else { return Ok(None) };
         let (assert_message_expression, assert_message_typ) = assert_message_payload.as_ref();
 
-        Ok(Some(
-            if let Expression::Literal(ast::Literal::Str(static_string)) = assert_message_expression
-            {
-                let error_type = ErrorType::String(static_string.clone());
-                let selector = error_selector_from_type(&error_type);
-                ConstrainError::StaticString(selector, static_string.clone())
-            } else {
-                let error_type = ErrorType::Dynamic(assert_message_typ.clone());
-                let selector = error_selector_from_type(&error_type);
-                let values =
-                    self.codegen_expression(assert_message_expression)?.into_value_list(self);
-                let is_string_type = matches!(assert_message_typ, HirType::String(_));
-                // Record custom types in the builder, outside of SSA instructions
-                // This is made to avoid having Hir types in the SSA code.
-                if !is_string_type {
-                    self.builder.record_error_type(selector, assert_message_typ.clone());
-                }
+        if let Expression::Literal(ast::Literal::Str(static_string)) = assert_message_expression {
+            let error_type = ErrorType::String(static_string.clone());
+            let selector = error_selector_from_type(&error_type);
+            Ok(Some(ConstrainError::StaticString(selector, static_string.clone())))
+        } else {
+            let error_type = ErrorType::Dynamic(assert_message_typ.clone());
+            let selector = error_selector_from_type(&error_type);
+            let values = self.codegen_expression(assert_message_expression)?.into_value_list(self);
+            let is_string_type = matches!(assert_message_typ, HirType::String(_));
+            // Record custom types in the builder, outside of SSA instructions
+            // This is made to avoid having Hir types in the SSA code.
+            if !is_string_type {
+                self.builder.record_error_type(selector, assert_message_typ.clone());
+            }
 
-                ConstrainError::Dynamic(selector, is_string_type, values)
-            },
-        ))
+            Ok(Some(ConstrainError::Dynamic(selector, is_string_type, values)))
+        }
     }
 
     fn codegen_assign(&mut self, assign: &ast::Assign) -> Result<Values, RuntimeError> {
