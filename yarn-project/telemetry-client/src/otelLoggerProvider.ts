@@ -1,6 +1,6 @@
+import { logs as otelLogs } from '@opentelemetry/api-logs';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { LoggerProvider, SimpleLogRecordProcessor } from '@opentelemetry/sdk-logs';
-import { logs as otelLogs } from '@opentelemetry/api-logs';
 
 export function registerOtelLoggerProvider(otelLogsUrl?: URL) {
   const loggerProvider = new LoggerProvider();

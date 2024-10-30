@@ -1,10 +1,10 @@
 import { currentLevel, onLog, setLevel } from '@aztec/foundation/log';
 
+import { OpenTelemetryTransportV3 } from '@opentelemetry/winston-transport';
 import * as path from 'path';
 import * as process from 'process';
 import * as winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import { OpenTelemetryTransportV3 } from '@opentelemetry/winston-transport';
 
 const { format } = winston;
 const CURRENT_LOG_FILE_NAME = 'aztec.debug.log';
@@ -39,7 +39,7 @@ function createWinstonJsonStdoutLogger() {
       new winston.transports.Console({
         format: format.combine(format.timestamp(), format.json()),
       }),
-      new OpenTelemetryTransportV3()
+      new OpenTelemetryTransportV3(),
     ],
   });
 }

@@ -1,6 +1,5 @@
 import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
-
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
