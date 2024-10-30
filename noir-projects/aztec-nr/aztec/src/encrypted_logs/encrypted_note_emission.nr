@@ -5,10 +5,7 @@ use crate::{
     note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
-    abis::note_hash::NoteHash,
-    address::AztecAddress,
-    hash::sha256_to_field,
-    public_keys::{OvpkM, PublicKeys},
+    abis::note_hash::NoteHash, address::AztecAddress, hash::sha256_to_field, public_keys::OvpkM,
 };
 
 /// Computes private note log payload and a log hash
