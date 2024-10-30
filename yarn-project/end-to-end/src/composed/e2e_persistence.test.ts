@@ -339,6 +339,7 @@ async function addPendingShieldNoteToPXE(
   secretHash: Fr,
   txHash: TxHash,
 ) {
+  // docs:start:pxe_add_note
   const note = new Note([new Fr(amount), secretHash]);
   const extendedNote = new ExtendedNote(
     note,
@@ -349,4 +350,5 @@ async function addPendingShieldNoteToPXE(
     txHash,
   );
   await wallet.addNote(extendedNote);
+  // docs:end:pxe_add_note
 }
