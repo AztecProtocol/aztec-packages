@@ -1,6 +1,5 @@
 import {
   type AuthWitness,
-  EventMetadata,
   type EventType,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
