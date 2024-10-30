@@ -72,16 +72,15 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         cheatcodes::advance_blocks_by(1);
 
-        let mut public_context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        public_context
-            .call_public_function(
-                instance.to_address(),
-                call_interface.get_selector(),
-                call_interface.get_args(),
-                GasOpts::default(),
-            )
-            .assert_empty();
+        let results = public_context.call_public_function(
+            instance.to_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            GasOpts::default(),
+        );
+        assert(results.len() == 0);
 
         instance
     }
@@ -103,16 +102,14 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         cheatcodes::advance_blocks_by(1);
 
-        let mut public_context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        let _: T = public_context
-            .call_public_function(
-                instance.to_address(),
-                call_interface.get_selector(),
-                call_interface.get_args(),
-                GasOpts::default(),
-            )
-            .deserialize_into();
+        let _ = public_context.call_public_function(
+            instance.to_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            GasOpts::default(),
+        );
 
         instance
     }

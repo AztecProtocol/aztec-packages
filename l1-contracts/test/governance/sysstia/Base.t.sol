@@ -18,6 +18,6 @@ contract SysstiaBase is Test {
   function setUp() public {
     token = IMintableERC20(address(new TestERC20()));
     registry = new Registry(address(this));
-    sysstia = new Sysstia(token, registry);
+    sysstia = new Sysstia(token, registry, address(this));
   }
 }

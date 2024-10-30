@@ -28,7 +28,7 @@ where
     cheatcodes::add_authwit(on_behalf_of, message_hash);
 }
 
-pub fn add_public_authwit_from_call_interface<C, let M: u32>(
+pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
@@ -47,7 +47,7 @@ where
     let inner_hash =
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     let message_hash = compute_authwit_message_hash(target, chain_id, version, inner_hash);
-    let mut context = PublicContext::new(|| { panic(f"Provide args hash manually") });
+    let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
     context.args_hash = Option::some(args_hash);
     set_authorized(&mut context, message_hash, true);
     cheatcodes::set_contract_address(current_contract);

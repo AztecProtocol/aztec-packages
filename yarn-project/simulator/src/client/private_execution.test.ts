@@ -50,7 +50,7 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
+import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -74,7 +74,6 @@ import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { computeNoteHash } from './test_utils.js';
 
 jest.setTimeout(60_000);
 
@@ -314,7 +313,8 @@ describe('Private Execution test suite', () => {
       const noteHashIndex = randomInt(1); // mock index in TX's final noteHashes array
       const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), ownerNpkMHash, Fr.random()]);
-      const noteHash = computeNoteHash(storageSlot, note.items);
+      // Note: The following does not correspond to how note hashing is generally done in real notes.
+      const noteHash = poseidon2Hash([storageSlot, ...note.items]);
       return {
         contractAddress,
         storageSlot,
@@ -401,8 +401,8 @@ describe('Private Execution test suite', () => {
       );
 
       const notes = [
-        buildNote(60n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, valueNoteTypeId),
-        buildNote(80n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, valueNoteTypeId),
+        buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
+        buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ];
       oracle.getNotes.mockResolvedValue(notes);
 
@@ -468,14 +468,7 @@ describe('Private Execution test suite', () => {
 
       const storageSlot = deriveStorageSlotInMap(new Fr(1n), owner);
 
-      const notes = [
-        buildNote(
-          balance,
-          ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(),
-          storageSlot,
-          valueNoteTypeId,
-        ),
-      ];
+      const notes = [buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>

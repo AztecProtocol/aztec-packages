@@ -1,11 +1,9 @@
 import {
+  type AvmProvingRequest,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
   type PublicInputsAndRecursiveProof,
-  type PublicKernelInnerRequest,
-  type PublicKernelMergeRequest,
-  type PublicKernelTailRequest,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -13,7 +11,6 @@ import {
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
-  type AvmExecutionHints,
   ClientIvcProof,
   Fr,
   type Gas,
@@ -34,21 +31,6 @@ export enum PublicKernelPhase {
   APP_LOGIC,
   TEARDOWN,
 }
-
-export type PublicKernelRequest = PublicKernelInnerRequest | PublicKernelMergeRequest | PublicKernelTailRequest;
-
-export const AVM_REQUEST = 'AVM' as const;
-
-export type AvmProvingRequest = {
-  type: typeof AVM_REQUEST;
-  functionName: string; // informational only
-  bytecode: Buffer;
-  calldata: Fr[];
-  avmHints: AvmExecutionHints;
-  kernelRequest: PublicKernelInnerRequest;
-};
-
-export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
@@ -72,9 +54,9 @@ export type ProcessedTx = Pick<Tx, 'clientIvcProof' | 'noteEncryptedLogs' | 'enc
    */
   revertReason: SimulationError | undefined;
   /**
-   * The inputs for AVM and kernel proving.
+   * The request for AVM proving.
    */
-  publicProvingRequests: PublicProvingRequest[];
+  avmProvingRequest: AvmProvingRequest | undefined;
   /**
    * Gas usage per public execution phase.
    * Doesn't account for any base costs nor DA gas used in private execution.
@@ -136,10 +118,17 @@ export type FailedTx = {
 export function makeProcessedTx(
   tx: Tx,
   kernelOutput: KernelCircuitPublicInputs,
-  publicProvingRequests: PublicProvingRequest[],
-  revertReason?: SimulationError,
-  gasUsed: ProcessedTx['gasUsed'] = {},
-  finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
+  {
+    revertReason,
+    gasUsed = {},
+    avmProvingRequest,
+    finalPublicDataUpdateRequests,
+  }: {
+    revertReason?: SimulationError;
+    gasUsed?: ProcessedTx['gasUsed'];
+    avmProvingRequest?: AvmProvingRequest;
+    finalPublicDataUpdateRequests?: PublicDataUpdateRequest[];
+  } = {},
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
@@ -151,7 +140,7 @@ export function makeProcessedTx(
     unencryptedLogs: tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
-    publicProvingRequests,
+    avmProvingRequest,
     gasUsed,
     finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
   };
@@ -184,7 +173,7 @@ export function makePaddingProcessedTx(
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
-    publicProvingRequests: [],
+    avmProvingRequest: undefined,
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
     verificationKey: kernelOutput.verificationKey,
@@ -209,7 +198,7 @@ export function makePaddingProcessedTxFromTubeProof(
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
-    publicProvingRequests: [],
+    avmProvingRequest: undefined,
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
     verificationKey: kernelOutput.verificationKey,
@@ -245,7 +234,7 @@ export function makeEmptyProcessedTx(
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
-    publicProvingRequests: [],
+    avmProvingRequest: undefined,
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
   };

@@ -12,7 +12,10 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
-impl<T, Context> Storage<T> for PublicImmutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for PublicImmutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<T, Context> PublicImmutable<T, Context> {
     // docs:start:public_immutable_struct_new

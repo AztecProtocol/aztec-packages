@@ -30,7 +30,7 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { type EthAddress, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
+import { NULL_KEY, isAnvilTestChain, l1Artifacts } from '@aztec/ethereum';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -50,6 +50,7 @@ import {
   type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
+  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -247,6 +248,8 @@ export type SetupOptions = {
   assumeProvenThrough?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
+  /** Whether to fund the sysstia */
+  fundSysstia?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -359,6 +362,29 @@ export async function setup(
     ));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  if (opts.fundSysstia) {
+    // Mints block rewards for 10000 blocks to the sysstia contract
+
+    const sysstia = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.sysstiaAddress.toString(),
+      abi: l1Artifacts.sysstia.contractAbi,
+      client: deployL1ContractsValues.publicClient,
+    });
+
+    const blockReward = await sysstia.read.BLOCK_REWARD([]);
+    const mintAmount = 10_000n * (blockReward as bigint);
+
+    const feeJuice = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
+      abi: l1Artifacts.feeJuice.contractAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
+
+    const sysstiaMintTxHash = await feeJuice.write.mint([sysstia.address, mintAmount], {} as any);
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: sysstiaMintTxHash });
+    logger.info(`Funding sysstia in ${sysstiaMintTxHash}`);
+  }
 
   if (opts.l2StartTime) {
     // This should only be used in synching test or when you need to have a stable

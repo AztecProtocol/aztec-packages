@@ -14,14 +14,13 @@ import PrivateKernelTailJson from '../artifacts/private_kernel_tail.json' assert
 import PrivateKernelTailSimulatedJson from '../artifacts/private_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateKernelTailToPublicJson from '../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
 import PrivateKernelTailToPublicSimulatedJson from '../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
-import PublicKernelInnerJson from '../artifacts/public_kernel_inner.json' assert { type: 'json' };
 import PublicKernelInnerSimulatedJson from '../artifacts/public_kernel_inner_simulated.json' assert { type: 'json' };
-import PublicKernelMergeJson from '../artifacts/public_kernel_merge.json' assert { type: 'json' };
 import PublicKernelMergeSimulatedJson from '../artifacts/public_kernel_merge_simulated.json' assert { type: 'json' };
-import PublicKernelTailJson from '../artifacts/public_kernel_tail.json' assert { type: 'json' };
 import PublicKernelTailSimulatedJson from '../artifacts/public_kernel_tail_simulated.json' assert { type: 'json' };
-import BaseRollupJson from '../artifacts/rollup_base.json' assert { type: 'json' };
-import BaseRollupSimulatedJson from '../artifacts/rollup_base_simulated.json' assert { type: 'json' };
+import PrivateBaseRollupJson from '../artifacts/rollup_base_private.json' assert { type: 'json' };
+import PrivateBaseRollupSimulatedJson from '../artifacts/rollup_base_private_simulated.json' assert { type: 'json' };
+import PublicBaseRollupJson from '../artifacts/rollup_base_public.json' assert { type: 'json' };
+import PublicBaseRollupSimulatedJson from '../artifacts/rollup_base_public_simulated.json' assert { type: 'json' };
 import BlockMergeRollupJson from '../artifacts/rollup_block_merge.json' assert { type: 'json' };
 import BlockRootRollupJson from '../artifacts/rollup_block_root.json' assert { type: 'json' };
 import EmptyBlockRootRollupJson from '../artifacts/rollup_block_root_empty.json' assert { type: 'json' };
@@ -33,15 +32,18 @@ import {
   type PrivateResetArtifact,
 } from './private_kernel_reset_data.js';
 
+// To be deprecated.
+export const SimulatedPublicKernelInnerArtifact = PublicKernelInnerSimulatedJson as NoirCompiledCircuit;
+export const SimulatedPublicKernelMergeArtifact = PublicKernelMergeSimulatedJson as NoirCompiledCircuit;
+export const SimulatedPublicKernelTailArtifact = PublicKernelTailSimulatedJson as NoirCompiledCircuit;
+
 export type ServerProtocolArtifact =
   | 'EmptyNestedArtifact'
   | 'PrivateKernelEmptyArtifact'
-  | 'PublicKernelInnerArtifact'
-  | 'PublicKernelMergeArtifact'
-  | 'PublicKernelTailArtifact'
   | 'BaseParityArtifact'
   | 'RootParityArtifact'
-  | 'BaseRollupArtifact'
+  | 'PrivateBaseRollupArtifact'
+  | 'PublicBaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'BlockRootRollupArtifact'
   | 'EmptyBlockRootRollupArtifact'
@@ -60,12 +62,10 @@ export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   EmptyNestedArtifact: EmptyNestedJson as NoirCompiledCircuit,
   PrivateKernelEmptyArtifact: PrivateKernelEmptyJson as NoirCompiledCircuit,
-  PublicKernelInnerArtifact: PublicKernelInnerJson as NoirCompiledCircuit,
-  PublicKernelMergeArtifact: PublicKernelMergeJson as NoirCompiledCircuit,
-  PublicKernelTailArtifact: PublicKernelTailJson as NoirCompiledCircuit,
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
-  BaseRollupArtifact: BaseRollupJson as NoirCompiledCircuit,
+  PrivateBaseRollupArtifact: PrivateBaseRollupJson as NoirCompiledCircuit,
+  PublicBaseRollupArtifact: PublicBaseRollupJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
   EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
@@ -76,12 +76,10 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
 export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   EmptyNestedArtifact: EmptyNestedSimulatedJson as NoirCompiledCircuit,
   PrivateKernelEmptyArtifact: PrivateKernelEmptySimulatedJson as NoirCompiledCircuit,
-  PublicKernelInnerArtifact: PublicKernelInnerSimulatedJson as NoirCompiledCircuit,
-  PublicKernelMergeArtifact: PublicKernelMergeSimulatedJson as NoirCompiledCircuit,
-  PublicKernelTailArtifact: PublicKernelTailSimulatedJson as NoirCompiledCircuit,
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
-  BaseRollupArtifact: BaseRollupSimulatedJson as NoirCompiledCircuit,
+  PrivateBaseRollupArtifact: PrivateBaseRollupSimulatedJson as NoirCompiledCircuit,
+  PublicBaseRollupArtifact: PublicBaseRollupSimulatedJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
   EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
