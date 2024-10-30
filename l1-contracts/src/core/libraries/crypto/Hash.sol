@@ -18,7 +18,9 @@ library Hash {
    */
   function sha256ToField(DataStructures.L1ToL2Msg memory _message) internal pure returns (bytes32) {
     return sha256ToField(
-      abi.encode(_message.sender, _message.recipient, _message.content, _message.secretHash)
+      abi.encode(
+        _message.sender, _message.recipient, _message.content, _message.secretHash, _message.index
+      )
     );
   }
 
