@@ -3,7 +3,7 @@
 set -eu
 set -o pipefail
 
-# Test a deployed cluster
+echo "Bootstrapping network with test contracts"
 
 NAMESPACE=${1:-spartan}
 TAG=${2:-latest}
