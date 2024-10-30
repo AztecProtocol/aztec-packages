@@ -16,26 +16,26 @@ get_test_names() {
 full_list=$(get_test_names)
 
 # Define the jobs that will run on every PR
-allow_list=(
-  "e2e_2_pxes"
-  "e2e_authwit"
-  "e2e_avm_simulator"
-  "e2e_block_building"
-  "e2e_cross_chain_messaging"
-  "e2e_deploy_contract"
-  "e2e_fees"
-  "e2e_fees_gas_estimation"
-  "e2e_fees_private_payments"
-  "e2e_max_block_number"
-  "e2e_nested_contract"
-  "e2e_ordering"
-  "e2e_static_calls"
-  "integration_l1_publisher"
-  "e2e_cheat_codes"
-  "e2e_prover_fake_proofs"
-  "e2e_prover_coordination"
-  "e2e_lending_contract"
-  "kind_network_smoke"
+allow-list=(
+  "e2e-2-pxes"
+  "e2e-authwit"
+  "e2e-avm-simulator"
+  "e2e-block-building"
+  "e2e-cross-chain-messaging"
+  "e2e-deploy-contract"
+  "e2e-fees"
+  "e2e-fees-gas-estimation"
+  "e2e-fees-private-payments"
+  "e2e-max-block-number"
+  "e2e-nested-contract"
+  "e2e-ordering"
+  "e2e-static-calls"
+  "integration-l1-publisher"
+  "e2e-cheat-codes"
+  "e2e-prover-fake-proofs"
+  "e2e-prover-coordination"
+  "e2e-lending-contract"
+  "kind-network-smoke"
 )
 
 # Add labels from input to the allow_list

@@ -69,12 +69,23 @@ spec:
               "-c",
               "sleep 30 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
+            initialDelaySeconds: {{ .Values.bootNode.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.bootNode.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.bootNode.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.bootNode.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.bootNode.readinessProbe.failureThreshold }}
           livenessProbe:
             exec:
               command:
-              - /bin/sh
-              - -c
-              - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
+                - /bin/sh
+                - -c
+                - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 30
