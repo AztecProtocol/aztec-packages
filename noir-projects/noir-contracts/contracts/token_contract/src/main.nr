@@ -597,6 +597,32 @@ contract Token {
         finalization_payload.emit();
     }
 
+    /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
+    /// `prepare_transfer_to_private` first and the resulting
+    /// `hiding_point_slot` must be passed as an argument to this function.
+    ///
+    /// Note: This function is only an optimization as it could be replaced by first calling
+    /// `mint_public(minter, amount)` but it is used very commonly that it makes sense to optimize it (e.g. used
+    /// during token bridging, in AMM liquidity token etc.).
+    #[public]
+    fn finalize_mint_to_private(amount: Field, hiding_point_slot: Field) {
+        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+
+        // TODO(#8271): Type the amount as U128 and nuke the ugly cast
+        let amount = U128::from_integer(amount);
+
+        // We increase the total supply by the `amount`
+        let supply = storage.total_supply.read().add(U128::from_integer(amount));
+        storage.total_supply.write(supply);
+
+        // Then we finalize the partial note with the `amount`
+        let finalization_payload =
+            UintNote::finalization_payload().new(context, note_transient_storage_slot, amount);
+
+        // At last we emit the note hash and the final log
+        finalization_payload.emit();
+    }
+
     /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
     /// were the same we could fingerprint the user by doing the following:
     ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
