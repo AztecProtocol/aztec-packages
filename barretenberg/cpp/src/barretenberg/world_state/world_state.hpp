@@ -200,7 +200,7 @@ class WorldState {
     /**
      * @brief Commits the current state of the world state.
      */
-    bool commit();
+    std::pair<bool, std::string> commit();
 
     /**
      * @brief Rolls back any uncommitted changes made to the world state.
@@ -246,6 +246,12 @@ class WorldState {
     bool unwind_block(const index_t& blockNumber);
     bool remove_historical_block(const index_t& blockNumber);
     bool set_finalised_block(const index_t& blockNumber);
+
+    void get_all_tree_info(const WorldStateRevision& revision,
+                           std::array<TreeMetaResponse, NUM_TREES>& responses) const;
+    bool determine_if_synched(std::array<TreeMetaResponse, NUM_TREES>& metaResponses) const;
+
+    void validate_trees_are_equally_synched();
 
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);

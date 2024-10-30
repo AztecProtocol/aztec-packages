@@ -53,6 +53,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
+    dbMapSizeKb: number,
     log = createDebugLogger('aztec:world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
@@ -68,7 +69,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await mkdir(dataDir, { recursive: true });
     await writeFile(rollupAddressFile, rollupAddress.toString(), 'utf8');
 
-    const instance = new NativeWorldState(dataDir);
+    const instance = new NativeWorldState(dataDir, dbMapSizeKb);
     const worldState = new this(instance, log, cleanup);
     await worldState.init();
     return worldState;
@@ -77,7 +78,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
     const log = createDebugLogger('aztec:world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
-    log.debug(`Created temporary world state database: ${dataDir}`);
+    const dbMapSizeKb = 10 * 1024 * 1024;
+    log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
@@ -89,10 +91,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, log, cleanup);
   }
 
   protected async init() {
+    const status = await this.getStatus();
+    if (!status.treesAreSynched) {
+      throw new Error("World state trees are out of sync");
+    }
     this.initialHeader = await this.buildInitialHeader();
     const committed = this.getCommitted();
 

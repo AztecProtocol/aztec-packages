@@ -91,6 +91,8 @@ export interface WorldStateStatus {
   finalisedBlockNumber: bigint;
   /** Oldest block still available for historical queries and forks. */
   oldestHistoricalBlock: bigint;
+  /** Whether the trees are in sync with each other */
+  treesAreSynched: boolean;
 }
 
 interface WithForkId {

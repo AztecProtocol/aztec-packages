@@ -82,7 +82,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, private log = createDebugLogger('aztec:world-state:database')) {
+  constructor(dataDir: string, dbMapSizeKb: number,  private log = createDebugLogger('aztec:world-state:database')) {
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {
@@ -97,7 +97,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       GeneratorIndex.BLOCK_HASH,
-      10 * 1024 * 1024, // 10 GB per tree (in KB)
+      dbMapSizeKb,
       Math.min(cpus().length, MAX_WORLD_STATE_THREADS),
     );
     this.queue.start();

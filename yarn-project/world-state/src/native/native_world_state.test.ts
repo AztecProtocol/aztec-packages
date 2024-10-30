@@ -12,6 +12,7 @@ import { NativeWorldStateService } from './native_world_state.js';
 describe('NativeWorldState', () => {
   let dataDir: string;
   let rollupAddress: EthAddress;
+  const defaultDBMapSize = 10 * 1024 * 1024;
 
   beforeAll(async () => {
     dataDir = await mkdtemp(join(tmpdir(), 'world-state-test'));
@@ -27,7 +28,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     beforeAll(async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(1, 2, fork));
       await fork.close();
@@ -37,7 +38,7 @@ describe('NativeWorldState', () => {
     }, 30_000);
 
     it('correctly restores committed state', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeDefined();
@@ -46,7 +47,7 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the rollup is different', async () => {
       // open ws against the same data dir but a different rollup
-      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir);
+      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
       // db should be empty
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
@@ -56,11 +57,36 @@ describe('NativeWorldState', () => {
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       await expect(
         ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
       ).resolves.toBeUndefined();
       await ws.close();
+    });
+
+    it('Fails to sync further blocks if trees are out of sync', async () => {
+      // open ws against the same data dir but a different rollup
+      const rollupAddress = EthAddress.random();
+      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
+      const initialFork = await ws.fork();
+
+      const { block: block1, messages: messages1 } = await mockBlock(1, 8, initialFork);
+      const { block: block2, messages: messages2 } = await mockBlock(2, 8, initialFork);
+      const { block: block3, messages: messages3 } = await mockBlock(3, 8, initialFork);
+
+      // The first block should succeed
+      await expect(ws.handleL2BlockAndMessages(block1, messages1)).resolves.toBeDefined();
+
+      // The second block should fail
+      await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow();
+
+      // Commits should always fail now, the trees are in an inconsistent state
+      await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow("World state trees are out of sync");
+      await expect(ws.handleL2BlockAndMessages(block3, messages3)).rejects.toThrow("World state trees are out of sync");
+
+      // Creating another world state instance should fail
+      await ws.close();
+      await expect(NativeWorldStateService.new(rollupAddress, dataDir, 1024)).rejects.toThrow("World state trees are out of sync");
     });
   });
 
@@ -68,7 +94,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir);
+      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
     });
 
     afterEach(async () => {

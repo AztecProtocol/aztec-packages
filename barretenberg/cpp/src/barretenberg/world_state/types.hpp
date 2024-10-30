@@ -20,6 +20,7 @@ enum MerkleTreeId {
 };
 
 const uint64_t CANONICAL_FORK_ID = 0;
+const uint64_t NUM_TREES = 5;
 
 std::string getMerkleTreeName(MerkleTreeId id);
 
@@ -41,20 +42,22 @@ struct WorldStateStatus {
     index_t unfinalisedBlockNumber;
     index_t finalisedBlockNumber;
     index_t oldestHistoricalBlock;
-    MSGPACK_FIELDS(unfinalisedBlockNumber, finalisedBlockNumber, oldestHistoricalBlock);
+    bool treesAreSynched;
+    MSGPACK_FIELDS(unfinalisedBlockNumber, finalisedBlockNumber, oldestHistoricalBlock, treesAreSynched);
 
     bool operator==(const WorldStateStatus& other) const
     {
         return unfinalisedBlockNumber == other.unfinalisedBlockNumber &&
                finalisedBlockNumber == other.finalisedBlockNumber &&
-               oldestHistoricalBlock == other.oldestHistoricalBlock;
+               oldestHistoricalBlock == other.oldestHistoricalBlock && treesAreSynched == other.treesAreSynched;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const WorldStateStatus& status)
     {
         os << "unfinalisedBlockNumber: " << status.unfinalisedBlockNumber
            << ", finalisedBlockNumber: " << status.finalisedBlockNumber
-           << ", oldestHistoricalBlock: " << status.oldestHistoricalBlock;
+           << ", oldestHistoricalBlock: " << status.oldestHistoricalBlock
+           << ", treesAreSynched: " << status.treesAreSynched;
         return os;
     }
 };
