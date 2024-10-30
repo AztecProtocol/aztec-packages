@@ -7,8 +7,8 @@ use std::{
 };
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
-// The following is a fixed ciphertext overhead as defined by `compute_private_log_payload`
-comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 353;
+// The following is a fixed ciphertext overhead as defined by `compute_encrypted_log_payload`
+comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 352;
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -392,7 +392,7 @@ comptime fn generate_multi_scalar_mul(
 ///     fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; 17] {
 ///         let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 ///
-///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_private_log_payload(
+///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
 ///             context.this_address(),
 ///             ovsk_app,
 ///             recipient_keys.ovpk_m,
@@ -466,13 +466,12 @@ comptime fn generate_setup_payload(
             fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
                 let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 
-                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_private_log_payload(
+                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
                     context.this_address(),
                     ovsk_app,
                     recipient_keys.ovpk_m,
                     recipient,
                     self.log_plaintext,
-                    true
                 );
 
                 aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
@@ -660,7 +659,9 @@ comptime fn generate_finalization_payload(
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;
-    let finalization_log_byte_length = setup_log_byte_length + public_values_length * 32;
+    let public_values_field_length = public_values_length * 32;
+    let finalization_log_byte_length =
+        1 /* public_values_length */ + setup_log_byte_length + public_values_field_length;
 
     (
         quote {
@@ -720,19 +721,19 @@ comptime fn generate_finalization_payload(
                 // We append the public value to the log and emit it as unencrypted log
                 let mut finalization_log = [0; $finalization_log_byte_length];
 
-                // Iterate over the partial log and copy it to the final log
-                for i in 1..setup_log.len() {
-                    finalization_log[i] = setup_log[i];
-                }
-
-                // Now we populate the first byte with number of public values
+                // Populate the first byte with number of public values
                 finalization_log[0] = $public_values_length;
+
+                // Iterate over the partial log and copy it to the final log
+                for i in 0..setup_log.len() {
+                    finalization_log[i + 1] = setup_log[i];
+                }
 
                 // Iterate over the public values and append them to the log
                 for i in 0..$public_values_length {
                     let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
                     for j in 0..public_value_bytes.len() {
-                        finalization_log[$setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
+                        finalization_log[1 + $setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
                     }
                 }
 

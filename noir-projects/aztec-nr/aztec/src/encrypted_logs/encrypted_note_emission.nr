@@ -7,6 +7,7 @@ use crate::{
 use dep::protocol_types::{
     abis::note_hash::NoteHash,
     address::AztecAddress,
+    constants::PRIVATE_LOG_SIZE_IN_BYTES,
     hash::sha256_to_field,
     public_keys::{OvpkM, PublicKeys},
 };
@@ -18,7 +19,7 @@ fn compute_payload_and_hash<Note, let N: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> (u32, [u8; 417 + N * 32], Field)
+) -> (u32, [u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
 where
     Note: NoteInterface<N>,
 {
@@ -34,9 +35,8 @@ where
 
     let plaintext = note.to_be_bytes(storage_slot);
 
-    // For note logs we always include public values prefix
-    let encrypted_log: [u8; 417 + N * 32] =
-        compute_private_log_payload(contract_address, ovsk_app, ovpk, recipient, plaintext, true);
+    let encrypted_log =
+        compute_private_log_payload(contract_address, ovsk_app, ovpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
@@ -47,7 +47,7 @@ unconstrained fn compute_payload_and_hash_unconstrained<Note, let N: u32>(
     note: Note,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> (u32, [u8; 417 + N * 32], Field)
+) -> (u32, [u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
 where
     Note: NoteInterface<N>,
 {
