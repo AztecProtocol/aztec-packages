@@ -217,9 +217,9 @@ contract AMM {
             );
         }
         assert(liquidity > U128::zero(), "INSUFFICIENT_LIQUIDITY_MINTED");
-        liquidity_token.finalize_mint_to_private(liquidity_hiding_point_slot, liquidity).call(
-            &mut context,
-        );
+        liquidity_token
+            .finalize_mint_to_private(liquidity.to_integer(), liquidity_hiding_point_slot)
+            .call(&mut context);
     }
 
     /// Removes `liquidity` from the pool and transfers the tokens back to the user. `amount0_min` and `amount1_min` are
@@ -240,12 +240,10 @@ contract AMM {
         liquidity_token
             .transfer_to_public(context.msg_sender(), context.this_address(), liquidity, nonce)
             .call(&mut context);
-        let token0_hiding_point_slot = token0
-            .prepare_transfer_to_private(context.this_address(), context.msg_sender(), nonce)
-            .call(&mut context);
-        let token1_hiding_point_slot = token1
-            .prepare_transfer_to_private(context.this_address(), context.msg_sender(), nonce)
-            .call(&mut context);
+        let token0_hiding_point_slot =
+            token0.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+        let token1_hiding_point_slot =
+            token1.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._remove_liquidity(
@@ -298,9 +296,15 @@ contract AMM {
         assert(amount1 >= amount1_min, "INSUFFICIENT_1_AMOUNT");
 
         // At last we burn the liquidity tokens and transfer the token0 and token1 to the user.
-        liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
-        token0.finalize_transfer_to_private(token0_hiding_point_slot, amount0).call(&mut context);
-        token1.finalize_transfer_to_private(token1_hiding_point_slot, amount1).call(&mut context);
+        liquidity_token.burn_public(context.this_address(), liquidity.to_integer(), 0).call(
+            &mut context,
+        );
+        token0.finalize_transfer_to_private(amount0.to_integer(), token0_hiding_point_slot).call(
+            &mut context,
+        );
+        token1.finalize_transfer_to_private(amount1.to_integer(), token1_hiding_point_slot).call(
+            &mut context,
+        );
     }
 
     /// Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
@@ -319,8 +323,8 @@ contract AMM {
 
         // We check the tokens are valid
         assert(token_in != token_out);
-        assert(token_in == state.token0 | token_in == state.token1);
-        assert(token_out == state.token0 | token_out == state.token1);
+        assert((token_in == state.token0) | (token_in == state.token1));
+        assert((token_out == state.token0) | (token_out == state.token1));
 
         let token_in_contract = Token::at(token_in);
         let token_out_contract = Token::at(token_out);
@@ -374,7 +378,7 @@ contract AMM {
 
         // Transfer the output token to the user.
         token_out_contract
-            .finalize_transfer_to_private(token_out_hiding_point_slot, amount_out)
+            .finalize_transfer_to_private(amount_out.to_integer(), token_out_hiding_point_slot)
             .call(&mut context);
     }
 
@@ -396,8 +400,8 @@ contract AMM {
 
         // We check the tokens are valid
         assert(token_in != token_out);
-        assert(token_in == state.token0 | token_in == state.token1);
-        assert(token_out == state.token0 | token_out == state.token1);
+        assert((token_in == state.token0) | (token_in == state.token1));
+        assert((token_out == state.token0) | (token_out == state.token1));
 
         let token_in_contract = Token::at(token_in);
         let token_out_contract = Token::at(token_out);
