@@ -25,7 +25,7 @@ export async function executeUnconstrainedFunction(
   const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
   const acirExecutionResult = await acvm(acir, initialWitness, new Oracle(oracle)).catch((err: Error) => {
-    err.message = resolveAssertionMessageFromError(err, artifact.debug);
+    err.message = resolveAssertionMessageFromError(err, artifact);
     throw new ExecutionError(
       err.message,
       {

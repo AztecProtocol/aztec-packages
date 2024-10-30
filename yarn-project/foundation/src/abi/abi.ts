@@ -397,10 +397,6 @@ export interface FunctionDebugMetadata {
    * Maps the file IDs to the file contents to resolve pointers
    */
   files: DebugFileMap;
-  /**
-   * Public functions store their static assertion messages externally to the bytecode.
-   */
-  errorTypes: Partial<Record<string, AbiErrorType>>;
 }
 
 /**
@@ -442,7 +438,6 @@ export function getFunctionDebugMetadata(
     return {
       debugSymbols: programDebugSymbols.debug_infos[0],
       files: contractArtifact.fileMap,
-      errorTypes: functionArtifact.errorTypes,
     };
   }
   return undefined;

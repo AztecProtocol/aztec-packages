@@ -1,6 +1,6 @@
 import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
-import type { BrilligFunctionId, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
+import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
@@ -106,12 +106,9 @@ export function resolveOpcodeLocations(
   );
 }
 
-export function resolveAssertionMessage(
-  errorPayload: RawAssertionPayload,
-  debug: FunctionDebugMetadata,
-): string | undefined {
+export function resolveAssertionMessage(errorPayload: RawAssertionPayload, abi: FunctionAbi): string | undefined {
   const decoded = abiDecodeError(
-    { parameters: [], error_types: debug.errorTypes, return_type: null }, // eslint-disable-line camelcase
+    { parameters: [], error_types: abi.errorTypes, return_type: null }, // eslint-disable-line camelcase
     errorPayload,
   );
 
@@ -122,10 +119,7 @@ export function resolveAssertionMessage(
   }
 }
 
-export function resolveAssertionMessageFromRevertData(
-  revertData: Fr[],
-  debug: FunctionDebugMetadata,
-): string | undefined {
+export function resolveAssertionMessageFromRevertData(revertData: Fr[], abi: FunctionAbi): string | undefined {
   if (revertData.length == 0) {
     return undefined;
   }
@@ -137,13 +131,13 @@ export function resolveAssertionMessageFromRevertData(
       selector: errorSelector.toBigInt().toString(),
       data: errorData.map(f => f.toString()),
     },
-    debug,
+    abi,
   );
 }
 
-export function resolveAssertionMessageFromError(err: Error, debug?: FunctionDebugMetadata): string {
-  if (debug && typeof err === 'object' && err !== null && 'rawAssertionPayload' in err && err.rawAssertionPayload) {
-    return `Assertion failed: ${resolveAssertionMessage(err.rawAssertionPayload as RawAssertionPayload, debug)}`;
+export function resolveAssertionMessageFromError(err: Error, abi: FunctionAbi): string {
+  if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err && err.rawAssertionPayload) {
+    return `Assertion failed: ${resolveAssertionMessage(err.rawAssertionPayload as RawAssertionPayload, abi)}`;
   } else {
     return err.message;
   }

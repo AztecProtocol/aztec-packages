@@ -65,21 +65,23 @@ export async function enrichPublicSimulationError(
   // To be able to resolve the assertion message, we need to use the information from the public dispatch function,
   // no matter what the call stack selector points to (since we've modified it to point to the target function).
   // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
-  const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+
+  const artifact = await contractDataOracle.getFunctionArtifact(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
+  const assertionMessage = resolveAssertionMessageFromRevertData(revertData, artifact);
+  if (assertionMessage) {
+    err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
+  }
+
   const noirCallStack = err.getNoirCallStack();
-  if (debugInfo) {
-    const assertionMessage = resolveAssertionMessageFromRevertData(revertData, debugInfo);
-    if (assertionMessage) {
-      err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
-    }
+  if (artifact.debug) {
     if (isNoirCallStackUnresolved(noirCallStack)) {
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.
-        const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
+        const parsedCallStack = resolveOpcodeLocations(noirCallStack, artifact.debug, 0);
         err.setNoirCallStack(parsedCallStack);
       } catch (err) {
         logger.warn(

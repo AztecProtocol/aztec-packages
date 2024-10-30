@@ -148,10 +148,5 @@ export function resolveAvmTestContractAssertionMessage(
     return undefined;
   }
 
-  const debugMetadata = getFunctionDebugMetadata(AvmTestContractArtifact, functionArtifact);
-  if (!debugMetadata) {
-    return undefined;
-  }
-
-  return resolveAssertionMessageFromRevertData(output, debugMetadata);
+  return resolveAssertionMessageFromRevertData(output, functionArtifact);
 }
