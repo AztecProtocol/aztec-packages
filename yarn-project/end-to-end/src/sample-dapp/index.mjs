@@ -1,6 +1,6 @@
 // docs:start:imports
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { BatchCall, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { getToken } from './contracts.mjs';
@@ -33,13 +33,20 @@ async function showPrivateBalances(pxe) {
 
 // docs:start:mintPrivateFunds
 async function mintPrivateFunds(pxe) {
-  const [owner] = await getInitialTestAccountsWallets(pxe);
-  const token = await getToken(owner);
+  const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
+  const token = await getToken(ownerWallet);
 
   await showPrivateBalances(pxe);
 
   const mintAmount = 20n;
-  await mintTokensToPrivate(token, owner, owner.getAddress(), mintAmount);
+  // We don't have the functionality to mint to private so we mint to the owner address in public and transfer
+  // the tokens to the recipient in private. We use BatchCall to speed the process up.
+  await new BatchCall(ownerWallet, [
+    token.methods.mint_public(ownerWallet.getAddress(), mintAmount).request(),
+    token.methods.transfer_to_private(ownerWallet.getAddress(), mintAmount).request(),
+  ])
+    .send()
+    .wait();
 
   await showPrivateBalances(pxe);
 }
