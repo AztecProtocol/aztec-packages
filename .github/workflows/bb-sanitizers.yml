@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-      - "*/*bb-sanitizers*"
+      - "*/bb-sanitizers*"
   pull_request:
     types: [opened, synchronize, reopened, labeled]
     paths:
