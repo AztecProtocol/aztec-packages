@@ -54,7 +54,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
+  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) { }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -121,10 +121,11 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      // TODO (#6185): How do we know if this one should be recursive? The first is the application which comes from the chain (simulateTx).
+      // App circuits are always recursive; the #[recursive] attribute used to be applied automatically
+      // by the `private` comptime macro in noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr
       const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
         currentExecution.acir,
-        recursive,
+        true,
         functionName,
       );
       // TODO(#7368): This used to be associated with getDebugFunctionName
