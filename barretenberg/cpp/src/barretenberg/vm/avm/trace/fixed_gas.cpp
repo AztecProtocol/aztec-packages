@@ -50,6 +50,8 @@ const std::unordered_map<OpCode, FixedGasTable::GasRow> GAS_COST_TABLE = {
     { OpCode::CAST_16, make_cost(AVM_CAST_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::GETENVVAR_16, make_cost(AVM_GETENVVAR_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::CALLDATACOPY, make_cost(AVM_CALLDATACOPY_BASE_L2_GAS, 0, AVM_CALLDATACOPY_DYN_L2_GAS, 0) },
+    { OpCode::RETURNDATASIZE, make_cost(AVM_RETURNDATASIZE_BASE_L2_GAS, 0, 0, 0) },
+    { OpCode::RETURNDATACOPY, make_cost(AVM_RETURNDATACOPY_BASE_L2_GAS, 0, AVM_RETURNDATACOPY_DYN_L2_GAS, 0) },
     { OpCode::JUMP_16, make_cost(AVM_JUMP_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::JUMPI_16, make_cost(AVM_JUMPI_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::INTERNALCALL, make_cost(AVM_INTERNALCALL_BASE_L2_GAS, 0, 0, 0) },
@@ -87,7 +89,7 @@ const std::unordered_map<OpCode, FixedGasTable::GasRow> GAS_COST_TABLE = {
     { OpCode::KECCAKF1600, make_cost(AVM_KECCAKF1600_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::ECADD, make_cost(AVM_ECADD_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::MSM, make_cost(AVM_MSM_BASE_L2_GAS, 0, AVM_MSM_DYN_L2_GAS, 0) },
-    { OpCode::TORADIXLE, make_cost(AVM_TORADIXLE_BASE_L2_GAS, 0, AVM_TORADIXLE_DYN_L2_GAS, 0) },
+    { OpCode::TORADIXBE, make_cost(AVM_TORADIXBE_BASE_L2_GAS, 0, AVM_TORADIXBE_DYN_L2_GAS, 0) },
 };
 
 } // namespace

@@ -20,14 +20,11 @@ const setWait = (state: boolean): void =>
 document.querySelector('#deploy').addEventListener('click', async ({ target }: any) => {
   setWait(true);
   wallet = await account.register();
-  const { masterNullifierPublicKey, masterOutgoingViewingPublicKey } =
-    wallet.getCompleteAddress().publicKeys;
+
   contract = await VanillaContract.deploy(
     wallet,
     Fr.random(),
-    wallet.getCompleteAddress().address,
-    masterNullifierPublicKey.hash(),
-    masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
+    wallet.getCompleteAddress().address
   )
     .send({ contractAddressSalt: Fr.random() })
     .deployed();
@@ -43,14 +40,11 @@ document.querySelector('#set').addEventListener('submit', async (e: Event) => {
   setWait(true);
 
   const { value } = document.querySelector('#number') as HTMLInputElement;
-  const { address: owner, publicKeys } = wallet.getCompleteAddress();
-  const { masterNullifierPublicKey, masterOutgoingViewingPublicKey } = publicKeys;
+  const { address: owner } = wallet.getCompleteAddress();
   await contract.methods
     .setNumber(
       parseInt(value),
       owner,
-      masterNullifierPublicKey.hash(),
-      masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
     )
     .send()
     .wait();

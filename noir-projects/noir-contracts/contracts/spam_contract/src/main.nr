@@ -31,12 +31,12 @@ contract Spam {
     #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
-        let caller_keys = get_public_keys(caller);
+        let caller_ovpk_m = get_public_keys(caller).ovpk_m;
         let amount = U128::from_integer(1);
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-                encode_and_encrypt_note_unconstrained(&mut context, caller_keys.ovpk_m, caller),
+            storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
+                encode_and_encrypt_note_unconstrained(&mut context, caller_ovpk_m, caller),
             );
         }
 

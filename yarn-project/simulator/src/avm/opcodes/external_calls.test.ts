@@ -7,7 +7,7 @@ import { mock } from 'jest-mock-extended';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContext } from '../avm_context.js';
-import { Field, TypeTag, Uint8, Uint32 } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { markBytecodeAsAvm } from '../bytecode_utils.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
@@ -43,10 +43,7 @@ describe('External Calls', () => {
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
-        ...Buffer.from('d234', 'hex'), // retOffset
-        ...Buffer.from('e234', 'hex'), // retSize
         ...Buffer.from('f234', 'hex'), // successOffset
-        ...Buffer.from('f334', 'hex'), // functionSelectorOffset
       ]);
       const inst = new Call(
         /*indirect=*/ 0x1234,
@@ -54,10 +51,7 @@ describe('External Calls', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
-        /*retOffset=*/ 0xd234,
-        /*retSize=*/ 0xe234,
         /*successOffset=*/ 0xf234,
-        /*functionSelectorOffset=*/ 0xf334,
       );
 
       expect(Call.deserialize(buf)).toEqual(inst);
@@ -71,25 +65,16 @@ describe('External Calls', () => {
       const addrOffset = 2;
       const addr = new Fr(123456n);
       const argsOffset = 3;
-      const valueToStore = new Fr(42);
-      const valueOffset = 0; // 0th entry in calldata to nested call
-      const slot = new Fr(100);
-      const slotOffset = 1; // 1st entry in calldata to nested call
-      const args = [new Field(valueToStore), new Field(slot), new Field(3n)];
+      const args = [new Field(1), new Field(2), new Field(3)];
       const argsSize = args.length;
       const argsSizeOffset = 20;
-      const retOffset = 7;
-      const retSize = 2;
-      const expectedRetValue = args.slice(0, retSize);
       const successOffset = 6;
 
-      // const otherContextInstructionsL2GasCost = 780; // Includes the cost of the call itself
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
           new Set(/*indirect=*/ 0, TypeTag.UINT32, 0, /*dstOffset=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
           new Set(/*indirect=*/ 0, TypeTag.UINT32, argsSize, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0),
-          new SStore(/*indirect=*/ 0, /*srcOffset=*/ valueOffset, /*slotOffset=*/ slotOffset),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 2),
         ]),
       );
@@ -111,27 +96,14 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(
-        /*indirect=*/ 0,
-        gasOffset,
-        addrOffset,
-        argsOffset,
-        argsSizeOffset,
-        retOffset,
-        retSize,
-        successOffset,
-        /*functionSelectorOffset=*/ 0,
-      );
+      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset);
       await instruction.execute(context);
 
       const successValue = context.machineState.memory.get(successOffset);
-      expect(successValue).toEqual(new Uint8(1n));
+      expect(successValue).toEqual(new Uint1(1n));
 
-      const retValue = context.machineState.memory.getSlice(retOffset, retSize);
-      expect(retValue).toEqual(expectedRetValue);
-
-      // Check that the storage call has been merged into the parent journal
-      expect(await context.persistableState.peekStorage(addr, slot)).toEqual(valueToStore);
+      const retValue = context.machineState.nestedReturndata;
+      expect(retValue).toEqual([new Fr(1n), new Fr(2n)]);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
       expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
@@ -145,8 +117,6 @@ describe('External Calls', () => {
       const addr = new Fr(123456n);
       const argsSize = 0;
       const argsSizeOffset = 20;
-      const retOffset = 7;
-      const retSize = 1;
       const successOffset = 6;
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
@@ -181,18 +151,16 @@ describe('External Calls', () => {
         addrOffset,
         /*argsOffset=*/ 0,
         argsSizeOffset,
-        retOffset,
-        retSize,
         successOffset,
-        /*functionSelectorOffset=*/ 0,
       );
       await instruction.execute(context);
 
       const successValue = context.machineState.memory.get(successOffset);
-      expect(successValue).toEqual(new Uint8(1n));
+      expect(successValue).toEqual(new Uint1(1n));
 
-      const retValue = context.machineState.memory.get(retOffset).toBigInt();
-      expect(retValue).toBeLessThan(initialL2Gas);
+      const retValues = context.machineState.nestedReturndata;
+      expect(retValues).toHaveLength(1);
+      expect(retValues[0].toBigInt()).toBeLessThan(initialL2Gas);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
       expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
@@ -208,10 +176,7 @@ describe('External Calls', () => {
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
-        ...Buffer.from('d234', 'hex'), // retOffset
-        ...Buffer.from('e234', 'hex'), // retSize
         ...Buffer.from('f234', 'hex'), // successOffset
-        ...Buffer.from('f334', 'hex'), // functionSelectorOffset
       ]);
       const inst = new StaticCall(
         /*indirect=*/ 0x1234,
@@ -219,10 +184,7 @@ describe('External Calls', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
-        /*retOffset=*/ 0xd234,
-        /*retSize=*/ 0xe234,
         /*successOffset=*/ 0xf234,
-        /*functionSelectorOffset=*/ 0xf334,
       );
 
       expect(StaticCall.deserialize(buf)).toEqual(inst);
@@ -239,8 +201,6 @@ describe('External Calls', () => {
 
       const argsSize = args.length;
       const argsSizeOffset = 40;
-      const retOffset = 80;
-      const retSize = 2;
       const successOffset = 70;
 
       context.machineState.memory.setSlice(gasOffset, gas);
@@ -269,10 +229,7 @@ describe('External Calls', () => {
         addrOffset,
         argsOffset,
         argsSizeOffset,
-        retOffset,
-        retSize,
         successOffset,
-        /*functionSelectorOffset=*/ 0,
       );
       await expect(() => instruction.execute(context)).rejects.toThrow(
         'Static call cannot update the state, emit L2->L1 messages or generate logs',

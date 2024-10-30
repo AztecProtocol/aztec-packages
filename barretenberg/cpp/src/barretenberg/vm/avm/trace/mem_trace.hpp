@@ -115,6 +115,8 @@ class AvmMemTraceBuilder {
     // Global Memory table (used for simulation): (space_id, (address, mem_entry))
     std::array<std::unordered_map<uint32_t, MemEntry>, NUM_MEM_SPACES> memory;
 
+    static void debug_mem_trace_entry(MemoryTraceEntry entry);
+
     void insert_in_mem_trace(uint8_t space_id,
                              uint32_t m_clk,
                              uint32_t m_sub_clk,
