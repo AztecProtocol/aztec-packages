@@ -343,7 +343,7 @@ export class Archiver implements ArchiveSource {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        this.log.info(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
+        this.log.verbose(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
         await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));

@@ -10,6 +10,8 @@ export class BotRunner {
   private pxe?: PXE;
   private node: AztecNode;
   private runningPromise: RunningPromise;
+  private consecutiveErrors = 0;
+  private healthy = true;
 
   public constructor(private config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode }) {
     this.pxe = dependencies.pxe;
@@ -50,6 +52,10 @@ export class BotRunner {
       await this.runningPromise.stop();
     }
     this.log.info(`Stopped bot`);
+  }
+
+  public isHealthy() {
+    return this.runningPromise.isRunning() && this.healthy;
   }
 
   /** Returns whether the bot is running. */
@@ -96,8 +102,10 @@ export class BotRunner {
 
     try {
       await bot.run();
+      this.consecutiveErrors = 0;
     } catch (err) {
-      this.log.error(`Error running bot: ${err}`);
+      this.consecutiveErrors += 1;
+      this.log.error(`Error running bot consecutiveCount=${this.consecutiveErrors}: ${err}`);
       throw err;
     }
   }
@@ -130,6 +138,15 @@ export class BotRunner {
       await this.run();
     } catch (err) {
       // Already logged in run()
+      if (this.config.maxConsecutiveErrors > 0 && this.consecutiveErrors >= this.config.maxConsecutiveErrors) {
+        this.log.error(`Too many errors bot is unhealthy`);
+        this.healthy = false;
+      }
+    }
+
+    if (!this.healthy && this.config.stopWhenUnhealthy) {
+      this.log.error(`Stopping bot due to errors`);
+      process.exit(1); // workaround docker not restarting the container if its unhealthy. We have to exit instead
     }
   }
 }
