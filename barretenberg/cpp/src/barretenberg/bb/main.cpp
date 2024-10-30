@@ -179,7 +179,9 @@ bool proveAndVerify(const std::string& bytecodePath, const bool recursive, const
 }
 
 template <IsUltraFlavor Flavor>
-bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, acir_format::WitnessVector witness)
+bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system,
+                                  const bool recursive,
+                                  acir_format::WitnessVector witness)
 {
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
@@ -191,8 +193,7 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
         honk_recursion = true;
     }
     // Construct a bberg circuit from the acir representation
-    auto builder =
-        acir_format::create_circuit<Builder>(constraint_system, /*recursive=*/false, 0, witness, honk_recursion);
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, recursive, 0, witness, honk_recursion);
 
     // Construct Honk proof
     Prover prover{ builder };
@@ -214,7 +215,8 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
  * @param bytecodePath Path to serialized acir circuit data
  * @param witnessPath Path to serialized acir witness data
  */
-template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
+template <IsUltraFlavor Flavor>
+bool proveAndVerifyHonk(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
     bool honk_recursion = false;
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
@@ -224,7 +226,7 @@ template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytec
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     auto witness = get_witness(witnessPath);
 
-    return proveAndVerifyHonkAcirFormat<Flavor>(constraint_system, witness);
+    return proveAndVerifyHonkAcirFormat<Flavor>(constraint_system, recursive, witness);
 }
 
 /**
@@ -236,18 +238,20 @@ template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytec
  * follow.
  */
 template <IsUltraFlavor Flavor>
-bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::string& witnessPath)
+bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
 {
     bool honk_recursion = false;
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
         honk_recursion = true;
     }
     auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath, honk_recursion);
-
+    size_t stack_size = program_stack.size();
+    size_t i = 0;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
+        bool is_last = ++i == stack_size;
 
-        if (!proveAndVerifyHonkAcirFormat<Flavor>(stack_item.constraints, stack_item.witness)) {
+        if (!proveAndVerifyHonkAcirFormat<Flavor>(stack_item.constraints, recursive && is_last, stack_item.witness)) {
             return false;
         }
         program_stack.pop_back();
@@ -1475,16 +1479,16 @@ int main(int argc, char* argv[])
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_ultra_honk") {
-            return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+            return proveAndVerifyHonk<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_mega_honk") {
-            return proveAndVerifyHonk<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
+            return proveAndVerifyHonk<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_ultra_honk_program") {
-            return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+            return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_mega_honk_program") {
-            return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
+            return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         }
         // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
