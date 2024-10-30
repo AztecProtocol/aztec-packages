@@ -71,7 +71,6 @@ export function getProgram(log: LogFn): Command {
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
     .requiredOption('-n --contract-name <string>', 'The name of the contract to generate', 'contract.sol')
-    .option('-r, --recursive', 'Whether a SNARK friendly key should be generated', false)
     .action(async options => {
       const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
@@ -90,7 +89,6 @@ export function getProgram(log: LogFn): Command {
         options.workingDirectory,
         options.circuit,
         compiledCircuit,
-        options.recursive,
         options.contractName,
         log,
         /*force= */ true,

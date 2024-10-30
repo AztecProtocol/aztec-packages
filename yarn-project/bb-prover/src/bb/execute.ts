@@ -566,7 +566,7 @@ export async function generateAvmProof(
       avmHintsPath,
       '-o',
       outputPath,
-      currentLogLevel == 'debug' ? '-d' : 'verbose' ? '-v' : '',
+      currentLogLevel == 'debug' ? '-d' : currentLogLevel == 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -850,11 +850,16 @@ export async function generateContractForCircuit(
   workingDirectory: string,
   circuitName: string,
   compiledCircuit: NoirCompiledCircuit,
-  recursive: boolean,
   contractName: string,
   log: LogFn,
   force = false,
 ) {
+  // Verifier contracts are never recursion friendly, because non-recursive proofs are generated using the keccak256 hash function.
+  // We need to use the same hash function during verification so proofs generated using keccak256 are cheap to verify on ethereum
+  // (where the verifier contract would be deployed) whereas if we want to verify the proof within a snark (for recursion) we want
+  // to use a snark-friendly hash function.
+  const recursive = false;
+
   const vkResult = await generateKeyForNoirCircuit(
     pathToBB,
     workingDirectory,
