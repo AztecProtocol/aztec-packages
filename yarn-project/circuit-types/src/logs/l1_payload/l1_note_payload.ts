@@ -4,7 +4,6 @@ import { randomInt } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { EncryptedL2NoteLog } from '../encrypted_l2_note_log.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 
 /**
@@ -181,7 +180,7 @@ function removePaddingBytes(unprocessedLog: Buffer) {
   // Determine whether first 31 bytes of each 32 bytes block of bytes are 0
   const is1FieldPerByte = unprocessedLog.every((byte, index) => index % 32 === 31 || byte === 0);
   if (!is1FieldPerByte) {
-    throw new Error('Unprocessed log is not from public.');
+    return unprocessedLog;
   }
 
   // We take every 32nd byte from the log and return the result
