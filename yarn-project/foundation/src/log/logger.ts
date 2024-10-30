@@ -101,20 +101,10 @@ export function attachedFixedDataToLogger(debugLogger: DebugLogger, fixedLogData
   const logger = {
     // Silent log level does nothing.
     silent: () => {},
-
-    // Error log level includes a message, error details, and additional data.
     error: (msg: string, err?: unknown, data?: LogData) => debugLogger.error(fmtErr(msg, err), attach(data)),
-
-    // Warning log level includes a message and additional data.
     warn: (msg: string, data?: LogData) => debugLogger.warn(msg, attach(data)),
-
-    // Info log level includes a message and additional data.
     info: (msg: string, data?: LogData) => debugLogger.info(msg, attach(data)),
-
-    // Verbose log level includes a message and additional data.
     verbose: (msg: string, data?: LogData) => debugLogger.verbose(msg, attach(data)),
-
-    // Debug log level includes a message and additional data.
     debug: (msg: string, data?: LogData) => debugLogger.debug(msg, attach(data)),
   };
 
