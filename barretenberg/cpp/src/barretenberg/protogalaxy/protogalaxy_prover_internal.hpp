@@ -2,6 +2,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -106,7 +107,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
                                                    const RelationSeparator& alphas_,
-                                                   const RelationParameters<FF>& relation_parameters)
+                                                   const RelationParameters<FF>& relation_parameters,
+                                                   MaxBlockSizeTracker& max_block_size_tracker)
 
     {
 
@@ -126,14 +128,23 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             polynomial_size,
             /*accumulator default*/ FF(0),
             [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
-                const AllValues row = polynomials.get_row(row_idx);
-                // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows here.
-                const RelationEvaluations evals =
-                    RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
+                if (max_block_size_tracker.check_containment(row_idx)) {
+                    const AllValues row = polynomials.get_row(row_idx);
+                    // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows
+                    // here.
+                    const RelationEvaluations evals =
+                        RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-                // Sum against challenges alpha
-                aggregated_relation_evaluations[row_idx] =
-                    process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
+                    // Sum against challenges alpha
+                    aggregated_relation_evaluations[row_idx] =
+                        process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
+                }
+
+                // if (!max_block_size_tracker.check_containment(row_idx) &&
+                //     aggregated_relation_evaluations[row_idx] != 0) {
+                //     info("ROW IDX = ", row_idx);
+                //     info("VAL = ", aggregated_relation_evaluations[row_idx]);
+                // }
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
         aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
@@ -185,6 +196,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                               std::span<const FF> deltas,
                                                               const std::vector<FF>& full_honk_evaluations)
     {
+        // PROFILE_THIS_NAME("PG::construct_perturbator_coefficients");
         auto width = full_honk_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
         parallel_for_heuristic(
@@ -203,11 +215,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
      */
     static Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
-                                              const std::vector<FF>& deltas)
+                                              const std::vector<FF>& deltas,
+                                              MaxBlockSizeTracker& max_block_size_tracker)
     {
         PROFILE_THIS();
-        auto full_honk_evaluations = compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
+        auto full_honk_evaluations = compute_row_evaluations(accumulator->proving_key.polynomials,
+                                                             accumulator->alphas,
+                                                             accumulator->relation_parameters,
+                                                             max_block_size_tracker);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
@@ -239,6 +254,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const DeciderPKs& keys,
         const size_t row_idx)
     {
+        PROFILE_THIS_NAME("PG::extend_univariates");
         auto incoming_univariates = keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
         for (auto [extended_univariate, incoming_univariate] :
              zip_view(extended_univariates.get_all(), incoming_univariates)) {
@@ -269,6 +285,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                 const Parameters& relation_parameters,
                                                 const FF& scaling_factor)
     {
+        PROFILE_THIS_NAME("PG::accumulate_relation_univariates");
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
         //  Check if the relation is skippable to speed up accumulation

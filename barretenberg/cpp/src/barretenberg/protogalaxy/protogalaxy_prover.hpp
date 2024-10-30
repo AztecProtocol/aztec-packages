@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 
@@ -38,6 +39,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     FF perturbator_evaluation;
     UnivariateRelationParameters relation_parameters;
     UnivariateRelationSeparator alphas;
+
+    MaxBlockSizeTracker max_block_size_tracker;
 
     ProtogalaxyProver_() = default;
     ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys)

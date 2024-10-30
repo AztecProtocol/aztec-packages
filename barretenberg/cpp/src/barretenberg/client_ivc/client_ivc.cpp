@@ -174,10 +174,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
         proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_structure);
+        max_block_size_tracker = MaxBlockSizeTracker(trace_structure);
     } else {
         proving_key = std::make_shared<DeciderProvingKey>(
             circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
     }
+
+    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
+    max_block_size_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
@@ -202,14 +206,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, proving_key });
+        folding_prover.max_block_size_tracker = max_block_size_tracker;
         fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
     }
-
-    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
-    max_block_size_tracker.update(circuit);
 }
 
 /**

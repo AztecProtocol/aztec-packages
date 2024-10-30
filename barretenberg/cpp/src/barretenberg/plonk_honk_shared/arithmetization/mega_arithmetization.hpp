@@ -49,7 +49,6 @@ template <typename FF_> class MegaArith {
         bool operator==(const MegaTraceBlocks& other) const = default;
     };
 
-  private:
     // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
     struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
@@ -82,6 +81,17 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 2500;
             this->poseidon2_internal = 11500;
             this->lookup = 72000;
+
+            // this->ecc_op = 1 << 11;    // 2048
+            // this->pub_inputs = 1 << 8; // 256
+            // this->busread = 1 << 8; // 256
+            // this->arithmetic = 402000;
+            // this->delta_range = 180000;
+            // this->elliptic = 18000;
+            // this->aux = 274000;
+            // this->poseidon2_external = 5000;
+            // this->poseidon2_internal = 23000;
+            // this->lookup = 144000;
         }
     };
 
@@ -102,7 +112,6 @@ template <typename FF_> class MegaArith {
         }
     };
 
-  public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
 
