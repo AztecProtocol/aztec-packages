@@ -598,8 +598,8 @@ void prove_tube(const std::string& output_path)
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
-    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    num_public_inputs -= 1 * 8; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1125) Make this dynamic
+    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // don't add the agg object
+    num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.folding_proof[i + offset]);
@@ -1110,13 +1110,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1093): As the Smart contract doesn't verify the PCS and
-    // Shplemini is not constant size, we slice the proof up to sumcheck so calculation of public inputs is correct.
-    // This hack will be subsequently removed.
-    if constexpr (std::same_as<Flavor, UltraKeccakFlavor>) {
-        auto num_public_inputs = static_cast<uint32_t>(prover.proving_key->proving_key.num_public_inputs);
-        proof.erase(proof.begin() + num_public_inputs + 303, proof.end());
-    }
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");

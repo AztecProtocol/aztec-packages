@@ -396,6 +396,8 @@ fn handle_foreign_call(
         "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
         "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
+        "avmOpcodeReturndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
+        "avmOpcodeReturndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
@@ -417,27 +419,34 @@ fn handle_foreign_call(
 /// Handle an AVM CALL
 /// (an external 'call' brillig foreign call was encountered)
 /// Adds the new instruction to the avm instructions list.
+// #[oracle(avmOpcodeCall)]
+// unconstrained fn call_opcode(
+//     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
+//     address: AztecAddress,
+//     args: [Field],
+// ) -> bool {}
 fn handle_external_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
     opcode: AvmOpcode,
 ) {
-    if destinations.len() != 2 || inputs.len() != 5 {
+    if destinations.len() != 1 || inputs.len() != 4 {
         panic!(
-            "Transpiler expects ForeignCall (Static)Call to have 2 destinations and 5 inputs, got {} and {}.
-            Make sure your call instructions's input/return arrays have static length (`[Field; <size>]`)!",
+            "Transpiler expects ForeignCall (Static)Call to have 1 destinations and 4 inputs, got {} and {}.",
             destinations.len(),
             inputs.len()
         );
     }
-    let gas = inputs[0];
-    let gas_offset_ptr = match gas {
+
+    let gas_offset_ptr = match &inputs[0] {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            assert!(size == 2, "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)");
+            assert!(
+                *size == 2,
+                "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)"
+            );
             pointer
         }
-        ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 2 (`[l2Gas, daGas]`)!"),
         _ => panic!("Call instruction's gas input should be a HeapArray"),
     };
     let address_offset = match &inputs[1] {
@@ -448,45 +457,25 @@ fn handle_external_call(
     // The field is the length (memory address) and the HeapVector has the data and length again.
     // This is an ACIR internal representation detail that leaks to the SSA.
     // Observe that below, we use `inputs[3]` and therefore skip the length field.
-    let args = inputs[3];
+    let args = &inputs[3];
     let (args_offset_ptr, args_size_offset) = match args {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
-    let function_selector_offset = match &inputs[4] {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Call instruction's function selector input should be a basic MemoryAddress",),
-    };
 
-    let ret_offset_maybe = destinations[0];
-    let (ret_offset_ptr, ret_size) = match ret_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
-        ValueOrArray::HeapVector(_) => panic!("Call instruction's return data must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`let returnData: [Field; <size>] = ...`)!"),
-        _ => panic!("Call instruction's returnData destination should be a HeapArray input"),
-    };
-    let success_offset = match &destinations[1] {
+    let success_offset = match &destinations[0] {
         ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
     };
     avm_instrs.push(AvmInstruction {
         opcode,
-        //   * gas offset INDIRECT
-        //   * address offset direct
-        //   * args offset INDIRECT
-        //   * arg size offset direct
-        //   * ret offset INDIRECT
-        //   * (n/a) ret size is an immediate
-        //   * success offset direct
-        //   * selector direct
         indirect: Some(
             AddressingModeBuilder::default()
                 .indirect_operand(&gas_offset_ptr)
                 .direct_operand(address_offset)
                 .indirect_operand(&args_offset_ptr)
                 .direct_operand(&args_size_offset)
-                .indirect_operand(&ret_offset_ptr)
                 .direct_operand(success_offset)
-                .direct_operand(function_selector_offset)
                 .build(),
         ),
         operands: vec![
@@ -494,10 +483,7 @@ fn handle_external_call(
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: ret_offset_ptr.to_usize() as u16 },
-            AvmOperand::U16 { value: ret_size as u16 },
             AvmOperand::U16 { value: success_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: function_selector_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1043,7 +1029,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             let radix_offset = radix.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::TORADIXLE,
+                opcode: AvmOpcode::TORADIXBE,
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)
@@ -1217,6 +1203,87 @@ fn handle_calldata_copy(
     });
 }
 
+// #[oracle(avmOpcodeReturndataSize)]
+// unconstrained fn returndata_size_opcode() -> u32 {}
+fn handle_returndata_size(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 0);
+    assert!(destinations.len() == 1);
+
+    let dest_offset = match destinations[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("ReturndataSize destination should be a memory location"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::RETURNDATASIZE,
+        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
+        operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
+        ..Default::default()
+    });
+}
+
+// #[oracle(avmOpcodeReturndataCopy)]
+// unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
+fn handle_returndata_copy(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 2);
+    assert!(destinations.len() == 2);
+
+    let cd_offset = match inputs[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("ReturndataCopy offset should be a memory address"),
+    };
+
+    let copy_size_offset = match inputs[1] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("ReturndataCopy size should be a memory address"),
+    };
+
+    // We skip the first destination, which is the size of the slice.
+    let (dest_offset, write_size_here_offset) = match destinations[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
+        _ => panic!("ReturndataCopy destination should be a vector (slice)"),
+    };
+
+    avm_instrs.extend([
+        // First we write the return data.
+        AvmInstruction {
+            opcode: AvmOpcode::RETURNDATACOPY,
+            indirect: Some(
+                AddressingModeBuilder::default()
+                    .direct_operand(&cd_offset)
+                    .direct_operand(&copy_size_offset)
+                    .indirect_operand(&dest_offset)
+                    .build(),
+            ),
+            operands: vec![
+                AvmOperand::U16 { value: cd_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: copy_size_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
+            ],
+            ..Default::default()
+        },
+        // Then we set the size of the slice, using the input size.
+        generate_mov_instruction(
+            Some(
+                AddressingModeBuilder::default()
+                    .direct_operand(&copy_size_offset)
+                    .direct_operand(&write_size_here_offset)
+                    .build(),
+            ),
+            copy_size_offset.to_usize() as u32,
+            write_size_here_offset.to_usize() as u32,
+        ),
+    ]);
+}
+
 // #[oracle(avmOpcodeReturn)]
 // unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 fn handle_return(
@@ -1309,6 +1376,7 @@ fn handle_get_contract_instance(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
+    #[allow(non_camel_case_types)]
     enum ContractInstanceMember {
         DEPLOYER,
         CLASS_ID,
@@ -1444,7 +1512,7 @@ pub fn patch_assert_message_pcs(
 /// This must be done before transpiling to properly transpile jump destinations.
 /// This is necessary for two reasons:
 /// 1. The transpiler injects `initial_offset` instructions at the beginning of the program.
-/// 2. Some brillig instructions (_e.g._ Stop, or certain ForeignCalls) map to multiple AVM instructions
+/// 2. Some brillig instructions map to multiple AVM instructions
 /// args:
 ///     initial_offset: how many AVM instructions were inserted at the start of the program
 ///     brillig: the Brillig program
@@ -1456,6 +1524,11 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
+            BrilligOpcode::ForeignCall { function, .. }
+                if function == "avmOpcodeReturndataCopy" =>
+            {
+                2
+            }
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the

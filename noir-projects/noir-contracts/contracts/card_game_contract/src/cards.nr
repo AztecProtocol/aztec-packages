@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, PrivateContext};
+use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
@@ -6,6 +6,7 @@ use dep::aztec::{
     keys::getters::get_public_keys,
     note::constants::MAX_NOTES_PER_PAGE,
     protocol_types::{
+        address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Serialize, ToField},
     },
@@ -55,13 +56,13 @@ pub struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32, npk_m_hash: Field) -> Self {
+    fn new(strength: u32, points: u32, owner: AztecAddress) -> Self {
         let card = Card { strength, points };
-        CardNote::from_card(card, npk_m_hash)
+        CardNote::from_card(card, owner)
     }
 
-    pub fn from_card(card: Card, npk_m_hash: Field) -> CardNote {
-        CardNote { card, note: ValueNote::new(card.to_field(), npk_m_hash) }
+    pub fn from_card(card: Card, owner: AztecAddress) -> CardNote {
+        CardNote { card, note: ValueNote::new(card.to_field(), owner) }
     }
 
     pub fn from_note(note: ValueNote) -> CardNote {
@@ -108,14 +109,11 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let owner_keys = get_public_keys(owner);
-
-        let owner_npk_m_hash = owner_keys.npk_m.hash();
         let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
 
         let mut inserted_cards = &[];
         for card in cards {
-            let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
+            let mut card_note = CardNote::from_card(card, owner);
             self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
                 msg_sender_ovpk_m,

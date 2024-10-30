@@ -37,6 +37,8 @@ pub enum AvmOpcode {
     // Execution environment
     GETENVVAR_16,
     CALLDATACOPY,
+    RETURNDATASIZE,
+    RETURNDATACOPY,
     // Control flow
     JUMP_16,
     JUMPI_16,
@@ -77,7 +79,7 @@ pub enum AvmOpcode {
     ECADD,
     MSM,
     // Conversions
-    TORADIXLE,
+    TORADIXBE,
 }
 
 impl AvmOpcode {
@@ -123,6 +125,8 @@ impl AvmOpcode {
             AvmOpcode::GETENVVAR_16 => "GETENVVAR_16",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
+            AvmOpcode::RETURNDATASIZE => "RETURNDATASIZE",
+            AvmOpcode::RETURNDATACOPY => "RETURNDATACOPY",
 
             // Machine State
             // Machine State - Internal Control Flow
@@ -171,7 +175,7 @@ impl AvmOpcode {
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
             // Conversions
-            AvmOpcode::TORADIXLE => "TORADIXLE",
+            AvmOpcode::TORADIXBE => "TORADIXBE",
         }
     }
 }
