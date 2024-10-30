@@ -192,11 +192,11 @@ template <typename Flavor> class SumcheckProverRound {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                if constexpr (!Flavor::HasZK) {
-                    extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
-                } else {
-                    extend_edges_with_masking(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
-                }
+                // if constexpr (!Flavor::HasZK) {
+                extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
+                // } else {
+                //     extend_edges_with_masking(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
+                // }
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
@@ -321,8 +321,10 @@ template <typename Flavor> class SumcheckProverRound {
                                                                   size_t round_idx)
     {
         SumcheckRoundUnivariate libra_round_univariate;
+        // info("inside compute libra? ", round_idx);
         // select the i'th column of Libra book-keeping table
-        auto current_column = zk_sumcheck_data.libra_univariates[round_idx];
+        const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
+        // info("univariate accessed?");
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
         // corrected by the Libra running sum
         for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; ++idx) {
@@ -448,6 +450,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         sumcheck_round_failed = (target_total_sum != total_sum);
 
         round_failed = round_failed || sumcheck_round_failed;
+        // info("check sum failed", round_failed);
         return !sumcheck_round_failed;
     };
 
@@ -478,7 +481,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         if (!dummy_round.get_value()) {
             sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         }
-
+        // info("round failed?  dd ", round_failed);
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;
     };
