@@ -1015,6 +1015,27 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           'Values are not equal',
         );
       });
+
+      it('Should handle returndatacopy oracle', async () => {
+        const context = createContext();
+        const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
+        mockGetBytecode(worldStateDB, nestedBytecode);
+
+        const contractClass = makeContractClassPublic(0, {
+          bytecode: nestedBytecode,
+          selector: FunctionSelector.random(),
+        });
+        mockGetContractClass(worldStateDB, contractClass);
+        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        mockGetContractInstance(worldStateDB, contractInstance);
+
+        mockTraceFork(trace);
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+      });
     });
 
     describe('Side effect trace errors on overflow', () => {

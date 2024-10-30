@@ -47,19 +47,22 @@ export class L2BlockStream {
       const localTips = await this.localData.getL2Tips();
       this.log.debug(`Running L2 block stream`, {
         sourceLatest: sourceTips.latest.number,
-        localLatest: localTips.latest,
+        localLatest: localTips.latest.number,
         sourceFinalized: sourceTips.finalized.number,
-        localFinalized: localTips.finalized,
+        localFinalized: localTips.finalized.number,
         sourceProven: sourceTips.proven.number,
-        localProven: localTips.proven,
+        localProven: localTips.proven.number,
         sourceLatestHash: sourceTips.latest.hash,
+        localLatestHash: localTips.latest.hash,
         sourceProvenHash: sourceTips.proven.hash,
+        localProvenHash: localTips.proven.hash,
         sourceFinalizedHash: sourceTips.finalized.hash,
+        localFinalizedHash: localTips.finalized.hash,
       });
 
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.latest.number;
-      while (!(await this.areBlockHashesEqual(latestBlockNumber, sourceTips.latest))) {
+      while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache: [sourceTips.latest] }))) {
         latestBlockNumber--;
       }
       if (latestBlockNumber < localTips.latest.number) {
@@ -97,15 +100,19 @@ export class L2BlockStream {
     }
   }
 
-  private async areBlockHashesEqual(blockNumber: number, sourceLatest: L2BlockId) {
+  /**
+   * Returns whether the source and local agree on the block hash at a given height.
+   * @param blockNumber - The block number to test.
+   * @param args - A cache of data already requested from source, to avoid re-requesting it.
+   */
+  private async areBlockHashesEqualAt(blockNumber: number, args: { sourceCache: L2BlockId[] }) {
     if (blockNumber === 0) {
       return true;
     }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
     const sourceBlockHash =
-      sourceLatest.number === blockNumber && sourceLatest.hash
-        ? sourceLatest.hash
-        : await this.l2BlockSource.getBlockHeader(blockNumber).then(h => h?.hash().toString());
+      args.sourceCache.find(id => id.number === blockNumber && id.hash)?.hash ??
+      (await this.l2BlockSource.getBlockHeader(blockNumber).then(h => h?.hash().toString()));
     this.log.debug(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });
     return localBlockHash === sourceBlockHash;
   }

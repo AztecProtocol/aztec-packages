@@ -1,16 +1,15 @@
 // An integration test for the p2p client to test req resp protocols
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { getRandomPort } from '@aztec/foundation/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
 
 import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
 import { multiaddr } from '@multiformats/multiaddr';
+import getPort from 'get-port';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { createP2PClient } from '../../client/index.js';
@@ -45,25 +44,49 @@ function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
 
 const NUMBER_OF_PEERS = 2;
 
+// Mock the mempools
+const makeMockPools = () => {
+  return {
+    txPool: {
+      addTxs: jest.fn(() => {}),
+      getTxByHash: jest.fn().mockReturnValue(undefined),
+      deleteTxs: jest.fn(),
+      getAllTxs: jest.fn().mockReturnValue([]),
+      getAllTxHashes: jest.fn().mockReturnValue([]),
+      getMinedTxHashes: jest.fn().mockReturnValue([]),
+      getPendingTxHashes: jest.fn().mockReturnValue([]),
+      getTxStatus: jest.fn().mockReturnValue(undefined),
+      markAsMined: jest.fn(),
+    },
+    attestationPool: {
+      addAttestations: jest.fn(),
+      deleteAttestations: jest.fn(),
+      deleteAttestationsForSlot: jest.fn(),
+      getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
+    },
+    epochProofQuotePool: {
+      addQuote: jest.fn(),
+      getQuotes: jest.fn().mockReturnValue([]),
+      deleteQuotesToEpoch: jest.fn(),
+    },
+  };
+};
+
 describe('Req Resp p2p client integration', () => {
   let txPool: Mockify<TxPool>;
   let attestationPool: Mockify<AttestationPool>;
   let epochProofQuotePool: Mockify<EpochProofQuotePool>;
-  let blockSource: MockL2BlockSource;
+  let l2BlockSource: MockL2BlockSource;
   let kvStore: AztecKVStore;
-  let worldStateSynchronizer: WorldStateSynchronizer;
+  let worldState: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
-  let bootNodePort: number;
   const logger = createDebugLogger('p2p-client-integration-test');
 
-  const getPorts = async (numberOfPeers: number) => {
-    const ports = [];
-    for (let i = 0; i < numberOfPeers; i++) {
-      const port = (await getRandomPort()) || bootNodePort + i + 1;
-      ports.push(port);
-    }
-    return ports;
-  };
+  beforeEach(() => {
+    ({ txPool, attestationPool, epochProofQuotePool } = makeMockPools());
+  });
+
+  const getPorts = (numberOfPeers: number) => Promise.all(Array.from({ length: numberOfPeers }, () => getPort()));
 
   const createClients = async (numberOfPeers: number, alwaysTrueVerifier: boolean = true): Promise<P2PClient[]> => {
     const clients: P2PClient[] = [];
@@ -77,11 +100,14 @@ describe('Req Resp p2p client integration', () => {
         const enr = SignableENR.createFromPeerId(peerId);
 
         const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;
-        const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
+        const tcpAnnounceAddress = `127.0.0.1:${ports[i]}`;
+        const udpPublicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
+        const tcpPublicAddr = multiaddr(convertToMultiaddr(tcpAnnounceAddress, 'tcp'));
 
         // ENRS must include the network and a discoverable address (udp for discv5)
         enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
-        enr.setLocationMultiaddr(publicAddr);
+        enr.setLocationMultiaddr(udpPublicAddr);
+        enr.setLocationMultiaddr(tcpPublicAddr);
 
         return enr.encodeTxt();
       }),
@@ -103,47 +129,14 @@ describe('Req Resp p2p client integration', () => {
         udpListenAddress: listenAddr,
         tcpAnnounceAddress: addr,
         udpAnnounceAddress: addr,
-        l2QueueSize: 1,
         bootstrapNodes: [...otherNodes],
-        blockCheckIntervalMS: 1000,
         peerCheckIntervalMS: 1000,
-        transactionProtocol: '',
         minPeerCount: 1,
         maxPeerCount: 10,
-        keepProvenTxsInPoolFor: 0,
-        queryForIp: false,
-        l1ChainId: 31337,
-        dataDirectory: undefined,
-        l1Contracts: { rollupAddress: EthAddress.ZERO },
-      };
+      } as P2PConfig & DataStoreConfig;
 
-      txPool = {
-        addTxs: jest.fn(() => {}),
-        getTxByHash: jest.fn().mockReturnValue(undefined),
-        deleteTxs: jest.fn(),
-        getAllTxs: jest.fn().mockReturnValue([]),
-        getAllTxHashes: jest.fn().mockReturnValue([]),
-        getMinedTxHashes: jest.fn().mockReturnValue([]),
-        getPendingTxHashes: jest.fn().mockReturnValue([]),
-        getTxStatus: jest.fn().mockReturnValue(undefined),
-        markAsMined: jest.fn(),
-      };
-
-      attestationPool = {
-        addAttestations: jest.fn(),
-        deleteAttestations: jest.fn(),
-        deleteAttestationsForSlot: jest.fn(),
-        getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
-      };
-
-      epochProofQuotePool = {
-        addQuote: jest.fn(),
-        getQuotes: jest.fn().mockReturnValue([]),
-        deleteQuotesToEpoch: jest.fn(),
-      };
-
-      blockSource = new MockL2BlockSource();
-      blockSource.createBlocks(100);
+      l2BlockSource = new MockL2BlockSource();
+      l2BlockSource.createBlocks(100);
 
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();
@@ -153,7 +146,7 @@ describe('Req Resp p2p client integration', () => {
         epochProofQuotePool: epochProofQuotePool as unknown as EpochProofQuotePool,
         store: kvStore,
       };
-      const client = await createP2PClient(config, blockSource, proofVerifier, worldStateSynchronizer, undefined, deps);
+      const client = await createP2PClient(config, l2BlockSource, proofVerifier, worldState, undefined, deps);
 
       await client.start();
       clients.push(client);
@@ -173,8 +166,7 @@ describe('Req Resp p2p client integration', () => {
     await sleep(1000);
   };
 
-  // TODO: re-enable all in file with https://github.com/AztecProtocol/aztec-packages/issues/8707 is fixed
-  it.skip(
+  it(
     'Returns undefined if unable to find a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
@@ -197,7 +189,7 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it.skip(
+  it(
     'Can request a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
@@ -223,7 +215,7 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it.skip(
+  it(
     'Will penalize peers that send invalid proofs',
     async () => {
       // We want to create a set of nodes and request transaction from them
@@ -255,7 +247,7 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it.skip(
+  it(
     'Will penalize peers that send the wrong transaction',
     async () => {
       // We want to create a set of nodes and request transaction from them

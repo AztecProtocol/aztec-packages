@@ -82,13 +82,14 @@ contract Crowdfunding {
         // docs:end:do-transfer
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let donor_keys = get_public_keys(donor);
         // docs:start:valuenote_new
-        let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
+        let mut note = ValueNote::new(amount as Field, donor);
+
+        let donor_ovpk_m = get_public_keys(donor).ovpk_m;
         // docs:end:valuenote_new
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            donor_keys.ovpk_m,
+            donor_ovpk_m,
             donor,
         ));
     }
