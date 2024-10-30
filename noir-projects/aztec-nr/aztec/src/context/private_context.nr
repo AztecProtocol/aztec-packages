@@ -276,7 +276,13 @@ impl PrivateContext {
 
     // docs:start:context_consume_l1_to_l2_message
     // docs:start:consume_l1_to_l2_message
-    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
+    pub fn consume_l1_to_l2_message(
+        &mut self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        leaf_index: Field,
+    ) {
         // docs:end:context_consume_l1_to_l2_message
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
@@ -286,6 +292,7 @@ impl PrivateContext {
             self.version(),
             content,
             secret,
+            leaf_index,
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")

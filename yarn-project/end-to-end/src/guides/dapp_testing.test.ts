@@ -1,17 +1,6 @@
 // docs:start:imports
 import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  type AccountWallet,
-  CheatCodes,
-  ExtendedNote,
-  Fr,
-  Note,
-  type PXE,
-  TxStatus,
-  computeSecretHash,
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
+import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -19,6 +8,7 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -51,22 +41,8 @@ describe('guides/dapp/testing', () => {
         expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
 
         const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
 
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(
-          note,
-          recipientAddress,
-          token.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          receipt.txHash,
-        );
-        await owner.addNote(extendedNote);
-
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
@@ -91,22 +67,9 @@ describe('guides/dapp/testing', () => {
         expect(await token.methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(
-          note,
-          recipientAddress,
-          token.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          receipt.txHash,
-        );
-        await owner.addNote(extendedNote);
+        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
 
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
@@ -131,22 +94,8 @@ describe('guides/dapp/testing', () => {
 
         const ownerAddress = owner.getAddress();
         const mintAmount = 100n;
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(
-          note,
-          ownerAddress,
-          token.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
-          receipt.txHash,
-        );
-        await owner.addNote(extendedNote);
-
-        await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
+        await mintTokensToPrivate(token, owner, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);

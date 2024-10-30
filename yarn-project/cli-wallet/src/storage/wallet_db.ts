@@ -32,12 +32,12 @@ export class WalletDB {
     this.#transactions = store.openMap('transactions');
   }
 
-  async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, log: LogFn) {
+  async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, leafIndex: bigint, log: LogFn) {
     let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readInt8() || 0;
     stackPointer++;
     await this.#bridgedFeeJuice.set(
       `${recipient.toString()}:${stackPointer}`,
-      Buffer.from(`${amount.toString()}:${secret.toString()}`),
+      Buffer.from(`${amount.toString()}:${secret.toString()}:${leafIndex.toString()}`),
     );
     await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([stackPointer]));
     log(`Pushed ${amount} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
@@ -51,10 +51,10 @@ export class WalletDB {
         `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,
       );
     }
-    const [amountStr, secretStr] = result.toString().split(':');
+    const [amountStr, secretStr, leafIndexStr] = result.toString().split(':');
     await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([--stackPointer]));
     log(`Retrieved ${amountStr} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
-    return { amount: BigInt(amountStr), secret: secretStr };
+    return { amount: BigInt(amountStr), secret: secretStr, leafIndex: BigInt(leafIndexStr) };
   }
 
   async storeAccount(
