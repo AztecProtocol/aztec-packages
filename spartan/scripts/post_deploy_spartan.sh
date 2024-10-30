@@ -1,9 +1,9 @@
 #!/bin/bash
-# Targets a running cluster and tests 5 slots worth of transfers against it.
+# Targets a running cluster and deploys example contracts for testing
 set -eu
 set -o pipefail
 
-# Test a deployed cluster
+echo "Bootstrapping network with test contracts"
 
 NAMESPACE=${1:-spartan}
 TAG=${2:-latest}

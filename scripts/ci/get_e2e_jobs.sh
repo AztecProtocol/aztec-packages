@@ -5,7 +5,8 @@ set -eu
 cd "$(dirname "$0")"/../..
 
 BRANCH=$1
-LABELS=$2
+# support labels with hyphens for backwards compatibility:
+LABELS=$(echo $2 | sed 's/-/_/g')
 
 # Function to parse YAML and extract test names
 get_test_names() {

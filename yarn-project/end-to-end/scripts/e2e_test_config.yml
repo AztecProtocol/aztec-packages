@@ -1,126 +1,126 @@
 tests:
   base: {}
-  bench-prover:
+  bench_prover:
     env:
-      HARDWARE-CONCURRENCY: "32"
-      COMPOSE-FILE: "scripts/docker-compose-no-sandbox.yml"
-      DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world-state,aztec:merkle-trees"
-    command: "./scripts/e2e-compose-test.sh bench-prover"
-  bench-publish-rollup:
+      HARDWARE_CONCURRENCY: '32'
+      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
+    command: './scripts/e2e_compose_test.sh bench_prover'
+  bench_publish_rollup:
     env:
-      HARDWARE-CONCURRENCY: "32"
-      COMPOSE-FILE: "scripts/docker-compose-no-sandbox.yml"
-      DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world-state,aztec:merkle-trees"
-    command: "./scripts/e2e-compose-test.sh bench-publish-rollup"
-  bench-tx-size:
+      HARDWARE_CONCURRENCY: '32'
+      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
+    command: './scripts/e2e_compose_test.sh bench_publish_rollup'
+  bench_tx_size:
     env:
-      HARDWARE-CONCURRENCY: "32"
-      COMPOSE-FILE: "scripts/docker-compose-no-sandbox.yml"
-      DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world-state,aztec:merkle-trees"
-    command: "./scripts/e2e-compose-test.sh bench-tx-size"
-  e2e-2-pxes: {}
-  e2e-account-contracts: {}
-  e2e-authwit: {}
-  e2e-avm-simulator: {}
-  e2e-blacklist-token-contract: {}
-  e2e-block-building: {}
-  e2e-bot: {}
-  e2e-aztec-js-browser:
-    use-compose: true
-  e2e-card-game: {}
-  e2e-cheat-codes: {}
-  e2e-cross-chain-messaging: {}
-  e2e-crowdfunding-and-claim: {}
-  e2e-deploy-contract: {}
-  e2e-devnet-smoke: {}
-  docs-examples:
-    use-compose: true
-  e2e-escrow-contract: {}
-  e2e-fees-account-init:
-    test-path: "e2e-fees/account-init.test.ts"
+      HARDWARE_CONCURRENCY: '32'
+      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      DEBUG: 'aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees'
+    command: './scripts/e2e_compose_test.sh bench_tx_size'
+  e2e_2_pxes: {}
+  e2e_account_contracts: {}
+  e2e_authwit: {}
+  e2e_avm_simulator: {}
+  e2e_blacklist_token_contract: {}
+  e2e_block_building: {}
+  e2e_bot: {}
+  e2e_aztec_js_browser:
+    use_compose: true
+  e2e_card_game: {}
+  e2e_cheat_codes: {}
+  e2e_cross_chain_messaging: {}
+  e2e_crowdfunding_and_claim: {}
+  e2e_deploy_contract: {}
+  e2e_devnet_smoke: {}
+  docs_examples:
+    use_compose: true
+  e2e_escrow_contract: {}
+  e2e_fees_account_init:
+    test_path: 'e2e_fees/account_init.test.ts'
   # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9488): reenable
-  # e2e-fees-dapp-subscription:
-  #   test-path: "e2e-fees/dapp-subscription.test.ts"
-  e2e-fees-failures:
-    test-path: "e2e-fees/failures.test.ts"
-  e2e-fees-fee-juice-payments:
-    test-path: "e2e-fees/fee-juice-payments.test.ts"
-  e2e-fees-gas-estimation:
-    test-path: "e2e-fees/gas-estimation.test.ts"
-  e2e-fees-private-payments:
-    test-path: "e2e-fees/private-payments.test.ts"
-  e2e-fees-private-refunds:
-    test-path: "e2e-fees/private-refunds.test.ts"
-  e2e-keys: {}
-  e2e-l1-with-wall-time: {}
-  e2e-lending-contract: {}
-  e2e-event-logs: {}
-  e2e-max-block-number: {}
-  e2e-multiple-accounts-1-enc-key: {}
-  e2e-nested-contract: {}
-  e2e-nft: {}
-  e2e-non-contract-account: {}
-  e2e-note-getter: {}
-  e2e-ordering: {}
-  e2e-outbox: {}
-  e2e-pending-note-hashes-contract: {}
-  e2e-private-voting-contract: {}
-  e2e-prover-coordination: {}
-  e2e-prover-fake-proofs:
-    test-path: "e2e-prover/full.test.ts"
+  # e2e_fees_dapp_subscription:
+  #   test_path: "e2e_fees/dapp_subscription.test.ts"
+  e2e_fees_failures:
+    test_path: 'e2e_fees/failures.test.ts'
+  e2e_fees_fee_juice_payments:
+    test_path: 'e2e_fees/fee_juice_payments.test.ts'
+  e2e_fees_gas_estimation:
+    test_path: 'e2e_fees/gas_estimation.test.ts'
+  e2e_fees_private_payments:
+    test_path: 'e2e_fees/private_payments.test.ts'
+  e2e_fees_private_refunds:
+    test_path: 'e2e_fees/private_refunds.test.ts'
+  e2e_keys: {}
+  e2e_l1_with_wall_time: {}
+  e2e_lending_contract: {}
+  e2e_event_logs: {}
+  e2e_max_block_number: {}
+  e2e_multiple_accounts_1_enc_key: {}
+  e2e_nested_contract: {}
+  e2e_nft: {}
+  e2e_non_contract_account: {}
+  e2e_note_getter: {}
+  e2e_ordering: {}
+  e2e_outbox: {}
+  e2e_pending_note_hashes_contract: {}
+  e2e_private_voting_contract: {}
+  e2e_prover_coordination: {}
+  e2e_prover_fake_proofs:
+    test_path: 'e2e_prover/full.test.ts'
     env:
-      FAKE-PROOFS: "1"
-  e2e-prover-full:
-    test-path: "e2e-prover/full.test.ts"
+      FAKE_PROOFS: '1'
+  e2e_prover_full:
+    test_path: 'e2e_prover/full.test.ts'
     env:
-      HARDWARE-CONCURRENCY: "32"
-  e2e-public-testnet: {}
-  e2e-sandbox-example:
-    use-compose: true
-  e2e-state-vars: {}
-  e2e-static-calls: {}
-  e2e-synching: {}
-  e2e-token-contract: {}
-  flakey-e2e-tests:
-    test-path: "./src/flakey"
-    ignore-failures: true
-  guides-dapp-testing:
-    use-compose: true
-    test-path: "guides/dapp-testing.test.ts"
-  guides-sample-dapp:
-    use-compose: true
-    test-path: "sample-dapp/index.test.mjs"
-  guides-sample-dapp-ci:
-    use-compose: true
-    test-path: "sample-dapp/ci/index.test.mjs"
-  guides-up-quick-start:
-    use-compose: true
-    test-path: "guides/up-quick-start.test.ts"
-  guides-writing-an-account-contract:
-    use-compose: true
-    test-path: "guides/writing-an-account-contract.test.ts"
-  integration--l1-publisher:
-    use-compose: true
-  kind-network-4epochs:
+      HARDWARE_CONCURRENCY: '32'
+  e2e_public_testnet: {}
+  e2e_sandbox_example:
+    use_compose: true
+  e2e_state_vars: {}
+  e2e_static_calls: {}
+  e2e_synching: {}
+  e2e_token_contract: {}
+  flakey_e2e_tests:
+    test_path: './src/flakey'
+    ignore_failures: true
+  guides_dapp_testing:
+    use_compose: true
+    test_path: 'guides/dapp_testing.test.ts'
+  guides_sample_dapp:
+    use_compose: true
+    test_path: 'sample-dapp/index.test.mjs'
+  guides_sample_dapp_ci:
+    use_compose: true
+    test_path: 'sample-dapp/ci/index.test.mjs'
+  guides_up_quick_start:
+    use_compose: true
+    test_path: 'guides/up_quick_start.test.ts'
+  guides_writing_an_account_contract:
+    use_compose: true
+    test_path: 'guides/writing_an_account_contract.test.ts'
+  integration_l1_publisher:
+    use_compose: true
+  kind_network_4epochs:
     env:
-      NAMESPACE: "smoke"
-      FRESH-INSTALL: "true"
-      VALUES-FILE: "$-default.yaml"
-    command: "./scripts/network-test.sh ./src/spartan/4epochs.test.ts"
-    ignore-failures: true
-  kind-network-smoke:
+      NAMESPACE: 'smoke'
+      FRESH_INSTALL: 'true'
+      VALUES_FILE: '$-default.yaml'
+    command: './scripts/network_test.sh ./src/spartan/4epochs.test.ts'
+    ignore_failures: true
+  kind_network_smoke:
     env:
-      NAMESPACE: "smoke"
-      FRESH-INSTALL: "true"
-      VALUES-FILE: "$-default.yaml"
-    command: "./scripts/network-test.sh ./src/spartan/smoke.test.ts"
-  kind-network-transfer:
+      NAMESPACE: 'smoke'
+      FRESH_INSTALL: 'true'
+      VALUES_FILE: '$-default.yaml'
+    command: './scripts/network_test.sh ./src/spartan/smoke.test.ts'
+  kind_network_transfer:
     env:
-      NAMESPACE: "transfer"
-      FRESH-INSTALL: "true"
-      VALUES-FILE: "$-default.yaml"
-    command: "./scripts/network-test.sh ./src/spartan/smoke.test.ts"
+      NAMESPACE: 'transfer'
+      FRESH_INSTALL: 'true'
+      VALUES_FILE: '$-default.yaml'
+    command: './scripts/network_test.sh ./src/spartan/smoke.test.ts'
   pxe:
-    use-compose: true
-  uniswap-trade-on-l1-from-l2:
-    use-compose: true
+    use_compose: true
+  uniswap_trade_on_l1_from_l2:
+    use_compose: true
