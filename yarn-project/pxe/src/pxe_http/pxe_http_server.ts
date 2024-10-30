@@ -1,28 +1,41 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
   AuthWitness,
   CompleteAddress,
-  ContractData,
-  ExtendedContractData,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
+  EncryptedNoteL2BlockL2Logs,
+  EventMetadata,
+  ExtendedNote,
+  ExtendedUnencryptedL2Log,
   L2Block,
-  L2BlockL2Logs,
-  L2Tx,
-  NotePreimage,
-  PXE,
+  LogId,
+  Note,
+  NullifierMembershipWitness,
+  type PXE,
+  PrivateExecutionResult,
+  SiblingPath,
   Tx,
+  TxEffect,
   TxExecutionRequest,
   TxHash,
+  TxProvingResult,
   TxReceipt,
-} from '@aztec/types';
+  TxSimulationResult,
+  UnencryptedL2BlockL2Logs,
+  UnencryptedL2Log,
+  UniqueNote,
+} from '@aztec/circuit-types';
+import { FunctionSelector, PrivateCircuitPublicInputs, PublicKeys } from '@aztec/circuits.js';
+import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { JsonRpcServer, createNamespacedJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import http from 'http';
-import { foundry } from 'viem/chains';
-
-import { EthAddress } from '../index.js';
-
-export const localAnvil = foundry;
 
 /**
  * Wraps an instance of Private eXecution Environment (PXE) implementation to a JSON RPC HTTP interface.
@@ -32,23 +45,46 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
   return new JsonRpcServer(
     pxeService,
     {
-      CompleteAddress,
-      AztecAddress,
-      TxExecutionRequest,
-      ContractData,
-      ExtendedContractData,
-      TxHash,
-      EthAddress,
-      Point,
-      Fr,
-      GrumpkinScalar,
-      NotePreimage,
       AuthWitness,
+      AztecAddress,
+      Buffer32,
+      CompleteAddress,
+      EthAddress,
+      EventSelector,
+      ExtendedNote,
+      ExtendedUnencryptedL2Log,
+      Fr,
+      FunctionSelector,
+      GrumpkinScalar,
       L2Block,
-      L2Tx,
+      LogId,
+      Note,
+      Point,
+      PublicKeys,
+      SiblingPath,
+      TxEffect,
+      TxExecutionRequest,
+      TxHash,
+      UniqueNote,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
-    false,
+    {
+      CountedPublicExecutionRequest,
+      CountedNoteLog,
+      EncryptedL2Log,
+      EncryptedL2NoteLog,
+      EncryptedNoteL2BlockL2Logs,
+      EventMetadata,
+      NoteSelector,
+      NullifierMembershipWitness,
+      PrivateCircuitPublicInputs,
+      PrivateExecutionResult,
+      TxSimulationResult,
+      TxProvingResult,
+      Tx,
+      TxReceipt,
+      UnencryptedL2BlockL2Logs,
+      UnencryptedL2Log,
+    },
     ['start', 'stop'],
   );
 }
@@ -60,7 +96,8 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
  * @returns A running http server.
  */
 export function startPXEHttpServer(pxeService: PXE, port: string | number): http.Server {
-  const rpcServer = createPXERpcServer(pxeService);
+  const pxeServer = createPXERpcServer(pxeService);
+  const rpcServer = createNamespacedJsonRpcServer([{ pxe: pxeServer }]);
 
   const app = rpcServer.getApp();
   const httpServer = http.createServer(app.callback());

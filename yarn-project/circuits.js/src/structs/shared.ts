@@ -1,4 +1,4 @@
-import { Bufferable, serializeToBuffer } from '../utils/serialize.js';
+import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
@@ -45,6 +45,6 @@ export enum RollupTypes {
 }
 
 /**
- * String encoding of serialised buffer data
+ * String encoding of serialized buffer data
  */
 export const STRING_ENCODING: BufferEncoding = 'hex';

@@ -1,6 +1,8 @@
+#ifndef NO_MULTITHREADING
 #include "thread.hpp"
-// #include "log.hpp"
+#include <thread>
 
+namespace bb {
 /**
  * A very simple strategy. Spawn a worker thread for every iteration (but no more than num cores).
  * Worker threads tight-loop incrementing an atomic variable from 0-num_iterations, until num_iterations reached.
@@ -40,3 +42,5 @@ void parallel_for_spawning(size_t num_iterations, const std::function<void(size_
     }
     // info("joined!\n\n");
 }
+} // namespace bb
+#endif

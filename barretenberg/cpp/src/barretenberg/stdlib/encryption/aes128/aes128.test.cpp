@@ -1,16 +1,16 @@
 #include "aes128.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 TEST(stdlib_aes128, encrypt_64_bytes)
 {
-    typedef stdlib::field_t<proof_system::UltraCircuitBuilder> field_pt;
-    typedef stdlib::witness_t<proof_system::UltraCircuitBuilder> witness_pt;
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+    typedef stdlib::witness_t<bb::UltraCircuitBuilder> witness_pt;
 
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
     uint8_t out[64]{ 0x76, 0x49, 0xab, 0xac, 0x81, 0x19, 0xb2, 0x46, 0xce, 0xe9, 0x8e, 0x9b, 0x12, 0xe9, 0x19, 0x7d,
@@ -32,7 +32,7 @@ TEST(stdlib_aes128, encrypt_64_bytes)
         return converted;
     };
 
-    auto builder = proof_system::UltraCircuitBuilder();
+    auto builder = UltraCircuitBuilder();
 
     std::vector<field_pt> in_field{
         witness_pt(&builder, fr(convert_bytes(in))),
@@ -54,8 +54,8 @@ TEST(stdlib_aes128, encrypt_64_bytes)
         EXPECT_EQ(result[i].get_value(), expected[i]);
     }
 
-    std::cout << "num gates = " << builder.get_num_gates() << std::endl;
+    std::cout << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }

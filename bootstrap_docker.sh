@@ -1,9 +1,9 @@
-#!/bin/bash
-# This script builds the projects listed in build_mainifest.sh, terminating when it reaches PROJECT_NAME.
+#!/usr/bin/env bash
+# This script builds the projects listed in build_manifest.sh, terminating when it reaches PROJECT_NAME.
 # If run from within a project, it will build only that project, unless env var ONLY_TARGET=false.
 #
 # Usage:
-#   boostrap_docker.sh [PROJECT_NAME]
+#   bootstrap_docker.sh [PROJECT_NAME]
 #
 # To build everything in build_manifest.sh:
 #   bootstrap_docker.sh
@@ -36,5 +36,5 @@ build_local $PROJECT_NAME
 if [ -z "$PROJECT_NAME" ]; then
   echo
   echo "Success! You could now run e.g.:"
-  echo "  docker run -ti --rm aztecprotocol/end-to-end:latest e2e_private_token_contract.test"
+  echo "  docker run -ti --rm aztecprotocol/end-to-end:latest e2e_token_contract.test"
 fi

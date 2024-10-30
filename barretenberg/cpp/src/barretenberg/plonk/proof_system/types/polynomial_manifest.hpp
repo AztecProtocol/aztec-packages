@@ -1,11 +1,11 @@
 #pragma once
 
-#include "barretenberg/proof_system/types/circuit_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include <array>
 #include <string>
 #include <vector>
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 enum PolynomialSource { WITNESS, SELECTOR, PERMUTATION, OTHER };
 
@@ -23,7 +23,6 @@ enum PolynomialIndex {
     Q_FIXED_BASE,
     Q_RANGE,
     Q_SORT,
-    Q_LOGIC,
     TABLE_1,
     TABLE_2,
     TABLE_3,
@@ -225,4 +224,4 @@ class PrecomputedPolyList {
     std::string operator[](size_t index) const { return precomputed_poly_ids[index]; }
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

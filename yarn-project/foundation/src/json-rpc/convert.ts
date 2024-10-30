@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import cloneDeepWith from 'lodash.clonedeepwith';
 
-import { ClassConverter } from './class_converter.js';
+import { type ClassConverter } from './class_converter.js';
 
 /**
  * Check prototype chain to determine if an object is 'plain' (not a class instance).
@@ -117,7 +117,7 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
  * @returns The encoded object.
  */
 export function convertToJsonObj(cc: ClassConverter, obj: any): any {
-  // Bigint is a primitive type that needs special handling since it's not serialisable
+  // Bigint is a primitive type that needs special handling since it's not serializable
   if (typeof obj === 'bigint') {
     return {
       type: 'bigint',
@@ -130,7 +130,7 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
   }
 
   // Is this a Node buffer?
-  if (obj instanceof Buffer) {
+  if (Buffer.isBuffer(obj)) {
     return { type: 'Buffer', data: obj.toString('base64') };
   }
 

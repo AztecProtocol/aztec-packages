@@ -1,90 +1,125 @@
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
-#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
-#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/proof_system/relations/lookup_relation.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp" // just for an alias; should perhaps move to prover
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
-namespace proof_system::benchmark::relations {
+namespace bb::benchmark::relations {
 
-using FF = barretenberg::fr;
+using Fr = bb::fr;
+using Fq = grumpkin::fr;
 
-template <typename Flavor, typename Relation> void execute_relation(::benchmark::State& state)
+// Generic helper for executing Relation::accumulate for the template specified input type
+template <typename Flavor, typename Relation, typename Input, typename Accumulator>
+void execute_relation(::benchmark::State& state)
 {
-    // Generate beta and gamma
-    auto beta = FF::random_element();
-    auto gamma = FF::random_element();
-    auto public_input_delta = FF::random_element();
+    using FF = typename Flavor::FF;
 
-    RelationParameters<FF> params{
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = public_input_delta,
-    };
+    auto params = bb::RelationParameters<FF>::get_random();
 
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
-    using RelationValues = typename Relation::RelationValues;
+    // Instantiate zero-initialized inputs and accumulator
+    Input input{};
+    Accumulator accumulator;
 
-    // Extract an array containing all the polynomial evaluations at a given row i
-    ClaimedEvaluations new_value;
-    // Define the appropriate RelationValues type for this relation and initialize to zero
-    RelationValues accumulator;
-    // Evaluate each constraint in the relation and check that each is satisfied
-
-    Relation relation;
     for (auto _ : state) {
-        relation.add_full_relation_value_contribution(accumulator, new_value, params);
+        Relation::accumulate(accumulator, input, params, 1);
     }
 }
 
-void auxiliary_relation(::benchmark::State& state) noexcept
+// Single execution of relation on values (FF), e.g. Sumcheck verifier / PG perturbator work
+template <typename Flavor, typename Relation> void execute_relation_for_values(::benchmark::State& state)
 {
-    execute_relation<honk::flavor::Ultra, AuxiliaryRelation<FF>>(state);
-}
-BENCHMARK(auxiliary_relation);
+    using Input = typename Flavor::AllValues;
+    using Accumulator = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-void elliptic_relation(::benchmark::State& state) noexcept
+    execute_relation<Flavor, Relation, Input, Accumulator>(state);
+}
+
+// Single execution of relation on Sumcheck univariates, i.e. Sumcheck/Decider prover work
+template <typename Flavor, typename Relation> void execute_relation_for_univariates(::benchmark::State& state)
 {
-    execute_relation<honk::flavor::Ultra, EllipticRelation<FF>>(state);
-}
-BENCHMARK(elliptic_relation);
+    using Input = typename Flavor::ExtendedEdges;
+    using Accumulator = typename Relation::SumcheckTupleOfUnivariatesOverSubrelations;
 
-void ecc_op_queue_relation(::benchmark::State& state) noexcept
+    execute_relation<Flavor, Relation, Input, Accumulator>(state);
+}
+
+// Single execution of relation on PG univariates, i.e. PG combiner work
+template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
 {
-    execute_relation<honk::flavor::GoblinUltra, EccOpQueueRelation<FF>>(state);
-}
-BENCHMARK(ecc_op_queue_relation);
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using Input = ProtogalaxyProverInternal<DeciderProvingKeys>::ExtendedUnivariatesNoOptimisticSkipping;
+    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<
+        DeciderProvingKeys::NUM>;
 
-void gen_perm_sort_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, GenPermSortRelation<FF>>(state);
+    execute_relation<Flavor, Relation, Input, Accumulator>(state);
 }
-BENCHMARK(gen_perm_sort_relation);
 
-void lookup_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, LookupRelation<FF>>(state);
-}
-BENCHMARK(lookup_relation);
+// Ultra relations (PG prover combiner work)
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, EllipticRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, LogDerivLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
-void ultra_permutation_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, UltraPermutationRelation<FF>>(state);
-}
-BENCHMARK(ultra_permutation_relation);
+// Goblin-Ultra only relations (PG prover combiner work)
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
 
-void ultra_arithmetic_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, UltraArithmeticRelation<FF>>(state);
-}
-BENCHMARK(ultra_arithmetic_relation);
+// Ultra relations (Sumcheck prover work)
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, EllipticRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, LogDerivLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
-} // namespace proof_system::benchmark::relations
+// Goblin-Ultra only relations (Sumcheck prover work)
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+
+// Ultra relations (verifier work)
+BENCHMARK(execute_relation_for_values<UltraFlavor, UltraArithmeticRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, EllipticRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, LogDerivLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, UltraPermutationRelation<Fr>>);
+
+// Goblin-Ultra only relations (verifier work)
+BENCHMARK(execute_relation_for_values<MegaFlavor, EccOpQueueRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+
+// Translator VM
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDecompositionRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorOpcodeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorAccumulatorTransferRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorNonNativeFieldRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorPermutationRelation<Fr>>);
+
+// ECCVM
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMLookupRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMMSMRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMPointTableRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMSetRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMTranscriptRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMWnafRelation<Fq>>);
+BENCHMARK(execute_relation_for_values<ECCVMFlavor, ECCVMBoolsRelation<Fq>>);
+
+} // namespace bb::benchmark::relations
+
+BENCHMARK_MAIN();

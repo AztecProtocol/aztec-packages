@@ -3,8 +3,7 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder>
 
@@ -37,7 +36,9 @@ safe_uint_t<Builder> safe_uint_t<Builder>::subtract(const safe_uint_t& other,
                                                     std::string const& description) const
 {
     ASSERT(difference_bit_size <= MAX_BIT_NUM);
-    ASSERT(!(this->value.is_constant() && other.value.is_constant()));
+    if constexpr (!IsSimulator<Builder>) {
+        ASSERT(!(this->value.is_constant() && other.value.is_constant()));
+    }
     field_ct difference_val = this->value - other.value;
     // Creates the range constraint that difference_val is in [0, (1<<difference_bit_size) - 1].
     safe_uint_t<Builder> difference(difference_val, difference_bit_size, format("subtract: ", description));
@@ -67,8 +68,10 @@ safe_uint_t<Builder> safe_uint_t<Builder>::subtract(const safe_uint_t& other,
 template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator-(const safe_uint_t& other) const
 {
     // If both are constants and the operation is an underflow, throw an error since circuit itself underflows
-    ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
-             static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
+    if constexpr (!IsSimulator<Builder>) {
+        ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
+                 static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
+    }
     field_ct difference_val = this->value - other.value;
 
     // safe_uint_t constructor creates a range constraint which checks that `difference_val` is within [0,
@@ -108,7 +111,9 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
     std::string const& description,
     const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t)>& get_quotient) const
 {
-    ASSERT(this->value.is_constant() == false);
+    if constexpr (!IsSimulator<Builder>) {
+        ASSERT(this->value.is_constant() == false);
+    }
     ASSERT(quotient_bit_size <= MAX_BIT_NUM);
     ASSERT(remainder_bit_size <= MAX_BIT_NUM);
     uint256_t val = this->value.get_value();
@@ -130,6 +135,7 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
 
     this->assert_equal(int_val, "divide method quotient and/or remainder incorrect");
 
+    quotient.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return quotient;
 }
 
@@ -142,7 +148,9 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
  */
 template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator/(const safe_uint_t& other) const
 {
-    ASSERT(this->value.is_constant() == false);
+    if constexpr (!IsSimulator<Builder>) {
+        ASSERT(this->value.is_constant() == false);
+    }
     uint256_t val = this->value.get_value();
     auto [quotient_val, remainder_val] = val.divmod((uint256_t)other.value.get_value());
     field_ct quotient_field(witness_t(value.context, quotient_val));
@@ -162,6 +170,7 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator/
 
     this->assert_equal(int_val, "/ operator quotient and/or remainder incorrect");
 
+    quotient.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return quotient;
 }
 
@@ -186,7 +195,7 @@ template <typename Builder> bool_t<Builder> safe_uint_t<Builder>::is_zero() cons
     return value.is_zero();
 }
 
-template <typename Builder> barretenberg::fr safe_uint_t<Builder>::get_value() const
+template <typename Builder> bb::fr safe_uint_t<Builder>::get_value() const
 {
     return value.get_value();
 }
@@ -236,10 +245,16 @@ std::array<safe_uint_t<Builder>, 3> safe_uint_t<Builder>::slice(const uint8_t ms
                   (slice_wit * safe_uint_t(uint256_t(1) << lsb))));
 
     std::array<safe_uint_t, 3> result = { lo_wit, slice_wit, hi_wit };
+    OriginTag tag = get_origin_tag();
+    for (auto& element : result) {
+        element.set_origin_tag(tag);
+    }
     return result;
 }
 
-INSTANTIATE_STDLIB_TYPE(safe_uint_t);
+template class safe_uint_t<bb::StandardCircuitBuilder>;
+template class safe_uint_t<bb::UltraCircuitBuilder>;
+template class safe_uint_t<bb::MegaCircuitBuilder>;
+template class safe_uint_t<bb::CircuitSimulatorBN254>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

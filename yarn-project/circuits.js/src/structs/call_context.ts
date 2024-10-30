@@ -1,79 +1,45 @@
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { type Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { Fr, FunctionSelector } from './index.js';
+import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
 
 /**
  * Call context.
- * @see abis/call_context.hpp
  */
 export class CallContext {
-  /**
-   * Address of the portal contract to the storage contract.
-   */
-  public portalContractAddress: EthAddress;
   constructor(
     /**
      * Address of the account which represents the entity who invoked the call.
      */
     public msgSender: AztecAddress,
     /**
-     * The contract address against which all state changes will be stored. Not called `contractAddress` because during
-     * delegate call the contract whose code is being executed may be different from the contract whose state is being
-     * modified.
+     * The contract address being called.
      */
-    public storageContractAddress: AztecAddress,
-    /**
-     * Address of the portal contract to the storage contract.
-     * Union type is a kludge until C++ has an eth address type.
-     */
-    portalContractAddress: EthAddress | Fr,
+    public contractAddress: AztecAddress,
     /**
      * Function selector of the function being called.
      */
     public functionSelector: FunctionSelector,
     /**
-     * Determines whether the call is a delegate call (see Ethereum's delegate call opcode for more information).
-     */
-    public isDelegateCall: boolean,
-    /**
      * Determines whether the call is modifying state.
      */
     public isStaticCall: boolean,
-    /**
-     * Determines whether the call is a contract deployment.
-     */
-    public isContractDeployment: boolean,
-  ) {
-    this.portalContractAddress =
-      portalContractAddress instanceof EthAddress ? portalContractAddress : EthAddress.fromField(portalContractAddress);
-  }
+  ) {}
 
   /**
-   * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
-   * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
+   * Returns a new instance of CallContext with zero msg sender, storage contract address.
+   * @returns A new instance of CallContext with zero msg sender, storage contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(
-      AztecAddress.ZERO,
-      AztecAddress.ZERO,
-      Fr.ZERO,
-      FunctionSelector.empty(),
-      false,
-      false,
-      false,
-    );
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false);
   }
 
   isEmpty() {
     return (
-      this.msgSender.isZero() &&
-      this.storageContractAddress.isZero() &&
-      this.portalContractAddress.isZero() &&
-      this.functionSelector.isEmpty()
+      this.msgSender.isZero() && this.contractAddress.isZero() && this.functionSelector.isEmpty() && !this.isStaticCall
     );
   }
 
@@ -82,15 +48,7 @@ export class CallContext {
   }
 
   static getFields(fields: FieldsOf<CallContext>) {
-    return [
-      fields.msgSender,
-      fields.storageContractAddress,
-      fields.portalContractAddress,
-      fields.functionSelector,
-      fields.isDelegateCall,
-      fields.isStaticCall,
-      fields.isContractDeployment,
-    ] as const;
+    return [fields.msgSender, fields.contractAddress, fields.functionSelector, fields.isStaticCall] as const;
   }
 
   /**
@@ -101,21 +59,47 @@ export class CallContext {
     return serializeToBuffer(...CallContext.getFields(this));
   }
 
+  toFields(): Fr[] {
+    const fields = serializeToFields(...CallContext.getFields(this));
+    if (fields.length !== CALL_CONTEXT_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for CallContext. Expected ${CALL_CONTEXT_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
   /**
-   * Deserialise this from a buffer.
-   * @param buffer - The bufferable type from which to deserialise.
-   * @returns The deserialised instance of PublicCallRequest.
+   * Deserialize this from a buffer.
+   * @param buffer - The bufferable type from which to deserialize.
+   * @returns The deserialized instance of CallContext.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new CallContext(
-      new AztecAddress(reader.readBytes(32)),
-      new AztecAddress(reader.readBytes(32)),
-      new EthAddress(reader.readBytes(32)),
-      FunctionSelector.fromBuffer(reader.readBytes(4)),
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(FunctionSelector),
       reader.readBoolean(),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): CallContext {
+    const reader = FieldReader.asReader(fields);
+    return new CallContext(
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(FunctionSelector),
       reader.readBoolean(),
-      reader.readBoolean(),
+    );
+  }
+
+  equals(callContext: CallContext) {
+    return (
+      callContext.msgSender.equals(this.msgSender) &&
+      callContext.contractAddress.equals(this.contractAddress) &&
+      callContext.functionSelector.equals(this.functionSelector) &&
+      callContext.isStaticCall === this.isStaticCall
     );
   }
 }

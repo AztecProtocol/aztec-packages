@@ -8,11 +8,11 @@
 
 #include "../../types/prover_settings.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/work_queue/work_queue.hpp"
 #include "barretenberg/polynomials/iterate_over_domain.hpp"
-#include "barretenberg/proof_system/work_queue/work_queue.hpp"
 
-using namespace proof_system;
-namespace proof_system::plonk {
+using namespace bb;
+namespace bb::plonk {
 
 namespace widget {
 enum ChallengeIndex {
@@ -47,8 +47,6 @@ template <class Field> struct poly_ptr_map {
     size_t block_mask;
     size_t index_shift;
 };
-
-template <class Field> using coefficient_array = std::array<Field, PolynomialIndex::MAX_NUM_POLYNOMIALS>;
 
 } // namespace containers
 
@@ -118,7 +116,7 @@ template <class Field, class Transcript, class Settings, size_t num_widget_relat
                 ASSERT(index < transcript.get_num_challenges(label));
                 result.elements[tag] = transcript.get_challenge_field_element(label, index);
             } else {
-                result.elements[tag] = barretenberg::fr::random_element();
+                result.elements[tag] = bb::fr::random_element();
             }
         };
         add_challenge("alpha", ALPHA, required_challenges & CHALLENGE_BIT_ALPHA);
@@ -247,6 +245,8 @@ class FFTGetter : public BaseGetter<Field, Transcript, Settings, num_widget_rela
             return polynomials
                 .coefficients[id][(ptrdiff_t)((index + polynomials.index_shift) & polynomials.block_mask)];
         }
+        // This ID should exist
+        ASSERT(polynomials.coefficients.count(id) > 0);
         return polynomials.coefficients[id][(ptrdiff_t)index];
     }
 };
@@ -285,7 +285,6 @@ class TransitionWidget : public TransitionWidgetBase<Field> {
     typedef containers::poly_ptr_map<Field> poly_ptr_map;
     typedef containers::poly_array<Field> poly_array;
     typedef containers::challenge_array<Field, num_independent_relations> challenge_array;
-    typedef containers::coefficient_array<Field> coefficient_array;
 
   public:
     typedef getters::EvaluationGetter<Field, transcript::StandardTranscript, Settings, num_independent_relations>
@@ -316,6 +315,7 @@ class TransitionWidget : public TransitionWidgetBase<Field> {
                                         const transcript::StandardTranscript& transcript) override
     {
         auto* key = TransitionWidgetBase<Field>::key;
+        ASSERT(key != nullptr);
 
         // Get the set IDs for the polynomials required by the widget
         auto& required_polynomial_ids = FFTKernel::get_required_polynomial_ids();
@@ -327,15 +327,10 @@ class TransitionWidget : public TransitionWidgetBase<Field> {
             FFTGetter::get_challenges(transcript, alpha_base, FFTKernel::quotient_required_challenges);
 
         ITERATE_OVER_DOMAIN_START(key->large_domain);
-        coefficient_array linear_terms;
-        FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, i);
-        Field sum_of_linear_terms = FFTKernel::sum_linear_terms(polynomials, challenges, linear_terms, i);
-
         // populate split quotient components
         Field& quotient_term =
             key->quotient_polynomial_parts[i >> key->small_domain.log2_size][i & (key->circuit_size - 1)];
-        quotient_term += sum_of_linear_terms;
-        FFTKernel::compute_non_linear_terms(polynomials, challenges, quotient_term, i);
+        FFTKernel::accumulate_contribution(polynomials, challenges, quotient_term, i);
         ITERATE_OVER_DOMAIN_END;
 
         return FFTGetter::update_alpha(challenges, FFTKernel::num_independent_relations);
@@ -349,7 +344,6 @@ class GenericVerifierWidget {
     typedef containers::poly_ptr_map<Field> poly_ptr_map;
     typedef containers::poly_array<Field> poly_array;
     typedef containers::challenge_array<Field, num_independent_relations> challenge_array;
-    typedef containers::coefficient_array<Field> coefficient_array;
 
   public:
     typedef getters::EvaluationGetter<Field, Transcript, Settings, num_independent_relations> EvaluationGetter;
@@ -365,13 +359,8 @@ class GenericVerifierWidget {
         challenge_array challenges =
             EvaluationGetter::get_challenges(transcript, alpha_base, EvaluationKernel::quotient_required_challenges);
 
-        // As in the permutation widget, we have vestiges of the linearization trick: the code first computes what
-        // would be the contribution with linearization, then completes that smaller sum to the full contribution
-        // without linearization.
-        coefficient_array linear_terms;
-        EvaluationKernel::compute_linear_terms(polynomial_evaluations, challenges, linear_terms);
-        quotient_numerator_eval += EvaluationKernel::sum_linear_terms(polynomial_evaluations, challenges, linear_terms);
-        EvaluationKernel::compute_non_linear_terms(polynomial_evaluations, challenges, quotient_numerator_eval);
+        // Accumulate the contribution from the widget into the quotient
+        EvaluationKernel::accumulate_contribution(polynomial_evaluations, challenges, quotient_numerator_eval);
 
         return EvaluationGetter::update_alpha(challenges, num_independent_relations);
     }
@@ -389,4 +378,4 @@ class GenericVerifierWidget {
     }
 };
 } // namespace widget
-} // namespace proof_system::plonk
+} // namespace bb::plonk

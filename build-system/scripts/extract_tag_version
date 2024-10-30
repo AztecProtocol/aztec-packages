@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script takes a repository name as variable,
 # then checks if the commit tag variable (if any)
 # is a valid semver & echoes that valid semver.
@@ -28,7 +28,7 @@ if [[ "$COMMIT_TAG" == *"/"* ]]; then
   COMMIT_TAG_VERSION="${COMMIT_TAG#*/}"
   echo "Tag was made for: $REPO_NAME" >&2
   echo "Version: $COMMIT_TAG_VERSION" >&2
-  
+
   # Check if REPO_NAME is equal to REPOSITORY
   if [[ "$REPO_NAME" != "$REPOSITORY" ]]; then
     echo "REPO_NAME ($REPO_NAME) does not match REPOSITORY ($REPOSITORY). Exiting..." >&2
@@ -41,14 +41,14 @@ if [[ "$COMMIT_TAG" == *"/"* ]]; then
 fi
 
 # Check it's a valid semver.
-VERSION=$(npx semver "$COMMIT_TAG_VERSION")
-if [[ -z "$VERSION" ]]; then
+SEMVER_REGEX="^v?([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$"
+if ! [[ $COMMIT_TAG_VERSION =~ $SEMVER_REGEX ]]; then
   echo "$COMMIT_TAG_VERSION is not a semantic version." >&2
   if [[ "$ERROR_ON_FAIL" == "true" ]]; then
     exit 1
   else
-    VERSION=""
+    COMMIT_TAG_VERSION=""
   fi
 fi
 
-echo "$VERSION"
+echo "${COMMIT_TAG_VERSION#v}"

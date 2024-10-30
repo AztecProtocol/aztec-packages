@@ -7,22 +7,31 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../archiver"
     },
     {
       "path": "../aztec-node"
     },
     {
-      "path": "../aztec-sandbox"
+      "path": "../aztec.js"
     },
     {
-      "path": "../aztec.js"
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../bot"
+    },
+    {
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
     },
     {
-      "path": "../cli"
+      "path": "../entrypoints"
     },
     {
       "path": "../ethereum"
@@ -31,19 +40,43 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../l1-artifacts"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
+      "path": "../prover-node"
     },
     {
       "path": "../pxe"
     },
     {
       "path": "../sequencer-client"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
     },
     {
       "path": "../types"

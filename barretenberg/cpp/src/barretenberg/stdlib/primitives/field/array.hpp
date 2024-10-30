@@ -3,8 +3,7 @@
 #include "../safe_uint/safe_uint.hpp"
 #include "field.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * Gets the number of contiguous nonzero values of an array from the start.
@@ -34,7 +33,8 @@ template <typename Builder, size_t SIZE> field_t<Builder> array_length(std::arra
 template <typename Builder, size_t SIZE> field_t<Builder> array_pop(std::array<field_t<Builder>, SIZE> const& arr)
 {
     field_t<Builder> popped_value = 0;
-    bool_t<Builder> already_popped = false;
+    bool_t<Builder> already_popped = { arr[0].context, false };
+
     for (size_t i = arr.size() - 1; i != (size_t)-1; i--) {
         bool_t<Builder> is_non_zero = arr[i] != 0;
         popped_value = field_t<Builder>::conditional_assign(!already_popped && is_non_zero, arr[i], popped_value);
@@ -116,7 +116,7 @@ template <typename Builder, typename T, size_t SIZE> inline void array_push(std:
  * something else.
  */
 template <typename Builder, size_t SIZE>
-typename plonk::stdlib::bool_t<Builder> is_array_empty(std::array<field_t<Builder>, SIZE> const& arr)
+typename stdlib::bool_t<Builder> is_array_empty(std::array<field_t<Builder>, SIZE> const& arr)
 {
     bool_t<Builder> nonzero_found = false;
     for (size_t i = arr.size() - 1; i != (size_t)-1; i--) {
@@ -175,5 +175,4 @@ void push_array_to_array(std::array<field_t<Builder>, size_1> const& source,
     }
 }
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

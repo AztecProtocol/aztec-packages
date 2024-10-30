@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eo pipefail
+
+echo "Running with ENV set to: $ENV"
 
 # Helper function for building packages in yarn project
 build_package() {
@@ -10,7 +12,7 @@ build_package() {
   (cd "yarn-project/$package_name" && $build_command)
 }
 
-# Build script. If run on Netlify, first it needs to compile all yarn-projects 
+# Build script. If run on Netlify, first it needs to compile all yarn-projects
 # that are involved in typedoc in order to generate their type information.
 if [ -n "$NETLIFY" ]; then
   # Move to project root
@@ -43,6 +45,16 @@ if [ -n "$NETLIFY" ]; then
   yarn
 fi
 
+# Clean
+echo Cleaning...
+yarn clean
+
 # Now build the docsite
 echo Building docsite...
-yarn preprocess && yarn typedoc && yarn docusaurus build
+echo "Processing..."
+yarn preprocess
+yarn typedoc
+sh scripts/move_processed.sh
+
+echo "Building..."
+yarn docusaurus build

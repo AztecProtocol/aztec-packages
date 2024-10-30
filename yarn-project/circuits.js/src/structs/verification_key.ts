@@ -1,9 +1,9 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { makeTuple } from '@aztec/foundation/array';
+import { times } from '@aztec/foundation/collection';
+import { Fq, Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import times from 'lodash.times';
-
-import { serializeToBuffer } from '../utils/serialize.js';
-import { Fq } from './index.js';
+import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -38,7 +38,7 @@ export class G1AffineElement {
    */
   static fromBuffer(buffer: Buffer | BufferReader): G1AffineElement {
     const reader = BufferReader.asReader(buffer);
-    return new G1AffineElement(reader.readFr(), reader.readFr());
+    return new G1AffineElement(Fq.fromBuffer(reader), Fq.fromBuffer(reader));
   }
 }
 
@@ -74,10 +74,71 @@ export class CommitmentMap {
   }
 }
 
+// TODO: find better home for these constants
+export const CIRCUIT_SIZE_INDEX = 0;
+export const CIRCUIT_PUBLIC_INPUTS_INDEX = 1;
+export const CIRCUIT_RECURSIVE_INDEX = 3;
+
 /**
- * Kate commitment key object for verifying pairing equations.
- * @see proof_system/verification_key/verification_key.hpp
+ * Provides a 'fields' representation of a circuit's verification key
  */
+export class VerificationKeyAsFields {
+  constructor(public key: Fr[], public hash: Fr) {}
+
+  public get numPublicInputs() {
+    return Number(this.key[CIRCUIT_PUBLIC_INPUTS_INDEX]);
+  }
+
+  public get circuitSize() {
+    return Number(this.key[CIRCUIT_SIZE_INDEX]);
+  }
+
+  public get isRecursive() {
+    return this.key[CIRCUIT_RECURSIVE_INDEX].equals(Fr.ONE);
+  }
+
+  /**
+   * Serialize as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(...this.toFields());
+  }
+  toFields() {
+    return [this.key.length, ...this.key, this.hash];
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer to read from.
+   * @returns The VerificationKeyAsFields.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyAsFields {
+    const reader = BufferReader.asReader(buffer);
+    return new VerificationKeyAsFields(reader.readVector(Fr), reader.readObject(Fr));
+  }
+
+  /**
+   * Builds a fake verification key that should be accepted by circuits.
+   * @returns A fake verification key.
+   */
+  static makeFake(size: number, seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(size, Fr.random, seed), Fr.random());
+  }
+
+  static makeFakeHonk(seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+  }
+
+  /**
+   * Builds an 'empty' verification key
+   * @returns An 'empty' verification key
+   */
+  static makeEmpty(size: number): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(size, Fr.zero), Fr.zero());
+  }
+}
+
 export class VerificationKey {
   constructor(
     /**
@@ -122,9 +183,8 @@ export class VerificationKey {
   }
 
   /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
-   * @returns The VerificationKey.
+   * Deserializes class from a buffer.
+   * @returns A VerificationKey instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKey {
     const reader = BufferReader.asReader(buffer);
@@ -151,5 +211,57 @@ export class VerificationKey {
       false,
       times(16, i => i),
     );
+  }
+}
+
+export class VerificationKeyData {
+  constructor(public readonly keyAsFields: VerificationKeyAsFields, public readonly keyAsBytes: Buffer) {}
+
+  public get numPublicInputs() {
+    return this.keyAsFields.numPublicInputs;
+  }
+
+  public get circuitSize() {
+    return this.keyAsFields.circuitSize;
+  }
+
+  public get isRecursive() {
+    return this.keyAsFields.isRecursive;
+  }
+
+  static makeFakeHonk(): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
+  }
+
+  static makeFake(len = HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
+  }
+
+  /**
+   * Serialize as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.keyAsFields, this.keyAsBytes.length, this.keyAsBytes);
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
+    const reader = BufferReader.asReader(buffer);
+    const verificationKeyAsFields = reader.readObject(VerificationKeyAsFields);
+    const length = reader.readNumber();
+    const bytes = reader.readBytes(length);
+    return new VerificationKeyData(verificationKeyAsFields, bytes);
+  }
+
+  static fromString(str: string): VerificationKeyData {
+    return VerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  public clone() {
+    return VerificationKeyData.fromBuffer(this.toBuffer());
   }
 }

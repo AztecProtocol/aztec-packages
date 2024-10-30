@@ -1,64 +1,225 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { type AllowedElement } from '@aztec/circuit-types';
+import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { GlobalReaderConfig } from './global_variable_builder/index.js';
-import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
-import { SequencerConfig } from './sequencer/config.js';
+import {
+  type PublisherConfig,
+  type TxSenderConfig,
+  getPublisherConfigMappings,
+  getTxSenderConfigMappings,
+} from './publisher/config.js';
+import { type SequencerConfig } from './sequencer/config.js';
+
+/** Chain configuration. */
+type ChainConfig = {
+  /** The chain id of the ethereum host. */
+  l1ChainId: number;
+  /** The version of the rollup. */
+  version: number;
+};
 
 /**
  * Configuration settings for the SequencerClient.
  */
-export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig & GlobalReaderConfig;
+export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig & L1ReaderConfig & ChainConfig;
+
+export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
+  transactionPollingIntervalMS: {
+    env: 'SEQ_TX_POLLING_INTERVAL_MS',
+    description: 'The number of ms to wait between polling for pending txs.',
+    ...numberConfigHelper(1_000),
+  },
+  maxTxsPerBlock: {
+    env: 'SEQ_MAX_TX_PER_BLOCK',
+    description: 'The maximum number of txs to include in a block.',
+    ...numberConfigHelper(32),
+  },
+  minTxsPerBlock: {
+    env: 'SEQ_MIN_TX_PER_BLOCK',
+    description: 'The minimum number of txs to include in a block.',
+    ...numberConfigHelper(1),
+  },
+  minSecondsBetweenBlocks: {
+    env: 'SEQ_MIN_SECONDS_BETWEEN_BLOCKS',
+    description: 'The minimum number of seconds in-between consecutive blocks.',
+    ...numberConfigHelper(0),
+  },
+  maxSecondsBetweenBlocks: {
+    env: 'SEQ_MAX_SECONDS_BETWEEN_BLOCKS',
+    description:
+      'The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached.',
+    ...numberConfigHelper(0),
+  },
+  coinbase: {
+    env: 'COINBASE',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    description: 'Recipient of block reward.',
+  },
+  feeRecipient: {
+    env: 'FEE_RECIPIENT',
+    parseEnv: (val: string) => AztecAddress.fromString(val),
+    description: 'Address to receive fees.',
+  },
+  acvmWorkingDirectory: {
+    env: 'ACVM_WORKING_DIRECTORY',
+    description: 'The working directory to use for simulation/proving',
+  },
+  acvmBinaryPath: {
+    env: 'ACVM_BINARY_PATH',
+    description: 'The path to the ACVM binary',
+  },
+  allowedInSetup: {
+    env: 'SEQ_ALLOWED_SETUP_FN',
+    parseEnv: (val: string) => parseSequencerAllowList(val),
+    defaultValue: getDefaultAllowedSetupFunctions(),
+    description: 'The list of functions calls allowed to run in setup',
+    printDefault: () =>
+      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+  },
+  allowedInTeardown: {
+    env: 'SEQ_ALLOWED_TEARDOWN_FN',
+    parseEnv: (val: string) => parseSequencerAllowList(val),
+    defaultValue: getDefaultAllowedTeardownFunctions(),
+    description: 'The list of functions calls allowed to run teardown',
+    printDefault: () => 'FPC.pay_refund, FPC.pay_refund_with_shielded_rebate',
+  },
+  maxBlockSizeInBytes: {
+    env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
+    description: 'Max block size',
+    ...numberConfigHelper(1024 * 1024),
+  },
+  enforceFees: {
+    env: 'ENFORCE_FEES',
+    description: 'Whether to require every tx to have a fee payer',
+    ...booleanConfigHelper(),
+  },
+  gerousiaPayload: {
+    env: 'GEROUSIA_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the gerousia',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: EthAddress.ZERO,
+  },
+};
+
+export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
+  l1ChainId: l1ReaderConfigMappings.l1ChainId,
+  version: {
+    env: 'VERSION',
+    description: 'The version of the rollup.',
+    ...numberConfigHelper(1),
+  },
+};
+
+export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
+  ...sequencerConfigMappings,
+  ...l1ReaderConfigMappings,
+  ...getTxSenderConfigMappings('SEQ'),
+  ...getPublisherConfigMappings('SEQ'),
+  ...chainConfigMappings,
+};
 
 /**
  * Creates an instance of SequencerClientConfig out of environment variables using sensible defaults for integration testing if not set.
  */
 export function getConfigEnvVars(): SequencerClientConfig {
-  const {
-    SEQ_PUBLISHER_PRIVATE_KEY,
-    ETHEREUM_HOST,
-    CHAIN_ID,
-    VERSION,
-    API_KEY,
-    SEQ_REQUIRED_CONFS,
-    SEQ_PUBLISH_RETRY_INTERVAL_MS,
-    SEQ_TX_POLLING_INTERVAL_MS,
-    SEQ_MAX_TX_PER_BLOCK,
-    SEQ_MIN_TX_PER_BLOCK,
-    ROLLUP_CONTRACT_ADDRESS,
-    REGISTRY_CONTRACT_ADDRESS,
-    INBOX_CONTRACT_ADDRESS,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
-  } = process.env;
+  return getConfigFromMappings<SequencerClientConfig>(sequencerClientConfigMappings);
+}
 
-  const publisherPrivateKey: `0x${string}` = `0x${
-    SEQ_PUBLISHER_PRIVATE_KEY
-      ? SEQ_PUBLISHER_PRIVATE_KEY.replace('0x', '')
-      : '0000000000000000000000000000000000000000000000000000000000000000'
-  }`;
-  // Populate the relevant addresses for use by the sequencer
-  const addresses: L1ContractAddresses = {
-    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: EthAddress.ZERO,
-    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
-      : EthAddress.ZERO,
-    decoderHelperAddress: EthAddress.ZERO,
-  };
+/**
+ * Parses a string to a list of allowed elements.
+ * Each encoded is expected to be of one of the following formats
+ * `I:${address}`
+ * `I:${address}:${selector}`
+ * `C:${classId}`
+ * `C:${classId}:${selector}`
+ *
+ * @param value The string to parse
+ * @returns A list of allowed elements
+ */
+export function parseSequencerAllowList(value: string): AllowedElement[] {
+  const entries: AllowedElement[] = [];
 
-  return {
-    rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : '',
-    chainId: CHAIN_ID ? +CHAIN_ID : 31337, // 31337 is the default chain id for anvil
-    version: VERSION ? +VERSION : 1, // 1 is our default version
-    apiKey: API_KEY,
-    requiredConfirmations: SEQ_REQUIRED_CONFS ? +SEQ_REQUIRED_CONFS : 1,
-    l1BlockPublishRetryIntervalMS: SEQ_PUBLISH_RETRY_INTERVAL_MS ? +SEQ_PUBLISH_RETRY_INTERVAL_MS : 1_000,
-    transactionPollingIntervalMS: SEQ_TX_POLLING_INTERVAL_MS ? +SEQ_TX_POLLING_INTERVAL_MS : 1_000,
-    l1Contracts: addresses,
-    publisherPrivateKey,
-    maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
-    minTxsPerBlock: SEQ_MIN_TX_PER_BLOCK ? +SEQ_MIN_TX_PER_BLOCK : 1,
-  };
+  if (!value) {
+    return entries;
+  }
+
+  for (const val of value.split(',')) {
+    const [typeString, identifierString, selectorString] = val.split(':');
+    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+
+    if (typeString === 'I') {
+      if (selector) {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+        });
+      }
+    } else if (typeString === 'C') {
+      if (selector) {
+        entries.push({
+          classId: Fr.fromString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          classId: Fr.fromString(identifierString),
+        });
+      }
+    }
+  }
+
+  return entries;
+}
+
+function getDefaultAllowedSetupFunctions(): AllowedElement[] {
+  return [
+    // needed for authwit support
+    {
+      address: ProtocolContractAddress.AuthRegistry,
+    },
+    // needed for claiming on the same tx as a spend
+    {
+      address: ProtocolContractAddress.FeeJuice,
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+    },
+    // needed for private transfers via FPC
+    {
+      classId: getContractClassFromArtifact(TokenContractArtifact).id,
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+    },
+    {
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      // We can't restrict the selector because public functions get routed via dispatch.
+      // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
+    },
+  ];
+}
+
+function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
+  return [
+    {
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
+    },
+    {
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
+    },
+  ];
 }

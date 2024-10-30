@@ -1,6 +1,7 @@
 {
   "name": "@aztec/bb.js",
-  "version": "0.8.6",
+  "packageManager": "yarn@1.22.22",
+  "version": "0.61.0",
   "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg/ts",
   "license": "MIT",
   "type": "module",
@@ -12,9 +13,7 @@
       "default": "./dest/node/index.js"
     }
   },
-  "bin": {
-    "bb.js": "./dest/node/main.js"
-  },
+  "bin": "./dest/node/main.js",
   "files": [
     "src/",
     "dest/",
@@ -34,7 +33,6 @@
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
     "test:debug": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
-    "prepack": "yarn build",
     "deploy": "npm publish --access public"
   },
   "jest": {
@@ -57,6 +55,7 @@
     "comlink": "^4.4.1",
     "commander": "^10.0.1",
     "debug": "^4.3.4",
+    "fflate": "^0.8.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

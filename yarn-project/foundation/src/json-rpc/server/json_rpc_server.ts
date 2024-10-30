@@ -6,25 +6,41 @@ import compress from 'koa-compress';
 import Router from 'koa-router';
 
 import { createDebugLogger } from '../../log/index.js';
-import { JsonClassConverterInput, StringClassConverterInput } from '../class_converter.js';
+import { promiseWithResolvers } from '../../promise/utils.js';
+import { type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { convertBigintsInObj } from '../convert.js';
-import { JsonProxy } from './json_proxy.js';
+import { type ClassMaps, JsonProxy } from './json_proxy.js';
 
 /**
  * JsonRpcServer.
  * Minimal, dev-friendly mechanism to create a server from an object.
  */
 export class JsonRpcServer {
-  proxy: JsonProxy;
+  /**
+   * The proxy object.
+   */
+  public proxy: JsonProxy;
+
+  /**
+   * The HTTP server accepting remote requests.
+   * This member field is initialized when the server is started.
+   */
+  private httpServer?: http.Server;
+
   constructor(
     private handler: object,
-    stringClassMap: StringClassConverterInput,
-    objectClassMap: JsonClassConverterInput,
-    private createApi: boolean,
-    private disallowedMethods: string[] = [],
-    private log = createDebugLogger('aztec:foundation:json-rpc:server'),
+    private stringClassMap: StringClassConverterInput,
+    private objectClassMap: JsonClassConverterInput,
+    /** List of methods to disallow from calling remotely */
+    public readonly disallowedMethods: string[] = [],
+    private healthCheck: StatusCheckFn = () => true,
+    private log = createDebugLogger('json-rpc:server'),
   ) {
     this.proxy = new JsonProxy(handler, stringClassMap, objectClassMap);
+  }
+
+  public isHealthy(): boolean | Promise<boolean> {
+    return this.healthCheck();
   }
 
   /**
@@ -70,7 +86,7 @@ export class JsonRpcServer {
     app.use(compress({ br: false } as any));
     app.use(
       bodyParser({
-        jsonLimit: '10mb',
+        jsonLimit: '50mb',
         enableTypes: ['json'],
         detectJSON: () => true,
       }),
@@ -90,90 +106,45 @@ export class JsonRpcServer {
   private getRouter(prefix: string) {
     const router = new Router({ prefix });
     const proto = Object.getPrototypeOf(this.handler);
-    // Find all our endpoints from the handler methods
-
-    if (this.createApi) {
-      // "API mode" where an endpoint is created for each method
-      for (const method of Object.getOwnPropertyNames(proto)) {
-        // Ignore if not a function or function is not allowed
-        if (
-          method === 'constructor' ||
-          typeof proto[method] !== 'function' ||
-          this.disallowedMethods.includes(method)
-        ) {
-          continue;
-        }
-        router.post(`/${method}`, async (ctx: Koa.Context) => {
-          const { params = [], jsonrpc, id } = ctx.request.body as any;
-          try {
-            const result = await this.proxy.call(method, params);
-            ctx.body = {
-              jsonrpc,
-              id,
-              result: convertBigintsInObj(result),
-            };
-            ctx.status = 200;
-          } catch (err: any) {
-            // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
-            // a duplicate recipient) so this is necessary.
-            ctx.status = 400;
-            ctx.body = {
-              jsonrpc,
-              id,
-              error: {
-                // TODO assign error codes - https://github.com/AztecProtocol/aztec-packages/issues/2633
-                code: -32000,
-                message: err.message,
-              },
-            };
-          }
-        });
-      }
-    } else {
-      // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
-      router.post('/', async (ctx: Koa.Context) => {
-        const { params = [], jsonrpc, id, method } = ctx.request.body as any;
-        // Ignore if not a function
-        if (
-          method === 'constructor' ||
-          typeof proto[method] !== 'function' ||
-          this.disallowedMethods.includes(method)
-        ) {
+    // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
+    router.post('/', async (ctx: Koa.Context) => {
+      const { params = [], jsonrpc, id, method } = ctx.request.body as any;
+      // Ignore if not a function
+      if (method === 'constructor' || typeof proto[method] !== 'function' || this.disallowedMethods.includes(method)) {
+        ctx.status = 400;
+        ctx.body = {
+          jsonrpc,
+          id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${method}`,
+          },
+        };
+      } else {
+        try {
+          const result = await this.proxy.call(method, params);
+          ctx.body = {
+            jsonrpc,
+            id,
+            result: convertBigintsInObj(result),
+          };
+          ctx.status = 200;
+        } catch (err: any) {
+          // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
+          // a duplicate recipient) so this is necessary.
           ctx.status = 400;
           ctx.body = {
             jsonrpc,
             id,
             error: {
-              code: -32601,
-              message: 'Method not found',
+              // TODO assign error codes - https://github.com/AztecProtocol/aztec-packages/issues/2633
+              code: -32000,
+              message: err.message,
             },
           };
-        } else {
-          try {
-            const result = await this.proxy.call(method, params);
-            ctx.body = {
-              jsonrpc,
-              id,
-              result: convertBigintsInObj(result),
-            };
-            ctx.status = 200;
-          } catch (err: any) {
-            // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
-            // a duplicate recipient) so this is necessary.
-            ctx.status = 400;
-            ctx.body = {
-              jsonrpc,
-              id,
-              error: {
-                // TODO assign error codes - https://github.com/AztecProtocol/aztec-packages/issues/2633
-                code: -32000,
-                message: err.message,
-              },
-            };
-          }
         }
-      });
-    }
+      }
+    });
 
     return router;
   }
@@ -183,8 +154,179 @@ export class JsonRpcServer {
    * @param port - Port number.
    * @param prefix - Prefix string.
    */
-  public start(port: number, prefix = '') {
-    const httpServer = http.createServer(this.getApp(prefix).callback());
-    httpServer.listen(port);
+  public start(port: number, prefix = ''): void {
+    if (this.httpServer) {
+      throw new Error('Server is already listening');
+    }
+
+    this.httpServer = http.createServer(this.getApp(prefix).callback());
+    this.httpServer.listen(port);
   }
+
+  /**
+   * Stops the HTTP server
+   */
+  public stop(): Promise<void> {
+    if (!this.httpServer) {
+      return Promise.resolve();
+    }
+
+    const { promise, resolve, reject } = promiseWithResolvers<void>();
+    this.httpServer.close(err => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+    return promise;
+  }
+
+  /**
+   * Get a list of methods.
+   * @returns A list of methods.
+   */
+  public getMethods(): string[] {
+    return Object.getOwnPropertyNames(Object.getPrototypeOf(this.handler));
+  }
+
+  /**
+   * Gets the class maps that were used to create the proxy.
+   * @returns The string & object class maps.
+   */
+  public getClassMaps(): ClassMaps {
+    return { stringClassMap: this.stringClassMap, objectClassMap: this.objectClassMap };
+  }
+
+  /**
+   * Call an RPC method.
+   * @param methodName - The RPC method.
+   * @param jsonParams - The RPG parameters.
+   * @param skipConversion - Whether to skip conversion of the parameters.
+   * @returns The remote result.
+   */
+  public async call(methodName: string, jsonParams: any[] = [], skipConversion: boolean) {
+    return await this.proxy.call(methodName, jsonParams, skipConversion);
+  }
+}
+
+export type StatusCheckFn = () => boolean | Promise<boolean>;
+
+/**
+ * Creates a router for handling a plain status request that will return 200 status when running.
+ * @param getCurrentStatus - List of health check functions to run.
+ * @param apiPrefix - The prefix to use for all api requests
+ * @returns - The router for handling status requests.
+ */
+export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = '') {
+  const router = new Router({ prefix: `${apiPrefix}` });
+  router.get('/status', async (ctx: Koa.Context) => {
+    let ok: boolean;
+    try {
+      ok = (await getCurrentStatus()) === true;
+    } catch (err) {
+      ok = false;
+    }
+
+    ctx.status = ok ? 200 : 500;
+  });
+  return router;
+}
+
+/**
+ * Creates an http server that forwards calls to the underlying instance and starts it on the given port.
+ * @param instance - Instance to wrap in a JSON-RPC server.
+ * @param jsonRpcFactoryFunc - Function that wraps the instance in a JSON-RPC server.
+ * @param port - Port to listen in.
+ * @returns A running http server.
+ */
+export function startHttpRpcServer<T>(
+  name: string,
+  instance: T,
+  jsonRpcFactoryFunc: (instance: T) => JsonRpcServer,
+  port: string | number,
+): http.Server {
+  const rpcServer = jsonRpcFactoryFunc(instance);
+
+  const namespacedServer = createNamespacedJsonRpcServer([{ [name]: rpcServer }]);
+
+  const app = namespacedServer.getApp();
+
+  const httpServer = http.createServer(app.callback());
+  httpServer.listen(port);
+
+  return httpServer;
+}
+/**
+ * List of namespace to server instance.
+ */
+export type ServerList = {
+  /** name of the service to be used for namespacing */
+  [name: string]: JsonRpcServer;
+}[];
+
+/**
+ * Creates a single JsonRpcServer from multiple servers.
+ * @param servers - List of servers to be combined into a single server, passed as ServerList.
+ * @returns A single JsonRpcServer with namespaced methods.
+ */
+export function createNamespacedJsonRpcServer(
+  servers: ServerList,
+  log = createDebugLogger('json-rpc:multi-server'),
+): JsonRpcServer {
+  const handler = {} as any;
+  const disallowedMethods: string[] = [];
+  const classMapsArr: ClassMaps[] = [];
+
+  for (const serverEntry of servers) {
+    const [namespace, server] = Object.entries(serverEntry)[0];
+    const serverMethods = server.getMethods();
+
+    for (const method of serverMethods) {
+      const namespacedMethod = `${namespace}_${method}`;
+
+      handler[namespacedMethod] = (...args: any[]) => {
+        return server.call(method, args, true);
+      };
+    }
+
+    // get the combined disallowed methods from all servers.
+    disallowedMethods.push(...server.disallowedMethods.map(method => `${namespace}_${method}`));
+    // get the combined classmaps from all servers.
+    const classMap = server.getClassMaps();
+    classMapsArr.push({
+      stringClassMap: classMap.stringClassMap,
+      objectClassMap: classMap.objectClassMap,
+    });
+  }
+
+  // Get the combined stringClassMap & objectClassMap from all servers
+  const classMaps = classMapsArr.reduce(
+    (acc, curr) => {
+      return {
+        stringClassMap: { ...acc.stringClassMap, ...curr.stringClassMap },
+        objectClassMap: { ...acc.objectClassMap, ...curr.objectClassMap },
+      };
+    },
+    { stringClassMap: {}, objectClassMap: {} } as ClassMaps,
+  );
+
+  const aggregateHealthCheck = async () => {
+    const statuses = await Promise.allSettled(
+      servers.flatMap(services =>
+        Object.entries(services).map(async ([name, service]) => ({ name, healthy: await service.isHealthy() })),
+      ),
+    );
+    const allHealthy = statuses.every(result => result.status === 'fulfilled' && result.value.healthy);
+    return allHealthy;
+  };
+
+  return new JsonRpcServer(
+    Object.create(handler),
+    classMaps.stringClassMap,
+    classMaps.objectClassMap,
+    [],
+    aggregateHealthCheck,
+    log,
+  );
 }

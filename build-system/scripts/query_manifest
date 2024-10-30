@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 CMD=$1
 REPO=$2
 
-ROOT_PATH=${ROOT_PATH:-$PWD}
+ROOT_PATH=${ROOT_PATH:-$(git rev-parse --show-toplevel)}
 MANIFEST=$ROOT_PATH/build_manifest.yml
 
 if [ $(yq "has(\"$REPO\")" $MANIFEST) == "false" ]; then
@@ -29,7 +29,7 @@ function get_deps {
   elif [ "$TYPE" == "!!seq" ]; then
     DEPS=($(yq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
   else
-    >&2 echo "dependencies must be a array, string or null."
+    >&2 echo "Build manifest 'dependencies' must be array, string, or null (got $TYPE)."
     exit 1
   fi
 }
@@ -46,7 +46,7 @@ function add_rebuild_patterns {
     local PROJECT_DIR=$($0 relativeProjectDir $1)
     PATTERNS=(${PATTERNS[@]} "^$PROJECT_DIR/")
   else
-    >&2 echo "rebuildPatterns must be array, string, or null."
+    >&2 echo "Build manifest 'rebuildPatterns' must be array, string, or null (got $TYPE)."
     exit 1
   fi
 }
@@ -73,7 +73,14 @@ case "$CMD" in
     yq -r ".\"$REPO\".projectDir // .\"$REPO\".buildDir" $MANIFEST
     ;;
   dependencies)
+    # Build dependencies.
     yq -r ".\"$REPO\".dependencies // [] | .[]" $MANIFEST
+    ;;
+  runDependencies)
+    echo $REPO
+    yq -r ".\"$REPO\".runDependencies // [] | .[]" $MANIFEST
+    RUN_NAME=${3:-}
+    [ -n "$RUN_NAME" ] && yq -r ".\"$REPO\".run.\"$RUN_NAME\".dependencies // [] | .[]" $MANIFEST
     ;;
   allDependencies)
     # Get dependencies for a given repo. Inclusive of repo itself.
@@ -94,8 +101,6 @@ case "$CMD" in
       ALL_DEPS+=("$1")
     }
     add_deps $REPO
-    # Remove ourself as a dependency.
-    # unset ALL_DEPS[-1]
     for DEP in "${ALL_DEPS[@]}"; do
       echo $DEP
     done
@@ -122,4 +127,8 @@ case "$CMD" in
     if [ "$(git ls-tree HEAD $DIR | awk '{print $2}')" = "commit" ]; then
       git ls-tree HEAD $DIR | awk '{print $4}'
     fi
+    ;;
+  multiarch)
+    yq -r ".\"$REPO\".multiarch // false" $MANIFEST
+    ;;
 esac

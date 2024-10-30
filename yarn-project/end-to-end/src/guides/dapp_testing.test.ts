@@ -1,72 +1,27 @@
-import { createSandbox } from '@aztec/aztec-sandbox';
-import {
-  AccountWallet,
-  CheatCodes,
-  Fr,
-  L2BlockL2Logs,
-  NotePreimage,
-  PXE,
-  UnencryptedL2Log,
-  computeMessageSecretHash,
-  createAccount,
-  createPXEClient,
-  getSandboxAccountsWallets,
-  waitForSandbox,
-} from '@aztec/aztec.js';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
+// docs:start:imports
+import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+// docs:end:imports
+// docs:start:import_contract
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+// docs:end:import_contract
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
-  describe('on in-proc sandbox', () => {
-    describe('private token contract', () => {
-      let pxe: PXE;
-      let stop: () => Promise<void>;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
-      let token: TokenContract;
-
-      beforeAll(async () => {
-        // docs:start:in-proc-sandbox
-        ({ pxe, stop } = await createSandbox());
-        // docs:end:in-proc-sandbox
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
-      }, 60_000);
-
-      // docs:start:stop-in-proc-sandbox
-      afterAll(() => stop());
-      // docs:end:stop-in-proc-sandbox
-
-      it('increases recipient funds on mint', async () => {
-        const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
-
-        const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
-
-        const storageSlot = new Fr(5);
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
-
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
-      }, 30_000);
-    });
-  });
-
   describe('on local sandbox', () => {
     beforeAll(async () => {
+      // docs:start:create_pxe_client
       const pxe = createPXEClient(PXE_URL);
-      await waitForSandbox(pxe);
+      await waitForPXE(pxe);
+      // docs:end:create_pxe_client
     });
 
-    // docs:start:sandbox-example
-    describe('private token contract', () => {
+    describe('token contract', () => {
       let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
@@ -76,29 +31,23 @@ describe('guides/dapp/testing', () => {
         pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
-      }, 30_000);
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+          .send()
+          .deployed();
+      });
 
       it('increases recipient funds on mint', async () => {
         const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
 
         const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
 
-        const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
-
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
-      }, 30_000);
+        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
+      });
     });
-    // docs:end:sandbox-example
 
-    describe('private token contract with initial accounts', () => {
+    describe('token contract with initial accounts', () => {
       let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
@@ -107,47 +56,21 @@ describe('guides/dapp/testing', () => {
       beforeEach(async () => {
         // docs:start:use-existing-wallets
         pxe = createPXEClient(PXE_URL);
-        [owner, recipient] = await getSandboxAccountsWallets(pxe);
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
+        [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+          .send()
+          .deployed();
         // docs:end:use-existing-wallets
-      }, 30_000);
+      });
 
       it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        expect(await token.methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-        const storageSlot = new Fr(5);
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
 
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
-      }, 30_000);
-    });
-
-    describe('cheats', () => {
-      let pxe: PXE;
-      let owner: AccountWallet;
-      let testContract: TestContract;
-      let cheats: CheatCodes;
-
-      beforeAll(async () => {
-        pxe = createPXEClient(PXE_URL);
-        owner = await createAccount(pxe);
-        testContract = await TestContract.deploy(owner).send().deployed();
-        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
-      }, 30_000);
-
-      it('warps time to 1h into the future', async () => {
-        // docs:start:warp
-        const newTimestamp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
-        await cheats.aztec.warp(newTimestamp);
-        await testContract.methods.isTimeEqual(newTimestamp).send().wait();
-        // docs:end:warp
+        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
 
@@ -165,31 +88,31 @@ describe('guides/dapp/testing', () => {
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+          .send()
+          .deployed();
 
         const ownerAddress = owner.getAddress();
         const mintAmount = 100n;
-        const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
-        const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
-        const storageSlot = new Fr(5);
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(ownerAddress, token.address, storageSlot, preimage, receipt.txHash);
-
-        await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
+        await mintTokensToPrivate(token, owner, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
-        // The balances mapping is defined on storage slot 3 and is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(3n, ownerAddress);
+        // The balances mapping is indexed by user address
+        ownerSlot = cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
-      }, 60_000);
+      });
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await pxe.getPrivateStorageAt(owner.getAddress(), token.address, ownerSlot);
-        const values = notes.map(note => note.items[0]);
+        const notes = await pxe.getIncomingNotes({
+          owner: owner.getAddress(),
+          contractAddress: token.address,
+          storageSlot: ownerSlot,
+          scopes: [owner.getAddress()],
+        });
+        const values = notes.map(note => note.note.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
         // docs:end:private-storage
@@ -200,7 +123,7 @@ describe('guides/dapp/testing', () => {
         await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
-        expect(toBigIntBE(balance!)).toEqual(100n);
+        expect(balance.value).toEqual(100n);
         // docs:end:public-storage
       });
 
@@ -208,51 +131,58 @@ describe('guides/dapp/testing', () => {
         // docs:start:unencrypted-logs
         const value = Fr.fromString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
         const tx = await testContract.methods.emit_unencrypted(value).send().wait();
-        const logs = await pxe.getUnencryptedLogs(tx.blockNumber!, 1);
-        const log = UnencryptedL2Log.fromBuffer(L2BlockL2Logs.unrollLogs(logs)[0]);
-        expect(Fr.fromBuffer(log.data)).toEqual(value);
+        const filter = {
+          fromBlock: tx.blockNumber!,
+          limit: 1, // 1 log expected
+        };
+        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
+        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
         // docs:end:unencrypted-logs
       });
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
-        const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
-        await expect(call.simulate()).rejects.toThrowError(/Balance too low/);
+        const call = token.methods.transfer(recipient.getAddress(), 200n);
+        await expect(call.prove()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
       });
 
       it('asserts a local transaction simulation fails by calling send', async () => {
         // docs:start:local-tx-fails-send
-        const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
-        await expect(call.send().wait()).rejects.toThrowError(/Balance too low/);
+        const call = token.methods.transfer(recipient.getAddress(), 200n);
+        await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails-send
       });
 
       it('asserts a transaction is dropped', async () => {
         // docs:start:tx-dropped
-        const call1 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 80n, 0);
-        const call2 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 50n, 0);
+        const call1 = token.methods.transfer(recipient.getAddress(), 80n);
+        const call2 = token.methods.transfer(recipient.getAddress(), 50n);
 
-        await call1.simulate();
-        await call2.simulate();
+        const provenCall1 = await call1.prove();
+        const provenCall2 = await call2.prove();
 
-        await call1.send().wait();
-        await expect(call2.send().wait()).rejects.toThrowError(/dropped/);
+        await provenCall1.send().wait();
+        await expect(provenCall2.send().wait()).rejects.toThrow(/dropped/);
         // docs:end:tx-dropped
       });
 
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.simulate()).rejects.toThrowError(/Underflow/);
+        await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       });
 
-      it('asserts a transaction with a failing public call is dropped (until we get public reverts)', async () => {
-        // docs:start:pub-dropped
+      it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
+        // docs:start:pub-reverted
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.send({ skipPublicSimulation: true }).wait()).rejects.toThrowError(/dropped/);
-        // docs:end:pub-dropped
+        const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
+        expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
+        expect(balance.value).toEqual(100n);
+        // docs:end:pub-reverted
       });
     });
   });

@@ -1,71 +1,75 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { computeContractAddressFromPartial } from '../abis/abis.js';
-import { Grumpkin } from '../barretenberg/index.js';
-import { CircuitsWasm, Fr, GrumpkinPrivateKey, PartialAddress, Point, PublicKey } from '../index.js';
+import { computePartialAddress } from '../contract/contract_address.js';
+import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
+import { type PartialAddress } from '../types/partial_address.js';
+import { PublicKeys } from '../types/public_keys.js';
 
 /**
  * A complete address is a combination of an Aztec address, a public key and a partial address.
  *
  * @remarks We have introduced this type because it is common that these 3 values are used together. They are commonly
  *          used together because it is the information needed to send user a note.
- * @remarks See the link bellow for details about how address is computed:
+ * @remarks See the link below for details about how address is computed:
  *          https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 export class CompleteAddress {
-  // TODO: This constructor should be private so that the check in create method is always enforced. However, this is
-  //       not possible now because we need the class to be compatible with `StringIOClass` to be able to pass it
-  //       through `JsonRpcServer`.
   public constructor(
     /** Contract address (typically of an account contract) */
     public address: AztecAddress,
-    /** Public key corresponding to the address (used during note encryption). */
-    public publicKey: PublicKey,
+    /** User public keys */
+    public publicKeys: PublicKeys,
     /** Partial key corresponding to the public key to the address. */
     public partialAddress: PartialAddress,
-  ) {}
+  ) {
+    this.validate();
+  }
 
-  static async create(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
-  ): Promise<CompleteAddress> {
-    const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
-    if (!expectedAddress.equals(address)) {
+  /** Size in bytes of an instance */
+  static readonly SIZE_IN_BYTES = 32 * 4;
+
+  static random(): CompleteAddress {
+    return this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
+  }
+
+  static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
+    const { publicKeys } = deriveKeys(secretKey);
+    const address = computeAddress(publicKeys, partialAddress);
+
+    return new CompleteAddress(address, publicKeys, partialAddress);
+  }
+
+  getPreaddress() {
+    return computePreaddress(this.publicKeys.hash(), this.partialAddress);
+  }
+
+  static fromSecretKeyAndInstance(
+    secretKey: Fr,
+    instance: Parameters<typeof computePartialAddress>[0],
+  ): CompleteAddress {
+    const partialAddress = computePartialAddress(instance);
+    return CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
+  }
+
+  /** Throws if the address is not correctly derived from the public key and partial address.*/
+  public validate() {
+    const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
+
+    if (!AztecAddress.fromField(expectedAddress).equals(this.address)) {
       throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+        `Address cannot be derived from public keys and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
       );
     }
-    return new CompleteAddress(address, publicKey, partialAddress);
-  }
-
-  static async random(): Promise<CompleteAddress> {
-    const partialAddress = Fr.random();
-    const pubKey = Point.random();
-    const wasm = await CircuitsWasm.get();
-    const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-    return new CompleteAddress(address, pubKey, partialAddress);
-  }
-
-  static async fromPrivateKeyAndPartialAddress(
-    privateKey: GrumpkinPrivateKey,
-    partialAddress: Fr,
-  ): Promise<CompleteAddress> {
-    const wasm = await CircuitsWasm.get();
-    const grumpkin = new Grumpkin(wasm);
-    const pubKey = grumpkin.mul(Grumpkin.generator, privateKey);
-    const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-    return new CompleteAddress(address, pubKey, partialAddress);
   }
 
   /**
-   * Gets a readable string representation of a the complete address.
+   * Gets a readable string representation of the complete address.
    * @returns A readable string representation of the complete address.
    */
   public toReadableString(): string {
-    return ` Address: ${this.address.toString()}\n Public Key: ${this.publicKey.toString()}\n Partial Address: ${this.partialAddress.toString()}\n`;
+    return `Address: ${this.address.toString()}\nMaster Nullifier Public Key: ${this.publicKeys.masterNullifierPublicKey.toString()}\nMaster Incoming Viewing Public Key: ${this.publicKeys.masterIncomingViewingPublicKey.toString()}\nMaster Outgoing Viewing Public Key: ${this.publicKeys.masterOutgoingViewingPublicKey.toString()}\nMaster Tagging Public Key: ${this.publicKeys.masterTaggingPublicKey.toString()}\nPartial Address: ${this.partialAddress.toString()}\n`;
   }
 
   /**
@@ -75,10 +79,10 @@ export class CompleteAddress {
    * @param other - The CompleteAddress instance to compare against.
    * @returns True if the buffers of both instances are equal, false otherwise.
    */
-  equals(other: CompleteAddress) {
+  equals(other: CompleteAddress): boolean {
     return (
       this.address.equals(other.address) &&
-      this.publicKey.equals(other.publicKey) &&
+      this.publicKeys.equals(other.publicKeys) &&
       this.partialAddress.equals(other.partialAddress)
     );
   }
@@ -89,8 +93,8 @@ export class CompleteAddress {
    *
    * @returns A Buffer representation of the CompleteAddress instance.
    */
-  toBuffer() {
-    return Buffer.concat([this.address.toBuffer(), this.publicKey.toBuffer(), this.partialAddress.toBuffer()]);
+  toBuffer(): Buffer {
+    return serializeToBuffer([this.address, this.publicKeys, this.partialAddress]);
   }
 
   /**
@@ -101,12 +105,12 @@ export class CompleteAddress {
    * @param buffer - The input buffer or BufferReader containing the address data.
    * @returns - A new CompleteAddress instance with the extracted address data.
    */
-  static fromBuffer(buffer: Buffer | BufferReader) {
+  static fromBuffer(buffer: Buffer | BufferReader): CompleteAddress {
     const reader = BufferReader.asReader(buffer);
     const address = reader.readObject(AztecAddress);
-    const publicKey = reader.readObject(Point);
+    const publicKeys = reader.readObject(PublicKeys);
     const partialAddress = reader.readObject(Fr);
-    return new this(address, publicKey, partialAddress);
+    return new CompleteAddress(address, publicKeys, partialAddress);
   }
 
   /**

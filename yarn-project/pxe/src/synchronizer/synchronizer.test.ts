@@ -1,132 +1,159 @@
-import { CompleteAddress, Fr, GrumpkinScalar, HistoricBlockData } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { TestKeyStore } from '@aztec/key-store';
-import { AztecNode, L2Block, MerkleTreeId } from '@aztec/types';
+import { type AztecNode, L2Block } from '@aztec/circuit-types';
+import { Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { makeHeader } from '@aztec/circuits.js/testing';
+import { randomInt } from '@aztec/foundation/crypto';
+import { SerialQueue } from '@aztec/foundation/queue';
+import { KeyStore } from '@aztec/key-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 
-import { MockProxy, mock } from 'jest-mock-extended';
-import omit from 'lodash.omit';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { Database, MemoryDB } from '../database/index.js';
+import { type PxeDatabase } from '../database/index.js';
+import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';
 
 describe('Synchronizer', () => {
   let aztecNode: MockProxy<AztecNode>;
-  let database: Database;
+  let database: PxeDatabase;
   let synchronizer: TestSynchronizer;
-  let roots: Record<MerkleTreeId, Fr>;
-  let blockData: HistoricBlockData;
+  let jobQueue: SerialQueue;
+  const initialSyncBlockNumber = 3;
+  let headerBlock3: Header;
 
   beforeEach(() => {
-    blockData = HistoricBlockData.random();
-    roots = {
-      [MerkleTreeId.CONTRACT_TREE]: blockData.contractTreeRoot,
-      [MerkleTreeId.PRIVATE_DATA_TREE]: blockData.privateDataTreeRoot,
-      [MerkleTreeId.NULLIFIER_TREE]: blockData.nullifierTreeRoot,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: blockData.publicDataTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockData.l1ToL2MessagesTreeRoot,
-      [MerkleTreeId.BLOCKS_TREE]: blockData.blocksTreeRoot,
-    };
+    headerBlock3 = makeHeader(randomInt(1000), initialSyncBlockNumber, initialSyncBlockNumber);
 
     aztecNode = mock<AztecNode>();
-    database = new MemoryDB();
-    synchronizer = new TestSynchronizer(aztecNode, database);
+    database = new KVPxeDatabase(openTmpStore());
+    jobQueue = new SerialQueue();
+    synchronizer = new TestSynchronizer(aztecNode, database, jobQueue);
   });
 
-  it('sets tree roots from aztec node on initial sync', async () => {
-    aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
+  it('sets header from aztec node on initial sync', async () => {
+    aztecNode.getBlockNumber.mockResolvedValue(initialSyncBlockNumber);
+    aztecNode.getHeader.mockResolvedValue(headerBlock3);
 
     await synchronizer.initialSync();
 
-    expect(database.getTreeRoots()).toEqual(roots);
+    expect(database.getHeader()).toEqual(headerBlock3);
   });
 
-  it('sets tree roots from latest block', async () => {
+  it('sets header from latest block', async () => {
     const block = L2Block.random(1, 4);
-    aztecNode.getBlocks.mockResolvedValue([L2Block.fromFields(omit(block, 'newEncryptedLogs', 'newUnencryptedLogs'))]);
-    aztecNode.getLogs.mockResolvedValueOnce([block.newEncryptedLogs!]).mockResolvedValue([block.newUnencryptedLogs!]);
+    aztecNode.getLogs.mockResolvedValueOnce([block.body.encryptedLogs]).mockResolvedValue([block.body.unencryptedLogs]);
+    aztecNode.getBlocks.mockResolvedValue([block]);
 
     await synchronizer.work();
 
-    const roots = database.getTreeRoots();
-    expect(roots[MerkleTreeId.CONTRACT_TREE]).toEqual(block.endContractTreeSnapshot.root);
+    const obtainedHeader = database.getHeader();
+    expect(obtainedHeader).toEqual(block.header);
   });
 
-  it('overrides tree roots from initial sync once current block number is larger', async () => {
+  it('overrides header from initial sync once current block number is larger', async () => {
     // Initial sync is done on block with height 3
-    aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
+    aztecNode.getBlockNumber.mockResolvedValue(initialSyncBlockNumber);
+    aztecNode.getHeader.mockResolvedValue(headerBlock3);
 
     await synchronizer.initialSync();
-    const roots0 = database.getTreeRoots();
-    expect(roots0[MerkleTreeId.CONTRACT_TREE]).toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
+    const header0 = database.getHeader();
+    expect(header0).toEqual(headerBlock3);
 
-    // We then process block with height 1, this should not change tree roots
+    // We then process block with height 1, this should not change the header
     const block1 = L2Block.random(1, 4);
-    aztecNode.getBlocks.mockResolvedValueOnce([
-      L2Block.fromFields(omit(block1, 'newEncryptedLogs', 'newUnencryptedLogs')),
-    ]);
-    aztecNode.getLogs.mockResolvedValue([block1.newEncryptedLogs!]).mockResolvedValue([block1.newUnencryptedLogs!]);
+
+    aztecNode.getLogs
+      .mockResolvedValueOnce([block1.body.encryptedLogs])
+      .mockResolvedValue([block1.body.unencryptedLogs]);
+
+    aztecNode.getBlocks.mockResolvedValue([block1]);
 
     await synchronizer.work();
-    const roots1 = database.getTreeRoots();
-    expect(roots1[MerkleTreeId.CONTRACT_TREE]).toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
-    expect(roots1[MerkleTreeId.CONTRACT_TREE]).not.toEqual(block1.endContractTreeSnapshot.root);
+    const header1 = database.getHeader();
+    expect(header1).toEqual(headerBlock3);
+    expect(header1).not.toEqual(block1.header);
 
     // But they should change when we process block with height 5
     const block5 = L2Block.random(5, 4);
-    aztecNode.getBlocks.mockResolvedValueOnce([
-      L2Block.fromFields(omit(block5, 'newEncryptedLogs', 'newUnencryptedLogs')),
-    ]);
+
+    aztecNode.getBlocks.mockResolvedValue([block5]);
 
     await synchronizer.work();
-    const roots5 = database.getTreeRoots();
-    expect(roots5[MerkleTreeId.CONTRACT_TREE]).not.toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
-    expect(roots5[MerkleTreeId.CONTRACT_TREE]).toEqual(block5.endContractTreeSnapshot.root);
+    const header5 = database.getHeader();
+    expect(header5).not.toEqual(headerBlock3);
+    expect(header5).toEqual(block5.header);
   });
 
   it('note processor successfully catches up', async () => {
-    const block = L2Block.random(1, 4);
+    const blocks = [L2Block.random(1, 4), L2Block.random(2, 4)];
 
-    // getBlocks is called by both synchronizer.work and synchronizer.workNoteProcessorCatchUp
-    aztecNode.getBlocks.mockResolvedValue([L2Block.fromFields(omit(block, 'newEncryptedLogs', 'newUnencryptedLogs'))]);
     aztecNode.getLogs
-      .mockResolvedValueOnce([block.newEncryptedLogs!]) // called by synchronizer.work
-      .mockResolvedValueOnce([block.newUnencryptedLogs!]) // called by synchronizer.work
-      .mockResolvedValueOnce([block.newEncryptedLogs!]); // called by synchronizer.workNoteProcessorCatchUp
+      // called by synchronizer.work
+      .mockResolvedValueOnce([blocks[0].body.encryptedLogs])
+      .mockResolvedValueOnce([blocks[0].body.unencryptedLogs])
+      .mockResolvedValueOnce([blocks[1].body.encryptedLogs])
+      .mockResolvedValueOnce([blocks[1].body.encryptedLogs])
+      // called by synchronizer.workNoteProcessorCatchUp
+      .mockResolvedValueOnce([blocks[0].body.encryptedLogs])
+      .mockResolvedValueOnce([blocks[1].body.encryptedLogs]);
+
+    aztecNode.getBlocks
+      // called by synchronizer.work,
+      .mockResolvedValueOnce([blocks[0]])
+      .mockResolvedValueOnce([blocks[1]])
+      // called by synchronizer.workNoteProcessorCatchUp
+      .mockResolvedValueOnce([blocks[0]])
+      .mockResolvedValueOnce([blocks[1]]);
+
+    aztecNode.getBlockNumber.mockResolvedValue(INITIAL_L2_BLOCK_NUM + 1);
 
     // Sync the synchronizer so that note processor has something to catch up to
-    await synchronizer.work();
-
-    // Used in synchronizer.isAccountStateSynchronized
-    aztecNode.getBlockNumber.mockResolvedValueOnce(1);
+    // There are two blocks, and we have a limit of 1 block per work call
+    await synchronizer.work(1);
+    expect(await synchronizer.isGlobalStateSynchronized()).toBe(false);
+    await synchronizer.work(1);
+    expect(await synchronizer.isGlobalStateSynchronized()).toBe(true);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new TestKeyStore(await Grumpkin.new());
-    const privateKey = GrumpkinScalar.random();
-    keyStore.addAccount(privateKey);
-    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
-    await database.addCompleteAddress(completeAddress);
+    const keyStore = new KeyStore(openTmpStore());
+    const addAddress = async (startingBlockNum: number) => {
+      const secretKey = Fr.random();
+      const partialAddress = Fr.random();
+      const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
+      await database.addCompleteAddress(completeAddress);
+      synchronizer.addAccount(completeAddress, keyStore, startingBlockNum);
+      return completeAddress;
+    };
 
-    // Add the account which will add the note processor to the synchronizer
-    synchronizer.addAccount(completeAddress.publicKey, keyStore);
+    const [completeAddressA, completeAddressB, completeAddressC] = await Promise.all([
+      addAddress(INITIAL_L2_BLOCK_NUM),
+      addAddress(INITIAL_L2_BLOCK_NUM),
+      addAddress(INITIAL_L2_BLOCK_NUM + 1),
+    ]);
 
     await synchronizer.workNoteProcessorCatchUp();
 
-    expect(await synchronizer.isAccountStateSynchronized(completeAddress.address)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(false);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(false);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressC.address)).toBe(false);
+
+    await synchronizer.workNoteProcessorCatchUp();
+
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressC.address)).toBe(true);
   });
 });
 
 class TestSynchronizer extends Synchronizer {
-  public work() {
-    return super.work();
+  public override work(limit = 1) {
+    return super.work(limit);
   }
 
-  public initialSync(): Promise<void> {
+  public override initialSync(): Promise<void> {
     return super.initialSync();
   }
 
-  public workNoteProcessorCatchUp(): Promise<void> {
-    return super.workNoteProcessorCatchUp();
+  public override workNoteProcessorCatchUp(limit = 1): Promise<boolean> {
+    return super.workNoteProcessorCatchUp(limit);
   }
 }

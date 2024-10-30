@@ -2,9 +2,44 @@
 #include "../random/engine.hpp"
 #include <gtest/gtest.h>
 
+using namespace bb;
+
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 } // namespace
+
+TEST(uintx, BarrettReduction512)
+{
+    uint512_t x = engine.get_random_uint512();
+
+    static constexpr uint64_t modulus_0 = 0x3C208C16D87CFD47UL;
+    static constexpr uint64_t modulus_1 = 0x97816a916871ca8dUL;
+    static constexpr uint64_t modulus_2 = 0xb85045b68181585dUL;
+    static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
+    constexpr uint256_t modulus(modulus_0, modulus_1, modulus_2, modulus_3);
+
+    const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
+    const auto [quotient_expected, remainder_expected] = x.divmod_base(uint512_t(modulus));
+    EXPECT_EQ(quotient_result, quotient_expected);
+    EXPECT_EQ(remainder_result, remainder_expected);
+}
+
+TEST(uintx, BarrettReduction1024)
+{
+    uint1024_t x = engine.get_random_uint1024();
+
+    static constexpr uint64_t modulus_0 = 0x3C208C16D87CFD47UL;
+    static constexpr uint64_t modulus_1 = 0x97816a916871ca8dUL;
+    static constexpr uint64_t modulus_2 = 0xb85045b68181585dUL;
+    static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
+    constexpr uint256_t modulus_partial(modulus_0, modulus_1, modulus_2, modulus_3);
+    constexpr uint512_t modulus = uint512_t(modulus_partial) * uint512_t(modulus_partial);
+
+    const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
+    const auto [quotient_expected, remainder_expected] = x.divmod_base(uint1024_t(modulus));
+    EXPECT_EQ(quotient_result, quotient_expected);
+    EXPECT_EQ(remainder_result, remainder_expected);
+}
 
 TEST(uintx, GetBit)
 {
@@ -67,27 +102,27 @@ TEST(uintx, DivAndMod)
 TEST(uintx, DISABLEDMulmod)
 {
     /*
-        barretenberg::fq a = barretenberg::fq::random_element();
-        barretenberg::fq b = barretenberg::fq::random_element();
-        // barretenberg::fq a_converted = a.from_montgomery_form();
-        // barretenberg::fq b_converted = b.from_montgomery_form();
+        fq a = fq::random_element();
+        fq b = fq::random_element();
+        // fq a_converted = a.from_montgomery_form();
+        // fq b_converted = b.from_montgomery_form();
         uint256_t a_uint =
             uint256_t(a); // { a_converted.data[0], a_converted.data[1], a_converted.data[2], a_converted.data[3] };
         uint256_t b_uint =
             uint256_t(b); // { b_converted.data[0], b_converted.data[1], b_converted.data[2], b_converted.data[3] };
-        uint256_t modulus_uint{ barretenberg::Bn254FqParams::modulus_0,
-                                barretenberg::Bn254FqParams::modulus_1,
-                                barretenberg::Bn254FqParams::modulus_2,
-                                barretenberg::Bn254FqParams::modulus_3 };
+        uint256_t modulus_uint{ bb::Bn254FqParams::modulus_0,
+                                Bn254FqParams::modulus_1,
+                                Bn254FqParams::modulus_2,
+                                Bn254FqParams::modulus_3 };
         uint1024_t a_uintx = uint1024_t(uint512_t(a_uint));
         uint1024_t b_uintx = uint1024_t(uint512_t(b_uint));
         uint1024_t modulus_uintx = uint1024_t(uint512_t(modulus_uint));
 
         const auto [quotient, remainder] = (a_uintx * b_uintx).divmod(modulus_uintx);
 
-        // barretenberg::fq expected_a = a_converted.to_montgomery_form();
-        // barretenberg::fq expected_b = b_converted.to_montgomery_form();
-        barretenberg::fq expected = (a * b).from_montgomery_form();
+        // fq expected_a = a_converted.to_montgomery_form();
+        // fq expected_b = b_converted.to_montgomery_form();
+        fq expected = (a * b).from_montgomery_form();
 
         EXPECT_EQ(remainder.lo.lo.data[0], expected.data[0]);
         EXPECT_EQ(remainder.lo.lo.data[1], expected.data[1]);

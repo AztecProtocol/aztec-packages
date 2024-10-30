@@ -8,7 +8,7 @@ title: Components
 This page needs to be updated.
 :::
 
-import Disclaimer from '../../misc/common/\_disclaimer.mdx';
+import Disclaimer from '../../src/components/Disclaimers/\_wip_disclaimer.mdx';
 
 <Disclaimer/>
 
@@ -56,7 +56,7 @@ Responsibilities:
 Responsibilities:
 
 - Returns the sibling path for the given `tree_id` at the given leaf `index`.
-- Can be injected into any context that requires path queries for a particular tree. Might be backed by implementations that call out to a server (where privacy doesn't matter, or during early development), or leverages some privacy tech (query via Nym), or could just point to a local `WorldStateSynchroniser`.
+- Can be injected into any context that requires path queries for a particular tree. Might be backed by implementations that call out to a server (where privacy doesn't matter, or during early development), or leverages some privacy tech (query via Nym), or could just point to a local `WorldStateSynchronizer`.
 
 ### RollupSource
 
@@ -89,18 +89,18 @@ Responsibilities:
 These tasks are lower priority than providing a handcrafted ABI.
 
 - The ability for a dev to enclose a collection of Aztec.nr functions in a 'contract scope'.
-- The ability to create an Aztec.nr contract abi from the above.
+- The ability to create an Aztec.nr contract artifact from the above.
 
-Design an Aztec.nr Contract ABI, similar to a Solidity ABI which is output by Solc (see [here](https://docs.soliditylang.org/en/v0.8.13/abi-spec.html#json)). It might include for each function:
+Design an Aztec.nr contract artifact, similar to a Solidity ABI which is output by Solc (see [here](https://docs.soliditylang.org/en/v0.8.13/abi-spec.html#json)). It might include for each function:
 
 - ACIR opcodes (akin to Solidity bytecode).
 - Function name and parameter names & types.
 - Public input/output witness indices?
 - Sourcemap information, allowing building of stack traces in simulator error cases.
 
-### aztec-cli
+### aztec-nargo
 
-Provides the `aztec-cli` binary for interacting with network from the command line. It's a thin wrapper around `aztec.js` to make calls out to the client services. It's stateless.
+Provides the `aztec-nargo` binary for compiling contracts from the command line.
 
 ### aztec.js
 
@@ -113,7 +113,7 @@ aztec.js should always be stateless. It offers the ability to interact with stat
 The analogous AC component would be the AztecSdk (wraps the CoreSdk which is more analogous to the private client).
 
 - Allows a user to create an Aztec keypair. Call `create_account` on Wallet.
-- Create a `Contract` instance (similar to web3.js), given a path to an Aztec.nr Contract ABI.
+- Create a `Contract` instance (similar to web3.js), given a path to an Aztec.nr contract artifact.
 - Construct `tx_request` by calling e.g. `contract.get_deployment_request(constructor_args)`.
 - Call wallet `sign_tx_request(tx_request)` to get signature.
 - Call `simulate_tx(signed_tx_request)` on the Private Client. In future this would help compute gas, for now we won't actually return gas (it's hard). Returns success or failure, so client knows if it should proceed, and computed kernel circuit public outputs.
@@ -182,7 +182,7 @@ Injected:
 Implementation notes for this milestone:
 
 - Mostly acting as a facade for other components, forwards requests as necessary.
-- A `WorldStateSynchroniser` will ingest rollups from the `RollupSource` and maintain an up-to-date `MerkleTreeDb`.
+- A `WorldStateSynchronizer` will ingest rollups from the `RollupSource` and maintain an up-to-date `MerkleTreeDb`.
 
 <!--
 Mikes bullets. Some of these in wrong place (sequencer does publishing)
@@ -239,14 +239,14 @@ Implements:
 
 Implementation notes for this milestone:
 
-Closest analogous component in AC is the `WorldStateDb` in bb.js. We can configure the backing store (probably leveldb) to be an in-memory only store. We don't need persistence, we will rebuild the tree at startup. This will ensure we have appropriate sync-from-zero behaviour.
+Closest analogous component in AC is the `WorldStateDb` in bb.js. We can configure the backing store (probably leveldb) to be an in-memory only store. We don't need persistence, we will rebuild the tree at startup. This will ensure we have appropriate sync-from-zero behavior.
 
 Responsibilities:
 
 - "Persists" the various merkle trees (configurable).
   - For this milestone 1.1, we'll need the following trees:
     - Contract Tree
-    - Contract Tree Roots Tree (the tree whose leaves are the roots of historic rollups' contract trees)
+    - Contract Tree Roots Tree (the tree whose leaves are the roots of historical rollups' contract trees)
     - Nullifier Tree (so that the contract address can never be re-registered in a future deployment)
       - Note: Suyash has implemented C++ for the 'new' kind of nullifier tree.
 - Provides methods for updating the trees with commit, rollback semantics.
@@ -259,7 +259,7 @@ Interface:
 - `get_sibling_path`
 - `append_leaves`
 
-### WorldStateSynchroniser
+### WorldStateSynchronizer
 
 Injected:
 
@@ -279,7 +279,7 @@ Implements:
 Responsibilities:
 
 - Pulls data in from whatever sources are needed, to fully describe a rollup e.g.
-  - L1 calldata (`provessRollup` and `offchainData` for this milestone.)
+  - L1 calldata (`provesRollup` and `offchainData` for this milestone.)
   - ETH blobs (not before they are released).
   - Other sources that have archived historical ETH blobs (not before they are released).
 - Combines these sources of data to describe a `Rollup`.

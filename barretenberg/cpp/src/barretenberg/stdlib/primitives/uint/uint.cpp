@@ -1,11 +1,9 @@
 #include "uint.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief Constrain accumulators
@@ -36,12 +34,18 @@ std::vector<uint32_t> uint<Builder, Native>::constrain_accumulators(Builder* con
 template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const witness_t<Builder>& witness)
     : context(witness.context)
-    , additive_constant(0)
     , witness_status(WitnessStatus::OK)
-    , accumulators(constrain_accumulators(
-          context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness"))
-    , witness_index(accumulators[num_accumulators() - 1])
-{}
+{
+    if constexpr (IsSimulator<Builder>) {
+        additive_constant = witness.witness;
+        witness_index = IS_CONSTANT;
+    } else {
+        additive_constant = 0;
+        accumulators = constrain_accumulators(
+            context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness");
+        witness_index = accumulators[num_accumulators() - 1];
+    }
+}
 
 template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const field_t<Builder>& value)
@@ -390,10 +394,9 @@ template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Nativ
     return result;
 }
 
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint8_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint16_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint32_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint64_t);
+template class uint<bb::StandardCircuitBuilder, uint8_t>;
+template class uint<bb::StandardCircuitBuilder, uint16_t>;
+template class uint<bb::StandardCircuitBuilder, uint32_t>;
+template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

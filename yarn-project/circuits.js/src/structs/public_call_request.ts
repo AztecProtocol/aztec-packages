@@ -1,67 +1,37 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { computeVarArgsHash } from '../abis/abis.js';
-import { CircuitsWasm, FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import {
-  AztecAddress,
-  CallContext,
-  Fr,
-  FunctionData,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  Vector,
-} from './index.js';
+import { inspect } from 'util';
+
+import { CallContext } from './call_context.js';
 
 /**
- * Represents a request to call a public function from a private function. Serialization is
- * equivalent to a public call stack item, but without the result fields.
+ * Represents a request to call a public function.
  */
 export class PublicCallRequest {
-  constructor(
-    /**
-     *Address of the contract on which the function is invoked.
-     */
-    public contractAddress: AztecAddress,
-    /**
-     * Data identifying the function being called.
-     */
-    public functionData: FunctionData,
-    /**
-     * Context of the public call.
-     */
-    public callContext: CallContext,
-    /**
-     * Function arguments.
-     */
-    public args: Fr[],
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public sideEffectCounter?: number,
-  ) {}
+  constructor(public callContext: CallContext, public argsHash: Fr, public counter: number) {}
+
+  getSize() {
+    return this.isEmpty() ? 0 : this.toBuffer().length;
+  }
 
   /**
    * Serialize this as a buffer.
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.functionData, this.callContext, new Vector(this.args));
+    return serializeToBuffer(this.callContext, this.argsHash, this.counter);
   }
 
   /**
-   * Deserialise this from a buffer.
-   * @param buffer - The bufferable type from which to deserialise.
-   * @returns The deserialised instance of PublicCallRequest.
+   * Deserialize this from a buffer.
+   * @param buffer - The bufferable type from which to deserialize.
+   * @returns The deserialized instance of PublicCallRequest.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new PublicCallRequest(
-      new AztecAddress(reader.readBytes(32)),
-      FunctionData.fromBuffer(reader),
-      CallContext.fromBuffer(reader),
-      reader.readVector(Fr),
-    );
+    return new PublicCallRequest(reader.readObject(CallContext), reader.readObject(Fr), reader.readNumber());
   }
 
   /**
@@ -79,31 +49,31 @@ export class PublicCallRequest {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<PublicCallRequest>) {
-    return [
-      fields.contractAddress,
-      fields.functionData,
-      fields.callContext,
-      fields.args,
-      fields.sideEffectCounter,
-    ] as const;
+    return [fields.callContext, fields.argsHash, fields.counter] as const;
   }
 
-  /**
-   * Creates a new PublicCallStackItem by populating with zeroes all fields related to result in the public circuit output.
-   * @returns A PublicCallStackItem instance with the same contract address, function data, call context, and args.
-   */
-  async toPublicCallStackItem(): Promise<PublicCallStackItem> {
-    const publicInputs = PublicCircuitPublicInputs.empty();
-    publicInputs.callContext = this.callContext;
-    publicInputs.argsHash = await this.getArgsHash();
-    return new PublicCallStackItem(this.contractAddress, this.functionData, publicInputs, true);
+  toFields(): Fr[] {
+    return serializeToFields([this.callContext, this.argsHash, this.counter]);
   }
 
-  /**
-   * Returns the hash of the arguments for this request.
-   * @returns Hash of the arguments for this request.
-   */
-  async getArgsHash() {
-    return computeVarArgsHash(await CircuitsWasm.get(), this.args);
+  static fromFields(fields: Fr[] | FieldReader): PublicCallRequest {
+    const reader = FieldReader.asReader(fields);
+    return new PublicCallRequest(CallContext.fromFields(reader), reader.readField(), reader.readU32());
+  }
+
+  static empty() {
+    return new PublicCallRequest(CallContext.empty(), Fr.ZERO, 0);
+  }
+
+  isEmpty(): boolean {
+    return this.callContext.isEmpty() && this.argsHash.isEmpty() && this.counter == 0;
+  }
+
+  [inspect.custom]() {
+    return `PublicCallRequest {
+      callContext: ${this.callContext}
+      argsHash: ${this.argsHash}
+      counter: ${this.counter}
+    }`;
   }
 }

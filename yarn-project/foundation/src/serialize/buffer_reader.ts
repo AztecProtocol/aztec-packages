@@ -1,5 +1,4 @@
-import { Fq, Fr } from '../fields/fields.js';
-import { Tuple } from './types.js';
+import { type Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -32,8 +31,21 @@ export class BufferReader {
    * @param bufferOrReader - A Buffer or BufferReader to initialize the BufferReader.
    * @returns An instance of BufferReader.
    */
-  public static asReader(bufferOrReader: Buffer | BufferReader) {
-    return Buffer.isBuffer(bufferOrReader) ? new BufferReader(bufferOrReader) : bufferOrReader;
+  public static asReader(bufferOrReader: Uint8Array | Buffer | BufferReader): BufferReader {
+    if (bufferOrReader instanceof BufferReader) {
+      return bufferOrReader;
+    }
+
+    const buf = Buffer.isBuffer(bufferOrReader)
+      ? bufferOrReader
+      : Buffer.from(bufferOrReader.buffer, bufferOrReader.byteOffset, bufferOrReader.byteLength);
+
+    return new BufferReader(buf);
+  }
+
+  /** Returns true if the underlying buffer has been consumed completely. */
+  public isEmpty(): boolean {
+    return this.index === this.buffer.length;
   }
 
   /**
@@ -43,8 +55,39 @@ export class BufferReader {
    * @returns The read 32-bit unsigned integer value.
    */
   public readNumber(): number {
+    this.#rangeCheck(4);
     this.index += 4;
     return this.buffer.readUint32BE(this.index - 4);
+  }
+
+  /**
+   * Reads `count` 32-bit unsigned integers from the buffer at the current index position.
+   * @param count - The number of 32-bit unsigned integers to read.
+   * @returns An array of 32-bit unsigned integers.
+   */
+  public readNumbers<N extends number>(count: N): Tuple<number, N> {
+    const result = Array.from({ length: count }, () => this.readNumber());
+    return result as Tuple<number, N>;
+  }
+
+  /**
+   * Reads a 256-bit unsigned integer from the buffer at the current index position.
+   * Updates the index position by 32 bytes after reading the number.
+   *
+   * Assumes the number is stored in big-endian format.
+   *
+   * @returns The read 256 bit value as a bigint.
+   */
+  public readUInt256(): bigint {
+    this.#rangeCheck(32);
+
+    let result = BigInt(0);
+    for (let i = 0; i < 32; i++) {
+      result = (result << BigInt(8)) | BigInt(this.buffer[this.index + i]);
+    }
+
+    this.index += 32;
+    return result;
   }
 
   /**
@@ -54,8 +97,21 @@ export class BufferReader {
    * @returns The read 16 bit value.
    */
   public readUInt16(): number {
+    this.#rangeCheck(2);
     this.index += 2;
     return this.buffer.readUInt16BE(this.index - 2);
+  }
+
+  /**
+   * Reads a 8-bit unsigned integer from the buffer at the current index position.
+   * Updates the index position by 1 byte after reading the number.
+   *
+   * @returns The read 8 bit value.
+   */
+  public readUInt8(): number {
+    this.#rangeCheck(1);
+    this.index += 1;
+    return this.buffer.readUInt8(this.index - 1);
   }
 
   /**
@@ -66,6 +122,7 @@ export class BufferReader {
    * @returns A boolean value representing the byte at the current index.
    */
   public readBoolean(): boolean {
+    this.#rangeCheck(1);
     this.index += 1;
     return Boolean(this.buffer.at(this.index - 1));
   }
@@ -79,29 +136,16 @@ export class BufferReader {
    * @returns A new Buffer containing the read bytes.
    */
   public readBytes(n: number): Buffer {
+    this.#rangeCheck(n);
     this.index += n;
     return Buffer.from(this.buffer.subarray(this.index - n, this.index));
   }
 
-  /**
-   * Reads a Fr (finite field) element from the buffer using the 'fromBuffer' method of the Fr class.
-   * The Fr class should provide a 'fromBuffer' method that takes a BufferReader instance as input.
-   *
-   * @returns An instance of the Fr class representing the finite field element.
-   */
-  public readFr(): Fr {
-    return Fr.fromBuffer(this);
-  }
-
-  /**
-   * Reads the next Fq element from the buffer using the Fq.fromBuffer method.
-   * The Fq element represents a finite field in elliptic curve cryptography and is used for calculations.
-   * Advances the internal buffer index by the number of bytes read.
-   *
-   * @returns An Fq instance representing the finite field element.
-   */
-  public readFq(): Fq {
-    return Fq.fromBuffer(this);
+  /** Reads until the end of the buffer. */
+  public readToEnd(): Buffer {
+    const result = this.buffer.subarray(this.index);
+    this.index = this.buffer.length;
+    return result;
   }
 
   /**
@@ -132,6 +176,29 @@ export class BufferReader {
     fromBuffer: (reader: BufferReader) => T;
   }): T[] {
     const size = this.readNumber();
+    const result = new Array<T>(size);
+    for (let i = 0; i < size; i++) {
+      result[i] = itemDeserializer.fromBuffer(this);
+    }
+    return result;
+  }
+
+  /**
+   * Reads a vector of fixed size from the buffer and deserializes its elements using the provided itemDeserializer object.
+   * The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance and returns the deserialized element.
+   * The method first reads the size of the vector (a number) from the buffer, then iterates through its elements,
+   * deserializing each one using the 'fromBuffer' method of 'itemDeserializer'.
+   *
+   * @param itemDeserializer - Object with 'fromBuffer' method to deserialize vector elements.
+   * @returns An array of deserialized elements of type T.
+   */
+  public readVectorUint8Prefix<T>(itemDeserializer: {
+    /**
+     * A method to deserialize data from a buffer.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): T[] {
+    const size = this.readUInt8();
     const result = new Array<T>(size);
     for (let i = 0; i < size; i++) {
       result[i] = itemDeserializer.fromBuffer(this);
@@ -173,6 +240,7 @@ export class BufferReader {
   public readBufferArray(size = -1): Buffer[] {
     const result: Buffer[] = [];
     const end = size >= 0 ? this.index + size : this.buffer.length;
+    this.#rangeCheck(end - this.index);
     while (this.index < end) {
       const item = this.readBuffer();
       result.push(item);
@@ -210,6 +278,7 @@ export class BufferReader {
    * @returns A Buffer with the next n bytes or the remaining bytes if n is not provided or exceeds the buffer length.
    */
   public peekBytes(n?: number): Buffer {
+    this.#rangeCheck(n || 0);
     return this.buffer.subarray(this.index, n ? this.index + n : undefined);
   }
 
@@ -234,6 +303,7 @@ export class BufferReader {
    */
   public readBuffer(): Buffer {
     const size = this.readNumber();
+    this.#rangeCheck(size);
     return this.readBytes(size);
   }
 
@@ -269,4 +339,31 @@ export class BufferReader {
   public getLength(): number {
     return this.buffer.length;
   }
+
+  /**
+   * Gets bytes remaining to be read from the buffer.
+   * @returns Bytes remaining to be read from the buffer.
+   */
+  public remainingBytes(): number {
+    return this.buffer.length - this.index;
+  }
+
+  #rangeCheck(numBytes: number) {
+    if (this.index + numBytes > this.buffer.length) {
+      throw new Error(
+        `Attempted to read beyond buffer length. Start index: ${this.index}, Num bytes to read: ${numBytes}, Buffer length: ${this.buffer.length}`,
+      );
+    }
+  }
+}
+
+/**
+ * A deserializer
+ */
+export interface FromBuffer<T> {
+  /**
+   * Deserializes an object from a buffer
+   * @param buffer - The buffer to deserialize.
+   */
+  fromBuffer(buffer: Buffer): T;
 }

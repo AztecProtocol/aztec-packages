@@ -1,122 +1,56 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf, PublicKey } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { AztecAddress, EthAddress, Fr, Point } from './index.js';
-
-/**
- * Contract deployment data in a TxContext
- * cpp/src/aztec3/circuits/abis/contract_deployment_data.hpp.
- *
- * Not to be confused with NewContractData.
- */
-export class ContractDeploymentData {
-  /** Ethereum address of the portal contract on L1. */
-  public portalContractAddress: EthAddress;
-
-  constructor(
-    /** Public key of the contract deployer (used when deploying account contracts). */
-    public deployerPublicKey: PublicKey,
-    /** Hash of the constructor verification key. */
-    public constructorVkHash: Fr,
-    /** Function tree root. */
-    public functionTreeRoot: Fr,
-    /** Contract address salt (used when deriving a contract address). */
-    public contractAddressSalt: Fr,
-    /**
-     * Ethereum address of the portal contract on L1.
-     * TODO(AD): union type kludge due to cbind compiler having special needs
-     */
-    portalContractAddress: EthAddress | AztecAddress,
-  ) {
-    this.portalContractAddress = EthAddress.fromField(portalContractAddress.toField());
-  }
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.deployerPublicKey,
-      this.constructorVkHash,
-      this.functionTreeRoot,
-      this.contractAddressSalt,
-      this.portalContractAddress,
-    );
-  }
-
-  /**
-   * Returns an empty ContractDeploymentData.
-   * @returns The empty ContractDeploymentData.
-   */
-  public static empty(): ContractDeploymentData {
-    return new ContractDeploymentData(Point.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
-  }
-  /**
-   * Deserializes contract deployment data rom a buffer or reader.
-   * @param buffer - Buffer to read from.
-   * @returns The deserialized ContractDeploymentData.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
-    const reader = BufferReader.asReader(buffer);
-    return new ContractDeploymentData(
-      reader.readObject(Point),
-      reader.readFr(),
-      reader.readFr(),
-      reader.readFr(),
-      new EthAddress(reader.readBytes(32)),
-    );
-  }
-}
+import { TX_CONTEXT_LENGTH } from '../constants.gen.js';
+import { GasSettings } from './gas_settings.js';
 
 /**
  * Transaction context.
- * @see cpp/src/aztec3/circuits/abis/tx_context.hpp.
  */
 export class TxContext {
+  public chainId: Fr;
+  public version: Fr;
+
   constructor(
-    /**
-     * Whether this is a fee paying tx. If not other tx in a bundle will pay the fee.
-     */
-    public isFeePaymentTx: boolean,
-    /**
-     * Indicates whether this a gas rebate payment tx.
-     *
-     * NOTE: The following is a WIP and it is likely to change in the future.
-     * Explanation: Each tx is actually 3 txs in one: a fee-paying tx, the actual tx you want to execute, and a rebate
-     * tx. The fee-paying tx pays some `max_fee = gas_price * gas_limit`. Then the actual tx will cost an amount of gas
-     * to execute (actual_fee = gas_price * gas_used). Then the rebate tx returns `max_fee - actual_fee` back to
-     * the user.
-     */
-    public isRebatePaymentTx: boolean,
-    /**
-     * Whether this is a contract deployment tx.
-     */
-    public isContractDeploymentTx: boolean,
-    /**
-     * Contract deployment data.
-     */
-    public contractDeploymentData: ContractDeploymentData,
-    /**
-     * Chain ID of the transaction. Here for replay protection.
-     */
-    public chainId: Fr,
-    /**
-     * Version of the transaction. Here for replay protection.
-     */
-    public version: Fr,
-  ) {}
+    /** Chain ID of the transaction. Here for replay protection. */
+    chainId: Fr | number | bigint,
+    /** Version of the transaction. Here for replay protection. */
+    version: Fr | number | bigint,
+    /** Gas limits for this transaction. */
+    public gasSettings: GasSettings,
+  ) {
+    this.chainId = new Fr(chainId);
+    this.version = new Fr(version);
+  }
+
+  getSize() {
+    return this.chainId.size + this.version.size + this.gasSettings.getSize();
+  }
+
+  clone() {
+    return new TxContext(this.chainId, this.version, this.gasSettings.clone());
+  }
 
   /**
    * Serialize as a buffer.
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.isFeePaymentTx,
-      this.isRebatePaymentTx,
-      this.isContractDeploymentTx,
-      this.contractDeploymentData,
-      this.chainId,
-      this.version,
-    );
+    return serializeToBuffer(...TxContext.getFields(this));
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): TxContext {
+    const reader = FieldReader.asReader(fields);
+    return new TxContext(reader.readField(), reader.readField(), reader.readObject(GasSettings));
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...TxContext.getFields(this));
+    if (fields.length !== TX_CONTEXT_LENGTH) {
+      throw new Error(`Invalid number of fields for TxContext. Expected ${TX_CONTEXT_LENGTH}, got ${fields.length}`);
+    }
+    return fields;
   }
 
   /**
@@ -126,18 +60,15 @@ export class TxContext {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxContext {
     const reader = BufferReader.asReader(buffer);
-    return new TxContext(
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readObject(ContractDeploymentData),
-      reader.readFr(),
-      reader.readFr(),
-    );
+    return new TxContext(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readObject(GasSettings));
   }
 
   static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
-    return new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(chainId), new Fr(version));
+    return new TxContext(new Fr(chainId), new Fr(version), GasSettings.empty());
+  }
+
+  isEmpty(): boolean {
+    return this.chainId.isZero() && this.version.isZero() && this.gasSettings.isEmpty();
   }
 
   /**
@@ -155,13 +86,6 @@ export class TxContext {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<TxContext>) {
-    return [
-      fields.isFeePaymentTx,
-      fields.isRebatePaymentTx,
-      fields.isContractDeploymentTx,
-      fields.contractDeploymentData,
-      fields.chainId,
-      fields.version,
-    ] as const;
+    return [fields.chainId, fields.version, fields.gasSettings] as const;
   }
 }

@@ -4,19 +4,13 @@ The Aztec CLI `aztec-cli` is a command-line interface (CLI) tool for interacting
 
 ## Installation
 
-To use `aztec-cli`, you need to have Node.js installed on your system. Follow these steps to install and set up the CLI tool:
+1. In your terminal, download the sandbox by running
 
-1. Install Node.js: Visit the official Node.js website (https://nodejs.org) and download the installer for your operating system. Follow the installation instructions to install Node.js.
+```
+bash -i <(curl -s https://install.aztec.network)
+```
 
-2. Install `aztec-cli` package: Open a terminal or command prompt and run the following command to install `aztec-cli` globally on your system:
-
-   ```shell
-   npm install -g @aztec/cli
-   ```
-
-   This will install the `aztec-cli` globally, making it accessible from any location in your terminal.
-
-3. Verify the installation: After the installation is complete, run the following command to verify that `aztec-cli` is installed correctly:
+2. Verify the installation: After the installation is complete, run the following command to verify that `aztec-cli` is installed correctly:
 
    ```shell
    aztec-cli --version
@@ -41,10 +35,9 @@ Replace `<command>` with the actual command you want to execute and `[options]` 
 Some options can be set globally as environment variables to avoid having to re-enter them every time you call `aztec-cli.`
 These options are:
 
-- `PRIVATE_KEY` -> `-k, --private-key` for all commands that require a private key.
+- `SECRET_KEY` -> `-sk, --secret-key` for all commands that require an Aztec secret key.
 - `PUBLIC_KEY` -> `-k, --public-key` for all commands that require a public key.
 - `PXE_URL` -> `-u, --rpc-url` for commands that require a PXE
-- `API_KEY` -> `a, --api-key` for `deploy-l1-contracts`.
 - `ETHEREUM_RPC_HOST` -> `-u, --rpc-url` for `deploy-l1-contracts`.
 
 So if for example you are running your Private eXecution Environment (PXE) remotely you can do:
@@ -76,7 +69,7 @@ aztec-cli deploy-l1-contracts [rpcUrl] [options]
 
 Options:
 
-- `-a, --api-key <string>`: API key for the Ethereum host.
+- `-a, --l1-chain-id <string>`: Chain ID for the Ethereum host.
 - `-p, --private-key <string>`: The private key to use for deployment.
 - `-m, --mnemonic <string>`: The mnemonic to use in deployment. Default: `test test test test test test test test test test test junk`.
 
@@ -140,28 +133,28 @@ Deploys a compiled Aztec.nr contract to Aztec.
 Syntax:
 
 ```shell
-aztec-cli deploy <contractAbi> [options]
+aztec-cli deploy <contractArtifact> [options]
 ```
 
 Options:
 
-- `-c, --contract-abi <fileLocation>`: Path to the compiled Aztec.nr contract's ABI file in JSON format. You can also use one of Aztec's example contracts found in [@aztec/noir-contracts](https://www.npmjs.com/package/@aztec/noir-contracts), e.g. PrivateTokenContractAbi. You can get a full ist of the available contracts with `aztec-cli example-contracts`
+- `-c, --contract-artifact <fileLocation>`: Path to the compiled Aztec.nr contract's artifact file in JSON format. You can also use one of Aztec's example contracts found in [@aztec/noir-contracts](https://www.npmjs.com/package/@aztec/noir-contracts), e.g. PrivateTokenContractArtifact. You can get a full ist of the available contracts with `aztec-cli example-contracts`
 - `-a, --args <constructorArgs...>` (optional): Contract constructor arguments Default: [].
 - `-u, --rpc-url <string>`: URL of PXE Service. Default: `http://localhost:8080`.
 - `-k, --public-key <string>`: Public key of the deployer. If not provided, it will check the RPC for existing ones.
 
-This command deploys a compiled Aztec.nr contract to Aztec. It requires the path to the contract's ABI file in JSON format. Optionally, you can specify the public key of the deployer and provide constructor arguments for the contract. The command displays the address of the deployed contract.
+This command deploys a compiled Aztec.nr contract to Aztec. It requires the path to the contract's artifact file in JSON format. Optionally, you can specify the public key of the deployer and provide constructor arguments for the contract. The command displays the address of the deployed contract.
 
 Example usage:
 
 ```shell
-aztec-cli deploy -c path/to/contract.abi.json -a ...args
+aztec-cli deploy -c path/to/contract.artifact.json -a ...args
 ```
 
 With an Aztec example contract:
 
 ```shell
-aztec-cli deploy -c PrivateTokenContractAbi -a 333 0x134567890abcdef
+aztec-cli deploy -c PrivateTokenContractArtifact -a 333 0x134567890abcdef
 ```
 
 ### check-deploy
@@ -313,7 +306,7 @@ Sends a transaction invoking a function on an Aztec contract.
 Syntax:
 
 ```shell
-aztec-cli send <functionName> --args [functionArgs...] --contract-abi <contractAbi> --contract-address <contractAddress> --private-key <senderPrivateKey>
+aztec-cli send <functionName> --args [functionArgs...] --contract-artifact <contractArtifact> --contract-address <contractAddress> --private-key <senderPrivateKey>
 ```
 
 - `functionName`: Name of the function to call.
@@ -321,17 +314,17 @@ aztec-cli send <functionName> --args [functionArgs...] --contract-abi <contractA
 Options:
 
 - `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
-- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. PrivateTokenContractAbi.
+- `-c, --contract-artifact <fileLocation>`: The compiled contract's artifact in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. PrivateTokenContractArtifact.
 - `-ca, --contract-address <address>`: Address of the contract.
 - `-k, --private-key <string>`: The sender's private key.
 - `-u, --rpc-url <string>`: URL of PXE Service. Default: `http://localhost:8080`.
 
-This command calls a function on an Aztec contract. It requires the contract's ABI, address, function name, and optionally, function arguments. The command executes the function call and displays the transaction details.
+This command calls a function on an Aztec contract. It requires the contract's artifact, address, function name, and optionally, function arguments. The command executes the function call and displays the transaction details.
 
 Example usage:
 
 ```shell
-aztec-cli send transfer -ca 0x123456789abcdef123456789abcdef12345678 -a 100 -c path/to/abi.json
+aztec-cli send transfer -ca 0x123456789abcdef123456789abcdef12345678 -a 100 -c path/to/artifact.json
 ```
 
 ### call
@@ -342,7 +335,7 @@ Unlike transactions, view calls do not modify the state of the contract.
 Syntax:
 
 ```shell
-aztec-cli call <functionName> -a [functionArgs...] -c <contractAbi> -ca <contractAddress> -f <fromAddress>
+aztec-cli call <functionName> -a [functionArgs...] -c <contractArtifact> -ca <contractAddress> -f <fromAddress>
 ```
 
 - `functionName`: Name of the function to view.
@@ -350,17 +343,17 @@ aztec-cli call <functionName> -a [functionArgs...] -c <contractAbi> -ca <contrac
 Options:
 
 - `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
-- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. PrivateTokenContractAbi.
+- `-c, --contract-artifact <fileLocation>`: The compiled contract's artifact in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. PrivateTokenContractArtifact.
 - `-ca, --contract-address <address>`: Address of the contract.
 - `-f, --from <string>`: Address of the caller. If empty, first account in the Private eXecution Environment (PXE) will be used.
 - `-u, --rpc-url <string>`: URL of PXE Service. Default: `http://localhost:8080`.
 
-This command simulates the execution of a view function on a deployed contract without modifying the state. It requires the contract's ABI, address, function name, and optionally, function arguments. The command displays the result of the view function.
+This command simulates the execution of a view function on a deployed contract without modifying the state. It requires the contract's artifact, address, function name, and optionally, function arguments. The command displays the result of the view function.
 
 Example usage:
 
 ```shell
-aztec-cli call balanceOf -c path/to/contract.abi.json -ca 0x123456789abcdef123456789abcdef12345678 -a balanceOf 0xabcdef1234567890abcdef1234567890abcdef12
+aztec-cli call balanceOf -c path/to/contract.artifact.json -ca 0x123456789abcdef123456789abcdef12345678 -a balanceOf 0xabcdef1234567890abcdef1234567890abcdef12
 ```
 
 ### parse-parameter-struct
@@ -370,45 +363,46 @@ Helper for parsing an encoded string into a contract's parameter struct.
 Syntax:
 
 ```shell
-aztec-cli parse-parameter-struct <encodedString> <contractAbi> <parameterName>
+aztec-cli parse-parameter-struct <encodedString> <contractArtifact> <parameterName>
 ```
 
 - `encodedString`: The encoded hex string.
-- `contractAbi`: The compiled contract's ABI in JSON format.
+- `contractArtifact`: The compiled contract's artifact in JSON format.
 - `parameterName`: The name of the struct parameter to decode into.
 
-This command is a helper for parsing an encoded hex string into a contract's parameter struct. It requires the encoded string, the contract's ABI, and the name of the struct parameter. The command decodes the string and displays the struct data.
+This command is a helper for parsing an encoded hex string into a contract's parameter struct. It requires the encoded string, the contract's artifact, and the name of the struct parameter. The command decodes the string and displays the struct data.
 
 Example usage:
 
 ```shell
-aztec-cli parse-parameter-struct 0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890 path/to/contract.abi.json paramName
+aztec-cli parse-parameter-struct 0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890 path/to/contract.artifact.json paramName
 ```
 
 ### get-logs
 
-Gets all the unencrypted logs from L2 blocks in the specified range.
+Applies filter and returns the resulting unencrypted logs.
+The filter is applied by doing an intersection of all its params.
 
 Syntax:
 
 ```shell
-aztec-cli get-logs --from <number> --limit <number> [options]
+aztec-cli get-logs --fromBlock <number>
 ```
-
-- `from`: Block number to start fetching logs from.
-- `limit`: Maximum number of block logs to obtain.
 
 Options:
 
 - `-u, --rpc-url <string>`: URL of PXE Service. Default: `http://localhost:8080`.
 
-This command retrieves and displays all the unencrypted logs from L2 blocks in the specified range. It shows the logs found in the blocks and unrolls them for readability.
-
+This command retrieves and displays all the unencrypted logs from L2 blocks in the specified range or from a specific transaction.
 Example usage:
 
 ```shell
-aztec-cli get-logs --from 1000 --limit 10
+aztec-cli get-logs --txHash 21fef567e01f8508e30843ebcef9c5f6ff27b29d66783cfcdbd070c3a9174234
+aztec-cli get-logs --fromBlock 4 --toBlock 5 --contractAddress 0x1db5f68861c5960c37205d3d5b23466240359c115c49e45982865ea7ace69a02
+aztec-cli get-logs --fromBlock 4 --toBlock 5 --contractAddress 0x1db5f68861c5960c37205d3d5b23466240359c115c49e45982865ea7ace69a02 --selector 00000005
 ```
+
+Run `aztec-cli get-logs --help` for more information on the filtering options.
 
 ### block-number
 
@@ -428,7 +422,7 @@ This command retrieves and displays the current Aztec L2 block number.
 
 ### example-contracts
 
-Lists the contracts available in [@aztec/noir-contracts](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts)
+Lists the contracts available in [@aztec/noir-contracts](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-contracts)
 
 Syntax:
 

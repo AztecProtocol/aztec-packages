@@ -3,21 +3,11 @@
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/primitives/group/group.hpp"
-#include "barretenberg/stdlib/primitives/point/point.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-
-using barretenberg::fr;
-using numeric::uint256_t;
-using stdlib::bool_t;
-using stdlib::field_t;
-using stdlib::group;
-using stdlib::pedersen_commitment;
-using stdlib::point;
-using stdlib::witness_t;
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/376): Establish whether this type should be here at all.
+namespace bb::stdlib {
 
 // Native type
 class address {
@@ -137,12 +127,12 @@ template <typename Builder> class address_t {
     static address_t<Builder> derive_from_private_key(field_t<Builder> const& private_key)
     {
         // TODO: Dummy logic, for now. Proper derivation undecided.
-        point<Builder> public_key = group<Builder>::template fixed_base_scalar_mul_g1<254>(private_key);
+        cycle_group<Builder> public_key = cycle_group<Builder>(grumpkin::g1::affine_one) *
+                                          cycle_group<Builder>::cycle_scalar::create_from_bn254_scalar(private_key);
         return address_t<Builder>(public_key.x);
     }
 
     friend std::ostream& operator<<(std::ostream& os, address_t<Builder> const& v) { return os << v.address_; }
 };
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

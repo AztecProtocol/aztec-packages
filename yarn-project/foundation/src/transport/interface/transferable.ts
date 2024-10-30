@@ -36,7 +36,9 @@ export interface TransferDescriptor<T = any> {
  * @returns A boolean indicating whether the object is transferable.
  */
 function isTransferable(thing: any): thing is Transferable {
-  if (!thing || typeof thing !== 'object') return false;
+  if (!thing || typeof thing !== 'object') {
+    return false;
+  }
   // Don't check too thoroughly, since the list of transferable things in JS might grow over time
   return true;
 }
@@ -77,7 +79,7 @@ export function Transfer<T>(transferable: Transferable): TransferDescriptor<T>;
  * Mark transferable objects within an arbitrary object or array as
  * being a transferable object. They will then not be serialized
  * and deserialized on messaging with the main thread, but ownership
- * of them will be tranferred to the receiving thread.
+ * of them will be transferred to the receiving thread.
  *
  * Only array buffers, message ports and few more special types of
  * objects can be transferred, but it's much faster than serializing and
@@ -109,7 +111,9 @@ export function Transfer<T>(payload: T, transferables: Transferable[]): Transfer
  */
 export function Transfer<T>(payload: T, transferables?: Transferable[]): TransferDescriptor<T> {
   if (!transferables) {
-    if (!isTransferable(payload)) throw Error();
+    if (!isTransferable(payload)) {
+      throw Error();
+    }
     transferables = [payload];
   }
 

@@ -1,12 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NUM_FIELDS_PER_SHA256 } from '../../cbind/constants.gen.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
-import { AggregationObject } from '../aggregation_object.js';
-import { RollupTypes } from '../shared.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import { ConstantRollupData } from './base_rollup.js';
+import { PartialStateReference } from '../partial_state_reference.js';
+import { type RollupTypes } from '../shared.js';
+import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
  * Output of the base and merge rollup circuits.
@@ -18,61 +15,36 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public rollupType: RollupTypes,
     /**
-     * Rollup sub tree height.
-     * Note 1: Base rollup circuit always have a sub tree height of 0.
-     * Note 2: With each merge, the sub tree height increases by 1.
+     * Number of txs in this rollup.
      */
-    public rollupSubtreeHeight: Fr,
-    /**
-     * Native aggregation state at the end of the rollup circuit.
-     */
-    public endAggregationObject: AggregationObject,
+    public numTxs: number,
     /**
      * Data which is forwarded through the rollup circuits unchanged.
      */
     public constants: ConstantRollupData,
+    /**
+     * Partial state reference at the start of the rollup circuit.
+     */
+    public start: PartialStateReference,
+    /**
+     * Partial state reference at the end of the rollup circuit.
+     */
+    public end: PartialStateReference,
+    /**
+     * SHA256 hash of transactions effects. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public txsEffectsHash: Fr,
+    /**
+     * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public outHash: Fr,
 
     /**
-     * Snapshot of the private data tree at the start of the rollup circuit.
+     * The summed `transaction_fee` of the constituent transactions.
      */
-    public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the private data tree at the end of the rollup circuit.
-     */
-    public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the nullifier tree at the start of the rollup circuit.
-     */
-    public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the nullifier tree at the end of the rollup circuit.
-     */
-    public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the contract tree at the start of the rollup circuit.
-     */
-    public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the contract tree at the end of the rollup circuit.
-     */
-    public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Root of the public data tree at the start of the rollup circuit.
-     */
-    public startPublicDataTreeRoot: Fr,
-    /**
-     * Root of the public data tree at the end of the rollup circuit.
-     */
-    public endPublicDataTreeRoot: Fr,
-
-    /**
-     * SHA256 hashes of calldata. Used to make public inputs constant-sized (to then be unpacked on-chain).
-     * Note: Length 2 for high and low.
-     */
-    public calldataHash: [Fr, Fr],
+    public accumulatedFees: Fr,
   ) {}
 
   /**
@@ -85,18 +57,14 @@ export class BaseOrMergeRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
-      reader.readFr(),
-      reader.readObject(AggregationObject),
+      reader.readNumber(),
       reader.readObject(ConstantRollupData),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readFr(),
-      reader.readFr(),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
+      reader.readObject(PartialStateReference),
+      reader.readObject(PartialStateReference),
+      //TODO check
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -107,23 +75,33 @@ export class BaseOrMergeRollupPublicInputs {
   toBuffer() {
     return serializeToBuffer(
       this.rollupType,
-      this.rollupSubtreeHeight,
-      this.endAggregationObject,
+      this.numTxs,
       this.constants,
 
-      this.startPrivateDataTreeSnapshot,
-      this.endPrivateDataTreeSnapshot,
+      this.start,
+      this.end,
 
-      this.startNullifierTreeSnapshot,
-      this.endNullifierTreeSnapshot,
+      this.txsEffectsHash,
+      this.outHash,
 
-      this.startContractTreeSnapshot,
-      this.endContractTreeSnapshot,
-
-      this.startPublicDataTreeRoot,
-      this.endPublicDataTreeRoot,
-
-      this.calldataHash,
+      this.accumulatedFees,
     );
+  }
+
+  /**
+   * Serialize this as a hex string.
+   * @returns - The hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new BaseOrMergeRollupPublicInputs instance.
+   */
+  static fromString(str: string) {
+    return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

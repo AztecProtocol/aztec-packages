@@ -2,7 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-namespace numeric {
+namespace bb::numeric {
 
 // from http://supertech.csail.mit.edu/papers/debruijn.pdf
 constexpr inline uint32_t get_msb32(const uint32_t in)
@@ -43,4 +43,10 @@ template <typename T> constexpr inline T get_msb(const T in)
     return (sizeof(T) <= 4) ? get_msb32(in) : get_msb64(in);
 }
 
-} // namespace numeric
+template <typename T> constexpr inline T round_up_power_2(const T in)
+{
+    auto lower_bound = T(1) << get_msb(in);
+    return (lower_bound == in || lower_bound == 1) ? in : lower_bound * 2;
+}
+
+} // namespace bb::numeric

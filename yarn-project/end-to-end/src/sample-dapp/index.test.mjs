@@ -1,37 +1,34 @@
-import { createSandbox } from '@aztec/aztec-sandbox';
-import { Contract, Fr, NotePreimage, computeMessageSecretHash, createAccount } from '@aztec/aztec.js';
-import { TokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { createAccount } from '@aztec/accounts/testing';
+import { createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
+import { deployToken } from '../fixtures/token_utils';
+
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+
+// Note: To run this test you need to spin up Aztec sandbox. Build the aztec image (or pull it with aztec-up if on
+// master) and then run this test as usual (yarn test src/sample-dapp/index.test.mjs).
 describe('token', () => {
   // docs:start:setup
-  let pxe, stop, owner, recipient, token;
+  let owner, recipient, token;
+
   beforeAll(async () => {
-    ({ pxe, stop } = await createSandbox());
+    const pxe = createPXEClient(PXE_URL);
+    await waitForPXE(pxe);
     owner = await createAccount(pxe);
     recipient = await createAccount(pxe);
 
-    token = await Contract.deploy(owner, TokenContractAbi, [owner.getCompleteAddress()]).send().deployed();
-
-    const initialBalance = 20n;
-    const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
-    const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
-
-    const storageSlot = new Fr(5);
-    const preimage = new NotePreimage([new Fr(initialBalance), secretHash]);
-    await pxe.addNote(owner.getAddress(), token.address, storageSlot, preimage, receipt.txHash);
-
-    await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
+    const initialBalance = 69;
+    token = await deployToken(owner, initialBalance, createDebugLogger('sample_dapp'));
   }, 120_000);
-
-  afterAll(() => stop());
   // docs:end:setup
 
   // docs:start:test
   it('increases recipient funds on transfer', async () => {
-    expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
-    await token.methods.transfer(owner.getAddress(), recipient.getAddress(), 20n, 0).send().wait();
-    expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
-  });
+    expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
+    await token.methods.transfer(recipient.getAddress(), 20).send().wait();
+    expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(
+      20n,
+    );
+  }, 30_000);
   // docs:end:test
 });

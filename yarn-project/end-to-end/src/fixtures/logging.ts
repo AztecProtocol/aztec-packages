@@ -1,4 +1,4 @@
-import { onLog } from '@aztec/foundation/log';
+import { onLog } from '@aztec/aztec.js';
 
 import { mkdirpSync } from 'fs-extra';
 import { dirname } from 'path';
@@ -18,7 +18,9 @@ export function isMetricsLoggingRequested() {
  * Idempotent and automatically called by `setup` if CI or BENCHMARK env vars are set.
  */
 export function setupMetricsLogger(filename: string) {
-  if (metricsLoggerSet) return;
+  if (metricsLoggerSet) {
+    return;
+  }
   mkdirpSync(dirname(filename));
   const logger = winston.createLogger({
     level: 'debug',

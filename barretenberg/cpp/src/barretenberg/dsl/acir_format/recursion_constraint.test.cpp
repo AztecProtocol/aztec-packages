@@ -1,18 +1,22 @@
 #include "recursion_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
 
-using namespace proof_system::plonk;
+using namespace acir_format;
+using namespace bb;
+using namespace bb::plonk;
 
+using Composer = plonk::UltraComposer;
 class AcirRecursionConstraint : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
-namespace acir_format::test {
 Builder create_inner_circuit()
 {
     /**
@@ -24,24 +28,24 @@ Builder create_inner_circuit()
      * }
      **/
     RangeConstraint range_a{
-        .witness = 1,
+        .witness = 0,
         .num_bits = 32,
     };
     RangeConstraint range_b{
-        .witness = 2,
+        .witness = 1,
         .num_bits = 32,
     };
 
     LogicConstraint logic_constraint{
-        .a = 1,
-        .b = 2,
-        .result = 3,
+        .a = WitnessOrConstant<bb::fr>::from_index(0),
+        .b = WitnessOrConstant<bb::fr>::from_index(1),
+        .result = 2,
         .num_bits = 32,
         .is_xor_gate = 1,
     };
     poly_triple expr_a{
-        .a = 3,
-        .b = 4,
+        .a = 2,
+        .b = 3,
         .c = 0,
         .q_m = 0,
         .q_l = 1,
@@ -50,9 +54,9 @@ Builder create_inner_circuit()
         .q_c = -10,
     };
     poly_triple expr_b{
-        .a = 4,
-        .b = 5,
-        .c = 6,
+        .a = 3,
+        .b = 4,
+        .c = 5,
         .q_m = 1,
         .q_l = 0,
         .q_r = 0,
@@ -60,9 +64,9 @@ Builder create_inner_circuit()
         .q_c = 0,
     };
     poly_triple expr_c{
-        .a = 4,
-        .b = 6,
-        .c = 4,
+        .a = 3,
+        .b = 5,
+        .c = 3,
         .q_m = 1,
         .q_l = 0,
         .q_r = 0,
@@ -71,7 +75,7 @@ Builder create_inner_circuit()
 
     };
     poly_triple expr_d{
-        .a = 6,
+        .a = 5,
         .b = 0,
         .c = 0,
         .q_m = 0,
@@ -81,34 +85,45 @@ Builder create_inner_circuit()
         .q_c = 1,
     };
 
-    acir_format constraint_system{ .varnum = 7,
-                                   .public_inputs = { 2, 3 },
-                                   .logic_constraints = { logic_constraint },
-                                   .range_constraints = { range_a, range_b },
-                                   .sha256_constraints = {},
-                                   .schnorr_constraints = {},
-                                   .ecdsa_k1_constraints = {},
-                                   .ecdsa_r1_constraints = {},
-                                   .blake2s_constraints = {},
-                                   .keccak_constraints = {},
-                                   .keccak_var_constraints = {},
-                                   .pedersen_constraints = {},
-                                   .hash_to_field_constraints = {},
-                                   .fixed_base_scalar_mul_constraints = {},
-                                   .recursion_constraints = {},
-                                   .constraints = { expr_a, expr_b, expr_c, expr_d },
-                                   .block_constraints = {} };
+    AcirFormat constraint_system{
+        .varnum = 6,
+        .recursive = true,
+        .num_acir_opcodes = 7,
+        .public_inputs = { 1, 2 },
+        .logic_constraints = { logic_constraint },
+        .range_constraints = { range_a, range_b },
+        .aes128_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_permutations = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .assert_equalities = {},
+        .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
+        .quad_constraints = {},
+        .big_quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
 
     uint256_t inverse_of_five = fr(5).invert();
-    auto builder = create_circuit_with_witness(constraint_system,
-                                               {
-                                                   5,
-                                                   10,
-                                                   15,
-                                                   5,
-                                                   inverse_of_five,
-                                                   1,
-                                               });
+    WitnessVector witness{
+        5, 10, 15, 5, inverse_of_five, 1,
+    };
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     return builder;
 }
@@ -123,54 +138,52 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
 {
     std::vector<RecursionConstraint> recursion_constraints;
 
-    // witness count starts at 1 (Composer reserves 1st witness to be the zero-valued zero_idx)
-    size_t witness_offset = 1;
-    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> output_aggregation_object;
-    std::vector<fr, ContainerSlabAllocator<fr>> witness;
+    size_t witness_offset = 0;
+    SlabVector<fr> witness;
 
-    size_t circuit_idx = 0;
     for (auto& inner_circuit : inner_circuits) {
-        const bool has_input_aggregation_object = circuit_idx > 0;
-
         auto inner_composer = Composer();
         auto inner_prover = inner_composer.create_prover(inner_circuit);
         auto inner_proof = inner_prover.construct_proof();
         auto inner_verifier = inner_composer.create_verifier(inner_circuit);
 
         const bool has_nested_proof = inner_verifier.key->contains_recursive_proof;
-        const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
 
+        const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
         transcript::StandardTranscript transcript(inner_proof.proof_data,
                                                   Composer::create_manifest(num_inner_public_inputs),
-                                                  transcript::HashType::PlookupPedersenBlake3s,
+                                                  transcript::HashType::PedersenBlake3s,
                                                   16);
 
-        const std::vector<barretenberg::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
-        const std::vector<barretenberg::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
+        std::vector<fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
+        // - Save the public inputs so that we can set their values.
+        // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
+        std::vector<fr> inner_public_input_values(
+            proof_witnesses.begin(), proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
+
+        // We want to make sure that we do not remove the nested aggregation object in the case of the proof we want to
+        // recursively verify contains a recursive proof itself. We are safe to keep all the inner public inputs
+        // as in these tests the outer circuits do not have public inputs themselves
+        if (!has_nested_proof) {
+            proof_witnesses.erase(proof_witnesses.begin(),
+                                  proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
+        } else {
+            proof_witnesses.erase(proof_witnesses.begin(),
+                                  proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs -
+                                                                                        bb::AGGREGATION_OBJECT_SIZE));
+        }
+
+        const std::vector<bb::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
 
         const uint32_t key_hash_start_idx = static_cast<uint32_t>(witness_offset);
         const uint32_t public_input_start_idx = key_hash_start_idx + 1;
-        const uint32_t output_aggregation_object_start_idx =
-            static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs + (has_nested_proof ? 16 : 0));
-        const uint32_t proof_indices_start_idx = output_aggregation_object_start_idx + 16;
+        const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
+            public_input_start_idx + num_inner_public_inputs - (has_nested_proof ? bb::AGGREGATION_OBJECT_SIZE : 0));
         const uint32_t key_indices_start_idx = static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size());
 
         std::vector<uint32_t> proof_indices;
         std::vector<uint32_t> key_indices;
         std::vector<uint32_t> inner_public_inputs;
-        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object = {};
-        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-        if (has_input_aggregation_object) {
-            input_aggregation_object = output_aggregation_object;
-        }
-        for (size_t i = 0; i < 16; ++i) {
-            output_aggregation_object[i] = (static_cast<uint32_t>(i + output_aggregation_object_start_idx));
-        }
-        if (has_nested_proof) {
-            for (size_t i = 0; i < 16; ++i) {
-                nested_aggregation_object[i] = inner_circuit.recursive_proof_public_input_indices[i];
-            }
-        }
         for (size_t i = 0; i < proof_witnesses.size(); ++i) {
             proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
         }
@@ -178,8 +191,17 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         for (size_t i = 0; i < key_size; ++i) {
             key_indices.emplace_back(static_cast<uint32_t>(i + key_indices_start_idx));
         }
-        for (size_t i = 0; i < num_inner_public_inputs; ++i) {
-            inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
+        // In the case of a nested proof we keep the nested aggregation object attached to the proof,
+        // thus we do not explicitly have to keep the public inputs while setting up the initial recursion constraint.
+        // They will later be attached as public inputs when creating the circuit.
+        if (!has_nested_proof) {
+            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+                inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
+            }
+        } else {
+            for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
+            }
         }
 
         RecursionConstraint recursion_constraint{
@@ -187,45 +209,78 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
-            .input_aggregation_object = input_aggregation_object,
-            .output_aggregation_object = output_aggregation_object,
-            .nested_aggregation_object = nested_aggregation_object,
+            .proof_type = PLONK,
         };
         recursion_constraints.push_back(recursion_constraint);
+
         for (size_t i = 0; i < proof_indices_start_idx - witness_offset; ++i) {
             witness.emplace_back(0);
         }
         for (const auto& wit : proof_witnesses) {
             witness.emplace_back(wit);
         }
+
         for (const auto& wit : key_witnesses) {
             witness.emplace_back(wit);
         }
+
+        // Set the values for the inner public inputs
+        // Note: this is confusing, but we minus one here due to the fact that the
+        // witness values have not taken into account that zero is taken up by the zero_idx
+        //
+        // We once again have to check whether we have a nested proof, because if we do have one
+        // then we could get a segmentation fault as `inner_public_inputs` was never filled with values.
+        if (!has_nested_proof) {
+            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+                witness[inner_public_inputs[i]] = inner_public_input_values[i];
+            }
+        } else {
+            for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                witness[inner_public_inputs[i]] = inner_public_input_values[i];
+            }
+        }
+
         witness_offset = key_indices_start_idx + key_witnesses.size();
-        circuit_idx++;
     }
 
-    std::vector<uint32_t> public_inputs(output_aggregation_object.begin(), output_aggregation_object.end());
+    std::vector<size_t> recursion_opcode_indices(recursion_constraints.size());
+    std::iota(recursion_opcode_indices.begin(), recursion_opcode_indices.end(), 0);
 
-    acir_format constraint_system{ .varnum = static_cast<uint32_t>(witness.size() + 1),
-                                   .public_inputs = public_inputs,
-                                   .logic_constraints = {},
-                                   .range_constraints = {},
-                                   .sha256_constraints = {},
-                                   .schnorr_constraints = {},
-                                   .ecdsa_k1_constraints = {},
-                                   .ecdsa_r1_constraints = {},
-                                   .blake2s_constraints = {},
-                                   .keccak_constraints = {},
-                                   .keccak_var_constraints = {},
-                                   .pedersen_constraints = {},
-                                   .hash_to_field_constraints = {},
-                                   .fixed_base_scalar_mul_constraints = {},
-                                   .recursion_constraints = recursion_constraints,
-                                   .constraints = {},
-                                   .block_constraints = {} };
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(witness.size()),
+        .recursive = false,
+        .num_acir_opcodes = static_cast<uint32_t>(recursion_constraints.size()),
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .aes128_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_permutations = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = recursion_constraints,
+        .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .assert_equalities = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
+        .big_quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
 
-    auto outer_circuit = create_circuit_with_witness(constraint_system, witness);
+    auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     return outer_circuit;
 }
@@ -239,7 +294,7 @@ TEST_F(AcirRecursionConstraint, TestBasicDoubleRecursionConstraints)
 
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto layer_2_composer = Composer();
     auto prover = layer_2_composer.create_ultra_with_keccak_prover(layer_2_circuit);
@@ -296,7 +351,7 @@ TEST_F(AcirRecursionConstraint, TestOneOuterRecursiveCircuit)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
+    info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
@@ -325,7 +380,7 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
+    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
@@ -334,4 +389,3 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-} // namespace acir_format::test

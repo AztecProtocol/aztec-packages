@@ -1,5 +1,5 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type L1ContractAddresses, type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /**
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.
@@ -11,16 +11,11 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 /**
  * The archiver configuration.
  */
-export interface ArchiverConfig {
+export type ArchiverConfig = {
   /**
-   * The url of the Ethereum RPC node.
+   * URL for an archiver service. If set, will return an archiver client as opposed to starting a new one.
    */
-  rpcUrl: string;
-
-  /**
-   * The key for the ethereum node.
-   */
-  apiKey?: string;
+  archiverUrl?: string;
 
   /**
    * The polling interval in ms for retrieving new L2 blocks and encrypted logs.
@@ -33,11 +28,6 @@ export interface ArchiverConfig {
   viemPollingIntervalMS?: number;
 
   /**
-   * Eth block from which we start scanning for L2Blocks.
-   */
-  searchStartBlock: number;
-
-  /**
    * The deployed L1 contract addresses
    */
   l1Contracts: L1ContractAddresses;
@@ -45,45 +35,45 @@ export interface ArchiverConfig {
   /**
    * Optional dir to store data. If omitted will store in memory.
    */
-  dataDirectory?: string;
-}
+  dataDirectory: string | undefined;
+
+  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  maxLogs?: number;
+} & L1ReaderConfig;
+
+export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
+  archiverUrl: {
+    env: 'ARCHIVER_URL',
+    description:
+      'URL for an archiver service. If set, will return an archiver client as opposed to starting a new one.',
+  },
+  archiverPollingIntervalMS: {
+    env: 'ARCHIVER_POLLING_INTERVAL_MS',
+    description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
+    ...numberConfigHelper(1000),
+  },
+  dataDirectory: {
+    env: 'DATA_DIRECTORY',
+    description: 'Optional dir to store data. If omitted will store in memory.',
+  },
+  maxLogs: {
+    env: 'ARCHIVER_MAX_LOGS',
+    description: 'The max number of logs that can be obtained in 1 "getUnencryptedLogs" call.',
+    ...numberConfigHelper(1_000),
+  },
+  ...l1ReaderConfigMappings,
+  viemPollingIntervalMS: {
+    env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',
+    description: 'The polling interval viem uses in ms',
+    ...numberConfigHelper(1000),
+  },
+};
 
 /**
  * Returns the archiver configuration from the environment variables.
  * Note: If an environment variable is not set, the default value is used.
  * @returns The archiver configuration.
  */
-export function getConfigEnvVars(): ArchiverConfig {
-  const {
-    ETHEREUM_HOST,
-    ARCHIVER_POLLING_INTERVAL_MS,
-    ARCHIVER_VIEM_POLLING_INTERVAL_MS,
-    ROLLUP_CONTRACT_ADDRESS,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
-    SEARCH_START_BLOCK,
-    API_KEY,
-    INBOX_CONTRACT_ADDRESS,
-    REGISTRY_CONTRACT_ADDRESS,
-    DATA_DIRECTORY,
-  } = process.env;
-  // Populate the relevant addresses for use by the archiver.
-  const addresses: L1ContractAddresses = {
-    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: EthAddress.ZERO,
-    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
-      : EthAddress.ZERO,
-    decoderHelperAddress: EthAddress.ZERO,
-  };
-  return {
-    rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
-    archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
-    viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
-    searchStartBlock: SEARCH_START_BLOCK ? +SEARCH_START_BLOCK : 0,
-    apiKey: API_KEY,
-    l1Contracts: addresses,
-    dataDirectory: DATA_DIRECTORY,
-  };
+export function getArchiverConfigFromEnv(): ArchiverConfig {
+  return getConfigFromMappings<ArchiverConfig>(archiverConfigMappings);
 }

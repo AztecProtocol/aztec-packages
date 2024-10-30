@@ -1,8 +1,17 @@
-import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
-import { FunctionDebugMetadata, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
-import { ContractDatabase, StateInfoProvider } from '@aztec/types';
+import { type AztecAddress, type ContractClass, type ContractInstance } from '@aztec/circuits.js';
+import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  type FunctionDebugMetadata,
+  type FunctionSelector,
+  getFunctionDebugMetadata,
+} from '@aztec/foundation/abi';
+import { type Fr } from '@aztec/foundation/fields';
+import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
 
-import { ContractTree } from '../contract_tree/index.js';
+import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
+import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
+import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
  * ContractDataOracle serves as a data manager and retriever for Aztec.nr contracts.
@@ -12,59 +21,84 @@ import { ContractTree } from '../contract_tree/index.js';
  * the required information and facilitate cryptographic proof generation.
  */
 export class ContractDataOracle {
-  private trees: ContractTree[] = [];
+  /** Map from contract class id to private function tree. */
+  private contractClasses: Map<string, PrivateFunctionsTree> = new Map();
+  /** Map from address to contract instance. */
+  private contractInstances: Map<string, ContractInstance> = new Map();
 
-  constructor(private db: ContractDatabase, private stateProvider: StateInfoProvider) {}
+  constructor(private db: ContractArtifactDatabase & ContractInstanceDatabase) {}
 
-  /**
-   * Retrieve the portal contract address associated with the given contract address.
-   * This function searches for the corresponding contract tree in the local cache and returns the portal contract address.
-   * If the contract tree is not found in the cache, it fetches the contract data from the database and creates a new ContractTree instance.
-   * Throws an error if the contract address is not found in the database.
-   *
-   * @param contractAddress - The AztecAddress of the contract whose portal contract address needs to be retrieved.
-   * @returns A Promise that resolves to the portal contract address.
-   */
-  public async getPortalContractAddress(contractAddress: AztecAddress) {
-    const tree = await this.getTree(contractAddress);
-    return tree.contract.portalContract;
+  /** Returns a contract instance for a given address. Throws if not found. */
+  public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstance> {
+    if (!this.contractInstances.has(contractAddress.toString())) {
+      const instance = await this.db.getContractInstance(contractAddress);
+      if (!instance) {
+        throw new ContractNotFoundError(contractAddress.toString());
+      }
+      this.contractInstances.set(contractAddress.toString(), instance);
+    }
+    return this.contractInstances.get(contractAddress.toString())!;
+  }
+
+  /** Returns a contract class for a given class id. Throws if not found. */
+  public async getContractClass(contractClassId: Fr): Promise<ContractClass> {
+    const tree = await this.getTreeForClassId(contractClassId);
+    return tree.getContractClass();
+  }
+
+  public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact> {
+    const tree = await this.getTreeForClassId(contractClassId);
+    return tree.getArtifact();
   }
 
   /**
-   * Retrieves the ABI of a specified function within a given contract.
+   * Retrieves the artifact of a specified function within a given contract.
    * The function is identified by its selector, which is a unique code generated from the function's signature.
    * Throws an error if the contract address or function selector are invalid or not found.
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param selector - The function selector.
-   * @returns The corresponding function's ABI as an object.
+   * @returns The corresponding function's artifact as an object.
    */
-  public async getFunctionAbi(contractAddress: AztecAddress, selector: FunctionSelector) {
-    const tree = await this.getTree(contractAddress);
-    return tree.getFunctionAbi(selector);
+  public async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    return tree.getFunctionArtifact(selector);
+  }
+
+  /**
+   * Retrieves the artifact of a specified function within a given contract.
+   * The function is identified by its name, which is unique within a contract.
+   * Throws if the contract has not been added to the database.
+   *
+   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param functionName - The name of the function.
+   * @returns The corresponding function's artifact as an object
+   */
+  public async getFunctionArtifactByName(
+    contractAddress: AztecAddress,
+    functionName: string,
+  ): Promise<FunctionArtifact | undefined> {
+    const tree = await this.getTreeForAddress(contractAddress);
+    return tree.getArtifact().functions.find(f => f.name === functionName);
   }
 
   /**
    * Retrieves the debug metadata of a specified function within a given contract.
    * The function is identified by its selector, which is a unique code generated from the function's signature.
    * Returns undefined if the debug metadata for the given function is not found.
+   * Throws if the contract has not been added to the database.
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param selector - The function selector.
-   * @returns The corresponding function's ABI as an object.
+   * @returns The corresponding function's artifact as an object.
    */
   public async getFunctionDebugMetadata(
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
-    const contract = await this.db.getContract(contractAddress);
-    const functionAbi = contract?.functions.find(f => f.selector.equals(selector));
-
-    if (!contract || !functionAbi) {
-      return undefined;
-    }
-
-    return getFunctionDebugMetadata(contract, functionAbi.name);
+    const tree = await this.getTreeForAddress(contractAddress);
+    const artifact = tree.getFunctionArtifact(selector);
+    return getFunctionDebugMetadata(tree.getArtifact(), artifact);
   }
 
   /**
@@ -75,25 +109,11 @@ export class ContractDataOracle {
    * @param contractAddress - The contract's address.
    * @param selector - The function selector.
    * @returns A Promise that resolves to a Buffer containing the bytecode of the specified function.
-   */
-  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector) {
-    const tree = await this.getTree(contractAddress);
-    return tree.getBytecode(selector);
-  }
-
-  /**
-   * Retrieves the contract membership witness for a given contract address.
-   * A contract membership witness is a cryptographic proof that the contract exists in the Aztec network.
-   * This function will search for an existing contract tree associated with the contract address and obtain its
-   * membership witness. If no such contract tree exists, it will throw an error.
-   *
-   * @param contractAddress - The contract address.
-   * @returns A promise that resolves to a MembershipWitness instance representing the contract membership witness.
    * @throws Error if the contract address is unknown or not found.
    */
-  public async getContractMembershipWitness(contractAddress: AztecAddress) {
-    const tree = await this.getTree(contractAddress);
-    return tree.getContractMembershipWitness();
+  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    return tree.getBytecode(selector);
   }
 
   /**
@@ -106,22 +126,37 @@ export class ContractDataOracle {
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
   public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    const tree = await this.getTree(contractAddress);
+    const tree = await this.getTreeForAddress(contractAddress);
     return tree.getFunctionMembershipWitness(selector);
   }
 
+  public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    const { name: contractName } = tree.getArtifact();
+    const { name: functionName } = tree.getFunctionArtifact(selector);
+    return `${contractName}:${functionName}`;
+  }
+
   /**
-   * Retrieve the membership witness corresponding to a verification key.
-   * This function currently returns a random membership witness of the specified height,
-   * which is a placeholder implementation until a concrete membership witness calculation
-   * is implemented.
+   * Retrieve or create a ContractTree instance based on the provided class id.
+   * If an existing tree with the same class id is found in the cache, it will be returned.
+   * Otherwise, a new ContractTree instance will be created using the contract data from the database
+   * and added to the cache before returning.
    *
-   * @param vk - The VerificationKey for which the membership witness is needed.
-   * @returns A Promise that resolves to the MembershipWitness instance.
+   * @param classId - The class id of the contract for which the ContractTree is required.
+   * @returns A ContractTree instance associated with the specified contract address.
+   * @throws An Error if the contract is not found in the ContractDatabase.
    */
-  public async getVkMembershipWitness() {
-    // TODO
-    return await Promise.resolve(MembershipWitness.random(VK_TREE_HEIGHT));
+  private async getTreeForClassId(classId: Fr): Promise<PrivateFunctionsTree> {
+    if (!this.contractClasses.has(classId.toString())) {
+      const artifact = await this.db.getContractArtifact(classId);
+      if (!artifact) {
+        throw new ContractClassNotFoundError(classId.toString());
+      }
+      const tree = new PrivateFunctionsTree(artifact);
+      this.contractClasses.set(classId.toString(), tree);
+    }
+    return this.contractClasses.get(classId.toString())!;
   }
 
   /**
@@ -134,18 +169,8 @@ export class ContractDataOracle {
    * @returns A ContractTree instance associated with the specified contract address.
    * @throws An Error if the contract is not found in the ContractDatabase.
    */
-  private async getTree(contractAddress: AztecAddress) {
-    let tree = this.trees.find(t => t.contract.completeAddress.address.equals(contractAddress));
-    if (!tree) {
-      const contract = await this.db.getContract(contractAddress);
-      if (!contract) {
-        throw new Error(`Unknown contract: ${contractAddress}`);
-      }
-
-      const wasm = await CircuitsWasm.get();
-      tree = new ContractTree(contract, this.stateProvider, wasm);
-      this.trees.push(tree);
-    }
-    return tree;
+  private async getTreeForAddress(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
+    const instance = await this.getContractInstance(contractAddress);
+    return this.getTreeForClassId(instance.contractClassId);
   }
 }

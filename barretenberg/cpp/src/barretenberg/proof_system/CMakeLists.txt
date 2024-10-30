@@ -1,1 +1,0 @@
-barretenberg_module(proof_system polynomials crypto_generators crypto_pedersen_hash)

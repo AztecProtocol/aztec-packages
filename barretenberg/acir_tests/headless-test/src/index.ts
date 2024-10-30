@@ -1,7 +1,6 @@
 import { chromium, firefox, webkit } from "playwright";
 import fs from "fs";
 import { Command } from "commander";
-import { gunzipSync } from "zlib";
 import chalk from "chalk";
 import os from "os";
 
@@ -37,21 +36,20 @@ function formatAndPrintLog(message: string): void {
   console.log(formattedMessage);
 }
 
-const readBytecodeFile = (path: string): Uint8Array => {
-  const data = fs.readFileSync(path);
-  const buffer = gunzipSync(data);
-  return buffer;
+const readBytecodeFile = (path: string): string => {
+  const encodedCircuit = JSON.parse(fs.readFileSync(path, "utf8"));
+  return encodedCircuit.bytecode;
 };
 
 const readWitnessFile = (path: string): Uint8Array => {
   const buffer = fs.readFileSync(path);
-  return gunzipSync(buffer);
+  return buffer;
 };
 
 // Set up the command-line interface
-const program = new Command();
+const program = new Command("headless_test");
 program.option("-v, --verbose", "verbose logging");
-program.option("-c, --crs-path <path>", "ignored (here for compatability)");
+program.option("-c, --crs-path <path>", "ignored (here for compatibility)");
 
 program
   .command("prove_and_verify")
@@ -60,8 +58,8 @@ program
   )
   .option(
     "-b, --bytecode-path <path>",
-    "Specify the path to the gzip encoded ACIR bytecode",
-    "./target/acir.gz"
+    "Specify the path to the ACIR artifact json file",
+    "./target/acir.json"
   )
   .option(
     "-w, --witness-path <path>",
@@ -76,7 +74,7 @@ program
     const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
 
     for (const [name, browserType] of Object.entries(browsers)) {
-      if (BROWSER && !BROWSER.split(',').includes(name)) {
+      if (BROWSER && !BROWSER.split(",").includes(name)) {
         continue;
       }
       console.log(chalk.blue(`Testing ${bytecodePath} in ${name}...`));
@@ -92,19 +90,18 @@ program
       await page.goto("http://localhost:8080");
 
       const result: boolean = await page.evaluate(
-        ([acirData, witnessData, threads]) => {
+        ([acir, witnessData, threads]: [string, number[], number]) => {
           // Convert the input data to Uint8Arrays within the browser context
-          const acirUint8Array = new Uint8Array(acirData as number[]);
-          const witnessUint8Array = new Uint8Array(witnessData as number[]);
+          const witnessUint8Array = new Uint8Array(witnessData);
 
           // Call the desired function and return the result
           return (window as any).runTest(
-            acirUint8Array,
+            acir,
             witnessUint8Array,
             threads
           );
         },
-        [Array.from(acir), Array.from(witness), threads]
+        [acir, Array.from(witness), threads]
       );
 
       await browser.close();

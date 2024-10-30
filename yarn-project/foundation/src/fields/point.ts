@@ -1,4 +1,7 @@
-import { BufferReader } from '../serialize/buffer_reader.js';
+import { toBigIntBE } from '../bigint-buffer/index.js';
+import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { randomBoolean } from '../crypto/random/index.js';
+import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -7,8 +10,9 @@ import { Fr } from './fields.js';
  * converting instances to various output formats, and checking the equality of points.
  */
 export class Point {
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO);
+  static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
+  static COMPRESSED_SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -22,7 +26,13 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-  ) {}
+    /**
+     * Whether the point is at infinity
+     */
+    public readonly isInfinite: boolean,
+  ) {
+    // TODO(#7386): check if on curve
+  }
 
   /**
    * Generate a random Point instance.
@@ -30,8 +40,17 @@ export class Point {
    * @returns A randomly generated Point instance.
    */
   static random() {
-    // TODO is this a random point on the curve?
-    return new Point(Fr.random(), Fr.random());
+    while (true) {
+      try {
+        return Point.fromXAndSign(Fr.random(), randomBoolean());
+      } catch (e: any) {
+        if (!(e instanceof NotOnCurveError)) {
+          throw e;
+        }
+        // The random point is not on the curve - we try again
+        continue;
+      }
+    }
   }
 
   /**
@@ -43,7 +62,24 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader.readBytes(32)), Fr.fromBuffer(reader.readBytes(32)));
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), false);
+  }
+
+  /**
+   * Create a Point instance from a compressed buffer.
+   * The input 'buffer' should have exactly 33 bytes representing the x coordinate and the sign of the y coordinate.
+   *
+   * @param buffer - The buffer containing the x coordinate and the sign of the y coordinate.
+   * @returns A Point instance.
+   */
+  static fromCompressedBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    const value = toBigIntBE(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+
+    const x = new Fr(value & ((1n << 255n) - 1n));
+    const sign = (value & (1n << 255n)) !== 0n;
+
+    return this.fromXAndSign(x, sign);
   }
 
   /**
@@ -63,7 +99,52 @@ export class Point {
    * @returns The point as an array of 2 fields
    */
   toFields() {
-    return [this.x, this.y];
+    return [this.x, this.y, new Fr(this.isInfinite)];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new this(reader.readField(), reader.readField(), reader.readBoolean());
+  }
+
+  /**
+   * Uses the x coordinate and isPositive flag (+/-) to reconstruct the point.
+   * @dev The y coordinate can be derived from the x coordinate and the "sign" flag by solving the grumpkin curve
+   * equation for y.
+   * @param x - The x coordinate of the point
+   * @param sign - The "sign" of the y coordinate - note that this is not a sign as is known in integer arithmetic.
+   * Instead it is a boolean flag that determines whether the y coordinate is <= (Fr.MODULUS - 1) / 2
+   * @returns The point as an array of 2 fields
+   */
+  static fromXAndSign(x: Fr, sign: boolean) {
+    // Calculate y^2 = x^3 - 17
+    const ySquared = x.square().mul(x).sub(new Fr(17));
+
+    // Calculate the square root of ySquared
+    const y = ySquared.sqrt();
+
+    // If y is null, the x-coordinate is not on the curve
+    if (y === null) {
+      throw new NotOnCurveError(x);
+    }
+
+    const yPositiveBigInt = y.toBigInt() <= (Fr.MODULUS - 1n) / 2n ? y.toBigInt() : Fr.MODULUS - y.toBigInt();
+    const yNegativeBigInt = Fr.MODULUS - yPositiveBigInt;
+
+    // Choose the positive or negative root based on isPositive
+    const finalY = sign ? new Fr(yPositiveBigInt) : new Fr(yNegativeBigInt);
+
+    // Create and return the new Point
+    return new this(x, finalY, false);
+  }
+
+  /**
+   * Returns the x coordinate and the sign of the y coordinate.
+   * @dev The y sign can be determined by checking if the y coordinate is greater than half of the modulus.
+   * @returns The x coordinate and the sign of the y coordinate.
+   */
+  toXAndSign(): [Fr, boolean] {
+    return [this.x, this.y.toBigInt() <= (Fr.MODULUS - 1n) / 2n];
   }
 
   /**
@@ -72,18 +153,48 @@ export class Point {
    */
   toBigInts() {
     return {
-      x: this.x.value,
-      y: this.y.value,
+      x: this.x.toBigInt(),
+      y: this.y.toBigInt(),
+      isInfinite: this.isInfinite ? 1n : 0n,
     };
   }
 
   /**
-   * Converts the Point instance to a Buffer representaion of the coordinates.
-   * The outputs buffer length will be 64, the length of both coordinates not represented as fields.
+   * Converts the Point instance to a Buffer representation of the coordinates.
    * @returns A Buffer representation of the Point instance.
+   * @dev Note that toBuffer does not include the isInfinite flag and other serialization methods do (e.g. toFields).
+   * This is because currently when we work with point as bytes we don't want to populate the extra bytes for
+   * isInfinite flag because:
+   * 1. Our Grumpkin BB API currently does not handle point at infinity,
+   * 2. we use toBuffer when serializing notes and events and there we only work with public keys and point at infinity
+   *   is not considered a valid public key and the extra byte would raise DA cost.
    */
   toBuffer() {
-    return Buffer.concat([this.x.toBuffer(), this.y.toBuffer()]);
+    if (this.isInfinite) {
+      throw new Error('Cannot serialize infinite point without isInfinite flag');
+    }
+    const buf = serializeToBuffer([this.x, this.y]);
+    if (buf.length !== Point.SIZE_IN_BYTES) {
+      throw new Error(`Invalid buffer length for Point: ${buf.length}`);
+    }
+    return buf;
+  }
+
+  /**
+   * Converts the Point instance to a compressed Buffer representation of the coordinates.
+   * @returns A Buffer representation of the Point instance
+   */
+  toCompressedBuffer() {
+    const [x, sign] = this.toXAndSign();
+    // Here we leverage that Fr fits into 254 bits (log2(Fr.MODULUS) < 254) and given that we serialize Fr to 32 bytes
+    // and we use big-endian the 2 most significant bits are never populated. Hence we can use one of the bits as
+    // a sign bit.
+    const compressedValue = x.toBigInt() + (sign ? 2n ** 255n : 0n);
+    const buf = serializeToBuffer(compressedValue);
+    if (buf.length !== Point.COMPRESSED_SIZE_IN_BYTES) {
+      throw new Error(`Invalid buffer length for compressed Point: ${buf.length}`);
+    }
+    return buf;
   }
 
   /**
@@ -110,6 +221,19 @@ export class Point {
     return `${str.slice(0, 10)}...${str.slice(-4)}`;
   }
 
+  toNoirStruct() {
+    /* eslint-disable camelcase */
+    return { x: this.x, y: this.y, is_infinite: this.isInfinite };
+    /* eslint-enable camelcase */
+  }
+
+  // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
+  toWrappedNoirStruct() {
+    /* eslint-disable camelcase */
+    return { inner: this.toNoirStruct() };
+    /* eslint-enable camelcase */
+  }
+
   /**
    * Check if two Point instances are equal by comparing their buffer values.
    * Returns true if the buffer values are the same, and false otherwise.
@@ -120,15 +244,40 @@ export class Point {
   equals(rhs: Point) {
     return this.x.equals(rhs.x) && this.y.equals(rhs.y);
   }
+
+  isZero() {
+    return this.x.isZero() && this.y.isZero();
+  }
+
+  hash() {
+    return poseidon2Hash(this.toFields());
+  }
+
+  /**
+   * Check if this is point at infinity.
+   * Check this is consistent with how bb is encoding the point at infinity
+   */
+  public get inf() {
+    return this.isInfinite;
+  }
+
+  isOnGrumpkin() {
+    // TODO: Check this against how bb handles curve check and infinity point check
+    if (this.inf) {
+      return true;
+    }
+
+    // p.y * p.y == p.x * p.x * p.x - 17
+    const A = new Fr(17);
+    const lhs = this.y.square();
+    const rhs = this.x.square().mul(this.x).sub(A);
+    return lhs.equals(rhs);
+  }
 }
 
-/**
- * Does this object look like a point?
- * @param obj - Object to test if it is a point.
- * @returns Whether it looks like a point.
- */
-export function isPoint(obj: object): obj is Point {
-  if (!obj) return false;
-  const point = obj as Point;
-  return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
+export class NotOnCurveError extends Error {
+  constructor(x: Fr) {
+    super('The given x-coordinate is not on the Grumpkin curve: ' + x.toString());
+    this.name = 'NotOnCurveError';
+  }
 }

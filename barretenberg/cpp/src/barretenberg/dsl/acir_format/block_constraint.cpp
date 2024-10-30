@@ -1,12 +1,17 @@
 #include "block_constraint.hpp"
+#include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
 
-using namespace proof_system::plonk;
-
 namespace acir_format {
-field_ct poly_to_field_ct(const poly_triple poly, Builder& builder)
+
+using namespace bb::plonk;
+using namespace bb;
+
+template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)
 {
+    using field_ct = stdlib::field_t<Builder>;
+
     ASSERT(poly.q_m == 0);
     ASSERT(poly.q_r == 0);
     ASSERT(poly.q_o == 0);
@@ -19,8 +24,51 @@ field_ct poly_to_field_ct(const poly_triple poly, Builder& builder)
     return x;
 }
 
-void create_block_constraints(Builder& builder, const BlockConstraint constraint, bool has_valid_witness_assignments)
+/**
+ * @brief Create block constraints; Specialization for Ultra arithmetization
+ * @details Ultra does not support DataBus operations so calldata/returndata are treated as ROM ops
+ *
+ */
+template <>
+void create_block_constraints(UltraCircuitBuilder& builder,
+                              const BlockConstraint& constraint,
+                              bool has_valid_witness_assignments)
 {
+    using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
+
+    std::vector<field_ct> init;
+    for (auto i : constraint.init) {
+        field_ct value = poly_to_field_ct(i, builder);
+        init.push_back(value);
+    }
+
+    switch (constraint.type) {
+    // Note: CallData/ReturnData not supported by Ultra; interpreted as ROM ops instead
+    case BlockType::CallData:
+    case BlockType::ReturnData:
+    case BlockType::ROM: {
+        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
+    } break;
+    case BlockType::RAM: {
+        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
+    } break;
+    default:
+        ASSERT(false);
+        break;
+    }
+}
+
+/**
+ * @brief Create block constraints; Specialization for Mega arithmetization
+ *
+ */
+template <>
+void create_block_constraints(MegaCircuitBuilder& builder,
+                              const BlockConstraint& constraint,
+                              bool has_valid_witness_assignments)
+{
+    using field_ct = stdlib::field_t<MegaCircuitBuilder>;
+
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
         field_ct value = poly_to_field_ct(i, builder);
@@ -29,46 +77,144 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
 
     switch (constraint.type) {
     case BlockType::ROM: {
-        rom_table_ct table(init);
-        for (auto& op : constraint.trace) {
+        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
+    } break;
+    case BlockType::RAM: {
+        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
+    } break;
+    case BlockType::CallData: {
+        process_call_data_operations(builder, constraint, has_valid_witness_assignments, init);
+        // The presence of calldata is used to indicate that the present circuit is a kernel. This is needed in the
+        // databus consistency checks to indicate that the corresponding return data belongs to a kernel (else an app).
+        info("ACIR: Setting is_kernel to TRUE.");
+        builder.databus_propagation_data.is_kernel = true;
+    } break;
+    case BlockType::ReturnData: {
+        process_return_data_operations(constraint, init);
+    } break;
+    default:
+        ASSERT(false);
+        break;
+    }
+}
+
+template <typename Builder>
+void process_ROM_operations(Builder& builder,
+                            const BlockConstraint& constraint,
+                            bool has_valid_witness_assignments,
+                            std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using rom_table_ct = stdlib::rom_table<Builder>;
+
+    rom_table_ct table(init);
+    for (auto& op : constraint.trace) {
+        ASSERT(op.access_type == 0);
+        field_ct value = poly_to_field_ct(op.value, builder);
+        field_ct index = poly_to_field_ct(op.index, builder);
+        // For a ROM table, constant read should be optimized out:
+        // The rom_table won't work with a constant read because the table may not be initialized
+        ASSERT(op.index.q_l != 0);
+        // We create a new witness w to avoid issues with non-valid witness assignements:
+        // if witness are not assigned, then w will be zero and table[w] will work
+        fr w_value = 0;
+        if (has_valid_witness_assignments) {
+            // If witness are assigned, we use the correct value for w
+            w_value = index.get_value();
+        }
+        field_ct w = field_ct::from_witness(&builder, w_value);
+        value.assert_equal(table[w]);
+        w.assert_equal(index);
+    }
+}
+
+template <typename Builder>
+void process_RAM_operations(Builder& builder,
+                            const BlockConstraint& constraint,
+                            bool has_valid_witness_assignments,
+                            std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+
+    ram_table_ct table(init);
+    for (auto& op : constraint.trace) {
+        field_ct value = poly_to_field_ct(op.value, builder);
+        field_ct index = poly_to_field_ct(op.index, builder);
+
+        // We create a new witness w to avoid issues with non-valid witness assignements.
+        // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
+        fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
+        // Create new witness and ensure equal to index.
+        field_ct::from_witness(&builder, index_value).assert_equal(index);
+
+        if (op.access_type == 0) {
+            value.assert_equal(table.read(index));
+        } else {
+            ASSERT(op.access_type == 1);
+            table.write(index, value);
+        }
+    }
+}
+
+template <typename Builder>
+void process_call_data_operations(Builder& builder,
+                                  const BlockConstraint& constraint,
+                                  bool has_valid_witness_assignments,
+                                  std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using databus_ct = stdlib::databus<Builder>;
+
+    databus_ct databus;
+
+    // Method for processing operations on a generic databus calldata array
+    auto process_calldata = [&](auto& calldata_array) {
+        calldata_array.set_values(init); // Initialize the data in the bus array
+
+        for (const auto& op : constraint.trace) {
             ASSERT(op.access_type == 0);
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
-            // For a ROM table, constant read should be optimised out:
-            // The rom_table won't work with a constant read because the table may not be initialised
-            ASSERT(op.index.q_l != 0);
-            // We create a new witness w to avoid issues with non-valid witness assignements:
-            // if witness are not assigned, then w will be zero and table[w] will work
             fr w_value = 0;
             if (has_valid_witness_assignments) {
                 // If witness are assigned, we use the correct value for w
                 w_value = index.get_value();
             }
             field_ct w = field_ct::from_witness(&builder, w_value);
-            value.assert_equal(table[w]);
+            value.assert_equal(calldata_array[w]);
             w.assert_equal(index);
         }
-    } break;
-    case BlockType::RAM: {
-        ram_table_ct table(init);
-        for (auto& op : constraint.trace) {
-            field_ct value = poly_to_field_ct(op.value, builder);
-            field_ct index = poly_to_field_ct(op.index, builder);
-            if (has_valid_witness_assignments == false) {
-                index = field_ct(0);
-            }
-            if (op.access_type == 0) {
-                value.assert_equal(table.read(index));
-            } else {
-                ASSERT(op.access_type == 1);
-                table.write(index, value);
-            }
-        }
-    } break;
-    default:
+    };
+
+    // Process primary or secondary calldata based on calldata_id
+    if (constraint.calldata_id == 0) {
+        process_calldata(databus.calldata);
+    } else if (constraint.calldata_id == 1) {
+        process_calldata(databus.secondary_calldata);
+    } else {
+        info("Databus only supports two calldata arrays.");
         ASSERT(false);
-        break;
     }
+}
+
+template <typename Builder>
+void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init)
+{
+    using databus_ct = stdlib::databus<Builder>;
+
+    databus_ct databus;
+    // Populate the returndata in the databus
+    databus.return_data.set_values(init);
+    // For each entry of the return data, explicitly assert equality with the initialization value. This implicitly
+    // creates the return data read gates that are required to connect witness values in the main wires to witness
+    // values in the databus return data column.
+    size_t c = 0;
+    for (const auto& value : init) {
+        value.assert_equal(databus.return_data[c]);
+        c++;
+    }
+    ASSERT(constraint.trace.size() == 0);
 }
 
 } // namespace acir_format

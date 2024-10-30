@@ -3,13 +3,14 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "legacy_polynomial.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <gtest/gtest.h>
 #include <utility>
 
-using namespace barretenberg;
+using namespace bb;
 
 /**
  * @brief Ensure evaluate() gives consistent result for polynomials of different size but same non-zero coefficients.
@@ -913,7 +914,7 @@ TEST(polynomials, fft_linear_poly_product)
 
 template <typename FF> class PolynomialTests : public ::testing::Test {};
 
-using FieldTypes = ::testing::Types<barretenberg::fr, grumpkin::fr>;
+using FieldTypes = ::testing::Types<bb::fr, grumpkin::fr>;
 
 TYPED_TEST_SUITE(PolynomialTests, FieldTypes);
 
@@ -983,7 +984,7 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation)
 {
     using FF = TypeParam;
     constexpr size_t n = 250;
-    FF src[n], poly[n], x[n];
+    std::array<FF, n> src, poly, x;
 
     for (size_t i = 0; i < n; ++i) {
         poly[i] = FF::random_element();
@@ -991,9 +992,61 @@ TYPED_TEST(PolynomialTests, compute_efficient_interpolation)
 
     for (size_t i = 0; i < n; ++i) {
         x[i] = FF::random_element();
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
     }
-    polynomial_arithmetic::compute_efficient_interpolation(src, src, x, n);
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
+
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(src[i], poly[i]);
+    }
+}
+// Test efficient Lagrange interpolation when interpolation points contain 0
+TYPED_TEST(PolynomialTests, compute_efficient_interpolation_domain_with_zero)
+{
+    using FF = TypeParam;
+    constexpr size_t n = 15;
+    std::array<FF, n> src, poly, x;
+
+    for (size_t i = 0; i < n; ++i) {
+        poly[i] = FF(i + 1);
+    }
+
+    for (size_t i = 0; i < n; ++i) {
+        x[i] = FF(i);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
+    }
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
+
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(src[i], poly[i]);
+    }
+    // Test for the domain (-n/2, ..., 0, ... , n/2)
+
+    for (size_t i = 0; i < n; ++i) {
+        poly[i] = FF(i + 54);
+    }
+
+    for (size_t i = 0; i < n; ++i) {
+        x[i] = FF(i - n / 2);
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
+    }
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
+
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(src[i], poly[i]);
+    }
+
+    // Test for the domain (-n+1, ..., 0)
+
+    for (size_t i = 0; i < n; ++i) {
+        poly[i] = FF(i * i + 57);
+    }
+
+    for (size_t i = 0; i < n; ++i) {
+        x[i] = FF(i - (n - 1));
+        src[i] = polynomial_arithmetic::evaluate(poly.data(), x[i], n);
+    }
+    polynomial_arithmetic::compute_efficient_interpolation(src.data(), src.data(), x.data(), n);
 
     for (size_t i = 0; i < n; ++i) {
         EXPECT_EQ(src[i], poly[i]);
@@ -1006,7 +1059,7 @@ TYPED_TEST(PolynomialTests, interpolation_constructor_single)
 
     auto root = std::array{ FF(3) };
     auto eval = std::array{ FF(4) };
-    Polynomial<FF> t(root, eval);
+    LegacyPolynomial<FF> t(root, eval);
     ASSERT_EQ(t.size(), 1);
     ASSERT_EQ(t[0], eval[0]);
 }
@@ -1026,7 +1079,7 @@ TYPED_TEST(PolynomialTests, interpolation_constructor)
     auto roots_copy(roots);
     auto evaluations_copy(evaluations);
 
-    Polynomial<FF> interpolated(roots, evaluations);
+    LegacyPolynomial<FF> interpolated(roots, evaluations);
 
     ASSERT_EQ(interpolated.size(), N);
     ASSERT_EQ(roots, roots_copy);
@@ -1038,15 +1091,16 @@ TYPED_TEST(PolynomialTests, interpolation_constructor)
     }
 }
 
-TYPED_TEST(PolynomialTests, evaluate_mle)
+// LegacyPolynomials MLE
+TYPED_TEST(PolynomialTests, evaluate_mle_legacy)
 {
     using FF = TypeParam;
 
     auto test_case = [](size_t N) {
-        auto& engine = numeric::random::get_debug_engine();
+        auto& engine = numeric::get_debug_randomness();
         const size_t m = numeric::get_msb(N);
         EXPECT_EQ(N, 1 << m);
-        Polynomial<FF> poly(N);
+        LegacyPolynomial<FF> poly(N);
         for (size_t i = 1; i < N - 1; ++i) {
             poly[i] = FF::random_element(&engine);
         }
@@ -1095,6 +1149,89 @@ TYPED_TEST(PolynomialTests, evaluate_mle)
     test_case(2);
 }
 
+/*
+ * @brief Compare that the mle evaluation over Polynomials match the mle evaluation of
+ *        LegacyPolynomials.
+ */
+TYPED_TEST(PolynomialTests, evaluate_mle)
+{
+    using FF = TypeParam;
+
+    auto test_case = [](size_t n, size_t dim) {
+        auto& engine = numeric::get_debug_randomness();
+        size_t k = 1 << dim;
+
+        std::vector<FF> evaluation_points;
+        evaluation_points.resize(n);
+        for (size_t i = 0; i < n; i++) {
+            evaluation_points[i] = FF::random_element(&engine);
+        }
+
+        LegacyPolynomial<FF> legacy_poly(1 << n);
+        Polynomial<FF> poly(k, 1 << n);
+        for (size_t i = 0; i < k; ++i) {
+            auto const rnd = FF::random_element(&engine);
+            legacy_poly[i] = rnd;
+            poly.at(i) = rnd;
+        }
+
+        const FF legacy_res = legacy_poly.evaluate_mle(evaluation_points);
+        const FF res = poly.evaluate_mle(evaluation_points);
+
+        EXPECT_EQ(legacy_res, res);
+
+        // Same with shifted polynomials
+        legacy_poly[0] = FF(0);
+        poly.at(0) = FF(0);
+
+        const FF legacy_shift_res = legacy_poly.evaluate_mle(evaluation_points, true);
+        const FF shift_res = poly.evaluate_mle(evaluation_points, true);
+
+        EXPECT_EQ(legacy_shift_res, shift_res);
+    };
+
+    test_case(9, 3);
+    test_case(8, 8);
+    test_case(13, 1);
+}
+
+/**
+ * @brief Test the function for partially evaluating MLE polynomials
+ *
+ */
+TYPED_TEST(PolynomialTests, partial_evaluate_mle)
+{
+    // Initialize a random polynomial
+    using FF = TypeParam;
+    size_t N = 32;
+    LegacyPolynomial<FF> poly(N);
+    for (auto& coeff : poly) {
+        coeff = FF::random_element();
+    }
+
+    // Define a random multivariate evaluation point u = (u_0, u_1, u_2, u_3, u_4)
+    auto u_0 = FF::random_element();
+    auto u_1 = FF::random_element();
+    auto u_2 = FF::random_element();
+    auto u_3 = FF::random_element();
+    auto u_4 = FF::random_element();
+    std::vector<FF> u_challenge = { u_0, u_1, u_2, u_3, u_4 };
+
+    // Show that directly computing v = p(u_0,...,u_4) yields the same result as first computing the partial evaluation
+    // in the last 3 variables g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
+
+    // Compute v = p(u_0,...,u_4)
+    auto v_expected = poly.evaluate_mle(u_challenge);
+
+    // Compute g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
+    std::vector<FF> u_part_1 = { u_0, u_1 };
+    std::vector<FF> u_part_2 = { u_2, u_3, u_4 };
+    auto partial_evaluated_poly = poly.partial_evaluate_mle(u_part_2);
+    auto v_result = partial_evaluated_poly.evaluate_mle(u_part_1);
+
+    EXPECT_EQ(v_result, v_expected);
+}
+
 TYPED_TEST(PolynomialTests, factor_roots)
 {
     using FF = TypeParam;
@@ -1104,7 +1241,7 @@ TYPED_TEST(PolynomialTests, factor_roots)
     auto test_case = [&](size_t NUM_ZERO_ROOTS, size_t NUM_NON_ZERO_ROOTS) {
         const size_t NUM_ROOTS = NUM_NON_ZERO_ROOTS + NUM_ZERO_ROOTS;
 
-        Polynomial<FF> poly(N);
+        LegacyPolynomial<FF> poly(N);
         for (size_t i = NUM_ZERO_ROOTS; i < N; ++i) {
             poly[i] = FF::random_element();
         }
@@ -1128,7 +1265,7 @@ TYPED_TEST(PolynomialTests, factor_roots)
         }
 
         if (NUM_NON_ZERO_ROOTS > 0) {
-            Polynomial<FF> interpolated(non_zero_roots, non_zero_evaluations);
+            LegacyPolynomial<FF> interpolated(non_zero_roots, non_zero_evaluations);
             EXPECT_EQ(interpolated.size(), NUM_NON_ZERO_ROOTS);
             for (size_t i = 0; i < NUM_NON_ZERO_ROOTS; ++i) {
                 poly[NUM_ZERO_ROOTS + i] -= interpolated[i];
@@ -1140,7 +1277,7 @@ TYPED_TEST(PolynomialTests, factor_roots)
             EXPECT_EQ(poly.evaluate(roots[i]), FF::zero()) << i;
         }
 
-        Polynomial<FF> quotient(poly);
+        LegacyPolynomial<FF> quotient(poly);
         quotient.factor_roots(roots);
 
         // check that (t-r)q(t) == p(t)
@@ -1157,7 +1294,7 @@ TYPED_TEST(PolynomialTests, factor_roots)
             EXPECT_EQ(poly, quotient);
         }
         if (NUM_ROOTS == 1) {
-            Polynomial<FF> quotient_single(poly);
+            LegacyPolynomial<FF> quotient_single(poly);
             quotient_single.factor_roots(roots[0]);
             EXPECT_EQ(quotient_single, quotient);
         }
@@ -1177,13 +1314,13 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
 
     // construct a poly with some arbitrary data
     size_t num_coeffs = 64;
-    Polynomial<FF> polynomial_a(num_coeffs);
+    LegacyPolynomial<FF> polynomial_a(num_coeffs);
     for (auto& coeff : polynomial_a) {
         coeff = FF::random_element();
     }
 
-    // construct a new poly FFom the original via the move constructor
-    Polynomial<FF> polynomial_b(std::move(polynomial_a));
+    // construct a new poly from the original via the move constructor
+    LegacyPolynomial<FF> polynomial_b(std::move(polynomial_a));
 
     // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_a.begin(), nullptr);
@@ -1197,7 +1334,7 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     EXPECT_EQ(polynomial_b.size(), 0);
 
     // define a poly with some arbitrary coefficients
-    Polynomial<FF> polynomial_d(num_coeffs);
+    LegacyPolynomial<FF> polynomial_d(num_coeffs);
     for (auto& coeff : polynomial_d) {
         coeff = FF::random_element();
     }
@@ -1216,13 +1353,13 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
 
     // construct an arbitrary but non-empty polynomial
     size_t num_coeffs = 64;
-    Polynomial<FF> interesting_poly(num_coeffs);
+    LegacyPolynomial<FF> interesting_poly(num_coeffs);
     for (auto& coeff : interesting_poly) {
         coeff = FF::random_element();
     }
 
     // construct an empty poly via the default constructor
-    Polynomial<FF> poly;
+    LegacyPolynomial<FF> poly;
 
     EXPECT_EQ(poly.is_empty(), true);
 
@@ -1248,8 +1385,8 @@ TYPED_TEST(PolynomialTests, RightShift)
     size_t num_coeffs = 32;
     size_t num_nonzero_coeffs = 7;
     size_t shift_magnitude = 21;
-    Polynomial<FF> poly(num_coeffs);
-    Polynomial<FF> right_shifted_poly(num_coeffs);
+    LegacyPolynomial<FF> poly(num_coeffs);
+    LegacyPolynomial<FF> right_shifted_poly(num_coeffs);
 
     for (size_t idx = 0; idx < num_nonzero_coeffs; ++idx) {
         poly[idx] = FF::random_element();

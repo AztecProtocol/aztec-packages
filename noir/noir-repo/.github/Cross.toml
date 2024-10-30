@@ -1,0 +1,8 @@
+[build.env]
+passthrough = [
+    "HOME",
+    "RUST_BACKTRACE",
+]
+volumes = [
+    "HOME",
+]

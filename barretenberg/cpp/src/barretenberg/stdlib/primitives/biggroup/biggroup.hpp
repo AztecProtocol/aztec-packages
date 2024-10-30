@@ -1,23 +1,25 @@
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
+#include "../bigfield/goblin_field.hpp"
 #include "../byte_array/byte_array.hpp"
-#include "../field/field.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-
 #include "../circuit_builders/circuit_builders_fwd.hpp"
+#include "../field/field.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib::element_default {
 
 // ( ͡° ͜ʖ ͡°)
 template <class Builder, class Fq, class Fr, class NativeGroup> class element {
   public:
+    using bool_ct = stdlib::bool_t<Builder>;
+    using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
+    using BaseField = Fq;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
         field_t<Builder> positive_skew;
@@ -35,13 +37,23 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     element(const Fq& x, const Fq& y);
 
     element(const element& other);
-    element(element&& other);
+    element(element&& other) noexcept;
 
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        Fq x = Fq::from_witness(ctx, input.x);
-        Fq y = Fq::from_witness(ctx, input.y);
-        element out(x, y);
+        element out;
+        if (input.is_point_at_infinity()) {
+            Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
+            Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
+            out.x = x;
+            out.y = y;
+        } else {
+            Fq x = Fq::from_witness(ctx, input.x);
+            Fq y = Fq::from_witness(ctx, input.y);
+            out.x = x;
+            out.y = y;
+        }
+        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
         out.validate_on_curve();
         return out;
     }
@@ -49,14 +61,27 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     void validate_on_curve() const
     {
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
+        Fq _b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
+        Fq _x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), x);
+        Fq _y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), y);
         if constexpr (!NativeGroup::has_a) {
             // we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ x.sqr(), y }, { x, -y }, { b }, true);
+            Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { _b }, true);
         } else {
             Fq a(get_context(), uint256_t(NativeGroup::curve_a));
+            Fq _a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
             // we validate y^2 = x^3 + ax + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ x.sqr(), x, y }, { x, a, -y }, { b }, true);
+            Fq::mult_madd({ _x.sqr(), _x, _y }, { _x, _a, -_y }, { _b }, true);
         }
+    }
+
+    /**
+     * @brief Creates fixed witnesses from a constant element.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        this->x.convert_constant_to_fixed_witness(builder);
+        this->y.convert_constant_to_fixed_witness(builder);
     }
 
     static element one(Builder* ctx)
@@ -69,7 +94,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     }
 
     element& operator=(const element& other);
-    element& operator=(element&& other);
+    element& operator=(element&& other) noexcept;
 
     byte_array<Builder> to_byte_array() const
     {
@@ -78,6 +103,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         result.write(x.to_byte_array());
         return result;
     }
+
+    element checked_unconditional_add(const element& other) const;
+    element checked_unconditional_subtract(const element& other) const;
 
     element operator+(const element& other) const;
     element operator-(const element& other) const;
@@ -97,11 +125,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> add_sub(const element& other) const;
+    std::array<element, 2> checked_unconditional_add_sub(const element&) const;
 
     element operator*(const Fr& other) const;
 
-    element conditional_negate(const bool_t<Builder>& predicate) const
+    element conditional_negate(const bool_ct& predicate) const
     {
         element result(*this);
         result.y = result.y.conditional_negate(predicate);
@@ -157,7 +185,6 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
-
     element montgomery_ladder(const element& other) const;
     element montgomery_ladder(const chain_add_accumulator& accumulator);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
@@ -165,10 +192,20 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
 
     typename NativeGroup::affine_element get_value() const
     {
-        uint512_t x_val = x.get_value();
-        uint512_t y_val = y.get_value();
-        return typename NativeGroup::affine_element(x_val.lo, y_val.lo);
+        uint512_t x_val = x.get_value() % Fq::modulus_u512;
+        uint512_t y_val = y.get_value() % Fq::modulus_u512;
+        auto result = typename NativeGroup::affine_element(x_val.lo, y_val.lo);
+        if (is_point_at_infinity().get_value()) {
+            result.self_set_infinity();
+        }
+        return result;
     }
+
+    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
+                                                                        const std::vector<Fr>& _scalars);
+
+    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
+        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
     // compute a multi-scalar-multiplication by creating a precomputed lookup table for each point,
     // splitting each scalar multiplier up into a 4-bit sliding window wNAF.
@@ -178,31 +215,31 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     static element wnaf_batch_mul(const std::vector<element>& points, const std::vector<Fr>& scalars);
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
-                             const size_t max_num_bits = 0);
-    static element goblin_batch_mul(const std::vector<element>& points,
-                                    const std::vector<Fr>& scalars,
-                                    const size_t max_num_bits = 0);
+                             const size_t max_num_bits = 0,
+                             const bool with_edgecases = false);
 
     // we want to conditionally compile this method iff our curve params are the BN254 curve.
     // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
     // template
     // && the compiler can't perform partial template specialization on member functions of class templates
     // => our template parameter cannot be a value but must instead by a type
-    // Our input to `std::enable_if` is a comparison between two types (NativeGroup and barretenberg::g1), which
+    // Our input to `std::enable_if` is a comparison between two types (NativeGroup and bb::g1), which
     // resolves to either `true/false`.
     // If `std::enable_if` resolves to `true`, it resolves to a `typedef` that equals `void`
     // If `std::enable_if` resolves to `false`, there is no member typedef
     // We want to take the *type* of the output typedef of `std::enable_if`
     // i.e. for the bn254 curve, the template param is `typename = void`
     // for any other curve, there is no template param
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, barretenberg::g1>::value>>
+    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
+        requires(IsNotMegaBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
     static element bn254_endo_batch_mul(const std::vector<element>& big_points,
                                         const std::vector<Fr>& big_scalars,
                                         const std::vector<element>& small_points,
                                         const std::vector<Fr>& small_scalars,
                                         const size_t max_num_small_bits);
 
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, barretenberg::g1>::value>>
+    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
+        requires(IsNotMegaBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
     static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
                                                        const std::vector<Fr>& big_scalars,
                                                        const std::vector<element>& small_points,
@@ -213,7 +250,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
-    static std::vector<bool_t<Builder>> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
+    static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
     template <size_t max_num_bits = 0, size_t WNAF_SIZE = 4>
     static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
@@ -249,10 +286,16 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return nullptr;
     }
 
+    bool_ct is_point_at_infinity() const { return _is_infinity; }
+    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
+    element get_standard_form() const;
+
     Fq x;
     Fq y;
 
   private:
+    bool_ct _is_infinity;
+
     template <size_t num_elements, typename = typename std::enable_if<HasPlookup<Builder>>>
     static std::array<twin_rom_table<Builder>, 5> create_group_element_rom_tables(
         const std::array<element, num_elements>& elements, std::array<uint256_t, 8>& limb_max);
@@ -263,6 +306,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                                                  const std::array<uint256_t, 8>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
+    static typename NativeGroup::affine_element compute_table_offset_generator();
 
     template <typename = typename std::enable_if<HasPlookup<Builder>>> struct four_bit_table_plookup {
         four_bit_table_plookup(){};
@@ -313,8 +357,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         for (size_t i = 0; i < 16; ++i) {
             endoP1.element_table[i].y = P1.element_table[15 - i].y;
         }
-        uint256_t beta_val = barretenberg::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(barretenberg::fr(beta_val.slice(0, 136)), barretenberg::fr(beta_val.slice(136, 256)), false);
+        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
+        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
         for (size_t i = 0; i < 8; ++i) {
             endoP1.element_table[i].x = P1.element_table[i].x * beta;
             endoP1.element_table[15 - i].x = endoP1.element_table[i].x;
@@ -351,7 +395,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         lookup_table_base(const lookup_table_base& other) = default;
         lookup_table_base& operator=(const lookup_table_base& other) = default;
 
-        element get(const std::array<bool_t<Builder>, length>& bits) const;
+        element get(const std::array<bool_ct, length>& bits) const;
 
         element operator[](const size_t idx) const { return element_table[idx]; }
 
@@ -381,7 +425,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         lookup_table_plookup(const lookup_table_plookup& other) = default;
         lookup_table_plookup& operator=(const lookup_table_plookup& other) = default;
 
-        element get(const std::array<bool_t<Builder>, length>& bits) const;
+        element get(const std::array<bool_ct, length>& bits) const;
 
         element operator[](const size_t idx) const { return element_table[idx]; }
 
@@ -408,8 +452,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     {
         quad_lookup_table base_table(inputs);
         quad_lookup_table endo_table;
-        uint256_t beta_val = barretenberg::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(barretenberg::fr(beta_val.slice(0, 136)), barretenberg::fr(beta_val.slice(136, 256)), false);
+        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
+        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
         if constexpr (HasPlookup<Builder>) {
             for (size_t i = 0; i < 8; ++i) {
                 endo_table.element_table[i + 8].x = base_table[7 - i].x * beta;
@@ -441,8 +485,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     {
         lookup_table_plookup<5> base_table(inputs);
         lookup_table_plookup<5> endo_table;
-        uint256_t beta_val = barretenberg::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(barretenberg::fr(beta_val.slice(0, 136)), barretenberg::fr(beta_val.slice(136, 256)), false);
+        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
+        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
         if constexpr (HasPlookup<Builder>) {
             for (size_t i = 0; i < 16; ++i) {
                 endo_table.element_table[i + 16].x = base_table[15 - i].x * beta;
@@ -592,7 +636,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return chain_add_accumulator(add_accumulator[0]);
         }
 
-        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_t<Builder>>& naf_entries) const
+        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
@@ -644,7 +688,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return (accumulator);
         }
 
-        element get(std::vector<bool_t<Builder>>& naf_entries) const
+        element get(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
@@ -796,21 +840,21 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return chain_add_accumulator(add_accumulator[0]);
         }
 
-        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_t<Builder>>& naf_entries) const
+        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_quads; ++j) {
-                round_accumulator.push_back(quad_tables[j].get(std::array<bool_t<Builder>, 4>{
+                round_accumulator.push_back(quad_tables[j].get(std::array<bool_ct, 4>{
                     naf_entries[4 * j], naf_entries[4 * j + 1], naf_entries[4 * j + 2], naf_entries[4 * j + 3] }));
             }
 
             if (has_triple) {
-                round_accumulator.push_back(triple_tables[0].get(std::array<bool_t<Builder>, 3>{
+                round_accumulator.push_back(triple_tables[0].get(std::array<bool_ct, 3>{
                     naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1], naf_entries[num_quads * 4 + 2] }));
             }
             if (has_twin) {
                 round_accumulator.push_back(twin_tables[0].get(
-                    std::array<bool_t<Builder>, 2>{ naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1] }));
+                    std::array<bool_ct, 2>{ naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1] }));
             }
             if (has_singleton) {
                 round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
@@ -833,7 +877,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return (accumulator);
         }
 
-        element get(std::vector<bool_t<Builder>>& naf_entries) const
+        element get(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_quads; ++j) {
@@ -842,7 +886,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             }
 
             if (has_triple) {
-                round_accumulator.push_back(triple_tables[0].get(std::array<bool_t<Builder>, 3>{
+                round_accumulator.push_back(triple_tables[0].get(std::array<bool_ct, 3>{
                     naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1], naf_entries[num_quads * 4 + 2] }));
             }
             if (has_twin) {
@@ -889,9 +933,26 @@ inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v
 {
     return os << "{ " << v.x << " , " << v.y << " }";
 }
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::element_default
 
+namespace bb::stdlib {
+template <typename T>
+concept IsBigGroup = std::is_same_v<typename T::biggroup_tag, T>;
+
+template <typename Builder, class Fq, class Fr, class NativeGroup>
+concept IsGoblinBigGroup =
+    IsMegaBuilder<Builder> && std::same_as<Fq, bb::stdlib::bigfield<Builder, bb::Bn254FqParams>> &&
+    std::same_as<Fr, bb::stdlib::field_t<Builder>> && std::same_as<NativeGroup, bb::g1>;
+
+/**
+ * @brief element wraps either element_default::element or element_goblin::goblin_element depending on parametrisation
+ * @details if C = MegaBuilder, G = bn254, Fq = bigfield<C, bb::Bn254FqParams>, Fr = field_t then we're cooking
+ */
+template <typename C, typename Fq, typename Fr, typename G>
+using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
+                                   element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
+                                   element_default::element<C, Fq, Fr, G>>;
+} // namespace bb::stdlib
 #include "biggroup_batch_mul.hpp"
 #include "biggroup_bn254.hpp"
 #include "biggroup_goblin.hpp"

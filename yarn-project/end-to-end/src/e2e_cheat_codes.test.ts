@@ -1,35 +1,57 @@
-import { CheatCodes, Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts/types';
-import { EthAddress } from '@aztec/pxe';
-import { PXE, TxStatus } from '@aztec/types';
+import { TokenContract } from '@aztec/noir-contracts.js';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  getContract,
+  parseEther,
+} from 'viem';
+import type * as chains from 'viem/chains';
 
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_cheat_codes', () => {
-  let pxe: PXE;
   let wallet: Wallet;
+  let admin: AztecAddress;
   let cc: CheatCodes;
   let teardown: () => Promise<void>;
 
+  let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
-  let rollupAddress: EthAddress;
+  let token: TokenContract;
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    ({ teardown, pxe, wallet, cheatCodes: cc, deployL1ContractsValues } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
-    rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-  }, 100_000);
+    admin = wallet.getAddress();
+
+    rollup = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
+
+    token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
+  });
+
+  beforeEach(async () => {
+    await rollup.write.setAssumeProvenThroughBlockNumber([(await rollup.read.getPendingBlockNumber()) + 1n]);
+  });
 
   afterAll(() => teardown());
 
-  describe('L1 only', () => {
+  describe('L1 cheatcodes', () => {
     describe('mine', () => {
       it(`mine block`, async () => {
         const blockNumber = await cc.eth.blockNumber();
@@ -96,24 +118,25 @@ describe('e2e_cheat_codes', () => {
       // without impersonation we wouldn't be able to send funds.
       const myAddress = (await walletClient.getAddresses())[0];
       const randomAddress = EthAddress.random().toString();
-      await walletClient.sendTransaction({
+      const tx1Hash = await walletClient.sendTransaction({
         account: myAddress,
         to: randomAddress,
         value: parseEther('1'),
       });
+      await publicClient.waitForTransactionReceipt({ hash: tx1Hash });
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
       await cc.eth.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
-      const txHash = await walletClient.sendTransaction({
+      const tx2Hash = await walletClient.sendTransaction({
         account: randomAddress,
         to: myAddress,
         value: amountToSend,
       });
-      const tx = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      const feePaid = tx.gasUsed * tx.effectiveGasPrice;
+      const txReceipt = await publicClient.waitForTransactionReceipt({ hash: tx2Hash });
+      const feePaid = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
       expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
@@ -132,42 +155,40 @@ describe('e2e_cheat_codes', () => {
         expect(e.message).toContain('No Signer available');
       }
     });
+  });
 
-    it('can modify L2 block time', async () => {
-      const tx = TestContract.deploy(pxe).send();
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      const contract = await TestContract.at(receipt.contractAddress!, wallet);
+  describe('L2 cheatcodes', () => {
+    it('load public', async () => {
+      expect(await cc.aztec.loadPublic(token.address, 1n)).toEqual(admin.toField());
+    });
 
-      // now update time:
-      const timestamp = await cc.eth.timestamp();
-      const newTimestamp = timestamp + 100_000_000;
-      await cc.aztec.warp(newTimestamp);
+    it('load public returns 0 for non existent value', async () => {
+      const storageSlot = Fr.random();
+      expect(await cc.aztec.loadPublic(token.address, storageSlot)).toEqual(new Fr(0n));
+    });
 
-      // ensure rollup contract is correctly updated
-      const rollup = getContract({ address: getAddress(rollupAddress.toString()), abi: RollupAbi, publicClient });
-      expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
-      expect(Number(await rollup.read.lastWarpedBlockTs())).toEqual(newTimestamp);
+    it('load private works as expected for no notes', async () => {
+      const notes = await cc.aztec.loadPrivate(admin, token.address, 5n);
+      const values = notes.map(note => note.items[0]);
+      const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
+      expect(balance).toEqual(0n);
+    });
 
-      const txIsTimeEqual = contract.methods.isTimeEqual(newTimestamp).send();
-      const isTimeEqualReceipt = await txIsTimeEqual.wait({ interval: 0.1 });
-      expect(isTimeEqualReceipt.status).toBe(TxStatus.MINED);
+    it('load private', async () => {
+      // mint a token note and check it exists in balances.
+      // docs:start:load_private_cheatcode
+      const mintAmount = 100n;
 
-      // Since last rollup block was warped, txs for this rollup will have time incremented by 1
-      // See https://github.com/AztecProtocol/aztec-packages/issues/1614 for details
-      const txTimeNotEqual = contract.methods.isTimeEqual(newTimestamp + 1).send();
-      const isTimeNotEqualReceipt = await txTimeNotEqual.wait({ interval: 0.1 });
-      expect(isTimeNotEqualReceipt.status).toBe(TxStatus.MINED);
-      // block is published at t >= newTimestamp + 1.
-      expect(Number(await rollup.read.lastBlockTs())).toBeGreaterThanOrEqual(newTimestamp + 1);
-    }, 50_000);
+      await mintTokensToPrivate(token, wallet, admin, mintAmount);
 
-    it('should throw if setting L2 block time to a past timestamp', async () => {
-      const timestamp = await cc.eth.timestamp();
-      const pastTimestamp = timestamp - 1000;
-      await expect(async () => await cc.aztec.warp(pastTimestamp)).rejects.toThrow(
-        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
-      );
+      const balancesAdminSlot = cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
+
+      // check if note was added to pending shield:
+      const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);
+      const values = notes.map(note => note.items[0]);
+      const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
+      expect(balance).toEqual(mintAmount);
+      // docs:end:load_private_cheatcode
     });
   });
 });

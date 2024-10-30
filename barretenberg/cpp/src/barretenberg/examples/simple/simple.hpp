@@ -1,10 +1,10 @@
 #pragma once
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/types/ultra.hpp"
+#include "barretenberg/stdlib/plonk_recursion/types/ultra.hpp"
 
 namespace examples::simple {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 using namespace stdlib::types;
 
 struct BuilderComposerPtrs {
@@ -12,12 +12,11 @@ struct BuilderComposerPtrs {
     Composer* composer;
 };
 
-BuilderComposerPtrs create_builder_and_composer(
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory);
+BuilderComposerPtrs create_builder_and_composer();
 
 proof create_proof(BuilderComposerPtrs pair);
 
-bool verify_proof(BuilderComposerPtrs pair, proof_system::plonk::proof const& proof);
+bool verify_proof(BuilderComposerPtrs pair, bb::plonk::proof const& proof);
 
 void delete_builder_and_composer(BuilderComposerPtrs pair);
 

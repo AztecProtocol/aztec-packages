@@ -1,41 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
+
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
 
 contract InboxTest is Test {
-  event MessageAdded(
-    bytes32 indexed entryKey,
-    address indexed sender,
-    bytes32 indexed recipient,
-    uint256 senderChainId,
-    uint256 recipientVersion,
-    uint32 deadline,
-    uint64 fee,
-    bytes32 content,
-    bytes32 secretHash
-  );
+  using Hash for DataStructures.L1ToL2Msg;
 
-  event L1ToL2MessageCancelled(bytes32 indexed entryKey);
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+  // We set low depth (5) to ensure we sufficiently test the tree transitions
+  uint256 internal constant HEIGHT = 5;
+  uint256 internal constant SIZE = 2 ** HEIGHT;
 
-  Registry internal registry;
-  Inbox internal inbox;
+  InboxHarness internal inbox;
   uint256 internal version = 0;
+  uint256 internal blockNumber = Constants.INITIAL_L2_BLOCK_NUM;
+  bytes32 internal emptyTreeRoot;
 
   function setUp() public {
     address rollup = address(this);
-    registry = new Registry();
-    inbox = new Inbox(address(registry));
-    version = registry.upgrade(rollup, address(inbox), address(0x0));
+    inbox = new InboxHarness(rollup, HEIGHT);
+    emptyTreeRoot = inbox.getEmptyRoot();
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -47,261 +39,180 @@ contract InboxTest is Test {
       }),
       content: 0x2000000000000000000000000000000000000000000000000000000000000000,
       secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
-      fee: 5,
-      deadline: uint32(block.timestamp + 100)
+      index: 0x01
     });
   }
 
-  function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory _message) public {
-    // fix message.sender and deadline:
+  function _divideAndRoundUp(uint256 a, uint256 b) internal pure returns (uint256) {
+    return (a + b - 1) / b;
+  }
+
+  function _boundMessage(DataStructures.L1ToL2Msg memory _message, uint256 _globalLeafIndex)
+    internal
+    view
+    returns (DataStructures.L1ToL2Msg memory)
+  {
+    // fix message.sender
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
     _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
-    if (_message.deadline <= block.timestamp) {
-      _message.deadline = uint32(block.timestamp + 100);
-    }
     // ensure content fits in a field
     _message.content = bytes32(uint256(_message.content) % Constants.P);
     // ensure secret hash fits in a field
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
-    bytes32 expectedEntryKey = inbox.computeEntryKey(_message);
-    vm.expectEmit(true, true, true, true);
-    // event we expect
-    emit MessageAdded(
-      expectedEntryKey,
-      _message.sender.actor,
-      _message.recipient.actor,
-      _message.sender.chainId,
-      _message.recipient.version,
-      _message.deadline,
-      _message.fee,
-      _message.content,
-      _message.secretHash
-    );
-    // event we will get
-    bytes32 entryKey = inbox.sendL2Message{value: _message.fee}(
-      _message.recipient, _message.deadline, _message.content, _message.secretHash
-    );
-    assertEq(entryKey, expectedEntryKey);
-    DataStructures.Entry memory entry = inbox.get(entryKey);
-    assertEq(entry.count, 1);
-    assertEq(entry.fee, _message.fee);
-    assertEq(entry.deadline, _message.deadline);
+    // update version
+    _message.recipient.version = version;
+    // set leaf index
+    _message.index = _globalLeafIndex;
+
+    return _message;
   }
 
-  function testSendMultipleSameL2Messages() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    bytes32 entryKey2 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    bytes32 entryKey3 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-
-    assertEq(entryKey1, entryKey2);
-    assertEq(entryKey2, entryKey3);
-    assertEq(inbox.get(entryKey1).count, 3);
-    assertEq(inbox.get(entryKey1).fee, 5);
-    assertEq(inbox.get(entryKey1).deadline, message.deadline);
-  }
-
-  function testRevertIfActorTooLarge() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.recipient.actor = bytes32(Constants.MAX_FIELD_VALUE + 1);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
-    );
-    inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-  }
-
-  function testRevertIfContentTooLarge() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
-    inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-  }
-
-  function testRevertIfSecretHashTooLarge() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.secretHash = bytes32(Constants.MAX_FIELD_VALUE + 1);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
-    );
-    inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-  }
-
-  function testRevertIfCancellingMessageFromDifferentAddress() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    vm.prank(address(0x1));
-    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
-    inbox.cancelL2Message(message, address(0x1));
-  }
-
-  function testRevertIfCancellingMessageWhenDeadlineHasntPassed() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    message.deadline = uint32(block.timestamp + 1000);
-    inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    skip(500); // deadline = 1000. block.timestamp = 500. Not cancellable:
-    vm.expectRevert(Errors.Inbox__NotPastDeadline.selector);
-    inbox.cancelL2Message(message, address(0x1));
-  }
-
-  function testRevertIfCancellingNonExistentMessage() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 entryKey = inbox.computeEntryKey(message);
-    skip(500); // make message cancellable.
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKey));
-    inbox.cancelL2Message(message, address(0x1));
-  }
-
-  function testCancelMessage() public {
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    address feeCollector = address(0x1);
-    bytes32 expectedEntryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    skip(500); // make message cancellable.
-
-    vm.expectEmit(true, false, false, false);
-    // event we expect
-    emit L1ToL2MessageCancelled(expectedEntryKey);
-    // event we will get
-    inbox.cancelL2Message(message, feeCollector);
-    // fees accrued as expected:
-    assertEq(inbox.feesAccrued(feeCollector), message.fee);
-
-    // no such message to consume:
-    bytes32[] memory entryKeys = new bytes32[](1);
-    entryKeys[0] = expectedEntryKey;
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedEntryKey)
-    );
-    inbox.batchConsume(entryKeys, feeCollector);
+  // Since there is a 1 block lag between tree to be consumed and tree in progress the following invariant should never
+  // be violated
+  modifier checkInvariant() {
+    _;
+    assertLt(blockNumber, inbox.inProgress());
   }
 
   function testRevertIfNotConsumingFromRollup() public {
     vm.prank(address(0x1));
-    bytes32[] memory entryKeys = new bytes32[](1);
-    entryKeys[0] = bytes32("random");
+    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
+    inbox.consume(blockNumber);
+  }
+
+  function testRevertIFConsumingInFuture() public {
+    vm.expectRevert(Errors.Inbox__MustBuildBeforeConsume.selector);
+    inbox.consume(blockNumber + 1000);
+  }
+
+  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
+    uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
+    DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
+
+    bytes32 leaf = message.sha256ToField();
+    vm.expectEmit(true, true, true, true);
+    // event we expect
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf);
+    // event we will get
+    (bytes32 insertedLeaf, uint256 insertedIndex) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+
+    assertEq(insertedLeaf, leaf);
+    assertEq(insertedIndex, globalLeafIndex);
+  }
+
+  function testSendDuplicateL2Messages() public checkInvariant {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    (bytes32 leaf1, uint256 index1) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf2, uint256 index2) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf3, uint256 index3) =
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+
+    // Only 1 tree should be non-zero
+    assertEq(inbox.getNumTrees(), 1);
+
+    // All the leaves should be different since the index gets mixed in
+    assertNotEq(leaf1, leaf2);
+    assertNotEq(leaf2, leaf3);
+
+    // Check indices
+    assertEq(index1 + 1, index2);
+    assertEq(index1 + 2, index3);
+  }
+
+  function testRevertIfActorTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.recipient.actor = bytes32(Constants.P);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Registry__RollupNotRegistered.selector, address(1))
+      abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
     );
-    inbox.batchConsume(entryKeys, address(0x1));
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
-  function testRevertIfOneKeyIsPastDeadlineWhenBatchConsuming() public {
+  function testRevertIfContentTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 200), message.content, message.secretHash
-    );
-    bytes32 entryKey2 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 100), message.content, message.secretHash
-    );
-    bytes32 entryKey3 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 300), message.content, message.secretHash
-    );
-    bytes32[] memory entryKeys = new bytes32[](3);
-    entryKeys[0] = entryKey1;
-    entryKeys[1] = entryKey2;
-    entryKeys[2] = entryKey3;
-
-    skip(150); // block.timestamp now +150 ms. entryKey2 is past deadline
-    vm.expectRevert(Errors.Inbox__PastDeadline.selector);
-    inbox.batchConsume(entryKeys, address(0x1));
+    message.content = bytes32(Constants.P);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
-  function testFuzzRevertIfConsumingAMessageThatDoesntExist(bytes32 _entryKey) public {
-    bytes32[] memory entryKeys = new bytes32[](1);
-    if (_entryKey == bytes32(0)) {
-      entryKeys[0] = bytes32("random");
-    } else {
-      entryKeys[0] = _entryKey;
-    }
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKeys[0]));
-    inbox.batchConsume(entryKeys, address(0x1));
-  }
-
-  function testRevertIfConsumingTheSameMessageMoreThanTheCountOfEntries() public {
+  function testRevertIfSecretHashTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    address feeCollector = address(0x1);
-    bytes32 entryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    bytes32[] memory entryKeys = new bytes32[](1);
-    entryKeys[0] = entryKey;
-
-    inbox.batchConsume(entryKeys, feeCollector);
-    assertEq(inbox.feesAccrued(feeCollector), message.fee);
-
-    // consuming this again should fail:
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKeys[0]));
-    inbox.batchConsume(entryKeys, feeCollector);
-  }
-
-  function testRevertIfConsumingFromWrongRollup() public {
-    address wrongRollup = address(0xbeeffeed);
-    uint256 wrongVersion = registry.upgrade(wrongRollup, address(inbox), address(0x0));
-
-    DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    address feeCollector = address(0x1);
-    bytes32 entryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
-    );
-    bytes32[] memory entryKeys = new bytes32[](1);
-    entryKeys[0] = entryKey;
-
-    vm.prank(wrongRollup);
+    message.secretHash = bytes32(Constants.P);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__InvalidVersion.selector, version, wrongVersion)
+      abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
     );
-    inbox.batchConsume(entryKeys, feeCollector);
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
-  function testFuzzBatchConsume(DataStructures.L1ToL2Msg[] memory _messages) public {
-    bytes32[] memory entryKeys = new bytes32[](_messages.length);
-    uint256 expectedTotalFee = 0;
-    address feeCollector = address(0x1);
+  function testFuzzSendAndConsume(
+    DataStructures.L1ToL2Msg[] memory _messagesFirstBatch,
+    DataStructures.L1ToL2Msg[] memory _messagesSecondBatch,
+    uint256 _numTreesToConsumeFirstBatch,
+    uint256 _numTreesToConsumeSecondBatch
+  ) public {
+    // Send first batch of messages
+    _send(_messagesFirstBatch);
 
-    // insert messages:
+    // Consume first few trees
+    _consume(_numTreesToConsumeFirstBatch);
+
+    // Send second batch of messages
+    _send(_messagesSecondBatch);
+
+    // Consume second batch of trees
+    _consume(_numTreesToConsumeSecondBatch);
+  }
+
+  function _send(DataStructures.L1ToL2Msg[] memory _messages) internal checkInvariant {
+    bytes32 toConsumeRoot = inbox.getToConsumeRoot(blockNumber);
+
+    // We send the messages and then check that toConsume root did not change.
     for (uint256 i = 0; i < _messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message = _messages[i];
-      // fix message.sender and deadline to be more than current time:
-      message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
-      // ensure actor fits in a field
-      message.recipient.actor = bytes32(uint256(message.recipient.actor) % Constants.P);
-      if (message.deadline <= block.timestamp) {
-        message.deadline = uint32(block.timestamp + 100);
-      }
-      // ensure content fits in a field
-      message.content = bytes32(uint256(message.content) % Constants.P);
-      // ensure secret hash fits in a field
-      message.secretHash = bytes32(uint256(message.secretHash) % Constants.P);
-      // update version
-      message.recipient.version = version;
-      expectedTotalFee += message.fee;
-      entryKeys[i] = inbox.sendL2Message{value: message.fee}(
-        message.recipient, message.deadline, message.content, message.secretHash
-      );
+      DataStructures.L1ToL2Msg memory message =
+        _boundMessage(_messages[i], inbox.getNextMessageIndex());
+
+      // We check whether a new tree is correctly initialized when the one in progress is full
+      uint256 numTrees = inbox.getNumTrees();
+      uint256 expectedNumTrees = inbox.treeInProgressFull() ? numTrees + 1 : numTrees;
+
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+
+      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
     }
 
-    // batch consume:
-    inbox.batchConsume(entryKeys, feeCollector);
+    // Root of a tree waiting to be consumed should not change because we introduced a 1 block lag to prevent sequencer
+    // DOS attacks
+    assertEq(
+      inbox.getToConsumeRoot(blockNumber),
+      toConsumeRoot,
+      "Root of a tree waiting to be consumed should not change"
+    );
+  }
 
-    // fees accrued as expected:
-    assertEq(inbox.feesAccrued(feeCollector), expectedTotalFee);
+  function _consume(uint256 _numTreesToConsume) internal checkInvariant {
+    uint256 initialNumTrees = inbox.getNumTrees();
+    // We use (initialNumTrees * 2) as upper bound here because we want to test the case where we go beyond
+    // the currently initalized number of trees. When consuming the newly initialized trees we should get zero roots.
+    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, initialNumTrees * 2);
+
+    // Now we consume the trees
+    for (uint256 i = 0; i < numTreesToConsume; i++) {
+      uint256 numTrees = inbox.getNumTrees();
+      uint256 expectedNumTrees = (blockNumber + 1 == inbox.inProgress()) ? numTrees + 1 : numTrees;
+      bytes32 root = inbox.consume(blockNumber);
+
+      // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume
+      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
+
+      // If we go beyong the number of trees initialized before consuming we should get empty root
+      if (i > initialNumTrees) {
+        assertEq(root, emptyTreeRoot, "Root of a newly initialized tree not empty");
+      }
+      blockNumber += 1;
+    }
   }
 }

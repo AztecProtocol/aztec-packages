@@ -3,45 +3,22 @@
  * instantiate templates.
  */
 #pragma once
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 template <typename T>
-concept HasPlookup =
-    proof_system::IsAnyOf<T, proof_system::UltraCircuitBuilder, proof_system::GoblinUltraCircuitBuilder>;
+concept HasPlookup = bb::IsAnyOf<T, bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
 
 template <typename T>
-concept IsGoblinBuilder = proof_system::IsAnyOf<T, proof_system::GoblinUltraCircuitBuilder>;
+concept IsStandardBuilder = bb::IsAnyOf<T, bb::StandardCircuitBuilder_<bb::fr>, bb::StandardCircuitBuilder_<bb::fq>>;
+template <typename T>
+concept IsUltraBuilder = bb::IsAnyOf<T, bb::UltraCircuitBuilder>;
+template <typename T>
+concept IsMegaBuilder = bb::IsAnyOf<T, bb::MegaCircuitBuilder>;
+template <typename T>
+concept IsNotMegaBuilder = !IsMegaBuilder<T>;
 
-#define INSTANTIATE_STDLIB_METHOD(stdlib_method)                                                                       \
-    template stdlib_method(proof_system::StandardCircuitBuilder);                                                      \
-    template stdlib_method(proof_system::UltraCircuitBuilder);                                                         \
-    template stdlib_method(proof_system::GoblinUltraCircuitBuilder);
-
-#define INSTANTIATE_STDLIB_TYPE(stdlib_type)                                                                           \
-    template class stdlib_type<proof_system::StandardCircuitBuilder>;                                                  \
-    template class stdlib_type<proof_system::UltraCircuitBuilder>;                                                     \
-    template class stdlib_type<proof_system::GoblinUltraCircuitBuilder>;
-
-#define INSTANTIATE_STDLIB_TYPE_VA(stdlib_type, ...)                                                                   \
-    template class stdlib_type<proof_system::StandardCircuitBuilder, __VA_ARGS__>;                                     \
-    template class stdlib_type<proof_system::UltraCircuitBuilder, __VA_ARGS__>;                                        \
-    template class stdlib_type<proof_system::GoblinUltraCircuitBuilder, __VA_ARGS__>;
-
-#define INSTANTIATE_STDLIB_BASIC_TYPE(stdlib_type) template class stdlib_type<proof_system::StandardCircuitBuilder>;
-
-#define INSTANTIATE_STDLIB_BASIC_TYPE_VA(stdlib_type, ...)                                                             \
-    template class stdlib_type<proof_system::StandardCircuitBuilder, __VA_ARGS__>;
-
-#define INSTANTIATE_STDLIB_ULTRA_METHOD(stdlib_method)                                                                 \
-    template stdlib_method(proof_system::UltraCircuitBuilder);                                                         \
-    template stdlib_method(proof_system::GoblinUltraCircuitBuilder);
-
-#define INSTANTIATE_STDLIB_ULTRA_TYPE(stdlib_type)                                                                     \
-    template class stdlib_type<proof_system::UltraCircuitBuilder>;                                                     \
-    template class stdlib_type<proof_system::GoblinUltraCircuitBuilder>;
-
-#define INSTANTIATE_STDLIB_ULTRA_TYPE_VA(stdlib_type, ...)                                                             \
-    template class stdlib_type<proof_system::UltraCircuitBuilder, __VA_ARGS__>;                                        \
-    template class stdlib_type<proof_system::GoblinUltraCircuitBuilder, __VA_ARGS__>;
+template <typename T>
+concept IsSimulator = bb::IsAnyOf<T, bb::CircuitSimulatorBN254>;

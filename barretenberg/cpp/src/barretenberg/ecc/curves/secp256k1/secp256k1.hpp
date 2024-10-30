@@ -5,9 +5,9 @@
 #include "../types.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
-namespace secp256k1 {
 
-struct Secp256k1FqParams {
+namespace bb::secp256k1 {
+struct FqParams {
     static constexpr uint64_t modulus_0 = 0xFFFFFFFEFFFFFC2FULL;
     static constexpr uint64_t modulus_1 = 0xFFFFFFFFFFFFFFFFULL;
     static constexpr uint64_t modulus_2 = 0xFFFFFFFFFFFFFFFFULL;
@@ -43,9 +43,52 @@ struct Secp256k1FqParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
-};
 
-struct Secp256k1FrParams {
+    static constexpr uint64_t modulus_wasm_0 = 0x1ffffc2f;
+    static constexpr uint64_t modulus_wasm_1 = 0x1ffffff7;
+    static constexpr uint64_t modulus_wasm_2 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_3 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_4 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_6 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_7 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_8 = 0xffffff;
+
+    static constexpr uint64_t r_squared_wasm_0 = 0x001e88003a428400UL;
+    static constexpr uint64_t r_squared_wasm_1 = 0x0000000000000400UL;
+    static constexpr uint64_t r_squared_wasm_2 = 0x0000000000000000UL;
+    static constexpr uint64_t r_squared_wasm_3 = 0x0000000000000000UL;
+
+    static constexpr uint64_t cube_root_wasm_0 = 0x1486c3a0d03162ffUL;
+    static constexpr uint64_t cube_root_wasm_1 = 0x7fbc2c63897015ebUL;
+    static constexpr uint64_t cube_root_wasm_2 = 0x1d312f1a05c720a0UL;
+    static constexpr uint64_t cube_root_wasm_3 = 0x4946d5d79767aa7fUL;
+
+    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
+
+    static constexpr uint64_t coset_generators_wasm_0[8] = { 0x0000006000016e60ULL, 0x000000800001e880ULL,
+                                                             0x000000a0000262a0ULL, 0x000000c00002dcc0ULL,
+                                                             0x000000e0000356e0ULL, 0x000001000003d100ULL,
+                                                             0x0000012000044b20ULL, 0x000001400004c540ULL };
+    static constexpr uint64_t coset_generators_wasm_1[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
+    static constexpr uint64_t coset_generators_wasm_2[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
+    static constexpr uint64_t coset_generators_wasm_3[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
+};
+using fq = field<FqParams>;
+
+struct FrParams {
     static constexpr uint64_t modulus_0 = 0xBFD25E8CD0364141ULL;
     static constexpr uint64_t modulus_1 = 0xBAAEDCE6AF48A03BULL;
     static constexpr uint64_t modulus_2 = 0xFFFFFFFFFFFFFFFEULL;
@@ -98,12 +141,52 @@ struct Secp256k1FrParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    static constexpr uint64_t modulus_wasm_0 = 0x10364141;
+    static constexpr uint64_t modulus_wasm_1 = 0x1e92f466;
+    static constexpr uint64_t modulus_wasm_2 = 0x12280eef;
+    static constexpr uint64_t modulus_wasm_3 = 0x1db9cd5e;
+    static constexpr uint64_t modulus_wasm_4 = 0x1fffebaa;
+    static constexpr uint64_t modulus_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_6 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_7 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_8 = 0xffffff;
+
+    static constexpr uint64_t r_squared_wasm_0 = 0x63e601a3c9f6ab4bUL;
+    static constexpr uint64_t r_squared_wasm_1 = 0xa2b6456d46702f57UL;
+    static constexpr uint64_t r_squared_wasm_2 = 0x5fd7916f341f1cefUL;
+    static constexpr uint64_t r_squared_wasm_3 = 0x9c7356071a6f179aUL;
+
+    static constexpr uint64_t cube_root_wasm_0 = 0x9185b639102f0736UL;
+    static constexpr uint64_t cube_root_wasm_1 = 0x47a854ad9ffc4748UL;
+    static constexpr uint64_t cube_root_wasm_2 = 0x752cc0ca4d2fb232UL;
+    static constexpr uint64_t cube_root_wasm_3 = 0x650802f0ab1ac72eUL;
+
+    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
+
+    static constexpr uint64_t coset_generators_wasm_0[8] = { 0x1c84e7fdde173760ULL, 0x22391663d74f0f40ULL,
+                                                             0x27ed44c9d086e720ULL, 0x2da1732fc9bebf00ULL,
+                                                             0x3355a195c2f696e0ULL, 0x3909cffbbc2e6ec0ULL,
+                                                             0x3ebdfe61b56646a0ULL, 0x44722cc7ae9e1e80ULL };
+    static constexpr uint64_t coset_generators_wasm_1[8] = { 0x52b5efd2729bdaa8ULL, 0xfcda52fc8987d330ULL,
+                                                             0xa6feb626a073cbb8ULL, 0x51231950b75fc440ULL,
+                                                             0xfb477c7ace4bbcc8ULL, 0xa56bdfa4e537b550ULL,
+                                                             0x4f9042cefc23add8ULL, 0xf9b4a5f9130fa660ULL };
+    static constexpr uint64_t coset_generators_wasm_2[8] = { 0x00000000000000cbULL, 0x00000000000000f3ULL,
+                                                             0x000000000000011cULL, 0x0000000000000145ULL,
+                                                             0x000000000000016dULL, 0x0000000000000196ULL,
+                                                             0x00000000000001bfULL, 0x00000000000001e7ULL };
+    static constexpr uint64_t coset_generators_wasm_3[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
+                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
 };
+using fr = field<FrParams>;
 
-using fq = barretenberg::field<Secp256k1FqParams>;
-using fr = barretenberg::field<Secp256k1FrParams>;
-
-struct Secp256k1G1Params {
+struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
     static constexpr bool small_elements = true;
@@ -117,16 +200,10 @@ struct Secp256k1G1Params {
     static constexpr fq one_y =
         fq(0x9C47D08FFB10D4B8UL, 0xFD17B448A6855419UL, 0x5DA4FBFC0E1108A8UL, 0x483ADA7726A3C465UL).to_montgomery_form();
 };
+using g1 = group<fq, fr, G1Params>;
+} // namespace bb::secp256k1
 
-using g1 = barretenberg::
-    group<barretenberg::field<Secp256k1FqParams>, barretenberg::field<Secp256k1FrParams>, Secp256k1G1Params>;
-
-// TODO(@zac-wiliamson #2341 remove this method once we migrate to new hash standard (derive_generators_secure is
-// curve-agnostic)
-g1::affine_element get_generator(size_t generator_index);
-} // namespace secp256k1
-
-namespace curve {
+namespace bb::curve {
 class SECP256K1 {
   public:
     using ScalarField = secp256k1::fr;
@@ -135,6 +212,6 @@ class SECP256K1 {
     using Element = typename Group::element;
     using AffineElement = typename Group::affine_element;
 };
-} // namespace curve
+} // namespace bb::curve
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

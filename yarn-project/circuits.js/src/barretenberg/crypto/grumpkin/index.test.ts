@@ -1,17 +1,15 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { CircuitsWasm, GrumpkinScalar, Point } from '../../../index.js';
+import { GrumpkinScalar, type Point } from '../../../index.js';
 import { Grumpkin } from './index.js';
 
-const debug = createDebugLogger('bb:grumpkin_test');
+const log = createDebugLogger('bb:grumpkin_test');
 
 describe('grumpkin', () => {
-  let barretenberg!: CircuitsWasm;
   let grumpkin!: Grumpkin;
 
-  beforeAll(async () => {
-    barretenberg = await CircuitsWasm.get();
-    grumpkin = new Grumpkin(barretenberg);
+  beforeAll(() => {
+    grumpkin = new Grumpkin();
   });
 
   it('should correctly perform scalar muls', () => {
@@ -26,13 +24,13 @@ describe('grumpkin', () => {
 
     const start = new Date().getTime();
     const outputPoints = grumpkin.batchMul(inputPoints, exponent);
-    debug(`batch mul in: ${new Date().getTime() - start}ms`);
+    log.debug(`batch mul in: ${new Date().getTime() - start}ms`);
 
     const start2 = new Date().getTime();
     for (let i = 0; i < numPoints; ++i) {
       grumpkin.mul(inputPoints[i], exponent);
     }
-    debug(`regular mul in: ${new Date().getTime() - start2}ms`);
+    log.debug(`regular mul in: ${new Date().getTime() - start2}ms`);
 
     for (let i = 0; i < numPoints; ++i) {
       const lhs = outputPoints[i];

@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_primitives plonk honk)
+barretenberg_module(stdlib_primitives stdlib_circuit_builders circuit_checker)

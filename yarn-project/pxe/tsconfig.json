@@ -7,7 +7,13 @@
   },
   "references": [
     {
-      "path": "../acir-simulator"
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../builder"
+    },
+    {
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
@@ -22,10 +28,22 @@
       "path": "../key-store"
     },
     {
-      "path": "../noir-compiler"
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

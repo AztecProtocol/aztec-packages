@@ -1,13 +1,30 @@
-#include "./mem.hpp"
-#include "./slab_allocator.hpp"
-#include "./wasm_export.hpp"
+#include "barretenberg/common/mem.hpp"
 
-WASM_EXPORT void* bbmalloc(size_t size)
+#ifdef TRACY_MEMORY
+void* operator new(std::size_t count)
 {
-    return barretenberg::get_mem_slab_raw(size);
+    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
+    void* ptr = malloc(count);
+    // NOLINTEND(cppcoreguidelines-no-malloc)
+    TRACY_ALLOC(ptr, count);
+    return ptr;
 }
 
-WASM_EXPORT void bbfree(void* ptr)
+void operator delete(void* ptr) noexcept
 {
-    barretenberg::free_mem_slab_raw(ptr);
+    TRACY_FREE(ptr);
+    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
+    free(ptr);
+    // NOLINTEND(cppcoreguidelines-no-malloc)
 }
+
+void operator delete(void* ptr, std::size_t size) noexcept
+{
+    static_cast<void>(size); // unused
+    TRACY_FREE(ptr);
+    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
+    free(ptr);
+    // NOLINTEND(cppcoreguidelines-no-malloc)
+}
+
+#endif

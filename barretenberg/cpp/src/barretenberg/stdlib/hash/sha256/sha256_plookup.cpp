@@ -1,19 +1,17 @@
 #include "sha256_plookup.hpp"
 
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/proof_system/plookup_tables/sha256.hpp"
 #include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace sha256_plookup {
+namespace bb::stdlib::sha256_plookup {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 namespace internal {
 
@@ -141,7 +139,15 @@ std::array<field_t<Builder>, 64> extend_witness(const std::array<field_t<Builder
         } else {
             w_out = witness_t<Builder>(
                 ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
+            static constexpr fr inv_pow_two = fr(2).pow(32).invert();
+            // If we multiply the field elements by constants separately and then subtract, then the divisor is going to
+            // be in a normalized state right after subtraction and the call to .normalize() won't add gates
+            field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
+            field_pt w_out_inv_pow_two = w_out * inv_pow_two;
+            field_pt divisor = (w_out_raw_inv_pow_two - w_out_inv_pow_two).normalize();
+            ctx->create_new_range_constraint(divisor.witness_index, 3);
         }
+
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
 
@@ -265,11 +271,16 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
     /**
      * Initialize round variables with previous block output
      **/
-    auto a = map_into_maj_sparse_form(h_init[0]);
+    /**
+     * We can initialize round variables a and c and put value h_init[0] and
+     * h_init[4] in .normal, and don't do lookup for maj_output, because majority and choose
+     * functions will do that in the next step
+     **/
+    sparse_value<Builder> a = sparse_value<Builder>(h_init[0]);
     auto b = map_into_maj_sparse_form(h_init[1]);
     auto c = map_into_maj_sparse_form(h_init[2]);
     auto d = map_into_maj_sparse_form(h_init[3]);
-    auto e = map_into_choose_sparse_form(h_init[4]);
+    sparse_value<Builder> e = sparse_value<Builder>(h_init[4]);
     auto f = map_into_choose_sparse_form(h_init[5]);
     auto g = map_into_choose_sparse_form(h_init[6]);
     auto h = map_into_choose_sparse_form(h_init[7]);
@@ -362,10 +373,7 @@ template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_
     std::vector<field_pt> output(rolling_hash.begin(), rolling_hash.end());
     return packed_byte_array<Builder>(output, 4);
 }
-#define SHA256_PLOOKUP(circuit_type)                                                                                   \
-    packed_byte_array<circuit_type> sha256(const packed_byte_array<circuit_type>& input)
 
-INSTANTIATE_STDLIB_ULTRA_METHOD(SHA256_PLOOKUP)
-} // namespace sha256_plookup
-} // namespace stdlib
-} // namespace proof_system::plonk
+template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
+template packed_byte_array<bb::MegaCircuitBuilder> sha256(const packed_byte_array<bb::MegaCircuitBuilder>& input);
+} // namespace bb::stdlib::sha256_plookup

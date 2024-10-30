@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
+
+import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 /**
  * @title Data Structures Library
@@ -8,22 +10,6 @@ pragma solidity >=0.8.18;
  * @notice Library that contains data structures used throughout the Aztec protocol
  */
 library DataStructures {
-  // docs:start:data_structure_entry
-  /**
-   * @notice Entry struct - Done as struct to easily support extensions if needed
-   * @param fee - The fee provided to sequencer for including in the inbox. 0 if Outbox (as not applicable).
-   * @param count - The occurrence of the entry in the dataset
-   * @param version - The version of the entry
-   * @param deadline - The deadline to consume a message. Only after it, can a message be cancelled.
-   */
-  struct Entry {
-    uint64 fee;
-    uint32 count;
-    uint32 version;
-    uint32 deadline;
-  }
-  // docs:end:data_structure_entry
-
   // docs:start:l1_actor
   /**
    * @notice Actor on L1.
@@ -54,17 +40,15 @@ library DataStructures {
    * @param sender - The sender of the message
    * @param recipient - The recipient of the message
    * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @param deadline - The deadline to consume a message. Only after it, can a message be cancelled.
-   * @param fee - The fee provided to sequencer for including the entry
+   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2).
+   * @param index - Global leaf index on the L1 to L2 messages tree.
    */
   struct L1ToL2Msg {
     L1Actor sender;
     L2Actor recipient;
     bytes32 content;
     bytes32 secretHash;
-    uint32 deadline;
-    uint64 fee;
+    uint256 index;
   }
   // docs:end:l1_to_l2_msg
 
@@ -74,6 +58,7 @@ library DataStructures {
    * @param sender - The sender of the message
    * @param recipient - The recipient of the message
    * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
+   * @dev Not to be confused with L2ToL1Message in Noir circuits
    */
   struct L2ToL1Msg {
     DataStructures.L2Actor sender;
@@ -82,19 +67,29 @@ library DataStructures {
   }
   // docs:end:l2_to_l1_msg
 
-  // docs:start:registry_snapshot
   /**
-   * @notice Struct for storing address of cross communication components and the block number when it was updated
-   * @param rollup - The address of the rollup contract
-   * @param inbox - The address of the inbox contract
-   * @param outbox - The address of the outbox contract
-   * @param blockNumber - The block number of the snapshot
+   * @notice Struct for storing flags for block header validation
+   * @param ignoreDA - True will ignore DA check, otherwise checks
+   * @param ignoreSignature - True will ignore the signatures, otherwise checks
    */
-  struct RegistrySnapshot {
-    address rollup;
-    address inbox;
-    address outbox;
-    uint256 blockNumber;
+  struct ExecutionFlags {
+    bool ignoreDA;
+    bool ignoreSignatures;
   }
-  // docs:end:registry_snapshot
+
+  /**
+   * @notice Struct containing the Epoch Proof Claim
+   * @param epochToProve - the epoch that the bond provider is claiming to prove
+   * @param basisPointFee the fee that the bond provider will receive as a percentage of the block rewards
+   * @param bondAmount - the size of the bond
+   * @param bondProvider - the address that put up the bond
+   * @param proposerClaimant - the address of the proposer that submitted the claim
+   */
+  struct EpochProofClaim {
+    Epoch epochToProve;
+    uint256 basisPointFee;
+    uint256 bondAmount;
+    address bondProvider;
+    address proposerClaimant;
+  }
 }

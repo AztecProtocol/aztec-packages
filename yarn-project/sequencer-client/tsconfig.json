@@ -7,7 +7,13 @@
   },
   "references": [
     {
-      "path": "../acir-simulator"
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
@@ -25,13 +31,37 @@
       "path": "../merkle-tree"
     },
     {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
     },
     {
       "path": "../types"
     },
     {
+      "path": "../validator-client"
+    },
+    {
       "path": "../world-state"
+    },
+    {
+      "path": "../kv-store"
     }
   ],
   "include": ["src"]

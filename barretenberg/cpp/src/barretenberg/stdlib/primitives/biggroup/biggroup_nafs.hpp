@@ -1,8 +1,8 @@
 #pragma once
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib::element_default {
 
 /**
  * Split a secp256k1 Fr element into two 129 bit scalars `klo, khi`, where `scalar = klo + \lambda * khi mod n`
@@ -149,10 +149,10 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
         uint256_t k_u256{ k.data[0], k.data[1], k.data[2], k.data[3] };
         k_u256 = k_u256 >> stagger;
         if (is_lo) {
-            barretenberg::wnaf::fixed_wnaf<num_bits - lo_stagger, 1, wnaf_size>(
+            bb::wnaf::fixed_wnaf<num_bits - lo_stagger, 1, wnaf_size>(
                 &k_u256.data[0], &wnaf_values[0], skew_without_stagger, 0);
         } else {
-            barretenberg::wnaf::fixed_wnaf<num_bits - hi_stagger, 1, wnaf_size>(
+            bb::wnaf::fixed_wnaf<num_bits - hi_stagger, 1, wnaf_size>(
                 &k_u256.data[0], &wnaf_values[0], skew_without_stagger, 0);
         }
 
@@ -267,7 +267,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
             }
             // Accumulate entries, shift by stagger and add the stagger itself
             field_t<C> sum = field_t<C>::accumulate(accumulator);
-            sum = sum * field_t<C>(barretenberg::fr(1ULL << stagger));
+            sum = sum * field_t<C>(bb::fr(1ULL << stagger));
             sum += (stagger_fragment);
             sum = sum.normalize();
             // TODO: improve efficiency by creating a constructor that does NOT require us to range constrain
@@ -341,8 +341,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     const auto [khi_reconstructed, khi_out] = compute_single_wnaf(khi, hi_stagger, khi_negative, false);
 
     uint256_t minus_lambda_val(-secp256k1::fr::cube_root_of_unity());
-    Fr minus_lambda(
-        barretenberg::fr(minus_lambda_val.slice(0, 136)), barretenberg::fr(minus_lambda_val.slice(136, 256)), false);
+    Fr minus_lambda(bb::fr(minus_lambda_val.slice(0, 136)), bb::fr(minus_lambda_val.slice(136, 256)), false);
 
     Fr reconstructed_scalar = khi_reconstructed.madd(minus_lambda, { klo_reconstructed });
 
@@ -372,7 +371,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
 
     uint64_t wnaf_values[num_rounds] = { 0 };
     bool skew = false;
-    barretenberg::wnaf::fixed_wnaf<num_bits, 1, WNAF_SIZE>(&scalar_multiplier.data[0], &wnaf_values[0], skew, 0);
+    bb::wnaf::fixed_wnaf<num_bits, 1, WNAF_SIZE>(&scalar_multiplier.data[0], &wnaf_values[0], skew, 0);
 
     std::vector<field_t<C>> wnaf_entries;
     for (size_t i = 0; i < num_rounds; ++i) {
@@ -386,6 +385,8 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         field_t<C> entry(witness_t<C>(ctx, offset_entry));
         if constexpr (HasPlookup<C>) {
             ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
+        } else if constexpr (IsSimulator<C>) {
+            ctx->create_range_constraint(entry.get_value(), WNAF_SIZE, "biggroup_nafs");
         } else {
             ctx->create_range_constraint(entry.witness_index, WNAF_SIZE, "biggroup_nafs");
         }
@@ -396,11 +397,14 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
     wnaf_entries.emplace_back(witness_t<C>(ctx, skew));
     if constexpr (HasPlookup<C>) {
         ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
+    } else if constexpr (IsSimulator<C>) {
+        ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].get_value(), 1, "biggroup_nafs");
     } else {
         ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
     }
 
-    // TODO: VALIDATE SUM DOES NOT OVERFLOW P
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/664)
+    // VALIDATE SUM DOES NOT OVERFLOW P
 
     // validate correctness of wNAF
     if constexpr (!Fr::is_composite) {
@@ -463,12 +467,10 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         }
         ASSERT((num_rounds - midpoint) * 4 == 136);
         // If skew == 1 lo_offset = 0, else = 0xf...f
-        field_t<C> lo_offset =
-            (-field_t<C>(barretenberg::fr(negative_lo)))
-                .madd(wnaf_entries[wnaf_entries.size() - 1], field_t<C>(barretenberg::fr(negative_lo)))
-                .normalize();
-        Fr offset =
-            Fr(lo_offset, field_t<C>(barretenberg::fr(negative_hi)) + wnaf_entries[wnaf_entries.size() - 1], true);
+        field_t<C> lo_offset = (-field_t<C>(bb::fr(negative_lo)))
+                                   .madd(wnaf_entries[wnaf_entries.size() - 1], field_t<C>(bb::fr(negative_lo)))
+                                   .normalize();
+        Fr offset = Fr(lo_offset, field_t<C>(bb::fr(negative_hi)) + wnaf_entries[wnaf_entries.size() - 1], true);
         Fr reconstructed = Fr(lo_accumulators, hi_accumulators, true);
         reconstructed = (reconstructed + reconstructed) - offset;
         reconstructed.assert_is_in_field();
@@ -483,19 +485,23 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
+    // NAF can't handle 0
+    if (scalar_multiplier == 0) {
+        scalar_multiplier = Fr::modulus;
+    }
 
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-    std::vector<bool_t<C>> naf_entries(num_rounds + 1);
+    std::vector<bool_ct> naf_entries(num_rounds + 1);
 
     // if boolean is false => do NOT flip y
     // if boolean is true => DO flip y
     // first entry is skew. i.e. do we subtract one from the final result or not
     if (scalar_multiplier.get_bit(0) == false) {
         // add skew
-        naf_entries[num_rounds] = bool_t<C>(witness_t(ctx, true));
+        naf_entries[num_rounds] = bool_ct(witness_t(ctx, true));
         scalar_multiplier += uint256_t(1);
     } else {
-        naf_entries[num_rounds] = bool_t<C>(witness_t(ctx, false));
+        naf_entries[num_rounds] = bool_ct(witness_t(ctx, false));
     }
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
@@ -503,11 +509,14 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
-            bool_t<C> bit(ctx, true);
+            bool_ct bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
             bit.witness_bool = true;
-            if constexpr (HasPlookup<C>) {
+            if constexpr (IsSimulator<C>) {
+                ctx->create_range_constraint(
+                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
+            } else if constexpr (HasPlookup<C>) {
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
             } else {
@@ -516,10 +525,14 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             }
             naf_entries[num_rounds - i - 1] = bit;
         } else {
-            bool_t<C> bit(ctx, false);
+            bool_ct bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
-            if constexpr (HasPlookup<C>) {
+            if constexpr (IsSimulator<C>) {
+                ctx->create_range_constraint(
+                    bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
+            } else if constexpr (HasPlookup<C>) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/665)
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             } else {
@@ -529,7 +542,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             naf_entries[num_rounds - i - 1] = bit;
         }
     }
-    naf_entries[0] = bool_t<C>(ctx, false); // most significant entry is always true
+    naf_entries[0] = bool_ct(ctx, false); // most significant entry is always true
 
     // validate correctness of NAF
     if constexpr (!Fr::is_composite) {
@@ -546,7 +559,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         Fr accumulator_result = Fr::accumulate(accumulators);
         scalar.assert_equal(accumulator_result);
     } else {
-        const auto reconstruct_half_naf = [](bool_t<C>* nafs, const size_t half_round_length) {
+        const auto reconstruct_half_naf = [](bool_ct* nafs, const size_t half_round_length) {
             // Q: need constraint to start from zero?
             field_t<C> negative_accumulator(0);
             field_t<C> positive_accumulator(0);
@@ -570,5 +583,4 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     }
     return naf_entries;
 }
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::element_default

@@ -1,78 +1,60 @@
+#!/bin/bash
 # Run locally from end-to-end folder while running anvil and sandbox with:
 # PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh
-
 set -eux
 
+LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export WALLET_DATA_DIRECTORY="${LOCATION}/up_quick_start"
+
+aztec-wallet() {
+  node --no-warnings ../cli-wallet/dest/bin/index.js "$@"
+}
+
 # docs:start:declare-accounts
-ALICE="0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0"
-BOB="0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483"
-ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
+aztec-wallet create-account -a alice
+aztec-wallet create-account -a bob
 # docs:end:declare-accounts
 
 # docs:start:deploy
-aztec-cli deploy \
-  TokenContractAbi \
-  --salt 0 \
-  --args $ALICE
-
-aztec-cli check-deploy --contract-address 0x2219e810bff6e04abdefce9f91c2d1dd1e4d52fafa602def3c90b77f4331feca
-
-CONTRACT="0x2219e810bff6e04abdefce9f91c2d1dd1e4d52fafa602def3c90b77f4331feca"
+DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:alice Test TST 18 -f alice)
+TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE 'Contract deployed at 0x[0-9a-fA-F]+' | cut -d ' ' -f4)
+echo "Deployed contract at $TOKEN_ADDRESS"
 # docs:end:deploy
 
 # docs:start:mint-private
-SECRET="0x29bf6afaf29f61cbcf2a4fa7da97be481fb418dc08bdab5338839974beb7b49f"
-SECRET_HASH="0x0a42b1fe22b652cc8610e33bb1128040ce2d2862e7041ff235aa871739822b74"
+MINT_AMOUNT=69
+aztec-wallet create-secret -a shield
 
-MINT_PRIVATE_OUTPUT=$(aztec-cli send mint_private \
-  --args 1000 $SECRET_HASH \
-  --contract-abi TokenContractAbi \
-  --contract-address $CONTRACT \
-  --private-key $ALICE_PRIVATE_KEY)
+aztec-wallet send mint_private -ca last --args $MINT_AMOUNT secrets:shield:hash -f alice
 
-MINT_PRIVATE_TX_HASH=$(echo "$MINT_PRIVATE_OUTPUT" | grep "Transaction hash:" | awk '{print $NF}')
+aztec-wallet add-note TransparentNote pending_shields -ca last -t last -a alice -b $MINT_AMOUNT secrets:shield:hash
 
-aztec-cli add-note \
-  $ALICE $CONTRACT 5 $MINT_PRIVATE_TX_HASH \
-  --preimage 1000 $SECRET_HASH
-
-aztec-cli send redeem_shield \
-  --args $ALICE 1000 $SECRET \
-  --contract-abi TokenContractAbi \
-  --contract-address $CONTRACT \
-  --private-key $ALICE_PRIVATE_KEY
+aztec-wallet send redeem_shield -ca last --args accounts:alice $MINT_AMOUNT secrets:shield -f alice
 # docs:end:mint-private
 
 # docs:start:get-balance
-aztec-cli call balance_of_private \
-  --args $ALICE \
-  --contract-abi TokenContractAbi \
-  --contract-address $CONTRACT
+ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
+if ! echo $ALICE_BALANCE | grep -q $MINT_AMOUNT; then
+  echo "Incorrect Alice balance after transaction (expected $MINT_AMOUNT but got $ALICE_BALANCE)"
+  exit 1
+fi
 # docs:end:get-balance
 
 # docs:start:transfer
-aztec-cli send transfer \
-  --args $ALICE $BOB 500 0 \
-  --contract-abi TokenContractAbi \
-  --contract-address $CONTRACT \
-  --private-key $ALICE_PRIVATE_KEY
+TRANSFER_AMOUNT=42
 
-aztec-cli call balance_of_private \
-  --args $ALICE \
-  --contract-abi TokenContractAbi \
-  --contract-address $CONTRACT
-
-aztec-cli call balance_of_private \
-  --args $BOB \
-  --contract-abi TokenContractAbi \
-  --contract-address $CONTRACT
+aztec-wallet send transfer -ca last --args accounts:bob $TRANSFER_AMOUNT -f alice
 # docs:end:transfer
 
-aztec-cli get-logs
-
 # Test end result
-BOB_BALANCE=$(aztec-cli call balance_of_private --args $BOB --contract-abi TokenContractAbi --contract-address $CONTRACT)
-if ! echo $BOB_BALANCE | grep -q 500; then
-  echo "Incorrect Bob balance after transaction (expected 500 but got $BOB_BALANCE)"
+ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
+if ! echo $ALICE_BALANCE | grep -q "$(($MINT_AMOUNT - $TRANSFER_AMOUNT))"; then
+  echo "Incorrect Alice balance after transaction (expected 27 but got $ALICE_BALANCE)"
+  exit 1
+fi
+
+BOB_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:bob -f bob)
+if ! echo $BOB_BALANCE | grep -q $TRANSFER_AMOUNT; then
+  echo "Incorrect Bob balance after transaction (expected $TRANSFER_AMOUNT but got $BOB_BALANCE)"
   exit 1
 fi

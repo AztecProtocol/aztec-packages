@@ -3,8 +3,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../safe_uint/safe_uint.hpp"
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder> class byte_array {
   public:
@@ -76,10 +75,25 @@ template <typename Builder> class byte_array {
 
     std::string get_string() const;
 
+    void set_origin_tag(bb::OriginTag tag)
+    {
+        for (auto& value : values) {
+            value.set_origin_tag(tag);
+        }
+    }
+
+    bb::OriginTag get_origin_tag() const
+    {
+        bb::OriginTag tag{};
+        for (auto& value : values) {
+            tag = bb::OriginTag(tag, value.tag);
+        }
+        return tag;
+    }
+
   private:
     Builder* context;
     bytes_t values;
-
     struct byte_slice {
         field_t<Builder> low;
         field_t<Builder> high;
@@ -99,8 +113,4 @@ template <typename Builder> inline std::ostream& operator<<(std::ostream& os, by
     os.flags(f);
     return os;
 }
-
-EXTERN_STDLIB_TYPE(byte_array);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

@@ -1,149 +1,156 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-// Interfaces
-import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IOutbox} from "@aztec/core//interfaces/messagebridge/IOutbox.sol";
 
-// Libraries
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Hash} from "@aztec/core/libraries/Hash.sol";
-import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+
+import {Rollup} from "@aztec/core/Rollup.sol";
 
 /**
  * @title Outbox
  * @author Aztec Labs
- * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the rollup contract
+ * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the Rollup
  * and will be consumed by the portal contracts.
  */
 contract Outbox is IOutbox {
-  using MessageBox for mapping(bytes32 entryKey => DataStructures.Entry entry);
   using Hash for DataStructures.L2ToL1Msg;
 
-  IRegistry public immutable REGISTRY;
+  struct RootData {
+    // This is the outhash specified by header.globalvariables.outHash of any given block.
+    bytes32 root;
+    uint256 minHeight;
+    mapping(uint256 => bool) nullified;
+  }
 
-  mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
+  Rollup public immutable ROLLUP;
+  mapping(uint256 l2BlockNumber => RootData) internal roots;
 
-  constructor(address _registry) {
-    REGISTRY = IRegistry(_registry);
+  constructor(address _rollup) {
+    ROLLUP = Rollup(_rollup);
   }
 
   /**
-   * @notice Inserts an array of entries into the Outbox
+   * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in a block
+   *
    * @dev Only callable by the rollup contract
-   * @param _entryKeys - Array of entry keys (hash of the message) - computed by the L2 counterpart and sent to L1 via rollup block
+   * @dev Emits `RootAdded` upon inserting the root successfully
+   *
+   * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
+   * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
+   * @param _minHeight - The min height of the merkle tree that the root corresponds to
    */
-  function sendL1Messages(bytes32[] memory _entryKeys) external override(IOutbox) {
-    // This MUST revert if not called by a listed rollup contract
-    uint32 version = uint32(REGISTRY.getVersionFor(msg.sender));
-    for (uint256 i = 0; i < _entryKeys.length; i++) {
-      if (_entryKeys[i] == bytes32(0)) continue;
-      entries.insert(_entryKeys[i], 0, version, 0, _errIncompatibleEntryArguments);
-      emit MessageAdded(_entryKeys[i]);
-    }
+  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight)
+    external
+    override(IOutbox)
+  {
+    require(msg.sender == address(ROLLUP), Errors.Outbox__Unauthorized());
+    require(_root != bytes32(0), Errors.Outbox__InsertingInvalidRoot());
+
+    roots[_l2BlockNumber].root = _root;
+    roots[_l2BlockNumber].minHeight = _minHeight;
+
+    emit RootAdded(_l2BlockNumber, _root, _minHeight);
   }
 
   /**
    * @notice Consumes an entry from the Outbox
-   * @dev Only meaningfully callable by portals, otherwise should never hit an entry
-   * @dev Emits the `MessageConsumed` event when consuming messages
+   *
+   * @dev Only useable by portals / recipients of messages
+   * @dev Emits `MessageConsumed` when consuming messages
+   *
    * @param _message - The L2 to L1 message
-   * @return entryKey - The key of the entry removed
+   * @param _l2BlockNumber - The block number specifying the block that contains the message we want to consume
+   * @param _leafIndex - The index inside the merkle tree where the message is located
+   * @param _path - The sibling path used to prove inclusion of the message, the _path length directly depends
+   * on the total amount of L2 to L1 messages in the block. i.e. the length of _path is equal to the depth of the
+   * L1 to L2 message tree.
    */
-  function consume(DataStructures.L2ToL1Msg memory _message)
-    external
-    override(IOutbox)
-    returns (bytes32 entryKey)
-  {
-    if (msg.sender != _message.recipient.actor) revert Errors.Outbox__Unauthorized();
-    if (block.chainid != _message.recipient.chainId) revert Errors.Outbox__InvalidChainId();
+  function consume(
+    DataStructures.L2ToL1Msg calldata _message,
+    uint256 _l2BlockNumber,
+    uint256 _leafIndex,
+    bytes32[] calldata _path
+  ) external override(IOutbox) {
+    require(
+      _l2BlockNumber <= ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockNotProven(_l2BlockNumber)
+    );
 
-    entryKey = computeEntryKey(_message);
-    DataStructures.Entry memory entry = entries.get(entryKey, _errNothingToConsume);
-    if (entry.version != _message.sender.version) {
-      revert Errors.Outbox__InvalidVersion(entry.version, _message.sender.version);
-    }
+    require(
+      msg.sender == _message.recipient.actor,
+      Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender)
+    );
 
-    entries.consume(entryKey, _errNothingToConsume);
-    emit MessageConsumed(entryKey, msg.sender);
+    require(block.chainid == _message.recipient.chainId, Errors.Outbox__InvalidChainId());
+
+    RootData storage rootData = roots[_l2BlockNumber];
+
+    bytes32 blockRoot = rootData.root;
+
+    require(blockRoot != bytes32(0), Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber));
+
+    require(
+      !rootData.nullified[_leafIndex], Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
+    );
+    // TODO(#7218): We will eventually move back to a balanced tree and constrain the path length
+    // to be equal to height - for now we just check the min
+
+    // Min height = height of rollup layers
+    // The smallest num of messages will require a subtree of height 1
+    uint256 minHeight = rootData.minHeight;
+    require(minHeight <= _path.length, Errors.Outbox__InvalidPathLength(minHeight, _path.length));
+
+    bytes32 messageHash = _message.sha256ToField();
+
+    MerkleLib.verifyMembership(_path, messageHash, _leafIndex, blockRoot);
+
+    rootData.nullified[_leafIndex] = true;
+
+    emit MessageConsumed(_l2BlockNumber, blockRoot, messageHash, _leafIndex);
   }
 
   /**
-   * @notice Fetch an entry
-   * @param _entryKey - The key to lookup
-   * @return The entry matching the provided key
+   * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
+   *
+   * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
+   *
+   * @param _l2BlockNumber - The block number specifying the block that contains the index of the message we want to check
+   * @param _leafIndex - The index of the message inside the merkle tree
+   *
+   * @return bool - True if the message has been consumed, false otherwise
    */
-  function get(bytes32 _entryKey)
-    public
+  function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _leafIndex)
+    external
     view
     override(IOutbox)
-    returns (DataStructures.Entry memory)
+    returns (bool)
   {
-    return entries.get(_entryKey, _errNothingToConsume);
+    return roots[_l2BlockNumber].nullified[_leafIndex];
   }
 
   /**
-   * @notice Check if entry exists
-   * @param _entryKey - The key to lookup
-   * @return True if entry exists, false otherwise
+   * @notice  Fetch the root data for a given block number
+   *          Returns (0, 0) if the block is not proven
+   *
+   * @param _l2BlockNumber - The block number to fetch the root data for
+   *
+   * @return root - The root of the merkle tree containing the L2 to L1 messages
+   * @return minHeight - The min height for the merkle tree that the root corresponds to
    */
-  function contains(bytes32 _entryKey) public view override(IOutbox) returns (bool) {
-    return entries.contains(_entryKey);
-  }
-
-  /**
-   * @notice Computes an entry key for the Outbox
-   * @param _message - The L2 to L1 message
-   * @return The key of the entry in the set
-   */
-  function computeEntryKey(DataStructures.L2ToL1Msg memory _message)
-    public
-    pure
+  function getRootData(uint256 _l2BlockNumber)
+    external
+    view
     override(IOutbox)
-    returns (bytes32)
+    returns (bytes32 root, uint256 minHeight)
   {
-    return _message.sha256ToField();
-  }
-
-  /**
-   * @notice Error function passed in cases where there might be nothing to consume
-   * @dev Used to have message box library throw `Outbox__` prefixed errors
-   * @param _entryKey - The key to lookup
-   */
-  function _errNothingToConsume(bytes32 _entryKey) internal pure {
-    revert Errors.Outbox__NothingToConsume(_entryKey);
-  }
-
-  /**
-   * @notice Error function passed in cases where insertions can fail
-   * @dev Used to have message box library throw `Outbox__` prefixed errors
-   * @param _entryKey - The key to lookup
-   * @param _storedFee - The fee stored in the entry
-   * @param _feePassed - The fee passed into the insertion
-   * @param _storedVersion - The version stored in the entry
-   * @param _versionPassed - The version passed into the insertion
-   * @param _storedDeadline - The deadline stored in the entry
-   * @param _deadlinePassed - The deadline passed into the insertion
-   */
-  function _errIncompatibleEntryArguments(
-    bytes32 _entryKey,
-    uint64 _storedFee,
-    uint64 _feePassed,
-    uint32 _storedVersion,
-    uint32 _versionPassed,
-    uint32 _storedDeadline,
-    uint32 _deadlinePassed
-  ) internal pure {
-    revert Errors.Outbox__IncompatibleEntryArguments(
-      _entryKey,
-      _storedFee,
-      _feePassed,
-      _storedVersion,
-      _versionPassed,
-      _storedDeadline,
-      _deadlinePassed
-    );
+    if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
+      return (bytes32(0), 0);
+    }
+    RootData storage rootData = roots[_l2BlockNumber];
+    return (rootData.root, rootData.minHeight);
   }
 }

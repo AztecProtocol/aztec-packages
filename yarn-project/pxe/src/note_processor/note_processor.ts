@@ -1,25 +1,35 @@
-import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
-import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
+import { type AztecNode, L1NotePayload, type L2Block } from '@aztec/circuit-types';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
+import {
+  type CompleteAddress,
+  INITIAL_L2_BLOCK_NUM,
+  MAX_NOTE_HASHES_PER_TX,
+  computeAddressSecret,
+  computePoint,
+} from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { type KeyStore } from '@aztec/key-store';
+import { type AcirSimulator } from '@aztec/simulator';
 
-import { Database, NoteSpendingInfoDao } from '../database/index.js';
+import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { type PxeDatabase } from '../database/index.js';
+import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { produceNoteDaos } from './utils/produce_note_daos.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
  */
 interface ProcessedData {
-  /**
-   * Holds L2 block data and associated context.
-   */
-  blockContext: L2BlockContext;
-  /**
-   * A collection of data access objects for note spending info.
-   */
-  noteSpendingInfoDaos: NoteSpendingInfoDao[];
+  /** Holds L2 block. */
+  block: L2Block;
+  /** DAOs of processed incoming notes. */
+  incomingNotes: IncomingNoteDao[];
+  /** DAOs of processed outgoing notes. */
+  outgoingNotes: OutgoingNoteDao[];
 }
 
 /**
@@ -27,22 +37,42 @@ interface ProcessedData {
  * before storing them against their owner.
  */
 export class NoteProcessor {
-  /**
-   * The latest L2 block number that the note processor has synchronized to.
-   */
-  private syncedToBlock = 0;
+  /** Keeps track of processing time since an instance is created. */
+  public readonly timer: Timer = new Timer();
 
-  constructor(
-    /**
-     * The public counterpart to the private key to be used in note decryption.
-     */
-    public readonly publicKey: PublicKey,
+  /** Stats accumulated for this processor. */
+  public readonly stats: NoteProcessorStats = {
+    seen: 0,
+    decryptedIncoming: 0,
+    decryptedOutgoing: 0,
+    deferredIncoming: 0,
+    deferredOutgoing: 0,
+    failed: 0,
+    blocks: 0,
+    txs: 0,
+  };
+
+  private constructor(
+    public readonly account: CompleteAddress,
     private keyStore: KeyStore,
-    private db: Database,
+    private db: PxeDatabase,
     private node: AztecNode,
-    private simulator = getAcirSimulator(db, node, keyStore),
-    private log = createDebugLogger('aztec:aztec_note_processor'),
+    private startingBlock: number,
+    private simulator: AcirSimulator,
+    private log: Logger,
   ) {}
+
+  public static create(
+    account: CompleteAddress,
+    keyStore: KeyStore,
+    db: PxeDatabase,
+    node: AztecNode,
+    startingBlock: number = INITIAL_L2_BLOCK_NUM,
+    simulator = getAcirSimulator(db, node, keyStore),
+    log = createDebugLogger('aztec:note_processor'),
+  ) {
+    return new NoteProcessor(account, keyStore, db, node, startingBlock, simulator, log);
+  }
 
   /**
    * Check if the NoteProcessor is synchronized with the remote block number.
@@ -53,183 +83,143 @@ export class NoteProcessor {
    */
   public async isSynchronized() {
     const remoteBlockNumber = await this.node.getBlockNumber();
-    return this.syncedToBlock === remoteBlockNumber;
+    return this.getSyncedToBlock() === remoteBlockNumber;
   }
 
   /**
-   * Returns synchronisation status (ie up to which block has been synced ) for this note processor.
+   * Returns synchronization status (ie up to which block has been synced ) for this note processor.
    */
   public get status() {
-    return { syncedToBlock: this.syncedToBlock };
+    return { syncedToBlock: this.getSyncedToBlock() };
+  }
+
+  private getSyncedToBlock(): number {
+    return this.db.getSynchedBlockNumberForAccount(this.account.address) ?? this.startingBlock - 1;
   }
 
   /**
-   * Process the given L2 block contexts and encrypted logs to update the note processor.
-   * It synchronizes the user's account by decrypting the encrypted logs and processing
-   * the transactions and auxiliary data associated with them.
-   * Throws an error if the number of block contexts and encrypted logs do not match.
+   * Extracts new user-relevant notes from the information contained in the provided L2 blocks and encrypted logs.
    *
-   * @param l2BlockContexts - An array of L2 block contexts to be processed.
-   * @param encryptedL2BlockLogs - An array of encrypted logs associated with the L2 block contexts.
+   * @param blocks - L2 blocks to be processed.
    * @returns A promise that resolves once the processing is completed.
    */
-  public async process(l2BlockContexts: L2BlockContext[], encryptedL2BlockLogs: L2BlockL2Logs[]): Promise<void> {
-    if (l2BlockContexts.length !== encryptedL2BlockLogs.length) {
-      throw new Error(
-        `Number of blocks and EncryptedLogs is not equal. Received ${l2BlockContexts.length} blocks, ${encryptedL2BlockLogs.length} encrypted logs.`,
-      );
-    }
-    if (!l2BlockContexts.length) {
+  public async process(blocks: L2Block[]): Promise<void> {
+    if (blocks.length === 0) {
       return;
     }
 
-    const blocksAndNoteSpendingInfo: ProcessedData[] = [];
-    const curve = await Grumpkin.new();
+    const blocksAndNotes: ProcessedData[] = [];
+    // Keep track of notes that we couldn't process because the contract was not found.
+    const deferredIncomingNotes: DeferredNoteDao[] = [];
+    const deferredOutgoingNotes: DeferredNoteDao[] = [];
+
+    const ivskM = await this.keyStore.getMasterSecretKey(this.account.publicKeys.masterIncomingViewingPublicKey);
+    const addressSecret = computeAddressSecret(this.account.getPreaddress(), ivskM);
+
+    const ovskM = await this.keyStore.getMasterSecretKey(this.account.publicKeys.masterOutgoingViewingPublicKey);
 
     // Iterate over both blocks and encrypted logs.
-    for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
-      const { txLogs } = encryptedL2BlockLogs[blockIndex];
-      const block = l2BlockContexts[blockIndex].block;
-      const dataStartIndexForBlock = block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex;
+    for (const block of blocks) {
+      this.stats.blocks++;
+      const { txLogs: encryptedTxLogs } = block.body.noteEncryptedLogs;
+      const { txLogs: unencryptedTxLogs } = block.body.unencryptedLogs;
+
+      const dataStartIndexForBlock =
+        block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+        block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
-      const noteSpendingInfoDaos: NoteSpendingInfoDao[] = [];
-      const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
+      const incomingNotes: IncomingNoteDao[] = [];
+      const outgoingNotes: OutgoingNoteDao[] = [];
 
-      // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
-      for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
-        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
-        const newCommitments = block.newCommitments.slice(
-          indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
-          (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
-        );
-        const newNullifiers = block.newNullifiers.slice(
-          indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
-          (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
-        );
+      // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
+      for (let indexOfTxInABlock = 0; indexOfTxInABlock < encryptedTxLogs.length; ++indexOfTxInABlock) {
+        this.stats.txs++;
+        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
+        const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
-        const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
+        const encryptedTxFunctionLogs = encryptedTxLogs[indexOfTxInABlock].functionLogs;
+        const unencryptedTxFunctionLogs = unencryptedTxLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
-        for (const functionLogs of txFunctionLogs) {
-          for (const logs of functionLogs.logs) {
-            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
-            if (noteSpendingInfo) {
-              // We have successfully decrypted the data.
-              try {
-                const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
-                  newCommitments,
-                  newNullifiers[0],
-                  noteSpendingInfo,
-                  excludedIndices,
-                );
-                const index = BigInt(dataStartIndexForTx + commitmentIndex);
-                excludedIndices.add(commitmentIndex);
-                noteSpendingInfoDaos.push({
-                  ...noteSpendingInfo,
-                  nonce,
-                  innerNoteHash,
-                  siloedNullifier,
-                  index,
-                  publicKey: this.publicKey,
-                });
-              } catch (e) {
-                this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+
+        // We iterate over both encrypted and unencrypted logs to decrypt the notes since partial notes are passed
+        // via the unencrypted logs stream.
+        for (const txFunctionLogs of [encryptedTxFunctionLogs, unencryptedTxFunctionLogs]) {
+          for (const functionLogs of txFunctionLogs) {
+            for (const unprocessedLog of functionLogs.logs) {
+              this.stats.seen++;
+              const incomingNotePayload = L1NotePayload.decryptAsIncoming(unprocessedLog.data, addressSecret);
+              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(unprocessedLog.data, ovskM);
+
+              if (incomingNotePayload || outgoingNotePayload) {
+                if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
+                  throw new Error(
+                    `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+                      incomingNotePayload,
+                    )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
+                  );
+                }
+
+                const payload = incomingNotePayload || outgoingNotePayload;
+
+                const txEffect = block.body.txEffects[indexOfTxInABlock];
+                const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } =
+                  await produceNoteDaos(
+                    this.simulator,
+                    this.db,
+                    incomingNotePayload ? computePoint(this.account.address) : undefined,
+                    outgoingNotePayload ? this.account.publicKeys.masterOutgoingViewingPublicKey : undefined,
+                    payload!,
+                    txEffect.txHash,
+                    noteHashes,
+                    dataStartIndexForTx,
+                    excludedIndices,
+                    this.log,
+                    txEffect.unencryptedLogs,
+                  );
+
+                if (incomingNote) {
+                  incomingNotes.push(incomingNote);
+                  this.stats.decryptedIncoming++;
+                }
+                if (outgoingNote) {
+                  outgoingNotes.push(outgoingNote);
+                  this.stats.decryptedOutgoing++;
+                }
+                if (incomingDeferredNote) {
+                  deferredIncomingNotes.push(incomingDeferredNote);
+                  this.stats.deferredIncoming++;
+                }
+                if (outgoingDeferredNote) {
+                  deferredOutgoingNotes.push(outgoingDeferredNote);
+                  this.stats.deferredOutgoing++;
+                }
+
+                if (incomingNote == undefined && outgoingNote == undefined && incomingDeferredNote == undefined) {
+                  this.stats.failed++;
+                }
               }
             }
           }
         }
       }
 
-      blocksAndNoteSpendingInfo.push({
-        blockContext: l2BlockContexts[blockIndex],
-        noteSpendingInfoDaos,
+      blocksAndNotes.push({
+        block,
+        incomingNotes,
+        outgoingNotes,
       });
     }
 
-    await this.processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo);
+    await this.processBlocksAndNotes(blocksAndNotes);
+    await this.processDeferredNotes(deferredIncomingNotes, deferredOutgoingNotes);
 
-    this.syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
-    this.log(`Synched block ${this.syncedToBlock}`);
-  }
+    const syncedToBlock = blocks[blocks.length - 1].number;
+    await this.db.setSynchedBlockNumberForAccount(this.account.address, syncedToBlock);
 
-  /**
-   * Find the index of the note in the private data tree by computing the note hash with different nonce and see which
-   * commitment for the current tx matches this value.
-   * Compute the nullifier for a given transaction auxiliary data.
-   * The nullifier is calculated using the private key of the account,
-   * contract address, and note preimage associated with the noteSpendingInfo.
-   * This method assists in identifying spent commitments in the private state.
-   * @param commitments - Commitments in the tx. One of them should be the note's commitment.
-   * @param firstNullifier - First nullifier in the tx.
-   * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
-   * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
-   * NoteSpendingInfo. We need to find a different index for each replicate.
-   * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
-   * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
-   */
-  private async findNoteIndexAndNullifier(
-    commitments: Fr[],
-    firstNullifier: Fr,
-    { contractAddress, storageSlot, notePreimage }: NoteSpendingInfo,
-    excludedIndices: Set<number>,
-  ) {
-    const wasm = await CircuitsWasm.get();
-    let commitmentIndex = 0;
-    let nonce: Fr | undefined;
-    let innerNoteHash: Fr | undefined;
-    let siloedNoteHash: Fr | undefined;
-    let uniqueSiloedNoteHash: Fr | undefined;
-    let innerNullifier: Fr | undefined;
-    for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-      if (excludedIndices.has(commitmentIndex)) continue;
-
-      const commitment = commitments[commitmentIndex];
-      if (commitment.equals(Fr.ZERO)) break;
-
-      const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
-      ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(
-          contractAddress,
-          expectedNonce,
-          storageSlot,
-          notePreimage.items,
-        ));
-      if (commitment.equals(uniqueSiloedNoteHash)) {
-        nonce = expectedNonce;
-        break;
-      }
-    }
-
-    if (!nonce) {
-      let errorString;
-      if (siloedNoteHash == undefined) {
-        errorString = 'Cannot find a matching commitment for the note.';
-      } else {
-        errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
-This might be because the note was nullified in the same tx which created it.
-In that case, everything is fine. To check whether this is the case, look back through
-the logs for a notification
-'important: chopped commitment for siloed inner hash note
-${siloedNoteHash.toString()}'.
-If you can see that notification. Everything's fine.
-If that's not the case, and you can't find such a notification, something has gone wrong.
-There could be a problem with the way you've defined a custom note, or with the way you're
-serialising / deserialising / hashing / encrypting / decrypting that note.
-Please see the following github issue to track an improvement that we're working on:
-https://github.com/AztecProtocol/aztec-packages/issues/1641`;
-      }
-
-      throw new Error(errorString);
-    }
-
-    return {
-      commitmentIndex,
-      nonce,
-      innerNoteHash: innerNoteHash!,
-      siloedNullifier: siloNullifier(wasm, contractAddress, innerNullifier!),
-    };
+    this.log.debug(`Synched block ${syncedToBlock}`);
   }
 
   /**
@@ -239,29 +229,125 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
    * transaction auxiliary data from the database. This function keeps track of new nullifiers
    * and ensures all other transactions are updated with newly settled block information.
    *
-   * @param blocksAndNoteSpendingInfo - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and NoteSpendingInfoDaos.
+   * @param blocksAndNotes - Array of objects containing L2 blocks, user-pertaining transaction indices, and NoteDaos.
    */
-  private async processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo: ProcessedData[]) {
-    const noteSpendingInfoDaosBatch = blocksAndNoteSpendingInfo.flatMap(b => b.noteSpendingInfoDaos);
-    if (noteSpendingInfoDaosBatch.length) {
-      await this.db.addNoteSpendingInfoBatch(noteSpendingInfoDaosBatch);
-      noteSpendingInfoDaosBatch.forEach(noteSpendingInfo => {
-        this.log(
-          `Added note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
-            noteSpendingInfo.storageSlot
-          } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
+  private async processBlocksAndNotes(blocksAndNotes: ProcessedData[]) {
+    const incomingNotes = blocksAndNotes.flatMap(b => b.incomingNotes);
+    const outgoingNotes = blocksAndNotes.flatMap(b => b.outgoingNotes);
+    if (incomingNotes.length || outgoingNotes.length) {
+      await this.db.addNotes(incomingNotes, outgoingNotes, this.account.address);
+      incomingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Added incoming note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } with nullifier ${noteDao.siloedNullifier.toString()}`,
         );
+      });
+      outgoingNotes.forEach(noteDao => {
+        this.log.verbose(`Added outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`);
       });
     }
 
-    const newNullifiers: Fr[] = blocksAndNoteSpendingInfo.flatMap(b => b.blockContext.block.newNullifiers);
-    const removedNoteSpendingInfo = await this.db.removeNullifiedNoteSpendingInfo(newNullifiers, this.publicKey);
-    removedNoteSpendingInfo.forEach(noteSpendingInfo => {
-      this.log(
-        `Removed note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
-          noteSpendingInfo.storageSlot
-        } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
+    const nullifiers: Fr[] = blocksAndNotes.flatMap(b =>
+      b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
+    );
+    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, computePoint(this.account.address));
+    removedNotes.forEach(noteDao => {
+      this.log.verbose(
+        `Removed note for contract ${noteDao.contractAddress} at slot ${
+          noteDao.storageSlot
+        } with nullifier ${noteDao.siloedNullifier.toString()}`,
       );
     });
+  }
+
+  /**
+   * Store the given deferred notes in the database for later decoding.
+   *
+   * @param deferredIncomingNotes - incoming notes that are intended for us but we couldn't process because the contract was not found.
+   * @param deferredOutgoingNotes - outgoing notes that we couldn't process because the contract was not found.
+   */
+  private async processDeferredNotes(
+    deferredIncomingNotes: DeferredNoteDao[],
+    deferredOutgoingNotes: DeferredNoteDao[],
+  ) {
+    if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
+      await this.db.addDeferredNotes([...deferredIncomingNotes, ...deferredOutgoingNotes]);
+      deferredIncomingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Deferred incoming note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+      deferredOutgoingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Deferred outgoing note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+    }
+  }
+
+  /**
+   * Retry decoding the given deferred notes because we now have the contract code.
+   *
+   * @param deferredNoteDaos - notes that we have previously deferred because the contract was not found
+   * @returns An object containing arrays of incoming and outgoing notes that were successfully decoded.
+   *
+   * @remarks Caller is responsible for making sure that we have the contract for the
+   * deferred notes provided: we will not retry notes that fail again.
+   */
+  public async decodeDeferredNotes(deferredNoteDaos: DeferredNoteDao[]): Promise<{
+    incomingNotes: IncomingNoteDao[];
+    outgoingNotes: OutgoingNoteDao[];
+  }> {
+    const excludedIndices: Set<number> = new Set();
+    const incomingNotes: IncomingNoteDao[] = [];
+    const outgoingNotes: OutgoingNoteDao[] = [];
+
+    for (const deferredNote of deferredNoteDaos) {
+      const { publicKey, payload, txHash, noteHashes, dataStartIndexForTx, unencryptedLogs } = deferredNote;
+
+      const isIncoming = publicKey.equals(computePoint(this.account.address));
+      const isOutgoing = publicKey.equals(this.account.publicKeys.masterOutgoingViewingPublicKey);
+
+      if (!isIncoming && !isOutgoing) {
+        // The note does not belong to this note processor
+        continue;
+      }
+
+      const { incomingNote, outgoingNote } = await produceNoteDaos(
+        this.simulator,
+        this.db,
+        isIncoming ? computePoint(this.account.address) : undefined,
+        isOutgoing ? this.account.publicKeys.masterOutgoingViewingPublicKey : undefined,
+        payload,
+        txHash,
+        noteHashes,
+        dataStartIndexForTx,
+        excludedIndices,
+        this.log,
+        unencryptedLogs,
+      );
+
+      if (isIncoming) {
+        if (!incomingNote) {
+          throw new Error('Deferred incoming note could not be decoded');
+        }
+        incomingNotes.push(incomingNote);
+        this.stats.decryptedIncoming++;
+      }
+      if (outgoingNote) {
+        if (!outgoingNote) {
+          throw new Error('Deferred outgoing note could not be decoded');
+        }
+        outgoingNotes.push(outgoingNote);
+        this.stats.decryptedOutgoing++;
+      }
+    }
+
+    return { incomingNotes, outgoingNotes };
   }
 }

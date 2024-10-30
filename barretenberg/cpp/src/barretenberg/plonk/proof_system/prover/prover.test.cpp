@@ -65,8 +65,8 @@ sigma_2 = [21, 3, 2, 22, 17, 20, 34, 7, 38, 26, 27, 28, 29, 30, 31, 32]
 sigma_3 = [39, 23, 4, 40, 41, 25, 33, 36, 37, 42, 43, 44, 45, 46, 47, 48]
 ```
 */
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
+using namespace bb::plonk;
 
 namespace prover_helpers {
 
@@ -113,8 +113,7 @@ plonk::Prover generate_test_data(const size_t n)
 
     // even indices = mul gates, odd incides = add gates
 
-    auto reference_string =
-        std::make_shared<barretenberg::srs::factories::FileProverCrs<curve::BN254>>(n + 1, "../srs_db/ignition");
+    auto reference_string = std::make_shared<srs::factories::FileProverCrs<curve::BN254>>(n + 1, "../srs_db/ignition");
     std::shared_ptr<proving_key> key = std::make_shared<proving_key>(n, 0, reference_string, CircuitType::STANDARD);
 
     polynomial w_l(n);

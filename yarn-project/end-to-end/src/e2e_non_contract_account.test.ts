@@ -1,63 +1,74 @@
-import { AztecAddress, SignerlessWallet, Wallet } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { PokeableTokenContract } from '@aztec/noir-contracts/types';
-import { AztecNode, CompleteAddress, PXE, TxStatus } from '@aztec/types';
+import { type DebugLogger, ExtendedNote, Fr, Note, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_non_contract_account', () => {
-  let aztecNode: AztecNode | undefined;
   let pxe: PXE;
-  let wallet: Wallet;
-  let sender: AztecAddress;
-  let recipient: AztecAddress;
-  let pokerWallet: Wallet;
+  let nonContractAccountWallet: Wallet;
   let teardown: () => Promise<void>;
 
   let logger: DebugLogger;
 
-  let contract: PokeableTokenContract;
-
-  const initialBalance = 987n;
+  let contract: TestContract;
+  let wallet: Wallet;
 
   beforeEach(async () => {
-    let accounts: CompleteAddress[];
-    ({ teardown, aztecNode, pxe, accounts, wallet, logger } = await setup(2));
-    sender = accounts[0].address;
-    recipient = accounts[1].address;
-    pokerWallet = new SignerlessWallet(pxe);
+    ({ teardown, pxe, wallet, logger } = await setup(1));
+    nonContractAccountWallet = new SignerlessWallet(pxe);
 
-    logger(`Deploying L2 contract...`);
-    const tx = PokeableTokenContract.deploy(pxe, initialBalance, sender, recipient).send();
-    await tx.isMined({ interval: 0.1 });
-    const receipt = await tx.getReceipt();
-    expect(receipt.status).toEqual(TxStatus.MINED);
-    logger('L2 contract deployed');
-    contract = await PokeableTokenContract.at(receipt.contractAddress!, wallet);
-  }, 100_000);
+    logger.debug(`Deploying L2 contract...`);
+    contract = await TestContract.deploy(wallet).send().deployed();
+    logger.info(`L2 contract deployed at ${contract.address}`);
+  });
 
   afterEach(() => teardown());
 
-  const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const balance = await contract.methods.getBalance(owner).view({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
-    expect(balance).toBe(expectedBalance);
-  };
-
   it('Arbitrary non-contract account can call a private function on a contract', async () => {
-    await expectBalance(sender, initialBalance);
-    await expectBalance(recipient, 0n);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
+    const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
 
-    const contractWithNoContractWallet = await PokeableTokenContract.at(contract.address, pokerWallet);
+    // Send transaction as arbitrary non-contract account
+    const nullifier = new Fr(940);
+    const { debugInfo } = await contractWithNoContractWallet.methods
+      .emit_nullifier(nullifier)
+      .send()
+      .wait({ interval: 0.1, debug: true });
 
-    // Send transaction as poker (arbitrary non-contract account)
-    await contractWithNoContractWallet.methods.poke(sender, recipient).send().wait({ interval: 0.1 });
+    const expectedSiloedNullifier = siloNullifier(contract.address, nullifier);
+    const siloedNullifier = debugInfo!.nullifiers[1];
 
-    // Initial balance should be fully transferred to the recipient
-    await expectBalance(sender, 0n);
-    await expectBalance(recipient, initialBalance);
+    expect(siloedNullifier.equals(expectedSiloedNullifier)).toBeTruthy();
+  });
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-  }, 120_000);
+  // Note: This test doesn't really belong here as it doesn't have anything to do with non-contract accounts. I needed
+  // to test the TestNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
+  // seems wasteful. Move this test if a better place is found.
+  it('can set and get a constant', async () => {
+    const value = 123n;
+
+    const { txHash, debugInfo } = await contract.methods
+      .set_constant(value)
+      .send()
+      .wait({ interval: 0.1, debug: true });
+
+    // check that 1 note hash was created
+    expect(debugInfo!.noteHashes.length).toBe(1);
+
+    // Add the note
+    const note = new Note([new Fr(value)]);
+
+    // We have to manually add the note because the note was not broadcasted.
+    const extendedNote = new ExtendedNote(
+      note,
+      wallet.getCompleteAddress().address,
+      contract.address,
+      TestContract.storage.example_constant.slot,
+      TestContract.notes.TestNote.id,
+      txHash,
+    );
+    await wallet.addNote(extendedNote);
+
+    expect(await contract.methods.get_constant().simulate()).toEqual(value);
+  });
 });

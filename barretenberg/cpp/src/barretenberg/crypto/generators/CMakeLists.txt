@@ -1,1 +1,1 @@
-barretenberg_module(crypto_generators ecc)
+barretenberg_module(crypto_generator_data ecc)

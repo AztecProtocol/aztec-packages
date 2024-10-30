@@ -7,8 +7,9 @@
  * We use a special case algorithm to split bn254 scalar multipliers into endomorphism scalars
  *
  **/
-namespace proof_system::plonk {
-namespace stdlib {
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+namespace bb::stdlib::element_default {
 
 /**
  * Perform a multi-scalar multiplication over the BN254 curve
@@ -22,6 +23,7 @@ namespace stdlib {
  **/
 template <class C, class Fq, class Fr, class G>
 template <typename, typename>
+    requires(IsNotMegaBuilder<C>)
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator(
     const std::vector<element>& big_points,
     const std::vector<Fr>& big_scalars,
@@ -54,18 +56,18 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
         auto& big_table = big_table_pair.first;
         auto& endo_table = big_table_pair.second;
         batch_lookup_table small_table(small_points);
-        std::vector<std::vector<bool_t<C>>> big_naf_entries;
-        std::vector<std::vector<bool_t<C>>> endo_naf_entries;
-        std::vector<std::vector<bool_t<C>>> small_naf_entries;
+        std::vector<std::vector<bool_ct>> big_naf_entries;
+        std::vector<std::vector<bool_ct>> endo_naf_entries;
+        std::vector<std::vector<bool_ct>> small_naf_entries;
 
         const auto split_into_endomorphism_scalars = [ctx](const Fr& scalar) {
-            barretenberg::fr k = scalar.get_value();
-            barretenberg::fr k1(0);
-            barretenberg::fr k2(0);
-            barretenberg::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), k1, k2);
+            bb::fr k = scalar.get_value();
+            bb::fr k1(0);
+            bb::fr k2(0);
+            bb::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), k1, k2);
             Fr scalar_k1 = Fr::from_witness(ctx, k1.to_montgomery_form());
             Fr scalar_k2 = Fr::from_witness(ctx, k2.to_montgomery_form());
-            barretenberg::fr beta = barretenberg::fr::cube_root_of_unity();
+            bb::fr beta = bb::fr::cube_root_of_unity();
             scalar.assert_equal(scalar_k1 - scalar_k2 * beta);
             return std::make_pair<Fr, Fr>((Fr)scalar_k1, (Fr)scalar_k2);
         };
@@ -99,9 +101,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
         element accumulator = element::chain_add_end(init_point);
 
         const auto get_point_to_add = [&](size_t naf_index) {
-            std::vector<bool_t<C>> small_nafs;
-            std::vector<bool_t<C>> big_nafs;
-            std::vector<bool_t<C>> endo_nafs;
+            std::vector<bool_ct> small_nafs;
+            std::vector<bool_ct> big_nafs;
+            std::vector<bool_ct> endo_nafs;
             for (size_t i = 0; i < small_points.size(); ++i) {
                 small_nafs.emplace_back(small_naf_entries[i][naf_index]);
             }
@@ -165,8 +167,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
             accumulator = element(out_x, out_y);
         }
 
-        uint256_t beta_val = barretenberg::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(barretenberg::fr(beta_val.slice(0, 136)), barretenberg::fr(beta_val.slice(136, 256)), false);
+        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
+        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
 
         for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
             element skew_point = big_points[i];
@@ -178,16 +180,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
         }
         {
             element skew = accumulator - generator_table[128];
-            Fq out_x = accumulator.x.conditional_select(skew.x, bool_t<C>(generator_wnaf[generator_wnaf.size() - 1]));
-            Fq out_y = accumulator.y.conditional_select(skew.y, bool_t<C>(generator_wnaf[generator_wnaf.size() - 1]));
+            Fq out_x = accumulator.x.conditional_select(skew.x, bool_ct(generator_wnaf[generator_wnaf.size() - 1]));
+            Fq out_y = accumulator.y.conditional_select(skew.y, bool_ct(generator_wnaf[generator_wnaf.size() - 1]));
             accumulator = element(out_x, out_y);
         }
         {
             element skew = accumulator - generator_endo_table[128];
             Fq out_x =
-                accumulator.x.conditional_select(skew.x, bool_t<C>(generator_endo_wnaf[generator_wnaf.size() - 1]));
+                accumulator.x.conditional_select(skew.x, bool_ct(generator_endo_wnaf[generator_wnaf.size() - 1]));
             Fq out_y =
-                accumulator.y.conditional_select(skew.y, bool_t<C>(generator_endo_wnaf[generator_wnaf.size() - 1]));
+                accumulator.y.conditional_select(skew.y, bool_ct(generator_endo_wnaf[generator_wnaf.size() - 1]));
             accumulator = element(out_x, out_y);
         }
 
@@ -204,7 +206,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
 }
 
 /**
- * A batch multiplication method for the BN254 curve. This method is only available if Fr == field_t<barretenberg::fr>
+ * A batch multiplication method for the BN254 curve. This method is only available if Fr == field_t<bb::fr>
  *
  * big_points : group elements we will multiply by full 254-bit scalar multipliers
  * big_scalars : 254-bit scalar multipliers. We want to compute (\sum big_scalars[i] * big_points[i])
@@ -216,6 +218,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
  **/
 template <typename C, class Fq, class Fr, class G>
 template <typename, typename>
+    requires(IsNotMegaBuilder<C>)
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vector<element>& big_points,
                                                                   const std::vector<Fr>& big_scalars,
                                                                   const std::vector<element>& small_points,
@@ -249,18 +252,18 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
      * This ensures ALL our scalar multipliers can now be treated as 128-bit scalars,
      * which halves the number of iterations of our main "double and add" loop!
      */
-    barretenberg::fr lambda = barretenberg::fr::cube_root_of_unity();
-    barretenberg::fq beta = barretenberg::fq::cube_root_of_unity();
+    bb::fr lambda = bb::fr::cube_root_of_unity();
+    bb::fq beta = bb::fq::cube_root_of_unity();
     for (size_t i = 0; i < num_big_points; ++i) {
         Fr scalar = big_scalars[i];
         // Q: is it a problem if wraps? get_value is 512 bits
-        // A: it can't wrap, this method only compiles if the Fr type is a field_t<barretenberg::fr> type
+        // A: it can't wrap, this method only compiles if the Fr type is a field_t<bb::fr> type
 
         // Split k into short scalars (scalar_k1, scalar_k2) using bn254 endomorphism.
-        barretenberg::fr k = uint256_t(scalar.get_value());
-        barretenberg::fr k1(0);
-        barretenberg::fr k2(0);
-        barretenberg::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), k1, k2);
+        bb::fr k = uint256_t(scalar.get_value());
+        bb::fr k1(0);
+        bb::fr k2(0);
+        bb::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), k1, k2);
         Fr scalar_k1 = Fr::from_witness(ctx, k1.to_montgomery_form());
         Fr scalar_k2 = Fr::from_witness(ctx, k2.to_montgomery_form());
 
@@ -308,10 +311,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     /**
      * Compute scalar multiplier NAFs
      *
-     * A Non Adjacent Form is a representation of an integer where each 'bit' is either +1 OR -1, i.e. each bit entry is
-     *non-zero. This is VERY useful for biggroup operations, as this removes the need to conditionally add points
-     *depending on whether the scalar mul bit is +1 or 0 (instead we multiply the y-coordinate by the NAF value, which
-     *is cheaper)
+     * A Non Adjacent Form is a representation of an integer where each 'bit' is either +1 OR -1, i.e. each bit
+     *entry is non-zero. This is VERY useful for biggroup operations, as this removes the need to conditionally add
+     *points depending on whether the scalar mul bit is +1 or 0 (instead we multiply the y-coordinate by the NAF
+     *value, which is cheaper)
      *
      * The vector `naf_entries` tracks the `naf` set for each point, where each `naf` set is a vector of bools
      * if `naf[i][j] = 0` this represents a NAF value of -1
@@ -319,20 +322,21 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
      **/
     const size_t num_rounds = max_num_small_bits;
     const size_t num_points = points.size();
-    std::vector<std::vector<bool_t<C>>> naf_entries;
+    std::vector<std::vector<bool_ct>> naf_entries;
     for (size_t i = 0; i < num_points; ++i) {
         naf_entries.emplace_back(compute_naf(scalars[i], max_num_small_bits));
     }
 
     /**
-     * Initialize accumulator point with an offset generator. See `compute_offset_generators` for detailed explanation
+     * Initialize accumulator point with an offset generator. See `compute_offset_generators` for detailed
+     *explanation
      **/
     const auto offset_generators = compute_offset_generators(num_rounds);
 
     /**
      * Get the initial entry of our point table. This is the same as point_table.get_accumulator for the most
-     *significant NAF entry. HOWEVER, we know the most significant NAF value is +1 because our scalar muls are positive.
-     * `get_initial_entry` handles this special case as it's cheaper than `point_table.get_accumulator`
+     *significant NAF entry. HOWEVER, we know the most significant NAF value is +1 because our scalar muls are
+     *positive. `get_initial_entry` handles this special case as it's cheaper than `point_table.get_accumulator`
      **/
     element accumulator = offset_generators.first + point_table.get_initial_entry();
 
@@ -353,7 +357,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
      **/
     for (size_t i = 1; i < num_rounds / 2; ++i) {
         // `nafs` tracks the naf value for each point for the current round
-        std::vector<bool_t<C>> nafs;
+        std::vector<bool_ct> nafs;
         for (size_t j = 0; j < points.size(); ++j) {
             nafs.emplace_back(naf_entries[j][i * 2 - 1]);
         }
@@ -382,7 +386,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
 
     // we need to iterate 1 more time if the number of rounds is even
     if ((num_rounds & 0x01ULL) == 0x00ULL) {
-        std::vector<bool_t<C>> nafs;
+        std::vector<bool_ct> nafs;
         for (size_t j = 0; j < points.size(); ++j) {
             nafs.emplace_back(naf_entries[j][num_rounds - 1]);
         }
@@ -421,5 +425,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     // Return our scalar mul output
     return accumulator;
 }
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::element_default

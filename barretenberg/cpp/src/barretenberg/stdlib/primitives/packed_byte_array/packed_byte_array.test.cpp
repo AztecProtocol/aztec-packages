@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
@@ -7,12 +8,10 @@
 
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
-namespace test_stdlib_packed_byte_array {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
@@ -21,7 +20,7 @@ auto& engine = numeric::random::get_debug_engine();
 
 template <class Builder> class PackedByteArrayTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 TYPED_TEST_SUITE(PackedByteArrayTest, CircuitTypes);
 
 TYPED_TEST(PackedByteArrayTest, string_constructor_and_get_value_consistency)
@@ -36,7 +35,7 @@ TYPED_TEST(PackedByteArrayTest, string_constructor_and_get_value_consistency)
 
     EXPECT_EQ(input, output);
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(PackedByteArrayTest, byte_array_constructor_consistency)
@@ -51,7 +50,7 @@ TYPED_TEST(PackedByteArrayTest, byte_array_constructor_consistency)
 
     EXPECT_EQ(input, output);
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(PackedByteArrayTest, byte_array_cast_consistency)
@@ -65,7 +64,7 @@ TYPED_TEST(PackedByteArrayTest, byte_array_cast_consistency)
     std::string output = converted.get_string();
 
     EXPECT_EQ(input, output);
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(PackedByteArrayTest, TestUnverifiedByteSlices)
@@ -94,7 +93,7 @@ TYPED_TEST(PackedByteArrayTest, TestUnverifiedByteSlices)
         EXPECT_EQ(result, uint32s[i]);
     }
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(PackedByteArrayTest, TestAppendUint8)
@@ -144,7 +143,7 @@ TYPED_TEST(PackedByteArrayTest, TestAppendUint8)
         EXPECT_EQ(result, bytes[i]);
     }
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(PackedByteArrayTest, TestAppendUint32)
@@ -193,7 +192,5 @@ TYPED_TEST(PackedByteArrayTest, TestAppendUint32)
         EXPECT_EQ(result, uint32s[i]);
     }
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
-
-} // namespace test_stdlib_packed_byte_array

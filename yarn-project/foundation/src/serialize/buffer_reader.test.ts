@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { randomBytes } from '../crypto/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { BufferReader } from './buffer_reader.js';
-import { serializeBufferArrayToVector } from './free_funcs.js';
+import { serializeArrayOfBufferableToVector, serializeToBuffer } from './serialize.js';
 
 const ARRAY = Array.from(Array(32)).map((_, idx) => (idx % 2 === 0 ? 0 : 1));
 const BUFFER = Buffer.from(ARRAY);
@@ -42,15 +42,28 @@ describe('buffer reader', () => {
     });
   });
 
+  describe('readUInt256', () => {
+    it('should read UInt256 from buffer', () => {
+      // mix in some non-UInt256 values
+      const content = [1, BigInt(Number.MAX_SAFE_INTEGER) + 1n, 2, BigInt(Number.MAX_SAFE_INTEGER) + 42n, 3];
+      const myReader = new BufferReader(serializeToBuffer(content));
+      expect(myReader.readNumber()).toEqual(content[0]);
+      expect(myReader.readUInt256()).toEqual(content[1]);
+      expect(myReader.readNumber()).toEqual(content[2]);
+      expect(myReader.readUInt256()).toEqual(content[3]);
+      expect(myReader.readNumber()).toEqual(content[4]);
+    });
+  });
+
   describe('readFr', () => {
     it('should get Fr from buffer', () => {
-      expect(bufferReader.readFr()).toEqual(Fr.fromBuffer(BUFFER));
+      expect(Fr.fromBuffer(bufferReader)).toEqual(Fr.fromBuffer(BUFFER));
     });
   });
 
   describe('readFq', () => {
     it('should get Fq from buffer', () => {
-      expect(bufferReader.readFq()).toEqual(Fq.fromBuffer(BUFFER));
+      expect(Fq.fromBuffer(bufferReader)).toEqual(Fq.fromBuffer(BUFFER));
     });
   });
 
@@ -64,7 +77,7 @@ describe('buffer reader', () => {
         uintBuf.writeUInt32BE(num, 0);
         return uintBuf;
       });
-      const uintArrVec = serializeBufferArrayToVector(uintBufArr);
+      const uintArrVec = serializeArrayOfBufferableToVector(uintBufArr);
       vectorBufferReader = new BufferReader(uintArrVec);
     });
 
@@ -171,6 +184,74 @@ describe('buffer reader', () => {
   describe('peekBytes', () => {
     it('should return bytes from buffer', () => {
       expect(bufferReader.peekBytes(10)).toEqual(Buffer.from(ARRAY.slice(0, 10)));
+    });
+  });
+
+  describe('error handling', () => {
+    let smallBuffer: Buffer;
+    let smallBufferReader: BufferReader;
+
+    beforeEach(() => {
+      smallBuffer = Buffer.from([1, 2, 3]); // 3-byte buffer
+      smallBufferReader = new BufferReader(smallBuffer);
+    });
+
+    it('should throw error when reading number beyond buffer length', () => {
+      expect(() => smallBufferReader.readNumber()).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading numbers beyond buffer length', () => {
+      expect(() => smallBufferReader.readNumbers(1)).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading UInt16 beyond buffer length', () => {
+      smallBufferReader.readBytes(2);
+      expect(() => smallBufferReader.readUInt16()).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading UInt8 beyond buffer length', () => {
+      smallBufferReader.readBytes(3); // Read all bytes
+      expect(() => smallBufferReader.readUInt8()).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading boolean beyond buffer length', () => {
+      smallBufferReader.readBytes(3); // Read all bytes
+      expect(() => smallBufferReader.readBoolean()).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading bytes beyond buffer length', () => {
+      expect(() => smallBufferReader.readBytes(4)).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading buffer beyond buffer length', () => {
+      // First, read a number (4 bytes) which is already beyond the buffer length
+      expect(() => smallBufferReader.readBuffer()).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when peeking beyond buffer length', () => {
+      expect(() => smallBufferReader.peekBytes(4)).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading vector beyond buffer length', () => {
+      expect(() => smallBufferReader.readVector({ fromBuffer: () => 1 })).toThrow(
+        'Attempted to read beyond buffer length',
+      );
+    });
+
+    it('should throw error when reading array beyond buffer length', () => {
+      expect(() =>
+        smallBufferReader.readArray(4, { fromBuffer: (reader: BufferReader) => reader.readBytes(1) }),
+      ).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading string beyond buffer length', () => {
+      expect(() => smallBufferReader.readString()).toThrow('Attempted to read beyond buffer length');
+    });
+
+    it('should throw error when reading map beyond buffer length', () => {
+      expect(() => smallBufferReader.readMap({ fromBuffer: () => 1 })).toThrow(
+        'Attempted to read beyond buffer length',
+      );
     });
   });
 });

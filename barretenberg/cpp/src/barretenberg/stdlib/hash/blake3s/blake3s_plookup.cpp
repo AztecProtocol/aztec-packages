@@ -1,16 +1,13 @@
 #include "blake3s_plookup.hpp"
 #include "../blake2s/blake_util.hpp"
 
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-
-namespace blake3s_plookup {
+namespace bb::stdlib::blake3s_plookup {
 
 using namespace blake_util;
 
@@ -260,8 +257,6 @@ template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder
     return result;
 }
 
-INSTANTIATE_STDLIB_ULTRA_METHOD(BLAKE3S_PLOOKUP);
-} // namespace blake3s_plookup
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::MegaCircuitBuilder> blake3s(const byte_array<bb::MegaCircuitBuilder>& input);
+} // namespace bb::stdlib::blake3s_plookup

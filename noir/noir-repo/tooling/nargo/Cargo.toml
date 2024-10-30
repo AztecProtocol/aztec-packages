@@ -1,0 +1,40 @@
+[package]
+name = "nargo"
+description = "Noir's package manager"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+acvm.workspace = true
+fm.workspace = true
+noirc_abi.workspace = true
+noirc_driver.workspace = true
+noirc_errors.workspace = true
+noirc_frontend.workspace = true
+noirc_printable_type.workspace = true
+iter-extended.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+rayon.workspace = true
+jsonrpc.workspace = true
+rand.workspace = true
+serde.workspace = true
+walkdir = "2.5.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+noir_fuzzer.workspace = true
+proptest.workspace = true
+
+[dev-dependencies]
+jsonrpc-http-server = "18.0"
+jsonrpc-core-client = "18.0"
+jsonrpc-derive = "18.0"
+jsonrpc-core = "18.0"

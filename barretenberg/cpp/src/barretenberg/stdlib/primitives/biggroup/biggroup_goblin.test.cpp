@@ -2,6 +2,7 @@
 #include <type_traits>
 
 #include "../biggroup/biggroup.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -9,12 +10,11 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <memory>
 
-namespace test_stdlib_biggroup_goblin {
-namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
+using namespace bb;
 
-using namespace proof_system::plonk;
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
 
 template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
     using element_ct = typename Curve::Element;
@@ -29,8 +29,8 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
     using Builder = typename Curve::Builder;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("builder gates = ", builder.get_num_gates());
-        EXPECT_EQ(builder.check_circuit(), expected_result);
+        info("builder gates = ", builder.get_estimated_num_finalized_gates());
+        EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
   public:
@@ -77,7 +77,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
     }
 };
 
-using TestTypes = testing::Types<stdlib::bn254<proof_system::GoblinUltraCircuitBuilder>>;
+using TestTypes = testing::Types<stdlib::bn254<bb::MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup_goblin, TestTypes);
 
@@ -85,4 +85,3 @@ HEAVY_TYPED_TEST(stdlib_biggroup_goblin, batch_mul)
 {
     TestFixture::test_goblin_style_batch_mul();
 }
-} // namespace test_stdlib_biggroup_goblin

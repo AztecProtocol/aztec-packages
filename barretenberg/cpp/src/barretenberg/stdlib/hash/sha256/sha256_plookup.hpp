@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include <array>
 
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
@@ -9,9 +9,7 @@
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace sha256_plookup {
+namespace bb::stdlib::sha256_plookup {
 
 template <typename Builder> struct sparse_ch_value {
     field_t<Builder> normal;
@@ -55,9 +53,8 @@ template <typename Builder> struct sparse_value {
     {
         normal = in;
         if (normal.witness_index == IS_CONSTANT) {
-            sparse = field_t<Builder>(
-                in.get_context(),
-                barretenberg::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
+            sparse = field_t<Builder>(in.get_context(),
+                                      bb::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
         }
     }
 
@@ -86,6 +83,4 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
                                              const std::array<field_t<Builder>, 16>& input);
 
 template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_array<Builder>& input);
-} // namespace sha256_plookup
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::sha256_plookup

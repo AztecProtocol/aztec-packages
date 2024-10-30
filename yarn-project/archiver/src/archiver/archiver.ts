@@ -1,64 +1,97 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import {
+  type EncryptedL2NoteLog,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type InboxLeaf,
+  type L1ToL2MessageSource,
+  type L2Block,
+  type L2BlockId,
+  type L2BlockL2Logs,
+  type L2BlockSource,
+  type L2LogsSource,
+  type L2Tips,
+  type LogFilter,
+  type LogType,
+  type TxEffect,
+  type TxHash,
+  type TxReceipt,
+  type UnencryptedL2Log,
+} from '@aztec/circuit-types';
+import {
+  type ContractClassPublic,
+  ContractClassRegisteredEvent,
+  type ContractDataSource,
+  ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type FunctionSelector,
+  type Header,
+  PrivateFunctionBroadcastedEvent,
+  type PublicFunction,
+  UnconstrainedFunctionBroadcastedEvent,
+  type UnconstrainedFunctionWithMembershipProof,
+  isValidPrivateFunctionMembershipProof,
+  isValidUnconstrainedFunctionMembershipProof,
+} from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import {
-  ContractData,
-  ContractDataSource,
-  EncodedContractFunction,
-  ExtendedContractData,
-  INITIAL_L2_BLOCK_NUM,
-  L1ToL2Message,
-  L1ToL2MessageSource,
-  L2Block,
-  L2BlockL2Logs,
-  L2BlockSource,
-  L2LogsSource,
-  L2Tx,
-  LogType,
-  TxHash,
-} from '@aztec/types';
+import { Timer } from '@aztec/foundation/timer';
+import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import omit from 'lodash.omit';
-import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
-
-import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
-import { ArchiverConfig } from './config.js';
+import groupBy from 'lodash.groupby';
 import {
-  retrieveBlocks,
-  retrieveNewCancelledL1ToL2Messages,
-  retrieveNewContractData,
-  retrieveNewPendingL1ToL2Messages,
-} from './data_retrieval.js';
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  createPublicClient,
+  getContract,
+  http,
+} from 'viem';
+
+import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
+import { type ArchiverConfig } from './config.js';
+import { retrieveBlockFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
+import {
+  getEpochNumberAtTimestamp,
+  getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampRangeForEpoch,
+} from './epoch_helpers.js';
+import { ArchiverInstrumentation } from './instrumentation.js';
+import { type DataRetrieval } from './structs/data_retrieval.js';
+import { type L1Published } from './structs/published.js';
+
+/**
+ * Helper interface to combine all sources this archiver implementation provides.
+ */
+export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource {
+export class Archiver implements ArchiveSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
   private runningPromise?: RunningPromise;
 
-  /**
-   * Next L1 block number to fetch `L2BlockProcessed` logs from (i.e. `fromBlock` in eth_getLogs).
-   */
-  private nextL2BlockFromBlock = 0n;
+  private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  private inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
 
-  /**
-   * Last Processed Block Number
-   */
-  private lastProcessedBlockNumber = 0n;
+  private store: ArchiverStoreHelper;
 
-  /**
-   * Use this to track logged block in order to avoid repeating the same message.
-   */
-  private lastLoggedBlockNumber = 0n;
+  public l1BlockNumber: bigint | undefined;
+  public l1Timestamp: bigint | undefined;
 
   /**
    * Creates a new instance of the Archiver.
@@ -66,8 +99,6 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
-   * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
-   * @param searchStartBlock - The L1 block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
    * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param log - A logger.
@@ -75,41 +106,69 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   constructor(
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
-    private readonly inboxAddress: EthAddress,
+    readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
-    private readonly contractDeploymentEmitterAddress: EthAddress,
-    searchStartBlock: number,
-    private readonly store: ArchiverDataStore,
-    private readonly pollingIntervalMs = 10_000,
+    readonly dataStore: ArchiverDataStore,
+    private readonly pollingIntervalMs: number,
+    private readonly instrumentation: ArchiverInstrumentation,
+    private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {
-    this.nextL2BlockFromBlock = BigInt(searchStartBlock);
-    this.lastProcessedBlockNumber = BigInt(searchStartBlock);
+    this.store = new ArchiverStoreHelper(dataStore);
+
+    this.rollup = getContract({
+      address: rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    this.inbox = getContract({
+      address: inboxAddress.toString(),
+      abi: InboxAbi,
+      client: publicClient,
+    });
   }
 
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
    * @param config - The archiver's desired configuration.
+   * @param archiverStore - The backing store for the archiver.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    * @returns - An instance of the archiver.
    */
-  public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
-    const chain = createEthereumChain(config.rpcUrl, config.apiKey);
+  public static async createAndSync(
+    config: ArchiverConfig,
+    archiverStore: ArchiverDataStore,
+    telemetry: TelemetryClient,
+    blockUntilSynced = true,
+  ): Promise<Archiver> {
+    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
       pollingInterval: config.viemPollingIntervalMS,
     });
-    const archiverStore = new MemoryArchiverStore();
+
+    const rollup = getContract({
+      address: config.l1Contracts.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    const [l1StartBlock, l1GenesisTime] = await Promise.all([
+      rollup.read.L1_BLOCK_AT_GENESIS(),
+      rollup.read.GENESIS_TIME(),
+    ] as const);
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
-      config.l1Contracts.contractDeploymentEmitterAddress,
-      config.searchStartBlock,
       archiverStore,
-      config.archiverPollingIntervalMS,
+      config.archiverPollingIntervalMS ?? 10_000,
+      new ArchiverInstrumentation(telemetry),
+      { l1StartBlock, l1GenesisTime },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -125,28 +184,45 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     }
 
     if (blockUntilSynced) {
-      this.log(`Performing initial chain sync...`);
+      this.log.info(`Performing initial chain sync to rollup contract ${this.rollupAddress.toString()}`);
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.safeSync(), this.pollingIntervalMs);
     this.runningPromise.start();
   }
 
   /**
-   * Fetches `L2BlockProcessed` and `ContractDeployment` logs from `nextL2BlockFromBlock` and processes them.
+   * Syncs and catches exceptions.
+   */
+  private async safeSync() {
+    try {
+      await this.sync(false);
+    } catch (error) {
+      this.log.error('Error syncing archiver', error);
+    }
+  }
+
+  /**
+   * Fetches logs from L1 contracts and processes them.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
   private async sync(blockUntilSynced: boolean) {
-    const currentBlockNumber = await this.publicClient.getBlockNumber();
-    if (currentBlockNumber <= this.lastProcessedBlockNumber) {
-      // reducing logs, otherwise this gets triggered on every loop (1s)
-      if (currentBlockNumber !== this.lastLoggedBlockNumber) {
-        this.log(`No new blocks to process, current block number: ${currentBlockNumber}`);
-        this.lastLoggedBlockNumber = currentBlockNumber;
-      }
-      return;
-    }
+    /**
+     * We keep track of three "pointers" to L1 blocks:
+     * 1. the last L1 block that published an L2 block
+     * 2. the last L1 block that added L1 to L2 messages
+     * 3. the last L1 block that cancelled L1 to L2 messages
+     *
+     * We do this to deal with L1 data providers that are eventually consistent (e.g. Infura).
+     * We guard against seeing block X with no data at one point, and later, the provider processes the block and it has data.
+     * The archiver will stay back, until there's data on L1 that will move the pointers forward.
+     *
+     * This code does not handle reorgs.
+     */
+    const { l1StartBlock } = this.l1constants;
+    const { blocksSynchedTo = l1StartBlock, messagesSynchedTo = l1StartBlock } = await this.store.getSynchPoint();
+    const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
     // ********** Ensuring Consistency of data pulled from L1 **********
 
@@ -156,126 +232,226 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
      * to ensure that data is read exactly once.
      *
      * The first is the problem of eventually consistent ETH service providers like Infura.
-     * We are not currently handling this correctly in the case of L1 to L2 messages and we will
-     * want to re-visit L2 Block and contract data retrieval at a later stage. This is not
-     * currently a problem but will need to be addressed before a mainnet release.
+     * Each L1 read operation will query data from the last L1 block that it saw emit its kind of data.
+     * (so pending L1 to L2 messages will read from the last L1 block that emitted a message and so  on)
+     * This will mean the archiver will lag behind L1 and will only advance when there's L2-relevant activity on the chain.
      *
      * The second is that in between the various calls to L1, the block number can move meaning some
      * of the following calls will return data for blocks that were not present during earlier calls.
-     * This is a problem for example when setting the last block number marker for L1 to L2 messages -
-     * this.lastProcessedBlockNumber = currentBlockNumber;
-     * It's possible that we actually received messages in block currentBlockNumber + 1 meaning the next time
-     * we do this sync we get the same message again. Addtionally, the call to get cancelled L1 to L2 messages
-     * could read from a block not present when retrieving pending messages. If a message was added and cancelled
-     * in the same eth block then we could try and cancel a non-existent pending message.
-     *
      * To combat this for the time being we simply ensure that all data retrieval methods only retrieve
      * data up to the currentBlockNumber captured at the top of this function. We might want to improve on this
      * in future but for the time being it should give us the guarantees that we need
-     *
      */
 
-    // ********** Events that are processed in between blocks **********
+    // ********** Events that are processed per L1 block **********
+    await this.handleL1ToL2Messages(blockUntilSynced, messagesSynchedTo, currentL1BlockNumber);
 
-    // Process l1ToL2Messages, these are consumed as time passes, not each block
-    const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
-      blockUntilSynced,
-      this.lastProcessedBlockNumber + 1n, // + 1 to prevent re-including messages from the last processed block
-      currentBlockNumber,
-    );
-    const retrievedCancelledL1ToL2Messages = await retrieveNewCancelledL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
-      blockUntilSynced,
-      this.lastProcessedBlockNumber + 1n,
-      currentBlockNumber,
-    );
+    // ********** Events that are processed per L2 block **********
+    if (currentL1BlockNumber > blocksSynchedTo) {
+      // First we retrieve new L2 blocks
+      const { provenBlockNumber } = await this.handleL2blocks(blockUntilSynced, blocksSynchedTo, currentL1BlockNumber);
+      // And then we prune the current epoch if it'd reorg on next submission.
+      // Note that we don't do this before retrieving L2 blocks because we may need to retrieve
+      // blocks from more than 2 epochs ago, so we want to make sure we have the latest view of
+      // the chain locally before we start unwinding stuff. This can be optimized by figuring out
+      // up to which point we're pruning, and then requesting L2 blocks up to that point only.
+      await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+    }
 
-    // TODO (#717): optimise this - there could be messages in confirmed that are also in pending.
-    // Or messages in pending that are also cancelled in the same block. No need to modify storage for them.
-    // Store l1 to l2 messages
-    this.log('Adding pending l1 to l2 messages to store');
-    await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
-    // remove cancelled messages from the pending message store:
-    this.log('Removing pending l1 to l2 messages from store where messages were cancelled');
-    await this.store.cancelPendingL1ToL2Messages(retrievedCancelledL1ToL2Messages.retrievedData);
+    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
+    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
+      this.l1Timestamp = await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber }).then(b => b.timestamp);
+      this.l1BlockNumber = currentL1BlockNumber;
+    }
+  }
 
-    this.lastProcessedBlockNumber = currentBlockNumber;
+  /** Checks if there'd be a reorg for the next block submission and start pruning now. */
+  private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
+    const localPendingBlockNumber = BigInt(await this.getBlockNumber());
 
-    // ********** Events that are processed per block **********
+    const canPrune =
+      localPendingBlockNumber > provenBlockNumber &&
+      (await this.rollup.read.canPrune({ blockNumber: currentL1BlockNumber }));
 
-    // Read all data from chain and then write to our stores at the end
-    const nextExpectedL2BlockNum = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
-    this.log(
-      `Retrieving chain state from L1 block: ${this.nextL2BlockFromBlock}, next expected l2 block number: ${nextExpectedL2BlockNum}`,
-    );
-    const retrievedBlocks = await retrieveBlocks(
-      this.publicClient,
-      this.rollupAddress,
-      blockUntilSynced,
-      this.nextL2BlockFromBlock,
-      currentBlockNumber,
-      nextExpectedL2BlockNum,
-    );
+    if (canPrune) {
+      this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
+      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
+      this.log.verbose(
+        `Unwinding ${blocksToUnwind} block${blocksToUnwind > 1n ? 's' : ''} from block ${localPendingBlockNumber}`,
+      );
+      await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+      // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
+      // Seems like the next iteration should handle this.
+      // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+    }
+  }
 
-    // create the block number -> block hash mapping to ensure we retrieve the appropriate events
-    const blockHashMapping: { [key: number]: Buffer | undefined } = {};
-    retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockHashMapping[block.number] = block.getCalldataHash();
-    });
-    const retrievedContracts = await retrieveNewContractData(
-      this.publicClient,
-      this.contractDeploymentEmitterAddress,
-      blockUntilSynced,
-      this.nextL2BlockFromBlock,
-      currentBlockNumber,
-      blockHashMapping,
-    );
-    if (retrievedBlocks.retrievedData.length === 0) {
+  private async handleL1ToL2Messages(
+    blockUntilSynced: boolean,
+    messagesSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+  ) {
+    if (currentL1BlockNumber <= messagesSynchedTo) {
       return;
     }
 
-    this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
+    const localTotalMessageCount = await this.store.getTotalL1ToL2MessageCount();
+    const destinationTotalMessageCount = await this.inbox.read.totalMessagesInserted();
 
-    // store encrypted logs from L2 Blocks that we have retrieved
-    const encryptedLogs = retrievedBlocks.retrievedData.map(block => {
-      return block.newEncryptedLogs!;
-    });
-    await this.store.addLogs(encryptedLogs, LogType.ENCRYPTED);
+    if (localTotalMessageCount === destinationTotalMessageCount) {
+      await this.store.setMessageSynchedL1BlockNumber(currentL1BlockNumber);
+      this.log.verbose(
+        `Retrieved no new L1 -> L2 messages between L1 blocks ${messagesSynchedTo + 1n} and ${currentL1BlockNumber}.`,
+      );
+      return;
+    }
 
-    // store unencrypted logs from L2 Blocks that we have retrieved
-    const unencryptedLogs = retrievedBlocks.retrievedData.map(block => {
-      return block.newUnencryptedLogs!;
-    });
-    await this.store.addLogs(unencryptedLogs, LogType.UNENCRYPTED);
-
-    // store contracts for which we have retrieved L2 blocks
-    const lastKnownL2BlockNum = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
-    retrievedContracts.retrievedData.forEach(async ([contracts, l2BlockNum], index) => {
-      this.log(`Retrieved extended contract data for l2 block number: ${index}`);
-      if (l2BlockNum <= lastKnownL2BlockNum) {
-        await this.store.addExtendedContractData(contracts, l2BlockNum);
-      }
-    });
-
-    // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
-    // from each l2block fetch all messageKeys in a flattened array:
-    const messageKeysToRemove = retrievedBlocks.retrievedData.map(l2block => l2block.newL1ToL2Messages).flat();
-    this.log(`Confirming l1 to l2 messages in store`);
-    await this.store.confirmL1ToL2Messages(messageKeysToRemove);
-
-    // store retrieved L2 blocks after removing new logs information.
-    // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addL2Blocks(
-      retrievedBlocks.retrievedData.map(block =>
-        L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getBlockHash()),
-      ),
+    const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
+      this.inbox,
+      blockUntilSynced,
+      messagesSynchedTo + 1n,
+      currentL1BlockNumber,
     );
 
-    // set the L1 block for the next search
-    this.nextL2BlockFromBlock = retrievedBlocks.nextEthBlockNumber;
+    await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
+
+    this.log.verbose(
+      `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 -> L2 messages between L1 blocks ${
+        messagesSynchedTo + 1n
+      } and ${currentL1BlockNumber}.`,
+    );
+  }
+
+  private async handleL2blocks(
+    blockUntilSynced: boolean,
+    blocksSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+  ): Promise<{ provenBlockNumber: bigint }> {
+    const localPendingBlockNumber = BigInt(await this.getBlockNumber());
+    const [
+      provenBlockNumber,
+      provenArchive,
+      pendingBlockNumber,
+      pendingArchive,
+      archiveForLocalPendingBlockNumber,
+      provenEpochNumber,
+    ] = await this.rollup.read.status([localPendingBlockNumber], { blockNumber: currentL1BlockNumber });
+
+    const updateProvenBlock = async () => {
+      const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
+      if (
+        localBlockForDestinationProvenBlockNumber &&
+        provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
+      ) {
+        this.log.verbose(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
+        await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+        // if we are here then we must have a valid proven epoch number
+        await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
+      }
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
+    };
+
+    // This is an edge case that we only hit if there are no proposed blocks.
+    // If we have 0 blocks locally and there are no blocks onchain there is nothing to do.
+    const noBlocks = localPendingBlockNumber === 0n && pendingBlockNumber === 0n;
+    if (noBlocks) {
+      await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+      this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      return { provenBlockNumber };
+    }
+
+    await updateProvenBlock();
+
+    // Related to the L2 reorgs of the pending chain. We are only interested in actually addressing a reorg if there
+    // are any state that could be impacted by it. If we have no blocks, there is no impact.
+    if (localPendingBlockNumber > 0) {
+      const localPendingBlock = await this.getBlock(Number(localPendingBlockNumber));
+      if (localPendingBlock === undefined) {
+        throw new Error(`Missing block ${localPendingBlockNumber}`);
+      }
+
+      const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
+      if (noBlockSinceLast) {
+        await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+        this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+        return { provenBlockNumber };
+      }
+
+      const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingBlock.archive.root.toString();
+      if (!localPendingBlockInChain) {
+        // If our local pending block tip is not in the chain on L1 a "prune" must have happened
+        // or the L1 have reorged.
+        // In any case, we have to figure out how far into the past the action will take us.
+        // For simplicity here, we will simply rewind until we end in a block that is also on the chain on L1.
+        this.log.verbose(`L2 prune have occurred, unwind state`);
+
+        let tipAfterUnwind = localPendingBlockNumber;
+        while (true) {
+          const candidateBlock = await this.getBlock(Number(tipAfterUnwind));
+          if (candidateBlock === undefined) {
+            break;
+          }
+
+          const archiveAtContract = await this.rollup.read.archiveAt([BigInt(candidateBlock.number)]);
+
+          if (archiveAtContract === candidateBlock.archive.root.toString()) {
+            break;
+          }
+          tipAfterUnwind--;
+        }
+
+        const blocksToUnwind = localPendingBlockNumber - tipAfterUnwind;
+        this.log.verbose(
+          `Unwinding ${blocksToUnwind} block${blocksToUnwind > 1n ? 's' : ''} from block ${localPendingBlockNumber}`,
+        );
+
+        await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+      }
+    }
+
+    this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+    const retrievedBlocks = await retrieveBlockFromRollup(
+      this.rollup,
+      this.publicClient,
+      blockUntilSynced,
+      blocksSynchedTo + 1n, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
+      currentL1BlockNumber,
+      this.log,
+    );
+
+    if (retrievedBlocks.length === 0) {
+      // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
+      // See further details in earlier comments.
+      this.log.verbose(`Retrieved no new L2 blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      return { provenBlockNumber };
+    }
+
+    this.log.debug(
+      `Retrieved ${retrievedBlocks.length} new L2 blocks between L1 blocks ${
+        blocksSynchedTo + 1n
+      } and ${currentL1BlockNumber}.`,
+    );
+
+    const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
+
+    this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
+    for (const block of retrievedBlocks) {
+      this.log.debug(`ingesting new L2 block`, block.data.header.globalVariables.toFriendlyJSON());
+    }
+
+    const timer = new Timer();
+    await this.store.addBlocks(retrievedBlocks);
+
+    // Important that we update AFTER inserting the blocks.
+    await updateProvenBlock();
+    this.instrumentation.processNewBlocks(
+      timer.ms() / retrievedBlocks.length,
+      retrievedBlocks.map(b => b.data),
+    );
+    const lastL2BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].data.number;
+    this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
+
+    return { provenBlockNumber };
   }
 
   /**
@@ -283,10 +459,10 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @returns A promise signalling completion of the stop process.
    */
   public async stop(): Promise<void> {
-    this.log('Stopping...');
+    this.log.debug('Stopping...');
     await this.runningPromise?.stop();
 
-    this.log('Stopped.');
+    this.log.info('Stopped.');
     return Promise.resolve();
   }
 
@@ -298,84 +474,143 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     return Promise.resolve(this.registryAddress);
   }
 
+  public getL1BlockNumber(): bigint {
+    const l1BlockNumber = this.l1BlockNumber;
+    if (!l1BlockNumber) {
+      throw new Error('L1 block number not yet available. Complete an initial sync first.');
+    }
+    return l1BlockNumber;
+  }
+
+  public getL1Timestamp(): bigint {
+    const l1Timestamp = this.l1Timestamp;
+    if (!l1Timestamp) {
+      throw new Error('L1 timestamp not yet available. Complete an initial sync first.');
+    }
+    return l1Timestamp;
+  }
+
+  public getL2SlotNumber(): Promise<bigint> {
+    return Promise.resolve(getSlotAtTimestamp(this.getL1Timestamp(), this.l1constants));
+  }
+
+  public getL2EpochNumber(): Promise<bigint> {
+    return Promise.resolve(getEpochNumberAtTimestamp(this.getL1Timestamp(), this.l1constants));
+  }
+
+  public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const blocks: L2Block[] = [];
+
+    // Walk the list of blocks backwards and filter by slots matching the requested epoch.
+    // We'll typically ask for blocks for a very recent epoch, so we shouldn't need an index here.
+    let block = await this.getBlock(await this.store.getSynchedL2BlockNumber());
+    const slot = (b: L2Block) => b.header.globalVariables.slotNumber.toBigInt();
+    while (block && slot(block) >= start) {
+      if (slot(block) <= end) {
+        blocks.push(block);
+      }
+      block = await this.getBlock(block.number - 1);
+    }
+
+    return blocks.reverse();
+  }
+
+  public async isEpochComplete(epochNumber: bigint): Promise<boolean> {
+    // The epoch is complete if the current L2 block is the last one in the epoch (or later)
+    const header = await this.getBlockHeader('latest');
+    const slot = header?.globalVariables.slotNumber.toBigInt();
+    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber);
+    if (slot && slot >= endSlot) {
+      return true;
+    }
+
+    // If not, the epoch may also be complete if the L2 slot has passed without a block
+    // We compute this based on the timestamp for the given epoch and the timestamp of the last L1 block
+    const l1Timestamp = this.getL1Timestamp();
+    const [_startTimestamp, endTimestamp] = getTimestampRangeForEpoch(epochNumber, this.l1constants);
+
+    // For this computation, we throw in a few extra seconds just for good measure,
+    // since we know the next L1 block won't be mined within this range. Remember that
+    // l1timestamp is the timestamp of the last l1 block we've seen, so this 3s rely on
+    // the fact that L1 won't mine two blocks within 3s of each other.
+    // TODO(palla/reorg): Is the above a safe assumption?
+    const leeway = 3n;
+    return l1Timestamp + leeway >= endTimestamp;
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
+   * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
-    return this.store.getL2Blocks(from, limit);
+  public async getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]> {
+    const limitWithProven = proven
+      ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
+      : limit;
+    return limitWithProven === 0 ? [] : (await this.store.getBlocks(from, limitWithProven)).map(b => b.data);
   }
 
   /**
    * Gets an l2 block.
-   * @param number - The block number to return (inclusive).
+   * @param number - The block number to return.
    * @returns The requested L2 block.
    */
-  public async getL2Block(number: number): Promise<L2Block | undefined> {
+  public async getBlock(number: number): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
-      number = this.store.getBlocksLength();
+      number = await this.store.getSynchedL2BlockNumber();
     }
-    const blocks = await this.store.getL2Blocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0];
+    if (number == 0) {
+      return undefined;
+    }
+    const blocks = await this.store.getBlocks(number, 1);
+    return blocks.length === 0 ? undefined : blocks[0].data;
   }
 
-  public getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return this.store.getL2Tx(txHash);
+  public async getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
+    if (number === 'latest') {
+      number = await this.store.getSynchedL2BlockNumber();
+    }
+    try {
+      const headers = await this.store.getBlockHeaders(number, 1);
+      return headers.length === 0 ? undefined : headers[0];
+    } catch (e) {
+      // If the latest is 0, then getBlockHeaders will throw an error
+      this.log.error(`getBlockHeader: error fetching block number: ${number}`);
+      return undefined;
+    }
   }
 
-  /**
-   * Get the extended contract data for this contract.
-   * @param contractAddress - The contract data address.
-   * @returns The extended contract data or undefined if not found.
-   */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return this.store.getExtendedContractData(contractAddress);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.store.getTxEffect(txHash);
   }
 
-  /**
-   * Lookup all contract data in an L2 block.
-   * @param blockNum - The block number to get all contract data from.
-   * @returns All new contract data in the block (if found).
-   */
-  public getExtendedContractDataInBlock(blockNum: number): Promise<ExtendedContractData[]> {
-    return this.store.getExtendedContractDataInBlock(blockNum);
-  }
-
-  /**
-   * Lookup the contract data for this contract.
-   * Contains contract address & the ethereum portal address.
-   * @param contractAddress - The contract data address.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return this.store.getContractData(contractAddress);
-  }
-
-  /**
-   * Lookup the L2 contract data inside a block.
-   * Contains contract address & the ethereum portal address.
-   * @param l2BlockNum - The L2 block number to get the contract data from.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  public getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined> {
-    return this.store.getContractDataInBlock(l2BlockNum);
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    return this.store.getSettledTxReceipt(txHash);
   }
 
   /**
    * Gets the public function data for a contract.
-   * @param contractAddress - The contract address containing the function to fetch.
+   * @param address - The contract address containing the function to fetch.
    * @param selector - The function selector of the function to fetch.
    * @returns The public function data (if found).
    */
   public async getPublicFunction(
-    contractAddress: AztecAddress,
+    address: AztecAddress,
     selector: FunctionSelector,
-  ): Promise<EncodedContractFunction | undefined> {
-    const contractData = await this.getExtendedContractData(contractAddress);
-    return contractData?.getPublicFunction(selector);
+  ): Promise<PublicFunction | undefined> {
+    const instance = await this.getContract(address);
+    if (!instance) {
+      throw new Error(`Contract ${address.toString()} not found`);
+    }
+    const contractClass = await this.getContractClass(instance.contractClassId);
+    if (!contractClass) {
+      throw new Error(`Contract class ${instance.contractClassId.toString()} for ${address.toString()} not found`);
+    }
+    return contractClass.publicFunctions.find(f => f.selector.equals(selector));
   }
 
   /**
@@ -385,8 +620,31 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
+  }
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.store.getLogsByTags(tags);
+  }
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getUnencryptedLogs(filter);
   }
 
   /**
@@ -394,24 +652,344 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
   public getBlockNumber(): Promise<number> {
-    return this.store.getBlockNumber();
+    return this.store.getSynchedL2BlockNumber();
+  }
+
+  public getProvenBlockNumber(): Promise<number> {
+    return this.store.getProvenL2BlockNumber();
+  }
+
+  public getProvenL2EpochNumber(): Promise<number | undefined> {
+    return this.store.getProvenL2EpochNumber();
+  }
+
+  /** Forcefully updates the last proven block number. Use for testing. */
+  public setProvenBlockNumber(blockNumber: number): Promise<void> {
+    return this.store.setProvenL2BlockNumber(blockNumber);
+  }
+
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return this.store.getContractClass(id);
+  }
+
+  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.store.getContractInstance(address);
   }
 
   /**
-   * Gets up to `limit` amount of pending L1 to L2 messages.
-   * @param limit - The number of messages to return.
-   * @returns The requested L1 to L2 messages' keys.
+   * Gets L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getPendingL1ToL2Messages(limit: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2MessageKeys(limit);
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(blockNumber);
   }
 
   /**
-   * Gets the confirmed/consumed L1 to L2 message associated with the given message key
-   * @param messageKey - The message key.
-   * @returns The L1 to L2 message (throws if not found).
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    return this.store.getConfirmedL1ToL2Message(messageKey);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
+  }
+
+  getContractClassIds(): Promise<Fr[]> {
+    return this.store.getContractClassIds();
+  }
+
+  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    return this.store.addContractArtifact(address, artifact);
+  }
+
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return this.store.getContractArtifact(address);
+  }
+
+  async getL2Tips(): Promise<L2Tips> {
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getBlockNumber(),
+      this.getProvenBlockNumber(),
+    ] as const);
+
+    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
+      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+    ] as const);
+
+    if (latestBlockNumber > 0 && !latestBlockHeader) {
+      throw new Error('Failed to retrieve latest block header');
+    }
+
+    if (provenBlockNumber > 0 && !provenBlockHeader) {
+      throw new Error('Failed to retrieve proven block header');
+    }
+
+    return {
+      latest: { number: latestBlockNumber, hash: latestBlockHeader?.hash().toString() } as L2BlockId,
+      proven: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+      finalized: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+    };
   }
 }
+
+enum Operation {
+  Store,
+  Delete,
+}
+
+/**
+ * A helper class that we use to deal with some of the logic needed when adding blocks.
+ *
+ * I would have preferred to not have this type. But it is useful for handling the logic that any
+ * store would need to include otherwise while exposing fewer functions and logic directly to the archiver.
+ */
+class ArchiverStoreHelper
+  implements
+    Omit<
+      ArchiverDataStore,
+      | 'addLogs'
+      | 'deleteLogs'
+      | 'addContractClasses'
+      | 'deleteContractClasses'
+      | 'addContractInstances'
+      | 'deleteContractInstances'
+      | 'addFunctions'
+    >
+{
+  #log = createDebugLogger('aztec:archiver:block-helper');
+
+  constructor(private readonly store: ArchiverDataStore) {}
+
+  /**
+   * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
+   * @param allLogs - All logs emitted in a bunch of blocks.
+   */
+  async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    ).map(e => e.toContractClassPublic());
+    if (contractClasses.length > 0) {
+      contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
+      if (operation == Operation.Store) {
+        return await this.store.addContractClasses(contractClasses, blockNum);
+      } else if (operation == Operation.Delete) {
+        return await this.store.deleteContractClasses(contractClasses, blockNum);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * @param allLogs - All logs emitted in a bunch of blocks.
+   */
+  async #updateDeployedContractInstances(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
+    const contractInstances = ContractInstanceDeployedEvent.fromLogs(allLogs).map(e => e.toContractInstance());
+    if (contractInstances.length > 0) {
+      contractInstances.forEach(c =>
+        this.#log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
+      );
+      if (operation == Operation.Store) {
+        return await this.store.addContractInstances(contractInstances, blockNum);
+      } else if (operation == Operation.Delete) {
+        return await this.store.deleteContractInstances(contractInstances, blockNum);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Stores the functions that was broadcasted individually
+   *
+   * @dev   Beware that there is not a delete variant of this, since they are added to contract classes
+   *        and will be deleted as part of the class if needed.
+   *
+   * @param allLogs - The logs from the block
+   * @param _blockNum - The block number
+   * @returns
+   */
+  async #storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
+    // Filter out private and unconstrained function broadcast events
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
+
+    // Group all events by contract class id
+    for (const [classIdString, classEvents] of Object.entries(
+      groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
+    )) {
+      const contractClassId = Fr.fromString(classIdString);
+      const contractClass = await this.getContractClass(contractClassId);
+      if (!contractClass) {
+        this.#log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);
+        continue;
+      }
+
+      // Split private and unconstrained functions, and filter out invalid ones
+      const allFns = classEvents.map(e => e.toFunctionWithMembershipProof());
+      const privateFns = allFns.filter(
+        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'unconstrainedFunctionsArtifactTreeRoot' in fn,
+      );
+      const unconstrainedFns = allFns.filter(
+        (fn): fn is UnconstrainedFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
+      );
+      const validPrivateFns = privateFns.filter(fn => isValidPrivateFunctionMembershipProof(fn, contractClass));
+      const validUnconstrainedFns = unconstrainedFns.filter(fn =>
+        isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+      );
+      const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
+      if (validFnCount !== allFns.length) {
+        this.#log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);
+      }
+
+      // Store the functions in the contract class in a single operation
+      if (validFnCount > 0) {
+        this.#log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
+      }
+      return await this.store.addFunctions(contractClassId, validPrivateFns, validUnconstrainedFns);
+    }
+    return true;
+  }
+
+  async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+    return [
+      this.store.addLogs(blocks.map(block => block.data)),
+      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+      ...(await Promise.all(
+        blocks.map(async block => {
+          const blockLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
+
+          return (
+            await Promise.all([
+              this.#updateRegisteredContractClasses(blockLogs, block.data.number, Operation.Store),
+              this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Store),
+              this.#storeBroadcastedIndividualFunctions(blockLogs, block.data.number),
+            ])
+          ).every(Boolean);
+        }),
+      )),
+      this.store.addBlocks(blocks),
+    ].every(Boolean);
+  }
+
+  async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+    const last = await this.getSynchedL2BlockNumber();
+    if (from != last) {
+      throw new Error(`Can only remove from the tip`);
+    }
+
+    // from - blocksToUnwind = the new head, so + 1 for what we need to remove
+    const blocks = await this.getBlocks(from - blocksToUnwind + 1, blocksToUnwind);
+
+    return [
+      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+      ...(await Promise.all(
+        blocks.map(async block => {
+          const blockLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
+          await this.#updateRegisteredContractClasses(blockLogs, block.data.number, Operation.Delete);
+          await this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Delete);
+        }),
+      )),
+      this.store.deleteLogs(blocks.map(b => b.data)),
+      this.store.unwindBlocks(from, blocksToUnwind),
+    ].every(Boolean);
+  }
+
+  getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
+    return this.store.getBlocks(from, limit);
+  }
+  getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+    return this.store.getBlockHeaders(from, limit);
+  }
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.store.getTxEffect(txHash);
+  }
+  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    return this.store.getSettledTxReceipt(txHash);
+  }
+  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
+    return this.store.addL1ToL2Messages(messages);
+  }
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(blockNumber);
+  }
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
+  }
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
+    return this.store.getLogs(from, limit, logType);
+  }
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.store.getLogsByTags(tags);
+  }
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getUnencryptedLogs(filter);
+  }
+  getSynchedL2BlockNumber(): Promise<number> {
+    return this.store.getSynchedL2BlockNumber();
+  }
+  getProvenL2BlockNumber(): Promise<number> {
+    return this.store.getProvenL2BlockNumber();
+  }
+  getProvenL2EpochNumber(): Promise<number | undefined> {
+    return this.store.getProvenL2EpochNumber();
+  }
+  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+    return this.store.setProvenL2BlockNumber(l2BlockNumber);
+  }
+  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
+    return this.store.setProvenL2EpochNumber(l2EpochNumber);
+  }
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
+    return this.store.setBlockSynchedL1BlockNumber(l1BlockNumber);
+  }
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
+    return this.store.setMessageSynchedL1BlockNumber(l1BlockNumber);
+  }
+  getSynchPoint(): Promise<ArchiverL1SynchPoint> {
+    return this.store.getSynchPoint();
+  }
+  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return this.store.getContractClass(id);
+  }
+  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.store.getContractInstance(address);
+  }
+  getContractClassIds(): Promise<Fr[]> {
+    return this.store.getContractClassIds();
+  }
+  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    return this.store.addContractArtifact(address, contract);
+  }
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return this.store.getContractArtifact(address);
+  }
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return this.store.getTotalL1ToL2MessageCount();
+  }
+}
+
+type L1RollupConstants = {
+  l1StartBlock: bigint;
+  l1GenesisTime: bigint;
+};
+
+const EmptyL1RollupConstants: L1RollupConstants = {
+  l1StartBlock: 0n,
+  l1GenesisTime: 0n,
+};

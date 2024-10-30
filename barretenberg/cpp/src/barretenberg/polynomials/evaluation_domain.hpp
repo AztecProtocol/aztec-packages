@@ -3,7 +3,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <vector>
 
-namespace barretenberg {
+namespace bb {
 
 template <typename FF> class EvaluationDomain {
   public:
@@ -66,9 +66,6 @@ template <typename FF> class EvaluationDomain {
     std::shared_ptr<FF[]> roots;
 };
 
-// tell the compiler we will take care of instantiating these in the .cpp file
-extern template class EvaluationDomain<barretenberg::fr>;
-// extern template class EvaluationDomain<grumpkin::fr>;
 // add alias for compatibility
-using evaluation_domain = EvaluationDomain<barretenberg::fr>;
-} // namespace barretenberg
+using evaluation_domain = EvaluationDomain<bb::fr>;
+} // namespace bb

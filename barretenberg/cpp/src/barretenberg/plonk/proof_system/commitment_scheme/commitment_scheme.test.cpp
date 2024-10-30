@@ -2,10 +2,10 @@
 #include "commitment_scheme.hpp"
 #include "kate_commitment_scheme.hpp"
 
-#include "../../../proof_system/work_queue/work_queue.hpp"
 #include "../types/program_settings.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/plonk/work_queue/work_queue.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
@@ -14,8 +14,8 @@
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
+using namespace bb::plonk;
 
 TEST(commitment_scheme, kate_open)
 {
@@ -35,9 +35,9 @@ TEST(commitment_scheme, kate_open)
     transcript::StandardTranscript inp_tx = transcript::StandardTranscript(transcript::Manifest());
     plonk::KateCommitmentScheme<ultra_settings> newKate;
 
-    // std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory = (new
+    // std::shared_ptr<srs::factories::CrsFactory<curve::BN254>> crs_factory = (new
     // FileReferenceStringFactory("../srs_db/ignition"));
-    auto file_crs = std::make_shared<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto file_crs = std::make_shared<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
     auto crs = file_crs->get_prover_crs(n);
     auto circuit_proving_key = std::make_shared<proving_key>(n, 0, crs, CircuitType::STANDARD);
     work_queue queue(circuit_proving_key.get(), &inp_tx);
@@ -94,7 +94,7 @@ TEST(commitment_scheme, kate_batch_open)
     transcript::StandardTranscript inp_tx = transcript::StandardTranscript(transcript::Manifest());
     plonk::KateCommitmentScheme<ultra_settings> newKate;
 
-    auto file_crs = std::make_shared<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto file_crs = std::make_shared<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
     auto crs = file_crs->get_prover_crs(n);
     auto circuit_proving_key = std::make_shared<proving_key>(n, 0, crs, CircuitType::STANDARD);
     work_queue queue(circuit_proving_key.get(), &inp_tx);

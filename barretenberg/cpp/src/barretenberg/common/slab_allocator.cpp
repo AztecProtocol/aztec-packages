@@ -1,7 +1,8 @@
 #include "slab_allocator.hpp"
-#include <barretenberg/common/assert.hpp>
-#include <barretenberg/common/log.hpp>
-#include <barretenberg/common/mem.hpp>
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include <cstddef>
 #include <numeric>
 #include <unordered_map>
@@ -22,7 +23,10 @@ bool allocator_destroyed = false;
 // Slabs that are being manually managed by the user.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::unordered_map<void*, std::shared_ptr<void>> manual_slabs;
-
+#ifndef NO_MULTITHREADING
+// The manual slabs unordered map is not thread-safe, so we need to manage access to it when multithreaded.
+std::mutex manual_slabs_mutex;
+#endif
 template <typename... Args> inline void dbg_info(Args... args)
 {
 #if LOGGING == 1
@@ -178,7 +182,7 @@ std::shared_ptr<void> SlabAllocator::get(size_t req_size)
         return { aligned_alloc(32, req_size), aligned_free };
     }
     // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
-    return { malloc(req_size), free };
+    return { tracy_malloc(req_size), tracy_free };
 }
 
 size_t SlabAllocator::get_total_size()
@@ -200,25 +204,25 @@ void SlabAllocator::release(void* ptr, size_t size)
 SlabAllocator allocator;
 } // namespace
 
-namespace barretenberg {
+namespace bb {
 void init_slab_allocator(size_t circuit_subgroup_size)
 {
     allocator.init(circuit_subgroup_size);
 }
 
-// auto init = ([]() {
-//     init_slab_allocator(524288);
-//     return 0;
-// })();
-
 std::shared_ptr<void> get_mem_slab(size_t size)
 {
+    PROFILE_THIS();
+
     return allocator.get(size);
 }
 
 void* get_mem_slab_raw(size_t size)
 {
     auto slab = get_mem_slab(size);
+#ifndef NO_MULTITHREADING
+    std::unique_lock<std::mutex> lock(manual_slabs_mutex);
+#endif
     manual_slabs[slab.get()] = slab;
     return slab.get();
 }
@@ -229,6 +233,9 @@ void free_mem_slab_raw(void* p)
         aligned_free(p);
         return;
     }
+#ifndef NO_MULTITHREADING
+    std::unique_lock<std::mutex> lock(manual_slabs_mutex);
+#endif
     manual_slabs.erase(p);
 }
-} // namespace barretenberg
+} // namespace bb

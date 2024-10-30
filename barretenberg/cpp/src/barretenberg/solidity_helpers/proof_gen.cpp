@@ -7,10 +7,11 @@
 
 #include "circuits/add_2_circuit.hpp"
 #include "circuits/blake_circuit.hpp"
+#include "circuits/ecdsa_circuit.hpp"
 #include "circuits/recursive_circuit.hpp"
 #include "utils/utils.hpp"
 
-using namespace numeric;
+using namespace bb::numeric;
 using numeric::uint256_t;
 
 template <typename Composer, template <typename> typename Circuit> void generate_proof(uint256_t inputs[])
@@ -61,10 +62,10 @@ int main(int argc, char** argv)
     const std::string srs_path = args[3];
     const std::string string_input = args[4];
 
-    barretenberg::srs::init_crs_factory(srs_path);
+    bb::srs::init_crs_factory(srs_path);
 
     // @todo dynamically allocate this
-    uint256_t inputs[] = { 0, 0, 0, 0, 0 };
+    uint256_t inputs[] = { 0, 0, 0, 0, 0, 0 };
 
     size_t count = 0;
     std::stringstream s_stream(string_input);
@@ -81,16 +82,18 @@ int main(int argc, char** argv)
     if (plonk_flavour != "ultra") {
         info("Only ultra plonk flavour is supported at the moment");
         return 1;
+    }
+
+    if (circuit_flavour == "blake") {
+        generate_proof<UltraComposer, BlakeCircuit>(inputs);
+    } else if (circuit_flavour == "add2") {
+        generate_proof<UltraComposer, Add2Circuit>(inputs);
+    } else if (circuit_flavour == "ecdsa") {
+        generate_proof<UltraComposer, EcdsaCircuit>(inputs);
+    } else if (circuit_flavour == "recursive") {
+        generate_proof<UltraComposer, RecursiveCircuit>(inputs);
     } else {
-        if (circuit_flavour == "blake") {
-            generate_proof<UltraComposer, BlakeCircuit>(inputs);
-        } else if (circuit_flavour == "add2") {
-            generate_proof<UltraComposer, Add2Circuit>(inputs);
-        } else if (circuit_flavour == "recursive") {
-            generate_proof<UltraComposer, RecursiveCircuit>(inputs);
-        } else {
-            info("Invalid circuit flavour: " + circuit_flavour);
-            return 1;
-        }
+        info("Invalid circuit flavour: " + circuit_flavour);
+        return 1;
     }
 }

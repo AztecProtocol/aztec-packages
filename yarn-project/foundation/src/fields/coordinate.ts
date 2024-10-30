@@ -1,5 +1,5 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
-import { Tuple } from '../serialize/types.js';
+import { type Tuple } from '../serialize/types.js';
 import { Fr } from './fields.js';
 
 /**
@@ -37,7 +37,7 @@ export class Coordinate {
   }
 
   /**
-   * serializes the oblect to buffer of 2 fields.
+   * serializes the object to buffer of 2 fields.
    * @returns A buffer serialization of the object.
    */
   toFieldsBuffer(): Buffer {

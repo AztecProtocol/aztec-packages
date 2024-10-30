@@ -1,45 +1,29 @@
 #include "field.hpp"
 #include "../bool/bool.hpp"
 #include "array.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <gtest/gtest.h>
 #include <utility>
 
-using namespace proof_system;
-
-namespace test_stdlib_field {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 template <typename Builder> class stdlib_field : public testing::Test {
-    typedef stdlib::bool_t<Builder> bool_ct;
-    typedef stdlib::field_t<Builder> field_ct;
-    typedef stdlib::witness_t<Builder> witness_ct;
-    typedef stdlib::public_witness_t<Builder> public_witness_ct;
+    using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using public_witness_ct = stdlib::public_witness_t<Builder>;
 
-    static void fibbonaci(Builder& builder)
-    {
-        field_ct a(witness_ct(&builder, fr::one()));
-        field_ct b(witness_ct(&builder, fr::one()));
-
-        field_ct c = a + b;
-
-        for (size_t i = 0; i < 17; ++i) {
-            b = a;
-            a = c;
-            c = a + b;
-        }
-    }
     static uint64_t fidget(Builder& builder)
     {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
@@ -72,10 +56,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         return cc;
     }
 
-    static void generate_test_plonk_circuit(Builder& builder, size_t num_gates)
+    static void build_test_circuit(Builder& builder, size_t num_gates)
     {
-        field_ct a(public_witness_ct(&builder, barretenberg::fr::random_element()));
-        field_ct b(public_witness_ct(&builder, barretenberg::fr::random_element()));
+        field_ct a(public_witness_ct(&builder, bb::fr::random_element()));
+        field_ct b(public_witness_ct(&builder, bb::fr::random_element()));
 
         field_ct c(&builder);
         for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
@@ -87,6 +71,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
     }
 
   public:
+    static void test_constructor_from_witness()
+    {
+        bb::fr val = 2;
+        Builder builder = Builder();
+        field_ct elt(witness_ct(&builder, val));
+        EXPECT_EQ(elt.get_value(), val);
+    }
+
     static void create_range_constraint()
     {
         auto run_test = [&](fr elt, size_t num_bits, bool expect_verified) {
@@ -94,7 +86,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             field_ct a(witness_ct(&builder, elt));
             a.create_range_constraint(num_bits, "field_tests: range_constraint on a fails");
 
-            bool verified = builder.check_circuit();
+            bool verified = CircuitChecker::check(builder);
             EXPECT_EQ(verified, expect_verified);
             if (verified != expect_verified) {
                 info("Range constraint malfunction on ", elt, " with num_bits ", num_bits);
@@ -120,72 +112,95 @@ template <typename Builder> class stdlib_field : public testing::Test {
      */
     static void test_assert_equal()
     {
-        auto run_test = [](bool constrain, bool true_when_y_val_zero = true) {
-            Builder builder = Builder();
-            field_ct x = witness_ct(&builder, 1);
-            field_ct y = witness_ct(&builder, 0);
-
-            // With no constraints, the proof verification will pass even though
-            // we assert x and y are equal.
-            bool expected_result = true;
-
-            if (constrain) {
-                /* The fact that we have a passing test in both cases that follow tells us
-                 * that the failure in the first case comes from the additive constraint,
-                 * not from a copy constraint. That failure is because the assert_equal
-                 * below says that 'the value of y was always x'--the value 1 is substituted
-                 * for x when evaluating the gate identity.
-                 */
-                if (true_when_y_val_zero) {
-                    // constraint: 0*x + 1*y + 0*0 + 0 == 0
-
-                    builder.create_add_gate({ .a = x.witness_index,
-                                              .b = y.witness_index,
-                                              .c = builder.zero_idx,
-                                              .a_scaling = 0,
-                                              .b_scaling = 1,
-                                              .c_scaling = 0,
-                                              .const_scaling = 0 });
-                    expected_result = false;
-                } else {
-                    // constraint: 0*x + 1*y + 0*0 - 1 == 0
-
-                    builder.create_add_gate({ .a = x.witness_index,
-                                              .b = y.witness_index,
-                                              .c = builder.zero_idx,
-                                              .a_scaling = 0,
-                                              .b_scaling = 1,
-                                              .c_scaling = 0,
-                                              .const_scaling = -1 });
-                    expected_result = true;
+        if constexpr (IsSimulator<Builder>) {
+            auto run_test = [](bool expect_failure) {
+                Builder simulator;
+                auto lhs = bb::fr::random_element();
+                auto rhs = lhs;
+                if (expect_failure) {
+                    lhs++;
                 }
-            }
+                simulator.assert_equal(lhs, rhs, "testing assert equal");
+                if (expect_failure) {
+                    ASSERT_TRUE(simulator.failed());
+                } else {
+                    ASSERT_FALSE(simulator.failed());
+                }
+            };
+            run_test(true);
+            run_test(false);
+        } else {
 
-            x.assert_equal(y);
+            auto run_test = [](bool constrain, bool true_when_y_val_zero = true) {
+                Builder builder = Builder();
+                field_ct x = witness_ct(&builder, 1);
+                field_ct y = witness_ct(&builder, 0);
 
-            // both field elements have real value 1 now
-            EXPECT_EQ(x.get_value(), 1);
-            EXPECT_EQ(y.get_value(), 1);
+                // With no constraints, the proof verification will pass even though
+                // we assert x and y are equal.
+                bool expected_result = true;
 
-            bool result = builder.check_circuit();
+                if (constrain) {
+                    /* The fact that we have a passing test in both cases that follow tells us
+                     * that the failure in the first case comes from the additive constraint,
+                     * not from a copy constraint. That failure is because the assert_equal
+                     * below says that 'the value of y was always x'--the value 1 is substituted
+                     * for x when evaluating the gate identity.
+                     */
+                    if (true_when_y_val_zero) {
+                        // constraint: 0*x + 1*y + 0*0 + 0 == 0
 
-            EXPECT_EQ(result, expected_result);
-        };
+                        builder.create_add_gate({ .a = x.witness_index,
+                                                  .b = y.witness_index,
+                                                  .c = builder.zero_idx,
+                                                  .a_scaling = 0,
+                                                  .b_scaling = 1,
+                                                  .c_scaling = 0,
+                                                  .const_scaling = 0 });
+                        expected_result = false;
+                    } else {
+                        // constraint: 0*x + 1*y + 0*0 - 1 == 0
 
-        run_test(false);
-        run_test(true, true);
-        run_test(true, false);
+                        builder.create_add_gate({ .a = x.witness_index,
+                                                  .b = y.witness_index,
+                                                  .c = builder.zero_idx,
+                                                  .a_scaling = 0,
+                                                  .b_scaling = 1,
+                                                  .c_scaling = 0,
+                                                  .const_scaling = -1 });
+                        expected_result = true;
+                    }
+                }
+
+                x.assert_equal(y);
+
+                // both field elements have real value 1 now
+                EXPECT_EQ(x.get_value(), 1);
+                EXPECT_EQ(y.get_value(), 1);
+
+                bool result = CircuitChecker::check(builder);
+
+                EXPECT_EQ(result, expected_result);
+            };
+
+            run_test(false);
+            run_test(true, true);
+            run_test(true, false);
+        }
     }
 
     static void test_add_mul_with_constants()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         uint64_t expected = fidget(builder);
-        auto gates_after = builder.get_num_gates();
-        EXPECT_EQ(builder.get_variable(builder.w_o[gates_after - 1]), fr(expected));
-        info("Number of gates added", gates_after - gates_before);
-        bool result = builder.check_circuit();
+        if constexpr (!IsSimulator<Builder>) {
+            auto gates_after = builder.get_estimated_num_finalized_gates();
+            auto& block = builder.blocks.arithmetic;
+            EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
+            info("Number of gates added", gates_after - gates_before);
+        }
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -193,13 +208,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        field_ct a = witness_ct(&builder, barretenberg::fr::random_element());
-        a *= barretenberg::fr::random_element();
-        a += barretenberg::fr::random_element();
+        field_ct a = witness_ct(&builder, bb::fr::random_element());
+        a *= fr::random_element();
+        a += fr::random_element();
 
-        field_ct b = witness_ct(&builder, barretenberg::fr::random_element());
-        b *= barretenberg::fr::random_element();
-        b += barretenberg::fr::random_element();
+        field_ct b = witness_ct(&builder, bb::fr::random_element());
+        b *= fr::random_element();
+        b += fr::random_element();
 
         // numerator constant
         field_ct out = field_ct(&builder, b.get_value()) / a;
@@ -217,7 +232,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(out.get_value(), 0);
         EXPECT_EQ(out.is_constant(), true);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -232,7 +247,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(b.get_value(), 10);
         EXPECT_EQ(a.get_value(), 11);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -247,20 +262,27 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(b.get_value(), 11);
         EXPECT_EQ(a.get_value(), 11);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
     static void test_field_fibbonaci()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_num_gates();
-        fibbonaci(builder);
-        auto gates_after = builder.get_num_gates();
-        EXPECT_EQ(builder.get_variable(builder.w_l[builder.get_num_gates() - 1]), fr(4181));
-        EXPECT_EQ(gates_after - gates_before, 18UL);
+        field_ct a(witness_ct(&builder, fr::one()));
+        field_ct b(witness_ct(&builder, fr::one()));
 
-        bool result = builder.check_circuit();
+        field_ct c = a + b;
+
+        for (size_t i = 0; i < 16; ++i) {
+            b = a;
+            a = c;
+            c = a + b;
+        }
+
+        EXPECT_EQ(c.get_value(), fr(4181));
+
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -281,37 +303,34 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // builder.assert_equal(sum_sqrs.witness_index, c_sqr.witness_index, "triple is not pythagorean");
         c_sqr.assert_equal(sum_sqrs);
 
-        bool verified = builder.check_circuit();
+        bool verified = CircuitChecker::check(builder);
 
-        for (size_t i = 0; i < builder.variables.size(); i++) {
-            info(i, builder.variables[i]);
-        }
         ASSERT_TRUE(verified);
     }
 
     static void test_equality()
     {
         Builder builder = Builder();
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 4));
         bool_ct r = a == b;
 
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(r.get_value(), true);
 
-        fr x = builder.get_variable(r.witness_index);
+        fr x = r.get_value();
         EXPECT_EQ(x, fr(1));
 
         // This logic requires on madd in field, which creates a big mul gate.
         // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
         if constexpr (std::same_as<Builder, StandardCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 6UL);
-        } else {
-            EXPECT_EQ(gates_after - gates_before, 4UL);
+            EXPECT_EQ(gates_after - gates_before, 5UL);
+        } else if (std::same_as<Builder, UltraCircuitBuilder>) {
+            EXPECT_EQ(gates_after - gates_before, 3UL);
         }
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -319,27 +338,27 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
         bool_ct r = a == b;
 
         EXPECT_EQ(r.get_value(), false);
 
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = builder.get_variable(r.witness_index);
+        fr x = r.get_value();
         EXPECT_EQ(x, fr(0));
 
         // This logic requires on madd in field, which creates a big mul gate.
         // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
         if constexpr (std::same_as<Builder, StandardCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 6UL);
-        } else {
-            EXPECT_EQ(gates_after - gates_before, 4UL);
+            EXPECT_EQ(gates_after - gates_before, 5UL);
+        } else if (std::same_as<Builder, UltraCircuitBuilder>) {
+            EXPECT_EQ(gates_after - gates_before, 3UL);
         }
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -347,7 +366,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        auto gates_before = builder.get_num_gates();
+        auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct a(witness_ct(&builder, 4));
         field_ct b = 3;
         field_ct c = 7;
@@ -355,20 +374,20 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(r.get_value(), true);
 
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = builder.get_variable(r.witness_index);
+        fr x = r.get_value();
         EXPECT_EQ(x, fr(1));
 
         // This logic requires on madd in field, which creates a big mul gate.
         // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
         if constexpr (std::same_as<Builder, StandardCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 11UL);
-        } else {
-            EXPECT_EQ(gates_after - gates_before, 7UL);
+            EXPECT_EQ(gates_after - gates_before, 9UL);
+        } else if (std::same_as<Builder, UltraCircuitBuilder>) {
+            EXPECT_EQ(gates_after - gates_before, 5UL);
         }
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -377,9 +396,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         size_t n = 16384;
         Builder builder;
 
-        generate_test_plonk_circuit(builder, n);
+        build_test_circuit(builder, n);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -394,7 +413,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
                      uint256_t(0x1122334455667788, 0x8877665544332211, 0xaabbccddeeff9933, 0x1122112211221122));
         field_ct c_2(&builder,
                      uint256_t(0xaabbccddeeff9933, 0x8877665544332211, 0x1122334455667788, 0x1122112211221122));
-        field_ct c_3(&builder, barretenberg::fr::one());
+        field_ct c_3(&builder, bb::fr::one());
 
         field_ct c_4 = c_1 + c_2;
         a = a * c_4 + c_4; // add some constant terms in to validate our normalization check works
@@ -405,10 +424,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct d(&builder, fr::zero());
         field_ct e(&builder, fr::one());
 
-        const size_t old_n = builder.get_num_gates();
+        const size_t old_n = builder.get_estimated_num_finalized_gates();
         bool_ct d_zero = d.is_zero();
         bool_ct e_zero = e.is_zero();
-        const size_t new_n = builder.get_num_gates();
+        const size_t new_n = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(old_n, new_n);
 
         bool_ct a_zero = a.is_zero();
@@ -419,7 +438,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(d_zero.get_value(), true);
         EXPECT_EQ(e_zero.get_value(), false);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -468,7 +487,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         n = n.normalize();
         EXPECT_EQ(m.get_value(), n.get_value());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -495,7 +514,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result_c.get_value(), c.get_value());
         EXPECT_EQ(result_d.get_value(), d.get_value());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -515,7 +534,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(slice_data[1].get_value(), fr(169));
         EXPECT_EQ(slice_data[2].get_value(), fr(61));
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -535,7 +554,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(slice_data[1].get_value(), fr(1));
         EXPECT_EQ(slice_data[2].get_value(), fr(986));
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -558,7 +577,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(slice[1].get_value(), fr(expected1));
         EXPECT_EQ(slice[2].get_value(), fr(expected2));
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -597,7 +616,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result_g.get_value(), g.get_value());
         EXPECT_EQ(result_h.get_value(), h.get_value());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -619,13 +638,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
             constexpr uint256_t modulus_minus_one = fr::modulus - 1;
             const fr p_lo = modulus_minus_one.slice(0, 130);
 
-            std::vector<barretenberg::fr> test_elements = {
-                barretenberg::fr::random_element(),
-                0,
-                -1,
-                barretenberg::fr(static_cast<uint256_t>(engine.get_random_uint8())),
-                barretenberg::fr((static_cast<uint256_t>(1) << 130) + 1 + p_lo)
-            };
+            std::vector<fr> test_elements = { bb::fr::random_element(),
+                                              0,
+                                              -1,
+                                              fr(static_cast<uint256_t>(engine.get_random_uint8())),
+                                              fr((static_cast<uint256_t>(1) << 130) + 1 + p_lo) };
 
             for (auto a_expected : test_elements) {
                 field_ct a = witness_ct(&builder, a_expected);
@@ -638,7 +655,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 EXPECT_EQ(bit_sum, a_expected);
             };
 
-            bool verified = builder.check_circuit();
+            bool verified = CircuitChecker::check(builder);
             ASSERT_TRUE(verified);
         };
 
@@ -666,7 +683,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             field_ct a = witness_ct(&builder, a_expected);
             std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
 
-            bool verified = builder.check_circuit();
+            bool verified = CircuitChecker::check(builder);
             ASSERT_FALSE(verified);
         };
 
@@ -687,9 +704,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         std::vector<field_ct> set = { a, b, c, d, e };
 
         a.assert_is_in_set(set);
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -707,8 +724,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct f(witness_ct(&builder, fr(6)));
         f.assert_is_in_set(set);
 
-        info("num gates = ", builder.get_num_gates());
-        bool result = builder.check_circuit();
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
 
@@ -716,18 +733,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint32_t exponent_val = engine.get_random_uint32();
 
         field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
         field_ct result = base.pow(exponent);
-        barretenberg::fr expected = base_val.pow(exponent_val);
+        fr expected = base_val.pow(exponent_val);
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("num gates = ", builder.get_num_gates());
-        bool check_result = builder.check_circuit();
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
 
@@ -735,17 +752,17 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint32_t exponent_val = 0;
 
         field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
         field_ct result = base.pow(exponent);
 
-        EXPECT_EQ(result.get_value(), barretenberg::fr(1));
+        EXPECT_EQ(result.get_value(), bb::fr(1));
 
-        info("num gates = ", builder.get_num_gates());
-        bool check_result = builder.check_circuit();
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
 
@@ -753,7 +770,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint32_t exponent_val = 1;
 
         field_ct base = witness_ct(&builder, base_val);
@@ -761,9 +778,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct result = base.pow(exponent);
 
         EXPECT_EQ(result.get_value(), base_val);
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
-        bool check_result = builder.check_circuit();
+        bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
 
@@ -773,13 +790,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         const size_t num_gates_start = builder.num_gates;
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint32_t exponent_val = engine.get_random_uint32();
 
         field_ct base(&builder, base_val);
         field_ct exponent(&builder, exponent_val);
         field_ct result = base.pow(exponent);
-        barretenberg::fr expected = base_val.pow(exponent_val);
+        fr expected = base_val.pow(exponent_val);
 
         EXPECT_EQ(result.get_value(), expected);
 
@@ -791,18 +808,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint32_t exponent_val = engine.get_random_uint32();
 
         field_ct base(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
         field_ct result = base.pow(exponent);
-        barretenberg::fr expected = base_val.pow(exponent_val);
+        fr expected = base_val.pow(exponent_val);
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("num gates = ", builder.get_num_gates());
-        bool check_result = builder.check_circuit();
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
 
@@ -810,18 +827,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint32_t exponent_val = engine.get_random_uint32();
 
         field_ct base = witness_ct(&builder, base_val);
         field_ct exponent(&builder, exponent_val);
         field_ct result = base.pow(exponent);
-        barretenberg::fr expected = base_val.pow(exponent_val);
+        fr expected = base_val.pow(exponent_val);
 
         EXPECT_EQ(result.get_value(), expected);
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
-        bool check_result = builder.check_circuit();
+        bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     };
 
@@ -829,14 +846,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr base_val(engine.get_random_uint256());
+        fr base_val(engine.get_random_uint256());
         uint64_t exponent_val = engine.get_random_uint32();
         exponent_val += (uint64_t(1) << 32);
 
         field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
         field_ct result = base.pow(exponent);
-        barretenberg::fr expected = base_val.pow(exponent_val);
+        fr expected = base_val.pow(exponent_val);
 
         EXPECT_NE(result.get_value(), expected);
         EXPECT_EQ(builder.failed(), true);
@@ -847,7 +864,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        barretenberg::fr value(engine.get_random_uint256());
+        fr value(engine.get_random_uint256());
         field_ct value_ct = witness_ct(&builder, value);
 
         field_ct first_copy = witness_ct(&builder, value_ct.get_value());
@@ -856,12 +873,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(value_ct.get_value(), value);
         EXPECT_EQ(first_copy.get_value(), value);
         EXPECT_EQ(second_copy.get_value(), value);
-        EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
-        EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
 
-        info("num gates = ", builder.get_num_gates());
+        if (!IsSimulator<Builder>) {
+            EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
+            EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
+        }
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -905,15 +924,172 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             EXPECT_EQ(result.get_value(), expected);
         }
-        bool check_result = builder.check_circuit();
+        bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
+    }
+
+    static void test_add_two()
+    {
+        Builder composer = Builder();
+        auto x_1 = bb::fr::random_element();
+        auto x_2 = bb::fr::random_element();
+        auto x_3 = bb::fr::random_element();
+
+        field_ct x_1_ct = witness_ct(&composer, x_1);
+        field_ct x_2_ct = witness_ct(&composer, x_2);
+        field_ct x_3_ct = witness_ct(&composer, x_3);
+
+        auto sum_ct = x_1_ct.add_two(x_2_ct, x_3_ct);
+
+        EXPECT_EQ(sum_ct.get_value(), x_1 + x_2 + x_3);
+
+        bool circuit_checks = composer.check_circuit();
+        EXPECT_TRUE(circuit_checks);
+    }
+    static void test_origin_tag_consistency()
+    {
+        Builder builder = Builder();
+        auto a = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        auto b = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        EXPECT_TRUE(a.get_origin_tag().is_empty());
+        EXPECT_TRUE(b.get_origin_tag().is_empty());
+        const size_t parent_id = 0;
+
+        const auto submitted_value_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);
+        const auto challenge_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);
+        const auto next_challenge_tag = OriginTag(parent_id, /*round_id=*/1, /*submitted=*/false);
+
+        const auto first_two_merged_tag = OriginTag(submitted_value_origin_tag, challenge_origin_tag);
+        const auto first_and_third_merged_tag = OriginTag(submitted_value_origin_tag, next_challenge_tag);
+        const auto first_second_third_merged_tag = OriginTag(first_two_merged_tag, next_challenge_tag);
+
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
+        EXPECT_EQ(a.get_origin_tag(), submitted_value_origin_tag);
+        EXPECT_EQ(b.get_origin_tag(), challenge_origin_tag);
+
+        // Basic additon merges tags
+        auto c = a + b;
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+        // Basic multiplication merges tags
+        auto d = a * b;
+        EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
+
+        // Basic subtraction merges tags
+        auto e = a - b;
+        EXPECT_EQ(e.get_origin_tag(), first_two_merged_tag);
+
+        // Division merges tags
+
+        auto f = a / b;
+        EXPECT_EQ(f.get_origin_tag(), first_two_merged_tag);
+
+        // Exponentiation merges tags
+
+        auto exponent = field_ct(witness_ct(&builder, 10));
+        exponent.set_origin_tag(challenge_origin_tag);
+        auto g = a.pow(exponent);
+        EXPECT_EQ(g.get_origin_tag(), first_two_merged_tag);
+
+        // Madd merges tags
+        auto h = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        h.set_origin_tag(next_challenge_tag);
+        auto i = a.madd(b, h);
+        EXPECT_EQ(i.get_origin_tag(), first_second_third_merged_tag);
+
+        // add_two merges tags
+        auto j = a.add_two(b, h);
+        EXPECT_EQ(j.get_origin_tag(), first_second_third_merged_tag);
+
+        // Normalize preserves tag
+
+        EXPECT_EQ(j.normalize().get_origin_tag(), j.get_origin_tag());
+
+        // is_zero preserves tag
+
+        EXPECT_EQ(a.is_zero().get_origin_tag(), a.get_origin_tag());
+
+        // equals/not equals operator merges tags
+
+        EXPECT_EQ((a == b).get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ((a != b).get_origin_tag(), first_two_merged_tag);
+
+        // Conditionals merge tags
+
+        auto k = bool_ct(witness_ct(&builder, 1));
+        k.set_origin_tag(next_challenge_tag);
+        auto l = a.conditional_negate(k);
+        EXPECT_EQ(l.get_origin_tag(), first_and_third_merged_tag);
+
+        auto m = field_ct::conditional_assign(k, a, b);
+        EXPECT_EQ(m.get_origin_tag(), first_second_third_merged_tag);
+
+        // Accumulate merges tags
+        const size_t MAX_ACCUMULATED_ELEMENTS = 16;
+        std::vector<field_ct> elements;
+        std::vector<OriginTag> accumulated_tags;
+        for (size_t index = 0; index < MAX_ACCUMULATED_ELEMENTS; index++) {
+            const auto current_tag = OriginTag(parent_id, index >> 1, !(index & 1));
+            if (index == 0) {
+                accumulated_tags.push_back(current_tag);
+            } else {
+                accumulated_tags.emplace_back(accumulated_tags[index - 1], current_tag);
+            }
+            auto element = field_ct(witness_ct(&builder, bb::fr::random_element()));
+            element.set_origin_tag(current_tag);
+            elements.emplace_back(element);
+        }
+
+        for (size_t index = MAX_ACCUMULATED_ELEMENTS - 1; index > 0; index--) {
+            EXPECT_EQ(field_ct::accumulate(elements).get_origin_tag(), accumulated_tags[index]);
+            elements.pop_back();
+        }
+
+        // Slice preserves tags
+        auto n = a.slice(1, 0);
+        for (const auto& element : n) {
+            EXPECT_EQ(element.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Decomposition preserves tags
+
+        auto decomposed_bits = a.decompose_into_bits(256);
+        for (const auto& bit : decomposed_bits) {
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Conversions
+
+        auto o = field_ct(witness_ct(&builder, 1));
+        o.set_origin_tag(submitted_value_origin_tag);
+        auto p = bool_ct(o);
+        EXPECT_EQ(p.get_origin_tag(), submitted_value_origin_tag);
+
+        o.set_origin_tag(challenge_origin_tag);
+        o = field_ct(p);
+
+        EXPECT_EQ(o.get_origin_tag(), submitted_value_origin_tag);
+
+        auto q = field_ct(witness_ct(&builder, fr::random_element()));
+        auto poisoned_tag = challenge_origin_tag;
+        poisoned_tag.poison();
+        q.set_origin_tag(poisoned_tag);
+#ifndef NDEBUG
+        EXPECT_THROW(q + q, std::runtime_error);
+#endif
     }
 };
 
-typedef testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder> CircuitTypes;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
 
+TYPED_TEST(stdlib_field, test_constructor_from_witness)
+{
+    TestFixture::test_constructor_from_witness();
+}
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
@@ -922,10 +1098,7 @@ TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
 }
-TYPED_TEST(stdlib_field, test_add_mul_with_constants)
-{
-    TestFixture::test_add_mul_with_constants();
-}
+
 TYPED_TEST(stdlib_field, test_div)
 {
     TestFixture::test_div();
@@ -1039,4 +1212,7 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
     TestFixture::test_ranged_less_than();
 }
 
-} // namespace test_stdlib_field
+TYPED_TEST(stdlib_field, test_origin_tag_consistency)
+{
+    TestFixture::test_origin_tag_consistency();
+}

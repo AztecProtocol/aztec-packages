@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`FunctionSelector computes a function selector from a long string 1`] = `"7590a997"`;
+
+exports[`FunctionSelector computes a function selector from signature 1`] = `"73cdda47"`;

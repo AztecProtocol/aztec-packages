@@ -1,0 +1,1 @@
+ barretenberg_module(simulator_bench stdlib_honk_verifier stdlib_sha256 stdlib_pedersen_hash)

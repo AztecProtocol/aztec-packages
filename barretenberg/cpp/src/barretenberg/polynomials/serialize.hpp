@@ -1,15 +1,15 @@
 #pragma once
-#include "polynomial.hpp"
+#include "legacy_polynomial.hpp"
 
-namespace barretenberg {
+namespace bb {
 
-// Highly optimised read / write of polynomials in little endian montgomery form.
+// Highly optimized read / write of polynomials in little endian montgomery form.
 template <typename B> inline void read(B& buf, polynomial& p)
 {
-    uint32_t size;
+    uint32_t size = 0;
     serialize::read(buf, size);
     p = polynomial(size);
-    memcpy(&p[0], buf, size * sizeof(fr));
+    memcpy(static_cast<void*>(&p[0]), static_cast<const void*>(buf), size * sizeof(fr));
 
     if (!is_little_endian()) {
         for (size_t i = 0; i < size; ++i) {
@@ -67,4 +67,4 @@ inline void write(std::ostream& os, polynomial const& p)
     os.write((char*)&p[0], (std::streamsize)len);
 }
 
-} // namespace barretenberg
+} // namespace bb

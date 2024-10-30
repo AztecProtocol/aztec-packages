@@ -1,0 +1,1 @@
+barretenberg_module(widgets_bench polynomials transcript stdlib_primitives plonk)

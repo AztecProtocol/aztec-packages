@@ -1,8 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../../utils/serialize.js';
-import { STRING_ENCODING, UInt32 } from '../shared.js';
+import { inspect } from 'util';
+
+import { STRING_ENCODING, type UInt32 } from '../shared.js';
 
 /**
  * Snapshot of an append only tree.
@@ -27,8 +28,16 @@ export class AppendOnlyTreeSnapshot {
     public nextAvailableLeafIndex: UInt32,
   ) {}
 
+  getSize() {
+    return this.root.size + 4;
+  }
+
   toBuffer() {
     return serializeToBuffer(this.root, this.nextAvailableLeafIndex);
+  }
+
+  toFields(): Fr[] {
+    return [this.root, new Fr(this.nextAvailableLeafIndex)];
   }
 
   toString(): string {
@@ -37,14 +46,34 @@ export class AppendOnlyTreeSnapshot {
 
   static fromBuffer(buffer: Buffer | BufferReader): AppendOnlyTreeSnapshot {
     const reader = BufferReader.asReader(buffer);
-    return new AppendOnlyTreeSnapshot(reader.readFr(), reader.readNumber());
+    return new AppendOnlyTreeSnapshot(Fr.fromBuffer(reader), reader.readNumber());
   }
 
   static fromString(str: string): AppendOnlyTreeSnapshot {
     return AppendOnlyTreeSnapshot.fromBuffer(Buffer.from(str, STRING_ENCODING));
   }
 
-  static empty() {
+  static fromFields(fields: Fr[] | FieldReader): AppendOnlyTreeSnapshot {
+    const reader = FieldReader.asReader(fields);
+
+    return new AppendOnlyTreeSnapshot(reader.readField(), Number(reader.readField().toBigInt()));
+  }
+
+  static zero() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
+  }
+
+  isZero(): boolean {
+    return this.root.isZero() && this.nextAvailableLeafIndex === 0;
+  }
+
+  [inspect.custom]() {
+    return `AppendOnlyTreeSnapshot { root: ${this.root.toString()}, nextAvailableLeafIndex: ${
+      this.nextAvailableLeafIndex
+    } }`;
+  }
+
+  public equals(other: this) {
+    return this.root.equals(other.root) && this.nextAvailableLeafIndex === other.nextAvailableLeafIndex;
   }
 }

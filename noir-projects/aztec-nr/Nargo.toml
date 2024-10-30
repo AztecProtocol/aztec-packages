@@ -1,0 +1,10 @@
+[workspace]
+members = [
+  "address-note",
+  "authwit",
+  "aztec",
+  "compressed-string",
+  "easy-private-state",
+  "value-note",
+  "uint-note",
+]

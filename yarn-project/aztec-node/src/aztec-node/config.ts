@@ -1,31 +1,58 @@
-import { ArchiverConfig, getConfigEnvVars as getArchiverVars } from '@aztec/archiver';
-import { P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
-import { SequencerClientConfig, getConfigEnvVars as getSequencerVars } from '@aztec/sequencer-client';
-import { getConfigEnvVars as getWorldStateVars } from '@aztec/world-state';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
+import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
+import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
+import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state';
+
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+export { sequencerClientConfigMappings, SequencerClientConfig };
 
 /**
  * The configuration the aztec node.
  */
 export type AztecNodeConfig = ArchiverConfig &
   SequencerClientConfig &
+  ValidatorClientConfig &
+  ProverClientConfig &
+  WorldStateConfig &
+  Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig & {
-    /** Whether the sequencer is disabled for this node. */
-    disableSequencer: boolean;
+    /** Whether the validator is disabled for this node */
+    disableValidator: boolean;
   };
+
+export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
+  ...archiverConfigMappings,
+  ...sequencerClientConfigMappings,
+  ...validatorClientConfigMappings,
+  ...proverClientConfigMappings,
+  ...worldStateConfigMappings,
+  ...p2pConfigMappings,
+  disableValidator: {
+    env: 'VALIDATOR_DISABLED',
+    description: 'Whether the validator is disabled for this node.',
+    ...booleanConfigHelper(),
+  },
+};
 
 /**
  * Returns the config of the aztec node from environment variables with reasonable defaults.
  * @returns A valid aztec node config.
  */
 export function getConfigEnvVars(): AztecNodeConfig {
-  const { SEQ_DISABLED } = process.env;
-  const allEnvVars: AztecNodeConfig = {
-    ...getSequencerVars(),
-    ...getArchiverVars(),
-    ...getP2PConfigEnvVars(),
-    ...getWorldStateVars(),
-    disableSequencer: !!SEQ_DISABLED,
-  };
+  return getConfigFromMappings<AztecNodeConfig>(aztecNodeConfigMappings);
+}
 
-  return allEnvVars;
+/**
+ * Returns package name and version.
+ */
+export function getPackageInfo() {
+  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
+  const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
+  return { version, name };
 }

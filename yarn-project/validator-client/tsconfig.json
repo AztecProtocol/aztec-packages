@@ -1,0 +1,32 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../types"
+    }
+  ],
+  "include": ["src"]
+}

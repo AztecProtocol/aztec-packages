@@ -1,9 +1,8 @@
 #include "g1.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace test_g1 {
 TEST(g1, RandomElement)
 {
     g1::element result = g1::element::random_element();
@@ -376,7 +375,7 @@ TEST(g1, GroupExponentiationConsistencyCheck)
 TEST(g1, DeriveGenerators)
 {
     constexpr size_t num_generators = 128;
-    auto result = g1::derive_generators<num_generators>();
+    auto result = g1::derive_generators("test domain", 128);
 
     const auto is_unique = [&result](const g1::affine_element& y, const size_t j) {
         for (size_t i = 0; i < result.size(); ++i) {
@@ -416,7 +415,6 @@ template <class T> void write(const T t)
 TEST(g1, InitializationCheck)
 {
     // NOLINTNEXTLINE not our fault googletest uses `goto`!
-    EXPECT_NO_THROW(write<barretenberg::g1::affine_element>({}));
+    EXPECT_NO_THROW(write<g1::affine_element>({}));
 }
 #endif
-} // namespace test_g1

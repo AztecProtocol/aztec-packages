@@ -16,7 +16,7 @@ type _Tuple<T, N extends number, R extends unknown[]> = R['length'] extends N ? 
  */
 export function assertLength<T, N extends number>(array: T[], n: N): Tuple<T, N> {
   if (array.length !== n) {
-    throw new Error("Wrong 'fixed array' size");
+    throw new Error(`Wrong 'fixed array' size. Expected ${n}, got ${array.length}.`);
   }
   return array as Tuple<T, N>;
 }
@@ -35,6 +35,6 @@ type MapTuple<T extends any[], F extends (item: any) => any> = {
  * @see https://github.com/microsoft/TypeScript/issues/29841.
  * @param array - A tuple array.
  */
-export function mapTuple<T extends any[], F extends (item: any) => any>(tuple: T, fn: F): MapTuple<T, F> {
+export function mapTuple<T extends any[], F extends (item: T[number]) => any>(tuple: T, fn: F): MapTuple<T, F> {
   return tuple.map(fn) as MapTuple<T, F>;
 }

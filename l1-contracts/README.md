@@ -33,7 +33,7 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
 
 ## Contracts:
 
-The contracts are in a very early stage, and don't worry about gas costs right now. Instead they prioritise development velocity.
+The contracts are in a very early stage, and don't worry about gas costs right now. Instead they prioritize development velocity.
 
 ### Decoder
 
@@ -54,11 +54,28 @@ It is the job of the rollup contract to store the state of the rollup and progre
 
 Currently not running any proofs _nor_ access control so blocks can be submitted by anyone and can be complete garbage.
 
-### ContractDeploymentEmitter
+---
 
-Job: Share Contract Deployment public data on chain.
+# Branching Tree Technique
 
-For now, this include bytecode for contract deployment, but over time this will be verified for public functions.
+For writing tests we will be using the [Branching Tree Technique](https://www.youtube.com/watch?v=0-EmbNVgFA4).
+The approach is simple, for a function that is to be tested (all functions) you should write a `.tree` file first.
+Then the tree file can be used to generate a solidity tests file using [Bulloak](https://github.com/alexfertel/bulloak) by running the `scaffold` command.
+
+```bash
+bulloak scaffold -w **/*.tree
+```
+
+To check that the tests are following the expected format, you can run the `check` command.
+
+```bash
+bulloak check **/*.tree
+```
+
+We assume that you already have `bulloak` installed, if not you can install it as `cargo install bulloak`.
+Also, we suggest using [Ascii Tree Generator](https://marketplace.visualstudio.com/items?itemName=aprilandjan.ascii-tree-generator), since the pipes can be a bit of a pain otherwise.
+
+For examples, see the tests for the registry.
 
 ---
 
@@ -66,10 +83,26 @@ For now, this include bytecode for contract deployment, but over time this will 
 
 We use an extended version of solhint (https://github.com/LHerskind/solhint) to include custom rules. These custom rules relate to how errors should be named, using custom errors instead of reverts etc, see `.solhint.json` for more specifics about the rules.
 
-The linter is the only node module we need which is the reason behind not going full yarn-project on it. It is not part of the docker image, but can be run once in a while to make sure we are on track.
+The linter is the only node module we need which is the reason behind not going full yarn-project on it.
 
 To run the linter, simply run:
 
 ```bash
 yarn lint
 ```
+
+---
+
+# Slither & Slitherin
+
+We use slither as an automatic way to find blunders and common vulnerabilities in our contracts. It is not part of the docker image due to its slowness, but it can be run using the following command to generate a markdown file with the results:
+
+```bash
+yarn slither
+```
+
+When this command is run in CI, it will fail if the markdown file generated in docker don't match the one in the repository.
+
+We assume that you already have slither installed. You can install it with `pip3 install slither-analyzer==0.10.0 slitherin==0.5.0`. It is kept out of the bootstrap script as it is not a requirement for people who just want to run tests or are uninterested in the contracts.
+
+> We are not running the `naming-convention` detector because we have our own rules for naming which is enforced by the linter.

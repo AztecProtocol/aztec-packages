@@ -1,12 +1,12 @@
 #include "blake2s_plookup.hpp"
 #include "blake_util.hpp"
 
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/proof_system/plookup_tables/sha256.hpp"
 #include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
 
 /**
  * Optimizations:
@@ -15,10 +15,7 @@
  * 2. replace use of uint32 with basic field_t type
  *
  **/
-namespace proof_system::plonk {
-namespace stdlib {
-
-namespace blake2s_plookup {
+namespace bb::stdlib::blake2s_plookup {
 
 using plookup::ColumnIdx;
 using namespace blake_util;
@@ -43,7 +40,7 @@ enum blake2s_constant {
  * h: A 64-byte chain value denoted decomposed as (h_0, h_1, ..., h_7), each h_i is a 32-bit number.
  *    It form the first two rows on the internal state matrix v of the compression function G.
  *
- * t: It is a counter (t_0 lsb and t_1 msb) used in the the initialization of the internal state v.
+ * t: It is a counter (t_0 lsb and t_1 msb) used in the initialization of the internal state v.
  *
  * f: f_0 and f_1 are finalization flags used in the initialization of the internal state v.
  *           /  0xfff...ff   if the block processed is the last
@@ -166,9 +163,7 @@ template <typename Builder> byte_array<Builder> blake2s(const byte_array<Builder
     return result;
 }
 
-INSTANTIATE_STDLIB_ULTRA_METHOD(BLAKE2S_ULTRA)
+template byte_array<bb::UltraCircuitBuilder> blake2s(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::MegaCircuitBuilder> blake2s(const byte_array<bb::MegaCircuitBuilder>& input);
 
-} // namespace blake2s_plookup
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::blake2s_plookup

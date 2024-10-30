@@ -1,0 +1,1 @@
+barretenberg_module(circuit_checker stdlib_circuit_builders)

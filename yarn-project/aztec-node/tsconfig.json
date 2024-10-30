@@ -10,6 +10,12 @@
       "path": "../archiver"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
@@ -19,7 +25,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../l1-artifacts"
+      "path": "../kv-store"
     },
     {
       "path": "../merkle-tree"
@@ -28,10 +34,25 @@
       "path": "../p2p"
     },
     {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
       "path": "../sequencer-client"
     },
     {
+      "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../types"
+    },
+    {
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

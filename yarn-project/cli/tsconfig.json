@@ -7,10 +7,13 @@
   },
   "references": [
     {
+      "path": "../archiver"
+    },
+    {
       "path": "../aztec.js"
     },
     {
-      "path": "../ethereum"
+      "path": "../circuit-types"
     },
     {
       "path": "../foundation"
@@ -19,13 +22,19 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../noir-compiler"
-    },
-    {
-      "path": "../noir-contracts"
-    },
-    {
       "path": "../types"
+    },
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../protocol-contracts"
     }
   ],
   "include": ["src"],

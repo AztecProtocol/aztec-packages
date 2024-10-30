@@ -1,56 +1,76 @@
-import { ABIParameter, ABIType, ABIVariable, FunctionAbi } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '../aztec-address/index.js';
+import { type Fr } from '../fields/index.js';
+import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
+import { isAztecAddressStruct } from './utils.js';
 
 /**
  * The type of our decoded ABI.
  */
-export type DecodedReturn = bigint | boolean | DecodedReturn[] | { [key: string]: DecodedReturn };
+export type AbiDecoded = bigint | boolean | AztecAddress | AbiDecoded[] | { [key: string]: AbiDecoded };
 
 /**
- * Decodes return values from a function call.
- * Missing support for integer and string.
+ * Decodes values using a provided ABI.
+ * Missing support for signed integer.
  */
-class ReturnValuesDecoder {
-  constructor(private abi: FunctionAbi, private flattened: Fr[]) {}
+class AbiDecoder {
+  constructor(private types: AbiType[], private flattened: Fr[]) {}
 
   /**
    * Decodes a single return value from field to the given type.
    * @param abiType - The type of the return value.
    * @returns The decoded return value.
    */
-  private decodeReturn(abiType: ABIType): DecodedReturn {
+  private decodeNext(abiType: AbiType): AbiDecoded {
     switch (abiType.kind) {
       case 'field':
-        return this.getNextField().value;
+        return this.getNextField().toBigInt();
       case 'integer':
         if (abiType.sign === 'signed') {
           throw new Error('Unsupported type: signed integer');
         }
-        return this.getNextField().value;
+        return this.getNextField().toBigInt();
       case 'boolean':
         return !this.getNextField().isZero();
       case 'array': {
         const array = [];
         for (let i = 0; i < abiType.length; i += 1) {
-          array.push(this.decodeReturn(abiType.type));
+          array.push(this.decodeNext(abiType.type));
         }
         return array;
       }
       case 'struct': {
-        const struct: { [key: string]: DecodedReturn } = {};
+        const struct: { [key: string]: AbiDecoded } = {};
+        if (isAztecAddressStruct(abiType)) {
+          return new AztecAddress(this.getNextField().toBuffer());
+        }
+
         for (const field of abiType.fields) {
-          struct[field.name] = this.decodeReturn(field.type);
+          struct[field.name] = this.decodeNext(field.type);
         }
         return struct;
       }
+      case 'string': {
+        const array = [];
+        for (let i = 0; i < abiType.length; i += 1) {
+          array.push(this.getNextField().toBigInt());
+        }
+        return array;
+      }
+      case 'tuple': {
+        const array = [];
+        for (const tupleAbiType of abiType.fields) {
+          array.push(this.decodeNext(tupleAbiType));
+        }
+        return array;
+      }
       default:
-        throw new Error(`Unsupported type: ${abiType.kind}`);
+        throw new Error(`Unsupported type: ${abiType}`);
     }
   }
 
   /**
-   * Gets the next field in the flattened return values.
-   * @returns The next field in the flattened return values.
+   * Gets the next field in the flattened buffer.
+   * @returns The next field in the flattened buffer.
    */
   private getNextField(): Fr {
     const field = this.flattened.shift();
@@ -61,30 +81,29 @@ class ReturnValuesDecoder {
   }
 
   /**
-   * Decodes all the return values for the given function ABI.
-   * Aztec.nr support only single return value
-   * The return value can however be simple types, structs or arrays
+   * Decodes all the values for the given ABI.
+   * The decided value can be simple types, structs or arrays
    * @returns The decoded return values.
    */
-  public decode(): DecodedReturn {
-    if (this.abi.returnTypes.length > 1) {
-      throw new Error('Multiple return values not supported');
+  public decode(): AbiDecoded {
+    if (this.types.length > 1) {
+      throw new Error('Multiple types not supported');
     }
-    if (this.abi.returnTypes.length === 0) {
+    if (this.types.length === 0) {
       return [];
     }
-    return this.decodeReturn(this.abi.returnTypes[0]);
+    return this.decodeNext(this.types[0]);
   }
 }
 
 /**
- * Decodes return values from a function call.
- * @param abi - The ABI entry of the function.
- * @param returnValues - The decoded return values.
+ * Decodes values in a flattened Field array using a provided ABI.
+ * @param abi - The ABI to use as reference.
+ * @param buffer - The flattened Field array to decode.
  * @returns
  */
-export function decodeReturnValues(abi: FunctionAbi, returnValues: Fr[]) {
-  return new ReturnValuesDecoder(abi, returnValues.slice()).decode();
+export function decodeFromAbi(typ: AbiType[], buffer: Fr[]) {
+  return new AbiDecoder(typ, buffer.slice()).decode();
 }
 
 /**
@@ -101,7 +120,7 @@ export class FunctionSignatureDecoder {
    * @param param - The parameter type to decode.
    * @returns A string representing the parameter type.
    */
-  private getParameterType(param: ABIType): string {
+  private getParameterType(param: AbiType): string {
     switch (param.kind) {
       case 'field':
         return 'Field';
@@ -114,10 +133,12 @@ export class FunctionSignatureDecoder {
         return 'bool';
       case 'array':
         return `[${this.getParameterType(param.type)};${param.length}]`;
+      case 'string':
+        return `str<${param.length}>`;
       case 'struct':
         return `(${param.fields.map(field => `${this.decodeParameter(field)}`).join(this.separator)})`;
       default:
-        throw new Error(`Unsupported type: ${param.kind}`);
+        throw new Error(`Unsupported type: ${param}`);
     }
   }
 

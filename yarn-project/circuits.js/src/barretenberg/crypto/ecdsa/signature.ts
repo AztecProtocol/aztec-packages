@@ -1,10 +1,9 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { mapTuple } from '@aztec/foundation/serialize';
 
-import { randomBytes } from 'crypto';
-
-import { Signature } from '../index.js';
+import { type Signature } from '../signature/index.js';
 
 /**
  * ECDSA signature used for transactions.
@@ -26,13 +25,13 @@ export class EcdsaSignature implements Signature {
     public v: Buffer,
   ) {
     if (r.length != 32) {
-      throw new Error(`Invalid length of 'r' in ECDSA signature`);
+      throw new Error(`Invalid length of 'r' in ECDSA signature. Expected 32, got ${s.length}`);
     }
     if (s.length != 32) {
-      throw new Error(`Invalid length of 's' in ECDSA signature`);
+      throw new Error(`Invalid length of 's' in ECDSA signature. Expected 32, got ${r.length}`);
     }
     if (v.length != 1) {
-      throw new Error(`Invalid length of '1' in ECDSA signature`);
+      throw new Error(`Invalid length of 'v' in ECDSA signature. Expected 1, got ${v.length}`);
     }
   }
 
@@ -45,8 +44,8 @@ export class EcdsaSignature implements Signature {
   }
 
   /**
-   * Deserialises the signature from a buffer.
-   * @param buffer - The buffer from which to deserialise the signature.
+   * Deserializes the signature from a buffer.
+   * @param buffer - The buffer from which to deserialize the signature.
    * @returns The ECDSA signature
    */
   public static fromBuffer(buffer: Buffer) {

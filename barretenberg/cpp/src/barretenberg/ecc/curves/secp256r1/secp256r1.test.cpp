@@ -2,16 +2,14 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
-namespace test_secp256r1 {
-
+using namespace bb;
 namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
+auto& engine = numeric::get_debug_randomness();
 
-constexpr uint256_t test_fq_mod(secp256r1::Secp256r1FqParams::modulus_0,
-                                secp256r1::Secp256r1FqParams::modulus_1,
-                                secp256r1::Secp256r1FqParams::modulus_2,
-                                secp256r1::Secp256r1FqParams::modulus_3);
+constexpr uint256_t test_fq_mod(secp256r1::FqParams::modulus_0,
+                                secp256r1::FqParams::modulus_1,
+                                secp256r1::FqParams::modulus_2,
+                                secp256r1::FqParams::modulus_3);
 
 uint256_t get_fq_element()
 {
@@ -21,6 +19,7 @@ uint256_t get_fq_element()
     }
     return res;
 }
+} // namespace
 
 TEST(secp256r1, TestAdd)
 {
@@ -71,7 +70,11 @@ TEST(secp256r1, TestToMontgomeryForm)
         uint256_t a_raw = get_fq_element();
         secp256r1::fq montgomery_result(a_raw);
 
-        uint512_t R = uint512_t(0, 1);
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+        constexpr uint512_t R = uint512_t(0, 1);
+#else
+        constexpr uint512_t R = (uint512_t(1) << (29 * 9)) % uint512_t(test_fq_mod);
+#endif
         uint512_t aR = uint512_t(a_raw) * R;
         uint256_t expected = (aR % uint512_t(test_fq_mod)).lo;
 
@@ -435,6 +438,7 @@ TEST(secp256r1, check_compression_constructor)
     std::cout << "Affine element: " << el << std::endl;
 }**/
 
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
 TEST(secp256r1, MontgomeryMulBigBug)
 {
     secp256r1::fr a;
@@ -446,5 +450,4 @@ TEST(secp256r1, MontgomeryMulBigBug)
     secp256r1::fr expected(uint256_t{ 0x57abc6aa0349c084, 0x65b21b232a4cb7a5, 0x5ba781948b0fcd6e, 0xd6e9e0644bda12f7 });
     EXPECT_EQ((a_sqr == expected), true);
 }
-
-} // namespace test_secp256r1
+#endif

@@ -1,6 +1,10 @@
-import { keccak256String, randomBytes } from '../crypto/index.js';
+import { inspect } from 'util';
+
+import { keccak256String } from '../crypto/keccak/index.js';
+import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../fields/index.js';
-import { BufferReader } from '../serialize/index.js';
+import { BufferReader, FieldReader } from '../serialize/index.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
 
 /**
  * Represents an Ethereum address as a 20-byte buffer and provides various utility methods
@@ -19,13 +23,7 @@ export class EthAddress {
   public static ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {
-    if (buffer.length === 32) {
-      if (!buffer.slice(0, 12).equals(Buffer.alloc(12))) {
-        throw new Error(`Invalid address buffer: ${buffer.toString('hex')}`);
-      } else {
-        this.buffer = buffer.slice(12);
-      }
-    } else if (buffer.length !== EthAddress.SIZE_IN_BYTES) {
+    if (buffer.length !== EthAddress.SIZE_IN_BYTES) {
       throw new Error(`Expect buffer size to be ${EthAddress.SIZE_IN_BYTES}. Got ${buffer.length}.`);
     }
   }
@@ -70,7 +68,7 @@ export class EthAddress {
       // Does not have the basic requirements of an address.
       return false;
     } else if (/^(0x|0X)?[0-9a-f]{40}$/.test(address) || /^(0x|0X)?[0-9A-F]{40}$/.test(address)) {
-      // It's ALL lowercase or ALL upppercase.
+      // It's ALL lowercase or ALL uppercase.
       return true;
     } else {
       return EthAddress.checkAddressChecksum(address);
@@ -163,6 +161,10 @@ export class EthAddress {
     return `0x${this.buffer.toString('hex')}` as `0x${string}`;
   }
 
+  [inspect.custom]() {
+    return `EthAddress<${this.toString()}>`;
+  }
+
   /**
    * Returns the Ethereum address as a checksummed string.
    * The output string will have characters in the correct upper or lowercase form, according to EIP-55.
@@ -175,21 +177,10 @@ export class EthAddress {
   }
 
   /**
-   * Alias for toBuffer32.
-   * @returns A 32-byte Buffer containing the padded Ethereum address.
+   * Returns a 20-byte buffer representation of the Ethereum address.
+   * @returns A 20-byte Buffer containing the Ethereum address.
    */
   public toBuffer() {
-    return this.toBuffer32();
-  }
-
-  /**
-   * Returns the internal Buffer representation of the Ethereum address.
-   * This method is useful when working with raw binary data or when
-   * integrating with other modules that require a Buffer as input.
-   *
-   * @returns A Buffer instance containing the 20-byte Ethereum address.
-   */
-  public toBuffer20() {
     return this.buffer;
   }
 
@@ -224,14 +215,19 @@ export class EthAddress {
     return new EthAddress(fr.toBuffer().slice(-EthAddress.SIZE_IN_BYTES));
   }
 
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return EthAddress.fromField(reader.readField());
+  }
+
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
-   * @returns The EthAdress.
+   * @returns The EthAddress.
    */
   static fromBuffer(buffer: Buffer | BufferReader): EthAddress {
     const reader = BufferReader.asReader(buffer);
-    return new EthAddress(reader.readBuffer());
+    return new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
   }
 
   /**
@@ -241,4 +237,14 @@ export class EthAddress {
   toFriendlyJSON() {
     return this.toString();
   }
+
+  toJSON() {
+    return {
+      type: 'EthAddress',
+      value: this.toString(),
+    };
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('EthAddress', EthAddress);

@@ -121,6 +121,20 @@ inline void write(uint8_t*& it, uint64_t value)
     it += 8;
 }
 
+#ifdef __APPLE__
+inline void read(uint8_t const*& it, unsigned long& value)
+{
+    value = ntohll(*reinterpret_cast<unsigned long const*>(it));
+    it += 8;
+}
+
+inline void write(uint8_t*& it, unsigned long value)
+{
+    *reinterpret_cast<unsigned long*>(it) = htonll(value);
+    it += 8;
+}
+#endif
+
 #ifndef __i386__
 inline void read(uint8_t const*& it, uint128_t& value)
 {
@@ -181,21 +195,21 @@ inline void write(auto& buf, std::integral auto value)
     serialize::write(buf, value);
 }
 
-// Optimised specialisation for reading arrays of bytes from a raw buffer.
+// Optimized specialisation for reading arrays of bytes from a raw buffer.
 template <size_t N> inline void read(uint8_t const*& it, std::array<uint8_t, N>& value)
 {
     std::copy(it, it + N, value.data());
     it += N;
 }
 
-// Optimised specialisation for writing arrays of bytes to a raw buffer.
+// Optimized specialisation for writing arrays of bytes to a raw buffer.
 template <size_t N> inline void write(uint8_t*& buf, std::array<uint8_t, N> const& value)
 {
     std::copy(value.begin(), value.end(), buf);
     buf += N;
 }
 
-// Optimised specialisation for reading vectors of bytes from a raw buffer.
+// Optimized specialisation for reading vectors of bytes from a raw buffer.
 inline void read(uint8_t const*& it, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
@@ -205,7 +219,7 @@ inline void read(uint8_t const*& it, std::vector<uint8_t>& value)
     it += size;
 }
 
-// Optimised specialisation for writing vectors of bytes to a raw buffer.
+// Optimized specialisation for writing vectors of bytes to a raw buffer.
 inline void write(uint8_t*& buf, std::vector<uint8_t> const& value)
 {
     write(buf, static_cast<uint32_t>(value.size()));
@@ -213,7 +227,7 @@ inline void write(uint8_t*& buf, std::vector<uint8_t> const& value)
     buf += value.size();
 }
 
-// Optimised specialisation for reading vectors of bytes from an input stream.
+// Optimized specialisation for reading vectors of bytes from an input stream.
 inline void read(std::istream& is, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
@@ -222,14 +236,14 @@ inline void read(std::istream& is, std::vector<uint8_t>& value)
     is.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(size));
 }
 
-// Optimised specialisation for writing vectors of bytes to an output stream.
+// Optimized specialisation for writing vectors of bytes to an output stream.
 inline void write(std::ostream& os, std::vector<uint8_t> const& value)
 {
     write(os, static_cast<uint32_t>(value.size()));
     os.write(reinterpret_cast<const char*>(value.data()), static_cast<std::streamsize>(value.size()));
 }
 
-// Optimised specialisation for writing arrays of bytes to a vector.
+// Optimized specialisation for writing arrays of bytes to a vector.
 template <size_t N> inline void write(std::vector<uint8_t>& buf, std::array<uint8_t, N> const& value)
 {
     buf.resize(buf.size() + N);
@@ -237,7 +251,7 @@ template <size_t N> inline void write(std::vector<uint8_t>& buf, std::array<uint
     write(ptr, value);
 }
 
-// Optimised specialisation for writing arrays of bytes to an output stream.
+// Optimized specialisation for writing arrays of bytes to an output stream.
 template <size_t N> inline void write(std::ostream& os, std::array<uint8_t, N> const& value)
 {
     os.write(reinterpret_cast<char*>(value.data()), value.size());
@@ -321,7 +335,7 @@ template <typename B, typename T> inline void read(B& it, std::shared_ptr<T>& va
     using serialize::read;
     T value;
     read(it, value);
-    *value_ptr = std::make_shared(value);
+    value_ptr = std::make_shared<T>(value);
 }
 
 // Write std::shared_ptr.
@@ -368,6 +382,18 @@ template <typename B, typename T> inline void read(B& it, std::optional<T>& opt_
     T value;
     read(it, value);
     opt_value = T(value);
+}
+
+template <typename T>
+concept HasGetAll = requires(T t) { t.get_all(); } && !msgpack_concepts::HasMsgPack<T>;
+
+// Write out a struct that defines get_all()
+template <typename B, HasGetAll T> inline void write(B& buf, T const& value)
+{
+    using serialize::write;
+    for (auto& reference : value.get_all()) {
+        write(buf, reference);
+    }
 }
 
 // Write std::optional<T>.

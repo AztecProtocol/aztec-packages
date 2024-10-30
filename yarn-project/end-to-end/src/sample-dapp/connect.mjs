@@ -4,9 +4,9 @@ import { createPXEClient } from '@aztec/aztec.js';
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
-  const pxe = createPXEClient(PXE_URL);
-  const { chainId } = await pxe.getNodeInfo();
-  console.log(`Connected to chain ${chainId}`);
+  const pxe = await createPXEClient(PXE_URL);
+  const { l1ChainId } = await pxe.getNodeInfo();
+  console.log(`Connected to chain ${l1ChainId}`);
 }
 
 main().catch(err => {

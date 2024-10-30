@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 NAME=$1
 CPUS=$2
+ARCH=$3
 
 # Declare an associative array to map CPU counts to instance type suffixes.
 declare -A cpu_map
@@ -24,12 +25,22 @@ INSTANCE_TYPE_SUFFIX=${cpu_map[$CPUS]}
 
 # Check if INSTANCE_TYPE_SUFFIX is set, if not, the CPU count is not recognized.
 if [ -z "$INSTANCE_TYPE_SUFFIX" ]; then
-  echo "Unrecognized CPU count: $CPUS"
+  >&2 echo "Unrecognized CPU count: $CPUS"
   exit 1
 fi
 
 # Construct the full instance type. We use r6a currently.
-INSTANCE_TYPE="r6a.$INSTANCE_TYPE_SUFFIX"
+if [ "$ARCH" == "x86_64" ]; then
+  MACHINE_TYPE="r6a"
+  AMI="ami-04d8422a9ba4de80f"
+elif [ "$ARCH" == "arm64" ]; then
+  MACHINE_TYPE="r7g"
+  AMI="ami-0d8a9b0419ddb331a"
+else
+  echo "Unknown arch: $ARCH"
+  exit 1
+fi
+INSTANCE_TYPE="$MACHINE_TYPE.$INSTANCE_TYPE_SUFFIX"
 
 export AWS_DEFAULT_REGION=us-east-2
 
@@ -38,7 +49,7 @@ PRICE=$(jq -n "$BID_PER_CPU_HOUR*$CPUS*100000 | round / 100000")
 
 launch_spec=$(cat <<EOF
 {
-  "ImageId": "ami-0e5df77ac318c7a18",
+  "ImageId": "$AMI",
   "KeyName": "build-instance",
   "SecurityGroupIds": ["sg-0ccd4e5df0dcca0c9"],
   "InstanceType": "$INSTANCE_TYPE",
@@ -46,7 +57,7 @@ launch_spec=$(cat <<EOF
     {
       "DeviceName": "/dev/sda1",
       "Ebs": {
-        "VolumeSize": 16
+        "VolumeSize": 32
       }
     }
   ]
@@ -89,7 +100,7 @@ if [ -z "$IID" -o "$IID" == "None" ]; then
   # Request on-demand instance.
   >&2 echo "Falling back to on-demand instance..."
   IID=$(aws ec2 run-instances \
-    --cli-input-json file://$BUILD_SYSTEM_PATH/remote/${CPUS}core.json \
+    --cli-input-json file://$temp_file \
     --query "Instances[*].[InstanceId]" \
     --output text)
 else
@@ -110,6 +121,13 @@ done
 
 # Wait till ssh port is open.
 >&2 echo "Waiting for SSH at $IP..."
-while ! nc -z $IP 22; do sleep 1; done;
-
+SECONDS=0
+SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-$BUILD_SYSTEM_PATH/remote/ssh_config}
+while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP true > /dev/null 2>&1; do
+  if (( SECONDS >= 60 )); then
+    >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."
+    exit 1
+  fi
+  sleep 1
+done
 echo $IP

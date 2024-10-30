@@ -1,23 +1,28 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require("prism-react-renderer/themes/github");
-const darkCodeTheme = require("prism-react-renderer/themes/dracula");
-const math = require("remark-math");
-const katex = require("rehype-katex");
+const { themes } = require("prism-react-renderer");
+const lightTheme = themes.github;
+const darkTheme = themes.dracula;
+
+import math from "remark-math";
+import katex from "rehype-katex";
+
 const path = require("path");
 const fs = require("fs");
+const macros = require("./src/katex-macros.js");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Aztec Docs",
-  tagline: "Ethereum, encrypted",
+  title: "Privacy-first zkRollup | Aztec Documentation",
+  tagline:
+    "Aztec introduces a privacy-centric zkRollup solution for Ethereum, enhancing confidentiality and scalability within the Ethereum ecosystem.",
   url: "https://docs.aztec.network/",
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "throw",
-  favicon: "img/Aztec_docs_icons-02.svg",
+  onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
+  favicon: "img/Aztec_icon_minified.svg",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -39,10 +44,10 @@ const config = {
     [
       "@docusaurus/preset-classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
-      ({
+      {
         docs: {
-          path: "processed-docs",
-          sidebarPath: require.resolve("./sidebars.js"),
+          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
+          sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
               `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +
@@ -50,19 +55,24 @@ const config = {
             );
           },
           routeBasePath: "/",
+          include: ["**/*.{md,mdx}"],
           remarkPlugins: [math],
-          rehypePlugins: [katex],
+          rehypePlugins: [
+            [
+              katex,
+              {
+                throwOnError: true,
+                globalGroup: true,
+                macros,
+              },
+            ],
+          ],
         },
         blog: false,
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
-        // removed until approved by legal (GDPR)
-        //         gtag: {
-        //           trackingID: "G-WSBTSFJCSF",
-        //           anonymizeIP: true,
-        //         }
-      }),
+      },
     ],
   ],
   stylesheets: [
@@ -81,13 +91,6 @@ const config = {
         name: "load-versions",
         async loadContent() {
           try {
-            const noirVersionPath = path.resolve(
-              __dirname,
-              "../yarn-project/noir-compiler/src/noir-version.json"
-            );
-            const noirVersion = JSON.parse(
-              fs.readFileSync(noirVersionPath).toString()
-            ).tag;
             const aztecVersionPath = path.resolve(
               __dirname,
               "../.release-please-manifest.json"
@@ -96,12 +99,11 @@ const config = {
               fs.readFileSync(aztecVersionPath).toString()
             )["."];
             return {
-              noir: noirVersion,
               "aztec-packages": `aztec-packages-v${aztecVersion}`,
             };
           } catch (err) {
             throw new Error(
-              `Error loading Noir version from noir-compiler in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
+              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
             );
           }
         },
@@ -125,31 +127,62 @@ const config = {
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/pxe",
-        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/types/tsconfig.json",
+        id: "aztecjs/pxe",
+        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "apis/pxe",
+        out: "reference/developer_references/aztecjs/pxe",
+        readme: "none",
+        sidebar: {
+          categoryLabel: "Private Execution Environment (PXE)",
+        },
         disableSources: true,
-        frontmatter: { sidebar_label: "Private Execution Environment (PXE)" },
       },
     ],
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/aztec-js",
+        id: "aztecjs/aztec-js",
         entryPoints: [
           "../yarn-project/aztec.js/src/contract/index.ts",
           "../yarn-project/aztec.js/src/account/index.ts",
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "apis/aztec-js",
+        out: "reference/developer_references/aztecjs/aztec-js",
+        readme: "none",
+        sidebar: {
+          categoryLabel: "Aztec.js",
+        },
+        disableSources: true,
+      },
+    ],
+    [
+      "docusaurus-plugin-typedoc",
+      {
+        id: "aztecjs/accounts",
+        entryPoints: [
+          "../yarn-project/accounts/src/defaults/index.ts",
+          "../yarn-project/accounts/src/ecdsa/index.ts",
+          "../yarn-project/accounts/src/schnorr/index.ts",
+          "../yarn-project/accounts/src/single_key/index.ts",
+          "../yarn-project/accounts/src/testing/index.ts",
+        ],
+        tsconfig: "../yarn-project/accounts/tsconfig.json",
+        entryPointStrategy: "resolve",
+        out: "reference/developer_references/aztecjs/accounts",
+        readme: "none",
+        sidebar: {
+          categoryLabel: "Accounts",
+        },
         disableSources: true,
       },
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
+  customFields: {
+    MATOMO_ENV: process.env.ENV,
+  },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -159,34 +192,142 @@ const config = {
           content: "aztec, noir, privacy, encrypted, ethereum, blockchain",
         },
       ],
+      image: "img/docs-preview-image.png",
       algolia: {
         appId: "CL4NK79B0W",
         apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
         indexName: "aztec",
+        contextualSearch: true,
+        customRanking: [
+          { asc: 'importance' },
+        ],
       },
       colorMode: {
         defaultMode: "light",
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
-      docs: {
-        sidebar: {
-          hideable: true,
-          autoCollapseCategories: false,
-        },
-      },
+      // docs: {
+      //   sidebar: {
+      //     hideable: true,
+      //     autoCollapseCategories: false,
+      //   },
+      // },
       navbar: {
         logo: {
           alt: "Aztec Logo",
           srcDark: "img/new_logo-01.svg",
+          href: "/",
           src: "img/Aztec_logo_dark-01.svg",
         },
         items: [
           {
             type: "doc",
-            docId: "intro",
+            docId: "aztec/overview",
             position: "left",
-            label: "Aztec Protocol",
+            label: "Concepts",
+          },
+          {
+            type: "docSidebar",
+            sidebarId: "guidesSidebar",
+            position: "left",
+            label: "Guides",
+          },
+          {
+            type: "docSidebar",
+            sidebarId: "tutorialsSidebar",
+            position: "left",
+            label: "Examples",
+          },
+          {
+            type: "docSidebar",
+            sidebarId: "referenceSidebar",
+            position: "left",
+            label: "References",
+          },
+          {
+            type: "dropdown",
+            label: "Resources",
+            position: "left",
+            items: [
+              {
+                type: "html",
+                value: '<span class="dropdown-subtitle">GitHub</span>',
+                className: "dropdown-subtitle",
+              },
+              {
+                to: "https://github.com/AztecProtocol/aztec-packages",
+                label: "Aztec Monorepo",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "github-item",
+              },
+              {
+                to: "https://github.com/AztecProtocol/aztec-nr",
+                label: "Aztec.nr",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "github-item",
+              },
+              {
+                to: "https://github.com/AztecProtocol/awesome-aztec",
+                label: "Awesome Aztec",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "github-item",
+              },
+              {
+                type: "html",
+                value: '<span class="dropdown-subtitle">Other Docs</span>',
+                className: "dropdown-subtitle",
+              },
+              {
+                to: "/migration_notes",
+                label: "Migration Notes",
+                className: "no-external-icon",
+              },
+              {
+                to: "/aztec_connect_sunset",
+                label: "Aztec Connect Sunset",
+                className: "no-external-icon",
+              },
+              {
+                type: "docSidebar",
+                sidebarId: "protocolSpecSidebar",
+                label: "Protocol Specification",
+                className: "no-external-icon",
+              },
+              {
+                type: "docSidebar",
+                sidebarId: "roadmapSidebar",
+                label: "Roadmap",
+                className: "no-external-icon",
+              },
+              {
+                to: "https://noir-lang.org/docs",
+                label: "Noir docs",
+                target: "_blank",
+                rel: "noopener noreferrer",
+              },
+              {
+                type: "html",
+                value: '<span class="dropdown-subtitle">Support</span>',
+                className: "dropdown-subtitle",
+              },
+              {
+                to: "https://airtable.com/appMhZd7lsZS3v27R/pagxWYAHYYrnrrXmm/form",
+                label: "Join community",
+                target: "_blank",
+                rel: "noopener noreferrer",
+              },
+              {
+                to: "https://x.com/aztecnetwork",
+                label: "X/Twitter",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "twitter-item",
+              },
+            ],
           },
         ],
       },
@@ -201,8 +342,12 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Quickstart",
-                to: "/dev_docs/getting_started/quickstart",
+                label: "Developer Getting Started Guide",
+                to: "/guides/developer_guides/getting_started",
+              },
+              {
+                label: "Aztec.nr",
+                to: "https://github.com/AztecProtocol/aztec-nr",
               },
             ],
           },
@@ -210,20 +355,16 @@ const config = {
             title: "Community",
             items: [
               {
-                label: "Discourse",
-                href: "https://discourse.aztec.network",
+                label: "Forum",
+                href: "https://forum.aztec.network",
               },
               {
                 label: "Discord",
                 href: "https://discord.gg/DgWG2DBMyB",
               },
               {
-                label: "Twitter",
-                href: "https://twitter.com/aztecnetwork",
-              },
-              {
-                label: "Plonk Cafe",
-                href: "https://www.plonk.cafe/",
+                label: "X (Twitter)",
+                href: "https://x.com/aztecnetwork",
               },
             ],
           },
@@ -235,6 +376,10 @@ const config = {
                 href: "https://github.com/AztecProtocol",
               },
               {
+                label: "Awesome Aztec",
+                to: "https://github.com/AztecProtocol/awesome-aztec",
+              },
+              {
                 label: "Grants",
                 href: "https://aztec.network/grants",
               },
@@ -244,11 +389,13 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} Aztec, built with Docusaurus, powered by <a target="_blank" href="https://netlify.com">Netlify.</a>`,
       },
       prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
+        theme: themes.nightOwlLight,
+        darkTheme: themes.shadesOfPurple,
+        // darkTheme: themes.dracula,
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [
+          "diff",
           "rust",
           "solidity",
           "cpp",
@@ -256,7 +403,6 @@ const config = {
           // "typescript",
           "json",
           // "bash",
-          // "solidity",
           "toml",
           "markdown",
           "docker",

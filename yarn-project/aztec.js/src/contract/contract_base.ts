@@ -1,8 +1,13 @@
-import { ContractAbi, FunctionAbi, FunctionSelector } from '@aztec/foundation/abi';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { CompleteAddress, DeployedContract } from '@aztec/types';
+import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js';
+import {
+  type ContractArtifact,
+  type ContractNote,
+  type FieldLayout,
+  type FunctionArtifact,
+  FunctionSelector,
+} from '@aztec/foundation/abi';
 
-import { Wallet } from '../wallet/index.js';
+import { type Wallet } from '../account/index.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 
 /**
@@ -17,6 +22,20 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
 };
 
 /**
+ * Type representing the storage layout of a contract.
+ */
+export type ContractStorageLayout<T extends string> = {
+  [K in T]: FieldLayout;
+};
+
+/**
+ * Type representing the notes used in a contract.
+ */
+export type ContractNotes<T extends string> = {
+  [K in T]: ContractNote;
+};
+
+/**
  * Abstract implementation of a contract extended by the Contract class and generated contract types.
  */
 export class ContractBase {
@@ -26,22 +45,16 @@ export class ContractBase {
   public methods: { [name: string]: ContractMethod } = {};
 
   protected constructor(
-    /**
-     * The deployed contract's complete address.
-     */
-    public readonly completeAddress: CompleteAddress,
-    /**
-     * The Application Binary Interface for the contract.
-     */
-    public readonly abi: ContractAbi,
-    /**
-     * The wallet.
-     */
-    protected wallet: Wallet,
+    /** The deployed contract instance definition. */
+    public readonly instance: ContractInstanceWithAddress,
+    /** The Application Binary Interface for the contract. */
+    public readonly artifact: ContractArtifact,
+    /** The wallet used for interacting with this contract. */
+    public wallet: Wallet,
   ) {
-    abi.functions.forEach((f: FunctionAbi) => {
+    artifact.functions.forEach((f: FunctionArtifact) => {
       const interactionFunction = (...args: any[]) => {
-        return new ContractFunctionInteraction(this.wallet, this.completeAddress.address!, f, args);
+        return new ContractFunctionInteraction(this.wallet, this.instance.address, f, args);
       };
 
       this.methods[f.name] = Object.assign(interactionFunction, {
@@ -56,11 +69,14 @@ export class ContractBase {
     });
   }
 
-  /**
-   * Address of the contract.
-   */
+  /** Address of the contract. */
   public get address() {
-    return this.completeAddress.address;
+    return this.instance.address;
+  }
+
+  /** Partial address of the contract. */
+  public get partialAddress() {
+    return computePartialAddress(this.instance);
   }
 
   /**
@@ -69,24 +85,6 @@ export class ContractBase {
    * @returns A new contract instance.
    */
   public withWallet(wallet: Wallet): this {
-    return new ContractBase(this.completeAddress, this.abi, wallet) as this;
-  }
-
-  /**
-   * Attach the current contract instance to a portal contract and optionally add its dependencies.
-   * The function will return a promise that resolves when all contracts have been added to the PXE.
-   * This is useful when you need to interact with a deployed contract that has multiple nested contracts.
-   *
-   * @param portalContract - The Ethereum address of the portal contract.
-   * @param dependencies - An optional array of additional DeployedContract instances to be attached.
-   * @returns A promise that resolves when all contracts are successfully added to the PXE.
-   */
-  public attach(portalContract: EthAddress, dependencies: DeployedContract[] = []) {
-    const deployedContract: DeployedContract = {
-      abi: this.abi,
-      completeAddress: this.completeAddress,
-      portalContract,
-    };
-    return this.wallet.addContracts([deployedContract, ...dependencies]);
+    return new ContractBase(this.instance, this.artifact, wallet) as this;
   }
 }
