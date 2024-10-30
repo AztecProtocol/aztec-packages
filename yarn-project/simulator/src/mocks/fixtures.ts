@@ -1,7 +1,7 @@
 import {
   type FunctionCall,
   PublicExecutionRequest,
-  type SimulationError,
+  SimulationError,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import {
@@ -31,6 +31,14 @@ export class PublicExecutionResultBuilder {
 
   constructor(executionRequest: PublicExecutionRequest) {
     this._executionRequest = executionRequest;
+  }
+
+  static empty(basicRevert = false) {
+    const builder = new PublicExecutionResultBuilder(PublicExecutionRequest.empty());
+    if (basicRevert) {
+      builder.withReverted(new SimulationError('Simulation failed', []));
+    }
+    return builder;
   }
 
   static fromPublicExecutionRequest({

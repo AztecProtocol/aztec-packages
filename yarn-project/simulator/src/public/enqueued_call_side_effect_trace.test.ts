@@ -28,6 +28,7 @@ import {
   SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
 import { randomBytes, randomInt } from 'crypto';
@@ -89,7 +90,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().publicDataReads;
-    expectedArray[0] = new PublicDataRead(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataRead(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.validationRequests.publicDataReads).toEqual(expectedArray);
@@ -101,7 +103,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().publicDataUpdateRequests;
-    expectedArray[0] = new PublicDataUpdateRequest(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.publicDataUpdateRequests).toEqual(expectedArray);
@@ -172,7 +175,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().nullifiers;
-    expectedArray[0] = new Nullifier(utxo, startCounter, Fr.ZERO);
+    expectedArray[0] = new Nullifier(siloNullifier(address, utxo), startCounter, Fr.ZERO);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.nullifiers).toEqual(expectedArray);

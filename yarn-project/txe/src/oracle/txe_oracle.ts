@@ -31,7 +31,6 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   TaggingSecret,
-  TxContext,
   computeContractClassId,
   computeTaggingSecret,
   deriveKeys,
@@ -54,13 +53,17 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
+  AvmPersistableStateManager,
+  DualSideEffectTrace,
   ExecutionError,
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   type PackedValuesCache,
+  PublicEnqueuedCallSideEffectTrace,
   PublicExecutor,
+  PublicSideEffectTrace,
   type TypedOracle,
   acvm,
   createSimulationError,
@@ -80,7 +83,7 @@ import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 0;
-  private sideEffectsCounter = 0;
+  private sideEffectCounter = 0;
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
@@ -144,11 +147,11 @@ export class TXE implements TypedOracle {
   }
 
   getSideEffectsCounter() {
-    return this.sideEffectsCounter;
+    return this.sideEffectCounter;
   }
 
   setSideEffectsCounter(sideEffectsCounter: number) {
-    this.sideEffectsCounter = sideEffectsCounter;
+    this.sideEffectCounter = sideEffectsCounter;
   }
 
   setContractAddress(contractAddress: AztecAddress) {
@@ -186,7 +189,7 @@ export class TXE implements TypedOracle {
 
   async getPrivateContextInputs(
     blockNumber: number,
-    sideEffectsCounter = this.sideEffectsCounter,
+    sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
     const db = await this.#getTreesAt(blockNumber);
@@ -419,13 +422,13 @@ export class TXE implements TypedOracle {
       },
       counter,
     );
-    this.sideEffectsCounter = counter + 1;
+    this.sideEffectCounter = counter + 1;
     return Promise.resolve();
   }
 
   notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
-    this.sideEffectsCounter = counter + 1;
+    this.sideEffectCounter = counter + 1;
     return Promise.resolve();
   }
 
@@ -489,17 +492,17 @@ export class TXE implements TypedOracle {
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectsCounter = counter + 1;
+    this.sideEffectCounter = counter + 1;
     return;
   }
 
   emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, counter: number): void {
-    this.sideEffectsCounter = counter + 1;
+    this.sideEffectCounter = counter + 1;
     return;
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, counter: number): void {
-    this.sideEffectsCounter = counter + 1;
+    this.sideEffectCounter = counter + 1;
     return;
   }
 
@@ -566,7 +569,7 @@ export class TXE implements TypedOracle {
 
       // Apply side effects
       const endSideEffectCounter = publicInputs.endSideEffectCounter;
-      this.sideEffectsCounter = endSideEffectCounter.toNumber() + 1;
+      this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
 
       await this.addNullifiers(
         targetContractAddress,
@@ -626,11 +629,7 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  private async executePublicFunction(args: Fr[], callContext: CallContext, counter: number) {
-    const executor = new PublicExecutor(
-      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
-      new NoopTelemetryClient(),
-    );
+  private async executePublicFunction(stateManager: AvmPersistableStateManager, args: Fr[], callContext: CallContext) {
     const execution = new PublicExecutionRequest(callContext, args);
 
     const db = await this.trees.getLatest();
@@ -651,14 +650,21 @@ export class TXE implements TypedOracle {
     combinedConstantData.txContext.chainId = this.chainId;
     combinedConstantData.txContext.version = this.version;
 
-    const executionResult = executor.simulate(
+    // TODO(dbanks12): this is ugly! need a better external interface
+    // for the txe to use. Really I just need to see the side effects
+    // without needing to access the inner trace. Either via return values,
+    // or expose via state manager. And creation of the state manager should
+    // be more straightforward
+    const simulator = new PublicExecutor(
+      new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
+      new NoopTelemetryClient(),
+    );
+    const executionResult = await simulator.simulate(
+      stateManager,
       execution,
-      combinedConstantData,
+      combinedConstantData.globalVariables,
       Gas.test(),
-      TxContext.empty(),
-      /* pendingNullifiers */ [],
       /* transactionFee */ Fr.ONE,
-      counter,
     );
     return Promise.resolve(executionResult);
   }
@@ -667,7 +673,7 @@ export class TXE implements TypedOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
-    sideEffectCounter: number,
+    _sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<Fr> {
     // Store and modify env
@@ -688,7 +694,14 @@ export class TXE implements TypedOracle {
     const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
     const newArgsHash = this.packedValuesCache.pack(args);
 
-    const executionResult = await this.executePublicFunction(args, callContext, sideEffectCounter);
+    const innerCallTrace = new PublicSideEffectTrace();
+    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace();
+    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
+    const stateManager = new AvmPersistableStateManager(
+      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
+      trace,
+    );
+    const executionResult = await this.executePublicFunction(stateManager, args, callContext);
 
     // Poor man's revert handling
     if (executionResult.reverted) {
@@ -706,14 +719,15 @@ export class TXE implements TypedOracle {
     }
 
     // Apply side effects
-    this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber() + 1;
+    this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber() + 1;
+    const sideEffects = enqueuedCallTrace.getSideEffects();
     await this.addNoteHashes(
       targetContractAddress,
-      executionResult.noteHashes.map(noteHash => noteHash.value),
+      sideEffects.noteHashes.map(noteHash => noteHash.value),
     );
     await this.addNullifiers(
       targetContractAddress,
-      executionResult.nullifiers.map(nullifier => nullifier.value),
+      sideEffects.nullifiers.map(nullifier => nullifier.value),
     );
 
     this.setContractAddress(currentContractAddress);
@@ -755,7 +769,7 @@ export class TXE implements TypedOracle {
     _encryptedEvent: Buffer,
     counter: number,
   ): void {
-    this.sideEffectsCounter = counter + 1;
+    this.sideEffectCounter = counter + 1;
     return;
   }
 
@@ -815,20 +829,28 @@ export class TXE implements TypedOracle {
       isStaticCall,
     );
 
-    const executionResult = await this.executePublicFunction(args, callContext, this.sideEffectsCounter);
+    const innerCallTrace = new PublicSideEffectTrace();
+    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace();
+    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
+    const stateManager = new AvmPersistableStateManager(
+      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
+      trace,
+    );
+    const executionResult = await this.executePublicFunction(stateManager, args, callContext);
     // Save return/revert data for later.
     this.nestedCallReturndata = executionResult.returnValues;
 
     // Apply side effects
     if (!executionResult.reverted) {
-      this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber() + 1;
+      const sideEffects = enqueuedCallTrace.getSideEffects();
+      this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber() + 1;
       await this.addNoteHashes(
         targetContractAddress,
-        executionResult.noteHashes.map(noteHash => noteHash.value),
+        sideEffects.noteHashes.map(noteHash => noteHash.value),
       );
       await this.addNullifiers(
         targetContractAddress,
-        executionResult.nullifiers.map(nullifier => nullifier.value),
+        sideEffects.nullifiers.map(nullifier => nullifier.value),
       );
     }
 

@@ -1,7 +1,9 @@
+import { type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
+  type PublicCallRequest,
   type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -22,8 +24,11 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     public readonly enqueuedCallTrace: PublicEnqueuedCallSideEffectTrace,
   ) {}
 
-  public fork() {
-    return new DualSideEffectTrace(this.innerCallTrace.fork(), this.enqueuedCallTrace.fork());
+  public fork(incrementSideEffectCounter: boolean = false) {
+    return new DualSideEffectTrace(
+      this.innerCallTrace.fork(incrementSideEffectCounter),
+      this.enqueuedCallTrace.fork(incrementSideEffectCounter),
+    );
   }
 
   public getCounter() {
@@ -137,6 +142,37 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     );
   }
 
+  public traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ) {
+    this.enqueuedCallTrace.traceEnqueuedCall(
+      enqueuedCallTrace.enqueuedCallTrace,
+      publicCallRequest,
+      calldata,
+      reverted,
+    );
+  }
+
+  public traceAppLogicPhase(
+    /** The trace of the enqueued call. */
+    appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ) {
+    this.enqueuedCallTrace.traceAppLogicPhase(appLogicTrace.enqueuedCallTrace, publicCallRequests, calldatas, reverted);
+  }
+
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
@@ -183,5 +219,9 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
       endGasLeft,
       avmCallResults,
     );
+  }
+
+  public getUnencryptedLogs(): UnencryptedL2Log[] {
+    return this.enqueuedCallTrace.getUnencryptedLogs();
   }
 }
