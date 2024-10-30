@@ -110,7 +110,7 @@ export function resolveAssertionMessage(
   debug: FunctionDebugMetadata,
 ): string | undefined {
   const decoded = abiDecodeError(
-    { parameters: [], error_types: debug.errorTypes }, // eslint-disable-line camelcase
+    { parameters: [], error_types: debug.errorTypes, return_type: null }, // eslint-disable-line camelcase
     errorPayload,
   );
 
