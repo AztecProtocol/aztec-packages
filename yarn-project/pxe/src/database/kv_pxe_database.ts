@@ -1,16 +1,11 @@
-import {
-  type IncomingNotesFilter,
-  MerkleTreeId,
-  NoteStatus,
-  type OutgoingNotesFilter,
-  type PublicKey,
-} from '@aztec/circuit-types';
+import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
   DirectionalTaggingSecret,
   Header,
+  type PublicKey,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';

@@ -73,6 +73,8 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 export {
   AztecAddress,
   EthAddress,
+  type PartialAddress,
+  type PublicKey,
   PublicKeys,
   Fq,
   Fr,
@@ -122,8 +124,6 @@ export {
   Note,
   type PXE,
   PackedValues,
-  type PartialAddress,
-  type PublicKey,
   SiblingPath,
   type SyncStatus,
   Tx,
