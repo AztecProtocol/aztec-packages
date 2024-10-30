@@ -38,11 +38,11 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx2 = mockTx(2);
 
     await pool.addTxs([tx1, tx2]);
-    await pool.markAsMined([tx1.getTxHash()]);
+    await pool.markAsMined([tx1.getTxHash()], 1);
 
     expect(pool.getTxByHash(tx1.getTxHash())).toEqual(tx1);
     expect(pool.getTxStatus(tx1.getTxHash())).toEqual('mined');
-    expect(pool.getMinedTxHashes()).toEqual([tx1.getTxHash()]);
+    expect(pool.getMinedTxHashes()).toEqual([[tx1.getTxHash(), 1]]);
     expect(pool.getPendingTxHashes()).toEqual([tx2.getTxHash()]);
   });
 
@@ -51,7 +51,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx2 = mockTx(2);
 
     await pool.addTxs([tx1, tx2]);
-    await pool.markAsMined([tx1.getTxHash()]);
+    await pool.markAsMined([tx1.getTxHash()], 1);
 
     await pool.markMinedAsPending([tx1.getTxHash()]);
     expect(pool.getMinedTxHashes()).toEqual([]);
@@ -66,8 +66,11 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const someTxHashThatThisPeerDidNotSee = mockTx(2).getTxHash();
     await pool.addTxs([tx1]);
     // this peer knows that tx2 was mined, but it does not have the tx object
-    await pool.markAsMined([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
-    expect(pool.getMinedTxHashes()).toEqual([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
+    await pool.markAsMined([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);
+    expect(pool.getMinedTxHashes()).toEqual([
+      [tx1.getTxHash(), 1],
+      [someTxHashThatThisPeerDidNotSee, 1],
+    ]);
 
     // reorg: both txs should now become available again
     await pool.markMinedAsPending([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);

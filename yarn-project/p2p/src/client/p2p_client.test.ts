@@ -302,17 +302,23 @@ describe('In-Memory P2P Client', () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
-      // add two txs to the pool. One build against block 90, one against block 95
+      // add three txs to the pool built against different blocks
       // then prune the chain back to block 90
       // only one tx should be deleted
+      const goodButOldTx = mockTx();
+      goodButOldTx.data.constants.globalVariables.blockNumber = new Fr(89);
+
       const goodTx = mockTx();
       goodTx.data.constants.globalVariables.blockNumber = new Fr(90);
 
       const badTx = mockTx();
       badTx.data.constants.globalVariables.blockNumber = new Fr(95);
 
-      txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
-      txPool.getMinedTxHashes.mockReturnValue([goodTx.getTxHash()]);
+      txPool.getAllTxs.mockReturnValue([goodButOldTx, goodTx, badTx]);
+      txPool.getMinedTxHashes.mockReturnValue([
+        [goodButOldTx.getTxHash(), 90],
+        [goodTx.getTxHash(), 91],
+      ]);
 
       blockSource.removeBlocks(10);
       await sleep(150);

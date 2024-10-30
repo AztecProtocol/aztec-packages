@@ -21,7 +21,7 @@ export interface TxPool {
    * Marks the set of txs as mined, as opposed to pending.
    * @param txHashes - Hashes of the txs to flag as mined.
    */
-  markAsMined(txHashes: TxHash[]): Promise<void>;
+  markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void>;
 
   /**
    * Moves mined txs back to the pending set in the case of a reorg.
@@ -58,7 +58,7 @@ export interface TxPool {
    * Gets the hashes of mined transactions currently in the tx pool.
    * @returns An array of mined transaction hashes found in the tx pool.
    */
-  getMinedTxHashes(): TxHash[];
+  getMinedTxHashes(): [tx: TxHash, blockNumber: number][];
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.

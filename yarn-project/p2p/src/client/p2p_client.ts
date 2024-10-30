@@ -448,7 +448,7 @@ export class P2PClient extends WithTracer implements P2P {
     } else if (filter === 'mined') {
       return this.txPool
         .getMinedTxHashes()
-        .map(txHash => this.txPool.getTxByHash(txHash))
+        .map(([txHash]) => this.txPool.getTxByHash(txHash))
         .filter((tx): tx is Tx => !!tx);
     } else if (filter === 'pending') {
       return this.txPool
@@ -567,7 +567,7 @@ export class P2PClient extends WithTracer implements P2P {
   private async markTxsAsMinedFromBlocks(blocks: L2Block[]): Promise<void> {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.markAsMined(txHashes);
+      await this.txPool.markAsMined(txHashes, block.number);
     }
   }
 
@@ -655,9 +655,20 @@ export class P2PClient extends WithTracer implements P2P {
 
     // delete invalid txs (both pending and mined)
     await this.txPool.deleteTxs(txsToDelete);
+
     // everything left in the mined set was built against a block on the proven chain so its still valid
-    // move back to pending set
-    await this.txPool.markMinedAsPending(this.txPool.getMinedTxHashes());
+    // move back to pending the txs that were reorged out of the chain
+    // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
+    // (see this.keepProvenTxsFor)
+    const txsToMoveToPending: TxHash[] = [];
+    for (const [txHash, blockNumber] of this.txPool.getMinedTxHashes()) {
+      if (blockNumber > latestBlock) {
+        txsToMoveToPending.push(txHash);
+      }
+    }
+
+    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
+    await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added

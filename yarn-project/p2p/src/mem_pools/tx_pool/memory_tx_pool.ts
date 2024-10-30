@@ -14,7 +14,7 @@ export class InMemoryTxPool implements TxPool {
    * Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction.
    */
   private txs: Map<bigint, Tx>;
-  private minedTxs: Set<bigint>;
+  private minedTxs: Map<bigint, number>;
   private pendingTxs: Set<bigint>;
 
   private metrics: PoolInstrumentation<Tx>;
@@ -25,15 +25,15 @@ export class InMemoryTxPool implements TxPool {
    */
   constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:tx_pool')) {
     this.txs = new Map<bigint, Tx>();
-    this.minedTxs = new Set();
+    this.minedTxs = new Map();
     this.pendingTxs = new Set();
     this.metrics = new PoolInstrumentation(telemetry, 'InMemoryTxPool');
   }
 
-  public markAsMined(txHashes: TxHash[]): Promise<void> {
+  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {
-      this.minedTxs.add(key);
+      this.minedTxs.set(key, blockNumber);
       this.pendingTxs.delete(key);
     }
     this.metrics.recordRemovedObjects(txHashes.length, 'pending');
@@ -71,8 +71,8 @@ export class InMemoryTxPool implements TxPool {
     return Array.from(this.pendingTxs).map(x => TxHash.fromBigInt(x));
   }
 
-  public getMinedTxHashes(): TxHash[] {
-    return Array.from(this.minedTxs).map(x => TxHash.fromBigInt(x));
+  public getMinedTxHashes(): [TxHash, number][] {
+    return Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]);
   }
 
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
