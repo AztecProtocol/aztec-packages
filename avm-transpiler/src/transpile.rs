@@ -233,20 +233,20 @@ pub fn brillig_to_avm(
             BrilligOpcode::Jump { location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::JUMP_16,
-                    operands: vec![make_operand(16, &avm_loc)],
+                    opcode: AvmOpcode::JUMP_32,
+                    operands: vec![make_operand(32, &avm_loc)],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::JUMPI_16,
+                    opcode: AvmOpcode::JUMPI_32,
                     indirect: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![
-                        make_operand(16, &avm_loc),
+                        make_operand(32, &avm_loc),
                         make_operand(16, &condition.to_usize()),
                     ],
                     ..Default::default()
@@ -298,7 +298,7 @@ pub fn brillig_to_avm(
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::U16 { value: avm_loc as u16 }],
+                    operands: vec![AvmOperand::U32 { value: avm_loc as u32 }],
                     ..Default::default()
                 });
             }
