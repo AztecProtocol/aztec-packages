@@ -1,6 +1,7 @@
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
+  EventMetadata,
   EventType,
   Fr,
   L1EventPayload,
@@ -113,33 +114,50 @@ describe('Logs', () => {
         .wait();
 
       // We get all the events we can decrypt with either our incoming or outgoing viewing keys
-      const collectedEvent0s = await wallets[0].getEvents(
+
+      const collectedEvent0s = await wallets[0].getEvents<ExampleEvent0>(
         EventType.Encrypted,
-        TestLogContract.events.ExampleEvent0,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent0.eventSelector,
+          TestLogContract.events.ExampleEvent0.abiType,
+          TestLogContract.events.ExampleEvent0.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent0sWithIncoming = await wallets[0].getEvents(
+      const collectedEvent0sWithIncoming = await wallets[0].getEvents<ExampleEvent0>(
         EventType.Encrypted,
-        TestLogContract.events.ExampleEvent0,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent0.eventSelector,
+          TestLogContract.events.ExampleEvent0.abiType,
+          TestLogContract.events.ExampleEvent0.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
         // This function can be called specifying the viewing public keys associated with the encrypted event.
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
-      const collectedEvent0sWithOutgoing = await wallets[0].getEvents(
+      const collectedEvent0sWithOutgoing = await wallets[0].getEvents<ExampleEvent0>(
         EventType.Encrypted,
-        TestLogContract.events.ExampleEvent0,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent0.eventSelector,
+          TestLogContract.events.ExampleEvent0.abiType,
+          TestLogContract.events.ExampleEvent0.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
         [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
       );
 
-      const collectedEvent1s = await wallets[0].getEvents(
+      const collectedEvent1s = await wallets[0].getEvents<ExampleEvent1>(
         EventType.Encrypted,
-        TestLogContract.events.ExampleEvent1,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent1.eventSelector,
+          TestLogContract.events.ExampleEvent1.abiType,
+          TestLogContract.events.ExampleEvent1.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
@@ -150,9 +168,13 @@ describe('Logs', () => {
       expect(collectedEvent0s.length).toBe(10);
       expect(collectedEvent1s.length).toBe(5);
 
-      const emptyEvent1s = await wallets[0].getEvents(
+      const emptyEvent1s = await wallets[0].getEvents<ExampleEvent1>(
         EventType.Encrypted,
-        TestLogContract.events.ExampleEvent1,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent1.eventSelector,
+          TestLogContract.events.ExampleEvent1.abiType,
+          TestLogContract.events.ExampleEvent1.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
         [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
@@ -199,16 +221,24 @@ describe('Logs', () => {
       );
       const lastTx = await testLogContract.methods.emit_unencrypted_events(preimage[++i]).send().wait();
 
-      const collectedEvent0s = await wallets[0].getEvents(
+      const collectedEvent0s = await wallets[0].getEvents<ExampleEvent0>(
         EventType.Unencrypted,
-        TestLogContract.events.ExampleEvent0,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent0.eventSelector,
+          TestLogContract.events.ExampleEvent0.abiType,
+          TestLogContract.events.ExampleEvent0.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent1s = await wallets[0].getEvents(
+      const collectedEvent1s = await wallets[0].getEvents<ExampleEvent1>(
         EventType.Unencrypted,
-        TestLogContract.events.ExampleEvent1,
+        new EventMetadata(
+          TestLogContract.events.ExampleEvent1.eventSelector,
+          TestLogContract.events.ExampleEvent1.abiType,
+          TestLogContract.events.ExampleEvent1.fieldNames,
+        ),
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );

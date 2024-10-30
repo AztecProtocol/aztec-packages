@@ -10,16 +10,11 @@ import {
   type Point,
   type ProtocolContractAddresses,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import {
-  type GetUnencryptedLogsResponse,
-  type L1EventPayload,
-  type LogFilter,
-  type UnencryptedL2Log,
-} from '../logs/index.js';
+import { type EventMetadata, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
 import { type PrivateExecutionResult } from '../private_execution_result.js';
@@ -424,15 +419,6 @@ export interface PXE {
   ): Promise<T[]>;
 }
 // docs:end:pxe-interface
-
-/**
- * The shape of the event generated on the Contract.
- */
-export interface EventMetadata<T> {
-  decode(payload: L1EventPayload | UnencryptedL2Log): T | undefined;
-  eventSelector: EventSelector;
-  fieldNames: string[];
-}
 
 /**
  * This is used in getting events via the filter
