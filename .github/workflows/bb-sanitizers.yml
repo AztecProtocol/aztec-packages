@@ -29,7 +29,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover MSAN Check"
-        timeout-minutes: 360 # 6 hour timeout. Yes, it's slow, and we just want to use the 4 core github runner (free).
+        
         run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check
 
   bb-asan-check:
@@ -43,7 +43,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover ASAN Check"
-        timeout-minutes: 120 # 2 hour timeout just in case. Yes, it's slow, and we just want to use the 4 core github runner (free).
+        timeout-minutes: 360 # 6 hour timeout (proving)
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=asan
 
   bb-tsan-check:
@@ -57,7 +57,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover TSAN Check"
-        timeout-minutes: 120 # 2 hour timeout just in case. Yes, it's slow, and we just want to use the 4 core github runner (free).
+        timeout-minutes: 360 # 6 hour timeout (proving)
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan
 
   bb-ubsan-check:
@@ -71,5 +71,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover TSAN Check"
-        timeout-minutes: 120 # 2 hour timeout just in case. Yes, it's slow, and we just want to use the 4 core github runner (free).
+        timeout-minutes: 360 # 6 hour timeout (proving)
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=ubsan
