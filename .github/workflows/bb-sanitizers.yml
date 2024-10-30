@@ -57,7 +57,7 @@ jobs:
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan
 
   bb-ubsan-check:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-tsan-check')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-ubsan-check')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
