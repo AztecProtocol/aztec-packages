@@ -1,5 +1,5 @@
-import { createCompatibleClient } from '@aztec/aztec.js';
-import { FeeJuicePortalManager, prettyPrintJSON } from '@aztec/cli/utils';
+import { L1FeeJuicePortalManager, createCompatibleClient } from '@aztec/aztec.js';
+import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -32,13 +32,18 @@ export async function bridgeL1FeeJuice(
   } = await client.getPXEInfo();
 
   // Setup portal manager
-  const portal = await FeeJuicePortalManager.new(client, publicClient, walletClient, debugLogger);
-  const { claimAmount, claimSecret, messageHash } = await portal.bridgeTokensPublic(recipient, amount, mint);
+  const portal = await L1FeeJuicePortalManager.new(client, publicClient, walletClient, debugLogger);
+  const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensPublic(
+    recipient,
+    amount,
+    mint,
+  );
 
   if (json) {
     const out = {
       claimAmount,
       claimSecret,
+      messageLeafIndex,
     };
     log(prettyPrintJSON(out));
   } else {
@@ -47,7 +52,9 @@ export async function bridgeL1FeeJuice(
     } else {
       log(`Bridged ${claimAmount} fee juice to L2 portal`);
     }
-    log(`claimAmount=${claimAmount},claimSecret=${claimSecret},messageHash=${messageHash}\n`);
+    log(
+      `claimAmount=${claimAmount},claimSecret=${claimSecret},messageHash=${messageHash},messageLeafIndex=${messageLeafIndex}\n`,
+    );
     log(`Note: You need to wait for two L2 blocks before pulling them from the L2 side`);
     if (wait) {
       log(
@@ -82,5 +89,5 @@ export async function bridgeL1FeeJuice(
     }
   }
 
-  return claimSecret;
+  return [claimSecret, messageLeafIndex] as const;
 }
