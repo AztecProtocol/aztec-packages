@@ -511,9 +511,8 @@ contract Token {
         // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
         assert_current_call_valid_authwit(&mut context, user);
 
-        // 2. Get all the relevant keys
-        let fee_payer_keys = get_public_keys(fee_payer);
-        let user_keys = get_public_keys(user);
+        // 2. Since user is the logical sender of all the notes we get user's ovpk and use that in all of them.
+        let user_ovpk = get_public_keys(user).ovpk_m;
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
         // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
@@ -527,7 +526,7 @@ contract Token {
         );
         storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
-            user_keys.ovpk_m,
+            user_ovpk,
             user,
         ));
 
@@ -566,8 +565,8 @@ contract Token {
 
         // 6. We compute setup logs
         let fee_payer_setup_log =
-            fee_payer_setup_payload.encrypt_log(&mut context, fee_payer_keys, fee_payer);
-        let user_setup_log = user_setup_payload.encrypt_log(&mut context, user_keys, user);
+            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer);
+        let user_setup_log = user_setup_payload.encrypt_log(&mut context, user_ovpk, user);
 
         // 7. We store the hiding points an logs in transients storage
         Token::at(context.this_address())
