@@ -8,6 +8,13 @@ namespace bb::avm_trace {
 using FF = AvmFlavorSettings::FF;
 using AffinePoint = grumpkin::g1::affine_element;
 
+struct EnqueuedCallHint {
+    FF contract_address;
+    std::vector<FF> calldata;
+
+    MSGPACK_FIELDS(contract_address, calldata);
+};
+
 struct ExternalCallHint {
     FF success;
     std::vector<FF> return_data;

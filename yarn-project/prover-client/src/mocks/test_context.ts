@@ -8,14 +8,7 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import {
-  type CombinedConstantData,
-  type Gas,
-  type GlobalVariables,
-  Header,
-  type Nullifier,
-  type TxContext,
-} from '@aztec/circuits.js';
+import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -37,6 +30,7 @@ import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
+import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
@@ -158,13 +152,11 @@ export class TestContext {
     txValidator?: TxValidator<ProcessedTx>,
   ) {
     const defaultExecutorImplementation = (
+      _stateManager: AvmPersistableStateManager,
       execution: PublicExecutionRequest,
-      _constants: CombinedConstantData,
-      availableGas: Gas,
-      _txContext: TxContext,
-      _pendingNullifiers: Nullifier[],
+      _globalVariables: GlobalVariables,
+      allocatedGas: Gas,
       transactionFee?: Fr,
-      _sideEffectCounter?: number,
     ) => {
       for (const tx of txs) {
         const allCalls = tx.publicTeardownFunctionCall.isEmpty()
@@ -173,8 +165,8 @@ export class TestContext {
         for (const request of allCalls) {
           if (execution.callContext.equals(request.callContext)) {
             const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build({
-              startGasLeft: availableGas,
-              endGasLeft: availableGas,
+              startGasLeft: allocatedGas,
+              endGasLeft: allocatedGas,
               transactionFee,
             });
             return Promise.resolve(result);
@@ -198,13 +190,11 @@ export class TestContext {
     txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
+      stateManager: AvmPersistableStateManager,
       execution: PublicExecutionRequest,
-      constants: CombinedConstantData,
-      availableGas: Gas,
-      txContext: TxContext,
-      pendingNullifiers: Nullifier[],
+      globalVariables: GlobalVariables,
+      allocatedGas: Gas,
       transactionFee?: Fr,
-      sideEffectCounter?: number,
     ) => Promise<PublicExecutionResult>,
   ) {
     if (executorMock) {

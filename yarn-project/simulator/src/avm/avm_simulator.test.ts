@@ -1,4 +1,10 @@
-import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  GasFees,
+  GlobalVariables,
+  type PublicFunction,
+  PublicKeys,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
@@ -21,6 +27,7 @@ import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
@@ -105,7 +112,70 @@ describe('AVM simulator: injected bytecode', () => {
   });
 });
 
+const TIMESTAMP = new Fr(99833);
+
 describe('AVM simulator: transpiled Noir contracts', () => {
+  it('bulk testing', async () => {
+    const functionName = 'bulk_testing';
+    const functionSelector = getAvmTestContractFunctionSelector(functionName);
+    const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const calldata = [functionSelector.toField(), ...args];
+    const globals = GlobalVariables.empty();
+    globals.timestamp = TIMESTAMP;
+
+    const bytecode = getAvmTestContractBytecode('public_dispatch');
+    const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
+    const publicFn: PublicFunction = { bytecode, selector: fnSelector };
+    const contractClass = makeContractClassPublic(0, publicFn);
+    const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+
+    // The values here should match those in `avm_simulator.test.ts`
+    const instanceGet = new SerializableContractInstance({
+      version: 1,
+      salt: new Fr(0x123),
+      deployer: new Fr(0x456),
+      contractClassId: new Fr(0x789),
+      initializationHash: new Fr(0x101112),
+      publicKeys: new PublicKeys(
+        new Point(new Fr(0x131415), new Fr(0x161718), false),
+        new Point(new Fr(0x192021), new Fr(0x222324), false),
+        new Point(new Fr(0x252627), new Fr(0x282930), false),
+        new Point(new Fr(0x313233), new Fr(0x343536), false),
+      ),
+    }).withAddress(contractInstance.address);
+    const worldStateDB = mock<WorldStateDB>();
+    worldStateDB.getContractInstance
+      .mockResolvedValueOnce(contractInstance)
+      .mockResolvedValueOnce(instanceGet) // test gets deployer
+      .mockResolvedValueOnce(instanceGet) // test gets class id
+      .mockResolvedValueOnce(instanceGet) // test gets init hash
+      .mockResolvedValue(contractInstance);
+    worldStateDB.getContractClass.mockResolvedValue(contractClass);
+
+    const storageValue = new Fr(5);
+    mockStorageRead(worldStateDB, storageValue);
+
+    const trace = mock<PublicSideEffectTraceInterface>();
+    const persistableState = initPersistableStateManager({ worldStateDB, trace });
+    const environment = initExecutionEnvironment({
+      functionSelector,
+      calldata,
+      globals,
+      address: contractInstance.address,
+      sender: new Fr(42),
+    });
+    const context = initContext({ env: environment, persistableState });
+
+    const nestedTrace = mock<PublicSideEffectTraceInterface>();
+    mockTraceFork(trace, nestedTrace);
+    mockGetBytecode(worldStateDB, bytecode);
+
+    // First we simulate (though it's not needed in this simple case).
+    const simulator = new AvmSimulator(context);
+    const results = await simulator.execute();
+
+    expect(results.reverted).toBe(false);
+  });
   it('addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });

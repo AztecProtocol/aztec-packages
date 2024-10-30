@@ -1,5 +1,4 @@
 import {
-  NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type UnencryptedFunctionL2Logs,
@@ -95,45 +94,6 @@ export interface PublicExecutionResult {
 
   /** The name of the function that was executed. Only used for logging. */
   functionName: string;
-}
-
-/**
- * Recursively accummulate the return values of a call result and its nested executions,
- * so they can be retrieved in order.
- * @param executionResult
- * @returns
- */
-export function accumulatePublicReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
-  const acc = new NestedProcessReturnValues(executionResult.returnValues);
-  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePublicReturnValues(nestedExecution));
-  return acc;
-}
-
-export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {
-  return [result, ...result.nestedExecutions.map(collectExecutionResults)].flat();
-}
-
-/**
- * Checks whether the child execution result is valid for a static call (no state modifications).
- * @param executionResult - The execution result of a public function
- */
-
-export function checkValidStaticCall(
-  noteHashes: NoteHash[],
-  nullifiers: Nullifier[],
-  contractStorageUpdateRequests: ContractStorageUpdateRequest[],
-  l2ToL1Messages: L2ToL1Message[],
-  unencryptedLogs: UnencryptedFunctionL2Logs,
-) {
-  if (
-    contractStorageUpdateRequests.length > 0 ||
-    noteHashes.length > 0 ||
-    nullifiers.length > 0 ||
-    l2ToL1Messages.length > 0 ||
-    unencryptedLogs.logs.length > 0
-  ) {
-    throw new Error('Static call cannot update the state, emit L2->L1 messages or generate logs');
-  }
 }
 
 export function resultToPublicCallRequest(result: PublicExecutionResult) {

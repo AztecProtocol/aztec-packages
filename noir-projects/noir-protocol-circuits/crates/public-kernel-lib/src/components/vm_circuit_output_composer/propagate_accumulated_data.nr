@@ -90,6 +90,7 @@ fn propagate_public_data_writes(
     let writes = public_call.contract_storage_update_requests;
     for i in 0..writes.len() {
         let write = writes[i];
+        // WARNING: What does this check accomplish?
         if write.counter != 0 {
             data.public_data_update_requests.push(
                 PublicDataUpdateRequest::from_contract_storage_update_request(

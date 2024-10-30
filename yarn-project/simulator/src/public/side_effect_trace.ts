@@ -7,6 +7,7 @@ import {
   AvmKeyValueHint,
   AztecAddress,
   CallContext,
+  type CombinedConstantData,
   type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
@@ -27,10 +28,12 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
   Nullifier,
+  type PublicCallRequest,
   type PublicInnerCallRequest,
   ReadRequest,
   SerializableContractInstance,
   TreeLeafReadRequest,
+  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -81,8 +84,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork() {
-    return new PublicSideEffectTrace(this.sideEffectCounter);
+  public fork(incrementSideEffectCounter: boolean = false) {
+    return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
   }
 
   public getCounter() {
@@ -331,6 +334,32 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     );
   }
 
+  public traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    _enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    _publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    _calldata: Fr[],
+    /** Did the call revert? */
+    _reverted: boolean,
+  ) {
+    throw new Error('Not implemented');
+  }
+
+  public traceAppLogicPhase(
+    /** The trace of the enqueued call. */
+    _appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    _publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    _calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    _reverted: boolean,
+  ) {
+    throw new Error('Not implemented');
+  }
+
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
@@ -386,6 +415,21 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     };
   }
 
+  public toVMCircuitPublicInputs(
+    /** Constants. */
+    _constants: CombinedConstantData,
+    /** The execution environment of the nested call. */
+    _avmEnvironment: AvmExecutionEnvironment,
+    /** How much gas was available for this public execution. */
+    _startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    _endGasLeft: Gas,
+    /** The call's results */
+    _avmCallResults: AvmContractCallResult,
+  ): VMCircuitPublicInputs {
+    throw new Error('Not implemented');
+  }
+
   private enforceLimitOnNullifierChecks(errorMsgOrigin: string = '') {
     // NOTE: Why error if _either_ limit was reached? If user code emits either an existent or non-existent
     // nullifier read request (NULLIFIEREXISTS, GETCONTRACTINSTANCE, *CALL), and one of the limits has been
@@ -405,6 +449,10 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
       );
     }
+  }
+
+  public getUnencryptedLogs(): UnencryptedL2Log[] {
+    throw new Error('Not implemented');
   }
 }
 
