@@ -366,11 +366,14 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
     // has been integrated into noir kernel programs
     bool is_kernel = false;
-    for (Program& program : folding_stack) {
-        // TODO(#6185): Should `recursive` only be applied on the last one?
+    size_t stack_size = folding_stack.size();
+    for (size_t i = 0; i < stack_size; i++) {
+        auto program = folding_stack[i];
+        // Only the last circuit should be recursive.
+        bool is_last = i == stack_size - 1;
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit =
-            create_circuit<Builder>(program.constraints, recursive, 0, program.witness, false, ivc.goblin.op_queue);
+        auto circuit = create_circuit<Builder>(
+            program.constraints, recursive && is_last, 0, program.witness, false, ivc.goblin.op_queue);
 
         // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
         if (!circuit.databus_propagation_data.is_kernel) {
@@ -461,14 +464,18 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const bool recursive,
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
                                            // assumes that folding is never done with ultrahonk.
 
+    size_t stack_size = program_stack.size();
+
     // Accumulate the entire program stack into the IVC
     bool is_kernel = false;
+    size_t i = 0;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
+        bool is_last = ++i == stack_size;
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
-                                                            recursive,
+                                                            recursive && is_last,
                                                             0,
                                                             stack_item.witness,
                                                             /*honk_recursion=*/false,
