@@ -974,7 +974,6 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
 {
     const size_t table_size = 1UL << table_bits;
     point_table.resize(table_size);
-    x_coordinate_checks.resize(table_size - 1);
     point_table[0] = offset_generator;
 
     // We want to support the case where input points are points at infinity.
@@ -992,8 +991,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     for (size_t i = 1; i < table_size; ++i) {
         std::optional<AffineElement> hint =
             hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-        x_coordinate_checks[i - 1] = { point_table[i - 1].x, modded_base_point.x };
-        auto add_output = point_table[i - 1].unconditional_add(modded_base_point, hint);
+        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
         field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
         field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
         point_table[i] = cycle_group(x, y, false);
@@ -1181,13 +1179,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
     size_t point_counter = 0;
-    if (!unconditional_add) {
-        for (size_t i = 0; i < num_points; ++i) {
-            std::copy(point_tables[i].x_coordinate_checks.begin(),
-                      point_tables[i].x_coordinate_checks.end(),
-                      std::back_inserter(x_coordinate_checks));
-        }
-    }
     for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
             for (size_t j = 0; j < TABLE_BITS; ++j) {

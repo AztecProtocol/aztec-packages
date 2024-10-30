@@ -163,7 +163,6 @@ template <typename Builder> class cycle_group {
         size_t _table_bits;
         Builder* _context;
         std::vector<cycle_group> point_table;
-        std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
         size_t rom_id = 0;
     };
 
