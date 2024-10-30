@@ -96,7 +96,6 @@ export function createDebugLogger(name: string): DebugLogger {
 export function attachedFixedDataToLogger(debugLogger: DebugLogger, fixedLogData: LogData): DebugLogger {
   // Helper function to merge fixed data with additional data passed to log entries.
   const attach = (data?: LogData) => ({ ...fixedLogData, ...data });
-
   // Define the logger with all the necessary log level methods.
   const logger = {
     // Silent log level does nothing.
@@ -107,9 +106,6 @@ export function attachedFixedDataToLogger(debugLogger: DebugLogger, fixedLogData
     verbose: (msg: string, data?: LogData) => debugLogger.verbose(msg, attach(data)),
     debug: (msg: string, data?: LogData) => debugLogger.debug(msg, attach(data)),
   };
-
-  // Return the logger as a function with `debug` as the default log level.
-  // The function will act as a shortcut to the `debug` log level.
   return Object.assign((msg: string, data?: LogData) => debugLogger.debug(msg, attach(data)), logger);
 }
 
