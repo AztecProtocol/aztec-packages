@@ -17,7 +17,7 @@ import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
  *
  * @param simulator - An instance of AcirSimulator.
  * @param db - An instance of PxeDatabase.
- * @param ivpkM - The public counterpart to the secret key to be used in the decryption of incoming note logs.
+ * @param addressPoint - The public counterpart to the secret key to be used in the decryption of incoming note logs.
  * @param ovpkM - The public counterpart to the secret key to be used in the decryption of outgoing note logs.
  * @param payload - An instance of l1NotePayload.
  * @param txHash - The hash of the transaction that created the note. Equivalent to the first nullifier of the transaction.
@@ -31,7 +31,7 @@ import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
 export async function produceNoteDaos(
   simulator: AcirSimulator,
   db: PxeDatabase,
-  ivpkM: PublicKey | undefined,
+  addressPoint: PublicKey | undefined,
   ovpkM: PublicKey | undefined,
   payload: L1NotePayload,
   txHash: TxHash,
@@ -46,8 +46,8 @@ export async function produceNoteDaos(
   incomingDeferredNote: DeferredNoteDao | undefined;
   outgoingDeferredNote: DeferredNoteDao | undefined;
 }> {
-  if (!ivpkM && !ovpkM) {
-    throw new Error('Both ivpkM and ovpkM are undefined. Cannot create note.');
+  if (!addressPoint && !ovpkM) {
+    throw new Error('Both addressPoint and ovpkM are undefined. Cannot create note.');
   }
 
   let incomingNote: IncomingNoteDao | undefined;
@@ -55,11 +55,11 @@ export async function produceNoteDaos(
   let incomingDeferredNote: DeferredNoteDao | undefined;
   let outgoingDeferredNote: DeferredNoteDao | undefined;
 
-  if (ivpkM) {
+  if (addressPoint) {
     [incomingNote, incomingDeferredNote] = await produceNoteDaosForKey(
       simulator,
       db,
-      ivpkM,
+      addressPoint,
       payload,
       txHash,
       noteHashes,

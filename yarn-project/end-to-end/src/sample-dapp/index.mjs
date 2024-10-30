@@ -1,8 +1,7 @@
 // docs:start:imports
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { ExtendedNote, Fr, Note, computeSecretHash, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { getToken } from './contracts.mjs';
 
@@ -40,23 +39,7 @@ async function mintPrivateFunds(pxe) {
   await showPrivateBalances(pxe);
 
   const mintAmount = 20n;
-  const secret = Fr.random();
-  const secretHash = await computeSecretHash(secret);
-  const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
-
-  const note = new Note([new Fr(mintAmount), secretHash]);
-  const extendedNote = new ExtendedNote(
-    note,
-    owner.getAddress(),
-    token.address,
-    TokenContract.storage.pending_shields.slot,
-    TokenContract.notes.TransparentNote.id,
-    receipt.txHash,
-  );
-
-  await pxe.addNote(extendedNote, owner.getAddress());
-
-  await token.withWallet(owner).methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
+  await mintTokensToPrivate(token, owner, owner.getAddress(), mintAmount);
 
   await showPrivateBalances(pxe);
 }

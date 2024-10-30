@@ -153,19 +153,23 @@ export function parsePaymentMethod(
         log('Using no fee payment');
         return new NoFeePaymentMethod();
       case 'native':
-        if (parsed.claim || (parsed.claimSecret && parsed.claimAmount)) {
-          let claimAmount, claimSecret;
+        if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
+          let claimAmount, claimSecret, messageLeafIndex;
           if (parsed.claim && db) {
-            ({ amount: claimAmount, secret: claimSecret } = await db.popBridgedFeeJuice(sender.getAddress(), log));
+            ({
+              amount: claimAmount,
+              secret: claimSecret,
+              leafIndex: messageLeafIndex,
+            } = await db.popBridgedFeeJuice(sender.getAddress(), log));
           } else {
-            ({ claimAmount, claimSecret } = parsed);
+            ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
-          return new FeeJuicePaymentMethodWithClaim(
-            sender.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret),
-          );
+          return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
+            claimAmount: typeof claimAmount === 'string' ? Fr.fromString(claimAmount) : new Fr(claimAmount),
+            claimSecret: Fr.fromString(claimSecret),
+            messageLeafIndex: BigInt(messageLeafIndex),
+          });
         } else {
           log(`Using Fee Juice for fee payment`);
           return new FeeJuicePaymentMethod(sender.getAddress());
