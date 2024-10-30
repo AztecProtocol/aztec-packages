@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730309696109,
+  "lastUpdate": 1730320306772,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2592e50b2bd9e76d35a3c9caac4d7042fe26b9b6",
-          "message": "feat(avm): codegen recursive_verifier.cpp (#9204)\n\nResolves #8849",
-          "timestamp": "2024-10-11T22:26:12Z",
-          "tree_id": "f7d9c66260cb809bb2d39572269812a814997dc5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2592e50b2bd9e76d35a3c9caac4d7042fe26b9b6"
-        },
-        "date": 1728687202554,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29765.132077000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28184.672708000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5568.196061000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5269.105216000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86911.57818000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86911580000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15670.63818,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15670638000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3459573533,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3459573533 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 166582960,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 166582960 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2828994777,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2828994777 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132125954,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132125954 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3008,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 126468834,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126468834 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9211d8afbd0fe31043ea593675ce5a72c1dc7e4e",
+          "message": "feat: biggroup_goblin handles points at infinity + 1.8x reduction in ECCVM size (#9366)\n\nThis PR adds support for biggroup_goblin handling elliptic curve points\r\nat infinity\r\n\r\nThis feature is used to optimize the ECCVM instructions created when\r\nrunning a recursive protogalaxy verifier.\r\n\r\nInstead of performing size-2 scalar multiplications for every\r\nwitness/commitment, additional random challenges are generated in order\r\nto evaluate two large batch multiplications.\r\n\r\nThe technique implemented is described in\r\nhttps://hackmd.io/T1239dufTgO1v8Ie7EExlQ?view\r\n\r\nIn the case of ClientIVCRecursionTests.ClientTubeBase where the number\r\nof circuits is set to four, this reduces the size of the ECCVM execution\r\ntrace size by 45%, which is good enough to reduce the log dyadic size of\r\nthe ClientIVCVerifier by 1/2.",
+          "timestamp": "2024-10-30T15:51:29-04:00",
+          "tree_id": "7ee95de7b97c8ef0dba2446e00440f68d104ccc8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9211d8afbd0fe31043ea593675ce5a72c1dc7e4e"
+        },
+        "date": 1730320299950,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29271.485224000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27417.830350000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5419.456435000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5083.737690000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86281.51837499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86281520000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15209.479228999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15209479000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2516740076,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2516740076 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126019837,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126019837 ns\nthreads: 1"
           }
         ]
       }
