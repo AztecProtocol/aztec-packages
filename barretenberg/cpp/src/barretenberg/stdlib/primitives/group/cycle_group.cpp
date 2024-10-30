@@ -964,14 +964,27 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
+    const bool is_checked = !modded_base_point.is_constant();
+    // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
+    // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
+    // to be constant = 2 gates)
+    if (modded_base_point.is_constant()) {
+        modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
+    }
     for (size_t i = 1; i < table_size; ++i) {
         std::optional<AffineElement> hint =
             hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
+        cycle_group add_output;
+        if (is_checked) {
+            add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
+        } else {
+            add_output = point_table[i - 1].unconditional_add(modded_base_point, hint);
+        }
         field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
         field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
         point_table[i] = cycle_group(x, y, false);
     }
+
     if constexpr (IS_ULTRA) {
         rom_id = context->create_ROM_array(table_size);
         for (size_t i = 0; i < table_size; ++i) {
