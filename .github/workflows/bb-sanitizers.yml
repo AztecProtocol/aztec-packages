@@ -15,7 +15,7 @@ on:
 # to run a good number of these, but we should still be mindful that we don't queue, say, dozens of these.
 jobs:
   bb-msan-check:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
         run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check
 
   bb-asan-check:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-asan-check')
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-asan-check')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=asan
 
   bb-tsan-check:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-tsan-check')
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-tsan-check')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan
 
   bb-ubsan-check:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-ubsan-check')
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-ubsan-check')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
