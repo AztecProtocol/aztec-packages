@@ -30,9 +30,8 @@ jobs:
       - uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: "Barretenberg Prover MSAN Check"
-        
-        run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check
+      - name: "Barretenberg Baseline Performance Check"
+        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=clang16
 
   # memory sanitzer for prover
   bb-msan-check:
