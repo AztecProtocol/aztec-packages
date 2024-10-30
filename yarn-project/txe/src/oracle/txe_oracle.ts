@@ -691,6 +691,7 @@ export class TXE implements TypedOracle {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           executionResult.revertReason,
+          executionResult.returnValues,
           this.contractDataOracle,
           this.txeDatabase,
           this.logger,
