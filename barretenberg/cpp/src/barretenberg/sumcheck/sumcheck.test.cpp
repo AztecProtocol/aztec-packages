@@ -330,6 +330,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
+            // construct libra masking polynomials and compute auxiliary data
             ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
             info("size lib univar ", zk_sumcheck_data.libra_univariates.size());
             output = sumcheck_prover.prove(

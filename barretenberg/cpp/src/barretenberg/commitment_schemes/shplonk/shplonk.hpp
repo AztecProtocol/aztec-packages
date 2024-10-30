@@ -52,7 +52,7 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial tmp(max_poly_size);
 
         Fr current_nu = Fr::one();
-        size_t idx = 0;
+        // size_t idx = 0;
         for (const auto& claim : opening_claims) {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -62,8 +62,8 @@ template <typename Curve> class ShplonkProver_ {
 
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
-            info(idx, " prover nu  in real claims", current_nu);
-            idx++;
+            // info(idx, " prover nu  in real claims", current_nu);
+            // idx++;
             current_nu *= nu;
         }
         for (size_t idx = opening_claims.size(); idx < CONST_PROOF_SIZE_LOG_N + 2; idx++) {
@@ -71,7 +71,7 @@ template <typename Curve> class ShplonkProver_ {
         };
 
         for (const auto& claim : libra_opening_claims) {
-
+            info(" current nu in the prover ", current_nu);
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
@@ -79,8 +79,8 @@ template <typename Curve> class ShplonkProver_ {
 
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
-            info(idx, " prover nu in libra", current_nu);
-            idx++;
+            // info(idx, " prover nu in libra", current_nu);
+            // idx++;
             current_nu *= nu;
         }
         // Return batched quotient polynomial Q(X)

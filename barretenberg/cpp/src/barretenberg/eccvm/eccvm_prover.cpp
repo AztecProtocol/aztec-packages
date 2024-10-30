@@ -100,7 +100,33 @@ void ECCVMProver::execute_relation_check_rounds()
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges);
+    // create masking polynomials for sumcheck round univariates and auxiliary data
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key);
+    // ZKSumcheckData<Flavor> zk_sumcheck_data_copy = zk_sumcheck_data;
+    info("some other stuff", zk_sumcheck_data.libra_challenge);
+    info("monomial size ", zk_sumcheck_data.libra_univariates_monomial.size());
+
+    for (auto& eval : zk_sumcheck_data.libra_univariates_monomial) {
+        info("exec rounds before sumcheck ", eval);
+    }
+
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    size_t idx = 0;
+
+    for (auto [poly_mon, poly_lag] :
+         zip_view(zk_sumcheck_data.libra_univariates_monomial, zk_sumcheck_data.libra_univariates)) {
+        info("eval at u_", idx);
+        auto eval_mon = poly_mon.evaluate(sumcheck_output.challenge[idx]);
+        auto eval_lag = poly_lag.evaluate(sumcheck_output.challenge[idx]);
+        info(eval_mon, " || ", eval_lag);
+        idx++;
+    }
+    // for (auto& eval : zk_sumcheck_data.libra_evaluations) {
+    //     info("right after sumcheck ", eval);
+    // };
+    for (auto& eval : sumcheck_output.claimed_libra_evaluations) {
+        info("claimed evals sumcheck outp rounds ", eval);
+    }
 }
 
 /**
@@ -118,12 +144,19 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
-    const OpeningClaim multivariate_to_univariate_opening_claim = Shplemini::prove(key->circuit_size,
-                                                                                   key->polynomials.get_unshifted(),
-                                                                                   key->polynomials.get_to_be_shifted(),
-                                                                                   sumcheck_output.challenge,
-                                                                                   key->commitment_key,
-                                                                                   transcript);
+    info("in pcs: ", zk_sumcheck_data.libra_univariates_monomial.size());
+    info("eval size? ", sumcheck_output.claimed_libra_evaluations.size());
+    const OpeningClaim multivariate_to_univariate_opening_claim =
+        Shplemini::prove(key->circuit_size,
+                         key->polynomials.get_unshifted(),
+                         key->polynomials.get_to_be_shifted(),
+                         sumcheck_output.challenge,
+                         key->commitment_key,
+                         transcript,
+                         {},
+                         {},
+                         zk_sumcheck_data.libra_univariates_monomial,
+                         sumcheck_output.claimed_libra_evaluations);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");

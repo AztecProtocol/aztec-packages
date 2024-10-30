@@ -53,6 +53,11 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
+    }
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
@@ -63,7 +68,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    const BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
@@ -72,6 +77,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript);
+    Shplemini::add_zk_data(
+        sumcheck_batch_opening_claims, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

@@ -32,7 +32,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");
-
+        ZKSumcheckData<Flavor> zk_sumcheck_data = ZKSumcheckData<Flavor>();
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                          proving_key->relation_parameters,
                                          proving_key->alphas,

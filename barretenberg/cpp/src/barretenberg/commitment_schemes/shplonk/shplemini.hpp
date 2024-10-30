@@ -45,7 +45,7 @@ template <typename Curve> class ShpleminiProver_ {
             size_t idx = 0;
             for (auto [libra_univariate, libra_evaluation] : zip_view(libra_univariates, libra_evaluations)) {
                 OpeningClaim new_claim;
-                new_claim.polynomial = Polynomial{ libra_univariate };
+                new_claim.polynomial = libra_univariate;
                 new_claim.opening_pair.challenge = multilinear_challenge[idx];
                 new_claim.opening_pair.evaluation = libra_evaluation;
                 libra_opening_claims.push_back(new_claim);
@@ -491,6 +491,7 @@ template <typename Curve> class ShpleminiVerifier_ {
              zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
             commitments.push_back(libra_univariate_commitment);
             Fr scaling_factor = denominator * shplonk_challenge_power;
+            info("nu power verifier", shplonk_challenge_power);
             scalars.push_back(-scaling_factor);
             shplonk_challenge_power *= shplonk_batching_challenge;
             constant_term += scaling_factor * libra_univariate_evaluation;
