@@ -114,8 +114,6 @@ export function resolveAssertionMessage(
     errorPayload,
   );
 
-  console.log(decoded);
-
   if (typeof decoded === 'string') {
     return decoded;
   } else {
@@ -125,10 +123,7 @@ export function resolveAssertionMessage(
 
 export function resolveAssertionMessageFromError(err: Error, debug?: FunctionDebugMetadata): string {
   if (debug && typeof err === 'object' && err !== null && 'rawAssertionPayload' in err && err.rawAssertionPayload) {
-    return `Circuit execution failed: ${resolveAssertionMessage(
-      err.rawAssertionPayload as RawAssertionPayload,
-      debug,
-    )}`;
+    return `Assertion failed: ${resolveAssertionMessage(err.rawAssertionPayload as RawAssertionPayload, debug)}`;
   } else {
     return err.message;
   }

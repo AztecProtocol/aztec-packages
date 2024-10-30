@@ -533,8 +533,10 @@ export class TXE implements TypedOracle {
     const timer = new Timer();
     try {
       const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, artifact.debug);
+
         const execError = new ExecutionError(
-          resolveAssertionMessageFromError(err, artifact.debug),
+          err.message,
           {
             contractAddress: targetContractAddress,
             functionSelector,

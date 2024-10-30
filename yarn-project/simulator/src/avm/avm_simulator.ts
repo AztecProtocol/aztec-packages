@@ -12,6 +12,7 @@ import {
   AvmExecutionError,
   InvalidProgramCounterError,
   NoBytecodeForContractError,
+  revertDataFromExceptionalHalt,
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
@@ -137,7 +138,11 @@ export class AvmSimulator {
 
       const revertReason = revertReasonFromExceptionalHalt(err, this.context);
       // Note: "exceptional halts" cannot return data, hence []
-      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], revertReason);
+      const results = new AvmContractCallResult(
+        /*reverted=*/ true,
+        /*output=*/ revertDataFromExceptionalHalt(err),
+        revertReason,
+      );
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.printOpcodeTallies();

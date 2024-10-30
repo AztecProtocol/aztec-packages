@@ -33,8 +33,9 @@ export async function executePrivateFunction(
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
   const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+    err.message = resolveAssertionMessageFromError(err, artifact.debug);
     throw new ExecutionError(
-      resolveAssertionMessageFromError(err, artifact.debug),
+      err.message,
       {
         contractAddress,
         functionSelector,

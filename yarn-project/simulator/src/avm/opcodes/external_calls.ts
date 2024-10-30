@@ -83,7 +83,11 @@ abstract class ExternalCall extends Instruction {
         throw new Error('A reverted nested call should be assigned a revert reason in the AVM execution loop');
       }
       // The nested call's revertReason will be used to track the stack of error causes down to the root.
-      throw new RethrownError(nestedCallResults.revertReason.message, nestedCallResults.revertReason);
+      throw new RethrownError(
+        nestedCallResults.revertReason.message,
+        nestedCallResults.revertReason,
+        nestedCallResults.output,
+      );
     }
 
     // Save return/revert data for later.

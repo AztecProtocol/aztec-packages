@@ -324,7 +324,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(
       resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
     ).toMatch("Nullifier doesn't exist!");
-    expect(results.output).toEqual([]);
+    expect(results.output).toHaveLength(1); // Error selector for static string error
   });
 
   describe.each([
