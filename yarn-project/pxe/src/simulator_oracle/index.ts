@@ -12,13 +12,13 @@ import {
   type AztecAddress,
   type CompleteAddress,
   type ContractInstance,
-  DirectionalTaggingSecret,
   type Fr,
   type FunctionSelector,
   type Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  TaggingSecret,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
@@ -251,7 +251,7 @@ export class SimulatorOracle implements DBOracle {
     // Silo the secret to the app so it can't be used to track other app's notes
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     // Get the index of the secret, ensuring the directionality (sender -> recipient)
-    const directionalSecret = new DirectionalTaggingSecret(siloedSecret, recipient);
+    const directionalSecret = new TaggingSecret(siloedSecret, recipient);
     const [index] = await this.db.getTaggingSecretsIndexes([directionalSecret]);
     return new IndexedTaggingSecret(siloedSecret, recipient, index);
   }
@@ -279,7 +279,7 @@ export class SimulatorOracle implements DBOracle {
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     // Ensure the directionality (sender -> recipient)
-    const directionalSecrets = secrets.map(secret => new DirectionalTaggingSecret(secret, recipient));
+    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
     const indexes = await this.db.getTaggingSecretsIndexes(directionalSecrets);
     return directionalSecrets.map(
       ({ secret, recipient }, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]),
@@ -323,7 +323,7 @@ export class SimulatorOracle implements DBOracle {
       });
       // 4. Consolidate in db and replace initial appTaggingSecrets with the new ones (updated indexes)
       await this.db.incrementTaggingSecretsIndexes(
-        newTaggingSecrets.map(secret => new DirectionalTaggingSecret(secret.secret, recipient)),
+        newTaggingSecrets.map(secret => new TaggingSecret(secret.secret, recipient)),
       );
       appTaggingSecrets = newTaggingSecrets;
     }

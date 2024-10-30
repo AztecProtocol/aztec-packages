@@ -2,9 +2,9 @@ import { type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circu
 import {
   type CompleteAddress,
   type ContractInstanceWithAddress,
-  type DirectionalTaggingSecret,
   type Header,
   type PublicKey,
+  type TaggingSecret,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -194,7 +194,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param appTaggingSecrets - The app siloed tagging secrets.
    * @returns The indexes for the provided secrets, 0 if they've never been seen.
    */
-  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: DirectionalTaggingSecret[]): Promise<number[]>;
+  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]>;
 
   /**
    * Increments the index for the provided app siloed tagging secrets.
@@ -202,5 +202,5 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * whether the index was used to tag a sent or received note.
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: DirectionalTaggingSecret[]): Promise<void>;
+  incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void>;
 }

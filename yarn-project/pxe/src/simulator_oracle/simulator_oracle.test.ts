@@ -2,9 +2,9 @@ import { type AztecNode, EncryptedL2NoteLog } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
-  DirectionalTaggingSecret,
   type Fq,
   Fr,
+  TaggingSecret,
   computeAddress,
   computeTaggingSecret,
   deriveKeys,
@@ -129,7 +129,7 @@ describe('Simulator oracle', () => {
       const directionalSecrets = senders.map(sender => {
         const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
         const siloedSecret = poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
-        return new DirectionalTaggingSecret(siloedSecret, recipient.address);
+        return new TaggingSecret(siloedSecret, recipient.address);
       });
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
@@ -148,7 +148,7 @@ describe('Simulator oracle', () => {
       const directionalSecrets = senders.map(sender => {
         const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
         const siloedSecret = poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
-        return new DirectionalTaggingSecret(siloedSecret, recipient.address);
+        return new TaggingSecret(siloedSecret, recipient.address);
       });
 
       await database.incrementTaggingSecretsIndexes(directionalSecrets);

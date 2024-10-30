@@ -1,7 +1,7 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-export class DirectionalTaggingSecret {
+export class TaggingSecret {
   constructor(public secret: Fr, public recipient: AztecAddress) {}
 
   toFields(): Fr[] {
@@ -9,7 +9,7 @@ export class DirectionalTaggingSecret {
   }
 }
 
-export class IndexedTaggingSecret extends DirectionalTaggingSecret {
+export class IndexedTaggingSecret extends TaggingSecret {
   constructor(secret: Fr, recipient: AztecAddress, public index: number) {
     super(secret, recipient);
   }

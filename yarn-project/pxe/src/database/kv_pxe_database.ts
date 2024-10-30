@@ -3,10 +3,10 @@ import {
   AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  DirectionalTaggingSecret,
   Header,
   type PublicKey,
   SerializableContractInstance,
+  type TaggingSecret,
   computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -572,7 +572,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: DirectionalTaggingSecret[]): Promise<void> {
+  async incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void> {
     const indexes = await this.getTaggingSecretsIndexes(appTaggingSecretsWithRecipient);
     await this.db.transaction(() => {
       indexes.forEach((taggingSecretIndex, listIndex) => {
@@ -584,7 +584,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: DirectionalTaggingSecret[]): Promise<number[]> {
+  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]> {
     return this.db.transaction(() =>
       appTaggingSecretsWithRecipient.map(
         ({ secret, recipient }) => this.#taggingSecretIndexes.get(`${secret.toString()}-${recipient.toString()}`) ?? 0,

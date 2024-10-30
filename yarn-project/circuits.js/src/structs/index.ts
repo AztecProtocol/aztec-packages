@@ -13,7 +13,7 @@ export * from './gas_fees.js';
 export * from './gas_settings.js';
 export * from './global_variables.js';
 export * from './header.js';
-export * from './indexed_tagging_secret.js';
+export * from './tagging_secret.js';
 export * from './kernel/combined_accumulated_data.js';
 export * from './kernel/combined_constant_data.js';
 export * from './kernel/enqueued_call_data.js';
