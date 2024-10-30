@@ -486,7 +486,9 @@ template <typename Curve_> class IPA {
 
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
+        std::cout << "about to batch mul LR sums" << std::endl;
         GroupElement LR_sums = GroupElement::batch_mul(msm_elements, msm_scalars);
+        std::cout << "done with sums" << std::endl;
 
         GroupElement C_zero = C_prime + LR_sums;
 
@@ -527,7 +529,9 @@ template <typename Curve_> class IPA {
         // Compute G₀
         // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
         // batch_mul directly on it.
+        std::cout << "about to batch mul G sums" << std::endl;
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
+        std::cout << "done with G sums" << std::endl;
 
         // Step 9.
         // Receive a₀ from the prover

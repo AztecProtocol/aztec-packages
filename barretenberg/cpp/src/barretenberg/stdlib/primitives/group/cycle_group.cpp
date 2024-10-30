@@ -236,6 +236,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
             return result;
         }
 
+        ASSERT(is_point_at_infinity().is_constant() == true);
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     } else {
         auto x1 = x.get_value();
@@ -327,7 +328,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         if (lhs_constant && rhs_constant) {
             return cycle_group(x3, y3, false);
         }
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+        ASSERT(is_point_at_infinity().is_constant() == true);
+        result = cycle_group(witness_t(context, x3), witness_t(context, y3), false);
     } else {
         const auto p1 = get_value();
         const auto p2 = other.get_value();
@@ -964,22 +966,28 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
-    const bool is_checked = !modded_base_point.is_constant();
-    // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
-    // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
-    // to be constant = 2 gates)
-    if (modded_base_point.is_constant()) {
-        modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
-    }
+    // const bool is_checked = !modded_base_point.is_constant();
+    // std::cout << "is checked = " << is_checked << ", is infinity constant = " <<
+    // base_point.is_point_at_infinity().is_constant() << std::endl; if the input point is constant, it is cheaper to
+    // fix the point as a witness and then derive the table, than it is to derive the table and fix its witnesses to be
+    // constant! (due to group additions = 1 gate, and fixing x/y coords to be constant = 2 gates) if
+    // (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
+    //     modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
+    //     point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
+    // for (size_t i = 1; i < table_size; ++i) {
+    //     std::optional<AffineElement> hint =
+    //         hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
+    //     cycle_group add_output;
+    //     point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
+    // }
+    // }
+    // else
+
+    // A + B = C
     for (size_t i = 1; i < table_size; ++i) {
         std::optional<AffineElement> hint =
             hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-        cycle_group add_output;
-        if (is_checked) {
-            add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
-        } else {
-            add_output = point_table[i - 1].unconditional_add(modded_base_point, hint);
-        }
+        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
         field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
         field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
         point_table[i] = cycle_group(x, y, false);
@@ -989,6 +997,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
         rom_id = context->create_ROM_array(table_size);
         for (size_t i = 0; i < table_size; ++i) {
             if (point_table[i].is_constant()) {
+                std::cout << "fixing point table" << std::endl;
                 auto element = point_table[i].get_value();
                 point_table[i] = cycle_group::from_constant_witness(_context, element);
                 point_table[i].x.assert_equal(element.x);
