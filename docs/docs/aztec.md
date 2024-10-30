@@ -18,7 +18,7 @@ Contributors to Aztec uphold many of the values of the Ethereum community:
 
 ## Our Cryptography
 
-Aztec is inspired on Ethereum. We believe in transparency for the protocol, but privacy for the user. This programmability is achieved through Smart Contracts, which are in fact Zero-Knowledge circuits.
+Aztec is inspired by Ethereum. We believe in transparency for the protocol, but privacy for the user. This programmability is achieved through Smart Contracts, which are in fact Zero-Knowledge circuits.
 
 To allow for this, we focus on two main components:
 
