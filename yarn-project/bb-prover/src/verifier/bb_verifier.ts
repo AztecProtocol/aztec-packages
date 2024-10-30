@@ -134,7 +134,6 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       this.config.bbWorkingDirectory,
       circuit,
       ProtocolCircuitArtifacts[circuit],
-      isProtocolArtifactRecursive(circuit),
       contractName,
       this.logger.debug,
     );
