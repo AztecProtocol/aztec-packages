@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 
