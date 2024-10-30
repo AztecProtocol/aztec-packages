@@ -16,7 +16,7 @@ get_test_names() {
 full_list=$(get_test_names)
 
 # Define the jobs that will run on every PR
-allow-list=(
+allow_list=(
   "e2e-2-pxes"
   "e2e-authwit"
   "e2e-avm-simulator"
