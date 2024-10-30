@@ -1,4 +1,7 @@
-use dep::aztec::{
+use crate::{Token, types::transparent_note::TransparentNote};
+use dep::uint_note::uint_note::UintNote;
+use aztec::{
+    keys::getters::get_public_keys,
     oracle::{
         execution::{get_block_number, get_contract_address},
         random::random,
@@ -8,10 +11,6 @@ use dep::aztec::{
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
-
-use crate::{Token, types::transparent_note::TransparentNote};
-use dep::uint_note::uint_note::UintNote;
-use aztec::keys::getters::get_public_keys;
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
