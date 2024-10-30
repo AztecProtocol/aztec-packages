@@ -539,7 +539,6 @@ template <typename Curve_> class IPA {
         // batch_mul directly on it.
         const std::vector<Commitment> srs_elements = vk->get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
-        std::cout << "done with G sums" << std::endl;
 
         // Step 8.
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) + a₀ * b₀) ⋅ U

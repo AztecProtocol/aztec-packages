@@ -999,17 +999,8 @@ std::vector<typename cycle_group<Builder>::Element> cycle_group<
     Element base = base_point.is_point_at_infinity() ? Group::one : base_point;
     std::vector<Element> hints;
     hints.emplace_back(offset_generator);
-    std::vector<Element> t;
-    t.emplace_back(offset_generator);
     for (size_t i = 1; i < table_size; ++i) {
-        auto add_output = t[i - 1] + base;
-        hints.emplace_back(add_output);
-        //   hints.emplace_back(hints[i - 1] + base);
-        if (base_point.is_point_at_infinity()) {
-            t.emplace_back(offset_generator);
-        } else {
-            t.emplace_back(add_output);
-        }
+        hints.emplace_back(hints[i - 1] + base);
     }
     return hints;
 }
@@ -1053,38 +1044,46 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
-    // const bool is_checked = !modded_base_point.is_constant();
-    // std::cout << "is checked = " << is_checked << ", is infinity constant = " <<
-    // base_point.is_point_at_infinity().is_constant() << std::endl; if the input point is constant, it is cheaper to
-    // fix the point as a witness and then derive the table, than it is to derive the table and fix its witnesses to be
-    // constant! (due to group additions = 1 gate, and fixing x/y coords to be constant = 2 gates) if
-    // (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
-    //     modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
-    //     point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
-    // for (size_t i = 1; i < table_size; ++i) {
-    //     std::optional<AffineElement> hint =
-    //         hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-    //     cycle_group add_output;
-    //     point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
-    // }
-    // }
-    // else
 
-    // A + B = C
-    for (size_t i = 1; i < table_size; ++i) {
-        std::optional<AffineElement> hint =
-            hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point, hint);
-        field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
-        field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
-        point_table[i] = cycle_group(x, y, false);
+    // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
+    // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
+    // to be constant = 2 gates)
+    if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
+        modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
+        point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
+        for (size_t i = 1; i < table_size; ++i) {
+            std::optional<AffineElement> hint =
+                hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
+            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
+        }
+    } else {
+        std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
+        // ensure all of the ecc add gates are lined up so that we can pay 1 gate per add and not 2
+        for (size_t i = 1; i < table_size; ++i) {
+            std::optional<AffineElement> hint =
+                hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
+            x_coordinate_checks.emplace_back(point_table[i - 1].x, modded_base_point.x);
+            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
+        }
+
+        // batch the x-coordinate checks together
+        // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
+        field_t coordinate_check_product = 1;
+        for (auto& [x1, x2] : x_coordinate_checks) {
+            auto x_diff = x2 - x1;
+            coordinate_check_product *= x_diff;
+        }
+        coordinate_check_product.assert_is_not_zero("straus_lookup_table x-coordinate collision");
+
+        for (size_t i = 1; i < table_size; ++i) {
+            point_table[i] =
+                cycle_group::conditional_assign(base_point.is_point_at_infinity(), offset_generator, point_table[i]);
+        }
     }
-
     if constexpr (IS_ULTRA) {
         rom_id = context->create_ROM_array(table_size);
         for (size_t i = 0; i < table_size; ++i) {
             if (point_table[i].is_constant()) {
-                std::cout << "fixing point table" << std::endl;
                 auto element = point_table[i].get_value();
                 point_table[i] = cycle_group::from_constant_witness(_context, element);
                 point_table[i].x.assert_equal(element.x);
