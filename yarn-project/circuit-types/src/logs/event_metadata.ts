@@ -25,7 +25,7 @@ export class EventMetadata<T> {
 
   public static decodeEvent<T>(
     eventSelector: EventSelector,
-    eventType: AbiType,
+    abiType: AbiType,
   ): (payload: L1EventPayload | UnencryptedL2Log | undefined) => T | undefined {
     return (payload: L1EventPayload | UnencryptedL2Log | undefined): T | undefined => {
       if (payload === undefined) {
@@ -36,14 +36,14 @@ export class EventMetadata<T> {
         if (!eventSelector.equals(payload.eventTypeId)) {
           return undefined;
         }
-        return decodeFromAbi([eventType], payload.event.items) as T;
+        return decodeFromAbi([abiType], payload.event.items) as T;
       } else {
         const items = [];
         for (let i = 0; i < payload.data.length; i += 32) {
           items.push(new Fr(payload.data.subarray(i, i + 32)));
         }
 
-        return decodeFromAbi([eventType], items) as T;
+        return decodeFromAbi([abiType], items) as T;
       }
     };
   }
@@ -70,7 +70,7 @@ export class EventMetadata<T> {
 
     return new EventMetadata(EventType.Encrypted, {
       eventSelector: EventSelector.fromString(json.eventSelector),
-      abiType: json.eventType,
+      abiType: json.abiType,
       fieldNames: json.fieldNames,
     });
   }

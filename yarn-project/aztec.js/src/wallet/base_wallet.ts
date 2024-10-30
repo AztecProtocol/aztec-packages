@@ -214,8 +214,7 @@ export abstract class BaseWallet implements Wallet {
       this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
     ],
   ): Promise<T[]> {
-    const eventMetadata = new EventMetadata<T>(type, event);
-    return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
+    return this.pxe.getEvents(type, event, from, limit, vpks);
   }
   public getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
