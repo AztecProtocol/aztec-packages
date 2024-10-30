@@ -334,7 +334,7 @@ template <class Params_> struct alignas(32) field {
         requires((Params_::modulus_0 & 0x3UL) == 0x3UL);
     constexpr std::pair<bool, field> sqrt() const noexcept
         requires((Params_::modulus_0 & 0x3UL) != 0x3UL);
-    BB_INLINE constexpr void self_neg() noexcept;
+    BB_INLINE constexpr void self_neg() & noexcept;
 
     BB_INLINE constexpr void self_to_montgomery_form() & noexcept;
     BB_INLINE constexpr void self_from_montgomery_form() & noexcept;
