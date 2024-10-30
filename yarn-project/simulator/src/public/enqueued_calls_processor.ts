@@ -300,7 +300,7 @@ export class EnqueuedCallsProcessor {
       publicKernelOutput,
       durationMs: phaseTimer.ms(),
       gasUsed,
-      returnValues: revertReason ? [] : returnValues,
+      returnValues: returnValues,
       revertReason,
     };
   }

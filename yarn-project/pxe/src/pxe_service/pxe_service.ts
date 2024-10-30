@@ -759,16 +759,18 @@ export class PXEService implements PXE {
    * @param tx - The transaction to be simulated.
    */
   async #simulatePublicCalls(tx: Tx) {
-    try {
-      return await this.node.simulatePublicCalls(tx);
-    } catch (err) {
-      // Try to fill in the noir call stack since the PXE may have access to the debug metadata
-      if (err instanceof SimulationError) {
-        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
-      }
-
-      throw err;
+    const result = await this.node.simulatePublicCalls(tx);
+    if (result.revertReason) {
+      await enrichPublicSimulationError(
+        result.revertReason,
+        result.publicReturnValues[0].values || [],
+        this.contractDataOracle,
+        this.db,
+        this.log,
+      );
+      throw result.revertReason;
     }
+    return result;
   }
 
   /**

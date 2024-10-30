@@ -1,7 +1,7 @@
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
+import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 
@@ -54,6 +54,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
 
 export async function enrichPublicSimulationError(
   err: SimulationError,
+  revertData: Fr[],
   contractDataOracle: ContractDataOracle,
   db: PxeDatabase,
   logger: DebugLogger,
@@ -70,11 +71,11 @@ export async function enrichPublicSimulationError(
   );
   const noirCallStack = err.getNoirCallStack();
   if (debugInfo) {
+    const assertionMessage = resolveAssertionMessageFromRevertData(revertData, debugInfo);
+    if (assertionMessage) {
+      err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
+    }
     if (isNoirCallStackUnresolved(noirCallStack)) {
-      // const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
-      // if (assertionMessage) {
-      //   err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
-      // }
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.

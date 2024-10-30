@@ -10,7 +10,7 @@ import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { type WorldStateDB, resolveAssertionMessage, traverseCauseChain } from '../../index.js';
+import { type WorldStateDB, resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../index.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -153,17 +153,5 @@ export function resolveAvmTestContractAssertionMessage(
     return undefined;
   }
 
-  if (output.length == 0) {
-    return undefined;
-  }
-
-  const [errorSelector, ...errorData] = output;
-
-  return resolveAssertionMessage(
-    {
-      selector: errorSelector.toBigInt().toString(),
-      data: errorData.map(f => f.toString()),
-    },
-    debugMetadata,
-  );
+  return resolveAssertionMessageFromRevertData(output, debugMetadata);
 }

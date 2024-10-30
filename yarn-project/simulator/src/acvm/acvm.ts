@@ -1,4 +1,5 @@
 import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
+import { type Fr } from '@aztec/circuits.js';
 import type { BrilligFunctionId, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -119,6 +120,25 @@ export function resolveAssertionMessage(
   } else {
     return JSON.stringify(decoded);
   }
+}
+
+export function resolveAssertionMessageFromRevertData(
+  revertData: Fr[],
+  debug: FunctionDebugMetadata,
+): string | undefined {
+  if (revertData.length == 0) {
+    return undefined;
+  }
+
+  const [errorSelector, ...errorData] = revertData;
+
+  return resolveAssertionMessage(
+    {
+      selector: errorSelector.toBigInt().toString(),
+      data: errorData.map(f => f.toString()),
+    },
+    debug,
+  );
 }
 
 export function resolveAssertionMessageFromError(err: Error, debug?: FunctionDebugMetadata): string {
