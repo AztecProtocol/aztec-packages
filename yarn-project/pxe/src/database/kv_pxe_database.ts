@@ -9,6 +9,7 @@ import {
   AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
+  DirectionalTaggingSecret,
   Header,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
@@ -577,19 +578,23 @@ export class KVPxeDatabase implements PxeDatabase {
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
-    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+  async incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: DirectionalTaggingSecret[]): Promise<void> {
+    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecretsWithRecipient);
     await this.db.transaction(() => {
-      indexes.forEach(index => {
-        const nextIndex = index ? index + 1 : 1;
-        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
+      indexes.forEach((taggingSecretIndex, listIndex) => {
+        const nextIndex = taggingSecretIndex ? taggingSecretIndex + 1 : 1;
+        const { secret, recipient } = appTaggingSecretsWithRecipient[listIndex];
+        const key = `${secret.toString()}-${recipient.toString()}`;
+        void this.#taggingSecretIndexes.set(key, nextIndex);
       });
     });
   }
 
-  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: DirectionalTaggingSecret[]): Promise<number[]> {
     return this.db.transaction(() =>
-      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
+      appTaggingSecretsWithRecipient.map(
+        ({ secret, recipient }) => this.#taggingSecretIndexes.get(`${secret.toString()}-${recipient.toString()}`) ?? 0,
+      ),
     );
   }
 }
