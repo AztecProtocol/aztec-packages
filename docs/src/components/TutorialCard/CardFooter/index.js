@@ -1,19 +1,20 @@
-import React,  { CSSProperties } from 'react';
-import clsx from 'clsx'; 
+import React from 'react';
+import clsx from 'clsx';
+
 const CardFooter = ({
-  className, 
-  style, 
-  children, 
-  textAlign, 
+  className,
+  style,
+  children,
+  textAlign,
   variant,
-  italic = false , 
-  noDecoration = false, 
-  transform, 
-  breakWord = false, 
-  truncate = false, 
+  italic = false,
+  noDecoration = false,
+  transform,
+  breakWord = false,
+  truncate = false,
   weight,
-}) => {   
-  const text = textAlign ? `text--${textAlign}` :'';
+}) => {
+  const text = textAlign ? `text--${textAlign}` : '';
   const textColor = variant ? `text--${variant}` : '';
   const textItalic = italic ? 'text--italic' : '';
   const textDecoration = noDecoration ? 'text-no-decoration' : '';
@@ -21,6 +22,7 @@ const CardFooter = ({
   const textBreak = breakWord ? 'text--break' : '';
   const textTruncate = truncate ? 'text--truncate' : '';
   const textWeight = weight ? `text--${weight}` : '';
+  
   return (
     <div
       className={clsx(
@@ -40,5 +42,6 @@ const CardFooter = ({
       {children}
     </div>
   );
-}
+};
+
 export default CardFooter;
