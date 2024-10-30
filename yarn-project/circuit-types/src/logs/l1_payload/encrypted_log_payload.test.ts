@@ -63,7 +63,7 @@ describe('EncryptedLogPayload', () => {
     });
   });
 
-  it('outgoing ciphertest matches Noir', () => {
+  it('outgoing cipher text matches Noir', () => {
     const ephSk = GrumpkinScalar.fromHighLow(
       new Fr(0x000000000000000000000000000000000f096b423017226a18461115fa8d34bbn),
       new Fr(0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fen),

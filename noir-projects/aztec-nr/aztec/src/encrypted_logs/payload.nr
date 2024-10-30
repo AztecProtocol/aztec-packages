@@ -18,7 +18,7 @@ use crate::{
 };
 use protocol_types::public_keys::AddressPoint;
 
-global PRIVATE_LOG_OVERHEAD_IN_BYTES: u32 = 336;
+pub comptime global PRIVATE_LOG_OVERHEAD_IN_BYTES: u32 = 336;
 
 // 1 byte for storage slot, 1 byte for note type id, allowing 6 bytes for custom note fields.
 global MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = 8 * 32;
@@ -87,8 +87,7 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     recipient: AztecAddress,
     plaintext: [u8; P],
 ) -> [u8; M] {
-    let extended_plaintext: [u8; M - PRIVATE_LOG_OVERHEAD_IN_BYTES] =
-        extend_private_log_plaintext(plaintext);
+    let extended_plaintext: [u8; P + 1] = extend_private_log_plaintext(plaintext);
     compute_encrypted_log(
         contract_address,
         ovsk_app,
@@ -274,8 +273,7 @@ mod test {
         compute_private_log_payload, MAX_PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES,
     };
     use dep::protocol_types::{
-        address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_BYTES, point::Point,
-        public_keys::OvpkM, scalar::Scalar,
+        address::AztecAddress, point::Point, public_keys::OvpkM, scalar::Scalar,
     };
     use protocol_types::public_keys::AddressPoint;
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
@@ -283,7 +281,7 @@ mod test {
 
     #[test]
     unconstrained fn test_encrypted_log_matches_typescript() {
-        // All the values in this test were copied over from `tagged_log.test.ts`
+        // All the values in this test were copied over from `encrypted_log_payload.test.ts`
         let contract_address = AztecAddress::from_field(
             0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
         );

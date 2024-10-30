@@ -24,13 +24,15 @@ const HEADER_SIZE = 48;
 // 128 bytes for the secret key, address and public key, and 16 bytes padding to follow PKCS#7
 const OUTGOING_BODY_SIZE = 144;
 
-const ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD =
+const ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE =
   32 /* incoming_tag */ +
   32 /* outgoing_tag */ +
   32 /* eph_pk */ +
   HEADER_SIZE /* incoming_header */ +
   HEADER_SIZE /* outgoing_header */ +
   OUTGOING_BODY_SIZE; /* outgoing_body */
+
+const INCOMING_BODY_SIZE = PRIVATE_LOG_SIZE_IN_BYTES - ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE;
 
 /**
  * Encrypted log payload with a tag used for retrieval by clients.
@@ -85,7 +87,6 @@ export class EncryptedLogPayload {
       ephPk,
       derivePoseidonAESSecret,
     );
-
     if (outgoingBodyCiphertext.length !== OUTGOING_BODY_SIZE) {
       throw new Error(`Invalid outgoing body size: ${outgoingBodyCiphertext.length}`);
     }
@@ -98,15 +99,15 @@ export class EncryptedLogPayload {
       outgoingHeaderCiphertext,
       outgoingBodyCiphertext,
     );
-    if (overhead.length !== ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD) {
+    if (overhead.length !== ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE) {
       throw new Error(
-        `Invalid ciphertext overhead size. Expect ${ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD}. Got ${overhead.length}.`,
+        `Invalid ciphertext overhead size. Expected ${ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE}. Got ${overhead.length}.`,
       );
     }
 
     const numPaddedBytes =
       PRIVATE_LOG_SIZE_IN_BYTES -
-      ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD -
+      ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE -
       1 /* 1 byte for this.incomingBodyPlaintext.length */ -
       15 /* aes padding */ -
       this.incomingBodyPlaintext.length;
@@ -116,6 +117,11 @@ export class EncryptedLogPayload {
       rand(numPaddedBytes),
     ]);
     const incomingBodyCiphertext = encrypt(paddedIncomingBodyPlaintextWithLength, ephSk, ivpk);
+    if (incomingBodyCiphertext.length !== INCOMING_BODY_SIZE) {
+      throw new Error(
+        `Invalid incoming body size. Expected ${INCOMING_BODY_SIZE}. Got ${incomingBodyCiphertext.length}`,
+      );
+    }
 
     return serializeToBuffer(overhead, incomingBodyCiphertext);
   }
@@ -151,7 +157,8 @@ export class EncryptedLogPayload {
       reader.readBytes(OUTGOING_BODY_SIZE);
 
       // The incoming can be of variable size, so we read until the end
-      const decrypted = decrypt(reader.readToEnd(), ivsk, ephPk);
+      const ciphertext = reader.readToEnd();
+      const decrypted = decrypt(ciphertext, ivsk, ephPk);
       const length = decrypted.readUint8(0);
       const incomingBodyPlaintext = decrypted.subarray(1, 1 + length);
 

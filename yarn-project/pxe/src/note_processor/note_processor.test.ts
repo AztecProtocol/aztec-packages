@@ -66,9 +66,7 @@ class MockNoteRequest {
   encrypt(): EncryptedL2NoteLog {
     const ephSk = GrumpkinScalar.random();
     const recipient = AztecAddress.random();
-    const logWithoutNumPublicValues = this.logPayload.encrypt(ephSk, recipient, this.ivpk, this.ovKeys);
-    // We prefix the log with an empty byte indicating there are 0 public values.
-    const log = Buffer.concat([Buffer.alloc(1), logWithoutNumPublicValues]);
+    const log = this.logPayload.encrypt(ephSk, recipient, this.ivpk, this.ovKeys);
     return new EncryptedL2NoteLog(log);
   }
 
