@@ -4,9 +4,9 @@ import Link from "@docusaurus/Link";
 import { useLocation } from "@docusaurus/router";
 
 function getSiteId(env) {
-  if (env == "dev") {
+  if (env === "dev") {
     return "4";
-  } else if (env == "staging") {
+  } else if (env === "staging") {
     return "5";
   } else {
     return "6";
@@ -81,7 +81,7 @@ export default function useMatomo() {
 
   const reset = () => {
     pushInstruction("forgetConsentGiven");
-    localStorage.clear("matomoConsent");
+    localStorage.removeItem("matomoConsent");
   };
 
   if (!showBanner && env === "dev") {
