@@ -24,7 +24,11 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     const size_t tables_size = circuit.get_tables_size();
     ASSERT(dyadic_circuit_size > tables_size + additional_offset);
-    size_t offset = dyadic_circuit_size - tables_size - additional_offset;
+
+    size_t offset = Flavor::has_zero_row ? 1 : 0;
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        offset = dyadic_circuit_size - tables_size - additional_offset;
+    }
 
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
@@ -46,15 +50,13 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
  * concatenation of basic 3-column tables. Similarly, the read counts polynomial is constructed as the concatenation of
  * read counts for the individual tables.
  */
-template <typename Flavor>
+template <IsHonkFlavor Flavor>
 void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
-                                  typename Flavor::CircuitBuilder& circuit,
-                                  const size_t dyadic_circuit_size)
+                                  typename Flavor::CircuitBuilder& circuit)
 {
-    const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t table_offset = dyadic_circuit_size - tables_size;
+    size_t table_offset = Flavor::has_zero_row ? 1 : 0;
 
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {

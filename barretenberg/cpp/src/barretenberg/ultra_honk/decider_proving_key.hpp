@@ -165,9 +165,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     // return_data.size() });
                     proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
+                size_t table_offset = 1;
                 const size_t max_tables_size =
-                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
-                size_t table_offset = dyadic_circuit_size - max_tables_size;
+                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
                 {
                     PROFILE_THIS_NAME("allocating table polynomials");
                     vinfo("allocating table polynomials");
@@ -177,7 +177,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     // Allocate the table polynomials
                     if constexpr (IsHonkFlavor<Flavor>) {
                         for (auto& poly : proving_key.polynomials.get_tables()) {
-                            poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                            poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                         }
                     }
                 }
@@ -186,36 +186,31 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     vinfo("allocating sigmas and ids");
 
                     for (auto& sigma : proving_key.polynomials.get_sigmas()) {
-                        sigma = typename Flavor::Polynomial(proving_key.circuit_size);
+                        sigma = Polynomial(proving_key.circuit_size);
                     }
                     for (auto& id : proving_key.polynomials.get_ids()) {
-                        id = typename Flavor::Polynomial(proving_key.circuit_size);
+                        id = Polynomial(proving_key.circuit_size);
                     }
                 }
                 {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
                     vinfo("allocating lookup read counts and tags");
-                    proving_key.polynomials.lookup_read_counts =
-                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-                    proving_key.polynomials.lookup_read_tags =
-                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                    proving_key.polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_circuit_size);
+                    proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size);
                 }
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
                     // Allocate the lookup_inverses polynomial
                     vinfo("allocating lookup and databus inverses");
-                    const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
+                    const auto lookup_block_end = static_cast<size_t>(
+                        circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
+                    const auto tables_end =
+                        std::min(dyadic_circuit_size - table_offset, MAX_LOOKUP_TABLES_SIZE + table_offset);
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
                     // at top of trace
-                    const size_t table_offset =
-                        dyadic_circuit_size -
-                        std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
-                    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
-                    const size_t lookup_inverses_end =
-                        std::min(dyadic_circuit_size,
-                                 std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
-                                          table_offset + MAX_LOOKUP_TABLES_SIZE));
+                    const size_t lookup_inverses_start = table_offset;
+                    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {
@@ -283,10 +278,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup read counts");
             vinfo("constructing lookup read counts");
 
-            construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
-                                                 proving_key.polynomials.lookup_read_tags,
-                                                 circuit,
-                                                 dyadic_circuit_size);
+            construct_lookup_read_counts<Flavor>(
+                proving_key.polynomials.lookup_read_counts, proving_key.polynomials.lookup_read_tags, circuit);
         }
 
         // Construct the public inputs array
