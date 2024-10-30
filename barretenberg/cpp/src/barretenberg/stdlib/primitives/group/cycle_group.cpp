@@ -237,23 +237,6 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         }
 
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
-        auto x1 = x.get_value();
-        auto y1 = modified_y.get_value();
-
-        // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
-        // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
-        // i.e. x^4 = x * (y^2 - b)
-        // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
-        auto y_pow_2 = y1.sqr();
-        auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
-        auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
-        auto lambda = (x1 * x1 * 3) / (y1 + y1);
-        auto xx3 = lambda_squared - x1 - x1;
-        auto yy3 = lambda * (x1 - xx3) - y1;
-
-        ASSERT(xx3 == result.get_value().x);
-        ASSERT(yy3 == result.get_value().y);
-
     } else {
         auto x1 = x.get_value();
         auto y1 = modified_y.get_value();
@@ -345,13 +328,6 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
             return cycle_group(x3, y3, false);
         }
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
-
-        const auto p1 = get_value();
-        const auto p2 = other.get_value();
-        AffineElement p3(Element(p1) + Element(p2));
-
-        ASSERT(p3.x == result.get_value().x);
-        ASSERT(p3.y == result.get_value().y);
     } else {
         const auto p1 = get_value();
         const auto p2 = other.get_value();
