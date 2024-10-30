@@ -205,6 +205,42 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
+  public async registerContact(address: AztecAddress): Promise<AztecAddress> {
+    const accounts = await this.keyStore.getAccounts();
+    if (accounts.includes(address)) {
+      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      return address;
+    }
+
+    const wasAdded = await this.db.addContactAddress(address);
+
+    if (wasAdded) {
+      this.log.info(`Added contact:\n ${address.toString()}`);
+    } else {
+      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+    }
+
+    return address;
+  }
+
+  public getContacts(): Promise<AztecAddress[]> {
+    const contacts = this.db.getContactAddresses();
+
+    return Promise.resolve(contacts);
+  }
+
+  public async removeContact(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeContactAddress(address);
+
+    if (wasRemoved) {
+      this.log.info(`Removed contact:\n ${address.toString()}`);
+    } else {
+      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+    }
+
+    return Promise.resolve();
+  }
+
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
     const completeAddresses = await this.db.getCompleteAddresses();

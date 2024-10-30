@@ -231,6 +231,16 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
+   * Returns the full contents of your address book.
+   * This is used when calculating tags for incoming notes by deriving the shared secret, the contract-siloed tagging secret, and
+   * finally the index specified tag. We will then query the node with this tag for each address in the address book.
+   * @returns The full list of the users contact addresses.
+   */
+  public getContacts(): AztecAddress[] {
+    return this.db.getContactAddresses();
+  }
+
+  /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
    * Includes the last known index used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
