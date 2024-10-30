@@ -618,7 +618,12 @@ export const uniswapL1L2TestSuite = (
         {
           caller: uniswapL2Contract.address,
           action: wethCrossChainHarness.l2Token.methods
-            .transfer_to_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferToPublicApproval)
+            .transfer_to_public(
+              ownerAddress,
+              uniswapL2Contract.address,
+              wethAmountToBridge,
+              nonceForWETHTransferToPublicApproval,
+            )
             .request(),
         },
         { chainId: ownerWallet.getChainId(), version: ownerWallet.getVersion() },
