@@ -323,7 +323,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "0004"                           // dst_offset 4
                                + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
-                               "0004"                           // jmp_dest
+                               "00000004"                       // jmp_dest
                                + to_hex(OpCode::ADD_16) +       // opcode ADD
                                "00"                             // Indirect flag
                                "0004"                           // addr a 4
@@ -351,7 +351,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     // INTERNALCALL
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::INTERNALCALL),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(4)))));
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(4)))));
 
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
@@ -388,7 +388,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 {
     auto internalCallInstructionHex = [](std::string const& dst_offset) {
         return to_hex(OpCode::INTERNALCALL) // opcode INTERNALCALL
-               + "00" + dst_offset;
+               + "000000" + dst_offset;
     };
 
     auto setInstructionHex = [](std::string const& val, std::string const& dst_offset) {
@@ -471,8 +471,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "0000"                           // cd_offset
                                "0001"                           // copy_size
                                "000A"                           // dst_offset // M[10] = 13, M[11] = 156
-                               + to_hex(OpCode::JUMP_16) +      // opcode JUMP
-                               "0005"                           // jmp_dest (FDIV located at 3)
+                               + to_hex(OpCode::JUMP_32) +      // opcode JUMP
+                               "00000005"                       // jmp_dest (FDIV located at 3)
                                + to_hex(OpCode::SUB_8) +        // opcode SUB
                                "00"                             // Indirect flag
                                "0B"                             // addr 11
@@ -507,8 +507,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 
     // JUMP
     EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::JUMP_16),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(5)))));
+                AllOf(Field(&Instruction::op_code, OpCode::JUMP_32),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(5)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -566,9 +566,9 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                + to_hex(AvmMemoryTag::U16) +
                                "14"                         // val 20
                                "65"                         // dst_offset 101
-                               + to_hex(OpCode::JUMPI_16) + // opcode JUMPI
+                               + to_hex(OpCode::JUMPI_32) + // opcode JUMPI
                                "00"                         // Indirect flag
-                               "0006"                       // jmp_dest (MUL located at 6)
+                               "00000006"                   // jmp_dest (MUL located at 6)
                                "000A"                       // cond_offset 10
                                + to_hex(OpCode::ADD_16) +   // opcode ADD
                                "00"                         // Indirect flag
@@ -596,9 +596,9 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     // JUMPI
     EXPECT_THAT(
         instructions.at(4),
-        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_16),
+        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_32),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(6), VariantWith<uint16_t>(10)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(6), VariantWith<uint16_t>(10)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
