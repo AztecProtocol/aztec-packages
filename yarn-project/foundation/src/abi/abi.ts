@@ -206,7 +206,9 @@ export interface FunctionAbi {
    * The types of the return values.
    */
   returnTypes: AbiType[];
-
+  /**
+   * The types of the errors that the function can throw.
+   */
   errorTypes: Partial<Record<string, AbiErrorType>>;
   /**
    * Whether the function is flagged as an initializer.

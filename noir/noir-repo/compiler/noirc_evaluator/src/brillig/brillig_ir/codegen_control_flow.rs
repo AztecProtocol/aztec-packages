@@ -6,7 +6,7 @@ use acvm::{
     AcirField,
 };
 
-use crate::{ssa::ir::instruction::error_selector_from_type, ErrorType};
+use crate::ErrorType;
 
 use super::{
     artifact::BrilligParameter,
@@ -266,7 +266,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.codegen_if_not(condition.address, |ctx| {
             if let Some(assert_message) = assert_message {
                 let error_type = ErrorType::String(assert_message);
-                let error_selector = error_selector_from_type(&error_type);
+                let error_selector = error_type.selector();
                 ctx.obj.error_types.insert(error_selector, error_type);
                 ctx.indirect_const_instruction(
                     ReservedRegisters::free_memory_pointer(),

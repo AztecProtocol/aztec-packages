@@ -921,17 +921,19 @@ pub enum ErrorType {
     Dynamic(HirType),
 }
 
-pub(crate) fn error_selector_from_type(typ: &ErrorType) -> ErrorSelector {
-    let mut hasher = FxHasher::default();
-    typ.hash(&mut hasher);
-    let hash = hasher.finish();
-    ErrorSelector::new(hash)
+impl ErrorType {
+    pub fn selector(&self) -> ErrorSelector {
+        let mut hasher = FxHasher::default();
+        self.hash(&mut hasher);
+        let hash = hasher.finish();
+        ErrorSelector::new(hash)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub(crate) enum ConstrainError {
     // Static string errors are not handled inside the program as data for efficiency reasons.
-    StaticString(ErrorSelector, String),
+    StaticString(String),
     // These errors are handled by the program as data.
     // We use a boolean to indicate if the error is a string for printing purposes.
     Dynamic(ErrorSelector, /* is_string */ bool, Vec<ValueId>),
@@ -939,8 +941,7 @@ pub(crate) enum ConstrainError {
 
 impl From<String> for ConstrainError {
     fn from(value: String) -> Self {
-        let error_type = ErrorType::String(value.clone());
-        ConstrainError::StaticString(error_selector_from_type(&error_type), value)
+        ConstrainError::StaticString(value)
     }
 }
 

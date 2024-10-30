@@ -21,7 +21,7 @@ use self::{
     value::{Tree, Values},
 };
 
-use super::ir::instruction::{error_selector_from_type, ErrorType};
+use super::ir::instruction::ErrorType;
 use super::{
     function_builder::data_bus::DataBus,
     ir::{
@@ -704,12 +704,10 @@ impl<'a> FunctionContext<'a> {
         let (assert_message_expression, assert_message_typ) = assert_message_payload.as_ref();
 
         if let Expression::Literal(ast::Literal::Str(static_string)) = assert_message_expression {
-            let error_type = ErrorType::String(static_string.clone());
-            let selector = error_selector_from_type(&error_type);
-            Ok(Some(ConstrainError::StaticString(selector, static_string.clone())))
+            Ok(Some(ConstrainError::StaticString(static_string.clone())))
         } else {
             let error_type = ErrorType::Dynamic(assert_message_typ.clone());
-            let selector = error_selector_from_type(&error_type);
+            let selector = error_type.selector();
             let values = self.codegen_expression(assert_message_expression)?.into_value_list(self);
             let is_string_type = matches!(assert_message_typ, HirType::String(_));
             // Record custom types in the builder, outside of SSA instructions

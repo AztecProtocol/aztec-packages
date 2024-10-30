@@ -273,7 +273,7 @@ impl<'block> BrilligBlock<'block> {
                             *selector,
                         );
                     }
-                    Some(ConstrainError::StaticString(_, message)) => {
+                    Some(ConstrainError::StaticString(message)) => {
                         self.brillig_context.codegen_constrain(condition, Some(message.clone()));
                     }
                     None => {

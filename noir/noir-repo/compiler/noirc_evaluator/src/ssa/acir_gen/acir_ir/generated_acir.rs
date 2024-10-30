@@ -5,10 +5,7 @@ use std::{collections::BTreeMap, u32};
 use crate::{
     brillig::{brillig_gen::brillig_directive, brillig_ir::artifact::GeneratedBrillig},
     errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::{
-        dfg::CallStack,
-        instruction::{error_selector_from_type, ErrorType},
-    },
+    ssa::ir::{dfg::CallStack, instruction::ErrorType},
 };
 use acvm::acir::{
     circuit::{
@@ -628,7 +625,7 @@ impl<F: AcirField> GeneratedAcir<F> {
         message: String,
     ) -> AssertionPayload<F> {
         let error_type = ErrorType::String(message);
-        let error_selector = error_selector_from_type(&error_type);
+        let error_selector = error_type.selector();
         self.record_error_type(error_selector, error_type);
         AssertionPayload { error_selector: error_selector.as_u64(), payload: Vec::new() }
     }

@@ -244,7 +244,7 @@ fn display_constrain_error(
     f: &mut Formatter,
 ) -> Result {
     match error {
-        ConstrainError::StaticString(_, assert_message_string) => {
+        ConstrainError::StaticString(assert_message_string) => {
             writeln!(f, " '{assert_message_string:?}'")
         }
         ConstrainError::Dynamic(_, is_string, values) => {

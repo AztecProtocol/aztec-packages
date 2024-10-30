@@ -676,18 +676,20 @@ impl<'a> Context<'a> {
                 let rhs = self.convert_numeric_value(*rhs, dfg)?;
 
                 let assert_payload = if let Some(error) = assert_message {
-                    Some(match error {
-                        ConstrainError::StaticString(_, string) => {
-                            self.acir_context.generate_assertion_message_payload(string.clone())
-                        }
+                    match error {
+                        ConstrainError::StaticString(string) => Some(
+                            self.acir_context.generate_assertion_message_payload(string.clone()),
+                        ),
                         ConstrainError::Dynamic(error_selector, is_string_type, values) => {
                             if let Some(constant_string) = try_to_extract_string_from_error_payload(
                                 *is_string_type,
                                 values,
                                 dfg,
                             ) {
-                                self.acir_context
-                                    .generate_assertion_message_payload(constant_string)
+                                Some(
+                                    self.acir_context
+                                        .generate_assertion_message_payload(constant_string),
+                                )
                             } else {
                                 let acir_vars: Vec<_> = values
                                     .iter()
@@ -697,13 +699,13 @@ impl<'a> Context<'a> {
                                 let expressions_or_memory =
                                     self.acir_context.vars_to_expressions_or_memory(&acir_vars)?;
 
-                                AssertionPayload {
+                                Some(AssertionPayload {
                                     error_selector: error_selector.as_u64(),
                                     payload: expressions_or_memory,
-                                }
+                                })
                             }
                         }
-                    })
+                    }
                 } else {
                     None
                 };
