@@ -56,6 +56,9 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
      *        If precompute_select = 1, tuple entry = (wnaf-slice + point-counter * beta + msm-round * beta_sqr).
      *                       There are 4 tuple entries per row.
      */
+    const auto precompute_pc_scaled = precompute_pc * beta + gamma;
+    const auto precompute_round4_scaled = precompute_round4 * beta_sqr;
+    auto partial_numerator = precompute_pc_scaled + precompute_round4_scaled;
     Accumulator numerator(1); // degree-0
     {
         const auto& s0 = View(in.precompute_s1hi);
@@ -66,9 +69,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += s1;
 
         // TODO(@zac-williamson #2226) optimize
-        const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr;
+        const auto wnaf_slice_input0 = wnaf_slice + partial_numerator;
         numerator *= wnaf_slice_input0; // degree-1
     }
+    partial_numerator += beta_sqr;
     {
         const auto& s0 = View(in.precompute_s2hi);
         const auto& s1 = View(in.precompute_s2lo);
@@ -78,9 +82,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += s1;
 
         // TODO(@zac-williamson #2226) optimize
-        const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr;
+        const auto wnaf_slice_input1 = wnaf_slice + partial_numerator;
         numerator *= wnaf_slice_input1; // degree-2
     }
+    partial_numerator += beta_sqr;
     {
         const auto& s0 = View(in.precompute_s3hi);
         const auto& s1 = View(in.precompute_s3lo);
@@ -90,9 +95,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += s1;
 
         // TODO(@zac-williamson #2226) optimize
-        const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr;
+        const auto wnaf_slice_input2 = wnaf_slice + partial_numerator;
         numerator *= wnaf_slice_input2; // degree-3
     }
+    partial_numerator += beta_sqr;
     {
         const auto& s0 = View(in.precompute_s4hi);
         const auto& s1 = View(in.precompute_s4lo);
@@ -101,23 +107,23 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
         // TODO(@zac-williamson #2226) optimize
-        const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr;
+        const auto wnaf_slice_input3 = wnaf_slice + partial_numerator;
         numerator *= wnaf_slice_input3; // degree-4
     }
+    partial_numerator += beta_sqr;
     {
         // skew product if relevant
         const auto& skew = View(in.precompute_skew);
         const auto& precompute_point_transition = View(in.precompute_point_transition);
         const auto skew_input =
-            precompute_point_transition * (skew + gamma + precompute_pc * beta + (precompute_round4 + 4) * beta_sqr) +
-            (-precompute_point_transition + 1);
+            precompute_point_transition * (skew + partial_numerator) + (-precompute_point_transition + 1);
         numerator *= skew_input; // degree-5
     }
     {
         const auto& eccvm_set_permutation_delta = params.eccvm_set_permutation_delta;
         numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
-
+    // 676365
     /**
      * @brief Second term: tuple of (point-counter, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
      * ECCVMPointTableRelation. ECCVMWnafRelation validates the sum of the wnaf slices associated with point-counter
@@ -256,35 +262,35 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
      * These values must be equivalent to the values computed in the 1st term of `compute_grand_product_numerator`
      */
     Accumulator denominator(1); // degree-0
+    auto partial_term = gamma + (msm_pc - msm_count) * beta + msm_round * beta_sqr;
     {
         const auto& add1 = View(in.msm_add1);
         const auto& msm_slice1 = View(in.msm_slice1);
 
-        auto wnaf_slice_output1 =
-            add1 * (msm_slice1 + gamma + (msm_pc - msm_count) * beta + msm_round * beta_sqr) + (-add1 + 1);
+        auto wnaf_slice_output1 = add1 * (msm_slice1 + partial_term) + (-add1 + 1);
         denominator *= wnaf_slice_output1; // degree-2
     }
+    partial_term -= beta;
     {
         const auto& add2 = View(in.msm_add2);
         const auto& msm_slice2 = View(in.msm_slice2);
 
-        auto wnaf_slice_output2 =
-            add2 * (msm_slice2 + gamma + (msm_pc - msm_count - 1) * beta + msm_round * beta_sqr) + (-add2 + 1);
+        auto wnaf_slice_output2 = add2 * (msm_slice2 + partial_term) + (-add2 + 1);
         denominator *= wnaf_slice_output2; // degree-4
     }
+    partial_term -= beta;
     {
         const auto& add3 = View(in.msm_add3);
         const auto& msm_slice3 = View(in.msm_slice3);
 
-        auto wnaf_slice_output3 =
-            add3 * (msm_slice3 + gamma + (msm_pc - msm_count - 2) * beta + msm_round * beta_sqr) + (-add3 + 1);
+        auto wnaf_slice_output3 = add3 * (msm_slice3 + partial_term) + (-add3 + 1);
         denominator *= wnaf_slice_output3; // degree-6
     }
+    partial_term -= beta;
     {
         const auto& add4 = View(in.msm_add4);
         const auto& msm_slice4 = View(in.msm_slice4);
-        auto wnaf_slice_output4 =
-            add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * beta + msm_round * beta_sqr) + (-add4 + 1);
+        auto wnaf_slice_output4 = add4 * (msm_slice4 + partial_term) + (-add4 + 1);
         denominator *= wnaf_slice_output4; // degree-8
     }
 

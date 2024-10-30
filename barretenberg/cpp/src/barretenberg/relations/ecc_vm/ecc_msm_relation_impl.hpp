@@ -279,9 +279,10 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     auto [x_d2, y_d2] = dbl(x_d1, y_d1, lambda2, double_relation);
     auto [x_d3, y_d3] = dbl(x_d2, y_d2, lambda3, double_relation);
     auto [x_d4, y_d4] = dbl(x_d3, y_d3, lambda4, double_relation);
-    std::get<10>(accumulator) += q_double * (acc_x_shift - x_d4) * scaling_factor;
-    std::get<11>(accumulator) += q_double * (acc_y_shift - y_d4) * scaling_factor;
-    std::get<12>(accumulator) += q_double * double_relation * scaling_factor;
+    const auto q_double_scaled = q_double * scaling_factor;
+    std::get<10>(accumulator) += (acc_x_shift - x_d4) * q_double_scaled;
+    std::get<11>(accumulator) += (acc_y_shift - y_d4) * q_double_scaled;
+    std::get<12>(accumulator) += double_relation * q_double_scaled;
 
     /**
      * @brief SKEW operations
@@ -314,27 +315,29 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 
     // Validate accumulator output matches SKEW output if q_skew = 1
     // (this is a degree-6 relation)
-    std::get<3>(accumulator) += q_skew * (acc_x_shift - x_s4) * scaling_factor;
-    std::get<4>(accumulator) += q_skew * (acc_y_shift - y_s4) * scaling_factor;
-    std::get<5>(accumulator) += q_skew * skew_relation * scaling_factor;
+    const auto q_skew_scaled = q_skew * scaling_factor;
+    std::get<3>(accumulator) += (acc_x_shift - x_s4) * q_skew_scaled;
+    std::get<4>(accumulator) += (acc_y_shift - y_s4) * q_skew_scaled;
+    std::get<5>(accumulator) += skew_relation * q_skew_scaled;
 
     // Check x-coordinates do not collide if row is an ADD row or a SKEW row
     // if either q_add or q_skew = 1, an inverse should exist for each computed relation
     // Step 1: construct boolean selectors that describe whether we added a point at the current row
-    const auto add_first_point = add1 * q_add + q_skew * skew1_select;
-    const auto add_second_point = add2 * q_add + q_skew * skew2_select;
-    const auto add_third_point = add3 * q_add + q_skew * skew3_select;
-    const auto add_fourth_point = add4 * q_add + q_skew * skew4_select;
+    const auto q_add_scaled = q_add * scaling_factor;
+    const auto add_first_point = add1 * q_add_scaled + q_skew_scaled * skew1_select;
+    const auto add_second_point = add2 * q_add_scaled + q_skew_scaled * skew2_select;
+    const auto add_third_point = add3 * q_add_scaled + q_skew_scaled * skew3_select;
+    const auto add_fourth_point = add4 * q_add_scaled + q_skew_scaled * skew4_select;
     // Step 2: construct the delta between x-coordinates for each point add (depending on if row is ADD or SKEW)
-    const auto x1_delta = x1_skew_collision_relation * q_skew + x1_collision_relation * q_add;
-    const auto x2_delta = x2_skew_collision_relation * q_skew + x2_collision_relation * q_add;
-    const auto x3_delta = x3_skew_collision_relation * q_skew + x3_collision_relation * q_add;
-    const auto x4_delta = x4_skew_collision_relation * q_skew + x4_collision_relation * q_add;
+    const auto x1_delta = x1_skew_collision_relation * q_skew_scaled + x1_collision_relation * q_add_scaled;
+    const auto x2_delta = x2_skew_collision_relation * q_skew_scaled + x2_collision_relation * q_add_scaled;
+    const auto x3_delta = x3_skew_collision_relation * q_skew_scaled + x3_collision_relation * q_add_scaled;
+    const auto x4_delta = x4_skew_collision_relation * q_skew_scaled + x4_collision_relation * q_add_scaled;
     // Step 3: x_delta * inverse - 1 = 0 if we performed a point addition (else x_delta * inverse = 0)
-    std::get<6>(accumulator) += (x1_delta * collision_inverse1 - add_first_point) * scaling_factor;
-    std::get<7>(accumulator) += (x2_delta * collision_inverse2 - add_second_point) * scaling_factor;
-    std::get<8>(accumulator) += (x3_delta * collision_inverse3 - add_third_point) * scaling_factor;
-    std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
+    std::get<6>(accumulator) += (x1_delta * collision_inverse1 - add_first_point);
+    std::get<7>(accumulator) += (x2_delta * collision_inverse2 - add_second_point);
+    std::get<8>(accumulator) += (x3_delta * collision_inverse3 - add_third_point);
+    std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point);
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // TODO(@zac-williamson) Once we have a stable base to work off of, remove q_add1 and replace with q_msm_add +
@@ -377,10 +380,10 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<21>(accumulator) += round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
 
     // if double, next double != 1
-    std::get<22>(accumulator) += q_double * q_double_shift * scaling_factor;
+    std::get<22>(accumulator) += q_double_shift * q_double_scaled;
 
     // if double, next add = 1
-    std::get<23>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
+    std::get<23>(accumulator) += (-q_add_shift + 1) * q_double_scaled;
 
     // updating count
     // if msm_transition = 0 and round_transition = 0, count_shift = count + add1 + add2 + add3 + add4
@@ -418,8 +421,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // Case 1: q_add = 1 on the CURRENT row, q_add = 1 on the NEXT row
     // Case 2: q_skew = 1 on the CURRENT row, q_skew = 1 on the NEXT row
     // (i.e. if q_skew = 1, q_add_shift = 1 this implies an MSM transition so we skip this continuity check)
-    std::get<31>(accumulator) +=
-        (q_add * q_add_shift + q_skew * q_skew_shift) * (-add4 + 1) * add1_shift * scaling_factor;
+    std::get<31>(accumulator) += (q_add_scaled * q_add_shift + q_skew_scaled * q_skew_shift) * (-add4 + 1) * add1_shift;
 
     // remaining checks (done in ecc_set_relation.hpp, ecc_lookup_relation.hpp)
     // when transition occurs, perform set membership lookup on (accumulator / pc / msm_size)
