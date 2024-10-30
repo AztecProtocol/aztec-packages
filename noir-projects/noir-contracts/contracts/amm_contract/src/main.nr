@@ -1,4 +1,5 @@
 mod lib;
+mod state;
 
 use dep::aztec::macros::aztec;
 
@@ -29,7 +30,7 @@ use dep::aztec::macros::aztec;
 ///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
 contract AMM {
-    use crate::lib::{get_amount_in, get_amount_out, get_amounts_to_add};
+    use crate::{lib::{get_amount_in, get_amount_out, get_amounts_to_add}, state::State};
     use dep::aztec::{
         macros::{
             events::event,
@@ -37,20 +38,8 @@ contract AMM {
             storage::storage,
         },
         prelude::{AztecAddress, SharedImmutable},
-        protocol_types::traits::Serialize,
     };
     use dep::token::Token;
-    use std::meta::derive;
-
-    /// We store the tokens of the pool in a struct such that to load it from SharedImmutable asserts only a single
-    /// merkle proof.
-    /// (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
-    #[derive(Serialize)]
-    struct State {
-        token0: AztecAddress,
-        token1: AztecAddress,
-        liquidity_token: AztecAddress,
-    }
 
     #[storage]
     struct Storage<Context> {
@@ -106,7 +95,7 @@ contract AMM {
         // We transfer the desired amounts of tokens to this contract.
         token0
             .transfer_to_public(
-                msg.sender,
+                context.msg_sender(),
                 context.this_address(),
                 amount0_desired.to_integer(),
                 nonce,
@@ -114,7 +103,7 @@ contract AMM {
             .call(&mut context);
         token1
             .transfer_to_public(
-                msg.sender,
+                context.msg_sender(),
                 context.this_address(),
                 amount1_desired.to_integer(),
                 nonce,
@@ -123,22 +112,20 @@ contract AMM {
 
         // We may need to return some token amounts depending on public state (i.e. if the desired amounts do
         // not have the same ratio as the live reserves), so we prepare partial notes for the refunds.
-        let refund_token0_slot_commitment = token0
-            .prepare_transfer_to_private(msg.sender, context.this_address(), nonce)
-            .call(&mut context);
-        let refund_token1_slot_commitment = token1
-            .prepare_transfer_to_private(msg.sender, context.this_address(), nonce)
-            .call(&mut context);
+        let refund_token0_hiding_point_slot =
+            token0.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+        let refund_token1_hiding_point_slot =
+            token1.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
         // We prepare a partial note for the liquidity tokens.
-        let liquidity_slot_commitment =
-            liquidity_token.prepare_transfer_to_private(msg.sender).call(&mut context);
+        let liquidity_hiding_point_slot =
+            liquidity_token.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._add_liquidity(
                 state,
-                refund_token0_slot_commitment,
-                refund_token1_slot_commitment,
-                liquidity_slot_commitment,
+                refund_token0_hiding_point_slot,
+                refund_token1_hiding_point_slot,
+                liquidity_hiding_point_slot,
                 amount0_desired.to_integer(),
                 amount1_desired.to_integer(),
                 amount0_min.to_integer(),
@@ -152,9 +139,9 @@ contract AMM {
     fn _add_liquidity(
         // We pass the state as an argument in order to not have to read it from public storage again.
         state: State,
-        refund_token0_slot_commitment: Field,
-        refund_token1_slot_commitment: Field,
-        liquidity_slot_commitment: Field,
+        refund_token0_hiding_point_slot: Field,
+        refund_token1_hiding_point_slot: Field,
+        liquidity_hiding_point_slot: Field,
         amount0_desired: Field,
         amount1_desired: Field,
         amount0_min: Field,
@@ -197,12 +184,18 @@ contract AMM {
         // public storage, which is fine.
         if (refund_amount_token0 > U128::zero()) {
             token0
-                .finalize_transfer_to_private(refund_token0_slot_commitment, refund_amount_token0)
+                .finalize_transfer_to_private(
+                    refund_token0_hiding_point_slot,
+                    refund_amount_token0.to_integer(),
+                )
                 .call(&mut context);
         }
         if (refund_amount_token1 > U128::zero()) {
             token1
-                .finalize_transfer_to_private(refund_token1_slot_commitment, refund_amount_token1)
+                .finalize_transfer_to_private(
+                    refund_token1_hiding_point_slot,
+                    refund_amount_token1.to_integer(),
+                )
                 .call(&mut context);
         }
 
@@ -224,7 +217,7 @@ contract AMM {
             );
         }
         assert(liquidity > U128::zero(), "INSUFFICIENT_LIQUIDITY_MINTED");
-        liquidity_token.finalize_mint_to_private(liquidity_slot_commitment, liquidity).call(
+        liquidity_token.finalize_mint_to_private(liquidity_hiding_point_slot, liquidity).call(
             &mut context,
         );
     }
@@ -245,20 +238,20 @@ contract AMM {
         // forced to first transfer into the AMM because it is not possible to burn in private - the enqueued public
         // call would reveal who the owner was. The only way to preserve their identity is to first privately transfer.
         liquidity_token
-            .transfer_to_public(msg.sender, context.this_address(), liquidity, nonce)
+            .transfer_to_public(context.msg_sender(), context.this_address(), liquidity, nonce)
             .call(&mut context);
-        let token0_slot_commitment = token0
-            .prepare_transfer_to_private(context.this_address(), msg.sender, nonce)
+        let token0_hiding_point_slot = token0
+            .prepare_transfer_to_private(context.this_address(), context.msg_sender(), nonce)
             .call(&mut context);
-        let token1_slot_commitment = token1
-            .prepare_transfer_to_private(context.this_address(), msg.sender, nonce)
+        let token1_hiding_point_slot = token1
+            .prepare_transfer_to_private(context.this_address(), context.msg_sender(), nonce)
             .call(&mut context);
 
         AMM::at(context.this_address())
             ._remove_liquidity(
                 state,
-                token0_slot_commitment,
-                token1_slot_commitment,
+                token0_hiding_point_slot,
+                token1_hiding_point_slot,
                 liquidity,
                 amount0_min,
                 amount1_min,
@@ -271,8 +264,8 @@ contract AMM {
     fn _remove_liquidity(
         // We pass the state as an argument in order to not have to read it from public storage again.
         state: State,
-        token0_slot_commitment: Field,
-        token1_slot_commitment: Field,
+        token0_hiding_point_slot: Field,
+        token1_hiding_point_slot: Field,
         liquidity: Field,
         amount0_min: Field,
         amount1_min: Field,
@@ -306,8 +299,8 @@ contract AMM {
 
         // At last we burn the liquidity tokens and transfer the token0 and token1 to the user.
         liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
-        token0.finalize_transfer_to_private(token0_slot_commitment, amount0).call(&mut context);
-        token1.finalize_transfer_to_private(token1_slot_commitment, amount1).call(&mut context);
+        token0.finalize_transfer_to_private(token0_hiding_point_slot, amount0).call(&mut context);
+        token1.finalize_transfer_to_private(token1_hiding_point_slot, amount1).call(&mut context);
     }
 
     /// Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
@@ -334,11 +327,10 @@ contract AMM {
 
         // We transfer the `amount_in` to this contract and we prepare partial note for the output token.
         token_in_contract
-            .transfer_to_public(msg.sender, context.this_address(), amount_in, nonce)
+            .transfer_to_public(context.msg_sender(), context.this_address(), amount_in, nonce)
             .call(&mut context);
-        let token_out_slot_commitment = token_out_contract
-            .prepare_transfer_to_private(context.this_address(), msg.sender)
-            .call(&mut context);
+        let token_out_hiding_point_slot =
+            token_out_contract.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_exact_tokens_for_tokens(
@@ -346,7 +338,7 @@ contract AMM {
                 token_out,
                 amount_in,
                 amount_out_min,
-                token_out_slot_commitment,
+                token_out_hiding_point_slot,
             )
             .enqueue(&mut context);
     }
@@ -358,7 +350,7 @@ contract AMM {
         token_out: AztecAddress,
         amount_in: Field,
         amount_out_min: Field,
-        token_out_slot_commitment: Field,
+        token_out_hiding_point_slot: Field,
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_in = U128::from_integer(amount_in);
@@ -381,9 +373,9 @@ contract AMM {
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
         // Transfer the output token to the user.
-        token_out_contract.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(
-            &mut context,
-        );
+        token_out_contract
+            .finalize_transfer_to_private(token_out_hiding_point_slot, amount_out)
+            .call(&mut context);
     }
 
     /// Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
@@ -399,7 +391,6 @@ contract AMM {
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_out = U128::from_integer(amount_out);
-        let amount_in_max = U128::from_integer(amount_in_max);
 
         let state = storage.state.read_private();
 
@@ -413,24 +404,22 @@ contract AMM {
 
         // We transfer the `amount_in_max` to this contract and we prepare partial notes for refund and for the output
         // token.
-        token_in.transfer_to_public(msg.sender, context.this_address(), amount_in_max, nonce).call(
-            &mut context,
-        );
-        let refund_token_in_slot_commitment = token_in_contract
-            .prepare_transfer_to_private(msg.sender, context.this_address(), nonce)
+        token_in_contract
+            .transfer_to_public(context.msg_sender(), context.this_address(), amount_in_max, nonce)
             .call(&mut context);
-        let token_out_slot_commitment = token_out_contract
-            .prepare_transfer_to_private(context.this_address(), msg.sender)
-            .call(&mut context);
+        let refund_token_in_hiding_point_slot =
+            token_in_contract.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
+        let token_out_hiding_point_slot =
+            token_out_contract.prepare_transfer_to_private(context.msg_sender()).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_tokens_for_exact_tokens(
                 token_in,
                 token_out,
-                amount_in_max.to_integer(),
+                amount_in_max,
                 amount_out.to_integer(),
-                refund_token_in_slot_commitment,
-                token_out_slot_commitment,
+                refund_token_in_hiding_point_slot,
+                token_out_hiding_point_slot,
             )
             .enqueue(&mut context);
     }
@@ -442,8 +431,8 @@ contract AMM {
         token_out: AztecAddress,
         amount_in_max: Field,
         amount_out: Field,
-        refund_token_in_slot_commitment: Field,
-        token_out_slot_commitment: Field,
+        refund_token_in_hiding_point_slot: Field,
+        token_out_hiding_point_slot: Field,
     ) {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount_out = U128::from_integer(amount_out);
@@ -453,11 +442,11 @@ contract AMM {
         let token_out_contract = Token::at(token_out);
 
         // We get the reserves. The `amount_in_max` was already transferred to this contract so we need to subtract it.
-        let reserve_in_with_amount_in_max = U128::from_integer(token_in
+        let reserve_in_with_amount_in_max = U128::from_integer(token_in_contract
             .balance_of_public(context.this_address())
             .view(&mut context));
         let reserve_in = reserve_in_with_amount_in_max - amount_in_max;
-        let reserve_out = U128::from_integer(token_out
+        let reserve_out = U128::from_integer(token_out_contract
             .balance_of_public(context.this_address())
             .view(&mut context));
 
@@ -469,13 +458,16 @@ contract AMM {
         let refund_amount = amount_in_max - amount_in;
         if (refund_amount > U128::zero()) {
             token_in_contract
-                .finalize_transfer_to_private(refund_token_in_slot_commitment, refund_amount)
+                .finalize_transfer_to_private(
+                    refund_amount.to_integer(),
+                    refund_token_in_hiding_point_slot,
+                )
                 .call(&mut context);
         }
 
         // Transfer the output token to the user.
-        token_out_contract.finalize_transfer_to_private(token_out_slot_commitment, amount_out).call(
-            &mut context,
-        );
+        token_out_contract
+            .finalize_transfer_to_private(amount_out.to_integer(), token_out_hiding_point_slot)
+            .call(&mut context);
     }
 }
