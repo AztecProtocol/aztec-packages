@@ -218,8 +218,9 @@ export class TXEService {
     args: ForeignCallArray,
   ) {
     const parsedAddress = fromSingle(address);
-    const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, parsedSelector, fromArray(args), false);
+    const parsedSelector = fromSingle(functionSelector);
+    const extendedArgs = [parsedSelector, ...fromArray(args)];
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, extendedArgs, false);
     if (!result.reverted) {
       throw new ExpectedFailureError('Public call did not revert');
     }
@@ -711,16 +712,28 @@ export class TXEService {
     return toForeignCallResult([toSingle(version)]);
   }
 
+  avmOpcodeReturndataSize() {
+    const size = (this.typedOracle as TXE).avmOpcodeReturndataSize();
+    return toForeignCallResult([toSingle(new Fr(size))]);
+  }
+
+  avmOpcodeReturndataCopy(rdOffset: ForeignCallSingle, copySize: ForeignCallSingle) {
+    const returndata = (this.typedOracle as TXE).avmOpcodeReturndataCopy(
+      fromSingle(rdOffset).toNumber(),
+      fromSingle(copySize).toNumber(),
+    );
+    // This is a slice, so we need to return the length as well.
+    return toForeignCallResult([toSingle(new Fr(returndata.length)), toArray(returndata)]);
+  }
+
   async avmOpcodeCall(
     _gas: ForeignCallArray,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
-    functionSelector: ForeignCallSingle,
   ) {
     const result = await (this.typedOracle as TXE).avmOpcodeCall(
       fromSingle(address),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ false,
     );
@@ -740,7 +753,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
+    return toForeignCallResult([toSingle(new Fr(!result.reverted))]);
   }
 
   async avmOpcodeStaticCall(
@@ -748,11 +761,9 @@ export class TXEService {
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
-    functionSelector: ForeignCallSingle,
   ) {
     const result = await (this.typedOracle as TXE).avmOpcodeCall(
       fromSingle(address),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ true,
     );
@@ -772,6 +783,6 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
+    return toForeignCallResult([toSingle(new Fr(!result.reverted))]);
   }
 }

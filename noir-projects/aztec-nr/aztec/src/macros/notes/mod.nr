@@ -463,13 +463,13 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
-                let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
+            fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
+                let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
                 let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
                     context.this_address(),
                     ovsk_app,
-                    recipient_keys.ovpk_m,
+                    ovpk,
                     recipient,
                     self.log_plaintext,
                 );

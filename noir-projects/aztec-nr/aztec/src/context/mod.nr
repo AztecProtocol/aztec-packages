@@ -16,6 +16,5 @@ pub use call_interfaces::{
 };
 pub use packed_returns::PackedReturns;
 pub use private_context::PrivateContext;
-pub use public_context::FunctionReturns;
 pub use public_context::PublicContext;
 pub use unconstrained_context::UnconstrainedContext;

@@ -90,6 +90,7 @@ export function getProgram(log: LogFn): Command {
         compiledCircuit,
         options.contractName,
         log,
+        /*force= */ true,
       );
     });
 

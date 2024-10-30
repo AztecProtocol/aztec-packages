@@ -25,14 +25,12 @@ export function useNumber({ contract }: { contract: Contract }) {
 
       const value = BigInt(el.value);
       const deployerWallet = await deployerEnv.getWallet();
-      const { masterNullifierPublicKey, masterOutgoingViewingPublicKey } =
-        deployerWallet.getCompleteAddress().publicKeys;
+
       await toast.promise(
         contract!.methods
           .setNumber(
             value,
             deployerWallet.getCompleteAddress().address,
-            masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
           )
           .send()
           .wait(),

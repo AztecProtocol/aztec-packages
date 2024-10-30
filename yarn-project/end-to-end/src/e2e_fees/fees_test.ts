@@ -122,9 +122,9 @@ export class FeesTest {
   }
 
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
-    const { secret } = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, amount, address);
-
-    await this.feeJuiceContract.methods.claim(address, amount, secret).send().wait();
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, address);
+    const { claimSecret: secret, messageLeafIndex: index } = claim;
+    await this.feeJuiceContract.methods.claim(address, amount, secret, index).send().wait();
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
@@ -265,7 +265,7 @@ export class FeesTest {
       'token_and_private_fpc',
       async context => {
         // Deploy token/fpc flavors for private refunds
-        const feeJuiceContract = this.feeJuiceBridgeTestHarness.l2Token;
+        const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const token = await TokenContract.deploy(this.aliceWallet, this.aliceAddress, 'PVT', 'PVT', 18n)
@@ -282,11 +282,7 @@ export class FeesTest {
         const privateFPC = await privateFPCSent.deployed();
 
         this.logger.info(`PrivateFPC deployed at ${privateFPC.address}`);
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
-          this.INITIAL_GAS_BALANCE,
-          this.INITIAL_GAS_BALANCE,
-          privateFPC.address,
-        );
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, privateFPC.address);
 
         return {
           tokenAddress: token.address,
@@ -307,7 +303,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'fpc_setup',
       async context => {
-        const feeJuiceContract = this.feeJuiceBridgeTestHarness.l2Token;
+        const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const bananaCoin = this.bananaCoin;
@@ -315,11 +311,7 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
-          this.INITIAL_GAS_BALANCE,
-          this.INITIAL_GAS_BALANCE,
-          bananaFPC.address,
-        );
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, bananaFPC.address);
 
         return {
           bananaFPCAddress: bananaFPC.address,
