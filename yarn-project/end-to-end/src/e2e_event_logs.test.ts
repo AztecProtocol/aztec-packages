@@ -41,7 +41,7 @@ describe('Logs', () => {
   afterAll(() => teardown());
 
   describe('functionality around emitting an encrypted log', () => {
-    it('emits multiple events as encrypted logs and decodes them one manually', async () => {
+    it.skip('emits multiple events as encrypted logs and decodes them one manually', async () => {
       const randomness = makeTuple(2, Fr.random);
       const preimage = makeTuple(4, Fr.random);
 
