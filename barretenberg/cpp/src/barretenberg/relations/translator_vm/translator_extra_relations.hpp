@@ -271,11 +271,8 @@ polynomials,
 
     };
     /**
-     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     * @brief Might return true if the contribution from all subrelations for the provided inputs is identically zero
      *
-     * @details This has a negligible chance of failing in sumcheck (not in the first round) because effectively
-     * transfrom original coefficients into a random linear combination. But checking each individually is noticeably
-     * slower.
      *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
