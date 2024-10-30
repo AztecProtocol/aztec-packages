@@ -255,6 +255,27 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
+    const directionalSecret = await this.#calculateDirectionalSecret(contractAddress, sender, recipient);
+    const [index] = await this.db.getTaggingSecretsIndexes([directionalSecret]);
+    return IndexedTaggingSecret.fromTaggingSecret(directionalSecret, index);
+  }
+
+  /**
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * @param contractAddress - The contract address to silo the secret for
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   */
+  public async incrementAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<void> {
+    const directionalSecret = await this.#calculateDirectionalSecret(contractAddress, sender, recipient);
+    await this.db.incrementTaggingSecretsIndexes([directionalSecret]);
+  }
+
+  async #calculateDirectionalSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
@@ -262,8 +283,7 @@ export class SimulatorOracle implements DBOracle {
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     // Get the index of the secret, ensuring the directionality (sender -> recipient)
     const directionalSecret = new TaggingSecret(siloedSecret, recipient);
-    const [index] = await this.db.getTaggingSecretsIndexes([directionalSecret]);
-    return new IndexedTaggingSecret(siloedSecret, recipient, index);
+    return directionalSecret;
   }
 
   /**

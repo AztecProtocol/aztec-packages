@@ -210,6 +210,18 @@ export interface DBOracle extends CommitmentsDB {
   ): Promise<IndexedTaggingSecret>;
 
   /**
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * @param contractAddress - The contract address to silo the secret for
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   */
+  incrementAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<void>;
+
+  /**
    * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
    * @param contractAddress - The contract address to silo the secret for
    * @param recipient - The address receiving the notes
