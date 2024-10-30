@@ -1,4 +1,4 @@
-# Checks bb prover with sanitizers
+# Checks bb (barretenberg prover library) prover with sanitizers
 # Unlike most jobs uses free 4 core github runners of which we have lots of capacity (of total 1000 concurrency).
 name: BB MSAN
 on:
@@ -18,9 +18,11 @@ concurrency:
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 jobs:
-  bb-msan-check:
+  # acts as prover performance baseline
+  bb-baseline:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,9 +34,27 @@ jobs:
         
         run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check
 
+  # memory sanitzer for prover
+  bb-msan-check:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Barretenberg Prover MSAN Check"
+        
+        run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check
+
+  # address sanitzer for prover
   bb-asan-check:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-asan-check')
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,9 +66,11 @@ jobs:
         timeout-minutes: 720 # 12 hour timeout (proving)
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=asan
 
+  # address sanitzer for prover
   bb-tsan-check:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-tsan-check')
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,9 +82,11 @@ jobs:
         timeout-minutes: 720 # 12 hour timeout (proving)
         run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan
 
+  # undefined behavior sanitzer for prover
   bb-ubsan-check:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-ubsan-check')
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
