@@ -4,7 +4,7 @@ set -e
 if [ -z "$SKIP_CPP_BUILD" ]; then
   # Build the wasms and strip debug symbols.
   cd ../cpp
-  cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads -j
+  cmake --preset wasm-threads-assert -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads-assert -j
   # cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm -j
   # ./scripts/strip-wasm.sh
   cd ../ts
@@ -17,5 +17,5 @@ fi
 # When building the browser bundle, both wasms are inlined directly.
 mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm ./dest/node/barretenberg_wasm/barretenberg-threads.wasm
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+cp ../cpp/build-wasm-threads-assert/bin/barretenberg.wasm ./dest/node/barretenberg_wasm/barretenberg-threads.wasm
+cp ../cpp/build-wasm-threads-assert/bin/barretenberg.wasm ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm

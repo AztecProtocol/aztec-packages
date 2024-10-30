@@ -426,6 +426,16 @@
       }
     },
     {
+      "name": "wasm-threads-assert",
+      "displayName": "Build for debug WASM",
+      "binaryDir": "build-wasm-threads-assert",
+      "description": "Build with wasi-sdk with asserts",
+      "inherits": "wasm",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -623,6 +633,13 @@
     {
       "name": "wasm-threads-dbg",
       "configurePreset": "wasm-threads-dbg",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "wasm-threads-assert",
+      "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
