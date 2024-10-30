@@ -24,6 +24,11 @@ export interface P2PConfig extends P2PReqRespConfig {
   blockCheckIntervalMS: number;
 
   /**
+   * The number of blocks to fetch in a single batch.
+   */
+  blockRequestBatchSize: number;
+
+  /**
    * The frequency in which to check for new peers.
    */
   peerCheckIntervalMS: number;
@@ -295,6 +300,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The chain id of the L1 chain.',
     ...numberConfigHelper(31337),
   },
+  blockRequestBatchSize: {
+    env: 'P2P_BLOCK_REQUEST_BATCH_SIZE',
+    description: 'The number of blocks to fetch in a single batch.',
+    ...numberConfigHelper(20),
+  },
   ...p2pReqRespConfigMappings,
 };
 
@@ -302,7 +312,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
  * Gets the config values for p2p client from environment variables.
  * @returns The config values for p2p client.
  */
-export function getP2PConfigEnvVars(): P2PConfig {
+export function getP2PConfigFromEnv(): P2PConfig {
   return getConfigFromMappings<P2PConfig>(p2pConfigMappings);
 }
 

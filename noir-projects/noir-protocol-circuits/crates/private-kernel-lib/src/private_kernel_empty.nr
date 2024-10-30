@@ -1,8 +1,8 @@
 use dep::types::{
     header::Header,
     KernelCircuitPublicInputs,
-    recursion::{
-        proof::RecursiveProof,
+    proof::{
+        recursive_proof::RecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },

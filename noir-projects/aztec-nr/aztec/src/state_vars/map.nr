@@ -1,5 +1,8 @@
 use crate::state_vars::storage::Storage;
-use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
+use dep::protocol_types::{
+    storage::map::derive_storage_slot_in_map,
+    traits::{Deserialize, Serialize, ToField},
+};
 
 // docs:start:map
 pub struct Map<K, V, Context> {
@@ -9,7 +12,10 @@ pub struct Map<K, V, Context> {
 }
 // docs:end:map
 
-impl<K, T, Context> Storage<T> for Map<K, T, Context> {}
+impl<K, T, Context, let N: u32> Storage<T, N> for Map<K, T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<K, V, Context> Map<K, V, Context> {
     // docs:start:new

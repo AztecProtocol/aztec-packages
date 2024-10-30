@@ -9,9 +9,10 @@ use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_EPOCH_DURATION, BASE_ROLLUP_INDEX, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, AZTEC_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PRIVATE_BASE_ROLLUP_VK_INDEX,
+        PUBLIC_BASE_ROLLUP_VK_INDEX,
     },
     content_commitment::ContentCommitment,
     header::Header,
@@ -21,7 +22,8 @@ use types::{
 };
 use types::debug_log::debug_log_format;
 
-global ALLOWED_PREVIOUS_CIRCUITS = [BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups

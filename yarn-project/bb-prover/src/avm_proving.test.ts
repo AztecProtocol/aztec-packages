@@ -2,11 +2,12 @@ import {
   AvmCircuitInputs,
   Gas,
   GlobalVariables,
+  type PublicFunction,
   PublicKeys,
   SerializableContractInstance,
   VerificationKeyData,
 } from '@aztec/circuits.js';
-import { makeContractClassPublic } from '@aztec/circuits.js/testing';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
@@ -19,7 +20,6 @@ import {
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
 
-import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -64,10 +64,18 @@ const proveAndVerifyAvmTestContract = async (
   calldata = [functionSelector.toField(), ...calldata];
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
-  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
   const worldStateDB = mock<WorldStateDB>();
-  const contractInstance = new SerializableContractInstance({
+  //
+  // Top level contract call
+  const bytecode = getAvmTestContractBytecode('public_dispatch');
+  const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
+  const publicFn: PublicFunction = { bytecode, selector: fnSelector };
+  const contractClass = makeContractClassPublic(0, publicFn);
+  const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+
+  // The values here should match those in `avm_simulator.test.ts`
+  const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
     deployer: new Fr(0x456),
@@ -79,29 +87,36 @@ const proveAndVerifyAvmTestContract = async (
       new Point(new Fr(0x252627), new Fr(0x282930), false),
       new Point(new Fr(0x313233), new Fr(0x343536), false),
     ),
-  }).withAddress(environment.address);
-  worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
+  }).withAddress(contractInstance.address);
 
-  const contractClass = makeContractClassPublic();
-  worldStateDB.getContractClass.mockResolvedValue(Promise.resolve(contractClass));
+  worldStateDB.getContractInstance
+    .mockResolvedValueOnce(contractInstance)
+    .mockResolvedValueOnce(instanceGet) // test gets deployer
+    .mockResolvedValueOnce(instanceGet) // test gets class id
+    .mockResolvedValueOnce(instanceGet) // test gets init hash
+    .mockResolvedValue(contractInstance);
+  worldStateDB.getContractClass.mockResolvedValue(contractClass);
 
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
+  const environment = initExecutionEnvironment({
+    functionSelector,
+    calldata,
+    globals,
+    address: contractInstance.address,
+  });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('public_dispatch');
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
+
+  worldStateDB.getBytecode.mockResolvedValue(bytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
-  // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode('public_dispatch');
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(bytecode);
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));

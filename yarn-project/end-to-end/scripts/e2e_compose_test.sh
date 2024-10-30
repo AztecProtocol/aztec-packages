@@ -23,9 +23,9 @@ export AZTEC_DOCKER_TAG="${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}"
 # Set the ARCH_TAG variable for docker compose
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
-    export ARCH_TAG="arm64"
+  export ARCH_TAG="arm64"
 else
-    export ARCH_TAG="amd64"
+  export ARCH_TAG="amd64"
 fi
 
 FORCE_BUILD="${FORCE_BUILD:-true}"
@@ -34,15 +34,15 @@ FORCE_BUILD="${FORCE_BUILD:-true}"
 export JOB_NAME=$(echo "$TEST" | sed 's/\./_/g' | sed 's/\//_/g')
 
 # Determine CMD
-if docker compose > /dev/null 2>&1; then
+if docker compose >/dev/null 2>&1; then
   CMD="docker compose"
 else
   CMD="docker-compose"
 fi
 
 # Optimize image building
-if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
-   ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
+if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" ||
+  ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
   echo "Docker images not found. They need to be built with 'earthly ./yarn-project/+export-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG and aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
   exit 1
 fi

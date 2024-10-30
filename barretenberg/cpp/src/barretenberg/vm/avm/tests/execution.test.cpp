@@ -9,7 +9,9 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
+#include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/constants.hpp"
@@ -53,8 +55,9 @@ class AvmExecutionTests : public ::testing::Test {
         srs::init_crs_factory("../srs_db/ignition");
         public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_DA_GAS;
         public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        public_inputs_vec.at(ADDRESS_KERNEL_INPUTS_COL_OFFSET) = 0xdeadbeef;
-        public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
+        public_inputs_vec.at(ADDRESS_PCPI_OFFSET) = 0xdeadbeef;
+
+        public_inputs = convert_public_inputs(public_inputs_vec);
     };
 
     /**
@@ -63,26 +66,49 @@ class AvmExecutionTests : public ::testing::Test {
      * @param instructions A vector of the instructions to be executed.
      * @return The trace as a vector of Row.
      */
-    std::vector<Row> gen_trace_from_instr(std::vector<uint8_t> bytecode) const
+    std::vector<Row> gen_trace_from_instr(const std::vector<uint8_t>& bytecode) const
     {
         std::vector<FF> calldata{};
         std::vector<FF> returndata{};
 
-        auto execution_hints = ExecutionHints().with_avm_contract_bytecode({ bytecode });
-        execution_hints.all_contract_bytecode[0].contract_instance.address = 0xdeadbeef;
+        auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+        auto execution_hints = ExecutionHints().with_avm_contract_bytecode(
+            { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
 
         return AvmExecutionTests::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
     }
 
-    std::vector<Row> gen_trace(std::vector<uint8_t> bytecode,
-                               std::vector<FF> const& calldata,
-                               std::vector<FF> const& public_inputs_vec,
-                               std::vector<FF>& returndata,
-                               ExecutionHints& execution_hints) const
+    static std::vector<Row> gen_trace(const std::vector<uint8_t>& bytecode,
+                                      const std::vector<FF>& calldata,
+                                      const std::vector<FF>& public_inputs_vec,
+                                      std::vector<FF>& returndata,
+                                      ExecutionHints& execution_hints)
     {
-        execution_hints.all_contract_bytecode = { bytecode };
-        execution_hints.all_contract_bytecode[0].contract_instance.address = 0xdeadbeef;
+        auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+        execution_hints.with_avm_contract_bytecode(
+            { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+
         return Execution::gen_trace(calldata, public_inputs_vec, returndata, execution_hints);
+    }
+
+    static std::tuple<ContractClassIdHint, ContractInstanceHint> gen_test_contract_hint(
+        const std::vector<uint8_t>& bytecode)
+    {
+        FF public_commitment = AvmBytecodeTraceBuilder::compute_public_bytecode_commitment(bytecode);
+        FF class_id = AvmBytecodeTraceBuilder::compute_contract_class_id(
+            FF::one() /*artifact_hash*/, FF(2) /*private_fn_root*/, public_commitment);
+        auto nullifier_key = grumpkin::g1::affine_one;
+        auto incoming_viewing_key = grumpkin::g1::affine_one;
+        auto outgoing_viewing_key = grumpkin::g1::affine_one;
+        auto tagging_key = grumpkin::g1::affine_one;
+        PublicKeysHint public_keys{ nullifier_key, incoming_viewing_key, outgoing_viewing_key, tagging_key };
+        ContractInstanceHint contract_instance = {
+            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id,
+            FF(8) /* initialisation_hash */, public_keys
+        };
+        FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
+        contract_instance.address = address;
+        return { ContractClassIdHint{ FF::one(), FF(2), public_commitment }, contract_instance };
     }
 
     void feed_output(uint32_t output_offset, FF const& value, FF const& side_effect_counter, FF const& metadata)
@@ -297,7 +323,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "0004"                           // dst_offset 4
                                + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
-                               "0004"                           // jmp_dest
+                               "00000004"                       // jmp_dest
                                + to_hex(OpCode::ADD_16) +       // opcode ADD
                                "00"                             // Indirect flag
                                "0004"                           // addr a 4
@@ -325,7 +351,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     // INTERNALCALL
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::INTERNALCALL),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(4)))));
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(4)))));
 
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
@@ -362,7 +388,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 {
     auto internalCallInstructionHex = [](std::string const& dst_offset) {
         return to_hex(OpCode::INTERNALCALL) // opcode INTERNALCALL
-               + "00" + dst_offset;
+               + "000000" + dst_offset;
     };
 
     auto setInstructionHex = [](std::string const& val, std::string const& dst_offset) {
@@ -445,8 +471,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "0000"                           // cd_offset
                                "0001"                           // copy_size
                                "000A"                           // dst_offset // M[10] = 13, M[11] = 156
-                               + to_hex(OpCode::JUMP_16) +      // opcode JUMP
-                               "0005"                           // jmp_dest (FDIV located at 3)
+                               + to_hex(OpCode::JUMP_32) +      // opcode JUMP
+                               "00000005"                       // jmp_dest (FDIV located at 3)
                                + to_hex(OpCode::SUB_8) +        // opcode SUB
                                "00"                             // Indirect flag
                                "0B"                             // addr 11
@@ -481,8 +507,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 
     // JUMP
     EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::JUMP_16),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(5)))));
+                AllOf(Field(&Instruction::op_code, OpCode::JUMP_32),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(5)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -540,9 +566,9 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                + to_hex(AvmMemoryTag::U16) +
                                "14"                         // val 20
                                "65"                         // dst_offset 101
-                               + to_hex(OpCode::JUMPI_16) + // opcode JUMPI
+                               + to_hex(OpCode::JUMPI_32) + // opcode JUMPI
                                "00"                         // Indirect flag
-                               "0006"                       // jmp_dest (MUL located at 6)
+                               "00000006"                   // jmp_dest (MUL located at 6)
                                "000A"                       // cond_offset 10
                                + to_hex(OpCode::ADD_16) +   // opcode ADD
                                "00"                         // Indirect flag
@@ -570,9 +596,9 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     // JUMPI
     EXPECT_THAT(
         instructions.at(4),
-        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_16),
+        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_32),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(6), VariantWith<uint16_t>(10)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(6), VariantWith<uint16_t>(10)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -734,8 +760,8 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
     validate_trace(std::move(trace), public_inputs);
 }
 
-// Positive test with TO_RADIX_LE.
-TEST_F(AvmExecutionTests, toRadixLeOpcode)
+// Positive test with TO_RADIX_BE.
+TEST_F(AvmExecutionTests, toRadixBeOpcodeBytes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
                                "00"                    // Indirect flag
@@ -767,7 +793,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
                                + to_hex(AvmMemoryTag::U32) +
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
                                "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXLE) + // opcode TO_RADIX_LE
+                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
                                "0015"                        // dst_offset 21 (indirect)
@@ -788,21 +814,23 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
     auto trace =
         gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, execution_hints);
 
-    // Find the first row enabling the TORADIXLE selector
+    // Find the first row enabling the TORADIXBE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    std::vector<FF> expected_output;
+    size_t num_limbs = 256;
+    std::vector<FF> expected_output(num_limbs);
     // Extract each bit.
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < num_limbs; i++) {
+        auto byte_index = num_limbs - i - 1;
         FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output.emplace_back(expected_limb);
+        expected_output[byte_index] = expected_limb;
     }
     EXPECT_EQ(returndata, expected_output);
 
     validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) }, returndata);
 }
 
-// Positive test with TO_RADIX_LE.
-TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
+// Positive test with TO_RADIX_BE.
+TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
 {
     std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
                                "00"                    // Indirect flag
@@ -834,7 +862,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
                                + to_hex(AvmMemoryTag::U32) +
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
                                "80"                          // radix_offset 80
-                               + to_hex(OpCode::TORADIXLE) + // opcode TO_RADIX_LE
+                               + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
                                "03"                          // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
                                "0015"                        // dst_offset 21 (indirect)
@@ -855,13 +883,15 @@ TEST_F(AvmExecutionTests, toRadixLeOpcodeBitsMode)
     auto trace =
         gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs_vec, returndata, execution_hints);
 
-    // Find the first row enabling the TORADIXLE selector
+    // Find the first row enabling the TORADIXBE selector
     // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    std::vector<FF> expected_output;
+    size_t num_limbs = 256;
+    std::vector<FF> expected_output(num_limbs);
     // Extract each bit.
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < num_limbs; i++) {
+        auto byte_index = num_limbs - i - 1;
         FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output.emplace_back(expected_limb);
+        expected_output[byte_index] = expected_limb;
     }
     EXPECT_EQ(returndata, expected_output);
 
@@ -1222,7 +1252,7 @@ TEST_F(AvmExecutionTests, msmOpCode)
 }
 
 // Positive test for Kernel Input opcodes
-TEST_F(AvmExecutionTests, kernelInputOpcodes)
+TEST_F(AvmExecutionTests, getEnvOpcode)
 {
     std::string bytecode_hex =
         to_hex(OpCode::GETENVVAR_16) +                                          // opcode GETENVVAR_16
@@ -1474,6 +1504,32 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     validate_trace(std::move(trace), convert_public_inputs(public_inputs_vec), calldata, returndata);
 }
 
+// TODO(9395): allow this intruction to raise error flag in main.pil
+// TEST_F(AvmExecutionTests, getEnvOpcodeBadEnum)
+//{
+//    std::string bytecode_hex =
+//        to_hex(OpCode::GETENVVAR_16) +                                          // opcode GETENVVAR_16
+//        "00"                                                                    // Indirect flag
+//        + to_hex(static_cast<uint8_t>(EnvironmentVariable::MAX_ENV_VAR)) +      // envvar ADDRESS
+//        "0001";                                                                 // dst_offset
+//
+//    auto bytecode = hex_to_bytes(bytecode_hex);
+//    auto instructions = Deserialization::parse(bytecode);
+//
+//    // Public inputs for the circuit
+//    std::vector<FF> calldata;
+//    std::vector<FF> returndata;
+//    ExecutionHints execution_hints;
+//    auto trace = gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
+//
+//    // Bad enum should raise error flag
+//    auto address_row =
+//        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_address == 1; });
+//    EXPECT_EQ(address_row->main_op_err, FF(1));
+//
+//    validate_trace(std::move(trace), convert_public_inputs(public_inputs_vec), calldata, returndata);
+//}
+
 // Positive test for L2GASLEFT opcode
 TEST_F(AvmExecutionTests, l2GasLeft)
 {
@@ -1677,7 +1733,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
     // Trust me bro for now, this is the truncated sha output
-    FF expected_hash = FF(std::string("0x003383cbb254941b33c0aaf8476c4b9b532d70a2fb105ee908dd332f7d942df6"));
+    FF expected_hash = FF(std::string("0x00b5c135991581f3049df936e35ef23af34bb04a4775426481d944d35a618e9d"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
     // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
@@ -2045,31 +2101,33 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                                + to_hex(AvmMemoryTag::U32) +
                                "07" // val
                                "01" +
-                               to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset
-                               "0001"                         // copy_size
-                               "0000"                         // dst_offset
-                               + bytecode_preamble            // Load up memory offsets
-                               + to_hex(OpCode::CALL) +       // opcode CALL
-                               "003f"                         // Indirect flag
-                               "0011"                         // gas offset
-                               "0012"                         // addr offset
-                               "0013"                         // args offset
-                               "0014"                         // args size offset
-                               "0015"                         // ret offset
-                               "0002"                         // ret size
-                               "0016"                         // success offset
-                               "0017"                         // function_selector_offset
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "0100"                         // ret offset 8
-                               "0003";                        // ret size 3 (extra read is for the success flag)
+                               to_hex(OpCode::CALLDATACOPY) +     // opcode CALLDATACOPY
+                               "00"                               // Indirect flag
+                               "0000"                             // cd_offset
+                               "0001"                             // copy_size
+                               "0000"                             // dst_offset
+                               + bytecode_preamble                // Load up memory offsets
+                               + to_hex(OpCode::CALL) +           // opcode CALL
+                               "001f"                             // Indirect flag
+                               "0011"                             // gas offset
+                               "0012"                             // addr offset
+                               "0013"                             // args offset
+                               "0014"                             // args size offset
+                               "0016"                             // success offset
+                               + to_hex(OpCode::RETURNDATACOPY) + // opcode RETURNDATACOPY
+                               "00"                               // Indirect flag
+                               "0011"                             // start offset (0)
+                               "0012"                             // ret size (2)
+                               "0100"                             // dst offset
+                               + to_hex(OpCode::RETURN) +         // opcode RETURN
+                               "00"                               // Indirect flag
+                               "0100"                             // ret offset 8
+                               "0003";                            // ret size 3 (extra read is for the success flag)
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    std::vector<FF> returndata = {};
+    std::vector<FF> returndata;
 
     // Generate Hint for call operation
     auto execution_hints = ExecutionHints().with_externalcall_hints({ {
@@ -2087,43 +2145,10 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
-TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
+TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01" // val
-                               "01" +
-                               to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY for addr
-                               "00"                           // Indirect flag
-                               "0000"                         // cd_offset
-                               "0001"                         // copy_size
-                               "0001"                         // dst_offset, (i.e. where we store the addr)
-                               + to_hex(OpCode::SET_8) +      // opcode SET for the indirect dst offset
-                               "00"                           // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "03"                                  // val i
-                               "02" +                                // dst_offset 2
-                               to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode CALL
-                               "02"                                  // Indirect flag
-                               "00000001"                            // address offset
-                               "00000002"                            // dst offset
-                               + to_hex(OpCode::RETURN) +            // opcode RETURN
-                               "00"                                  // Indirect flag
-                               "0003"                                // ret offset 3
-                               "0006";                               // ret size 6
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    FF address = 10;
-    std::vector<FF> calldata = { address };
-    std::vector<FF> returndata = {};
+    const uint8_t address_byte = 0x42;
+    const FF address(address_byte);
 
     // Generate Hint for call operation
     // Note: opcode does not write 'address' into memory
@@ -2135,14 +2160,95 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
         grumpkin::g1::affine_element::random_element(),
         grumpkin::g1::affine_element::random_element(),
     };
-    auto execution_hints =
-        ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, public_keys_hints } } });
+    const ContractInstanceHint instance = ContractInstanceHint{
+        .address = address,
+        .exists = true,
+        .salt = 2,
+        .deployer_addr = 42,
+        .contract_class_id = 66,
+        .initialisation_hash = 99,
+        .public_keys = public_keys_hints,
+    };
+    auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, instance } });
 
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
+                               "00"                                                // Indirect flag
+                               + to_hex(AvmMemoryTag::U8) + to_hex(address_byte) + // val
+                               "01"                                                // dst_offset 0
+                               + to_hex(OpCode::GETCONTRACTINSTANCE) +             // opcode GETCONTRACTINSTANCE
+                               "00"                                                // Indirect flag
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::DEPLOYER)) + // member enum
+                               "0001"                                                             // address offset
+                               "0010"                                                             // dst offset
+                               "0011"                                                             // exists offset
+                               + to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode GETCONTRACTINSTANCE
+                               "00"                                    // Indirect flag
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::CLASS_ID)) + // member enum
+                               "0001"                                                             // address offset
+                               "0012"                                                             // dst offset
+                               "0013"                                                             // exists offset
+                               + to_hex(OpCode::GETCONTRACTINSTANCE) + // opcode GETCONTRACTINSTANCE
+                               "00"                                    // Indirect flag
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::INIT_HASH)) + // member enum
+                               "0001"                                                              // address offset
+                               "0014"                                                              // dst offset
+                               "0015"                                                              // exists offset
+                               + to_hex(OpCode::RETURN) +                                          // opcode RETURN
+                               "00"                                                                // Indirect flag
+                               "0010"                                                              // ret offset 1
+                               "0006"; // ret size 6 (dst & exists for all 3)
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(5));
+
+    std::vector<FF> const calldata{};
+    // alternating member value, exists bool
+    std::vector<FF> const expected_returndata = {
+        instance.deployer_addr, 1, instance.contract_class_id, 1, instance.initialisation_hash, 1,
+    };
+
+    std::vector<FF> returndata{};
     auto trace = gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
-    EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, returned_point.x })); // The first one represents true
+
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
+
+    // Validate returndata
+    EXPECT_EQ(returndata, expected_returndata);
+}
+
+TEST_F(AvmExecutionTests, opGetContractInstanceOpcodeBadEnum)
+{
+    const uint8_t address_byte = 0x42;
+
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
+                               "00"                                                // Indirect flag
+                               + to_hex(AvmMemoryTag::U8) + to_hex(address_byte) + // val
+                               "01"                                                // dst_offset 0
+                               + to_hex(OpCode::GETCONTRACTINSTANCE) +             // opcode GETCONTRACTINSTANCE
+                               "00"                                                // Indirect flag
+                               + to_hex(static_cast<uint8_t>(ContractInstanceMember::MAX_MEMBER)) + // member enum
+                               "0001"                                                               // address offset
+                               "0010"                                                               // dst offset
+                               "0011";                                                              // exists offset
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    std::vector<FF> calldata;
+    std::vector<FF> returndata;
+    ExecutionHints execution_hints;
+    auto trace = gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
+
+    // Bad enum should raise error flag
+    auto address_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_get_contract_instance == 1; });
+    EXPECT_EQ(address_row->main_op_err, FF(1));
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
+
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)
 {

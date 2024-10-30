@@ -19,7 +19,7 @@ export class AztecKVTxPool implements TxPool {
   /** Index for pending txs. */
   #pendingTxs: AztecSet<string>;
   /** Index for mined txs. */
-  #minedTxs: AztecSet<string>;
+  #minedTxs: AztecMap<string, number>;
 
   #log: Logger;
 
@@ -32,7 +32,7 @@ export class AztecKVTxPool implements TxPool {
    */
   constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createDebugLogger('aztec:tx_pool')) {
     this.#txs = store.openMap('txs');
-    this.#minedTxs = store.openSet('minedTxs');
+    this.#minedTxs = store.openMap('minedTxs');
     this.#pendingTxs = store.openSet('pendingTxs');
 
     this.#store = store;
@@ -40,12 +40,12 @@ export class AztecKVTxPool implements TxPool {
     this.#metrics = new PoolInstrumentation(telemetry, 'AztecKVTxPool');
   }
 
-  public markAsMined(txHashes: TxHash[]): Promise<void> {
+  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     return this.#store.transaction(() => {
       let deleted = 0;
       for (const hash of txHashes) {
         const key = hash.toString();
-        void this.#minedTxs.add(key);
+        void this.#minedTxs.set(key, blockNumber);
         if (this.#pendingTxs.has(key)) {
           deleted++;
           void this.#pendingTxs.delete(key);
@@ -56,12 +56,41 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
+  public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
+    if (txHashes.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.#store.transaction(() => {
+      let deleted = 0;
+      let added = 0;
+      for (const hash of txHashes) {
+        const key = hash.toString();
+        if (this.#minedTxs.has(key)) {
+          deleted++;
+          void this.#minedTxs.delete(key);
+        }
+
+        if (this.#txs.has(key)) {
+          added++;
+          void this.#pendingTxs.add(key);
+        }
+      }
+
+      this.#metrics.recordRemovedObjects(deleted, 'mined');
+      this.#metrics.recordAddedObjects(added, 'pending');
+    });
+  }
+
   public getPendingTxHashes(): TxHash[] {
     return Array.from(this.#pendingTxs.entries()).map(x => TxHash.fromString(x));
   }
 
-  public getMinedTxHashes(): TxHash[] {
-    return Array.from(this.#minedTxs.entries()).map(x => TxHash.fromString(x));
+  public getMinedTxHashes(): [TxHash, number][] {
+    return Array.from(this.#minedTxs.entries()).map(([txHash, blockNumber]) => [
+      TxHash.fromString(txHash),
+      blockNumber,
+    ]);
   }
 
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {

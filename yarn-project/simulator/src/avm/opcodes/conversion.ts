@@ -5,9 +5,9 @@ import { Opcode, OperandType } from '../serialization/instruction_serialization.
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
-export class ToRadixLE extends Instruction {
+export class ToRadixBE extends Instruction {
   static type: string = 'TORADIXLE';
-  static readonly opcode: Opcode = Opcode.TORADIXLE;
+  static readonly opcode: Opcode = Opcode.TORADIXBE;
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
@@ -44,15 +44,18 @@ export class ToRadixLE extends Instruction {
 
     let value: bigint = memory.get(srcOffset).toBigInt();
     const radix: bigint = memory.get(radixOffset).toBigInt();
+    if (this.numLimbs < 1) {
+      throw new InstructionExecutionError(`ToRadixBE instruction's numLimbs should be > 0 (was ${this.numLimbs})`);
+    }
     if (radix > 256) {
-      throw new InstructionExecutionError(`ToRadixLE instruction's radix should be <= 256 (was ${radix})`);
+      throw new InstructionExecutionError(`ToRadixBE instruction's radix should be <= 256 (was ${radix})`);
     }
     const radixBN: bigint = BigInt(radix);
-    const limbArray = [];
+    const limbArray = new Array(this.numLimbs);
 
-    for (let i = 0; i < this.numLimbs; i++) {
+    for (let i = this.numLimbs - 1; i >= 0; i--) {
       const limb = value % radixBN;
-      limbArray.push(limb);
+      limbArray[i] = limb;
       value /= radixBN;
     }
 
