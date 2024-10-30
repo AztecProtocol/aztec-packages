@@ -7,7 +7,9 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
 #include <numeric>
@@ -86,7 +88,7 @@ template <typename Curve_> class IPA {
    using CK = CommitmentKey<Curve>;
    using VK = VerifierCommitmentKey<Curve>;
    using Polynomial = bb::Polynomial<Fr>;
-   using VerifierPolyCommitmentPair = stdlib::recursion::honk::IpaPolyCommitmentPair<Curve>;
+   using VerifierAccumulator = stdlib::recursion::honk::IpaPolyCommitmentPair<Curve>;
    using IpaAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
@@ -440,11 +442,11 @@ template <typename Curve_> class IPA {
      * @param vk
      * @param opening_claim
      * @param transcript
-     * @return VerifierPolyCommitmentPair
+     * @return VerifierAccumulator
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
      * function with parallelisation
      */
-    static VerifierPolyCommitmentPair reduce_verify_internal(const std::shared_ptr<VK>& vk,
+    static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
@@ -555,7 +557,7 @@ template <typename Curve_> class IPA {
         ipa_relation.assert_equal(-opening_claim.commitment);
 
         ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
-        // This should return an actual VerifierPolyCommitmentPair
+        // This should return an actual VerifierAccumulator
         return {round_challenges, G_zero};
     }
 
@@ -604,13 +606,13 @@ template <typename Curve_> class IPA {
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
-     * @return VerifierPolyCommitmentPair
+     * @return VerifierAccumulator
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierPolyCommitmentPair once
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
     // implemented
-    static VerifierPolyCommitmentPair reduce_verify(const std::shared_ptr<VK>& vk,
+    static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(Curve::is_stdlib_type)
@@ -668,9 +670,9 @@ template <typename Curve_> class IPA {
      * @param batch_opening_claim
      * @param vk
      * @param transcript
-     * @return VerifierPolyCommitmentPair
+     * @return VerifierAccumulator
      */
-    static VerifierPolyCommitmentPair reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
+    static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
                                                                  const std::shared_ptr<VK>& vk,
                                                                  auto& transcript)
         requires(Curve::is_stdlib_type)
@@ -679,34 +681,44 @@ template <typename Curve_> class IPA {
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
 
+    static Fr evaluate_h_poly(std::vector<Fr> u_chals, Fr r) {
+        Fr h_eval = 1;
+        Fr r_pow = r;
+        for (Fr u_i : u_chals) {
+            h_eval *= (Fr(1) + u_i * r_pow);
+            r_pow *= r;
+        }
+        return h_eval;
+    }
 
-    static IpaAccumulator accumulate(const std::shared_ptr<CK>& ck, auto& transcript, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
+    static Fr evaluate_and_accumulate_h_polys(std::vector<Fr> u_chals_1, std::vector<Fr> u_chals_2, Fr r, Fr alpha) {
+        return evaluate_h_poly(u_chals_1, r) + alpha * evaluate_h_poly(u_chals_2, r);
+    }
+
+    static IpaAccumulator accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
+    requires Curve::is_stdlib_type
     {
+        using Builder = typename Curve::Builder;
+        // Builder* builder = acc_1.comm.get_context();
         // Step 1: Run the verifier for each IPA instance
-        VerifierPolyCommitmentPair pair_1 = reduce_verify(ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
-        VerifierPolyCommitmentPair pair_2 = reduce_verify(ck, {{ acc_2.eval_point, acc_2.eval }, acc_2.comm}, transcript_2);
+        VerifierAccumulator pair_1 = reduce_verify(verifier_ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
+        VerifierAccumulator pair_2 = reduce_verify(verifier_ck, {{ acc_2.eval_point, acc_2.eval }, acc_2.comm}, transcript_2);
 
-        // Step 2: Generate the challenges
-        auto [alpha, r] = transcript->template get_challenges<Fr>("IPA:accum_alpha", "IPA:accum_r");
+        // Step 2: Generate the challenges by hashing the pairs
+        using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+        StdlibTranscript transcript;
+        transcript.send_to_verifier("u_chals_1", pair_1.u_chals);
+        transcript.send_to_verifier("U_1", pair_1.comm);
+        transcript.send_to_verifier("u_chals_2", pair_2.u_chals);
+        transcript.send_to_verifier("U_2", pair_2.comm);
+        auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
         // Step 3: Compute the new accumulator
         IpaAccumulator output_accumulator;
-        output_accumulator.comm = pair_1.comm + alpha * pair_2.comm;
+        output_accumulator.comm = pair_1.comm + pair_2.comm * alpha;
         output_accumulator.eval_point = r;
-        // evaluate the h polys at r
-        Fr h_1_eval = 1;
-        Fr h_2_eval = 1;
-        Fr r_pow = r;
-        for (Fr u_i : pair_1.u_chals) {
-            h_1_eval *= (1 + u_i * r_pow);
-            r_pow *= r_pow;
-        }
-        r_pow = r;
-        for (Fr u_i : pair_2.u_chals) {
-            h_2_eval *= (1 + u_i * r_pow);
-            r_pow *= r_pow;
-        }
-        output_accumulator.eval = h_1_eval + alpha * h_2_eval;
+        // Evaluate the h polys at r and linearly combine them with alpha challenge
+        output_accumulator.eval = evaluate_and_accumulate_h_polys(pair_1.u_chals, pair_2.u_chals, r, alpha);
         return output_accumulator;
     }
 };
