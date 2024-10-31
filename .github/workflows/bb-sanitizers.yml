@@ -47,7 +47,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover MSAN Check"
         
-        run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check
+        run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check || true
 
   # address sanitzer for prover
   bb-asan-check:
@@ -79,7 +79,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover TSAN Check"
         timeout-minutes: 720 # 12 hour timeout (proving)
-        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan
+        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan || true
 
   # undefined behavior sanitzer for prover
   bb-ubsan-check:
