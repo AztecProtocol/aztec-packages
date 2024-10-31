@@ -16,9 +16,13 @@ void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
     aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
         init_default_aggregation_state<Builder, typename RecursiveFlavor::Curve>(*builder);
 
+    // do something with public inputs here?
+    //
     // Perform recursive decider verification
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk };
     verifier.verify_proof(proof.ultra_proof, agg_obj);
+    info("number of public inputs in ultra proof: ",
+         static_cast<uint32_t>(static_cast<uint256_t>(proof.ultra_proof[1])));
 
     // Perform Goblin recursive verification
     GoblinVerifier goblin_verifier{ builder.get(), verifier_input.goblin_input };

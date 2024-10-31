@@ -224,9 +224,18 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // Free the accumulator to save memory
     fold_output.accumulator = nullptr;
 
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[1]));
+    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // don't add the agg object
+    num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
+
     ClientCircuit builder{ goblin.op_queue };
     goblin.verify_merge(builder, merge_verification_queue[0]);
     merge_verification_queue.clear();
+
+    for (size_t i = 0; i < num_public_inputs; i++) {
+        size_t offset = 3;
+        builder.add_public_variable(fold_proof[i + offset]);
+    }
 
     // Construct stdlib accumulator, vkey and proof
     auto stdlib_verifier_accumulator =
