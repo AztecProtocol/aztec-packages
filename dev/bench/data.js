@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730335213260,
+  "lastUpdate": 1730388111766,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c857cd9167f696fc237b64ff579952001eba7d40",
-          "message": "feat: Replace Zeromorph with Shplemini in ECCVM (#9102)\n\nThis PR switches ECCVM to Shplemini which shaves off ~300k in the tube\r\ncircuit. Now, on the verifier side, we first execute Shplemini, then\r\nreduce the BatchOpeningClaim to a single OpeningClaim by performing the\r\nbatch_mul delayed by Shplemini. Then, we construct the translation\r\nOpeningClaim, and the two are being reduced to a single OpeningClaim by\r\nexecuting a second iteration of Shplonk. Finally, we verify the\r\nOpeningClaim via PCS. This could be further optimised as we currently\r\nperform 4 batch_muls.",
-          "timestamp": "2024-10-15T09:47:16+01:00",
-          "tree_id": "bb565a572a53cf1ac2db289bcb0be0a8a5c229a0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c857cd9167f696fc237b64ff579952001eba7d40"
-        },
-        "date": 1728985025455,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29604.541609999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28114.01506 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5500.81342899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5204.295326 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87391.325026,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87391327000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15521.631061999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15521632000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2843649671,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2843649671 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126839075,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126839075 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 125933660,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125933660 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "feace70727f9e5a971809955030a8ea88ce84f4a",
+          "message": "fix: Resolution of bugs from bigfield audits (#9547)\n\nThis PR resolves Critical, High, Medium, Low and some informational\r\nissues from the bigfield test audits by ZKSecurity, Zellic and Spearbit\r\n\r\n---------\r\n\r\nCo-authored-by: Sarkoxed <sarkoxed2013@yandex.ru>",
+          "timestamp": "2024-10-31T14:44:03Z",
+          "tree_id": "2df25d38969cc420b856f5ccb5b6245bd9a4742a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/feace70727f9e5a971809955030a8ea88ce84f4a"
+        },
+        "date": 1730388104836,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29017.037254999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27310.968871 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5355.483168000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5035.9659329999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86797.26345600002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86797266000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15083.60771,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15083608000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2492365482,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2492365482 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127741613,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127741613 ns\nthreads: 1"
           }
         ]
       }
