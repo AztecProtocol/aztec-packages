@@ -874,14 +874,21 @@ export async function generateContractForCircuit(
   );
 }
 
-
-export async function getGateCount(
+/**
+ * Compute bb gate count for a given circuit
+ * @param pathToBB - The full path to the bb binary
+ * @param workingDirectory - A temporary directory for writing the bytecode
+ * @param circuitName - The name of the circuit
+ * @param bytecode - The bytecode of the circuit
+ * @param flavor - The flavor of the backend - mega_honk or ultra_honk variants
+ * @returns An object containing the status, gate count, and time taken
+ */
+export async function computeGateCountForCircuit(
   pathToBB: string,
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
   flavor: UltraHonkFlavor | 'mega_honk',
-  log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -901,10 +908,10 @@ export async function getGateCount(
     return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
   }
 
+  // Accumulate the stdout from bb
   let stdout = '';
   const logHandler = (message: string) => {
     stdout += message;
-    log(`getGateCount(${circuitName}) BB out - ${message}`);
   };
 
   try {
@@ -918,16 +925,13 @@ export async function getGateCount(
       ['-b', bytecodePath, '-v'],
       logHandler,
     );
-    if (result.status == BB_RESULT.FAILURE) {
-      return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
-    }
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
       // Look for "circuit_size" in the stdout and parse the number
       const circuitSizeMatch = stdout.match(/circuit_size": (\d+)/);
       if (!circuitSizeMatch) {
-        return { status: BB_RESULT.FAILURE, reason: 'Failed to parse circuit_size from stdout.' };
+        return { status: BB_RESULT.FAILURE, reason: 'Failed to parse circuit_size from bb gates stdout.' };
       }
       const circuitSize = parseInt(circuitSizeMatch[1]);
 
@@ -937,11 +941,8 @@ export async function getGateCount(
         circuitSize: circuitSize,
       };
     }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to write VK. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-    };
+
+    return { status: BB_RESULT.FAILURE, reason: 'Failed getting the gate count.' };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
   }

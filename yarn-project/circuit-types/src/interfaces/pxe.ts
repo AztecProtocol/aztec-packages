@@ -173,6 +173,7 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @param profile - (Optional) If true, will run the private kernel prover with profiling enabled and include the result (gate count) in TxSimulationResult.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
@@ -183,6 +184,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
 

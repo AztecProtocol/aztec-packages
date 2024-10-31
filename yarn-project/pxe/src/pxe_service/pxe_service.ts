@@ -528,11 +528,18 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
       const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+
+      let profileResult;
+      if (profile) {
+        profileResult = (await this.#profileKernalProver(txRequest, this.proofCreator, privateExecutionResult))!;
+      }
+
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
@@ -553,7 +560,11 @@ export class PXEService implements PXE {
       if (!msgSender) {
         this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
       }
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
+      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+        privateSimulationResult,
+        publicOutput,
+        profileResult,
+      );
     });
   }
 
@@ -768,6 +779,20 @@ export class PXEService implements PXE {
 
       throw err;
     }
+  }
+
+  async #profileKernalProver(
+    txExecutionRequest: TxExecutionRequest,
+    proofCreator: PrivateKernelProver,
+    privateExecutionResult: PrivateExecutionResult,
+  ) {
+    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator);
+
+    // Run prove with profile=true and dryRun=false
+    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, false);
+    return result.profileResult;
   }
 
   /**
