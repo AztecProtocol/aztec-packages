@@ -34,7 +34,7 @@ do
     validator_private_key=$(echo $json_account | jq -r '.privateKey')
 
     # Add L1 validator. Note this needs to happen in serial
-    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $address --rollup $ROLLUP_CONTRACT_ADDRESS
+    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $validator_address --rollup $ROLLUP_CONTRACT_ADDRESS
 
     CMD+=("./validator.sh $PORT $P2P_PORT $validator_address $validator_private_key")
 done

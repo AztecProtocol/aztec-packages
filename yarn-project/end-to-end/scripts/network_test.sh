@@ -112,7 +112,6 @@ helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
       --create-namespace \
       --values "$REPO/spartan/aztec-network/values/$VALUES_FILE" \
       --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-      --set ingress.enabled=true \
       --wait \
       --wait-for-jobs=true \
       --timeout=30m

@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu
+# Starts a validator node with specified port and private/public keys.
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
@@ -13,7 +14,6 @@ P2P_PORT="$2"
 VALIDATOR_ADDRESS="$3"
 VALIDATOR_PRIVATE_KEY="$4"
 
-# Starts the Validator Node
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
