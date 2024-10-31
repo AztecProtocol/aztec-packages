@@ -148,7 +148,7 @@ template <typename Builder, typename T> class bigfield {
                                       .add_two(result.binary_basis_limbs[2].element * shift_2,
                                                result.binary_basis_limbs[1].element * shift_1);
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
-        uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
         if constexpr (HasPlookup<Builder>) {
             ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
                                            result.binary_basis_limbs[1].element.get_normalized_witness_index(),
