@@ -35,6 +35,7 @@ void AcirComposer::create_finalized_circuit(acir_format::AcirFormat& constraint_
                                             bool collect_gates_per_opcode)
 {
     vinfo("building circuit...");
+    vinfo("should be recursive friendly: ", recursive);
     builder_ = acir_format::create_circuit<Builder>(constraint_system,
                                                     recursive,
                                                     size_hint_,
@@ -66,9 +67,11 @@ std::vector<uint8_t> AcirComposer::create_proof()
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
     if (builder_.is_recursive_circuit) {
+        vinfo("creating recursive prover...");
         auto prover = composer.create_prover(builder_);
         proof = prover.construct_proof().proof_data;
     } else {
+        vinfo("creating ultra with keccak prover...");
         auto prover = composer.create_ultra_with_keccak_prover(builder_);
         proof = prover.construct_proof().proof_data;
     }

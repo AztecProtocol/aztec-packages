@@ -39,7 +39,7 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
-    acir_composer->create_finalized_circuit(constraint_system, recursive);
+    acir_composer->create_finalized_circuit(constraint_system, *recursive);
 
     acir_composer->init_proving_key();
 }
@@ -52,7 +52,7 @@ WASM_EXPORT void acir_create_proof(
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    acir_composer->create_finalized_circuit(constraint_system, recursive, witness);
+    acir_composer->create_finalized_circuit(constraint_system, *recursive, witness);
 
     acir_composer->init_proving_key();
     auto proof_data = acir_composer->create_proof();
@@ -69,7 +69,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec,
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(
-        constraint_system, recursive, 0, witness, /*honk_recursion=*/true);
+        constraint_system, *recursive, 0, witness, /*honk_recursion=*/true);
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -105,7 +105,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec,
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
-                                                            recursive,
+                                                            *recursive,
                                                             0,
                                                             stack_item.witness,
                                                             /*honk_recursion=*/false,
@@ -132,7 +132,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec,
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(
-        constraint_system, recursive, 0, witness, /*honk_recursion=*/false);
+        constraint_system, *recursive, 0, witness, /*honk_recursion=*/false);
 
     MegaProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -172,7 +172,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr,
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
-    acir_composer->create_finalized_circuit(constraint_system, recursive);
+    acir_composer->create_finalized_circuit(constraint_system, *recursive);
     auto pk = acir_composer->init_proving_key();
     // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
     *out = to_heap_buffer(to_buffer(*pk));
@@ -228,7 +228,7 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(
-        constraint_system, recursive, 0, witness, /*honk_recursion=*/true);
+        constraint_system, *recursive, 0, witness, /*honk_recursion=*/true);
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -258,7 +258,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto builder =
-        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, recursive, 0, {}, /*honk_recursion=*/true);
+        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, *recursive, 0, {}, /*honk_recursion=*/true);
 
     DeciderProvingKey proving_key(builder);
     VerificationKey vk(proving_key.proving_key);
