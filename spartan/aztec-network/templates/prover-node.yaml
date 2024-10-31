@@ -67,15 +67,21 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --prover --archiver"
+            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver"
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
           env:
-            - name: POD_IP
+            - name: POD_NAME
               valueFrom:
                 fieldRef:
-                  fieldPath: status.podIP
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_DNS_NAME
+              value: "$(POD_NAME).{{ include "aztec-network.fullname" . }}-prover-node.$(POD_NAMESPACE).svc.cluster.local"
             - name: PORT
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: LOG_LEVEL
@@ -96,7 +102,7 @@ spec:
             - name: PROVER_COORDINATION_NODE_URL
               value: {{ include "aztec-network.bootNodeUrl" . | quote }}
             - name: PROVER_JOB_SOURCE_URL
-              value: "http://$(POD_IP):{{ .Values.proverNode.service.nodePort }}"
+              value: "http://$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
           resources:
