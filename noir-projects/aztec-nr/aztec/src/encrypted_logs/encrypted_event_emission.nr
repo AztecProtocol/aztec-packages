@@ -1,54 +1,81 @@
 use crate::{
-    context::PrivateContext, event::event_interface::EventInterface,
-    encrypted_logs::payload::compute_encrypted_log,
-    keys::{getters::get_ovsk_app, public_keys::{OvpkM, IvpkM}}, oracle::random::random
+    context::PrivateContext, encrypted_logs::payload::compute_private_log_payload,
+    event::event_interface::EventInterface, keys::getters::get_ovsk_app, oracle::random::random,
 };
-use dep::protocol_types::{address::AztecAddress, hash::sha256_to_field};
+use dep::protocol_types::{
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_BYTES, hash::sha256_to_field,
+    public_keys::OvpkM,
+};
 
-fn compute_raw_event_log<Event, let N: u32>(
+/// Computes private event log payload and a log hash
+fn compute_payload_and_hash<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
     randomness: Field,
     ovsk_app: Field,
     ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> ([u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
+where
+    Event: EventInterface<N>,
+{
     let contract_address: AztecAddress = context.this_address();
     let plaintext = event.private_to_be_bytes(randomness);
-    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+
+    let encrypted_log = compute_private_log_payload(
+        contract_address,
+        ovsk_app,
+        ovpk,
+        recipient,
+        sender,
+        plaintext,
+    );
     let log_hash = sha256_to_field(encrypted_log);
     (encrypted_log, log_hash)
 }
 
-unconstrained fn compute_raw_event_log_unconstrained<Event, let N: u32>(
+unconstrained fn compute_payload_and_hash_unconstrained<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
     randomness: Field,
     ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> ([u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
+where
+    Event: EventInterface<N>,
+{
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_raw_event_log(context, event, randomness, ovsk_app, ovpk, ivpk, recipient)
+    compute_payload_and_hash(
+        context,
+        event,
+        randomness,
+        ovsk_app,
+        ovpk,
+        recipient,
+        sender,
+    )
 }
 
 pub fn encode_and_encrypt_event<Event, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
-    | e: Event | {
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](Event) -> ()
+where
+    Event: EventInterface<N>,
+{
+    |e: Event| {
         // We use the randomness to preserve function privacy by making it non brute-forceable, so a malicious sender could
         // use non-random values to reveal the plaintext. But they already know it themselves anyway, and is presumably not
         // interested in disclosing this information. We can therefore assume that the sender will cooperate in the random
         // value generation.
-        let randomness = unsafe {
-            random()
-        };
+        let randomness = unsafe { random() };
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-        let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
+        let (encrypted_log, log_hash) =
+            compute_payload_and_hash(*context, e, randomness, ovsk_app, ovpk, recipient, sender);
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
@@ -56,19 +83,20 @@ pub fn encode_and_encrypt_event<Event, let N: u32>(
 pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
-    | e: Event | {
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](Event) -> ()
+where
+    Event: EventInterface<N>,
+{
+    |e: Event| {
         // We use the randomness to preserve function privacy by making it non brute-forceable, so a malicious sender could
         // use non-random values to reveal the plaintext. But they already know it themselves anyway, and is presumably not
         // interested in disclosing this information. We can therefore assume that the sender will cooperate in the random
         // value generation.
-        let randomness = unsafe {
-            random()
-        };
-        let (encrypted_log, log_hash) =  unsafe {
-            compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
+        let randomness = unsafe { random() };
+        let (encrypted_log, log_hash) = unsafe {
+            compute_payload_and_hash_unconstrained(*context, e, randomness, ovpk, recipient, sender)
         };
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
@@ -81,12 +109,16 @@ pub fn encode_and_encrypt_event_with_randomness<Event, let N: u32>(
     context: &mut PrivateContext,
     randomness: Field,
     ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, OvpkM, Field, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
-    | e: Event | {
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, OvpkM, Field, AztecAddress, AztecAddress)](Event) -> ()
+where
+    Event: EventInterface<N>,
+{
+    |e: Event| {
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
-        let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
+        let (encrypted_log, log_hash) =
+            compute_payload_and_hash(*context, e, randomness, ovsk_app, ovpk, recipient, sender);
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
@@ -95,10 +127,13 @@ pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let N: u32>
     context: &mut PrivateContext,
     randomness: Field,
     ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress
-) -> fn[(&mut PrivateContext, Field, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
-    | e: Event | {
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, Field, OvpkM, AztecAddress, AztecAddress)](Event) -> ()
+where
+    Event: EventInterface<N>,
+{
+    |e: Event| {
         //   Having the log hash be unconstrained here is fine because the way this works is we send the log hash
         // to the kernel, and it gets included as part of its public inputs. Then we send the tx to the sequencer,
         // which includes the kernel proof and the log preimages. The sequencer computes the hashes of the logs
@@ -114,7 +149,7 @@ pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let N: u32>
         // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
         // be wrong.
         let (encrypted_log, log_hash) = unsafe {
-            compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
+            compute_payload_and_hash_unconstrained(*context, e, randomness, ovpk, recipient, sender)
         };
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }

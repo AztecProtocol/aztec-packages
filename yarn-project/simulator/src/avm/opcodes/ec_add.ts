@@ -15,13 +15,13 @@ export class EcAdd extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // reserved
     OperandType.UINT16, // indirect
-    OperandType.UINT32, // p1X
-    OperandType.UINT32, // p1Y
-    OperandType.UINT32, // p1IsInfinite
-    OperandType.UINT32, // p2X
-    OperandType.UINT32, // p2Y
-    OperandType.UINT32, // p2IsInfinite
-    OperandType.UINT32, // dst
+    OperandType.UINT16, // p1X
+    OperandType.UINT16, // p1Y
+    OperandType.UINT16, // p1IsInfinite
+    OperandType.UINT16, // p2X
+    OperandType.UINT16, // p2Y
+    OperandType.UINT16, // p2IsInfinite
+    OperandType.UINT16, // dst
   ];
 
   constructor(
@@ -72,7 +72,14 @@ export class EcAdd extends Instruction {
     }
 
     const grumpkin = new Grumpkin();
-    let dest = grumpkin.add(p1, p2);
+    let dest;
+    if (p1IsInfinite) {
+      dest = p2;
+    } else if (p2IsInfinite) {
+      dest = p1;
+    } else {
+      dest = grumpkin.add(p1, p2);
+    }
     // Temporary,
     if (p1IsInfinite) {
       dest = p2;

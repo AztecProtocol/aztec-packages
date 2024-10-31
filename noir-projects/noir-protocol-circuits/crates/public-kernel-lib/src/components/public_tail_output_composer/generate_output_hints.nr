@@ -1,19 +1,26 @@
 use crate::components::public_tail_output_composer::{
-    generate_overridable_public_data_writes::{generate_overridable_public_data_writes, LinkedIndexHint},
-    generate_public_data_leaves::generate_public_data_leaves
+    generate_overridable_public_data_writes::{
+        generate_overridable_public_data_writes, LinkedIndexHint,
+    },
+    generate_public_data_leaves::generate_public_data_leaves,
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    public_data_write::OverridablePublicDataWrite
-},
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        public_data_write::OverridablePublicDataWrite,
+    },
     constants::{
-    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-},
-    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint}, hash::silo_note_hash, traits::Empty,
-    utils::arrays::{array_merge, CombinedOrderHint, get_combined_order_hints_asc, sort_by_counter_asc, SortedResult}
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+    },
+    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint},
+    hash::silo_note_hash,
+    traits::Empty,
+    utils::arrays::{
+        array_merge, CombinedOrderHint, get_combined_order_hints_asc, sort_by_counter_asc,
+        SortedResult,
+    },
 };
 
 pub struct SiloedNoteHashHint {
@@ -48,9 +55,9 @@ pub struct OutputHints<let NUM_PUBLIC_DATA_LEAVES: u32> {
     public_data_linked_index_hints: [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
-unconstrained pub fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
+pub unconstrained fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
     previous_kernel: PublicKernelCircuitPublicInputs,
-    public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES]
+    public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES],
 ) -> OutputHints<NUM_PUBLIC_DATA_LEAVES> {
     let non_revertible = previous_kernel.end_non_revertible;
     let revertible = previous_kernel.end;
@@ -58,7 +65,10 @@ unconstrained pub fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
     // Note hashes.
     let mut siloed_note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
     let mut siloed_note_hash_hints = [SiloedNoteHashHint::empty(); MAX_NOTE_HASHES_PER_TX];
-    let sorted_unsiloed_note_hashes = sort_by_counter_asc(array_merge(non_revertible.note_hashes, revertible.note_hashes));
+    let sorted_unsiloed_note_hashes = sort_by_counter_asc(array_merge(
+        non_revertible.note_hashes,
+        revertible.note_hashes,
+    ));
     let tx_hash = non_revertible.nullifiers[0].value;
     for i in 0..sorted_unsiloed_note_hashes.len() {
         let note_hash = sorted_unsiloed_note_hashes[i];
@@ -77,36 +87,46 @@ unconstrained pub fn generate_output_hints<let NUM_PUBLIC_DATA_LEAVES: u32>(
     // Public data.
     let combined_writes = array_merge(
         previous_kernel.end_non_revertible.public_data_update_requests,
-        previous_kernel.end.public_data_update_requests
+        previous_kernel.end.public_data_update_requests,
     );
     let (public_data_leaves, unique_slot_index_hints) = generate_public_data_leaves(
         previous_kernel.validation_requests.public_data_reads,
         combined_writes,
-        public_data_leaf_hints
+        public_data_leaf_hints,
     );
-    let (public_data_writes, public_data_linked_index_hints) = generate_overridable_public_data_writes(combined_writes, public_data_leaves);
+    let (public_data_writes, public_data_linked_index_hints) =
+        generate_overridable_public_data_writes(combined_writes, public_data_leaves);
 
     OutputHints {
         siloed_note_hashes,
         siloed_note_hash_hints,
-        sorted_note_hash_hints: get_combined_order_hints_asc(non_revertible.note_hashes, revertible.note_hashes),
-        sorted_nullifier_hints: get_combined_order_hints_asc(non_revertible.nullifiers, revertible.nullifiers),
-        sorted_l2_to_l1_msg_hints: get_combined_order_hints_asc(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs),
+        sorted_note_hash_hints: get_combined_order_hints_asc(
+            non_revertible.note_hashes,
+            revertible.note_hashes,
+        ),
+        sorted_nullifier_hints: get_combined_order_hints_asc(
+            non_revertible.nullifiers,
+            revertible.nullifiers,
+        ),
+        sorted_l2_to_l1_msg_hints: get_combined_order_hints_asc(
+            non_revertible.l2_to_l1_msgs,
+            revertible.l2_to_l1_msgs,
+        ),
         sorted_note_encrypted_log_hash_hints: get_combined_order_hints_asc(
             non_revertible.note_encrypted_logs_hashes,
-            revertible.note_encrypted_logs_hashes
+            revertible.note_encrypted_logs_hashes,
         ),
         sorted_encrypted_log_hash_hints: get_combined_order_hints_asc(
             non_revertible.encrypted_logs_hashes,
-            revertible.encrypted_logs_hashes
+            revertible.encrypted_logs_hashes,
         ),
         sorted_unencrypted_log_hash_hints: get_combined_order_hints_asc(
             non_revertible.unencrypted_logs_hashes,
-            revertible.unencrypted_logs_hashes
+            revertible.unencrypted_logs_hashes,
         ),
         public_data_writes,
         public_data_leaves,
         unique_slot_index_hints,
-        public_data_linked_index_hints
+        public_data_linked_index_hints,
     }
 }

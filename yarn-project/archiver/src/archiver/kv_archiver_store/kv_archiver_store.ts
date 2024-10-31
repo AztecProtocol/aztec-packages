@@ -1,4 +1,5 @@
 import {
+  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,17 +11,18 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type Fr, type Header } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore } from '@aztec/kv-store';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
+  type Fr,
+  type Header,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -197,13 +199,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message, startIndex));
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message));
   }
 
   /**
@@ -233,6 +234,20 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     try {
       return Promise.resolve(Array.from(this.#logStore.getLogs(start, limit, logType)));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    try {
+      return this.#logStore.getLogsByTags(tags);
     } catch (err) {
       return Promise.reject(err);
     }

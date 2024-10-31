@@ -1,8 +1,10 @@
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
 #include <gtest/gtest.h>
+#include <unordered_set>
 using namespace bb;
 
 /**
@@ -311,8 +313,9 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // Fill in lagrange even polynomial
-    for (size_t i = 2; i < mini_circuit_size; i += 2) {
-        prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+        prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
+        prover_polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
     }
     constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 6;
     constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 1, 2, 3, 4, 8 };
@@ -323,6 +326,22 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
             possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
     }
 
+    std::unordered_set<size_t> range_constraint_polynomial_ids;
+    for (auto& concatenation_group : prover_polynomial_ids.get_groups_to_be_concatenated()) {
+        for (auto& id : concatenation_group) {
+            range_constraint_polynomial_ids.insert(id);
+        }
+    }
+
+    // Assign random values to the mini-circuit part of the range constraint polynomials
+    for (const auto& range_constraint_polynomial_id : range_constraint_polynomial_ids) {
+        parallel_for_range(mini_circuit_size - 2, [&](size_t start, size_t end) {
+            // We want to iterate from 1 to mini_circuit_size - 2 (inclusive)
+            for (size_t i = start + 1; i < end + 1; i++) {
+                polynomial_container[range_constraint_polynomial_id].at(i) = fr::random_element();
+            }
+        });
+    }
     // Initialize used lagrange polynomials
     prover_polynomials.lagrange_second.at(1) = 1;
     prover_polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_size - 2) = 1;
@@ -352,6 +371,9 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
 
     // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+
+    // Check that Zero Constraint relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
 }
 /**
  * @brief Test the correctness of TranslatorFlavor's Decomposition Relation
@@ -845,7 +867,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Copy values of wires used in the non-native field relation from the circuit builder
-    for (size_t i = 1; i < circuit_builder.get_num_gates(); i++) {
+    for (size_t i = 1; i < circuit_builder.get_estimated_num_finalized_gates(); i++) {
         prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
         prover_polynomials.p_x_low_limbs.at(i) =
             circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);

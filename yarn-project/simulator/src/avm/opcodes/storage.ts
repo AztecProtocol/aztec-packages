@@ -10,8 +10,8 @@ abstract class BaseStorageInstruction extends Instruction {
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {
@@ -43,7 +43,7 @@ export class SStore extends BaseStorageInstruction {
 
     const slot = memory.get(slotOffset).toFr();
     const value = memory.get(srcOffset).toFr();
-    context.persistableState.writeStorage(context.environment.storageAddress, slot, value);
+    context.persistableState.writeStorage(context.environment.address, slot, value);
 
     memory.assert({ reads: 2, addressing });
     context.machineState.incrementPc();
@@ -68,7 +68,7 @@ export class SLoad extends BaseStorageInstruction {
     memory.checkTag(TypeTag.FIELD, slotOffset);
 
     const slot = memory.get(slotOffset).toFr();
-    const value = await context.persistableState.readStorage(context.environment.storageAddress, slot);
+    const value = await context.persistableState.readStorage(context.environment.address, slot);
     memory.set(dstOffset, new Field(value));
 
     context.machineState.incrementPc();

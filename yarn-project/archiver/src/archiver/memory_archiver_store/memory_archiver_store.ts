@@ -1,5 +1,6 @@
 import {
   type EncryptedL2BlockL2Logs,
+  type EncryptedL2NoteLog,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -15,16 +16,19 @@ import {
   TxReceipt,
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
+  Fr,
+  type Header,
+  INITIAL_L2_BLOCK_NUM,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -46,6 +50,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private txEffects: TxEffect[] = [];
 
   private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
+
+  private taggedNoteEncryptedLogs: Map<string, EncryptedL2NoteLog[]> = new Map();
+
+  private noteEncryptedLogTagsPerBlock: Map<number, Fr[]> = new Map();
 
   private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
 
@@ -71,6 +79,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private lastProvenL2BlockNumber: number = 0;
   private lastProvenL2EpochNumber: number = 0;
+
+  #log = createDebugLogger('aztec:archiver:data-store');
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -204,6 +214,24 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
       this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
+      block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
+        const noteLogs = txLogs.unrollLogs();
+        noteLogs.forEach(noteLog => {
+          if (noteLog.data.length < 32) {
+            this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
+            return;
+          }
+          try {
+            const tag = new Fr(noteLog.data.subarray(0, 32));
+            const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
+            this.taggedNoteEncryptedLogs.set(tag.toString(), [...currentNoteLogs, noteLog]);
+            const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
+            this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+          } catch (err) {
+            this.#log.warn(`Failed to add tagged note log to store: ${err}`);
+          }
+        });
+      });
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
       this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
     });
@@ -211,10 +239,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    const noteTagsToDelete = blocks.flatMap(block => this.noteEncryptedLogTagsPerBlock.get(block.number));
+    noteTagsToDelete
+      .filter(tag => tag != undefined)
+      .forEach(tag => {
+        this.taggedNoteEncryptedLogs.delete(tag!.toString());
+      });
+
     blocks.forEach(block => {
       this.encryptedLogsPerBlock.delete(block.number);
       this.noteEncryptedLogsPerBlock.delete(block.number);
       this.unencryptedLogsPerBlock.delete(block.number);
+      this.noteEncryptedLogTagsPerBlock.delete(block.number);
     });
 
     return Promise.resolve(true);
@@ -245,13 +281,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message, startIndex));
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message));
   }
 
   /**
@@ -376,6 +411,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     }
 
     return Promise.resolve(l);
+  }
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    const noteLogs = tags.map(tag => this.taggedNoteEncryptedLogs.get(tag.toString()) || []);
+    return Promise.resolve(noteLogs);
   }
 
   /**

@@ -1,12 +1,15 @@
 import {
+  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
   type L1ToL2MessageSource,
   type L2Block,
+  type L2BlockId,
   type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
+  type L2Tips,
   type LogFilter,
   type LogType,
   type TxEffect,
@@ -15,12 +18,18 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type ContractClassPublic,
   ContractClassRegisteredEvent,
+  type ContractDataSource,
   ContractInstanceDeployedEvent,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
   PrivateFunctionBroadcastedEvent,
+  type PublicFunction,
   UnconstrainedFunctionBroadcastedEvent,
+  type UnconstrainedFunctionWithMembershipProof,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
@@ -33,16 +42,8 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PublicFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
 import {
@@ -246,12 +247,42 @@ export class Archiver implements ArchiveSource {
     await this.handleL1ToL2Messages(blockUntilSynced, messagesSynchedTo, currentL1BlockNumber);
 
     // ********** Events that are processed per L2 block **********
-    await this.handleL2blocks(blockUntilSynced, blocksSynchedTo, currentL1BlockNumber);
+    if (currentL1BlockNumber > blocksSynchedTo) {
+      // First we retrieve new L2 blocks
+      const { provenBlockNumber } = await this.handleL2blocks(blockUntilSynced, blocksSynchedTo, currentL1BlockNumber);
+      // And then we prune the current epoch if it'd reorg on next submission.
+      // Note that we don't do this before retrieving L2 blocks because we may need to retrieve
+      // blocks from more than 2 epochs ago, so we want to make sure we have the latest view of
+      // the chain locally before we start unwinding stuff. This can be optimized by figuring out
+      // up to which point we're pruning, and then requesting L2 blocks up to that point only.
+      await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+    }
 
     // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
     if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
       this.l1Timestamp = await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber }).then(b => b.timestamp);
       this.l1BlockNumber = currentL1BlockNumber;
+    }
+  }
+
+  /** Checks if there'd be a reorg for the next block submission and start pruning now. */
+  private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
+    const localPendingBlockNumber = BigInt(await this.getBlockNumber());
+
+    const canPrune =
+      localPendingBlockNumber > provenBlockNumber &&
+      (await this.rollup.read.canPrune({ blockNumber: currentL1BlockNumber }));
+
+    if (canPrune) {
+      this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
+      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
+      this.log.verbose(
+        `Unwinding ${blocksToUnwind} block${blocksToUnwind > 1n ? 's' : ''} from block ${localPendingBlockNumber}`,
+      );
+      await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+      // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
+      // Seems like the next iteration should handle this.
+      // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
     }
   }
 
@@ -291,11 +322,11 @@ export class Archiver implements ArchiveSource {
     );
   }
 
-  private async handleL2blocks(blockUntilSynced: boolean, blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
-    if (currentL1BlockNumber <= blocksSynchedTo) {
-      return;
-    }
-
+  private async handleL2blocks(
+    blockUntilSynced: boolean,
+    blocksSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+  ): Promise<{ provenBlockNumber: bigint }> {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
     const [
       provenBlockNumber,
@@ -304,7 +335,7 @@ export class Archiver implements ArchiveSource {
       pendingArchive,
       archiveForLocalPendingBlockNumber,
       provenEpochNumber,
-    ] = await this.rollup.read.status([localPendingBlockNumber]);
+    ] = await this.rollup.read.status([localPendingBlockNumber], { blockNumber: currentL1BlockNumber });
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
@@ -312,11 +343,12 @@ export class Archiver implements ArchiveSource {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        this.log.info(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
+        this.log.verbose(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
         await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.
@@ -325,7 +357,7 @@ export class Archiver implements ArchiveSource {
     if (noBlocks) {
       await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
       this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-      return;
+      return { provenBlockNumber };
     }
 
     await updateProvenBlock();
@@ -342,7 +374,7 @@ export class Archiver implements ArchiveSource {
       if (noBlockSinceLast) {
         await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-        return;
+        return { provenBlockNumber };
       }
 
       const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingBlock.archive.root.toString();
@@ -382,7 +414,7 @@ export class Archiver implements ArchiveSource {
       this.rollup,
       this.publicClient,
       blockUntilSynced,
-      blocksSynchedTo + 1n,
+      blocksSynchedTo + 1n, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
       currentL1BlockNumber,
       this.log,
     );
@@ -390,8 +422,8 @@ export class Archiver implements ArchiveSource {
     if (retrievedBlocks.length === 0) {
       // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
       // See further details in earlier comments.
-      this.log.verbose(`Retrieved no new blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-      return;
+      this.log.verbose(`Retrieved no new L2 blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      return { provenBlockNumber };
     }
 
     this.log.debug(
@@ -402,14 +434,14 @@ export class Archiver implements ArchiveSource {
 
     const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
 
-    this.log.debug(
-      `Processing retrieved blocks ${retrievedBlocks
-        .map(b => b.data.number)
-        .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
-    );
+    this.log.debug(`last processed L1 block: [${lastProcessedL1BlockNumber}]`);
+    for (const block of retrievedBlocks) {
+      this.log.debug(`ingesting new L2 block`, block.data.header.globalVariables.toFriendlyJSON());
+    }
 
     const timer = new Timer();
     await this.store.addBlocks(retrievedBlocks);
+
     // Important that we update AFTER inserting the blocks.
     await updateProvenBlock();
     this.instrumentation.processNewBlocks(
@@ -418,6 +450,8 @@ export class Archiver implements ArchiveSource {
     );
     const lastL2BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].data.number;
     this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
+
+    return { provenBlockNumber };
   }
 
   /**
@@ -479,7 +513,7 @@ export class Archiver implements ArchiveSource {
       block = await this.getBlock(block.number - 1);
     }
 
-    return blocks;
+    return blocks.reverse();
   }
 
   public async isEpochComplete(epochNumber: bigint): Promise<boolean> {
@@ -497,7 +531,10 @@ export class Archiver implements ArchiveSource {
     const [_startTimestamp, endTimestamp] = getTimestampRangeForEpoch(epochNumber, this.l1constants);
 
     // For this computation, we throw in a few extra seconds just for good measure,
-    // since we know the next L1 block won't be mined within this range
+    // since we know the next L1 block won't be mined within this range. Remember that
+    // l1timestamp is the timestamp of the last l1 block we've seen, so this 3s rely on
+    // the fact that L1 won't mine two blocks within 3s of each other.
+    // TODO(palla/reorg): Is the above a safe assumption?
     const leeway = 3n;
     return l1Timestamp + leeway >= endTimestamp;
   }
@@ -537,8 +574,14 @@ export class Archiver implements ArchiveSource {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    const headers = await this.store.getBlockHeaders(number, 1);
-    return headers.length === 0 ? undefined : headers[0];
+    try {
+      const headers = await this.store.getBlockHeaders(number, 1);
+      return headers.length === 0 ? undefined : headers[0];
+    } catch (e) {
+      // If the latest is 0, then getBlockHeaders will throw an error
+      this.log.error(`getBlockHeader: error fetching block number: ${number}`);
+      return undefined;
+    }
   }
 
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
@@ -583,6 +626,16 @@ export class Archiver implements ArchiveSource {
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
+  }
+
+  /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.store.getLogsByTags(tags);
   }
 
   /**
@@ -633,13 +686,12 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return this.store.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
   getContractClassIds(): Promise<Fr[]> {
@@ -652,6 +704,32 @@ export class Archiver implements ArchiveSource {
 
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
+  }
+
+  async getL2Tips(): Promise<L2Tips> {
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getBlockNumber(),
+      this.getProvenBlockNumber(),
+    ] as const);
+
+    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
+      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+    ] as const);
+
+    if (latestBlockNumber > 0 && !latestBlockHeader) {
+      throw new Error('Failed to retrieve latest block header');
+    }
+
+    if (provenBlockNumber > 0 && !provenBlockHeader) {
+      throw new Error('Failed to retrieve proven block header');
+    }
+
+    return {
+      latest: { number: latestBlockNumber, hash: latestBlockHeader?.hash().toString() } as L2BlockId,
+      proven: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+      finalized: { number: provenBlockNumber, hash: provenBlockHeader?.hash().toString() } as L2BlockId,
+    };
   }
 }
 
@@ -688,9 +766,10 @@ class ArchiverStoreHelper
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
-    const contractClasses = ContractClassRegisteredEvent.fromLogs(allLogs, ClassRegistererAddress).map(e =>
-      e.toContractClassPublic(),
-    );
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    ).map(e => e.toContractClassPublic());
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`Registering contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
@@ -733,8 +812,14 @@ class ArchiverStoreHelper
    */
   async #storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
     // Filter out private and unconstrained function broadcast events
-    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
-    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(allLogs, ClassRegistererAddress);
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      ProtocolContractAddress.ContractClassRegisterer,
+    );
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(
@@ -839,8 +924,8 @@ class ArchiverStoreHelper
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(blockNumber);
   }
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return this.store.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
   getLogs<TLogType extends LogType>(
     from: number,
@@ -848,6 +933,9 @@ class ArchiverStoreHelper
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
+  }
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.store.getLogsByTags(tags);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);

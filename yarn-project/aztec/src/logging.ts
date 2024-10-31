@@ -1,5 +1,6 @@
-import { onLog, setLevel } from '@aztec/foundation/log';
+import { currentLevel, onLog, setLevel } from '@aztec/foundation/log';
 
+import { OpenTelemetryTransportV3 } from '@opentelemetry/winston-transport';
 import * as path from 'path';
 import * as process from 'process';
 import * as winston from 'winston';
@@ -33,8 +34,13 @@ function createWinstonLocalFileLogger() {
 /** Creates a winston logger that logs everything to stdout in json format */
 function createWinstonJsonStdoutLogger() {
   return winston.createLogger({
-    level: process.env.LOG_LEVEL ?? 'info',
-    transports: [new winston.transports.Console({ format: format.combine(format.timestamp(), format.json()) })],
+    level: currentLevel,
+    transports: [
+      new winston.transports.Console({
+        format: format.combine(format.timestamp(), format.json()),
+      }),
+      new OpenTelemetryTransportV3(),
+    ],
   });
 }
 

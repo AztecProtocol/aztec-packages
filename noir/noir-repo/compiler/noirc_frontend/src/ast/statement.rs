@@ -180,7 +180,7 @@ impl StatementKind {
     }
 }
 
-#[derive(Eq, Debug, Clone)]
+#[derive(Eq, Debug, Clone, Default)]
 pub struct Ident(pub Spanned<String>);
 
 impl Ident {
@@ -327,18 +327,19 @@ pub enum PathKind {
 pub struct UseTree {
     pub prefix: Path,
     pub kind: UseTreeKind,
+    pub span: Span,
 }
 
 impl Display for UseTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.prefix)?;
 
+        if !self.prefix.segments.is_empty() {
+            write!(f, "::")?;
+        }
+
         match &self.kind {
             UseTreeKind::Path(name, alias) => {
-                if !(self.prefix.segments.is_empty() && self.prefix.kind == PathKind::Plain) {
-                    write!(f, "::")?;
-                }
-
                 write!(f, "{name}")?;
 
                 if let Some(alias) = alias {
@@ -348,7 +349,7 @@ impl Display for UseTree {
                 Ok(())
             }
             UseTreeKind::List(trees) => {
-                write!(f, "::{{")?;
+                write!(f, "{{")?;
                 let tree = vecmap(trees, ToString::to_string).join(", ");
                 write!(f, "{tree}}}")
             }
@@ -373,7 +374,9 @@ impl UseTree {
 
         match self.kind {
             UseTreeKind::Path(name, alias) => {
-                vec![ImportStatement { visibility, path: prefix.join(name), alias }]
+                // Desugar `use foo::{self}` to `use foo`
+                let path = if name.0.contents == "self" { prefix } else { prefix.join(name) };
+                vec![ImportStatement { visibility, path, alias }]
             }
             UseTreeKind::List(trees) => {
                 let trees = trees.into_iter();
@@ -467,7 +470,9 @@ impl Path {
     }
 
     pub fn is_ident(&self) -> bool {
-        self.segments.len() == 1 && self.kind == PathKind::Plain
+        self.kind == PathKind::Plain
+            && self.segments.len() == 1
+            && self.segments.first().unwrap().generics.is_none()
     }
 
     pub fn as_ident(&self) -> Option<&Ident> {
@@ -482,6 +487,10 @@ impl Path {
             return None;
         }
         self.segments.first().cloned().map(|segment| segment.ident)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty() && self.kind == PathKind::Plain
     }
 
     pub fn as_string(&self) -> String {
@@ -650,14 +659,6 @@ impl Pattern {
         }
     }
 
-    pub(crate) fn into_ident(self) -> Ident {
-        match self {
-            Pattern::Identifier(ident) => ident,
-            Pattern::Mutable(pattern, _, _) => pattern.into_ident(),
-            other => panic!("Pattern::into_ident called on {other} pattern with no identifier"),
-        }
-    }
-
     pub(crate) fn try_as_expression(&self, interner: &NodeInterner) -> Option<Expression> {
         match self {
             Pattern::Identifier(ident) => Some(Expression {
@@ -726,37 +727,36 @@ impl LValue {
         Expression::new(kind, span)
     }
 
-    pub fn from_expression(expr: Expression) -> LValue {
+    pub fn from_expression(expr: Expression) -> Option<LValue> {
         LValue::from_expression_kind(expr.kind, expr.span)
     }
 
-    pub fn from_expression_kind(expr: ExpressionKind, span: Span) -> LValue {
+    pub fn from_expression_kind(expr: ExpressionKind, span: Span) -> Option<LValue> {
         match expr {
-            ExpressionKind::Variable(path) => LValue::Ident(path.as_ident().unwrap().clone()),
-            ExpressionKind::MemberAccess(member_access) => LValue::MemberAccess {
-                object: Box::new(LValue::from_expression(member_access.lhs)),
+            ExpressionKind::Variable(path) => Some(LValue::Ident(path.as_ident().unwrap().clone())),
+            ExpressionKind::MemberAccess(member_access) => Some(LValue::MemberAccess {
+                object: Box::new(LValue::from_expression(member_access.lhs)?),
                 field_name: member_access.rhs,
                 span,
-            },
-            ExpressionKind::Index(index) => LValue::Index {
-                array: Box::new(LValue::from_expression(index.collection)),
+            }),
+            ExpressionKind::Index(index) => Some(LValue::Index {
+                array: Box::new(LValue::from_expression(index.collection)?),
                 index: index.index,
                 span,
-            },
+            }),
             ExpressionKind::Prefix(prefix) => {
                 if matches!(
                     prefix.operator,
                     crate::ast::UnaryOp::Dereference { implicitly_added: false }
                 ) {
-                    LValue::Dereference(Box::new(LValue::from_expression(prefix.rhs)), span)
+                    Some(LValue::Dereference(Box::new(LValue::from_expression(prefix.rhs)?), span))
                 } else {
-                    panic!("Called LValue::from_expression with an invalid prefix operator")
+                    None
                 }
             }
-            ExpressionKind::Interned(id) => LValue::Interned(id, span),
-            _ => {
-                panic!("Called LValue::from_expression with an invalid expression")
-            }
+            ExpressionKind::Parenthesized(expr) => LValue::from_expression(*expr),
+            ExpressionKind::Interned(id) => Some(LValue::Interned(id, span)),
+            _ => None,
         }
     }
 

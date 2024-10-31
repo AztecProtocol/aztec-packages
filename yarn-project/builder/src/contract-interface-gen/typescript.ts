@@ -84,25 +84,25 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(Fr.ZERO, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
+    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeysHash(publicKeysHash: Fr, wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(publicKeysHash, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, ${args}) {
+    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
   public static deployWithOpts<M extends keyof ${contractName}['methods']>(
-    opts: { publicKeysHash?: Fr; method?: M; wallet: Wallet },
+    opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
     ...args: Parameters<${contractName}['methods'][M]>
   ) {
     return new DeployMethod<${contractName}>(
-      opts.publicKeysHash ?? Fr.ZERO,
+      opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
       ${artifactName},
       ${contractName}.at,
@@ -257,12 +257,12 @@ function generateEvents(events: any[] | undefined) {
     `;
 
     const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
-    const eventType = `${eventName}: {decode: (payload: L1EventPayload | UnencryptedL2Log | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
+    const eventType = `${eventName}: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }`;
     // Reusing the decodeFunctionSignature
     const eventSignature = decodeFunctionSignature(eventName, event.fields);
     const eventSelector = `EventSelector.fromSignature('${eventSignature}')`;
     const eventImpl = `${eventName}: {
-        decode: this.decodeEvent(${eventSelector}, ${JSON.stringify(event, null, 4)}),
+        abiType: ${JSON.stringify(event, null, 4)},
         eventSelector: ${eventSelector},
         fieldNames: [${fieldNames}],
       }`;
@@ -277,32 +277,6 @@ function generateEvents(events: any[] | undefined) {
   return {
     eventDefs: eventsMetadata.map(({ eventDef }) => eventDef).join('\n'),
     events: `
-    // Partial application is chosen is to avoid the duplication of so much codegen.
-    private static decodeEvent<T>(
-      eventSelector: EventSelector,
-      eventType: AbiType,
-    ): (payload: L1EventPayload | UnencryptedL2Log | undefined) => T | undefined {
-      return (payload: L1EventPayload | UnencryptedL2Log | undefined): T | undefined => {
-        if (payload === undefined) {
-          return undefined;
-        }
-
-        if (payload instanceof L1EventPayload) {
-          if (!eventSelector.equals(payload.eventTypeId)) {
-            return undefined;
-          }
-          return decodeFromAbi([eventType], payload.event.items) as T;
-        } else {
-          let items = [];
-          for (let i = 0; i < payload.data.length; i += 32) {
-            items.push(new Fr(payload.data.subarray(i, i + 32)));
-          }
-
-          return decodeFromAbi([eventType], items) as T;
-        }
-      };
-    }
-
     public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
     return {
       ${eventsMetadata.map(({ eventImpl }) => eventImpl).join(',\n')}
@@ -363,6 +337,7 @@ import {
   NoteSelector,
   Point,
   type PublicKey,
+  PublicKeys,
   type UnencryptedL2Log,
   type Wallet,
   type WrappedFieldLike,

@@ -1,9 +1,9 @@
 use crate::merkle_tree::leaf_preimage::IndexedTreeLeafPreimage;
 
-pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(
-    key: Field,
-    low_leaf_preimage: LEAF_PREIMAGE
-) where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
+pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(key: Field, low_leaf_preimage: LEAF_PREIMAGE)
+where
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
+{
     let low_key = low_leaf_preimage.get_key();
     let next_key = low_leaf_preimage.get_next_key();
 
@@ -12,11 +12,9 @@ pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(
 }
 
 mod tests {
-    use crate::{
-        merkle_tree::{
+    use crate::merkle_tree::{
+        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
         leaf_preimage::IndexedTreeLeafPreimage,
-        indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf
-    }
     };
 
     struct TestLeafPreimage {
@@ -55,21 +53,21 @@ mod tests {
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_valid_low_leaf_failed_wrong_low_leaf() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 13, next_value: 15 };
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not greater than the low leaf")]
+    #[test(should_fail_with = "Key is not greater than the low leaf")]
     fn test_assert_check_valid_low_leaf_failed_is_low_leaf() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 12, next_value: 15 };
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Key is not less than the next leaf")]
+    #[test(should_fail_with = "Key is not less than the next leaf")]
     fn test_assert_check_valid_low_leaf_failed_wrong_next_key() {
         let key = 12;
         let leaf = TestLeafPreimage { value: 9, next_value: 11 };

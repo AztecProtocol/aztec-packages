@@ -4,12 +4,14 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProverCoordination,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
@@ -28,7 +30,10 @@ export class EpochProvingJob {
   private log = createDebugLogger('aztec:epoch-proving-job');
   private uuid: string;
 
+  private runPromise: Promise<void> | undefined;
+
   constructor(
+    private db: MerkleTreeWriteOperations,
     private epochNumber: bigint,
     private blocks: L2Block[],
     private prover: EpochProver,
@@ -61,9 +66,17 @@ export class EpochProvingJob {
     this.state = 'processing';
     const timer = new Timer();
 
+    const { promise, resolve } = promiseWithResolvers<void>();
+    this.runPromise = promise;
+
     try {
       this.prover.startNewEpoch(epochNumber, epochSize);
-      let previousHeader = await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
+
+      // Get the genesis header if the first block of the epoch is the first block of the chain
+      let previousHeader =
+        this.blocks[0].number === 1
+          ? this.db.getInitialHeader()
+          : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
 
       for (const block of this.blocks) {
         // Gather all data to prove this block
@@ -89,7 +102,7 @@ export class EpochProvingJob {
         await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
 
         // Process public fns
-        const publicProcessor = this.publicProcessorFactory.create(previousHeader, globalVariables);
+        const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
         await this.processTxs(publicProcessor, txs, txCount);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,
@@ -98,7 +111,7 @@ export class EpochProvingJob {
         });
 
         // Mark block as completed and update archive tree
-        await this.prover.setBlockCompleted();
+        await this.prover.setBlockCompleted(block.header);
         previousHeader = block.header;
       }
 
@@ -118,11 +131,15 @@ export class EpochProvingJob {
       this.state = 'failed';
     } finally {
       await this.cleanUp(this);
+      resolve();
     }
   }
 
-  public stop() {
+  public async stop() {
     this.prover.cancel();
+    if (this.runPromise) {
+      await this.runPromise;
+    }
   }
 
   private async getTxs(txHashes: TxHash[]): Promise<Tx[]> {

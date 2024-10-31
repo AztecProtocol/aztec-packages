@@ -1,7 +1,8 @@
 use dep::aztec::prelude::PrivateContext;
 use dep::aztec::protocol_types::{
-    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
-    traits::{Hash, Serialize}
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+    hash::poseidon2_hash_with_separator,
+    traits::{Hash, Serialize},
 };
 
 use crate::entrypoint::function_call::FunctionCall;
@@ -16,8 +17,8 @@ global ACCOUNT_MAX_CALLS: u32 = 4;
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
 pub struct AppPayload {
-  function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
-  nonce: Field,
+    function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
+    nonce: Field,
 }
 // docs:end:app-payload-struct
 
@@ -63,7 +64,6 @@ impl AppPayload {
                         call.function_selector,
                         call.args_hash,
                         call.is_static,
-                        false
                     );
                 } else {
                     let _result = context.call_private_function_with_packed_args(
@@ -71,7 +71,6 @@ impl AppPayload {
                         call.function_selector,
                         call.args_hash,
                         call.is_static,
-                        false
                     );
                 }
             }

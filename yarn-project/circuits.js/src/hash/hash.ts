@@ -4,7 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex } from '../constants.gen.js';
-import { type ScopedL2ToL1Message, VerificationKey } from '../structs/index.js';
+import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
+import { VerificationKey } from '../structs/verification_key.js';
 
 /**
  * Computes a hash of a given verification key.
@@ -114,16 +115,8 @@ export function computeSecretHash(secret: Fr) {
   return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
-export function computeL1ToL2MessageNullifier(
-  contract: AztecAddress,
-  messageHash: Fr,
-  secret: Fr,
-  messageIndex: bigint,
-) {
-  const innerMessageNullifier = poseidon2HashWithSeparator(
-    [messageHash, secret, messageIndex],
-    GeneratorIndex.MESSAGE_NULLIFIER,
-  );
+export function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
+  const innerMessageNullifier = poseidon2HashWithSeparator([messageHash, secret], GeneratorIndex.MESSAGE_NULLIFIER);
   return siloNullifier(contract, innerMessageNullifier);
 }
 

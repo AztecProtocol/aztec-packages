@@ -113,7 +113,9 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     // Tamper with the ECCVM proof
     for (auto& val : proof.eccvm_proof) {
-        if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
+        if (val > 0) { // tamper by finding the tenth non-zero value and incrementing it by 1
+            // tamper by finding the first non-zero value
+            // and incrementing it by 1
             val += 1;
             break;
         }
@@ -121,9 +123,8 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
 
-    EXPECT_FALSE(CircuitChecker::check(builder));
+    EXPECT_DEBUG_DEATH(verifier.verify(proof), "(sumcheck_verified && batched_opening_verified)");
 }
 
 /**

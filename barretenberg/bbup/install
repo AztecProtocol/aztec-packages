@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -e
+
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Function to install NVM and Node.js
+install_nvm_and_node() {
+    echo "Installing NVM..."
+    wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+    # Load NVM
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+    # Install the latest LTS version of Node.js
+    echo "Installing the latest LTS version of Node.js..."
+    nvm install --lts
+
+    # Use the installed version
+    nvm use --lts
+
+    # Verify installation
+    node --version
+    npm --version
+}
+
+# Check if NPM is installed
+if ! command_exists npm; then
+    install_nvm_and_node
+fi
+
+
+# Install bbup globally
+echo "Installing bbup..."
+npm install -g bbup
+
+echo "Installation complete. You can now use the 'bbup' command."
+echo "Please restart your terminal or run 'source ~/.bashrc' (or your shell's equivalent) to start using bbup."

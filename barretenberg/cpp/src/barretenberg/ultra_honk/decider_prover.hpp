@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
@@ -45,8 +44,6 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
     Polynomial quotient_W;
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-    std::shared_ptr<CommitmentKey> commitment_key;
 
   private:
     HonkProof proof;

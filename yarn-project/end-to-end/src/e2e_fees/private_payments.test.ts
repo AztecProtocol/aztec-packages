@@ -108,15 +108,16 @@ describe('e2e_fees private_payment', () => {
      */
     const transferAmount = 5n;
     const interaction = bananaCoin.methods.transfer(bobAddress, transferAmount);
-    const localTx = await interaction.prove({
+    const settings = {
       fee: {
         gasSettings,
         paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
       },
-    });
+    };
+    const localTx = await interaction.prove(settings);
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
-    const tx = await interaction.send().wait();
+    const tx = await localTx.send().wait();
 
     /**
      * at present the user is paying DA gas for:
@@ -195,7 +196,7 @@ describe('e2e_fees private_payment', () => {
      */
     const newlyMintedBananas = 10n;
     const tx = await bananaCoin.methods
-      .privately_mint_private_note(newlyMintedBananas)
+      .mint_to_private(aliceAddress, newlyMintedBananas)
       .send({
         fee: {
           gasSettings,
@@ -372,7 +373,7 @@ describe('e2e_fees private_payment', () => {
 
     await expect(
       bananaCoin.methods
-        .privately_mint_private_note(10)
+        .mint_to_private(aliceAddress, 10)
         .send({
           // we need to skip public simulation otherwise the PXE refuses to accept the TX
           skipPublicSimulation: true,

@@ -7,13 +7,13 @@ import {
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
+  EthAddress,
   ExtendedNote,
   type Fq,
   Fr,
   Note,
   type PXE,
   type TxHash,
-  computeSecretHash,
   createDebugLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
@@ -88,15 +88,21 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  private l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1Contracts;
+  public proverAddress!: EthAddress;
 
-  constructor(testName: string, private minNumberOfTxsPerBlock: number, private realProofs = true) {
+  constructor(
+    testName: string,
+    private minNumberOfTxsPerBlock: number,
+    coinbase: EthAddress,
+    private realProofs = true,
+  ) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      {},
-      { assumeProvenThrough: undefined, useRealProofCommitmentEscrow: true },
+      { startProverNode: true, fundSysstia: true, coinbase },
+      { assumeProvenThrough: undefined },
     );
   }
 
@@ -155,10 +161,10 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+    this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,
       aztecNode: this.aztecNode,
-      proverNode: this.simulatedProverNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
@@ -261,6 +267,7 @@ export class FullProverTest {
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
     const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).to0xString());
+    this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
     this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
     await this.mintL1ERC20(proverNodeSenderAddress, 100_000_000n);
@@ -278,8 +285,8 @@ export class FullProverTest {
       proverNodePollingIntervalMs: 100,
       quoteProviderBasisPointFee: 100,
       quoteProviderBondAmount: 1000n,
-      proverMinimumStakeAmount: 3000n,
-      proverTargetStakeAmount: 6000n,
+      proverMinimumEscrowAmount: 3000n,
+      proverTargetEscrowAmount: 6000n,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
@@ -338,24 +345,23 @@ export class FullProverTest {
       'mint',
       async () => {
         const { fakeProofsAsset: asset, accounts } = this;
-        const amount = 10000n;
+        const privateAmount = 10000n;
+        const publicAmount = 10000n;
 
         const waitOpts = { proven: false };
 
-        this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
+        this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
+        await asset.methods
+          .mint_public(accounts[0].address, privateAmount + publicAmount)
+          .send()
+          .wait(waitOpts);
 
-        this.logger.verbose(`Minting ${amount} privately...`);
-        const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait(waitOpts);
+        this.logger.verbose(`Transferring ${privateAmount} to private...`);
+        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait(waitOpts);
 
-        await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-        const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ ...waitOpts, debug: true });
         this.logger.verbose(`Minting complete.`);
 
-        return { amount };
+        return { amount: publicAmount };
       },
       async ({ amount }) => {
         const {

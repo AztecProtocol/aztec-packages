@@ -2,10 +2,10 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-    DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
-    L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE
-},
-    tests::utils::{assert_array_eq, swap_items}
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+    },
+    tests::utils::{assert_array_eq, swap_items},
 };
 
 #[test]
@@ -65,7 +65,7 @@ fn tail_to_public_output_composer_succeeds() {
     let note_hashes = data.note_hashes;
     assert_array_eq(
         output.end_non_revertible.note_hashes,
-        [note_hashes[0], note_hashes[1], note_hashes[2], note_hashes[3]]
+        [note_hashes[0], note_hashes[1], note_hashes[2], note_hashes[3]],
     );
     assert_array_eq(output.end.note_hashes, [note_hashes[4], note_hashes[5]]);
 
@@ -73,7 +73,7 @@ fn tail_to_public_output_composer_succeeds() {
     let nullifiers = data.nullifiers;
     assert_array_eq(
         output.end_non_revertible.nullifiers,
-        [nullifiers[0], nullifiers[1], nullifiers[2]]
+        [nullifiers[0], nullifiers[1], nullifiers[2]],
     );
     assert_array_eq(output.end.nullifiers, [nullifiers[3]]);
 
@@ -86,7 +86,7 @@ fn tail_to_public_output_composer_succeeds() {
     let log_hashes = data.note_encrypted_logs_hashes;
     assert_array_eq(
         output.end_non_revertible.note_encrypted_logs_hashes,
-        [log_hashes[0], log_hashes[1]]
+        [log_hashes[0], log_hashes[1]],
     );
     assert_array_eq(output.end.note_encrypted_logs_hashes, [log_hashes[2]]);
 
@@ -94,18 +94,18 @@ fn tail_to_public_output_composer_succeeds() {
     let log_hashes = data.encrypted_logs_hashes;
     assert_array_eq(
         output.end_non_revertible.encrypted_logs_hashes,
-        [log_hashes[0]]
+        [log_hashes[0]],
     );
     assert_array_eq(
         output.end.encrypted_logs_hashes,
-        [log_hashes[1], log_hashes[2]]
+        [log_hashes[1], log_hashes[2]],
     );
 
     // unencrypted_logs_hashes
     let log_hashes = data.unencrypted_logs_hashes;
     assert_array_eq(
         output.end_non_revertible.unencrypted_logs_hashes,
-        [log_hashes[0], log_hashes[1]]
+        [log_hashes[0], log_hashes[1]],
     );
     assert_array_eq(output.end.unencrypted_logs_hashes, [log_hashes[2]]);
 
@@ -113,33 +113,39 @@ fn tail_to_public_output_composer_succeeds() {
     let call_requests = data.public_call_stack;
     assert_array_eq(
         output.end_non_revertible.public_call_stack,
-        [call_requests[1], call_requests[0]]
+        [call_requests[1], call_requests[0]],
     );
     assert_array_eq(
         output.end.public_call_stack,
-        [call_requests[4], call_requests[3], call_requests[2]]
+        [call_requests[4], call_requests[3], call_requests[2]],
     );
 
     // Gas: non-revertible
     let total_num_side_effects = 4 + 3 + 1;
-    let total_log_length = 12 + 8 // note_encrypted_log_hash
+    let total_log_length = 12
+        + 8 // note_encrypted_log_hash
         + 2 // encrypted_log_hash
-        + 51 + 9; // unencrypted_log_hash
-    let computed_da_gas = (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
+        + 51
+        + 9; // unencrypted_log_hash
+    let computed_da_gas =
+        (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
         + 3 * L2_GAS_PER_NULLIFIER
         + total_log_length * L2_GAS_PER_LOG_BYTE
         + 2 * FIXED_AVM_STARTUP_L2_GAS;
     assert_eq(
-        output.end_non_revertible.gas_used, Gas::new(computed_da_gas, computed_l2_gas) + Gas::tx_overhead()
+        output.end_non_revertible.gas_used,
+        Gas::new(computed_da_gas, computed_l2_gas) + Gas::tx_overhead(),
     );
 
     // Gas: revertible
     let total_num_side_effects = 2 + 1 + 1;
     let total_log_length = 20 // note_encrypted_log_hash
-        + 6 + 24 // encrypted_log_hash
+        + 6
+        + 24 // encrypted_log_hash
         + 4; // unencrypted_log_hash
-    let computed_da_gas = (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
+    let computed_da_gas =
+        (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 2 * L2_GAS_PER_NOTE_HASH
         + 1 * L2_GAS_PER_NULLIFIER
         + total_log_length * L2_GAS_PER_LOG_BYTE

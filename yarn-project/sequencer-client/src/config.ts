@@ -10,8 +10,7 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
   type PublisherConfig,
@@ -104,6 +103,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Whether to require every tx to have a fee payer',
     ...booleanConfigHelper(),
   },
+  gerousiaPayload: {
+    env: 'GEROUSIA_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the gerousia',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: EthAddress.ZERO,
+  },
 };
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
@@ -184,11 +189,11 @@ function getDefaultAllowedSetupFunctions(): AllowedElement[] {
   return [
     // needed for authwit support
     {
-      address: AuthRegistryAddress,
+      address: ProtocolContractAddress.AuthRegistry,
     },
     // needed for claiming on the same tx as a spend
     {
-      address: FeeJuiceAddress,
+      address: ProtocolContractAddress.FeeJuice,
       // We can't restrict the selector because public functions get routed via dispatch.
       // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
     },

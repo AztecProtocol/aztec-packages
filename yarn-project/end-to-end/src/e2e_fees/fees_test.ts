@@ -10,7 +10,6 @@ import {
   type PXE,
   SignerlessWallet,
   type TxHash,
-  computeSecretHash,
   createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
@@ -27,14 +26,20 @@ import {
   PrivateFPCContract,
   TokenContract,
 } from '@aztec/noir-contracts.js';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type ProverNode } from '@aztec/prover-node';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, deployCanonicalFeeJuice, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import { mintTokensToPrivate } from '../fixtures/token_utils.js';
+import {
+  type BalancesFn,
+  ensureAccountsPubliclyDeployed,
+  getBalancesFn,
+  setupCanonicalFeeJuice,
+} from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -55,7 +60,6 @@ export class FeesTest {
   public logger: DebugLogger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
-  public proverNode!: ProverNode;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -112,41 +116,25 @@ export class FeesTest {
   /** Alice mints Token  */
   async mintToken(amount: bigint) {
     const balanceBefore = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
-    await this.token.methods.privately_mint_private_note(amount).send().wait();
+    await this.token.methods.mint_to_private(this.aliceAddress, amount).send().wait();
     const balanceAfter = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
-    const { secret } = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, amount, address);
-
-    await this.feeJuiceContract.methods.claim(address, amount, secret).send().wait();
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, address);
+    const { claimSecret: secret, messageLeafIndex: index } = claim;
+    await this.feeJuiceContract.methods.claim(address, amount, secret, index).send().wait();
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
     const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate();
-    const secret = await this.mintShieldedBananas(amount, address);
-    await this.redeemShieldedBananas(amount, address, secret);
+
+    await mintTokensToPrivate(this.bananaCoin, this.aliceWallet, address, amount);
+
     const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
-  }
-
-  /** Alice mints bananaCoin tokens privately to the target address but does not redeem them yet. */
-  async mintShieldedBananas(amount: bigint, address: AztecAddress) {
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-    this.logger.debug(`Minting ${amount} bananas privately for ${address} with secret ${secretHash.toString()}`);
-    const receipt = await this.bananaCoin.methods.mint_private(amount, secretHash).send().wait();
-    await this.addPendingShieldNoteToPXE(this.aliceAddress, amount, secretHash, receipt.txHash);
-    return secret;
-  }
-
-  /** Redeemer (defaults to Alice) redeems shielded bananas for the target address. */
-  async redeemShieldedBananas(amount: bigint, address: AztecAddress, secret: Fr, redeemer?: AccountWallet) {
-    this.logger.debug(`Redeeming ${amount} bananas for ${address}`);
-    const bananaCoin = redeemer ? this.bananaCoin.withWallet(redeemer) : this.bananaCoin;
-    await bananaCoin.methods.redeem_shield(address, amount, secret).send().wait();
   }
 
   /** Adds a pending shield transparent node for the banana coin token contract to the pxe. */
@@ -167,7 +155,7 @@ export class FeesTest {
   public async applyBaseSnapshots() {
     await this.applyInitialAccountsSnapshot();
     await this.applyPublicDeployAccountsSnapshot();
-    await this.applyDeployFeeJuiceSnapshot();
+    await this.applySetupFeeJuiceSnapshot();
     await this.applyDeployBananaTokenSnapshot();
   }
 
@@ -175,10 +163,9 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig, proverNode }) => {
+      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
-        this.proverNode = proverNode;
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -208,15 +195,15 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      publicDeployAccounts(this.aliceWallet, this.wallets),
+      ensureAccountsPubliclyDeployed(this.aliceWallet, this.wallets),
     );
   }
 
-  async applyDeployFeeJuiceSnapshot() {
+  async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
-      'deploy_fee_juice',
+      'setup_fee_juice',
       async context => {
-        await deployCanonicalFeeJuice(
+        await setupCanonicalFeeJuice(
           new SignerlessWallet(
             context.pxe,
             new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.version),
@@ -224,7 +211,7 @@ export class FeesTest {
         );
       },
       async (_data, context) => {
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
+        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
@@ -262,7 +249,7 @@ export class FeesTest {
       'token_and_private_fpc',
       async context => {
         // Deploy token/fpc flavors for private refunds
-        const feeJuiceContract = this.feeJuiceBridgeTestHarness.l2Token;
+        const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const token = await TokenContract.deploy(this.aliceWallet, this.aliceAddress, 'PVT', 'PVT', 18n)
@@ -279,11 +266,7 @@ export class FeesTest {
         const privateFPC = await privateFPCSent.deployed();
 
         this.logger.info(`PrivateFPC deployed at ${privateFPC.address}`);
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
-          this.INITIAL_GAS_BALANCE,
-          this.INITIAL_GAS_BALANCE,
-          privateFPC.address,
-        );
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, privateFPC.address);
 
         return {
           tokenAddress: token.address,
@@ -304,7 +287,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'fpc_setup',
       async context => {
-        const feeJuiceContract = this.feeJuiceBridgeTestHarness.l2Token;
+        const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const bananaCoin = this.bananaCoin;
@@ -312,11 +295,7 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
-          this.INITIAL_GAS_BALANCE,
-          this.INITIAL_GAS_BALANCE,
-          bananaFPC.address,
-        );
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, bananaFPC.address);
 
         return {
           bananaFPCAddress: bananaFPC.address,

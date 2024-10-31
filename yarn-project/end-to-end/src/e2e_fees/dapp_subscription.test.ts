@@ -99,7 +99,7 @@ describe('e2e_fees dapp_subscription', () => {
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**
     PRIVATE SETUP
-    we first unshield `MAX_FEE` BC from alice's private balance to the FPC's public balance
+    we first transfer `MAX_FEE` BC from alice's private balance to the FPC's public balance
 
     PUBLIC APP LOGIC
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
@@ -167,8 +167,9 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
-    const tx = await pxe.proveTx(txExReq, true);
-    const sentTx = new SentTx(pxe, pxe.sendTx(tx));
+    const txSimulationResult = await pxe.simulateTx(txExReq, true);
+    const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
+    const sentTx = new SentTx(pxe, pxe.sendTx(txProvingResult.toTx()));
     const { transactionFee } = await sentTx.wait();
 
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
@@ -211,7 +212,9 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
-    const tx = await pxe.proveTx(txExReq, true);
+    const txSimulationResult = await pxe.simulateTx(txExReq, true);
+    const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
+    const tx = txProvingResult.toTx();
     expect(tx.data.feePayer).toEqual(subscriptionContract.address);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();

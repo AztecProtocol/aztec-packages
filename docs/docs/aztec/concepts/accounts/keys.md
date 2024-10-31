@@ -6,6 +6,8 @@ tags: [accounts, keys]
 The goal of this section is to give app developer a good idea what keys there are used in the system.
 For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/index.md).
 
+In short, there is a **nullifier key** (to spend your notes), an **incoming viewing key** (to view any notes or logs that were sent to you), an **outgoing viewing key** (to view any logs or notes you sent to another entity), a **tagging key** (to quickly find notes relevant to you) and oftentimes a signing key. A signing key is not strictly required by the protocol, but are often used with specific account contracts for authorization purposes.
+
 Each account in Aztec is backed by 4 key pairs:
 
 - A **nullifier key pair** used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
@@ -25,22 +27,13 @@ Instead it's up to the account contract developer to implement it.
 
 ## Public keys retrieval
 
-The keys can be retrieved from the [Private eXecution Environment (PXE)](../pxe/index.md) using the following getter in Aztec.nr:
+The keys for our accounts can be retrieved from the [Private eXecution Environment (PXE)](../pxe/index.md) using the following getter in Aztec.nr:
 
 ```
 fn get_public_keys(account: AztecAddress) -> PublicKeys;
 ```
 
-It is necessary to first register the user as a recipient in our PXE, providing their public keys.
-
-First we need to get a hold of recipient's [complete address](#complete-address).
-Below are some ways how we could instantiate it after getting the information in a string form from a recipient:
-
-#include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
-
-Then to register the recipient's [complete address](#complete-address) in PXE we would call `registerRecipient` PXE endpoint using Aztec.js.
-
-#include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
+It is necessary to first register the user as an account in our PXE, by calling the `registerAccount` PXE endpoint using Aztec.js, providing the account's secret key and partial address.
 
 During private function execution these keys are obtained via an oracle call from PXE.
 

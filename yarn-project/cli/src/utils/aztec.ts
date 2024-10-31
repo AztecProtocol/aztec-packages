@@ -1,5 +1,4 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/circuit-types';
 import { type DeployL1Contracts } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
@@ -7,7 +6,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -58,24 +57,9 @@ export async function deployAztecContracts(
   privateKey: string | undefined,
   mnemonic: string,
   salt: number | undefined,
+  initialValidators: EthAddress[],
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
-  const {
-    InboxAbi,
-    InboxBytecode,
-    OutboxAbi,
-    OutboxBytecode,
-    RegistryAbi,
-    RegistryBytecode,
-    RollupAbi,
-    RollupBytecode,
-    MockProofCommitmentEscrowAbi,
-    MockProofCommitmentEscrowBytecode,
-    FeeJuicePortalAbi,
-    FeeJuicePortalBytecode,
-    TestERC20Abi,
-    TestERC20Bytecode,
-  } = await import('@aztec/l1-artifacts');
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
@@ -83,42 +67,15 @@ export async function deployAztecContracts(
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrl, chainId);
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: TestERC20Abi,
-      contractBytecode: TestERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-    proofCommitmentEscrow: {
-      contractAbi: MockProofCommitmentEscrowAbi,
-      contractBytecode: MockProofCommitmentEscrowBytecode,
-    },
-  };
+
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
 
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
-    l2FeeJuiceAddress: FeeJuiceAddress,
+  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
     salt,
+    initialValidators,
   });
 }
 

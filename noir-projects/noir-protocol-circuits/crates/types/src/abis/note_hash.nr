@@ -1,8 +1,9 @@
 use crate::{
-    abis::read_request::ScopedReadRequest, address::AztecAddress,
-    abis::side_effect::{Ordered, OrderedValue, Readable, Scoped},
-    constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH}, traits::{Empty, Serialize, Deserialize},
-    utils::{arrays::array_concat, reader::Reader}
+    abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
+    address::AztecAddress,
+    constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct NoteHash {
@@ -91,7 +92,7 @@ impl Serialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
     fn serialize(self) -> [Field; SCOPED_NOTE_HASH_LENGTH] {
         array_concat(
             self.note_hash.serialize(),
-            [self.contract_address.to_field()]
+            [self.contract_address.to_field()],
         )
     }
 }
@@ -101,7 +102,7 @@ impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
         let mut reader = Reader::new(values);
         let res = Self {
             note_hash: reader.read_struct(NoteHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize)
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
@@ -111,13 +112,18 @@ impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
 impl Readable<ScopedReadRequest> for ScopedNoteHash {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
         assert_eq(
-            self.note_hash.value, read_request.value(), "Value of the note hash does not match read request"
+            self.note_hash.value,
+            read_request.value(),
+            "Value of the note hash does not match read request",
         );
         assert_eq(
-            self.contract_address, read_request.contract_address, "Contract address of the note hash does not match read request"
+            self.contract_address,
+            read_request.contract_address,
+            "Contract address of the note hash does not match read request",
         );
         assert(
-            read_request.counter() > self.note_hash.counter, "Read request counter must be greater than the counter of the note hash"
+            read_request.counter() > self.note_hash.counter,
+            "Read request counter must be greater than the counter of the note hash",
         );
     }
 }

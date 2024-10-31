@@ -2,7 +2,17 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import {
+  DEFAULT_IVPK_M_X,
+  DEFAULT_IVPK_M_Y,
+  DEFAULT_NPK_M_X,
+  DEFAULT_NPK_M_Y,
+  DEFAULT_OVPK_M_X,
+  DEFAULT_OVPK_M_Y,
+  DEFAULT_TPK_M_X,
+  DEFAULT_TPK_M_Y,
+  GeneratorIndex,
+} from '../constants.gen.js';
 import { type PublicKey } from './public_key.js';
 
 export class PublicKeys {
@@ -41,8 +51,17 @@ export class PublicKeys {
     );
   }
 
-  static empty(): PublicKeys {
-    return new PublicKeys(Point.ZERO, Point.ZERO, Point.ZERO, Point.ZERO);
+  static default(): PublicKeys {
+    return new PublicKeys(
+      new Point(new Fr(DEFAULT_NPK_M_X), new Fr(DEFAULT_NPK_M_Y), false),
+      new Point(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
+      new Point(new Fr(DEFAULT_OVPK_M_X), new Fr(DEFAULT_OVPK_M_Y), false),
+      new Point(new Fr(DEFAULT_TPK_M_X), new Fr(DEFAULT_TPK_M_Y), false),
+    );
+  }
+
+  static random(): PublicKeys {
+    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
   }
 
   /**
@@ -123,6 +142,12 @@ export class PublicKeys {
       ...this.masterOutgoingViewingPublicKey.toFields(),
       ...this.masterTaggingPublicKey.toFields(),
     ];
+  }
+
+  // TOOD: This is used in foundation/src/abi/encoder. This is probably non-optimal but I did not want
+  // to spend too much time on the encoder now. It probably needs a refactor.
+  encodeToNoir(): Fr[] {
+    return this.toFields();
   }
 
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {

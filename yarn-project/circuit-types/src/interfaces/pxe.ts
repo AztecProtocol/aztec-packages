@@ -1,32 +1,26 @@
 import {
   type AztecAddress,
   type CompleteAddress,
-  type Fr,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type PartialAddress,
-  type Point,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
-import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
+  type Fr,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NodeInfo,
+  type PartialAddress,
+  type Point,
   type ProtocolContractAddresses,
-} from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
+} from '@aztec/circuits.js';
+import type { AbiType, ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import {
-  type GetUnencryptedLogsResponse,
-  type L1EventPayload,
-  type LogFilter,
-  type UnencryptedL2Log,
-} from '../logs/index.js';
+import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
+import { type PrivateExecutionResult } from '../private_execution_result.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
-import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type Tx, type TxHash, type TxProvingResult, type TxReceipt, type TxSimulationResult } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
 import { type SyncStatus } from './sync-status.js';
@@ -80,20 +74,6 @@ export interface PXE {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
-   * Registers a recipient in PXE. This is required when sending encrypted notes to
-   * a user who hasn't deployed their account contract yet. Since their account is not deployed, their
-   * encryption public key has not been broadcasted, so we need to manually register it on the PXE Service
-   * in order to be able to encrypt data for this recipient.
-   *
-   * @param recipient - The complete address of the recipient
-   * @remarks Called recipient because we can only send notes to this account and not receive them via this PXE Service.
-   * This is because we don't have the associated private key and for this reason we can't decrypt
-   * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
-   * public key.
-   */
-  registerRecipient(recipient: CompleteAddress): Promise<void>;
-
-  /**
    * Retrieves the user accounts registered on this PXE Service.
    * @returns An array of the accounts registered on this PXE Service.
    */
@@ -109,19 +89,26 @@ export interface PXE {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the recipients added to this PXE Service.
-   * @returns An array of recipients registered on this PXE Service.
+   * Registers a user contact in PXE.
+   *
+   * Once a new contact is registered, the PXE Service will be able to receive notes tagged from this contact.
+   * Will do nothing if the account is already registered.
+   *
+   * @param address - Address of the user to add to the address book
+   * @returns The address address of the account.
    */
-  getRecipients(): Promise<CompleteAddress[]>;
+  registerContact(address: AztecAddress): Promise<AztecAddress>;
 
   /**
-   * Retrieves the complete address of the recipient corresponding to the provided aztec address.
-   * Complete addresses include the address, the partial address, and the encryption public key.
-   *
-   * @param address - The aztec address of the recipient.
-   * @returns The complete address of the requested recipient.
+   * Retrieves the addresses stored as contacts on this PXE Service.
+   * @returns An array of the contacts on this PXE Service.
    */
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getContacts(): Promise<AztecAddress[]>;
+
+  /**
+   * Removes a contact in the address book.
+   */
+  removeContact(address: AztecAddress): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -147,24 +134,23 @@ export interface PXE {
   getContracts(): Promise<AztecAddress[]>;
 
   /**
-   * Creates a transaction based on the provided preauthenticated execution request. This will
-   * run a local simulation of the private execution (and optionally of public as well), assemble
-   * the zero-knowledge proof for the private execution, and return the transaction object.
+   * Creates a proving result based on the provided preauthenticated execution request and the results
+   * of executing the private part of the transaction. This will assemble the zero-knowledge proof for the private execution.
+   * It returns an object that contains the proof and public inputs of the tail circuit, which can be converted into a Tx ready to be sent to the network
    *
-   * @param txRequest - An authenticated tx request ready for simulation
-   * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param txRequest - An authenticated tx request ready for proving
+   * @param privateExecutionResult - The result of the private execution of the transaction
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, scopes?: AztecAddress[]): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
-   * This will run a local simulation of private execution (and optionally of public as well), assemble
-   * the zero-knowledge proof for the private execution, and return the transaction object along
-   * with simulation results (return values).
+   * This will run a local simulation of private execution (and optionally of public as well), run the
+   * kernel circuits to ensure adherence to protocol rules (without generating a proof), and return the
+   * simulation results .
    *
    *
    * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
@@ -176,8 +162,7 @@ export interface PXE {
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns A simulated transaction object that includes a transaction that is potentially ready
-   * to be sent to the network for execution, along with public and private return values.
+   * @returns A simulated transaction result object that includes public and private return values.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
@@ -187,7 +172,7 @@ export interface PXE {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     scopes?: AztecAddress[],
-  ): Promise<SimulatedTx>;
+  ): Promise<TxSimulationResult>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
@@ -365,7 +350,7 @@ export interface PXE {
   getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
 
   /**
-   * Returns a Contact Instance given its address, which includes the contract class identifier,
+   * Returns a Contract Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
    * @param address - Deployment address of the contract.
@@ -373,7 +358,7 @@ export interface PXE {
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
-   * Returns a Contact Class given its identifier.
+   * Returns a Contract Class given its identifier.
    * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
    * should the pxe query the node for contract public info, and merge it with its own definitions?
    * @param id - Identifier of the class.
@@ -412,7 +397,7 @@ export interface PXE {
   /**
    * Returns the events of a specified type given search parameters.
    * @param type - The type of the event to search for—Encrypted, or Unencrypted.
-   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
    * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
@@ -420,22 +405,13 @@ export interface PXE {
    */
   getEvents<T>(
     type: EventType,
-    eventMetadata: EventMetadata<T>,
+    eventMetadata: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
     vpks: Point[],
   ): Promise<T[]>;
 }
 // docs:end:pxe-interface
-
-/**
- * The shape of the event generated on the Contract.
- */
-export interface EventMetadata<T> {
-  decode(payload: L1EventPayload | UnencryptedL2Log): T | undefined;
-  eventSelector: EventSelector;
-  fieldNames: string[];
-}
 
 /**
  * This is used in getting events via the filter

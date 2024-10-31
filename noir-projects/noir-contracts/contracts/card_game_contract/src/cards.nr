@@ -1,10 +1,16 @@
-use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteGetterOptions, NoteViewerOptions};
+use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
 
 use dep::aztec::{
     context::UnconstrainedContext,
-    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, keys::getters::get_public_keys,
-    state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    keys::getters::get_public_keys,
+    note::constants::MAX_NOTES_PER_PAGE,
+    protocol_types::{
+        address::AztecAddress,
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        traits::{FromField, Serialize, ToField},
+    },
+    state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
 
@@ -50,13 +56,13 @@ pub struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32, npk_m_hash: Field) -> Self {
+    fn new(strength: u32, points: u32, owner: AztecAddress) -> Self {
         let card = Card { strength, points };
-        CardNote::from_card(card, npk_m_hash)
+        CardNote::from_card(card, owner)
     }
 
-    pub fn from_card(card: Card, npk_m_hash: Field) -> CardNote {
-        CardNote { card, note: ValueNote::new(card.to_field(), npk_m_hash) }
+    pub fn from_card(card: Card, owner: AztecAddress) -> CardNote {
+        CardNote { card, note: ValueNote::new(card.to_field(), owner) }
     }
 
     pub fn from_note(note: ValueNote) -> CardNote {
@@ -70,7 +76,7 @@ pub struct Deck<Context> {
 
 pub fn filter_cards<let N: u32>(
     notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    desired_cards: [Card; N]
+    desired_cards: [Card; N],
 ) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
@@ -103,16 +109,17 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let owner_keys = get_public_keys(owner);
-
-        let owner_ivpk_m = owner_keys.ivpk_m;
-        let owner_npk_m_hash = owner_keys.npk_m.hash();
         let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
 
         let mut inserted_cards = &[];
         for card in cards {
-            let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
-            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(self.set.context, msg_sender_ovpk_m, owner_ivpk_m, owner));
+            let mut card_note = CardNote::from_card(card, owner);
+            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
+                self.set.context,
+                msg_sender_ovpk_m,
+                owner,
+                self.set.context.msg_sender(),
+            ));
             inserted_cards = inserted_cards.push_back(card_note);
         }
 
@@ -127,7 +134,7 @@ impl Deck<&mut PrivateContext> {
 }
 
 impl Deck<UnconstrainedContext> {
-    unconstrained pub fn view_cards(self, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    pub unconstrained fn view_cards(self, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
 
@@ -148,7 +155,7 @@ global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 pub fn get_pack_cards(
     seed: Field,
     owner: AztecAddress,
-    context: &mut PrivateContext
+    context: &mut PrivateContext,
 ) -> [Card; PACK_CARDS] {
     let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 
@@ -164,19 +171,12 @@ pub fn get_pack_cards(
     for i in 0..PACK_CARDS {
         let strength = (random_bytes[i] as u32) + (random_bytes[i + 1] as u32) * 256;
         let points = (random_bytes[i + 2] as u32) + (random_bytes[i + 3] as u32) * 256;
-        cards[i] = Card {
-            strength, points
-        };
+        cards[i] = Card { strength, points };
     }
 
     cards
 }
 
 pub fn compute_deck_strength<let N: u32>(cards: [Card; N]) -> Field {
-    cards.fold(
-        0,
-        |acc, card: Card| {
-        acc + card.strength as Field
-    }
-    )
+    cards.fold(0, |acc, card: Card| acc + card.strength as Field)
 }

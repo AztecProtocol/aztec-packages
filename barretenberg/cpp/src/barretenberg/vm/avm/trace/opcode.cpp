@@ -95,10 +95,10 @@ std::string to_string(OpCode opcode)
         return "CALLDATACOPY";
     // Machine State
     // Machine State - Internal Control Flow
-    case OpCode::JUMP_16:
-        return "JUMP_16";
-    case OpCode::JUMPI_16:
-        return "JUMPI_16";
+    case OpCode::JUMP_32:
+        return "JUMP_32";
+    case OpCode::JUMPI_32:
+        return "JUMPI_32";
     case OpCode::INTERNALCALL:
         return "INTERNALCALL";
     case OpCode::INTERNALRETURN:
@@ -120,8 +120,6 @@ std::string to_string(OpCode opcode)
         return "MOV_8";
     case OpCode::MOV_16:
         return "MOV_16";
-    case OpCode::CMOV:
-        return "CMOV";
     // World State
     case OpCode::SLOAD:
         return "SLOAD";
@@ -149,8 +147,6 @@ std::string to_string(OpCode opcode)
         return "CALL";
     case OpCode::STATICCALL:
         return "STATICCALL";
-    case OpCode::DELEGATECALL:
-        return "DELEGATECALL";
     case OpCode::RETURN:
         return "RETURN";
     case OpCode::REVERT_8:
@@ -161,23 +157,19 @@ std::string to_string(OpCode opcode)
     case OpCode::DEBUGLOG:
         return "DEBUGLOG";
     // Gadgets
-    case OpCode::KECCAK:
-        return "KECCAK";
-    case OpCode::POSEIDON2:
+    case OpCode::POSEIDON2PERM:
         return "POSEIDON2";
     case OpCode::SHA256COMPRESSION:
         return "SHA256COMPRESSION";
     case OpCode::KECCAKF1600:
         return "KECCAKF1600";
-    case OpCode::PEDERSEN:
-        return "PEDERSEN";
     case OpCode::ECADD:
         return "ECADD";
     case OpCode::MSM:
         return "MSM";
     // Conversions
-    case OpCode::TORADIXLE:
-        return "TORADIXLE";
+    case OpCode::TORADIXBE:
+        return "TORADIXBE";
     // Sentinel
     case OpCode::LAST_OPCODE_SENTINEL:
         return "LAST_OPCODE_SENTINEL";

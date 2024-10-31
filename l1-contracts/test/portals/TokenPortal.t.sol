@@ -13,14 +13,14 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 // Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
+import {Sysstia} from "@aztec/governance/Sysstia.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -28,9 +28,10 @@ contract TokenPortalTest is Test {
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
-
+  Sysstia internal sysstia;
   IInbox internal inbox;
   IOutbox internal outbox;
 
@@ -61,12 +62,9 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
+    sysstia = new Sysstia(testERC20, registry, address(this));
     rollup = new Rollup(
-      IFeeJuicePortal(address(0)),
-      IProofCommitmentEscrow(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
+      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
     );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
@@ -83,7 +81,7 @@ contract TokenPortalTest is Test {
     vm.deal(address(this), 100 ether);
   }
 
-  function _createExpectedMintPrivateL1ToL2Message()
+  function _createExpectedMintPrivateL1ToL2Message(uint256 _index)
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -96,11 +94,12 @@ contract TokenPortalTest is Test {
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
       ),
-      secretHash: secretHashForL2MessageConsumption
+      secretHash: secretHashForL2MessageConsumption,
+      index: _index
     });
   }
 
-  function _createExpectedMintPublicL1ToL2Message()
+  function _createExpectedMintPublicL1ToL2Message(uint256 _index)
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -109,7 +108,8 @@ contract TokenPortalTest is Test {
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
       content: Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", to, amount)),
-      secretHash: secretHashForL2MessageConsumption
+      secretHash: secretHashForL2MessageConsumption,
+      index: _index
     });
   }
 
@@ -119,22 +119,25 @@ contract TokenPortalTest is Test {
     testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message();
+    uint256 expectedIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    DataStructures.L1ToL2Msg memory expectedMessage =
+      _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
     // event we will get
 
     // Perform op
-    bytes32 leaf = tokenPortal.depositToAztecPrivate(
+    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPrivate(
       secretHashForRedeemingMintedNotes, amount, secretHashForL2MessageConsumption
     );
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
+    assertEq(index, expectedIndex, "returned index and calculated index should match");
 
     return leaf;
   }
@@ -145,18 +148,22 @@ contract TokenPortalTest is Test {
     testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message();
+    uint256 expectedIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    DataStructures.L1ToL2Msg memory expectedMessage =
+      _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
 
     // Perform op
-    bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
+    (bytes32 leaf, uint256 index) =
+      tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
+    assertEq(index, expectedIndex, "returned index and calculated index should match");
 
     return leaf;
   }

@@ -75,6 +75,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    /**
+     * @brief Creates fixed witnesses from a constant element.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        this->x.convert_constant_to_fixed_witness(builder);
+        this->y.convert_constant_to_fixed_witness(builder);
+    }
+
     static element one(Builder* ctx)
     {
         uint256_t x = uint256_t(NativeGroup::one.x);

@@ -130,7 +130,7 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
   }
 
   // Is this a Node buffer?
-  if (obj instanceof Buffer) {
+  if (Buffer.isBuffer(obj)) {
     return { type: 'Buffer', data: obj.toString('base64') };
   }
 

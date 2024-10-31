@@ -3,6 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
+  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -33,6 +34,9 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   type Header,
@@ -40,9 +44,9 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
+  type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -64,20 +68,11 @@ import {
   TxProofValidator,
   createP2PClient,
 } from '@aztec/p2p';
-import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ProtocolContractAddresses,
-} from '@aztec/types/contracts';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -122,7 +117,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return Promise.resolve(this.p2pClient.broadcastEpochProofQuote(quote));
+    return Promise.resolve(this.p2pClient.addEpochProofQuote(quote));
   }
 
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
@@ -166,10 +161,10 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const validatorClient = createValidatorClient(config, p2pClient);
+    const validatorClient = createValidatorClient(config, p2pClient, telemetry);
 
     // now create the sequencer
-    const sequencer = config.disableSequencer
+    const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(
           config,
@@ -314,6 +309,16 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+    return this.encryptedLogsSource.getLogsByTags(tags);
+  }
+
+  /**
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
@@ -391,7 +396,7 @@ export class AztecNodeService implements AztecNode {
    * @returns - The tx if it exists.
    */
   public getTxByHash(txHash: TxHash) {
-    return Promise.resolve(this.p2pClient!.getTxByHash(txHash));
+    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
   }
 
   /**
@@ -442,15 +447,13 @@ export class AztecNodeService implements AztecNode {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   public async getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
-    startIndex = 0n,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     if (index === undefined) {
       return undefined;
     }
@@ -465,15 +468,10 @@ export class AztecNodeService implements AztecNode {
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @param startL2BlockNumber - The block number after which we are interested in checking if the message was
-   * included.
-   * @remarks We pass in the minL2BlockNumber because there can be duplicate messages and the block number allow us
-   * to skip the duplicates (we know after which block a given message is to be included).
    * @returns Whether the message is synced and ready to be included in a block.
    */
-  public async isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber = INITIAL_L2_BLOCK_NUM): Promise<boolean> {
-    const startIndex = BigInt(startL2BlockNumber - INITIAL_L2_BLOCK_NUM) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex)) !== undefined;
+  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message)) !== undefined;
   }
 
   /**
@@ -699,8 +697,11 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getHeader(): Promise<Header> {
-    return (await this.getBlock(-1))?.header ?? (await this.#getWorldState('latest')).getInitialHeader();
+  public async getHeader(blockNumber: L2BlockNumber = 'latest'): Promise<Header> {
+    return (
+      (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
+      this.worldStateSynchronizer.getCommitted().getInitialHeader()
+    );
   }
 
   /**
@@ -721,49 +722,59 @@ export class AztecNodeService implements AztecNode {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-
     const publicProcessorFactory = new PublicProcessorFactory(
-      await this.worldStateSynchronizer.ephemeralFork(),
       this.contractDataSource,
       new WASMSimulator(),
       this.telemetry,
     );
-    const processor = publicProcessorFactory.create(prevHeader, newGlobalVariables);
 
-    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-    const [processedTxs, failedTxs, returns] = await processor.process([tx]);
-    // REFACTOR: Consider returning the error/revert rather than throwing
-    if (failedTxs.length) {
-      this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
-      throw failedTxs[0].error;
+    const fork = await this.worldStateSynchronizer.fork();
+
+    try {
+      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
+
+      // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
+      const [processedTxs, failedTxs, returns] = await processor.process([tx]);
+      // REFACTOR: Consider returning the error/revert rather than throwing
+      if (failedTxs.length) {
+        this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
+        throw failedTxs[0].error;
+      }
+      const { reverted } = partitionReverts(processedTxs);
+      if (reverted.length) {
+        this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
+        throw reverted[0].revertReason;
+      }
+      this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
+      const [processedTx] = processedTxs;
+      return new PublicSimulationOutput(
+        processedTx.encryptedLogs,
+        processedTx.unencryptedLogs,
+        processedTx.revertReason,
+        processedTx.data.constants,
+        processedTx.data.end,
+        returns,
+        processedTx.gasUsed,
+      );
+    } finally {
+      await fork.close();
     }
-    const { reverted } = partitionReverts(processedTxs);
-    if (reverted.length) {
-      this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
-      throw reverted[0].revertReason;
-    }
-    this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
-    const [processedTx] = processedTxs;
-    return new PublicSimulationOutput(
-      processedTx.encryptedLogs,
-      processedTx.unencryptedLogs,
-      processedTx.revertReason,
-      processedTx.data.constants,
-      processedTx.data.end,
-      returns,
-      processedTx.gasUsed,
-    );
   }
 
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
+    const db = this.worldStateSynchronizer.getCommitted();
     // These validators are taken from the sequencer, and should match.
     // The reason why `phases` and `gas` tx validator is in the sequencer and not here is because
     // those tx validators are customizable by the sequencer.
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest(), this.contractDataSource)),
+      new DoubleSpendTxValidator({
+        getNullifierIndex(nullifier) {
+          return db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+        },
+      }),
     ];
 
     if (!isSimulation) {
@@ -795,10 +806,10 @@ export class AztecNodeService implements AztecNode {
 
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
     return Promise.resolve({
-      classRegisterer: getCanonicalClassRegisterer().address,
-      feeJuice: getCanonicalFeeJuice().address,
-      instanceDeployer: getCanonicalInstanceDeployer().address,
-      multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
+      classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+      feeJuice: ProtocolContractAddress.FeeJuice,
+      instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+      multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
     });
   }
 
@@ -833,10 +844,10 @@ export class AztecNodeService implements AztecNode {
     }
 
     // using a snapshot could be less efficient than using the committed db
-    if (blockNumber === 'latest' || blockNumber === blockSyncedTo) {
+    if (blockNumber === 'latest' /*|| blockNumber === blockSyncedTo*/) {
       this.log.debug(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
-    } else if (blockNumber < blockSyncedTo) {
+    } else if (blockNumber <= blockSyncedTo) {
       this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     } else {

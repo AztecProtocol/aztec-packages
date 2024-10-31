@@ -1,5 +1,10 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { type BlockBuilder, type L2Block, type MerkleTreeOperations, type ProcessedTx } from '@aztec/circuit-types';
+import {
+  type BlockBuilder,
+  type L2Block,
+  type MerkleTreeWriteOperations,
+  type ProcessedTx,
+} from '@aztec/circuit-types';
 import { type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { ProvingOrchestrator } from '@aztec/prover-client/orchestrator';
 import { type SimulationProvider } from '@aztec/simulator';
@@ -13,7 +18,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
  */
 export class OrchestratorBlockBuilder implements BlockBuilder {
   private orchestrator: ProvingOrchestrator;
-  constructor(db: MerkleTreeOperations, simulationProvider: SimulationProvider, telemetry: TelemetryClient) {
+  constructor(db: MerkleTreeWriteOperations, simulationProvider: SimulationProvider, telemetry: TelemetryClient) {
     const testProver = new TestCircuitProver(telemetry, simulationProvider);
     this.orchestrator = new ProvingOrchestrator(db, testProver, telemetry);
   }
@@ -32,7 +37,7 @@ export class OrchestratorBlockBuilder implements BlockBuilder {
 export class OrchestratorBlockBuilderFactory {
   constructor(private simulationProvider: SimulationProvider, private telemetry?: TelemetryClient) {}
 
-  create(db: MerkleTreeOperations): BlockBuilder {
+  create(db: MerkleTreeWriteOperations): BlockBuilder {
     return new OrchestratorBlockBuilder(db, this.simulationProvider, this.telemetry ?? new NoopTelemetryClient());
   }
 }

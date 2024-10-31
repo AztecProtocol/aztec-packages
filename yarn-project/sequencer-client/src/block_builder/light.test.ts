@@ -1,7 +1,7 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import {
   MerkleTreeId,
-  type MerkleTreeOperations,
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ServerCircuitProver,
   makeEmptyProcessedTx,
@@ -16,37 +16,51 @@ import {
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type MembershipWitness,
+  MembershipWitness,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PreviousRollupData,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
+  TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
-  VerificationKeyData,
+  type VerificationKeyAsFields,
+  VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import {
-  buildBaseRollupInput,
+  ProtocolCircuitVks,
+  TubeVk,
+  getVKIndex,
+  getVKSiblingPath,
+  getVKTreeRoot,
+} from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import {
+  buildBaseRollupHints,
   buildHeaderFromCircuitOutputs,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
-  makeEmptyMembershipWitness,
 } from '@aztec/prover-client/helpers';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { MerkleTrees } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
+
+import { jest } from '@jest/globals';
 
 import { LightweightBlockBuilder } from './light.js';
+
+jest.setTimeout(50_000);
 
 describe('LightBlockBuilder', () => {
   let simulator: ServerCircuitProver;
@@ -55,29 +69,36 @@ describe('LightBlockBuilder', () => {
   let l1ToL2Messages: Fr[];
   let vkRoot: Fr;
 
-  let db: MerkleTreeOperations;
-  let expectsDb: MerkleTreeOperations;
+  let db: MerkleTreeAdminDatabase;
+  let fork: MerkleTreeWriteOperations;
+  let expectsFork: MerkleTreeWriteOperations;
   let builder: LightweightBlockBuilder;
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  let emptyVk: VerificationKeyData;
-  let emptyVkWitness: MembershipWitness<typeof VK_TREE_HEIGHT>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     logger = createDebugLogger('aztec:sequencer-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
     vkRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    emptyVk = VerificationKeyData.makeFake();
-    emptyVkWitness = makeEmptyMembershipWitness(VK_TREE_HEIGHT);
+    db = await NativeWorldStateService.tmp();
   });
 
   beforeEach(async () => {
     globals = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
-    db = await MerkleTrees.tmp().then(t => t.asLatest());
-    expectsDb = await MerkleTrees.tmp().then(t => t.asLatest());
-    builder = new LightweightBlockBuilder(db, new NoopTelemetryClient());
+    fork = await db.fork();
+    expectsFork = await db.fork();
+    builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
+  });
+
+  afterEach(async () => {
+    await fork.close();
+    await expectsFork.close();
+  });
+
+  afterAll(async () => {
+    await db.close();
   });
 
   it('builds a 2 tx header', async () => {
@@ -143,7 +164,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a single tx header', async () => {
-    const txs = times(1, i => makeBloatedProcessedTx(db, vkRoot, i));
+    const txs = times(1, i => makeBloatedProcessedTx(fork, vkRoot, protocolContractTreeRoot, i));
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -161,7 +182,8 @@ describe('LightBlockBuilder', () => {
   });
 
   // Makes a tx with a non-zero inclusion fee for testing
-  const makeTx = (i: number) => makeBloatedProcessedTx(db, vkRoot, i, { inclusionFee: new Fr(i) });
+  const makeTx = (i: number) =>
+    makeBloatedProcessedTx(fork, vkRoot, protocolContractTreeRoot, i, { inclusionFee: new Fr(i) });
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
@@ -188,18 +210,24 @@ describe('LightBlockBuilder', () => {
       txs = [
         ...txs,
         ...times(2 - txs.length, () =>
-          makeEmptyProcessedTx(expectsDb.getInitialHeader(), globals.chainId, globals.version, vkRoot),
+          makeEmptyProcessedTx(
+            expectsFork.getInitialHeader(),
+            globals.chainId,
+            globals.version,
+            vkRoot,
+            protocolContractTreeRoot,
+          ),
         ),
       ];
       // No need to run a merge if there's 0-2 txs
       getTopMerges = rollupOutputs => Promise.resolve([rollupOutputs[0], rollupOutputs[1]]);
     }
 
-    const rollupOutputs = await getRollupOutputs(txs);
+    const rollupOutputs = await getPrivateBaseRollupOutputs(txs);
     const [mergeLeft, mergeRight] = await getTopMerges!(rollupOutputs);
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
-    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsDb);
+    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
     const rootOutput = await getBlockRootOutput(mergeLeft, mergeRight, parityOutput, l1ToL2Snapshot);
     const expectedHeader = buildHeaderFromCircuitOutputs(
       [mergeLeft, mergeRight],
@@ -217,28 +245,35 @@ describe('LightBlockBuilder', () => {
     const l1ToL2Messages = padArrayEnd(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     const newL1ToL2MessageTreeRootSiblingPath = padArrayEnd(
-      await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, expectsDb),
+      await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, expectsFork),
       Fr.ZERO,
       L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
     );
 
-    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsDb);
+    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
     return { messageTreeSnapshot, newL1ToL2MessageTreeRootSiblingPath, l1ToL2Messages };
   };
 
-  const getRollupOutputs = async (txs: ProcessedTx[]) => {
+  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
     for (const tx of txs) {
-      const inputs = await buildBaseRollupInput(tx, emptyProof, globals, expectsDb, emptyVk);
-      const result = await simulator.getBaseRollupProof(inputs);
+      const vkIndex = TUBE_VK_INDEX;
+      const vkPath = getVKSiblingPath(vkIndex);
+      const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
+      const tubeData = new PrivateTubeData(tx.data, emptyProof, vkData);
+      const hints = await buildBaseRollupHints(tx, globals, expectsFork);
+      const inputs = new PrivateBaseRollupInputs(tubeData, hints);
+      const result = await simulator.getPrivateBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
     }
     return rollupOutputs;
   };
 
   const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
-    const leftInput = new PreviousRollupData(left, emptyProof, emptyVk.keyAsFields, emptyVkWitness);
-    const rightInput = new PreviousRollupData(right, emptyProof, emptyVk.keyAsFields, emptyVkWitness);
+    const baseRollupVk = ProtocolCircuitVks['PrivateBaseRollupArtifact'].keyAsFields;
+    const baseRollupVkWitness = getVkMembershipWitness(baseRollupVk);
+    const leftInput = new PreviousRollupData(left, emptyProof, baseRollupVk, baseRollupVkWitness);
+    const rightInput = new PreviousRollupData(right, emptyProof, baseRollupVk, baseRollupVkWitness);
     const inputs = new MergeRollupInputs([leftInput, rightInput]);
     const result = await simulator.getMergeRollupProof(inputs);
     return result.inputs;
@@ -246,13 +281,15 @@ describe('LightBlockBuilder', () => {
 
   const getParityOutput = async (msgs: Fr[]) => {
     const l1ToL2Messages = padArrayEnd(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+    await expectsFork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
     const rootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>[] = [];
+    const baseParityVk = ProtocolCircuitVks['BaseParityArtifact'].keyAsFields;
+    const baseParityVkWitness = getVkMembershipWitness(baseParityVk);
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
       const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkRoot);
       const { publicInputs } = await simulator.getBaseParityProof(input);
-      const rootInput = new RootParityInput(emptyProof, emptyVk.keyAsFields, emptyVkWitness.siblingPath, publicInputs);
+      const rootInput = new RootParityInput(emptyProof, baseParityVk, baseParityVkWitness.siblingPath, publicInputs);
       rootParityInputs.push(rootInput);
     }
 
@@ -271,17 +308,23 @@ describe('LightBlockBuilder', () => {
       messageTreeSnapshot: AppendOnlyTreeSnapshot;
     },
   ) => {
-    const rollupLeft = new PreviousRollupData(left, emptyProof, emptyVk.keyAsFields, emptyVkWitness);
-    const rollupRight = new PreviousRollupData(right, emptyProof, emptyVk.keyAsFields, emptyVkWitness);
-    const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsDb);
-    const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsDb);
+    const mergeRollupVk = ProtocolCircuitVks['MergeRollupArtifact'].keyAsFields;
+    const mergeRollupVkWitness = getVkMembershipWitness(mergeRollupVk);
+
+    const rollupLeft = new PreviousRollupData(left, emptyProof, mergeRollupVk, mergeRollupVkWitness);
+    const rollupRight = new PreviousRollupData(right, emptyProof, mergeRollupVk, mergeRollupVkWitness);
+    const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsFork);
+    const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const previousBlockHashLeafIndex = BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1);
-    const previousBlockHash = (await expectsDb.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
+    const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
+
+    const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
+    const rootParityVkWitness = getVkMembershipWitness(rootParityVk);
 
     const rootParityInput = new RootParityInput(
       emptyProof,
-      emptyVk.keyAsFields,
-      emptyVkWitness.siblingPath,
+      rootParityVk,
+      rootParityVkWitness.siblingPath,
       parityOutput,
     );
 
@@ -300,4 +343,9 @@ describe('LightBlockBuilder', () => {
     const result = await simulator.getBlockRootRollupProof(inputs);
     return result.inputs;
   };
+
+  function getVkMembershipWitness(vk: VerificationKeyAsFields) {
+    const leafIndex = getVKIndex(vk);
+    return new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex));
+  }
 });

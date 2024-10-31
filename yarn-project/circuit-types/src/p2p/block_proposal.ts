@@ -1,7 +1,8 @@
-import { type EthAddress } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { recoverAddress } from '@aztec/foundation/crypto';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
@@ -40,6 +41,10 @@ export class BlockProposal extends Gossipable {
     return BlockProposalHash.fromField(this.payload.archive);
   }
 
+  get archive(): Fr {
+    return this.payload.archive;
+  }
+
   static async createProposalFromSigner(
     payload: ConsensusPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
@@ -74,5 +79,9 @@ export class BlockProposal extends Gossipable {
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
     return new BlockProposal(reader.readObject(ConsensusPayload), reader.readObject(Signature));
+  }
+
+  getSize(): number {
+    return this.payload.getSize() + this.signature.getSize();
   }
 }

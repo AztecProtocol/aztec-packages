@@ -48,12 +48,17 @@ pub enum TypeCheckError {
     TypeMismatchWithSource { expected: Type, actual: Type, span: Span, source: Source },
     #[error("Expected type {expected_kind:?} is not the same as {expr_kind:?}")]
     TypeKindMismatch { expected_kind: String, expr_kind: String, expr_span: Span },
+    // TODO(https://github.com/noir-lang/noir/issues/6238): implement handling for larger types
+    #[error("Expected type {expected_kind} when evaluating globals, but found {expr_kind} (this warning may become an error in the future)")]
+    EvaluatedGlobalIsntU32 { expected_kind: String, expr_kind: String, expr_span: Span },
     #[error("Expected {expected:?} found {found:?}")]
     ArityMisMatch { expected: usize, found: usize, span: Span },
     #[error("Return type in a function cannot be public")]
     PublicReturnType { typ: Type, span: Span },
     #[error("Cannot cast type {from}, 'as' is only for primitive field or integer types")]
-    InvalidCast { from: Type, span: Span },
+    InvalidCast { from: Type, span: Span, reason: String },
+    #[error("Casting value of type {from} to a smaller type ({to})")]
+    DownsizingCast { from: Type, to: Type, span: Span, reason: String },
     #[error("Expected a function, but found a(n) {found}")]
     ExpectedFunction { found: Type, span: Span },
     #[error("Type {lhs_type} has no member named {field_name}")]
@@ -227,6 +232,15 @@ impl<'a> From<&'a TypeCheckError> for Diagnostic {
                     *expr_span,
                 )
             }
+            // TODO(https://github.com/noir-lang/noir/issues/6238): implement
+            // handling for larger types
+            TypeCheckError::EvaluatedGlobalIsntU32 { expected_kind, expr_kind, expr_span } => {
+                Diagnostic::simple_warning(
+                    format!("Expected type {expected_kind} when evaluating globals, but found {expr_kind} (this warning may become an error in the future)"),
+                    String::new(),
+                    *expr_span,
+                )
+            }
             TypeCheckError::TraitMethodParameterTypeMismatch { method_name, expected_typ, actual_typ, parameter_index, parameter_span } => {
                 Diagnostic::simple_error(
                     format!("Parameter #{parameter_index} of method `{method_name}` must be of type {expected_typ}, not {actual_typ}"),
@@ -284,8 +298,14 @@ impl<'a> From<&'a TypeCheckError> for Diagnostic {
                 };
                 Diagnostic::simple_error(msg, String::new(), *span)
             }
-            TypeCheckError::InvalidCast { span, .. }
-            | TypeCheckError::ExpectedFunction { span, .. }
+            TypeCheckError::InvalidCast { span, reason, .. } => {
+                Diagnostic::simple_error(error.to_string(), reason.clone(), *span)
+            }
+            TypeCheckError::DownsizingCast { span, reason, .. } => {
+                Diagnostic::simple_warning(error.to_string(), reason.clone(), *span)
+            }
+
+            TypeCheckError::ExpectedFunction { span, .. }
             | TypeCheckError::AccessUnknownMember { span, .. }
             | TypeCheckError::UnsupportedCast { span }
             | TypeCheckError::TupleIndexOutOfBounds { span, .. }
@@ -414,11 +434,15 @@ impl<'a> From<&'a TypeCheckError> for Diagnostic {
                 let msg = format!("Expected {expected_count} generic{expected_plural} from this function, but {actual_count} {actual_plural} provided");
                 Diagnostic::simple_error(msg, "".into(), *span)
             },
-            TypeCheckError::MacroReturningNonExpr { typ, span } => Diagnostic::simple_error(
-                format!("Expected macro call to return a `Quoted` but found a(n) `{typ}`"),
-                "Macro calls must return quoted values, otherwise there is no code to insert".into(),
-                *span,
-            ),
+            TypeCheckError::MacroReturningNonExpr { typ, span } =>  {
+                let mut error = Diagnostic::simple_error(
+                    format!("Expected macro call to return a `Quoted` but found a(n) `{typ}`"),
+                    "Macro calls must return quoted values, otherwise there is no code to insert.".into(),
+                    *span,
+                );
+                error.add_secondary("Hint: remove the `!` from the end of the function name.".to_string(), *span);
+                error
+            },
             TypeCheckError::UnsupportedTurbofishUsage { span } => {
                 let msg = "turbofish (`::<_>`)  usage at this position isn't supported yet";
                 Diagnostic::simple_error(msg.to_string(), "".to_string(), *span)
@@ -486,8 +510,8 @@ impl NoMatchingImplFoundError {
         let constraints = failing_constraints
             .into_iter()
             .map(|constraint| {
-                let r#trait = interner.try_get_trait(constraint.trait_id)?;
-                let name = format!("{}{}", r#trait.name, constraint.trait_generics);
+                let r#trait = interner.try_get_trait(constraint.trait_bound.trait_id)?;
+                let name = format!("{}{}", r#trait.name, constraint.trait_bound.trait_generics);
                 Some((constraint.typ, name))
             })
             .collect::<Option<Vec<_>>>()?;
