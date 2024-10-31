@@ -297,22 +297,19 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
-    const completeAddresses = await this.db.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const senders = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
-    const secrets = senders.map(({ address: sender }) => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
+
+    // We implicitly add the recipient as a contact, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
+    const contacts = [...this.db.getContactAddresses(), recipient];
+    const appTaggingSecrets = contacts.map(contact => {
+      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     // Ensure the directionality (sender -> recipient)
-    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
+    const directionalSecrets = appTaggingSecrets.map(secret => new TaggingSecret(secret, recipient));
     const indexes = await this.db.getTaggingSecretsIndexes(directionalSecrets);
-    return directionalSecrets.map(
-      ({ secret, recipient }, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]),
+    return directionalSecrets.map((directionalSecret, i) =>
+      IndexedTaggingSecret.fromTaggingSecret(directionalSecret, indexes[i]),
     );
   }
 
