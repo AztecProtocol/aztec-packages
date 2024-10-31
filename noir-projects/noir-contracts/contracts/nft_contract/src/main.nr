@@ -188,7 +188,8 @@ contract NFT {
 
         // We set the ovpk to the message sender's ovpk and we encrypt the log.
         let from_ovpk = get_public_keys(context.msg_sender()).ovpk_m;
-        let setup_log = note_setup_payload.encrypt_log(context, from_ovpk, to);
+        let setup_log =
+            note_setup_payload.encrypt_log(context, from_ovpk, to, context.msg_sender());
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -307,6 +308,7 @@ contract NFT {
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
     }
 
