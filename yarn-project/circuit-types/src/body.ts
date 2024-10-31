@@ -111,6 +111,15 @@ export class Body {
   }
 
   /**
+   * Removes empty nested arrays from logs structs.
+   * @dev This is so that a block reconstructed with fields matches the same block with empty logs.
+   * See data_retrieval for use case
+   */
+  squashEmptyLogs() {
+    this.txEffects.forEach(effect => effect.squashEmptyLogs());
+  }
+
+  /**
    * Computes the number of transactions in the block including padding transactions.
    * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad
    */

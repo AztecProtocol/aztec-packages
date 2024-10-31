@@ -277,7 +277,7 @@ export class EnqueuedCallsProcessor {
         await this.worldStateDB.removeNewContracts(tx);
         await this.worldStateDB.rollbackToCheckpoint();
         tx.filterRevertedLogs(publicKernelOutput);
-      } else {
+      } else if (enqueuedCallResult.newUnencryptedLogs.logs.length) {
         // TODO(#6470): we should be adding contracts deployed in those logs to the publicContractsDB
         tx.unencryptedLogs.addFunctionLogs([enqueuedCallResult.newUnencryptedLogs]);
       }

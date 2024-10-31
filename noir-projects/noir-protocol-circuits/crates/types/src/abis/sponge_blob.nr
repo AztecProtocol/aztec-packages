@@ -1,6 +1,7 @@
 use crate::{
-    traits::{Serialize, Deserialize, Empty}, constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH},
+    constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH},
     hash::poseidon2_absorb_chunks_existing_sponge,
+    traits::{Deserialize, Empty, Serialize},
 };
 use std::hash::poseidon2::Poseidon2;
 

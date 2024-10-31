@@ -4,14 +4,14 @@ use crate::{
         constant_rollup_data::ConstantRollupData,
     },
     base::state_diff_hints::StateDiffHints,
-    components::{compute_kernel_out_hash, compute_tx_effects_hash},
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
 };
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_update_request::PublicDataUpdateRequest, sponge_blob::SpongeBlob,
     },
     address::AztecAddress,
     constants::{
@@ -517,23 +517,27 @@ mod tests {
             },
             state_diff_hints::StateDiffHints,
         },
-        components::TX_EFFECTS_HASH_INPUT_FIELDS,
+        components::{append_tx_effects_for_blob, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS},
     };
     use dep::types::{
         abis::{
+            accumulated_data::CombinedAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             nullifier_leaf_preimage::NullifierLeafPreimage,
-            public_data_update_request::PublicDataUpdateRequest,
+            public_data_update_request::PublicDataUpdateRequest, sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            ARCHIVE_HEIGHT, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX,
             NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
-            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
-            PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_SUBTREE_HEIGHT,
-            PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+            NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX,
+            PRIVATE_KERNEL_TAIL_INDEX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
+            TX_FEE_PREFIX, UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -543,8 +547,8 @@ mod tests {
         tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
         traits::Empty,
         utils::{
-            arrays::get_sorted_tuple::get_sorted_tuple,
-            field::{field_from_bytes_32_trunc, full_field_less_than},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            field::{field_from_bytes, full_field_less_than},
         },
     };
 

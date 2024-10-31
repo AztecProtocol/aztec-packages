@@ -67,7 +67,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemError, prettyLogViemErrorMsg } from './utils.js';
+import { prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.

@@ -5,8 +5,8 @@ import {
   PRIVATE_KERNEL_EMPTY_INDEX,
   PrivateBaseRollupInputs,
   PrivateKernelEmptyInputData,
-  SpongeBlob,
   PrivateTubeData,
+  SpongeBlob,
   VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';

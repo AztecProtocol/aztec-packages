@@ -1,10 +1,10 @@
 use crate::abis::block_root_or_block_merge_public_inputs::{
     BlockRootOrBlockMergePublicInputs, FeeRecipient,
 };
+use blob::blob_public_inputs::BlobPublicInputs;
 use types::abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
 };
-use blob::blob_public_inputs::BlobPublicInputs;
 use types::constants::AZTEC_EPOCH_DURATION;
 
 pub struct EmptyBlockRootRollupInputs {

@@ -198,7 +198,11 @@ export class PublicProcessor {
     // BUT the rollup must know to initialise the blob state and start accepting txs...
     if (processedTxHandler) {
       // ...hence this messy call below, which will break if the handler has accepted any txs already
-      if ('reInitSpongeBlob' in processedTxHandler && typeof processedTxHandler.reInitSpongeBlob == 'function') {
+      if (
+        'reInitSpongeBlob' in processedTxHandler &&
+        typeof processedTxHandler.reInitSpongeBlob == 'function' &&
+        result.length
+      ) {
         processedTxHandler.reInitSpongeBlob(toNumTxsEffects(result, result[0].data.constants.globalVariables.gasFees));
       }
       for (const processedTx of result) {

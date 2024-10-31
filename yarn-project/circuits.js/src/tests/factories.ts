@@ -152,12 +152,12 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
-  BlobPublicInputs,
-  Poseidon2Sponge,
   AvmContractBytecodeHints,
   AvmProofData,
   BaseRollupHints,
+  BlobPublicInputs,
   EnqueuedCallData,
+  Poseidon2Sponge,
   PrivateBaseRollupInputs,
   PrivateTubeData,
   PublicAccumulatedDataArrayLengths,

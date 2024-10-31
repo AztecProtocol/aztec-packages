@@ -1,27 +1,29 @@
 use crate::abis::{
     base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-};
-use crate::abis::{
-    previous_rollup_block_data::PreviousRollupBlockData, previous_rollup_data::PreviousRollupData,
+    previous_rollup_block_data::PreviousRollupBlockData,
+    previous_rollup_data::PreviousRollupData,
 };
 use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
         log_hash::{LogHash, ScopedLogHash},
         public_data_update_request::PublicDataUpdateRequest,
+        sponge_blob::SpongeBlob,
     },
     constants::{
-        AZTEC_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        AZTEC_EPOCH_DURATION, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_ENCRYPTED_LOGS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
+        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+        UNENCRYPTED_LOGS_PREFIX,
     },
     hash::{
-        accumulate_sha256, compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
-        silo_unencrypted_log_hash,
+        accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
     },
     merkle_tree::VariableMerkleTree,
-    utils::arrays::{array_length, array_merge},
+    utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
 };
 use blob::blob_public_inputs::BlobPublicInputs;
 

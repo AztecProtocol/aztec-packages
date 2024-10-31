@@ -1,6 +1,6 @@
 use crate::config::F;
-use types::{traits::{Empty, Serialize, Deserialize}, constants::BLOB_PUBLIC_INPUTS};
 use bigint::BigNum;
+use types::{constants::BLOB_PUBLIC_INPUTS, traits::{Deserialize, Empty, Serialize}};
 
 pub struct BlobPublicInputs {
     z: Field,

@@ -167,7 +167,12 @@ async function getBlockFromRollupTx(
     blockBody.encryptedLogs,
     blockBody.unencryptedLogs,
   );
+
+  blockBody.squashEmptyLogs();
   if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
+    // Sometimes the below will fail because empty logs can look like:
+    //   UnencryptedTxL2Logs { functionLogs: [ UnencryptedFunctionL2Logs { logs: [] } ]} OR UnencryptedTxL2Logs { functionLogs: []}
+    // Even though they represent the same data, hence squashing the blockBody logs above
     // TODO(#9101): Remove below check (without calldata there will be nothing to check against)
     throw new Error(`Block reconstructed from blob fields does not match`);
   }

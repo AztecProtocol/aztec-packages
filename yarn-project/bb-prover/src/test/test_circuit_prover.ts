@@ -76,8 +76,8 @@ import {
 } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import path from 'path';
 import { type WitnessMap } from '@noir-lang/types';
+import path from 'path';
 
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
@@ -367,7 +367,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     // With the blob circuit, we require a long array of private inputs.
     // Unfortunately, this overflows wasm limits, so cannot be simulated via wasm.
     // The below forces use of the native simulator just for this circuit:
-    if (artifactName == "BlockRootRollupArtifact" && !(simulationProvider instanceof NativeACVMSimulator)) {
+    if (artifactName == 'BlockRootRollupArtifact' && !(simulationProvider instanceof NativeACVMSimulator)) {
       simulationProvider = new NativeACVMSimulator(
         process.env.TEMP_DIR || `/tmp`,
         process.env.ACVM_BINARY_PATH ||

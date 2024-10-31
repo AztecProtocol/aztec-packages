@@ -208,7 +208,7 @@ library Constants {
   uint256 internal constant HEADER_LENGTH = 23;
   uint256 internal constant HEADER_LENGTH_BYTES = 584;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 500;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 673;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 865;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 503;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 37;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 40;
@@ -276,11 +276,11 @@ library Constants {
   uint256 internal constant START_NULLIFIER_NON_EXISTS_OFFSET = 32;
   uint256 internal constant START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 48;
   uint256 internal constant START_SSTORE_WRITE_OFFSET = 64;
-  uint256 internal constant START_SLOAD_WRITE_OFFSET = 96;
-  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 128;
-  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
-  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
-  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
+  uint256 internal constant START_SLOAD_WRITE_OFFSET = 128;
+  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 192;
+  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
+  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
+  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
   uint256 internal constant REVERT_CODE_PREFIX = 1;
   uint256 internal constant TX_FEE_PREFIX = 2;
   uint256 internal constant NOTES_PREFIX = 3;

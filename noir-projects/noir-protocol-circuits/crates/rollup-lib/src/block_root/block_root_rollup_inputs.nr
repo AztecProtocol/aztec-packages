@@ -10,7 +10,7 @@ use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, AZTEC_EPOCH_DURATION, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, MERGE_ROLLUP_INDEX,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PRIVATE_BASE_ROLLUP_VK_INDEX,
         PUBLIC_BASE_ROLLUP_VK_INDEX,

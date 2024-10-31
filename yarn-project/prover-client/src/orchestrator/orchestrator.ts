@@ -17,7 +17,7 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  type BaseRollupInputs,
+  type BaseRollupHints,
   BlobPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
@@ -716,7 +716,7 @@ export class ProvingOrchestrator implements EpochProver {
   private async prepareBaseRollupInputs(
     provingState: BlockProvingState | undefined,
     tx: ProcessedTx,
-  ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
+  ): Promise<[BaseRollupHints, TreeSnapshots] | undefined> {
     if (!provingState?.verifyState() || !provingState.spongeBlobState) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
@@ -724,7 +724,9 @@ export class ProvingOrchestrator implements EpochProver {
 
     // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
-    const [ms, hints] = await elapsed(buildBaseRollupHints(tx, provingState.globalVariables, this.db, provingState.spongeBlobState));
+    const [ms, hints] = await elapsed(
+      buildBaseRollupHints(tx, provingState.globalVariables, this.db, provingState.spongeBlobState),
+    );
 
     if (!tx.isEmpty) {
       this.metrics.recordBaseRollupInputs(ms);

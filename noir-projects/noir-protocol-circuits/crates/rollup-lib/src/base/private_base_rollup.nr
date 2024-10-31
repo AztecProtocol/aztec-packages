@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use dep::types::{
+    abis::sponge_blob::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_KERNEL_EMPTY_INDEX,
         PUBLIC_DATA_TREE_HEIGHT, TUBE_VK_INDEX,
@@ -25,6 +26,7 @@ pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
 
     start: PartialStateReference,
+    start_sponge_blob: SpongeBlob,
 
     state_diff_hints: StateDiffHints,
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
@@ -49,6 +51,7 @@ impl PrivateBaseRollupInputs {
         BaseRollupInputs {
             kernel_data: KernelData { public_inputs: self.tube_data.public_inputs },
             start: self.start,
+            start_sponge_blob: self.start_sponge_blob,
             state_diff_hints: self.state_diff_hints,
             fee_payer_fee_juice_balance_read_hint: self.fee_payer_fee_juice_balance_read_hint,
             sorted_public_data_writes: self.sorted_public_data_writes,

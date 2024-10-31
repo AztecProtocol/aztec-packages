@@ -14,10 +14,12 @@
 // BIG CONFIG *********************************************************************
 
 use crate::{
+    blob_public_inputs::BlobPublicInputs,
     config::{
-        F, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D,
-        D_INV, ROOTS,
-    }, negative_roots::NEGATIVE_ROOTS, blob_public_inputs::BlobPublicInputs,
+        D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
+        NOIR_FIELDS_PER_BLOB, ROOTS,
+    },
+    negative_roots::NEGATIVE_ROOTS,
 };
 
 //*********************************************************************************
@@ -26,7 +28,7 @@ use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
 // use types::hash::poseidon2_cheaper_variable_hash;
-use types::{constants::FIELDS_PER_BLOB, abis::sponge_blob::SpongeBlob};
+use types::{abis::sponge_blob::SpongeBlob, constants::FIELDS_PER_BLOB};
 
 global LIMB_MAX = 2.pow_32(120);
 

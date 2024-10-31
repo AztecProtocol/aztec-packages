@@ -1,5 +1,5 @@
 import {
-  type EncryptedL2Log,
+  EncryptedL2Log,
   EncryptedL2NoteLog,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
@@ -183,6 +183,23 @@ export class TxEffect {
       nextLayer = [];
     }
     return thisLayer[0];
+  }
+
+  /**
+   * Removes empty nested arrays from logs structs.
+   * @dev This is so that a block reconstructed with fields matches the same block with empty logs.
+   * See data_retrieval for use case
+   */
+  squashEmptyLogs() {
+    if (!this.noteEncryptedLogs.getTotalLogCount()) {
+      this.noteEncryptedLogs = EncryptedNoteTxL2Logs.empty();
+    }
+    if (!this.encryptedLogs.getTotalLogCount()) {
+      this.encryptedLogs = EncryptedTxL2Logs.empty();
+    }
+    if (!this.unencryptedLogs.getTotalLogCount()) {
+      this.unencryptedLogs = UnencryptedTxL2Logs.empty();
+    }
   }
 
   static random(

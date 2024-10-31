@@ -66,7 +66,6 @@ contract RollupTest is DecoderBase {
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
    */
-
   modifier setUpFor(string memory _name) {
     {
       Leonidas leo = new Leonidas(address(1));
@@ -573,15 +572,19 @@ contract RollupTest is DecoderBase {
     DecoderBase.Data memory data = full.block;
     bytes memory header = data.header;
     assembly {
-      mstore(add(header, add(0x20, 0x0208)), 1)
+      mstore(add(header, add(0x20, 0x01e8)), 1)
     }
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
+    skipBlobCheck();
+
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
-    rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body);
+    rollup.propose(
+      header, data.archive, data.blockHash, txHashes, signatures, data.body, new bytes(144)
+    );
   }
 
   function testNonZeroL2Fee() public setUpFor("mixed_block_1") {
@@ -591,15 +594,19 @@ contract RollupTest is DecoderBase {
     DecoderBase.Data memory data = full.block;
     bytes memory header = data.header;
     assembly {
-      mstore(add(header, add(0x20, 0x0228)), 1)
+      mstore(add(header, add(0x20, 0x0208)), 1)
     }
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
+    skipBlobCheck();
+
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
-    rollup.propose(header, data.archive, data.blockHash, txHashes, signatures, data.body);
+    rollup.propose(
+      header, data.archive, data.blockHash, txHashes, signatures, data.body, new bytes(144)
+    );
   }
 
   function testBlockFee() public setUpFor("mixed_block_1") {
