@@ -1,6 +1,5 @@
 use crate::AMM;
 use dep::token::{test::utils::{check_private_balance, mint_private}, Token};
-use dep::uint_note::uint_note::UintNote;
 use aztec::{
     keys::getters::get_public_keys,
     oracle::{
@@ -8,11 +7,10 @@ use aztec::{
         random::random,
         storage::storage_read,
     },
-    prelude::{AztecAddress, NoteHeader},
+    prelude::AztecAddress,
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
-use std::test::OracleMock;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress, Field, Field, Field) {
     // Setup env, generate keys
