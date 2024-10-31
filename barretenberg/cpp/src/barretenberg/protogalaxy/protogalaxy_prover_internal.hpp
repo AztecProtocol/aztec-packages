@@ -125,23 +125,47 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             return tmp;
         }();
 
-        const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
-            polynomial_size,
-            /*accumulator default*/ FF(0),
-            [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
-                if (trace_usage_tracker.check_is_active(row_idx)) {
-                    const AllValues row = polynomials.get_row(row_idx);
-                    // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows
-                    // here.
+        //
+        // Determine number of threads for multithreading.
+        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
+        // on a specified minimum number of iterations per thread. This eventually leads to the use of a
+        // single thread. For now we use a power of 2 number of threads simply to ensure the round size is evenly
+        // divided.
+        const size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
+        const size_t min_iterations_per_thread =
+            1 << 6; // min number of iterations for which we'll spin up a unique thread
+        const size_t desired_num_threads = polynomial_size / min_iterations_per_thread;
+        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
+        // // DEBUG
+        // num_threads = 16;
+        num_threads = num_threads > 0 ? num_threads : 1; // ensure num threads is >= 1
+        // const size_t iterations_per_thread = polynomial_size / num_threads; // actual iterations per thread
+        //
+
+        std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
+
+        trace_usage_tracker.construct_thread_ranges(num_threads);
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+            // const size_t start = thread_idx * iterations_per_thread;
+            // const size_t end = (thread_idx + 1) * iterations_per_thread;
+
+            for (size_t idx = start; idx < end; idx++) {
+                if (trace_usage_tracker.check_is_active(idx)) {
+                    const AllValues row = polynomials.get_row(idx);
+                    // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =
                         RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
                     // Sum against challenges alpha
-                    aggregated_relation_evaluations[row_idx] =
-                        process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
+                    aggregated_relation_evaluations[idx] = process_subrelation_evaluations(
+                        evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);
                 }
-            },
-            thread_heuristics::ALWAYS_MULTITHREAD);
+            }
+        });
+
         aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
