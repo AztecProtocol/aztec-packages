@@ -110,7 +110,7 @@ describe('End-to-end tests for devnet', () => {
       pxeUrl = `http://${localhost}:${port}`;
       // start a server for the CLI to talk to
       const jsonRpcServer = createNamespacedJsonRpcServer([{ pxe: createPXERpcServer(pxe) }]);
-      const server = startHttpRpcServer(jsonRpcServer, { port });
+      const server = await startHttpRpcServer(jsonRpcServer, { port });
 
       teardown = async () => {
         const { promise, resolve, reject } = promiseWithResolvers<void>();

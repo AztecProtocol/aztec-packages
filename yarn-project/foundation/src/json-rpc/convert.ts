@@ -46,7 +46,7 @@ export const convertBigintsInObj = (obj: any) => {
  * @param obj - The object to be stringified.
  * @returns The resulting string.
  */
-export function JsonStringify(obj: object, prettify?: boolean): string {
+export function jsonStringify(obj: object, prettify?: boolean): string {
   return JSON.stringify(
     obj,
     (key, value) =>
@@ -56,6 +56,27 @@ export function JsonStringify(obj: object, prettify?: boolean): string {
             data: value.toString(),
           })
         : value,
+    prettify ? 2 : 0,
+  );
+}
+
+/**
+ * JSON.stringify helper that stringifies bigints and buffers.
+ * @param obj - The object to be stringified.
+ * @returns The resulting string.
+ */
+export function jsonStringify2(obj: object, prettify?: boolean): string {
+  return JSON.stringify(
+    obj,
+    (_key, value) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      } else if (typeof value === 'object' && Buffer.isBuffer(value)) {
+        return value.toString('base64');
+      } else {
+        return value;
+      }
+    },
     prettify ? 2 : 0,
   );
 }
@@ -163,23 +184,29 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
 }
 
 /**
- * Converts the given input to a JSON-friendly representation, handling bigints.
- * Calls toString or toJSON on objects that define it.
+ * TODO(palla): Do we really need this? Can't we just use jsonStringify, since it automatically calls toJSON?
+ *
+ * Converts the given input to a JSON-friendly representation. Any conversion here should
+ * match the ones defined in common schemas, to ensure that the JSON-RPC server and client
+ * can communicate correctly.
+ * - Converts bigints to strings.
+ * - Converts buffers to base64 strings.
+ * - Calls toJSON on objects that define it.
  */
 export function toJSON(obj: any): any {
   // Bigint is a primitive type that needs special handling since it's not serializable
-  // TODO(palla): Ensure this is compatible with the bigint schema we declared in zod
   if (typeof obj === 'bigint') {
-    return { type: 'bigint', data: obj.toString() };
+    return obj.toString();
   }
 
+  // Falsey values are primitive types
   if (!obj) {
-    return obj; // Primitive type
+    return obj;
   }
 
   // Is this a Node buffer?
   if (Buffer.isBuffer(obj)) {
-    return { type: 'Buffer', data: obj.toString('base64') };
+    return obj.toString('base64');
   }
 
   // Is this an array?
@@ -188,10 +215,11 @@ export function toJSON(obj: any): any {
   }
 
   if (typeof obj === 'object') {
-    // Does the object define its own toString?
-    if (typeof obj.toString === 'function' && obj.toString !== Object.prototype.toString) {
-      return obj.toString();
-    }
+    // TODO(palla): Do we want to call toString by default? Feels like it's safer to only call toJSON.
+    // // Does the object define its own toString?
+    // if (typeof obj.toString === 'function' && obj.toString !== Object.prototype.toString) {
+    //   return obj.toString();
+    // }
     // Does the object define a toJSON of its own?
     if (typeof obj.toJSON === 'function') {
       return obj.toJSON();
