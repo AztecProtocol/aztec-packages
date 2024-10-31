@@ -68,9 +68,9 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     }
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    for (size_t idx = 0; idx < multivariate_challenge.size(); idx++) {
-        info("sumcheck native challenge u_", idx, "  = ", multivariate_challenge[idx]);
-    }
+    // for (size_t idx = 0; idx < multivariate_challenge.size(); idx++) {
+    //     info("sumcheck native challenge u_", idx, "  = ", multivariate_challenge[idx]);
+    // }
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;
@@ -86,8 +86,17 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript);
+    info("native point",
+         batch_mul_native(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars));
     Shplemini::add_zk_data(
         sumcheck_batch_opening_claims, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
+    // for (auto scalar : sumcheck_batch_opening_claims.scalars) {
+    //     info("native batching scalar", scalar);
+    // }
+
+    info("native point after zk data ",
+         batch_mul_native(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars));
+    info("scalars native size", sumcheck_batch_opening_claims.scalars.size());
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

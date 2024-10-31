@@ -532,14 +532,39 @@ template <typename Flavor> class SumcheckVerifierRound {
                                              const RelationSeparator alpha,
                                              std::optional<FF> full_libra_purported_value = std::nullopt)
     {
-        // The verifier should never skip computation of contributions from any relation
+        info("pow = ", gate_sparators.partial_evaluation_result);
         // size_t idx = 0;
         // for (auto eval : purported_evaluations.get_all()) {
-        //     info("claimed eval ", idx, "   ", eval);
+        //     info("evals ", idx, " ", eval);
         //     idx++;
         // }
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, gate_sparators.partial_evaluation_result);
+        // info("rel eval <0>");
+        // for (size_t idx = 0; idx < std::get<0>(relation_evaluations).size(); idx++) {
+        //     info(std::get<0>(relation_evaluations)[idx]);
+        // }
+
+        // info("rel eval <1>");
+
+        // for (size_t idx = 0; idx < std::get<1>(relation_evaluations).size(); idx++) {
+        //     info(std::get<1>(relation_evaluations)[idx]);
+        // }
+        // info("rel eval <2>");
+
+        // for (size_t idx = 0; idx < std::get<2>(relation_evaluations).size(); idx++) {
+        //     info(std::get<2>(relation_evaluations)[idx]);
+        // }
+        // info("rel eval <3>");
+
+        // for (size_t idx = 0; idx < std::get<3>(relation_evaluations).size(); idx++) {
+        //     info(std::get<3>(relation_evaluations)[idx]);
+        // }
+        // info("rel eval <4>");
+
+        // for (size_t idx = 0; idx < std::get<4>(relation_evaluations).size(); idx++) {
+        //     info(std::get<4>(relation_evaluations)[idx]);
+        // }
         // info("rel eval <5>");
 
         // for (size_t idx = 0; idx < std::get<5>(relation_evaluations).size(); idx++) {
@@ -554,9 +579,14 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
 
-        info("honk without libra?", output);
+        // info("honk without libra?", output);
+
+        // info("after reduction ", output);
         if constexpr (Flavor::HasZK) {
             output += full_libra_purported_value.value();
+            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+                output.self_reduce();
+            }
         };
         return output;
     }

@@ -83,7 +83,7 @@ template <typename Flavor> struct ZKSumcheckData {
             for (auto& libra_univariate_monomial : libra_univariates_monomial) {
                 auto libra_commitment = proving_key->commitment_key->commit(libra_univariate_monomial);
                 transcript->send_to_verifier("Libra:commitment_" + std::to_string(idx), libra_commitment);
-                info("libra comm prover", libra_commitment);
+                // info("libra comm prover", libra_commitment);
                 idx++;
             }
         }
@@ -103,7 +103,7 @@ template <typename Flavor> struct ZKSumcheckData {
         libra_running_sum = libra_total_sum * libra_challenge;
 
         // Setup the Libra data
-        setup_libra_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
+        setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
     }
 
     /**
@@ -191,10 +191,10 @@ template <typename Flavor> struct ZKSumcheckData {
  * @param libra_round_factor
  * @param libra_challenge
  */
-    static void setup_libra_data(auto& libra_univariates,
-                                 FF& libra_scaling_factor,
-                                 const FF libra_challenge,
-                                 FF& libra_running_sum)
+    static void setup_auxiliary_data(auto& libra_univariates,
+                                     FF& libra_scaling_factor,
+                                     const FF libra_challenge,
+                                     FF& libra_running_sum)
     {
         libra_scaling_factor *= libra_challenge; // \rho * 2^{d-1}
         for (auto& univariate : libra_univariates) {

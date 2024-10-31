@@ -142,8 +142,6 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
         // info("read terms ", READ_TERMS);
         std::get<1>(accumulator) +=
             Relation::template compute_read_term_predicate<Accumulator, i>(in) * denominator_accumulator[i];
-        info("denom accumulator? ", denominator_accumulator[i]);
-        info("interm accum ", std::get<1>(accumulator));
     });
 
     // each predicate is degree-1, `lookup_read_counts` is degree-1

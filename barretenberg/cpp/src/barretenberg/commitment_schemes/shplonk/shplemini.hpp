@@ -463,8 +463,14 @@ template <typename Curve> class ShpleminiVerifier_ {
 
     {
         const auto shplonk_batching_challenge = batch_opening_claim.batching_challenge;
+        info("shpl batching challenge ", shplonk_batching_challenge);
 
         const auto shplonk_evaluation_challenge = batch_opening_claim.evaluation_point;
+        info("shpl eval challenge ", shplonk_evaluation_challenge);
+
+        for (auto eval : libra_univariate_evaluations) {
+            info("libra eval received ", eval);
+        }
         // compute the correct power of \nu
         Fr shplonk_challenge_power = Fr{ 1 };
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2; ++j) {
@@ -481,14 +487,25 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Fr> denominators;
         size_t num_libra_univariates = libra_univariate_commitments.size();
         for (size_t idx = 0; idx < num_libra_univariates; idx++) {
-            denominators.push_back(shplonk_evaluation_challenge - multivariate_challenge[idx]);
-        };
-        if constexpr (Curve::is_stdlib_type) {
-            for (Fr& denominator : denominators) {
-                denominator.invert();
+
+            if constexpr (Curve::is_stdlib_type) {
+                auto denom_reduced = shplonk_evaluation_challenge - multivariate_challenge[idx];
+                denom_reduced.self_reduce();
+                info("denom reduced non-native", idx, " ", denom_reduced);
+                denominators.push_back(Fr(1) /
+                                       (shplonk_evaluation_challenge - multivariate_challenge[idx])); // very strange
+                info("denom inverted", Fr(1) / (shplonk_evaluation_challenge - multivariate_challenge[idx]));
+            } else {
+                denominators.push_back(shplonk_evaluation_challenge - multivariate_challenge[idx]);
+                info("denom native", idx, " ", (shplonk_evaluation_challenge - multivariate_challenge[idx]));
             }
-        } else {
+        };
+
+        if constexpr (!Curve::is_stdlib_type) {
             Fr::batch_invert(denominators);
+            for (auto denom : denominators) {
+                info("denom native inverted ", denom);
+            }
         }
 
         Fr constant_term = 0;
@@ -496,7 +513,8 @@ template <typename Curve> class ShpleminiVerifier_ {
              zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
             commitments.push_back(libra_univariate_commitment);
             Fr scaling_factor = denominator * shplonk_challenge_power;
-            scalars.push_back(-scaling_factor);
+            scalars.push_back((-scaling_factor));
+            info("libra scalars? ", -scaling_factor);
             shplonk_challenge_power *= shplonk_batching_challenge;
             constant_term += scaling_factor * libra_univariate_evaluation;
         }

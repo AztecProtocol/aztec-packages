@@ -81,14 +81,14 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         Commitment libra_commitment =
             transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
         libra_commitments.push_back(libra_commitment);
-        info("libra comm V: ", libra_commitment);
+        // info("libra comm V: ", libra_commitment);
     }
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    for (size_t idx = 0; idx < multivariate_challenge.size(); idx++) {
-        info("sumcheck recursive challenge u_", idx, "  = ", multivariate_challenge[idx]);
-    }
+    // for (size_t idx = 0; idx < multivariate_challenge.size(); idx++) {
+    //     info("sumcheck recursive challenge u_", idx, "  = ", multivariate_challenge[idx]);
+    // }
     info("SUMCHECK verified", sumcheck_verified.value());
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
@@ -102,8 +102,14 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript);
+    info("non-native point",
+         Commitment::batch_mul(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars));
     Shplemini::add_zk_data(
         sumcheck_batch_opening_claims, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
+
+    info("non-native point after zk data",
+         Commitment::batch_mul(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars, true));
+    info("scalars recursive size", sumcheck_batch_opening_claims.scalars.size());
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
@@ -150,6 +156,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     const auto batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
+    info("batching opening verified? ", batched_opening_verified);
 
     ASSERT(sumcheck_verified && batched_opening_verified);
 }
