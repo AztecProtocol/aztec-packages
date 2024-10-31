@@ -1,8 +1,6 @@
 use crate::{test::utils, Token};
 
 use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::{prelude::NoteHeader, protocol_types::storage::map::derive_storage_slot_in_map};
-use dep::uint_note::uint_note::UintNote;
 use std::test::OracleMock;
 
 #[test]
@@ -35,34 +33,23 @@ unconstrained fn setup_refund_success() {
 
     setup_refund_from_call_interface.call(&mut env.private());
 
-    let fee_payer_balances_slot =
-        derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
-    let user_balances_slot =
-        derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
-
     // When the refund was set up, we would've spent the note worth mint_amount, and inserted a note worth
     //`mint_amount - funded_amount`. When completing the refund, we would've constructed a hash corresponding to a note
     // worth  `funded_amount - transaction_fee`. We "know" the transaction fee was 1 (it is hardcoded in
     // `executePublicFunction` TXE oracle) but we need to notify TXE of the note (preimage).
-    env.add_note(
-        &mut UintNote {
-            value: U128::from_integer(funded_amount - 1),
-            owner: user,
-            randomness: user_randomness,
-            header: NoteHeader::empty(),
-        },
-        user_balances_slot,
+    utils::add_token_note(
+        env,
         token_contract_address,
+        fee_payer,
+        1,
+        fee_payer_randomness,
     );
-    env.add_note(
-        &mut UintNote {
-            value: U128::from_integer(1),
-            owner: fee_payer,
-            randomness: fee_payer_randomness,
-            header: NoteHeader::empty(),
-        },
-        fee_payer_balances_slot,
+    utils::add_token_note(
+        env,
         token_contract_address,
+        user,
+        funded_amount - 1,
+        user_randomness,
     );
 
     utils::check_private_balance(token_contract_address, user, mint_amount - 1);
