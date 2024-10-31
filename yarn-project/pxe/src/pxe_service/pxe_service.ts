@@ -790,8 +790,8 @@ export class PXEService implements PXE {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
 
-    // Run prove with profile=true and dryRun=false
-    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, false);
+    // Dry run the prover with profiler enabled
+    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
     return result.profileResult;
   }
 
