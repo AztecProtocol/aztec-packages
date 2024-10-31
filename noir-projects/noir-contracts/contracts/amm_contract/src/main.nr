@@ -53,6 +53,8 @@ contract AMM {
     /// Amount of liquidity which gets locked token_contract0l when liquidity is provided for the first ttoken_contract0purpose
     /// is to prevent the pool from ever emptying which could lead to undefined behavior.
     global MINIMUM_LIQUIDITY = U128::from_integer(1000);
+    // We set it to 9 times the minimum liquidity. That way the first LP gets 90% of the value of his deposit.
+    global INITIAL_LIQUIDITY = U128::from_integer(9000);
 
     // Note: Since we don't have inheritance it seems the easiest to deploy the standard token and use it as
     // a liquidity tracking contract. This contract would be an admin of the liquidity contract.
@@ -203,9 +205,8 @@ contract AMM {
         let mut liquidity = U128::zero();
         if (total_supply == U128::zero()) {
             // Since we don't collect a protocol fee (unlike Uniswap V2) we can set initial liquidity to an arbitrary
-            // value instead of sqrt(amount0 * amount1). We set it to 9 times the minimum liquidity. That way
-            // the initial depositor gets 90% of the value of his deposit.
-            liquidity = MINIMUM_LIQUIDITY * U128::from_integer(9);
+            // value instead of sqrt(amount0 * amount1).
+            liquidity = INITIAL_LIQUIDITY;
             liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY.to_integer()).call(
                 &mut context,
             ); // permanently lock the first MINIMUM_LIQUIDITY tokens

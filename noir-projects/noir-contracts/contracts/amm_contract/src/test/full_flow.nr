@@ -62,24 +62,27 @@ unconstrained fn full_flow() {
     check_public_balance(token0_address, amm_address, amount0_desired);
     check_public_balance(token1_address, amm_address, amount1_desired);
 
-    // The liquidity token should have been minted to the liquidity provider
-    let expected_liquidity_token_balance = Amm::MINIMUM_LIQUIDITY * U128::from_integer(9);
+    // Initial liquidity amount of liquidity token should have been minted to the liquidity provider
     // Since it was minted in private and #8771 is not yet implemented we need to add the note
     add_token_note(
         env,
         liquidity_token_address,
         liquidity_provider,
-        expected_liquidity_token_balance,
+        AMM::INITIAL_LIQUIDITY.to_integer(),
         note_randomness,
     );
     check_private_balance(
         liquidity_token_address,
         liquidity_provider,
-        expected_liquidity_token_balance,
+        AMM::INITIAL_LIQUIDITY.to_integer(),
     );
 
     // The AMM should have locked minimum liquidity to itself in public
-    check_public_balance(liquidity_token_address, amm_address, Amm::MINIMUM_LIQUIDITY);
+    check_public_balance(
+        liquidity_token_address,
+        amm_address,
+        AMM::MINIMUM_LIQUIDITY.to_integer(),
+    );
 
     // SWAPPING
     // Now we will try to swap the full balance of the swapper
