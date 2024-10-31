@@ -367,7 +367,7 @@ describe('e2e_fees private_payment', () => {
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
-    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address).send().deployed();
+    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address, aliceAddress).send().deployed();
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 

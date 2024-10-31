@@ -60,7 +60,12 @@ describe('e2e_fees failures', () => {
         .send({
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            paymentMethod: new PrivateFeePaymentMethod(
+              bananaCoin.address,
+              bananaFPC.address,
+              aliceWallet,
+              aliceAddress,
+            ),
           },
         })
         .wait(),

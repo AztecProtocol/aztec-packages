@@ -23,7 +23,6 @@ import {
   CounterContract,
   FPCContract,
   FeeJuiceContract,
-  PrivateFPCContract,
   TokenContract,
 } from '@aztec/noir-contracts.js';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -68,6 +67,8 @@ export class FeesTest {
   public sequencerAddress!: AztecAddress;
   public coinbase!: EthAddress;
 
+  public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
+
   public gasSettings = GasSettings.default();
   public maxFee = this.gasSettings.getFeeLimit().toBigInt();
 
@@ -75,7 +76,6 @@ export class FeesTest {
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
   public token!: TokenContract;
-  public privateFPC!: PrivateFPCContract;
   public counterContract!: CounterContract;
   public subscriptionContract!: AppSubscriptionContract;
   public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
@@ -172,6 +172,10 @@ export class FeesTest {
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
+
+        // We like sequencer so we send him the fees.
+        this.feeRecipient = this.sequencerAddress;
+
         this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
         const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
         if (!bobInstance) {
@@ -244,9 +248,9 @@ export class FeesTest {
     );
   }
 
-  async applyTokenAndFPC() {
+  async applyToken() {
     await this.snapshotManager.snapshot(
-      'token_and_private_fpc',
+      'token',
       async context => {
         // Deploy token/fpc flavors for private refunds
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
@@ -258,23 +262,11 @@ export class FeesTest {
 
         this.logger.info(`Token deployed at ${token.address}`);
 
-        const privateFPCSent = PrivateFPCContract.deploy(
-          this.bobWallet,
-          token.address,
-          this.bobWallet.getAddress(),
-        ).send();
-        const privateFPC = await privateFPCSent.deployed();
-
-        this.logger.info(`PrivateFPC deployed at ${privateFPC.address}`);
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, privateFPC.address);
-
         return {
           tokenAddress: token.address,
-          privateFPCAddress: privateFPC.address,
         };
       },
       async data => {
-        this.privateFPC = await PrivateFPCContract.at(data.privateFPCAddress, this.bobWallet);
         this.token = await TokenContract.at(data.tokenAddress, this.aliceWallet);
 
         const logger = this.logger;
@@ -291,7 +283,9 @@ export class FeesTest {
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address).send().deployed();
+        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.feeRecipient)
+          .send()
+          .deployed();
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
