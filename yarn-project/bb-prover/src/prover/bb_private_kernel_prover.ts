@@ -89,7 +89,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private async _createClientIvcProof(
     directory: string,
     acirs: Buffer[],
-    recursive: boolean,
     witnessStack: WitnessMap[],
   ): Promise<ClientIvcProof> {
     // TODO(#7371): Longer term we won't use this hacked together msgpack format
@@ -104,7 +103,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       directory,
       path.join(directory, 'acir.msgpack'),
       path.join(directory, 'witnesses.msgpack'),
-      recursive,
       this.log.info,
     );
 
@@ -123,10 +121,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return proof;
   }
 
-  async createClientIvcProof(acirs: Buffer[], recursive: boolean, witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     this.log.info(`Generating Client IVC proof`);
     const operation = async (directory: string) => {
-      return await this._createClientIvcProof(directory, acirs, recursive, witnessStack);
+      return await this._createClientIvcProof(directory, acirs, witnessStack);
     };
     return await this.runInDirectory(operation);
   }
@@ -187,11 +185,14 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
 
   public async computeAppCircuitVerificationKey(
     bytecode: Buffer,
-    recursive: boolean,
     appCircuitName?: string,
   ): Promise<AppCircuitSimulateOutput> {
     const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
+      // App circuits are always recursive; the #[recursive] attribute used to be applied automatically
+      // by the `private` comptime macro in noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr
+      // Yet, inside `computeVerificationKey` the `mega_honk` flavor is used, which doesn't use the recursive flag.
+      const recursive = true;
       return await this.computeVerificationKey(directory, bytecode, recursive, 'App', appCircuitName);
     };
 

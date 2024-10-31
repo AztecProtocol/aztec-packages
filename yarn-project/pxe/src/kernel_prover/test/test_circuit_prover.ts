@@ -37,7 +37,7 @@ import { type WitnessMap } from '@noir-lang/types';
 export class TestPrivateKernelProver implements PrivateKernelProver {
   constructor(private log = createDebugLogger('aztec:test_proof_creator')) {}
 
-  createClientIvcProof(_acirs: Buffer[], _recursive: boolean, _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+  createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     return Promise.resolve(ClientIvcProof.empty());
   }
 
@@ -109,7 +109,6 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
 
   computeAppCircuitVerificationKey(
     _bytecode: Buffer,
-    _recursive: boolean,
     _appCircuitName?: string | undefined,
   ): Promise<AppCircuitSimulateOutput> {
     const appCircuitProofOutput: AppCircuitSimulateOutput = {

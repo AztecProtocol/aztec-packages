@@ -197,7 +197,6 @@ export async function executeBbClientIvcProof(
   workingDirectory: string,
   bytecodeStackPath: string,
   witnessStackPath: string,
-  recursive: boolean,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -222,16 +221,7 @@ export async function executeBbClientIvcProof(
     // Write the bytecode to the working directory
     log(`bytecodePath ${bytecodeStackPath}`);
     log(`outputPath ${outputPath}`);
-    const args = [
-      '-o',
-      outputPath,
-      '-b',
-      bytecodeStackPath,
-      '-w',
-      witnessStackPath,
-      '-v',
-      recursive ? '--recursive' : '',
-    ];
+    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`client ivc proof BB out - ${message}`);

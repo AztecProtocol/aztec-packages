@@ -53,7 +53,6 @@ describe('Client IVC Integration', () => {
       bbWorkingDirectory,
       path.join(bbWorkingDirectory, 'acir.msgpack'),
       path.join(bbWorkingDirectory, 'witnesses.msgpack'),
-      true,
       logger.info,
     );
 

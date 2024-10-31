@@ -54,7 +54,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) { }
+  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -85,9 +85,6 @@ export class KernelProver {
     // vector of gzipped bincode acirs
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
-
-    // The prover will eventually call `createClientIvcProof` which is recursive.
-    const recursive = true;
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -121,13 +118,7 @@ export class KernelProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      // App circuits are always recursive; the #[recursive] attribute used to be applied automatically
-      // by the `private` comptime macro in noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr
-      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(
-        currentExecution.acir,
-        true,
-        functionName,
-      );
+      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
       // TODO(#7368): This used to be associated with getDebugFunctionName
       // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
@@ -205,7 +196,7 @@ export class KernelProver {
     witnessStack.push(tailOutput.outputWitness);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
-    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, recursive, witnessStack);
+    const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
     tailOutput.clientIvcProof = ivcProof;
     return tailOutput;
   }
