@@ -401,8 +401,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         logsByTags.forEach((logsByTag, logIndex) => {
           expect(logsByTag).toHaveLength(1);
-          const [log] = logsByTag;
-          expect(log).toEqual(
+          const [scopedLog] = logsByTag;
+          expect(scopedLog.txHash).toEqual(blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash);
+          expect(scopedLog.log).toEqual(
             blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex],
           );
         });
@@ -427,7 +428,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         logsByTags.forEach(logsByTag => {
           expect(logsByTag).toHaveLength(2);
-          const [tag0, tag1] = logsByTag.map(log => new Fr(log.data.subarray(0, 32)));
+          const [tag0, tag1] = logsByTag.map(scopedLog => new Fr(scopedLog.log.data.subarray(0, 32)));
           expect(tag0).toEqual(tag1);
         });
       });
@@ -450,8 +451,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         populatedLogsByTags.forEach((logsByTag, logIndex) => {
           expect(logsByTag).toHaveLength(1);
-          const [log] = logsByTag;
-          expect(log).toEqual(
+          const [scopedLog] = logsByTag;
+          expect(scopedLog.txHash).toEqual(blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash);
+          expect(scopedLog.log).toEqual(
             blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex + 1],
           );
         });

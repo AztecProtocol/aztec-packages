@@ -243,3 +243,16 @@ pub unconstrained fn get_app_tagging_secrets_for_senders(
 
 #[oracle(getAppTaggingSecretsForSenders)]
 unconstrained fn get_app_tagging_secrets_for_senders_oracle(_recipient: AztecAddress) -> [Field] {}
+
+pub fn sync_notes(targetContractAddress: AztecAddress, recipient: AztecAddress) {
+    unsafe {
+        sync_notes_oracle_wrapper(targetContractAddress, recipient);
+    }
+}
+
+unconstrained fn sync_notes_oracle_wrapper(targetContractAddress: AztecAddress, recipient: AztecAddress) {
+    sync_notes_oracle(targetContractAddress, recipient);
+}
+
+#[oracle(syncNotes)]
+unconstrained fn sync_notes_oracle(_targetContractAddress: AztecAddress, _recipient: AztecAddress) {}

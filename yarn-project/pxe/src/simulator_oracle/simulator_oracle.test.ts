@@ -1,4 +1,4 @@
-import { type AztecNode, EncryptedL2NoteLog } from '@aztec/circuit-types';
+import { type AztecNode, EncryptedL2NoteLog, TxHash, TxScopedEncryptedL2NoteLog } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -69,13 +69,13 @@ describe('Simulator oracle', () => {
       await database.addCompleteAddress(sender.completeAddress);
     }
 
-    const logs: { [k: string]: EncryptedL2NoteLog[] } = {};
+    const logs: { [k: string]: TxScopedEncryptedL2NoteLog[] } = {};
 
     // Add a random note from every address in the address book for our account with index 0
     // Compute the tag as sender (knowledge of preaddress and ivsk)
     for (const sender of senders) {
       const tag = computeTagForIndex(sender, recipient.address, contractAddress, 0);
-      const log = EncryptedL2NoteLog.random(tag);
+      const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, EncryptedL2NoteLog.random(tag));
       logs[tag.toString()] = [log];
     }
     // Accumulated logs intended for recipient: NUM_SENDERS
@@ -84,7 +84,7 @@ describe('Simulator oracle', () => {
     // Compute the tag as sender (knowledge of preaddress and ivsk)
     const firstSender = senders[0];
     const tag = computeTagForIndex(firstSender, recipient.address, contractAddress, 0);
-    const log = EncryptedL2NoteLog.random(tag);
+    const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, EncryptedL2NoteLog.random(tag));
     logs[tag.toString()].push(log);
     // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -93,7 +93,7 @@ describe('Simulator oracle', () => {
     for (let i = NUM_SENDERS / 2; i < NUM_SENDERS; i++) {
       const sender = senders[i];
       const tag = computeTagForIndex(sender, recipient.address, contractAddress, 1);
-      const log = EncryptedL2NoteLog.random(tag);
+      const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, EncryptedL2NoteLog.random(tag));
       logs[tag.toString()] = [log];
     }
     // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -105,7 +105,7 @@ describe('Simulator oracle', () => {
       const partialAddress = Fr.random();
       const randomRecipient = computeAddress(keys.publicKeys, partialAddress);
       const tag = computeTagForIndex(sender, randomRecipient, contractAddress, 0);
-      const log = EncryptedL2NoteLog.random(tag);
+      const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, EncryptedL2NoteLog.random(tag));
       logs[tag.toString()] = [log];
     }
     // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2

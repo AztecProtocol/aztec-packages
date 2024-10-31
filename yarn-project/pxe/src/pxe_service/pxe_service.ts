@@ -8,6 +8,7 @@ import {
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
   L1EventPayload,
+  L1NotePayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
@@ -27,6 +28,7 @@ import {
   type TxHash,
   TxProvingResult,
   type TxReceipt,
+  TxScopedEncryptedL2NoteLog,
   TxSimulationResult,
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
@@ -69,11 +71,14 @@ import { type AcirSimulator } from '@aztec/simulator';
 
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
+import { produceNoteDaos } from '../note_processor/utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -90,8 +95,6 @@ export class PXEService implements PXE {
   // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
-
-  private fakeProofCreator = new TestPrivateKernelProver();
 
   constructor(
     private keyStore: KeyStore,

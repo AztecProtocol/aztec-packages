@@ -22,6 +22,7 @@ import type {
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  TxScopedEncryptedL2NoteLog,
 } from '../logs/index.js';
 import type { MerkleTreeId } from '../merkle_tree_id.js';
 import type { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
@@ -258,7 +259,7 @@ export interface AztecNode extends ProverCoordination {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.

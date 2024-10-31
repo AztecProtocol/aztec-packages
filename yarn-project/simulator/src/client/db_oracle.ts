@@ -4,6 +4,7 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
+  TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
@@ -219,4 +220,8 @@ export interface DBOracle extends CommitmentsDB {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]>;
+
+  syncTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<TxScopedEncryptedL2NoteLog[]>;
+
+  processTaggedLogs(logs: TxScopedEncryptedL2NoteLog[], recipient: AztecAddress): Promise<void>;
 }

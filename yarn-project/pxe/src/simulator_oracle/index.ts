@@ -1,11 +1,12 @@
 import {
   type AztecNode,
-  type EncryptedL2NoteLog,
+  L1NotePayload,
   type L2Block,
   MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
+  TxScopedEncryptedL2NoteLog,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
@@ -19,6 +20,8 @@ import {
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   TaggingSecret,
+  computeAddressSecret,
+  computePoint,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
@@ -28,7 +31,12 @@ import { type KeyStore } from '@aztec/key-store';
 import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { produceNoteDaos } from '../note_processor/utils/produce_note_daos.js';
+import { getAcirSimulator } from '../simulator/index.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -303,7 +311,10 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address of the recipient
    * @returns A list of encrypted logs tagged with the recipient's address
    */
-  public async syncTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<EncryptedL2NoteLog[]> {
+  public async syncTaggedLogs(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<TxScopedEncryptedL2NoteLog[]> {
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
     // This nesting is necessary because for a given set of tags we don't
@@ -313,7 +324,7 @@ export class SimulatorOracle implements DBOracle {
     // 1. Get all the secrets for the recipient and sender pairs (#9365)
     let appTaggingSecrets = await this.getAppTaggingSecretsForSenders(contractAddress, recipient);
 
-    const logs: EncryptedL2NoteLog[] = [];
+    const logs: TxScopedEncryptedL2NoteLog[] = [];
     while (appTaggingSecrets.length > 0) {
       // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
       const currentTags = appTaggingSecrets.map(({ secret, recipient, index }) =>
@@ -338,5 +349,100 @@ export class SimulatorOracle implements DBOracle {
       appTaggingSecrets = newTaggingSecrets;
     }
     return logs;
+  }
+
+  public async processTaggedLogs(logs: TxScopedEncryptedL2NoteLog[], recipient: AztecAddress): Promise<void> {
+    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
+    const ivskM = await this.keyStore.getMasterSecretKey(
+      recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
+    );
+    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const ovskM = await this.keyStore.getMasterSecretKey(
+      recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
+    );
+    const excludedIndices: Set<number> = new Set();
+    const incomingNotes: IncomingNoteDao[] = [];
+    const outgoingNotes: OutgoingNoteDao[] = [];
+    const deferredIncomingNotes: DeferredNoteDao[] = [];
+    const deferredOutgoingNotes: DeferredNoteDao[] = [];
+    for (const scopedLog of logs) {
+      const incomingNotePayload = L1NotePayload.decryptAsIncoming(scopedLog.log.data, addressSecret);
+      const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.log.data, ovskM);
+
+      if (incomingNotePayload || outgoingNotePayload) {
+        if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
+          throw new Error(
+            `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+              incomingNotePayload,
+            )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
+          );
+        }
+
+        const payload = incomingNotePayload || outgoingNotePayload;
+        const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+
+        if (!txEffect) {
+          throw new Error(`No tx effect found for ${scopedLog.txHash}`);
+        }
+
+        const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
+          // This is disgusting
+          getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+          this.db,
+          incomingNotePayload ? computePoint(recipient) : undefined,
+          outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
+          payload!,
+          txEffect.txHash,
+          txEffect.noteHashes,
+          scopedLog.dataStartIndexForTx,
+          excludedIndices,
+          this.log,
+          txEffect.unencryptedLogs,
+        );
+
+        if (incomingNote) {
+          incomingNotes.push(incomingNote);
+        }
+        if (outgoingNote) {
+          outgoingNotes.push(outgoingNote);
+        }
+        if (incomingDeferredNote) {
+          deferredIncomingNotes.push(incomingDeferredNote);
+        }
+        if (outgoingDeferredNote) {
+          deferredOutgoingNotes.push(outgoingDeferredNote);
+        }
+      }
+    }
+    if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
+      await this.db.addDeferredNotes([...deferredIncomingNotes, ...deferredOutgoingNotes]);
+      deferredIncomingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Deferred incoming note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+      deferredOutgoingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Deferred outgoing note for contract ${noteDao.payload.contractAddress} at slot ${
+            noteDao.payload.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+    }
+    if (incomingNotes.length || outgoingNotes.length) {
+      await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
+      incomingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Added incoming note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } with nullifier ${noteDao.siloedNullifier.toString()}`,
+        );
+      });
+      outgoingNotes.forEach(noteDao => {
+        this.log.verbose(`Added outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`);
+      });
+    }
   }
 }
