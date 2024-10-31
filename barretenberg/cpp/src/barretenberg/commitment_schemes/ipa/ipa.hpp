@@ -87,7 +87,6 @@ template <typename Curve_> class IPA {
    using Commitment = typename Curve::AffineElement;
    using CK = CommitmentKey<Curve>;
    using VK = VerifierCommitmentKey<Curve>;
-   using Polynomial = bb::Polynomial<Fr>;
    using VerifierAccumulator = stdlib::recursion::honk::IpaPolyCommitmentPair<Curve>;
    using IpaAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
@@ -140,7 +139,7 @@ template <typename Curve_> class IPA {
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
-        const Polynomial& polynomial = opening_claim.polynomial;
+        const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
         size_t poly_length = polynomial.size();
 
@@ -695,7 +694,7 @@ template <typename Curve_> class IPA {
         return evaluate_h_poly(u_chals_1, r) + alpha * evaluate_h_poly(u_chals_2, r);
     }
 
-    static IpaAccumulator accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
+    static std::pair<IpaAccumulator, Polynomial<bb::fr>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
     requires Curve::is_stdlib_type
     {
         using Builder = typename Curve::Builder;
