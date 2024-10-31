@@ -346,12 +346,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const size_t min_iterations_per_thread =
             1 << 6; // min number of iterations for which we'll spin up a unique thread
         const size_t desired_num_threads = common_polynomial_size / min_iterations_per_thread;
-        size_t num_threads = std::min(desired_num_threads, max_num_threads);       // fewer than max if justified
-        num_threads = num_threads > 0 ? num_threads : 1;                           // ensure num threads is >= 1
-        const size_t iterations_per_thread = common_polynomial_size / num_threads; // actual iterations per thread
+        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
+        // // DEBUG
+        // num_threads = 16;
+        num_threads = num_threads > 0 ? num_threads : 1; // ensure num threads is >= 1
+        // const size_t iterations_per_thread = common_polynomial_size / num_threads; // actual iterations per thread
 
-        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
-        // doesn't skip computation), so we need to define types depending on the template instantiation
+        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version
+        // that doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
             std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
@@ -368,11 +370,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         extended_univariates.resize(num_threads);
 
         std::vector<size_t> work_iterations(num_threads);
+        trace_usage_tracker.construct_thread_ranges(num_threads);
+        // trace_usage_tracker.print_thread_ranges();
+
+        // WORKTODO: need to ensure correct behavior for non-structured case..
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = thread_idx * iterations_per_thread;
-            const size_t end = (thread_idx + 1) * iterations_per_thread;
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+            // const size_t start = thread_idx * iterations_per_thread;
+            // const size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {
@@ -396,9 +404,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             }
         });
 
-        for (auto num : work_iterations) {
-            info("Thread work iters = ", num);
-        }
+        // for (auto num : work_iterations) {
+        //     info("Thread work iters = ", num);
+        // }
 
         RelationUtils::zero_univariates(univariate_accumulators);
         // Accumulate the per-thread univariate accumulators into a single set of accumulators

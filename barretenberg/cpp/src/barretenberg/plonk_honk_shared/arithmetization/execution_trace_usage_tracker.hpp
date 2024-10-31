@@ -20,6 +20,8 @@ struct ExecutionTraceUsageTracker {
     MegaTraceFixedBlockSizes fixed_sizes;
     MegaTraceActiveRanges active_ranges;
 
+    std::vector<Range> thread_ranges;
+
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
 
@@ -104,6 +106,28 @@ struct ExecutionTraceUsageTracker {
         info("");
     }
 
+    void print_thread_ranges()
+    {
+        info("Thread ranges: ");
+        for (auto range : thread_ranges) {
+            std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
+        }
+        info("");
+    }
+
+    void construct_thread_ranges(const size_t num_threads)
+    {
+        std::vector<Range> active_ranges_copy;
+        for (const auto& range : active_ranges.get()) {
+            active_ranges_copy.push_back(range);
+        }
+
+        std::vector<Range> simplified_active_ranges = construct_union_of_ranges(active_ranges_copy);
+
+        thread_ranges = construct_thread_ranges_internal(simplified_active_ranges, num_threads);
+        // print_thread_ranges();
+    }
+
     static std::vector<Range> construct_union_of_ranges(std::vector<Range> ranges)
     {
         std::vector<Range> union_ranges;
@@ -127,7 +151,8 @@ struct ExecutionTraceUsageTracker {
         return union_ranges;
     }
 
-    static std::vector<Range> construct_thread_ranges(const std::vector<Range>& union_ranges, size_t num_threads)
+    static std::vector<Range> construct_thread_ranges_internal(const std::vector<Range>& union_ranges,
+                                                               size_t num_threads)
     {
         // Compute the minimum content per thread (final thread will get the leftovers = total_content % num_threads)
         size_t total_content = 0;

@@ -35,7 +35,8 @@ TEST_F(ExecutionTraceUsageTrackerTest, ConstructThreadRanges)
     std::vector<Range> expected_thread_ranges = { { 2, 17 }, { 17, 27 }, { 27, 39 }, { 39, 57 } };
 
     const size_t num_threads = 4;
-    std::vector<Range> thread_ranges = ExecutionTraceUsageTracker::construct_thread_ranges(union_ranges, num_threads);
+    std::vector<Range> thread_ranges =
+        ExecutionTraceUsageTracker::construct_thread_ranges_internal(union_ranges, num_threads);
 
     EXPECT_EQ(thread_ranges, expected_thread_ranges);
 }
