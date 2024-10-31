@@ -140,7 +140,7 @@ global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
 global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
-global AZTEC_EPOCH_DURATION: u32 = 16;
+global AZTEC_EPOCH_DURATION: u32 = 5;
 // <END OF PATCHED CONSTANTS>
 global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
 // The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
