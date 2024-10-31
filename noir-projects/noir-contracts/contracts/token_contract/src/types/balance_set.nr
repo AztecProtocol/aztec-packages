@@ -46,13 +46,13 @@ impl BalanceSet<UnconstrainedContext> {
 impl BalanceSet<&mut PrivateContext> {
     pub fn add(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<UintNote> {
         if addend == U128::from_integer(0) {
-            OuterNoteEmission::new(Option::none())
+            OuterNoteEmission::new(Option::none(), Option::none())
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = UintNote::new(addend, owner);
 
             // docs:start:insert
-            OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
+            OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)), Option::some(owner))
             // docs:end:insert
         }
     }

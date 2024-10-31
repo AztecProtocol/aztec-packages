@@ -1,3 +1,4 @@
+use dep::protocol_types::address::AztecAddress;
 /**
  * A note emission struct containing the information required for emitting a note.
  * The exact `emit` logic is passed in by the application code
@@ -28,16 +29,17 @@ impl<Note> NoteEmission<Note> {
  */
 pub struct OuterNoteEmission<Note> {
     emission: Option<NoteEmission<Note>>,
+    recipient: Option<AztecAddress>,
 }
 
 impl<Note> OuterNoteEmission<Note> {
-    pub fn new(emission: Option<NoteEmission<Note>>) -> Self {
-        Self { emission }
+    pub fn new(emission: Option<NoteEmission<Note>>, recipient: Option<AztecAddress>) -> Self {
+        Self { emission, recipient }
     }
 
-    pub fn emit<Env>(self, _emit: fn[Env](NoteEmission<Note>) -> ()) {
+    pub fn emit<Env>(self, _emit: fn[Env](NoteEmission<Note>, AztecAddress) -> ()) {
         if self.emission.is_some() {
-            _emit(self.emission.unwrap());
+            _emit(self.emission.unwrap(), self.recipient.unwrap());
         }
     }
 

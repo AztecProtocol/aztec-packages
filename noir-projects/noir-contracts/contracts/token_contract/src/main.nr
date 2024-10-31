@@ -23,7 +23,7 @@ contract Token {
         encrypted_logs::{
             encrypted_event_emission::encode_and_encrypt_event_unconstrained,
             encrypted_note_emission::{
-                encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
+                encode_and_encrypt_note, encode_and_encrypt_note_unconstrained, simple_encrypt,
             },
         },
         hash::compute_secret_hash,
@@ -847,6 +847,16 @@ contract Token {
         storage.balances.at(owner).balance_of().to_field()
     }
     // docs:end:balance_of_private
+
+    #[private]
+    fn simple_transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+        assert(from.eq(context.msg_sender()));
+
+        let amount = U128::from_integer(amount);
+        storage.balances.at(from).sub(from, amount).emit(simple_encrypt(&mut context));
+
+        storage.balances.at(to).add(to, amount).emit(simple_encrypt(&mut context));
+    }
 }
 
 // docs:end:token_all

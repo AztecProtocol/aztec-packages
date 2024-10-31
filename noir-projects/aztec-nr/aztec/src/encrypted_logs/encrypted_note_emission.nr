@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::payload::compute_private_log_payload,
-    keys::getters::get_ovsk_app,
+    keys::getters::{get_ovsk_app, get_public_keys},
     note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
@@ -50,6 +50,22 @@ where
 {
     let ovsk_app = get_ovsk_app(ovpk.hash());
     compute_payload_and_hash(context, note, ovsk_app, ovpk, recipient)
+}
+
+pub fn simple_encrypt<Note, let N: u32>(
+    context: &mut PrivateContext,
+) -> fn[(&mut PrivateContext,)](NoteEmission<Note>, AztecAddress) -> ()
+where
+    Note: NoteInterface<N>,
+{
+    |e: NoteEmission<Note>, recipient: AztecAddress| {
+        let ovpk = get_public_keys(context.msg_sender()).ovpk_m;
+
+        let (note_hash_counter, encrypted_log, log_hash) = unsafe {
+            compute_payload_and_hash_unconstrained(*context, e.note, ovpk, recipient)
+        };
+        context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
+    }
 }
 
 // This function seems to be affected by the following Noir bug:
