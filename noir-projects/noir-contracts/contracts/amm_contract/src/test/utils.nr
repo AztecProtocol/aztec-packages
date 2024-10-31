@@ -33,7 +33,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
             18,
         ))
         .to_address();
-    let token0 = Token::at(token0_address);
 
     let token1_address = env
         .deploy("./@token_contract", "Token")
@@ -44,7 +43,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
             18,
         ))
         .to_address();
-    let token1 = Token::at(token1_address);
 
     let liquidity_token_address = env
         .deploy("./@token_contract", "Token")
@@ -81,7 +79,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 
     env.advance_block_by(1);
     (
-        &mut env, amm_address, token0_address, token1_address, liquidity_token_address, token_admin,
-        liquidity_provider, lp_balance_0, lp_balance_1, swapper_balance_0,
+        &mut env, amm_address, token0_address, token1_address, liquidity_token_address,
+        liquidity_provider, swapper, lp_balance_0, lp_balance_1, swapper_balance_0,
     )
 }
