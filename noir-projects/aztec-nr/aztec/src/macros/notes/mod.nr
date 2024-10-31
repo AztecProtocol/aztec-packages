@@ -8,7 +8,7 @@ use std::{
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 // The following is a fixed ciphertext overhead as defined by `compute_private_log_payload`
-comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 353;
+comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 321;
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -463,7 +463,7 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
+            fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
                 let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
                 let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_private_log_payload(
@@ -471,6 +471,7 @@ comptime fn generate_setup_payload(
                     ovsk_app,
                     ovpk,
                     recipient,
+                    sender,
                     self.log_plaintext,
                     true
                 );

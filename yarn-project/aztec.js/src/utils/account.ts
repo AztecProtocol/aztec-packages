@@ -1,4 +1,5 @@
-import { type CompleteAddress, type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types';
+import { type CompleteAddress } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';

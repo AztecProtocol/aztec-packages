@@ -208,8 +208,9 @@ contract Token {
     }
     // docs:end:mint_public
     // docs:start:mint_private
+    // TODO(benesjan): To be nuked in a followup PR.
     #[public]
-    fn mint_private(amount: Field, secret_hash: Field) {
+    fn mint_private_old(amount: Field, secret_hash: Field) {
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount, secret_hash);
@@ -226,7 +227,7 @@ contract Token {
         let caller = context.msg_sender();
         let caller_ovpk_m = get_public_keys(caller).ovpk_m;
         storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, caller_ovpk_m, caller),
+            encode_and_encrypt_note(&mut context, caller_ovpk_m, caller, caller),
         );
         Token::at(context.this_address())
             .assert_minter_and_mint(context.msg_sender(), amount)
@@ -310,12 +311,13 @@ contract Token {
             &mut context,
             from_ovpk_m,
             to,
+            context.msg_sender(),
         ));
     }
     // docs:end:redeem_shield
-    // docs:start:unshield
+    // docs:start:transfer_to_public
     #[private]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -326,11 +328,11 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
-    // docs:end:unshield
+    // docs:end:transfer_to_public
     // docs:start:transfer
     #[private]
     fn transfer(to: AztecAddress, amount: Field) {
@@ -356,18 +358,20 @@ contract Token {
             &mut context,
             from_ovpk_m,
             from,
+            from,
         ));
         storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         Transfer { from, to, amount: amount.to_field() }.emit(
-            encode_and_encrypt_event_unconstrained(&mut context, from_ovpk_m, to),
+            encode_and_encrypt_event_unconstrained(&mut context, from_ovpk_m, to, from),
         );
     }
     // docs:end:transfer
@@ -452,6 +456,7 @@ contract Token {
             &mut context,
             from_ovpk_m,
             from,
+            from,
         ));
         // docs:end:encrypted
         // docs:end:increase_private_balance
@@ -461,6 +466,7 @@ contract Token {
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
     }
     // docs:end:transfer_from
@@ -476,7 +482,7 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -485,13 +491,15 @@ contract Token {
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
     #[private]
     fn transfer_to_private(to: AztecAddress, amount: Field) {
+        // We check the minter permissions in the enqueued call as that allows us to avoid the need for `SharedMutable`
+        // which is less efficient.
         let from = context.msg_sender();
         let token = Token::at(context.this_address());
 
         // We prepare the transfer.
         let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
 
-        // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
+        // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
         token._finalize_transfer_to_private_unsafe(from, amount, hiding_point_slot).enqueue(
             &mut context,
@@ -526,7 +534,8 @@ contract Token {
 
         // We set the ovpk to the message sender's ovpk and we encrypt the log.
         let from_ovpk = get_public_keys(context.msg_sender()).ovpk_m;
-        let setup_log = note_setup_payload.encrypt_log(context, from_ovpk, to);
+        let setup_log =
+            note_setup_payload.encrypt_log(context, from_ovpk, to, context.msg_sender());
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -578,7 +587,7 @@ contract Token {
     fn _finalize_transfer_to_private(
         from: AztecAddress,
         amount: Field,
-        note_transient_storage_slot: Field,
+        hiding_point_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
@@ -591,7 +600,70 @@ contract Token {
 
         // Then we finalize the partial note with the `amount`
         let finalization_payload =
-            UintNote::finalization_payload().new(context, note_transient_storage_slot, amount);
+            UintNote::finalization_payload().new(context, hiding_point_slot, amount);
+
+        // At last we emit the note hash and the final log
+        finalization_payload.emit();
+    }
+
+    /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
+    /// in the enqueud call).
+    #[private]
+    fn mint_to_private(to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+        let token = Token::at(context.this_address());
+
+        // We prepare the transfer.
+        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+
+        // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
+        // function argument to a message sender, guaranteeing that only a message sender with minter permissions
+        // can successfully execute the function.
+        token._finalize_mint_to_private_unsafe(from, amount, hiding_point_slot).enqueue(&mut context);
+    }
+
+    /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
+    /// `prepare_transfer_to_private` first and the resulting
+    /// `hiding_point_slot` must be passed as an argument to this function.
+    ///
+    /// Note: This function is only an optimization as it could be replaced by a combination of `mint_public`
+    /// and `finalize_transfer_to_private`. It is however used very commonly so it makes sense to optimize it
+    /// (e.g. used during token bridging, in AMM liquidity token etc.).
+    #[public]
+    fn finalize_mint_to_private(amount: Field, hiding_point_slot: Field) {
+        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+
+        _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
+    }
+
+    #[public]
+    #[internal]
+    fn _finalize_mint_to_private_unsafe(
+        from: AztecAddress,
+        amount: Field,
+        hiding_point_slot: Field,
+    ) {
+        // We check the minter permissions as it was not done in `mint_to_private` function.
+        assert(storage.minters.at(from).read(), "caller is not minter");
+        _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
+    }
+
+    #[contract_library_method]
+    fn _finalize_mint_to_private(
+        amount: Field,
+        hiding_point_slot: Field,
+        context: &mut PublicContext,
+        storage: Storage<&mut PublicContext>,
+    ) {
+        let amount = U128::from_integer(amount);
+
+        // First we increase the total supply by the `amount`
+        let supply = storage.total_supply.read().add(amount);
+        storage.total_supply.write(supply);
+
+        // Then we finalize the partial note with the `amount`
+        let finalization_payload =
+            UintNote::finalization_payload().new(context, hiding_point_slot, amount);
 
         // At last we emit the note hash and the final log
         finalization_payload.emit();
@@ -644,6 +716,7 @@ contract Token {
             &mut context,
             user_ovpk,
             user,
+            user,
         ));
 
         // 4. Now we get the partial payloads
@@ -681,8 +754,9 @@ contract Token {
 
         // 6. We compute setup logs
         let fee_payer_setup_log =
-            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer);
-        let user_setup_log = user_setup_payload.encrypt_log(&mut context, user_ovpk, user);
+            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer, fee_payer);
+        let user_setup_log =
+            user_setup_payload.encrypt_log(&mut context, user_ovpk, user, fee_payer);
 
         // 7. We store the hiding points an logs in transients storage
         Token::at(context.this_address())
@@ -720,7 +794,7 @@ contract Token {
     fn _store_payload_in_transient_storage_unsafe(
         slot: Field,
         point: Point,
-        setup_log: [Field; 16],
+        setup_log: [Field; 15],
     ) {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);

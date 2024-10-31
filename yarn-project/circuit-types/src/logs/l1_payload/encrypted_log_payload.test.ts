@@ -32,7 +32,7 @@ describe('EncryptedLogPayload', () => {
     beforeAll(() => {
       const incomingBodyPlaintext = randomBytes(128);
       const contract = AztecAddress.random();
-      original = new EncryptedLogPayload(PLACEHOLDER_TAG, PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
+      original = new EncryptedLogPayload(PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
 
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
@@ -111,7 +111,7 @@ describe('EncryptedLogPayload', () => {
       '00000001301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5c10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e040fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e659900001027',
       'hex',
     );
-    const log = new EncryptedLogPayload(new Fr(0), new Fr(0), contract, plaintext);
+    const log = new EncryptedLogPayload(new Fr(0), contract, plaintext);
 
     const ovskM = new GrumpkinScalar(0x1d7f6b3c491e99f32aad05c433301f3a2b4ed68de661ff8255d275ff94de6fc4n);
     const ovKeys = getKeyValidationRequest(ovskM, contract);
@@ -124,7 +124,7 @@ describe('EncryptedLogPayload', () => {
 
     const encrypted = log.encrypt(ephSk, recipientCompleteAddress.address, ovKeys).toString('hex');
     expect(encrypted).toMatchInlineSnapshot(
-      `"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d93de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97fc6cbcf61f6c2af9b8ebc8f78537ab23fd0c5e818e4d42d459d265adb77c2ef829bf68f87f2c47b478bb57ae7e41a07643f65c353083d557b94e31da4a2a13127498d2eb3f0346da5eed2e9bc245aaf022a954ed0b09132b498f537702899b44e3666776238ebf633b3562d7f124dbba82918e871958a94218fd796bc6983feecc7ce382c82861d63fe45999244ea9494b226ddb694b2640dce005b473acf1ae3be158f558ad1ca228e9f793d09390230a2597e0e53ad28f7aa9a700ccc302607ad6c26ea1410735b6a8c793f6317f7009409a3912b15ee2f28ccf17cf6c94b720301e5c5826de39e85bc7db3dc33aa79afcaf325670d1b359d08b10bd07840d394c9f038"`,
+      `"00000000000000000000000000000000000000000000000000000000000000008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d93de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97fc6cbcf61f6c2af9b8ebc8f78537ab23fd0c5e818e4d42d459d265adb77c2ef829bf68f87f2c47b478bb57ae7e41a07643f65c353083d557b94e31da4a2a13127498d2eb3f0346da5eed2e9bc245aaf022a954ed0b09132b498f537702899b44e3666776238ebf633b3562d7f124dbba82918e871958a94218fd796bc6983feecc7ce382c82861d63fe45999244ea9494b226ddb694b2640dce005b473acf1ae3be158f558ad1ca228e9f793d09390230a2597e0e53ad28f7aa9a700ccc302607ad6c26ea1410735b6a8c793f6317f7009409a3912b15ee2f28ccf17cf6c94b720301e5c5826de39e85bc7db3dc33aa79afcaf325670d1b359d08b10bd07840d394c9f038"`,
     );
 
     const byteArrayString = `[${encrypted.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
