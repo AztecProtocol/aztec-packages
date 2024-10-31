@@ -236,6 +236,7 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
     auto quotient_low_limbs_range_constraint_tail = View(in.quotient_low_limbs_range_constraint_tail);
     auto quotient_high_limbs_range_constraint_tail = View(in.quotient_high_limbs_range_constraint_tail);
 
+    // 0 in the minicircuit, -1 outside
     auto not_in_minicircuit_by_scaling =
         (lagrange_odd_in_minicircuit + lagrange_even_in_minicircuit + minus_one) * scaling_factor;
 

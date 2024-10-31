@@ -26,9 +26,6 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
         // Evaluate each constraint in the relation and check that each is satisfied
         Relation::accumulate(result, polynomials.get_row(i), params, 1);
         for (auto& element : result) {
-            if (element != 0) {
-                info(i);
-            }
             ASSERT_EQ(element, 0);
         }
     }
@@ -337,7 +334,6 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // Assign random values to the mini-circuit part of the range constraint polynomials
-
     for (const auto& range_constraint_polynomial_id : range_constraint_polynomial_ids) {
         parallel_for_range(mini_circuit_size - 2, [&](size_t start, size_t end) {
             // We want to iterate from 1 to mini_circuit_size - 2 (inclusive)
