@@ -245,11 +245,8 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const bool recur
         honk_recursion = true;
     }
     auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath, honk_recursion);
-    size_t stack_size = program_stack.size();
-    size_t i = 0;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
-
         if (!proveAndVerifyHonkAcirFormat<Flavor>(stack_item.constraints, recursive, stack_item.witness)) {
             return false;
         }
@@ -328,8 +325,7 @@ std::vector<uint8_t> decompressedBuffer(uint8_t* bytes, size_t size)
 
 void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
                                          const std::string& witnessPath,
-                                         const std::string& outputDir,
-                                         const bool recursive)
+                                         const std::string& outputDir)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -449,7 +445,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     return verified;
 }
 
-bool foldAndVerifyProgram(const std::string& bytecodePath, const bool recursive, const std::string& witnessPath)
+bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -465,17 +461,14 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const bool recursive,
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
                                            // assumes that folding is never done with ultrahonk.
 
-    size_t stack_size = program_stack.size();
-
     // Accumulate the entire program stack into the IVC
     bool is_kernel = false;
-    size_t i = 0;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(stack_item.constraints,
-                                                            true,
+                                                            /*recursive=*/true,
                                                             0,
                                                             stack_item.witness,
                                                             /*honk_recursion=*/false,
@@ -499,12 +492,10 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const bool recursive,
  * @param witnessPath Path to witness data
  * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
  * going to be specified when bb main is called, i.e. as the working directory in typescript).
- * @param recursive Whether to build a SNARK friendly proof.
  */
 void client_ivc_prove_output_all(const std::string& bytecodePath,
                                  const std::string& witnessPath,
-                                 const std::string& outputPath,
-                                 const bool recursive)
+                                 const std::string& outputPath)
 {
     using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
@@ -531,7 +522,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
         // Construct a bberg circuit from the acir representation
         auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, recursive, 0, stack_item.witness, false, ivc.goblin.op_queue);
+            stack_item.constraints, true, 0, stack_item.witness, false, ivc.goblin.op_queue);
         circuit.databus_propagation_data.is_kernel = is_kernel;
         is_kernel = !is_kernel; // toggle on/off so every second circuit is intepreted as a kernel
 
@@ -1482,7 +1473,7 @@ int main(int argc, char* argv[])
         // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir, recursive);
+            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
             return 0;
         }
         if (command == "verify_client_ivc") {
@@ -1499,7 +1490,7 @@ int main(int argc, char* argv[])
                        : 1;
         }
         if (command == "fold_and_verify_program") {
-            return foldAndVerifyProgram(bytecode_path, recursive, witness_path) ? 0 : 1;
+            return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
         }
 
         if (command == "prove") {
@@ -1516,7 +1507,7 @@ int main(int argc, char* argv[])
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "client_ivc_prove_output_all") {
             std::string output_path = get_option(args, "-o", "./target");
-            client_ivc_prove_output_all(bytecode_path, witness_path, output_path, recursive);
+            client_ivc_prove_output_all(bytecode_path, witness_path, output_path);
         } else if (command == "prove_tube") {
             std::string output_path = get_option(args, "-o", "./target");
             prove_tube(output_path);
