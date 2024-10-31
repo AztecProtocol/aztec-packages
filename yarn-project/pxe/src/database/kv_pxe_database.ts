@@ -603,7 +603,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const indexes = await this.getTaggingSecretsIndexes(appTaggingSecretsWithRecipient);
     await this.db.transaction(() => {
       indexes.forEach((taggingSecretIndex, listIndex) => {
-        const nextIndex = taggingSecretIndex ? taggingSecretIndex + 1 : 1;
+        const nextIndex = taggingSecretIndex + 1;
         const { secret, recipient } = appTaggingSecretsWithRecipient[listIndex];
         const key = `${secret.toString()}-${recipient.toString()}`;
         void this.#taggingSecretIndexes.set(key, nextIndex);
