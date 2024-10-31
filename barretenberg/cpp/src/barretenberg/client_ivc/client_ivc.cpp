@@ -295,9 +295,11 @@ bool ClientIVC::verify(const Proof& proof,
 
     UltraVerifier verifer{ ultra_vk };
     bool ultra_verified = verifer.verify_proof(proof.ultra_proof);
+    vinfo("Ultra verified: ", ultra_verified);
     // Goblin verification (merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
+    vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && ultra_verified;
 }
 

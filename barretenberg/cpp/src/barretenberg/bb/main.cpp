@@ -526,6 +526,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     std::string eccVkPath = outputPath + "/ecc_vk";
 
     auto proof = ivc.prove();
+    info("client ivc proof length ", proof.size());
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
     vinfo("ensure valid proof: ", ivc.verify(proof));
@@ -607,6 +608,7 @@ void prove_tube(const std::string& output_path)
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
+    info("tube proof length ", tube_proof.size());
     std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 
