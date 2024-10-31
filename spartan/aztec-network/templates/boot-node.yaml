@@ -69,12 +69,12 @@ spec:
               "-c",
               "sleep 30 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
-          startupProbe:
-            httpGet:
-              path: /status
-              port: {{ .Values.bootNode.service.nodePort }}
-            periodSeconds: {{ .Values.bootNode.startupProbe.periodSeconds }}
-            failureThreshold: {{ .Values.bootNode.startupProbe.failureThreshold }}
+          # startupProbe:
+          #   httpGet:
+          #     path: /status
+          #     port: {{ .Values.bootNode.service.nodePort }}
+          #   periodSeconds: {{ .Values.bootNode.startupProbe.periodSeconds }}
+          #   failureThreshold: {{ .Values.bootNode.startupProbe.failureThreshold }}
           # livenessProbe:
           #   httpGet:
           #     path: /status
