@@ -64,7 +64,7 @@ inline ThreadPoolPtr make_thread_pool(uint64_t numThreads)
 void inline print_store_data(LMDBTreeStore::SharedPtr db, std::ostream& os)
 {
     LMDBTreeStore::ReadTransaction::Ptr tx = db->create_read_transaction();
-    StatsMap stats;
+    TreeDBStats stats;
     db->get_stats(stats, *tx);
 
     for (const auto& m : stats) {

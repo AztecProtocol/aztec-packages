@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <optional>
@@ -62,6 +63,11 @@ struct NodePayload {
         return left == other.left && right == other.right && ref == other.ref;
     }
 };
+const std::string BLOCKS_DB = "blocks";
+const std::string NODES_DB = "nodes";
+const std::string LEAF_PREIMAGES_DB = "leaf preimages";
+const std::string LEAF_KEYS_DB = "leaf keys";
+const std::string LEAF_INDICES_DB = "leaf indices";
 
 struct DBStats {
     std::string name;
@@ -103,9 +109,11 @@ struct DBStats {
     }
 };
 
-using StatsMap = std::unordered_map<std::string, DBStats>;
+using TreeDBStats = std::unordered_map<std::string, DBStats>;
 
-std::ostream& operator<<(std::ostream& os, const StatsMap& stats);
+using WorldStateDBStats = std::unordered_map<world_state::MerkleTreeId, TreeDBStats>;
+
+std::ostream& operator<<(std::ostream& os, const TreeDBStats& stats);
 
 /**
  * Creates an abstraction against a collection of LMDB databases within a single environment used to store merkle tree
@@ -128,7 +136,7 @@ class LMDBTreeStore {
     WriteTransaction::Ptr create_write_transaction() const;
     ReadTransaction::Ptr create_read_transaction();
 
-    void get_stats(StatsMap& stats, ReadTransaction& tx);
+    void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
     void write_block_data(uint64_t blockNumber, const BlockPayload& blockData, WriteTransaction& tx);
 

@@ -18,14 +18,14 @@ export async function createWorldStateSynchronizer(
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config);
 }
 
-export async function createWorldState(config: DataStoreConfig, client: TelemetryClient = new NoopTelemetryClient()) {
+export async function createWorldState(config: WorldStateConfig & DataStoreConfig, client: TelemetryClient = new NoopTelemetryClient()) {
   const merkleTrees = ['true', '1'].includes(process.env.USE_LEGACY_WORLD_STATE ?? '')
     ? await MerkleTrees.new(
         await createStore('world-state', config, createDebugLogger('aztec:world-state:lmdb')),
         client,
       )
     : config.dataDirectory
-    ? await NativeWorldStateService.new(config.l1Contracts.rollupAddress, config.dataDirectory)
+    ? await NativeWorldStateService.new(config.l1Contracts.rollupAddress, config.dataDirectory, config.worldStateDbMapSizeKb)
     : await NativeWorldStateService.tmp(
         config.l1Contracts.rollupAddress,
         !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),

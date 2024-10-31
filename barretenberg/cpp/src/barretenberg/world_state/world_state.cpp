@@ -754,7 +754,7 @@ bool WorldState::is_same_state_reference(const WorldStateRevision& revision, con
 void WorldState::validate_trees_are_equally_synched()
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
-    std::array<TreeMetaResponse, 5> responses;
+    std::array<TreeMetaResponse, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
     if (!determine_if_synched(responses)) {
