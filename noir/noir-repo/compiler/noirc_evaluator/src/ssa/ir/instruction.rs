@@ -7,7 +7,7 @@ use acvm::{
     acir::{circuit::ErrorSelector, BlackBoxFunc},
     FieldElement,
 };
-use fxhash::FxHasher;
+use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
@@ -923,7 +923,7 @@ pub enum ErrorType {
 
 impl ErrorType {
     pub fn selector(&self) -> ErrorSelector {
-        let mut hasher = FxHasher::default();
+        let mut hasher = FxHasher64::default();
         self.hash(&mut hasher);
         let hash = hasher.finish();
         ErrorSelector::new(hash)
