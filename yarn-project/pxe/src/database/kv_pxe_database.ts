@@ -1,16 +1,12 @@
-import {
-  type IncomingNotesFilter,
-  MerkleTreeId,
-  NoteStatus,
-  type OutgoingNotesFilter,
-  type PublicKey,
-} from '@aztec/circuit-types';
+import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
   Header,
+  type PublicKey,
   SerializableContractInstance,
+  type TaggingSecret,
   computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -576,19 +572,23 @@ export class KVPxeDatabase implements PxeDatabase {
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
-    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+  async incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void> {
+    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecretsWithRecipient);
     await this.db.transaction(() => {
-      indexes.forEach(index => {
-        const nextIndex = index ? index + 1 : 1;
-        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
+      indexes.forEach((taggingSecretIndex, listIndex) => {
+        const nextIndex = taggingSecretIndex ? taggingSecretIndex + 1 : 1;
+        const { secret, recipient } = appTaggingSecretsWithRecipient[listIndex];
+        const key = `${secret.toString()}-${recipient.toString()}`;
+        void this.#taggingSecretIndexes.set(key, nextIndex);
       });
     });
   }
 
-  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]> {
     return this.db.transaction(() =>
-      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
+      appTaggingSecretsWithRecipient.map(
+        ({ secret, recipient }) => this.#taggingSecretIndexes.get(`${secret.toString()}-${recipient.toString()}`) ?? 0,
+      ),
     );
   }
 }
