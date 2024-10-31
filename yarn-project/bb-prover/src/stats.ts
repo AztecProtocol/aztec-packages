@@ -60,7 +60,8 @@ export function isProtocolArtifactRecursive(artifact: ServerProtocolArtifact | C
       return true;
     default: {
       if (artifact.startsWith('PrivateKernel')) {
-        return false;
+        // The kernel prover, where these are used, eventually calls `createClientIvcProof`, which is recursive.
+        return true;
       }
       throw new Error(`Unknown circuit type: ${artifact}`);
     }

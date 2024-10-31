@@ -86,8 +86,8 @@ export class KernelProver {
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
 
-    // The PrivateKernel**Builder here are `ClientCircuitArtifact` types which are not recursive.
-    const recursive = false;
+    // The prover will eventually call `createClientIvcProof` which is recursive.
+    const recursive = true;
 
     while (executionStack.length) {
       if (!firstIteration) {
