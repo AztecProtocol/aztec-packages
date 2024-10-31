@@ -71,7 +71,7 @@ describe('benchmarks/tx_size_fees', () => {
       feeJuice.methods.claim(fpc.address, 100e9, fpcSecret, fpcLeafIndex).send().wait(),
       feeJuice.methods.claim(aliceWallet.getAddress(), 100e9, aliceSecret, aliceLeafIndex).send().wait(),
     ]);
-    await token.methods.privately_mint_private_note(100e9).send().wait();
+    await token.methods.mint_to_private(aliceWallet.getAddress(), 100e9).send().wait();
     await token.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait();
   });
 
