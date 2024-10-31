@@ -89,6 +89,28 @@ export interface PXE {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
+   * Registers a user contact in PXE.
+   *
+   * Once a new contact is registered, the PXE Service will be able to receive notes tagged from this contact.
+   * Will do nothing if the account is already registered.
+   *
+   * @param address - Address of the user to add to the address book
+   * @returns The address address of the account.
+   */
+  registerContact(address: AztecAddress): Promise<AztecAddress>;
+
+  /**
+   * Retrieves the addresses stored as contacts on this PXE Service.
+   * @returns An array of the contacts on this PXE Service.
+   */
+  getContacts(): Promise<AztecAddress[]>;
+
+  /**
+   * Removes a contact in the address book.
+   */
+  removeContact(address: AztecAddress): Promise<void>;
+
+  /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
    *
    * @param artifact - The build artifact for the contract class.
@@ -328,7 +350,7 @@ export interface PXE {
   getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
 
   /**
-   * Returns a Contact Instance given its address, which includes the contract class identifier,
+   * Returns a Contract Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
    * @param address - Deployment address of the contract.
@@ -336,7 +358,7 @@ export interface PXE {
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
-   * Returns a Contact Class given its identifier.
+   * Returns a Contract Class given its identifier.
    * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
    * should the pxe query the node for contract public info, and merge it with its own definitions?
    * @param id - Identifier of the class.

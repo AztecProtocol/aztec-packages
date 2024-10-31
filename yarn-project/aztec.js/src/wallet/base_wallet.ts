@@ -87,6 +87,15 @@ export abstract class BaseWallet implements Wallet {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
   }
+  registerContact(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerContact(address);
+  }
+  getContacts(): Promise<AztecAddress[]> {
+    return this.pxe.getContacts();
+  }
+  async removeContact(address: AztecAddress): Promise<void> {
+    await this.pxe.removeContact(address);
+  }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
     /** Associated artifact */ artifact?: ContractArtifact;
