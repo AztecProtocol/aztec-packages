@@ -200,7 +200,7 @@ template <typename Curve_> class IPA {
             }, thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
-        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
+        auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
 
         // Allocate space for L_i and R_i elements
         GroupElement L_i;
@@ -209,7 +209,7 @@ template <typename Curve_> class IPA {
 
         // Step 6.
         // Perform IPA reduction rounds
-        for (size_t i = 0; i < log_poly_degree; i++) {
+        for (size_t i = 0; i < log_poly_length; i++) {
             round_size /= 2;
             // Run scalar products in parallel
             auto inner_prods = parallel_for_heuristic(
@@ -237,7 +237,7 @@ template <typename Curve_> class IPA {
 
             // Step 6.c
             // Send commitments to the verifier
-            std::string index = std::to_string(log_poly_degree - i - 1);
+            std::string index = std::to_string(log_poly_length - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
@@ -324,21 +324,21 @@ template <typename Curve_> class IPA {
 
         Commitment aux_generator = Commitment::one() * generator_challenge;
 
-        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
+        auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
-        auto pippenger_size = 2 * log_poly_degree;
-        std::vector<Fr> round_challenges(log_poly_degree);
-        std::vector<Fr> round_challenges_inv(log_poly_degree);
+        auto pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
         // Step 4.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < log_poly_degree; i++) {
-            std::string index = std::to_string(log_poly_degree - i - 1);
+        for (size_t i = 0; i < log_poly_length; i++) {
+            std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -365,8 +365,8 @@ template <typename Curve_> class IPA {
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
         Fr b_zero = Fr::one();
-        for (size_t i = 0; i < log_poly_degree; i++) {
-            b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree - 1 - i] *
+        for (size_t i = 0; i < log_poly_length; i++) {
+            b_zero *= Fr::one() + (round_challenges_inv[log_poly_length - 1 - i] *
                                    opening_claim.opening_pair.challenge.pow(1 << i));
         }
 
@@ -379,12 +379,12 @@ template <typename Curve_> class IPA {
         Fr* previous_round_s = &s_vec_temporaries[0];
         Fr* current_round_s = &s_vec[0];
         // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_degree & 1) == 0)
+        if ((log_poly_length & 1) == 0)
         {
             std::swap(previous_round_s, current_round_s);
         }
         previous_round_s[0] = Fr(1);
-        for (size_t i = 0; i < log_poly_degree; ++i)
+        for (size_t i = 0; i < log_poly_length; ++i)
         {
             const size_t round_size = 1 << (i + 1);
             const Fr round_challenge = round_challenges_inv[i];
@@ -468,17 +468,17 @@ template <typename Curve_> class IPA {
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto builder = generator_challenge.get_context();
 
-        const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        auto pippenger_size = 2 * log_poly_degree;
-        std::vector<Fr> round_challenges(log_poly_degree);
-        std::vector<Fr> round_challenges_inv(log_poly_degree);
+        const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
+        auto pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < log_poly_degree; i++) {
-            std::string index = std::to_string(log_poly_degree - i - 1);
+        for (size_t i = 0; i < log_poly_length; i++) {
+            std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -497,9 +497,9 @@ template <typename Curve_> class IPA {
 
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
-        for (size_t i = 0; i < log_poly_degree; i++) {
-            b_zero *= Fr(1) + (round_challenges_inv[log_poly_degree - 1 - i] * challenge);
-            if (i != log_poly_degree - 1)
+        for (size_t i = 0; i < log_poly_length; i++) {
+            b_zero *= Fr(1) + (round_challenges_inv[log_poly_length - 1 - i] * challenge);
+            if (i != log_poly_length - 1)
             {
                 challenge = challenge * challenge;
             }
@@ -517,12 +517,12 @@ template <typename Curve_> class IPA {
         Fr* previous_round_s = &s_vec_temporaries[0];
         Fr* current_round_s = &s_vec[0];
         // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_degree & 1) == 0)
+        if ((log_poly_length & 1) == 0)
         {
             std::swap(previous_round_s, current_round_s);
         }
         previous_round_s[0] = Fr(1);
-        for (size_t i = 0; i < log_poly_degree; ++i)
+        for (size_t i = 0; i < log_poly_length; ++i)
         {
             const size_t round_size = 1 << (i + 1);
             const Fr round_challenge = round_challenges_inv[i];
@@ -699,7 +699,6 @@ template <typename Curve_> class IPA {
     requires Curve::is_stdlib_type
     {
         using Builder = typename Curve::Builder;
-        // Builder* builder = acc_1.comm.get_context();
         // Step 1: Run the verifier for each IPA instance
         VerifierAccumulator pair_1 = reduce_verify(verifier_ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
         VerifierAccumulator pair_2 = reduce_verify(verifier_ck, {{ acc_2.eval_point, acc_2.eval }, acc_2.comm}, transcript_2);
