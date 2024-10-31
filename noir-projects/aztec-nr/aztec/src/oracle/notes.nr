@@ -231,11 +231,11 @@ pub unconstrained fn get_app_tagging_secrets_for_senders(
     let results = get_app_tagging_secrets_for_senders_oracle(recipient);
     let mut indexed_tagging_secrets = &[];
     for i in 0..results.len() {
-        if i % 2 != 0 {
+        if i % 3 != 0 {
             continue;
         }
         indexed_tagging_secrets = indexed_tagging_secrets.push_back(
-            IndexedTaggingSecret::deserialize([results[i], results[i + 1]]),
+            IndexedTaggingSecret::deserialize([results[i], results[i + 1], results[i + 2]]),
         );
     }
     indexed_tagging_secrets

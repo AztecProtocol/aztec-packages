@@ -96,8 +96,8 @@ template <typename FF_> class MegaArith {
             this->delta_range = 25000;
             this->elliptic = 80000;
             this->aux = 100000;
-            this->poseidon2_external = 30000;
-            this->poseidon2_internal = 150000;
+            this->poseidon2_external = 30128;
+            this->poseidon2_internal = 172000;
             this->lookup = 200000;
         }
     };

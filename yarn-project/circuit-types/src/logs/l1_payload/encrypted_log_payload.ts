@@ -27,7 +27,6 @@ const OUTGOING_BODY_SIZE = 144;
 
 const ENCRYPTED_LOG_CIPHERTEXT_OVERHEAD_SIZE =
   32 /* incoming_tag */ +
-  32 /* outgoing_tag */ +
   32 /* eph_pk */ +
   HEADER_SIZE /* incoming_header */ +
   HEADER_SIZE /* outgoing_header */ +
@@ -41,13 +40,9 @@ const INCOMING_BODY_SIZE = PRIVATE_LOG_SIZE_IN_BYTES - ENCRYPTED_LOG_CIPHERTEXT_
 export class EncryptedLogPayload {
   constructor(
     /**
-     * Note discovery tag used by the recipient of the log.
+     * Note discovery tag.
      */
-    public readonly incomingTag: Fr,
-    /**
-     * Note discovery tag used by the sender of the log.
-     */
-    public readonly outgoingTag: Fr,
+    public readonly tag: Fr,
     /**
      * Address of a contract that emitted the log.
      */
@@ -90,8 +85,7 @@ export class EncryptedLogPayload {
     }
 
     const overhead = serializeToBuffer(
-      this.incomingTag,
-      this.outgoingTag,
+      this.tag,
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
@@ -133,7 +127,7 @@ export class EncryptedLogPayload {
    * Produces the same output as `decryptAsOutgoing`.
    *
    * @param ciphertext - The ciphertext for the log
-   * @param addressSecret - The incoming viewing secret key, used to decrypt the logs
+   * @param addressSecret - The address secret, used to decrypt the logs
    * @returns The decrypted log payload
    */
   public static decryptAsIncoming(
@@ -143,8 +137,7 @@ export class EncryptedLogPayload {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
-      const incomingTag = reader.readObject(Fr);
-      const outgoingTag = reader.readObject(Fr);
+      const tag = reader.readObject(Fr);
 
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
@@ -160,12 +153,7 @@ export class EncryptedLogPayload {
       const length = decrypted.readUint8(0);
       const incomingBodyPlaintext = decrypted.subarray(1, 1 + length);
 
-      return new EncryptedLogPayload(
-        incomingTag,
-        outgoingTag,
-        AztecAddress.fromBuffer(incomingHeader),
-        incomingBodyPlaintext,
-      );
+      return new EncryptedLogPayload(tag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (
@@ -202,8 +190,7 @@ export class EncryptedLogPayload {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
-      const incomingTag = reader.readObject(Fr);
-      const outgoingTag = reader.readObject(Fr);
+      const tag = reader.readObject(Fr);
 
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
@@ -232,7 +219,7 @@ export class EncryptedLogPayload {
       const length = decryptedIncomingBody.readUint8(0);
       const incomingBody = decryptedIncomingBody.subarray(1, 1 + length);
 
-      return new EncryptedLogPayload(incomingTag, outgoingTag, contractAddress, incomingBody);
+      return new EncryptedLogPayload(tag, contractAddress, incomingBody);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (
@@ -250,11 +237,6 @@ export class EncryptedLogPayload {
   }
 
   public toBuffer() {
-    return serializeToBuffer(
-      this.incomingTag,
-      this.outgoingTag,
-      this.contractAddress.toBuffer(),
-      this.incomingBodyPlaintext,
-    );
+    return serializeToBuffer(this.tag, this.contractAddress.toBuffer(), this.incomingBodyPlaintext);
   }
 }

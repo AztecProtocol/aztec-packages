@@ -468,7 +468,7 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
+            fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
                 let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
                 let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
@@ -476,6 +476,7 @@ comptime fn generate_setup_payload(
                     ovsk_app,
                     ovpk,
                     recipient,
+                    sender,
                     self.log_plaintext,
                 );
 
