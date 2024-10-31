@@ -94,7 +94,7 @@ export class EncryptedLogPayload {
    * Produces the same output as `decryptAsOutgoing`.
    *
    * @param ciphertext - The ciphertext for the log
-   * @param addressSecret - The incoming viewing secret key, used to decrypt the logs
+   * @param addressSecret - The address secret, used to decrypt the logs
    * @returns The decrypted log payload
    */
   public static decryptAsIncoming(

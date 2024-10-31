@@ -208,8 +208,9 @@ contract Token {
     }
     // docs:end:mint_public
     // docs:start:mint_private
+    // TODO(benesjan): To be nuked in a followup PR.
     #[public]
-    fn mint_private(amount: Field, secret_hash: Field) {
+    fn mint_private_old(amount: Field, secret_hash: Field) {
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount, secret_hash);
@@ -313,9 +314,9 @@ contract Token {
         ));
     }
     // docs:end:redeem_shield
-    // docs:start:unshield
+    // docs:start:transfer_to_public
     #[private]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -330,7 +331,7 @@ contract Token {
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
-    // docs:end:unshield
+    // docs:end:transfer_to_public
     // docs:start:transfer
     #[private]
     fn transfer(to: AztecAddress, amount: Field) {
@@ -485,13 +486,15 @@ contract Token {
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
     #[private]
     fn transfer_to_private(to: AztecAddress, amount: Field) {
+        // We check the minter permissions in the enqueued call as that allows us to avoid the need for `SharedMutable`
+        // which is less efficient.
         let from = context.msg_sender();
         let token = Token::at(context.this_address());
 
         // We prepare the transfer.
         let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
 
-        // At last we finalize the transfer. Usafe of the `unsafe` method here is safe because we set the `from`
+        // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
         token._finalize_transfer_to_private_unsafe(from, amount, hiding_point_slot).enqueue(
             &mut context,
@@ -578,7 +581,7 @@ contract Token {
     fn _finalize_transfer_to_private(
         from: AztecAddress,
         amount: Field,
-        note_transient_storage_slot: Field,
+        hiding_point_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
@@ -591,7 +594,70 @@ contract Token {
 
         // Then we finalize the partial note with the `amount`
         let finalization_payload =
-            UintNote::finalization_payload().new(context, note_transient_storage_slot, amount);
+            UintNote::finalization_payload().new(context, hiding_point_slot, amount);
+
+        // At last we emit the note hash and the final log
+        finalization_payload.emit();
+    }
+
+    /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
+    /// in the enqueud call).
+    #[private]
+    fn mint_to_private(to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+        let token = Token::at(context.this_address());
+
+        // We prepare the transfer.
+        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+
+        // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
+        // function argument to a message sender, guaranteeing that only a message sender with minter permissions
+        // can successfully execute the function.
+        token._finalize_mint_to_private_unsafe(from, amount, hiding_point_slot).enqueue(&mut context);
+    }
+
+    /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
+    /// `prepare_transfer_to_private` first and the resulting
+    /// `hiding_point_slot` must be passed as an argument to this function.
+    ///
+    /// Note: This function is only an optimization as it could be replaced by a combination of `mint_public`
+    /// and `finalize_transfer_to_private`. It is however used very commonly so it makes sense to optimize it
+    /// (e.g. used during token bridging, in AMM liquidity token etc.).
+    #[public]
+    fn finalize_mint_to_private(amount: Field, hiding_point_slot: Field) {
+        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+
+        _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
+    }
+
+    #[public]
+    #[internal]
+    fn _finalize_mint_to_private_unsafe(
+        from: AztecAddress,
+        amount: Field,
+        hiding_point_slot: Field,
+    ) {
+        // We check the minter permissions as it was not done in `mint_to_private` function.
+        assert(storage.minters.at(from).read(), "caller is not minter");
+        _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
+    }
+
+    #[contract_library_method]
+    fn _finalize_mint_to_private(
+        amount: Field,
+        hiding_point_slot: Field,
+        context: &mut PublicContext,
+        storage: Storage<&mut PublicContext>,
+    ) {
+        let amount = U128::from_integer(amount);
+
+        // First we increase the total supply by the `amount`
+        let supply = storage.total_supply.read().add(amount);
+        storage.total_supply.write(supply);
+
+        // Then we finalize the partial note with the `amount`
+        let finalization_payload =
+            UintNote::finalization_payload().new(context, hiding_point_slot, amount);
 
         // At last we emit the note hash and the final log
         finalization_payload.emit();

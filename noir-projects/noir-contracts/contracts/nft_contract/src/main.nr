@@ -256,7 +256,7 @@ contract NFT {
     fn _finalize_transfer_to_private(
         from: AztecAddress,
         token_id: Field,
-        note_transient_storage_slot: Field,
+        hiding_point_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
@@ -268,7 +268,7 @@ contract NFT {
 
         // Finalize the partial note with the `token_id`
         let finalization_payload =
-            NFTNote::finalization_payload().new(context, note_transient_storage_slot, token_id);
+            NFTNote::finalization_payload().new(context, hiding_point_slot, token_id);
 
         // At last we emit the note hash and the final log
         finalization_payload.emit();

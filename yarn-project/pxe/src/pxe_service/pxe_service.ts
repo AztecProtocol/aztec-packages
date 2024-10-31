@@ -1,7 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
-  type EventMetadata,
+  EventMetadata,
   EventType,
   type ExtendedNote,
   type FunctionCall,
@@ -50,6 +50,7 @@ import {
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type AbiDecoded,
+  type AbiType,
   type ContractArtifact,
   EventSelector,
   FunctionSelector,
@@ -825,24 +826,25 @@ export class PXEService implements PXE {
 
   public getEvents<T>(
     type: EventType.Encrypted,
-    eventMetadata: EventMetadata<T>,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
     vpks: Point[],
   ): Promise<T[]>;
   public getEvents<T>(
     type: EventType.Unencrypted,
-    eventMetadata: EventMetadata<T>,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
   ): Promise<T[]>;
   public getEvents<T>(
     type: EventType,
-    eventMetadata: EventMetadata<T>,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
     vpks: Point[] = [],
   ): Promise<T[]> {
+    const eventMetadata = new EventMetadata<T>(type, event);
     if (type.includes(EventType.Encrypted)) {
       return this.getEncryptedEvents(from, limit, eventMetadata, vpks);
     }
