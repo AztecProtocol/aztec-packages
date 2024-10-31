@@ -151,17 +151,3 @@ docker run --rm --network=host \
   -e ETHEREUM_HOST=http://127.0.0.1:$ANVIL_PORT \
   -e LOG_JSON=1 \
   aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
-
-# Print all variables for debugging purposes
-echo "=== Script Variables Summary ==="
-echo "SCRIPT_DIR: $SCRIPT_DIR"
-echo "TEST: $TEST"
-echo "REPO: $REPO"
-echo "VALUES_FILE: $VALUES_FILE"
-echo "CHAOS_VALUES: $CHAOS_VALUES"
-echo "FRESH_INSTALL: $FRESH_INSTALL"
-echo "AZTEC_DOCKER_TAG: $AZTEC_DOCKER_TAG"
-echo "NAMESPACE: $NAMESPACE"
-echo "Operating System: $(uname)"
-echo "Architecture: $(uname -m)"
-echo "=== End of Variables Summary ==="
