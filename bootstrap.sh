@@ -126,8 +126,6 @@ elif [ "$CMD" = "full" ]; then
   echo
 elif [ "$CMD" = "fast" ]; then
   export USE_CACHE=1
-elif [ "$CMD" = "cache" ]; then
-  export USE_CACHE=1
 elif [ "$CMD" = "check" ]; then
   check_toolchains
   echo "Toolchains look good! 🎉"
