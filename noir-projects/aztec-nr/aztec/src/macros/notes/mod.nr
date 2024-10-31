@@ -729,8 +729,6 @@ comptime fn generate_finalization_payload(
                 // We append the public value to the log and emit it as unencrypted log
                 let mut finalization_log = [0; $finalization_log_byte_length];
 
-                // Populate the first byte with number of public values
-                finalization_log[0] = $public_values_length;
 
                 // Iterate over the partial log and copy it to the final log
                 for i in 0..setup_log.len() {
@@ -744,6 +742,9 @@ comptime fn generate_finalization_payload(
                         finalization_log[1 + $setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
                     }
                 }
+
+                // Populate the first byte with number of public values
+                finalization_log[0] = $public_values_length;
 
                 // We emit the finalization log via the unencrypted logs stream
                 self.context.emit_unencrypted_log(finalization_log);
