@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730388124417,
+  "lastUpdate": 1730392921400,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8b2d7d9c962c975592e17424f4d0b70f9ca7acd4",
-          "message": "fix(s3-cache): link extracted preset-release-world-state (#9252)",
-          "timestamp": "2024-10-16T11:14:16Z",
-          "tree_id": "84f0bf5b2af72bbf6f1b09852492ee7b1955f021",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8b2d7d9c962c975592e17424f4d0b70f9ca7acd4"
-        },
-        "date": 1729078812582,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29695.218789000024,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27958.715777 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5422.575045000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5048.906808 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86870.473682,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86870475000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15351.412733000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15351412000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2744479692,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2744479692 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125757008,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125757008 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2996,6 +2936,66 @@ window.BENCHMARK_DATA = {
             "value": 127340470,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127340470 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "04dd2c4c959d5d80e527be9c71504c051e3c5929",
+          "message": "fix: Ensuring translator range constraint polynomials are zeroes outside of minicircuit (#9251)\n\nWhen Translator was built, there was expectation on using ZM's degree\r\nchecks for minicircuit polynomials later. ZM is dead, so we have to\r\nenforce those in another way so there is no soundness issue during\r\npolynomial concatenation. This PR adds relations to ensure\r\nrange_constraint polynomials are zero outside of minicircuit\r\n\r\nClientIVC before:\r\n\r\n![image](https://github.com/user-attachments/assets/6299f04b-41de-4f41-90e4-45e49bf42470)\r\nClientIVC after:\r\n\r\n![image](https://github.com/user-attachments/assets/5b0c8677-ee3f-4195-898e-892ef38e9eef)\r\n\r\nFixes https://github.com/AztecProtocol/barretenberg/issues/1128",
+          "timestamp": "2024-10-31T16:07:52Z",
+          "tree_id": "d1c72b41fc5ce364658ef2a000c861f00c2c347e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/04dd2c4c959d5d80e527be9c71504c051e3c5929"
+        },
+        "date": 1730392913622,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28973.78177799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27509.533153 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5348.173583000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4992.931622 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85819.50574000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85819508000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15070.684988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15070684000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2490302991,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2490302991 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125831171,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125831171 ns\nthreads: 1"
           }
         ]
       }
