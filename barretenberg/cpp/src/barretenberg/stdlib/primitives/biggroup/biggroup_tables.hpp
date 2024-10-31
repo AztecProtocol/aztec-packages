@@ -74,8 +74,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
     const auto yhi = tables[3][index];
     const auto xyprime = tables[4][index];
 
-    Fq x_fq(xlo[0], xlo[1], xhi[0], xhi[1], xyprime[0]);
-    Fq y_fq(ylo[0], ylo[1], yhi[0], yhi[1], xyprime[1]);
+    // We assign maximum_value of each limb here, so we can use the unsafe API from element construction
+    Fq x_fq = Fq::unsafe_construct_from_limbs(xlo[0], xlo[1], xhi[0], xhi[1], xyprime[0]);
+    Fq y_fq = Fq::unsafe_construct_from_limbs(ylo[0], ylo[1], yhi[0], yhi[1], xyprime[1]);
     x_fq.binary_basis_limbs[0].maximum_value = limb_max[0];
     x_fq.binary_basis_limbs[1].maximum_value = limb_max[1];
     x_fq.binary_basis_limbs[2].maximum_value = limb_max[2];
@@ -157,8 +158,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table<X>::oper
     const auto yhi = plookup_read<C>::read_pair_from_table(tags[3], index);
     const auto xyprime = plookup_read<C>::read_pair_from_table(tags[4], index);
 
-    Fq x = Fq(xlo.first, xlo.second, xhi.first, xhi.second, xyprime.first);
-    Fq y = Fq(ylo.first, ylo.second, yhi.first, yhi.second, xyprime.second);
+    // All the elements are precomputed constants so they are completely reduced, so the default maximum limb values are
+    // appropriate
+    Fq x = Fq::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second, xyprime.first);
+    Fq y = Fq::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second, xyprime.second);
 
     if (use_endomorphism) {
         y = -y;
