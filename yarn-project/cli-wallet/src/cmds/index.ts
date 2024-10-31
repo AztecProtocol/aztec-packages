@@ -34,6 +34,7 @@ import {
   createArgsOption,
   createArtifactOption,
   createContractAddressOption,
+  createProfileOption,
   createTypeOption,
   integerArgParser,
   parsePaymentMethod,
@@ -287,6 +288,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createTypeOption(false))
+    .addOption(createProfileOption())
     .action(async (functionName, _options, command) => {
       const { simulate } = await import('./simulate.js');
       const options = command.optsWithGlobals();
@@ -299,13 +301,14 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         type,
         secretKey,
         publicKey,
+        profile,
       } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
       const wallet = await getWalletWithScopes(account, db);
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
+      await simulate(wallet, functionName, args, artifactPath, contractAddress, profile, log);
     });
 
   program

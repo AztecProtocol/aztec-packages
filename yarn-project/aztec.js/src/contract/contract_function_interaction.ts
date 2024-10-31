@@ -25,6 +25,8 @@ export type SimulateMethodOptions = {
   gasSettings?: GasSettings;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
+  /** Run the real prover with profiling enabled (get the gate count for each function in the transaction). */
+  profile?: boolean;
 };
 
 /**
@@ -98,7 +100,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation);
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation, options?.profile);
+
+    // Temp
+    if (options.profile) {
+      console.log("Result");
+      console.log(simulatedTx.profileResult);
+    }
 
     // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
     // since we're interested in the first set of values AFTER the account entrypoint
