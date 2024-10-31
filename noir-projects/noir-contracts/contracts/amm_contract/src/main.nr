@@ -79,8 +79,6 @@ contract AMM {
         // TODO(#8271): Type the args as U128 and nuke these ugly casts
         let amount0_desired = U128::from_integer(amount0_desired);
         let amount1_desired = U128::from_integer(amount1_desired);
-        let amount0_min = U128::from_integer(amount0_min);
-        let amount1_min = U128::from_integer(amount1_min);
 
         assert(
             amount0_desired > U128::zero() & amount1_desired > U128::zero(),
@@ -129,8 +127,8 @@ contract AMM {
                 liquidity_hiding_point_slot,
                 amount0_desired.to_integer(),
                 amount1_desired.to_integer(),
-                amount0_min.to_integer(),
-                amount1_min.to_integer(),
+                amount0_min,
+                amount1_min,
             )
             .enqueue(&mut context);
     }
