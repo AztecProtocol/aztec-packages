@@ -86,22 +86,9 @@ http://{{ include "aztec-network.fullname" . }}-validator-0.{{ include "aztec-ne
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
-{{- define "aztec-network.otelCollectorMetricsEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics
+{{- define "aztec-network.otelResourceAttributes" -}}
+k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)
 {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorTracesEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
 
 {{- define "helpers.flag" -}}
 {{- $name := index . 0 -}}

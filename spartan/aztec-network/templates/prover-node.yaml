@@ -33,7 +33,7 @@ spec:
               done
               echo "Ethereum node is ready!"
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+              until curl --head --silent {{.Values.telemetry.otelCollectorEndpoint}} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."
                 sleep 5
               done
@@ -103,6 +103,16 @@ spec:
               value: {{ include "aztec-network.bootNodeUrl" . | quote }}
             - name: PROVER_JOB_SOURCE_URL
               value: "http://$(POD_DNS_NAME):{{ .Values.proverNode.service.nodePort }}"
+            {{- if .Values.telemetry.enabled }}
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: "{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces"
+            - name: OTEL_SERVICE_NAME
+              value: {{.Values.proverNode.service.serviceName}}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ include "aztec-network.otelResourceAttributes" . | quote }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
           resources:

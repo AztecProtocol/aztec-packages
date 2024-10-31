@@ -7,7 +7,7 @@ network:
 
 telemetry:
   enabled: false
-  otelCollectorEndpoint:
+  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
 
 images:
   aztec:
@@ -26,6 +26,7 @@ bootNode:
   externalUdpHost: ""
   replicas: 1
   service:
+    serviceName: "boot-node"
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
@@ -63,6 +64,7 @@ validator:
   validatorAddresses:
     - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
+    serviceName: "validator"
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
@@ -86,6 +88,7 @@ proverNode:
   externalHost: ""
   replicas: 1
   service:
+    serviceName: "prover"
     nodePort: 8080
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
@@ -104,6 +107,7 @@ pxe:
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
   replicas: 1
   service:
+    serviceName: "pxe"
     port: 8080
     targetPort: 8080
     nodePort: ""
@@ -133,6 +137,7 @@ bot:
   pxeProverEnabled: false
   proverRealProofs: false
   service:
+    serviceName: "bot"
     type: ClusterIP
     port: 8080
     targetPort: 8080
@@ -161,6 +166,7 @@ ethereum:
   forkBlockNumber: ""
   args: ""
   service:
+    serviceName: "ethereum"
     type: ClusterIP
     port: 8545
     targetPort: 8545

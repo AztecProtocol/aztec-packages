@@ -36,7 +36,7 @@ spec:
               done
               echo "Ethereum node is ready!"
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+              until curl --head --silent {{.Values.telemetry.otelCollectorEndpoint}} > /dev/null; do
                 echo "Waiting for OpenTelemetry collector..."
                 sleep 5
               done
@@ -126,10 +126,16 @@ spec:
               value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.validator.service.p2pUdpPort }}"
+            {{- if .Values.telemetry.enabled }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
+              value: "{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics"
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
+              value: "{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces"
+            - name: OTEL_SERVICE_NAME
+              value: {{.Values.validator.service.serviceName}}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ include "aztec-network.otelResourceAttributes" . | quote }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
