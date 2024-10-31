@@ -19,7 +19,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 
     let token_admin = env.create_account_contract(1);
     let liquidity_provider = env.create_account_contract(2);
-    let swapper = env.create_account_contract(2);
+    let swapper = env.create_account_contract(3);
 
     // Start the test in the account contract address
     env.impersonate(token_admin);
