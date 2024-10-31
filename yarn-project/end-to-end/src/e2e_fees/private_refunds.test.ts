@@ -8,8 +8,8 @@ describe('e2e_fees/private_refunds', () => {
   let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
-  let token: TokenContract;
-  let fpc: FPCContract;
+  let bananaCoin: TokenContract;
+  let bananaFPC: FPCContract;
 
   let initialAliceBalance: bigint;
   // Bob is the admin of the fee paying contract
@@ -22,9 +22,11 @@ describe('e2e_fees/private_refunds', () => {
     await t.applyInitialAccountsSnapshot();
     await t.applyPublicDeployAccountsSnapshot();
     await t.applySetupFeeJuiceSnapshot();
-    await t.applyToken();
-    await t.applyFundAliceWithTokens();
-    ({ aliceWallet, aliceAddress, bobAddress, bananaFPC: fpc, token } = await t.setup());
+    await t.applyDeployBananaTokenSnapshot();
+    await t.applyFPCSetupSnapshot();
+    await t.applyFundAliceWithPrivateBananas();
+    ({ aliceWallet, aliceAddress, bobAddress, bananaFPC, bananaCoin } = await t.setup());
+
     t.logger.debug(`Alice address: ${aliceAddress}`);
 
     // We give Alice access to Bob's notes because Alice is used to check if balances are correct.
@@ -37,21 +39,21 @@ describe('e2e_fees/private_refunds', () => {
 
   beforeEach(async () => {
     [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
-      t.getTokenBalanceFn(aliceAddress, t.bobAddress),
-      t.getGasBalanceFn(fpc.address),
+      t.getBananaPrivateBalanceFn(aliceAddress, t.bobAddress),
+      t.getGasBalanceFn(bananaFPC.address),
     ]);
   });
 
   it('can do private payments and refunds', async () => {
     // 1. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
-    const { transactionFee } = await token.methods
+    const { transactionFee } = await bananaCoin.methods
       .private_get_name()
       .send({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(
-            token.address,
-            fpc.address,
+            bananaCoin.address,
+            bananaFPC.address,
             aliceWallet,
             t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
           ),
@@ -62,10 +64,10 @@ describe('e2e_fees/private_refunds', () => {
     expect(transactionFee).toBeGreaterThan(0);
 
     // 3. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
-    await expectMapping(t.getGasBalanceFn, [fpc.address], [initialFPCGasBalance - transactionFee!]);
+    await expectMapping(t.getGasBalanceFn, [bananaFPC.address], [initialFPCGasBalance - transactionFee!]);
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
-      t.getTokenBalanceFn,
+      t.getBananaPrivateBalanceFn,
       [aliceAddress, t.bobAddress],
       [initialAliceBalance - transactionFee!, initialBobBalance + transactionFee!],
     );
@@ -75,12 +77,12 @@ describe('e2e_fees/private_refunds', () => {
   it('insufficient funded amount is correctly handled', async () => {
     // 1. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
     await expect(
-      token.methods.private_get_name().prove({
+      bananaCoin.methods.private_get_name().prove({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(
-            token.address,
-            fpc.address,
+            bananaCoin.address,
+            bananaFPC.address,
             aliceWallet,
             t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
             true, // We set max fee/funded amount to 1 to trigger the error.
