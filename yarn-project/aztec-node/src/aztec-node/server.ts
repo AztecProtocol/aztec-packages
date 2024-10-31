@@ -30,7 +30,6 @@ import {
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
-  partitionReverts,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,

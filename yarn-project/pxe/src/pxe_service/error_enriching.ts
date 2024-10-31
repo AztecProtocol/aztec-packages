@@ -75,13 +75,18 @@ export async function enrichPublicSimulationError(
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
 
+  const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+    originalFailingFunction.contractAddress,
+    FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+  );
+
   const noirCallStack = err.getNoirCallStack();
-  if (artifact.debug) {
+  if (debugInfo) {
     if (isNoirCallStackUnresolved(noirCallStack)) {
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.
-        const parsedCallStack = resolveOpcodeLocations(noirCallStack, artifact.debug, 0);
+        const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
         err.setNoirCallStack(parsedCallStack);
       } catch (err) {
         logger.warn(
