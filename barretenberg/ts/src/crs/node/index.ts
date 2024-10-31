@@ -64,7 +64,7 @@ export class Crs {
 export class GrumpkinCrs {
   constructor(public readonly numPoints: number, public readonly path: string) {}
 
-  static async new(numPoints: number, crsPath = './crs') {
+  static async new(numPoints: number, crsPath = homedir() + '/.bb-crs') {
     const crs = new GrumpkinCrs(numPoints, crsPath);
     await crs.init();
     return crs;
