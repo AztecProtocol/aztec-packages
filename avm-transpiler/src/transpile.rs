@@ -233,22 +233,22 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 });
             }
             BrilligOpcode::Jump { location } => {
-                assert!(location.num_bits() <= 16);
+                assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 }],
+                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
-                assert!(location.num_bits() <= 16);
+                assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
                     indirect: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![
-                        AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 },
+                        AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 },
                         make_operand(16, &condition.to_usize()),
                     ],
                     ..Default::default()
@@ -297,10 +297,10 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 ));
             }
             BrilligOpcode::Call { location } => {
-                assert!(location.num_bits() <= 16);
+                assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 }],
+                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }

@@ -114,7 +114,7 @@ pub enum AvmOperand {
     U128 { value: u128 },
     FF { value: FieldElement },
     // Unresolved brillig pc that needs translation to a 16 bit byte-indexed PC.
-    BRILLIG_LOCATION { brillig_pc: u16 },
+    BRILLIG_LOCATION { brillig_pc: u32 },
 }
 
 impl Display for AvmOperand {
