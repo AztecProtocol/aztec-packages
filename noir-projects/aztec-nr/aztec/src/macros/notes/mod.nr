@@ -8,7 +8,7 @@ use std::{
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 // The following is a fixed ciphertext overhead as defined by `compute_private_log_payload`
-comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 353;
+comptime global NOTE_CIPHERTEXT_OVERHEAD: u32 = 321;
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`

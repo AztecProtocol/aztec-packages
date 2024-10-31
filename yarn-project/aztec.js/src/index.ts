@@ -116,6 +116,7 @@ export {
   EncryptedNoteL2BlockL2Logs,
   EpochProofQuote,
   EpochProofQuotePayload,
+  EventMetadata,
   EventType,
   ExtendedNote,
   FunctionCall,

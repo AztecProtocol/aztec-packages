@@ -5,6 +5,8 @@ import { deployToken } from '../fixtures/token_utils';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
+// Note: To run this test you need to spin up Aztec sandbox. Build the aztec image (or pull it with aztec-up if on
+// master) and then run this test as usual (yarn test src/sample-dapp/index.test.mjs).
 describe('token', () => {
   // docs:start:setup
   let owner, recipient, token;
@@ -16,7 +18,7 @@ describe('token', () => {
     recipient = await createAccount(pxe);
 
     const initialBalance = 69;
-    await deployToken(owner, initialBalance, createDebugLogger('sample_dapp'));
+    token = await deployToken(owner, initialBalance, createDebugLogger('sample_dapp'));
   }, 120_000);
   // docs:end:setup
 

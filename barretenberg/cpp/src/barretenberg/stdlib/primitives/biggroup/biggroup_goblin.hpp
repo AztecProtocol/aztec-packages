@@ -54,9 +54,10 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         goblin_element out;
+        // ECCVM requires points at infinity to be represented by 0-value x/y coords
         if (input.is_point_at_infinity()) {
-            Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
-            Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
+            Fq x = Fq::from_witness(ctx, bb::fq(0));
+            Fq y = Fq::from_witness(ctx, bb::fq(0));
             out.x = x;
             out.y = y;
         } else {
@@ -92,6 +93,16 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return goblin_element(x_fq, y_fq);
     }
 
+    static goblin_element point_at_infinity(Builder* ctx)
+    {
+        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        Fq x_fq(zero, zero);
+        Fq y_fq(zero, zero);
+        goblin_element result(x_fq, y_fq);
+        result.set_point_at_infinity(true);
+        return result;
+    }
+
     goblin_element checked_unconditional_add(const goblin_element& other) const
     {
         return goblin_element::operator+(*this, other);
@@ -107,10 +118,58 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     }
     goblin_element operator-(const goblin_element& other) const
     {
-        std::vector<goblin_element> points{ *this, other };
-        return batch_mul({ *this, other }, { Fr(1), -Fr(1) });
+        auto builder = get_context(other);
+        // Check that the internal accumulator is zero
+        ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+
+        // Compute the result natively, and validate that result + other == *this
+        typename NativeGroup::affine_element result_value = typename NativeGroup::affine_element(
+            typename NativeGroup::element(get_value()) - typename NativeGroup::element(other.get_value()));
+
+        ecc_op_tuple op_tuple;
+        op_tuple = builder->queue_ecc_add_accum(other.get_value());
+        {
+            auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
+            auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
+            auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
+            auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
+            x_lo.assert_equal(other.x.limbs[0]);
+            x_hi.assert_equal(other.x.limbs[1]);
+            y_lo.assert_equal(other.y.limbs[0]);
+            y_hi.assert_equal(other.y.limbs[1]);
+        }
+
+        ecc_op_tuple op_tuple2 = builder->queue_ecc_add_accum(result_value);
+        auto x_lo = Fr::from_witness_index(builder, op_tuple2.x_lo);
+        auto x_hi = Fr::from_witness_index(builder, op_tuple2.x_hi);
+        auto y_lo = Fr::from_witness_index(builder, op_tuple2.y_lo);
+        auto y_hi = Fr::from_witness_index(builder, op_tuple2.y_hi);
+
+        Fq result_x(x_lo, x_hi);
+        Fq result_y(y_lo, y_hi);
+        goblin_element result(result_x, result_y);
+
+        // if the output is at infinity, this is represented by x/y coordinates being zero
+        // because they are all 136-bit, we can do a cheap zerocheck by first summing the limbs
+        auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
+        result.set_point_at_infinity(op2_is_infinity);
+        {
+            ecc_op_tuple op_tuple3 = builder->queue_ecc_eq();
+            auto x_lo = Fr::from_witness_index(builder, op_tuple3.x_lo);
+            auto x_hi = Fr::from_witness_index(builder, op_tuple3.x_hi);
+            auto y_lo = Fr::from_witness_index(builder, op_tuple3.y_lo);
+            auto y_hi = Fr::from_witness_index(builder, op_tuple3.y_hi);
+
+            x_lo.assert_equal(x.limbs[0]);
+            x_hi.assert_equal(x.limbs[1]);
+            y_lo.assert_equal(y.limbs[0]);
+            y_hi.assert_equal(y.limbs[1]);
+        }
+        return result;
     }
-    goblin_element operator-() const { return batch_mul({ *this }, { -Fr(1) }); }
+
+    goblin_element operator-() const { return point_at_infinity(get_context()) - *this; }
+
     goblin_element operator+=(const goblin_element& other)
     {
         *this = *this + other;
