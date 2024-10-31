@@ -12,7 +12,7 @@ fn compute_payload_and_hash<Event, let N: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> ([u8; 416 + N * 32], Field)
+) -> ([u8; 384 + N * 32], Field)
 where
     Event: EventInterface<N>,
 {
@@ -20,7 +20,7 @@ where
     let plaintext = event.private_to_be_bytes(randomness);
 
     // For event logs we never include public values prefix as there are never any public values
-    let encrypted_log: [u8; 416 + N * 32] = compute_private_log_payload(
+    let encrypted_log: [u8; 384 + N * 32] = compute_private_log_payload(
         contract_address,
         ovsk_app,
         ovpk,
@@ -38,7 +38,7 @@ unconstrained fn compute_payload_and_hash_unconstrained<Event, let N: u32>(
     randomness: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> ([u8; 416 + N * 32], Field)
+) -> ([u8; 384 + N * 32], Field)
 where
     Event: EventInterface<N>,
 {
