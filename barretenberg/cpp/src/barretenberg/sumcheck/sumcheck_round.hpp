@@ -467,6 +467,8 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         FF total_sum =
             FF::conditional_assign(dummy_round, target_total_sum, univariate.value_at(0) + univariate.value_at(1));
+
+        // info("total sum", total_sum);
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
@@ -476,6 +478,7 @@ template <typename Flavor> class SumcheckVerifierRound {
             // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
             // 0.
             total_sum.self_reduce();
+            // info("self reduce? ", total_sum);
         }
         target_total_sum.assert_equal(total_sum);
         if (!dummy_round.get_value()) {
@@ -532,10 +535,16 @@ template <typename Flavor> class SumcheckVerifierRound {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, gate_sparators.partial_evaluation_result);
+        info("rel eval ");
 
+        // for (size_t idx = 0; idx < std::get<1>(relation_evaluations).size(); idx++) {
+        //     info(std::get<1>(relation_evaluations)[idx]);
+        // }
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+
+        info("honk without libra?", output);
         if constexpr (Flavor::HasZK) {
             output += full_libra_purported_value.value();
         };

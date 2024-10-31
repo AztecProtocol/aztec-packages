@@ -27,5 +27,6 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
+    std::vector<Commitment> libra_commitments;
 };
 } // namespace bb

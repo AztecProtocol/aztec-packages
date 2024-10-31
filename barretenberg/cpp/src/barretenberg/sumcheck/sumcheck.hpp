@@ -197,6 +197,7 @@ template <typename Flavor> class SumcheckProver {
         // the total sum, etc.
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
+
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
@@ -626,6 +627,19 @@ template <typename Flavor> class SumcheckVerifier {
         bool verified(true);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
+
+        for (auto gate_challenge : gate_challenges) {
+            info("gate challenge ", gate_challenge);
+        }
+
+        info("rel gamma", relation_parameters.gamma);
+        info("rel beta", relation_parameters.beta);
+        info("rel beta_sqr", relation_parameters.beta_sqr);
+        info("beta cube", relation_parameters.beta_cube);
+        info("set perm delta", relation_parameters.eccvm_set_permutation_delta);
+        // info(" relation_parameters.eccvm_set_permutation_delta =
+        // relation_parameters.eccvm_set_permutation_delta.invert();
+
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
@@ -664,13 +678,17 @@ template <typename Flavor> class SumcheckVerifier {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
+                // info("checked? ", checked);
                 // Only utilize the checked value if this is not a constant proof size padding round
                 if (round_idx < multivariate_d) {
                     verified = verified && checked;
                 }
+                // info("verified? ", verified);
+
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
+                info("native round target sum: ", round.target_total_sum);
                 gate_separators.partially_evaluate(round_challenge, dummy_round);
 
             } else {
@@ -704,13 +722,28 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+        // size_t idx = 0;
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
+
+            // if constexpr (IsRecursiveFlavor<Flavor>) {
+            //     info("recursive eval ", idx, " ", transcript_eval);
+            // } else {
+            //     info("native eval ", idx, " ", transcript_eval);
+            // }
+            // idx++;
         }
+
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
+        if constexpr (Flavor::HasZK) {
+            info("libra relation accumulated ", full_libra_purported_value);
+        }
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alpha, full_libra_purported_value);
+        info("honk value? ", full_honk_purported_value);
+        info("round target tot sum ", round.target_total_sum);
+
         bool final_check(false);
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {

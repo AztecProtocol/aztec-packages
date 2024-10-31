@@ -484,7 +484,13 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (size_t idx = 0; idx < num_libra_univariates; idx++) {
             denominators.push_back(shplonk_evaluation_challenge - multivariate_challenge[idx]);
         };
-        Fr::batch_invert(denominators);
+        if constexpr (Curve::is_stdlib_type) {
+            for (Fr& denominator : denominators) {
+                denominator.invert();
+            }
+        } else {
+            Fr::batch_invert(denominators);
+        }
 
         Fr constant_term = 0;
         for (const auto [libra_univariate_commitment, denominator, libra_univariate_evaluation] :

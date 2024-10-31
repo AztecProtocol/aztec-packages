@@ -156,6 +156,7 @@ template <typename Flavor> class RelationUtils {
                                                                         const Parameters& relation_parameters,
                                                                         const FF& partial_evaluation_result)
     {
+        info("pow value? ", partial_evaluation_result);
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             // FIXME: You wan't /*consider_skipping=*/false here, but tests need to be fixed.
             accumulate_single_relation<Parameters, rel_index, /*consider_skipping=*/true>(

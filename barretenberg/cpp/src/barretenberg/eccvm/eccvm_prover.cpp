@@ -106,21 +106,21 @@ void ECCVMProver::execute_relation_check_rounds()
     info("some other stuff", zk_sumcheck_data.libra_challenge);
     info("monomial size ", zk_sumcheck_data.libra_univariates_monomial.size());
 
-    for (auto& eval : zk_sumcheck_data.libra_univariates_monomial) {
-        info("exec rounds before sumcheck ", eval);
-    }
+    // for (auto& eval : zk_sumcheck_data.libra_univariates_monomial) {
+    //     info("exec rounds before sumcheck ", eval);
+    // }
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
-    size_t idx = 0;
+    // size_t idx = 0;
 
-    for (auto [poly_mon, poly_lag] :
-         zip_view(zk_sumcheck_data.libra_univariates_monomial, zk_sumcheck_data.libra_univariates)) {
-        info("eval at u_", idx);
-        auto eval_mon = poly_mon.evaluate(sumcheck_output.challenge[idx]);
-        auto eval_lag = poly_lag.evaluate(sumcheck_output.challenge[idx]);
-        info(eval_mon, " || ", eval_lag);
-        idx++;
-    }
+    // for (auto [poly_mon, poly_lag] :
+    //      zip_view(zk_sumcheck_data.libra_univariates_monomial, zk_sumcheck_data.libra_univariates)) {
+    //     info("eval at u_", idx);
+    //     auto eval_mon = poly_mon.evaluate(sumcheck_output.challenge[idx]);
+    //     auto eval_lag = poly_lag.evaluate(sumcheck_output.challenge[idx]);
+    //     info(eval_mon, " || ", eval_lag);
+    //     idx++;
+    // }
     // for (auto& eval : zk_sumcheck_data.libra_evaluations) {
     //     info("right after sumcheck ", eval);
     // };

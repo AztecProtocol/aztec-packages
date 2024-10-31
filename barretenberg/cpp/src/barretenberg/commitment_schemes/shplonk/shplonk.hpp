@@ -71,7 +71,7 @@ template <typename Curve> class ShplonkProver_ {
         };
 
         for (const auto& claim : libra_opening_claims) {
-            info(" current nu in the prover ", current_nu);
+            // info(" current nu in the prover ", current_nu);
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
