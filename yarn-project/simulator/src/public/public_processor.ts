@@ -183,6 +183,8 @@ export class PublicProcessor {
           await processedTxHandler.addNewTx(processedTx);
         }
         result.push(processedTx);
+        console.log("Note state not updated:")
+        console.log(processedTx.data.startState);
         returns = returns.concat(returnValues ?? []);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
