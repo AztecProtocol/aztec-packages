@@ -44,6 +44,11 @@ bootNode:
       memory: "2Gi"
       cpu: "200m"
   deployContracts: true # Set to false to use manual contract addresses
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
   contracts:
     rollupAddress: ""
     registryAddress: ""
@@ -75,6 +80,11 @@ validator:
     disabled: false
   p2p:
     enabled: "true"
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
   resources:
     requests:
       memory: "2Gi"
