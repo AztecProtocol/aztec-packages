@@ -341,7 +341,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1RpcUrl, l1ChainId, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
-      const secret = await bridgeL1FeeJuice(
+      const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
         rpcUrl,
@@ -357,7 +357,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         debugLogger,
       );
       if (db) {
-        await db.pushBridgedFeeJuice(recipient, secret, amount, log);
+        await db.pushBridgedFeeJuice(recipient, secret, amount, messageLeafIndex, log);
       }
     });
 

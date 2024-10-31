@@ -56,11 +56,13 @@ enum class OpCode : uint8_t {
     GETENVVAR_16,
     // Execution Environment - Calldata
     CALLDATACOPY,
+    RETURNDATASIZE,
+    RETURNDATACOPY,
 
     // Machine State
     // Machine State - Internal Control Flow
-    JUMP_16,
-    JUMPI_16,
+    JUMP_32,
+    JUMPI_32,
     INTERNALCALL,
     INTERNALRETURN,
     // Machine State - Memory
@@ -104,7 +106,7 @@ enum class OpCode : uint8_t {
     ECADD,
     MSM,
     // Conversions
-    TORADIXLE,
+    TORADIXBE,
 
     // Sentinel
     LAST_OPCODE_SENTINEL,
@@ -126,6 +128,14 @@ enum class EnvironmentVariable {
     DAGASLEFT,
     // sentinel
     MAX_ENV_VAR
+};
+
+enum class ContractInstanceMember {
+    DEPLOYER,
+    CLASS_ID,
+    INIT_HASH,
+    // sentinel
+    MAX_MEMBER,
 };
 
 class Bytecode {

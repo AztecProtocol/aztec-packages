@@ -53,6 +53,10 @@ export type BotConfig = {
   daGasLimit: number | undefined;
   /** Token contract to use */
   contract: SupportedTokenContracts;
+  /** The maximum number of consecutive errors before the bot shuts down */
+  maxConsecutiveErrors: number;
+  /** Stops the bot if service becomes unhealthy */
+  stopWhenUnhealthy: boolean;
 };
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
@@ -118,7 +122,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Which chain the bot follows',
     defaultValue: 'NONE',
     parseEnv(val) {
-      if (!botFollowChain.includes(val as any)) {
+      if (!(botFollowChain as readonly string[]).includes(val.toUpperCase())) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
       return val as BotFollowChain;
@@ -163,6 +167,16 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
       }
       return val as SupportedTokenContracts;
     },
+  },
+  maxConsecutiveErrors: {
+    env: 'BOT_MAX_CONSECUTIVE_ERRORS',
+    description: 'The maximum number of consecutive errors before the bot shuts down',
+    ...numberConfigHelper(0),
+  },
+  stopWhenUnhealthy: {
+    env: 'BOT_STOP_WHEN_UNHEALTHY',
+    description: 'Stops the bot if service becomes unhealthy',
+    ...booleanConfigHelper(false),
   },
 };
 

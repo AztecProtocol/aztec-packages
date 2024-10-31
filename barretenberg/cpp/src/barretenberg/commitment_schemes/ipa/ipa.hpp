@@ -369,20 +369,29 @@ template <typename Curve_> class IPA {
         // Construct vector s
         std::vector<Fr> s_vec(poly_length, Fr::one());
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
-        // O(nlogn). This can be optimized to be linear by computing a tree of products. Its very readable, so we're
-        // leaving it unoptimized for now.
-        parallel_for_heuristic(
-            poly_length,
-            [&](size_t i) {
-                for (size_t j = (log_poly_degree - 1); j != static_cast<size_t>(-1); j--) {
-                    auto bit = (i >> j) & 1;
-                    bool b = static_cast<bool>(bit);
-                    if (b) {
-                        s_vec[i] *= round_challenges_inv[log_poly_degree - 1 - j];
-                    }
-                }
-            }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
+        std::vector<Fr> s_vec_temporaries(poly_length / 2);
+
+        Fr* previous_round_s = &s_vec_temporaries[0];
+        Fr* current_round_s = &s_vec[0];
+        // if number of rounds is even we need to swap these so that s_vec always contains the result
+        if ((log_poly_degree & 1) == 0)
+        {
+            std::swap(previous_round_s, current_round_s);
+        }
+        previous_round_s[0] = Fr(1);
+        for (size_t i = 0; i < log_poly_degree; ++i)
+        {
+            const size_t round_size = 1 << (i + 1);
+            const Fr round_challenge = round_challenges_inv[i];
+            parallel_for_heuristic(
+                round_size / 2,
+                [&](size_t j) {
+                    current_round_s[j * 2] = previous_round_s[j];
+                    current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
+                }, thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            std::swap(current_round_s, previous_round_s);
+        }
+
 
         std::span<const Commitment> srs_elements = vk->get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
@@ -454,28 +463,20 @@ template <typename Curve_> class IPA {
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto builder = generator_challenge.get_context();
 
-        Commitment aux_generator = Commitment::one(builder) * generator_challenge;
-
         const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
-
-        // Step 3.
-        // Compute C' = C + f(\beta) ⋅ U
-        GroupElement C_prime = opening_claim.commitment + aux_generator * opening_claim.opening_pair.evaluation;
-
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
         std::vector<Fr> round_challenges_inv(log_poly_degree);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
-        // Step 4.
+        // Step 3.
         // Receive all L_i and R_i and prepare for MSM
         for (size_t i = 0; i < log_poly_degree; i++) {
             std::string index = std::to_string(log_poly_degree - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -484,63 +485,73 @@ template <typename Curve_> class IPA {
             msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
-        // Step 5.
-        // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = GroupElement::batch_mul(msm_elements, msm_scalars);
-
-        GroupElement C_zero = C_prime + LR_sums;
-
-        //  Step 6.
+        //  Step 4.
         // Compute b_zero where b_zero can be computed using the polynomial:
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
 
         Fr b_zero = Fr(1);
+        Fr challenge = opening_claim.opening_pair.challenge;
         for (size_t i = 0; i < log_poly_degree; i++) {
-            b_zero *= Fr(1) + (round_challenges_inv[log_poly_degree - 1 - i] *
-                               opening_claim.opening_pair.challenge.pow(1 << i));
+            b_zero *= Fr(1) + (round_challenges_inv[log_poly_degree - 1 - i] * challenge);
+            if (i != log_poly_degree - 1)
+            {
+                challenge = challenge * challenge;
+            }
         }
 
-        // Step 7.
+
+        // Step 5.
         // Construct vector s
+        // We implement a linear-time algorithm to optimally compute this vector
+        // Note: currently requires an extra vector of size `poly_length / 2` to cache temporaries
+        //       this might able to be optimized if we care enough, but the size of this poly shouldn't be large relative to the builder polynomial sizes
+        std::vector<Fr> s_vec_temporaries(poly_length / 2);
         std::vector<Fr> s_vec(poly_length);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
-        // O(nlogn). This can be optimized to be linear by computing a tree of products.
-        for (size_t i = 0; i < poly_length; i++) {
-            Fr s_vec_scalar = Fr(1);
-            for (size_t j = (log_poly_degree - 1); j != static_cast<size_t>(-1); j--) {
-                auto bit = (i >> j) & 1;
-                bool b = static_cast<bool>(bit);
-                if (b) {
-                    s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
-                }
+        Fr* previous_round_s = &s_vec_temporaries[0];
+        Fr* current_round_s = &s_vec[0];
+        // if number of rounds is even we need to swap these so that s_vec always contains the result
+        if ((log_poly_degree & 1) == 0)
+        {
+            std::swap(previous_round_s, current_round_s);
+        }
+        previous_round_s[0] = Fr(1);
+        for (size_t i = 0; i < log_poly_degree; ++i)
+        {
+            const size_t round_size = 1 << (i + 1);
+            const Fr round_challenge = round_challenges_inv[i];
+            for (size_t j = 0; j < round_size / 2; ++j)
+            {
+                current_round_s[j * 2] = previous_round_s[j];
+                current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
             }
-            s_vec[i] = s_vec_scalar;
+            std::swap(current_round_s, previous_round_s);
         }
 
-        auto srs_elements = vk->get_monomial_points();
+        // Step 6.
+        // Receive a₀ from the prover
+        const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1023): Unify the two batch_muls
-
-        // Step 8.
+        // Step 7.
         // Compute G₀
         // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
         // batch_mul directly on it.
+        const std::vector<Commitment> srs_elements = vk->get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
 
-        // Step 9.
-        // Receive a₀ from the prover
-        auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        // Step 8.
+        // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) + a₀ * b₀) ⋅ U
+        // This is a combination of several IPA relations into a large batch mul
+        // which should be equal to -C
+        msm_elements.emplace_back(-G_zero);
+        msm_elements.emplace_back(-Commitment::one(builder));
+        msm_scalars.emplace_back(a_zero);
+        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {opening_claim.opening_pair.evaluation}));
+        GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
+        ipa_relation.assert_equal(-opening_claim.commitment);
 
-        // Step 10.
-        // Compute C_right
-        GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
-
-        // Step 11.
-        // Check if C_right == C₀
-        C_zero.assert_equal(right_hand_side);
-        return (C_zero.get_value() == right_hand_side.get_value());
+        return (ipa_relation.get_value() == -opening_claim.commitment.get_value());
     }
 
   public:

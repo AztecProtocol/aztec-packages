@@ -7,9 +7,9 @@ import { Instruction } from './instruction.js';
 
 export class Jump extends Instruction {
   static type: string = 'JUMP';
-  static readonly opcode: Opcode = Opcode.JUMP_16;
+  static readonly opcode: Opcode = Opcode.JUMP_32;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private jumpOffset: number) {
     super();
@@ -26,13 +26,13 @@ export class Jump extends Instruction {
 
 export class JumpI extends Instruction {
   static type: string = 'JUMPI';
-  static readonly opcode: Opcode = Opcode.JUMPI_16;
+  static readonly opcode: Opcode = Opcode.JUMPI_32;
 
   // Instruction wire format with opcode.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT16,
+    OperandType.UINT32,
     OperandType.UINT16,
   ];
 
@@ -63,7 +63,7 @@ export class InternalCall extends Instruction {
   static readonly type: string = 'INTERNALCALL';
   static readonly opcode: Opcode = Opcode.INTERNALCALL;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT16];
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
   constructor(private loc: number) {
     super();

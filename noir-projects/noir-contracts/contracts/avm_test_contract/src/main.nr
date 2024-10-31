@@ -32,11 +32,13 @@ contract AvmTest {
     use dep::aztec::context::gas::GasOpts;
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
-        get_contract_instance_avm, get_contract_instance_internal_avm,
+        get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
+        get_contract_instance_initialization_hash_avm,
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map,
+        abis::function_selector::FunctionSelector, contract_class_id::ContractClassId,
+        storage::map::derive_storage_slot_in_map,
     };
     use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress},
@@ -210,7 +212,7 @@ contract AvmTest {
 
     #[public]
     fn to_radix_le(input: Field) -> [u8; 10] {
-        input.to_le_radix( /*base=*/ 2)
+        input.to_le_radix(/*base=*/ 2)
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
@@ -249,8 +251,22 @@ contract AvmTest {
     }
 
     #[public]
+    fn returndata_copy_oracle() {
+        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let returndatasize = dep::aztec::context::public_context::returndata_size();
+        let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
+        assert(returndata == &[1, 2, 3], "Returndata copy failed");
+    }
+
+    #[public]
     fn return_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_return([1, 2, 3]);
+        [4, 5, 6] // Should not get here.
+    }
+
+    #[public]
+    fn revert_oracle() -> [Field; 3] {
+        dep::aztec::context::public_context::avm_revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
@@ -284,40 +300,53 @@ contract AvmTest {
 
     #[public]
     fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/  20)
+        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
 
     /************************************************************************
      * Contract instance
      ************************************************************************/
     #[public]
-    fn test_get_contract_instance_raw() {
-        let fields = get_contract_instance_internal_avm(context.this_address());
-        // The values here should match those in `avm_simulator.test.ts>Contract>GETCONTRACTINSTANCE deserializes correctly`
-        assert(fields.len() == CONTRACT_INSTANCE_LENGTH + 1);
-        assert(fields[0] == 0x1);
-        assert(fields[1] == 0x123);
-        assert(fields[2] == 0x456);
-        assert(fields[3] == 0x789);
-        assert(fields[4] == 0x101112);
-        assert(fields[5] == 0x131415);
-        assert(fields[6] == 0x161718);
-        assert(fields[7] == 0x00);
-        assert(fields[8] == 0x192021);
-        assert(fields[9] == 0x222324);
-        assert(fields[10] == 0x00);
-        assert(fields[11] == 0x252627);
-        assert(fields[12] == 0x282930);
-        assert(fields[13] == 0x00);
-        assert(fields[14] == 0x313233);
-        assert(fields[15] == 0x343536);
-        assert(fields[16] == 0x00);
+    fn test_get_contract_instance(address: AztecAddress) {
+        let deployer = get_contract_instance_deployer_avm(address);
+        let class_id = get_contract_instance_class_id_avm(address);
+        let initialization_hash = get_contract_instance_initialization_hash_avm(address);
+
+        assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
+        assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
+        assert(
+            initialization_hash.is_some(),
+            "Contract instance not found when getting INIT_HASH!",
+        );
+
+        // The values here should match those in `avm_simulator.test.ts`
+        assert(deployer.unwrap().eq(AztecAddress::from_field(0x456)));
+        assert(class_id.unwrap().eq(ContractClassId::from_field(0x789)));
+        assert(initialization_hash.unwrap() == 0x101112);
     }
 
     #[public]
-    fn test_get_contract_instance() {
-        let ci = get_contract_instance_avm(context.this_address());
-        assert(ci.is_some(), "Contract instance not found!");
+    fn test_get_contract_instance_matches(
+        address: AztecAddress,
+        expected_deployer: AztecAddress,
+        expected_class_id: ContractClassId,
+        expected_initialization_hash: Field,
+    ) {
+        let deployer = get_contract_instance_deployer_avm(address);
+        let class_id = get_contract_instance_class_id_avm(address);
+        let initialization_hash = get_contract_instance_initialization_hash_avm(address);
+
+        assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
+        assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
+        assert(
+            initialization_hash.is_some(),
+            "Contract instance not found when getting INIT_HASH!",
+        );
+
+        // The values here should match those in `avm_simulator.test.ts`
+        assert(deployer.unwrap().eq(expected_deployer));
+        assert(class_id.unwrap().eq(expected_class_id));
+        assert(initialization_hash.unwrap().eq(expected_initialization_hash));
     }
 
     /************************************************************************
@@ -404,11 +433,11 @@ contract AvmTest {
 
     #[public]
     fn emit_unencrypted_log() {
-        context.emit_unencrypted_log( /*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log( /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log( /*message=*/ s);
+        context.emit_unencrypted_log(/*message=*/ s);
     }
 
     #[public]
@@ -557,7 +586,7 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance();
+        test_get_contract_instance(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");

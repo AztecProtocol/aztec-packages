@@ -2,8 +2,8 @@ use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergeP
 use dep::types::{
     constants::VK_TREE_HEIGHT,
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
-    recursion::{
-        proof::NestedRecursiveProof,
+    proof::{
+        recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },

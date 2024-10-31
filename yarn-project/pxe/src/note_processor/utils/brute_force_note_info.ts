@@ -1,5 +1,7 @@
-import { type L1NotePayload, type TxHash } from '@aztec/circuit-types';
+import { type Note, type TxHash } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { type NoteSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { type AcirSimulator } from '@aztec/simulator';
 
@@ -18,7 +20,10 @@ export interface NoteInfo {
  * @remarks This method assists in identifying spent notes in the note hash tree.
  * @param siloedNoteHashes - Note hashes in the tx. One of them should correspond to the note we are looking for
  * @param txHash - Hash of a tx the note was emitted in.
- * @param l1NotePayload - The note payload.
+ * @param contractAddress - Address of the contract the note was emitted in.
+ * @param storageSlot - Storage slot of the note.
+ * @param noteTypeId - Type of the note.
+ * @param note - Note items.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
  * l1NotePayload. We need to find a different index for each replicate.
  * @param computeNullifier - A flag indicating whether to compute the nullifier or just return 0.
@@ -29,7 +34,10 @@ export async function bruteForceNoteInfo(
   simulator: AcirSimulator,
   siloedNoteHashes: Fr[],
   txHash: TxHash,
-  { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
+  contractAddress: AztecAddress,
+  storageSlot: Fr,
+  noteTypeId: NoteSelector,
+  note: Note,
   excludedIndices: Set<number>,
   computeNullifier: boolean,
 ): Promise<NoteInfo> {

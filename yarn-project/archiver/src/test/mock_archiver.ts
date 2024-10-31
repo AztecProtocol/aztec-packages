@@ -18,8 +18,8 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     return this.messageSource.getL1ToL2Messages(blockNumber);
   }
 
-  getL1ToL2MessageIndex(_l1ToL2Message: Fr, _startIndex: bigint): Promise<bigint | undefined> {
-    return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message, _startIndex);
+  getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message);
   }
 }
 

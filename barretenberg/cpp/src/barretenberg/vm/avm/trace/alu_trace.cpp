@@ -450,6 +450,7 @@ FF AvmAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const c
  */
 FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk)
 {
+    // TODO(9497): this should raise error flag in main trace, not assert
     ASSERT(in_tag != AvmMemoryTag::FF);
     // Check that the shifted amount is an 8-bit integer
     ASSERT(uint256_t(b) < 256);
@@ -512,6 +513,7 @@ FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
  */
 FF AvmAluTraceBuilder::op_shr(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk)
 {
+    // TODO(9497): this should raise error flag in main trace, not assert
     ASSERT(in_tag != AvmMemoryTag::FF);
     // Check that the shifted amount is an 8-bit integer
     ASSERT(uint256_t(b) < 256);

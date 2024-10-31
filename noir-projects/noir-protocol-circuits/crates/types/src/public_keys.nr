@@ -195,6 +195,16 @@ impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
     }
 }
 
+pub struct AddressPoint {
+    inner: Point,
+}
+
+impl ToPoint for AddressPoint {
+    fn to_point(self) -> Point {
+        self.inner
+    }
+}
+
 #[test]
 unconstrained fn compute_public_keys_hash() {
     let keys = PublicKeys {
