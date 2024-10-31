@@ -133,11 +133,15 @@ global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
+global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
+// We patch the below constants from their prod values of ETHEREUM_SLOT_DURATION=12, AZTEC_SLOT_DURATION=12*3 and AZTEC_EPOCH_DURATION=32
+// <START OF PATCHED CONSTANTS>
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
-global ETHEREUM_SLOT_DURATION: u32 = 1;
+global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
 global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
-global AZTEC_EPOCH_DURATION: u32 = 5;
+global AZTEC_EPOCH_DURATION: u32 = 16;
+// <END OF PATCHED CONSTANTS>
 global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
 // The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
 global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
