@@ -74,6 +74,6 @@ DOCKER_BUILDKIT=1 docker build -t aztecprotocol/aztec -f Dockerfile.fast --progr
   --secret id=s3_build_cache_download,src=$TMP/s3_build_cache_download.txt \
   "$TMP"
 
-if [ $MAKE_END_TO_END != "falde" ] ; then
+if [ $MAKE_END_TO_END != "false" ] ; then
   DOCKER_BUILDKIT=1 docker build -t aztecprotocol/end-to-end -f Dockerfile.end-to-end.fast --progress=plain "$TMP"
 fi
