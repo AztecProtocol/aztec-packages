@@ -1,5 +1,5 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { type AztecNode } from '@aztec/circuit-types';
+import { type ProverCoordination } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -29,7 +29,7 @@ export async function createProverNode(
   deps: {
     telemetry?: TelemetryClient;
     log?: DebugLogger;
-    aztecNodeTxProvider?: AztecNode;
+    aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
   } = {},
 ) {
@@ -49,7 +49,15 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = new L1Publisher(config, telemetry);
 
-  const txProvider = deps.aztecNodeTxProvider ? deps.aztecNodeTxProvider : createProverCoordination(config);
+  // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
+  // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
+  const proverCoordination = await createProverCoordination(config, {
+    aztecNodeTxProvider: deps.aztecNodeTxProvider,
+    worldStateSynchronizer,
+    archiver,
+    telemetry,
+  });
+
   const quoteProvider = createQuoteProvider(config);
   const quoteSigner = createQuoteSigner(config);
 
@@ -72,7 +80,7 @@ export async function createProverNode(
     archiver,
     archiver,
     worldStateSynchronizer,
-    txProvider,
+    proverCoordination,
     simulationProvider,
     quoteProvider,
     quoteSigner,

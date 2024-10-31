@@ -249,14 +249,14 @@ export class Synchronizer {
    * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public async addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
+  public addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
     const predicate = (x: NoteProcessor) => x.account.equals(account);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
     if (processor) {
       return;
     }
 
-    this.noteProcessorsToCatchUp.push(await NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
+    this.noteProcessorsToCatchUp.push(NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
   }
 
   /**
@@ -371,15 +371,15 @@ export class Synchronizer {
 
   async #removeNullifiedNotes(notes: IncomingNoteDao[]) {
     // now group the decoded incoming notes by public key
-    const publicKeyToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
+    const addressPointToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
     for (const noteDao of notes) {
-      const notesForPublicKey = publicKeyToIncomingNotes.get(noteDao.ivpkM) ?? [];
-      notesForPublicKey.push(noteDao);
-      publicKeyToIncomingNotes.set(noteDao.ivpkM, notesForPublicKey);
+      const notesForAddressPoint = addressPointToIncomingNotes.get(noteDao.addressPoint) ?? [];
+      notesForAddressPoint.push(noteDao);
+      addressPointToIncomingNotes.set(noteDao.addressPoint, notesForAddressPoint);
     }
 
     // now for each group, look for the nullifiers in the nullifier tree
-    for (const [publicKey, notes] of publicKeyToIncomingNotes.entries()) {
+    for (const [publicKey, notes] of addressPointToIncomingNotes.entries()) {
       const nullifiers = notes.map(n => n.siloedNullifier);
       const relevantNullifiers: Fr[] = [];
       for (const nullifier of nullifiers) {

@@ -28,7 +28,7 @@ where
     cheatcodes::add_authwit(on_behalf_of, message_hash);
 }
 
-pub fn add_public_authwit_from_call_interface<C, let M: u32>(
+pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,

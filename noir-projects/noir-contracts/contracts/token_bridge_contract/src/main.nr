@@ -98,6 +98,7 @@ contract TokenBridge {
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
+        message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash =
@@ -106,6 +107,7 @@ contract TokenBridge {
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             storage.portal_address.read_private(),
+            message_leaf_index,
         );
 
         // Mint tokens on L2
@@ -156,7 +158,7 @@ contract TokenBridge {
     #[public]
     #[internal]
     fn _call_mint_on_token(amount: Field, secret_hash: Field) {
-        Token::at(storage.token.read()).mint_private(amount, secret_hash).call(&mut context);
+        Token::at(storage.token.read()).mint_private_old(amount, secret_hash).call(&mut context);
     }
     // docs:end:call_mint_on_token
 

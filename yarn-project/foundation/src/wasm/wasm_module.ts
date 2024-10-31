@@ -79,7 +79,7 @@ export class WasmModule implements IWasmModule {
    * @param initMethod - Defaults to calling '_initialize'.
    * @param maximum - 8192 maximum by default. 512mb.
    */
-  public async init(initial = 30, maximum = 8192, initMethod: string | null = '_initialize') {
+  public async init(initial = 31, maximum = 8192, initMethod: string | null = '_initialize') {
     this.debug(
       `initial mem: ${initial} pages, ${(initial * 2 ** 16) / (1024 * 1024)}mb. max mem: ${maximum} pages, ${
         (maximum * 2 ** 16) / (1024 * 1024)

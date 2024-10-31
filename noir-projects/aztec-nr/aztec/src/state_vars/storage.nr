@@ -1,6 +1,6 @@
 use dep::protocol_types::traits::{Deserialize, Serialize};
 
-pub trait Storage<T>
+pub trait Storage<T, let N: u32>
 where
     T: Serialize<N> + Deserialize<N>,
 {

@@ -187,16 +187,15 @@ contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        let msg_sender_keys = get_public_keys(context.msg_sender());
-        let to_keys = get_public_keys(to);
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.add(to, U128::from_integer(amount)).emit(
             encode_and_encrypt_note_unconstrained(
                 &mut context,
-                msg_sender_keys.ovpk_m,
-                to_keys.ivpk_m,
+                msg_sender_ovpk_m,
                 to,
+                context.msg_sender(),
             ),
         );
     }
@@ -214,16 +213,11 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
@@ -245,21 +239,20 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
-        let to_keys = get_public_keys(to);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
-            from_keys.ovpk_m,
-            from_keys.ivpk_m,
+            from_ovpk_m,
+            from,
             from,
         ));
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
-            from_keys.ovpk_m,
-            to_keys.ivpk_m,
+            from_ovpk_m,
             to,
+            from,
         ));
     }
 
@@ -274,16 +267,11 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_public_keys(from);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                from_keys.ovpk_m,
-                from_keys.ivpk_m,
-                from,
-            ),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);

@@ -3,6 +3,7 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
+  logsCollectorUrl?: URL;
   serviceName: string;
   networkName: string;
 }
@@ -16,6 +17,11 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   tracesCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT',
     description: 'The URL of the telemetry collector for traces',
+    parseEnv: (val: string) => new URL(val),
+  },
+  logsCollectorUrl: {
+    env: 'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT',
+    description: 'The URL of the telemetry collector for logs',
     parseEnv: (val: string) => new URL(val),
   },
   serviceName: {

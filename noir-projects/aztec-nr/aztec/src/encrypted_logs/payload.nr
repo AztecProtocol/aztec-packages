@@ -1,10 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY,
-    hash::poseidon2_hash_with_separator,
-    point::Point,
-    public_keys::{IvpkM, OvpkM},
-    scalar::Scalar,
+    address::AztecAddress, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
+    hash::poseidon2_hash_with_separator, point::Point, public_keys::OvpkM, scalar::Scalar,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -23,6 +19,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
+    sender: AztecAddress,
     plaintext: [u8; P],
     include_public_values_prefix: bool,
 ) -> [u8; M] {
@@ -43,7 +40,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
 
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now
-    offset += 64;
+    offset += 32;
 
     let eph_pk_bytes = point_to_bytes(eph_pk);
     for i in 0..32 {
@@ -122,7 +119,7 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     aes128_encrypt(plaintext, iv, sym_key)
 }
 
-/// Encrypts ephemeral secret key and recipient's ivpk --> with this information the recipient of outgoing will
+/// Encrypts ephemeral secret key and recipient's address point --> with this information the recipient of outgoing will
 /// be able to derive the key with which the incoming log can be decrypted.
 pub fn compute_outgoing_body_ciphertext(
     recipient: AztecAddress,
@@ -138,7 +135,8 @@ pub fn compute_outgoing_body_ciphertext(
     let serialized_eph_sk_low: [u8; 32] = eph_sk.lo.to_be_bytes();
 
     let address_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
-    let serialized_recipient_ivpk = point_to_bytes(recipient.to_address_point().to_point());
+    let serialized_recipient_address_point =
+        point_to_bytes(recipient.to_address_point().to_point());
 
     for i in 0..32 {
         buffer[i] = serialized_eph_sk_high[i];
@@ -146,7 +144,7 @@ pub fn compute_outgoing_body_ciphertext(
         buffer[i + 64] = address_bytes[i];
     }
     for i in 0..32 {
-        buffer[i + 96] = serialized_recipient_ivpk[i];
+        buffer[i + 96] = serialized_recipient_address_point[i];
     }
 
     // We compute the symmetric key using poseidon.
@@ -172,10 +170,7 @@ mod test {
         compute_private_log_payload,
     };
     use dep::protocol_types::{
-        address::AztecAddress,
-        point::Point,
-        public_keys::{IvpkM, OvpkM},
-        scalar::Scalar,
+        address::AztecAddress, point::Point, public_keys::OvpkM, scalar::Scalar,
     };
     use protocol_types::public_keys::AddressPoint;
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
@@ -196,14 +191,6 @@ mod test {
             },
         };
 
-        let ivpk_m = IvpkM {
-            inner: Point {
-                x: 0x18dd22d6a4032eefe3a7a55703f583396596235f7c186e450c92981186ee7404,
-                y: 0x2e49e00996565114016a1a478309842ecbaf930fb716c3f498e7e10370631d75,
-                is_infinite: false,
-            },
-        };
-
         let plaintext = [
             0, 0, 0, 1, 48, 22, 64, 206, 234, 117, 131, 145, 178, 225, 97, 201, 44, 5, 19, 241, 41,
             2, 15, 65, 37, 37, 106, 253, 174, 38, 70, 206, 49, 9, 159, 92, 16, 244, 140, 217, 239,
@@ -220,11 +207,16 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
-        let log: [u8; 448] = compute_private_log_payload(
+        let sender = AztecAddress::from_field(
+            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
+        );
+
+        let log = compute_private_log_payload(
             contract_address,
             ovsk_app,
             ovpk_m,
             recipient,
+            sender,
             plaintext,
             false,
         );
@@ -233,28 +225,27 @@ mod test {
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
         let encrypted_log_from_typescript = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 141, 70, 12, 14, 67, 77, 132, 110, 193, 234, 40, 110, 64, 144, 235,
-            86, 55, 111, 242, 123, 221, 193, 170, 202, 225, 216, 86, 84, 159, 112, 31, 167, 5, 119,
-            121, 10, 234, 188, 194, 216, 30, 200, 208, 201, 158, 127, 93, 43, 242, 241, 69, 32, 37,
-            220, 119, 122, 23, 132, 4, 248, 81, 217, 61, 232, 24, 146, 63, 133, 24, 120, 113, 217,
-            155, 223, 149, 214, 149, 239, 240, 169, 224, 155, 161, 81, 83, 252, 155, 77, 34, 75,
-            110, 30, 113, 223, 189, 202, 171, 6, 192, 157, 91, 60, 116, 155, 254, 190, 28, 4, 7,
-            236, 205, 4, 245, 27, 187, 89, 20, 38, 128, 200, 160, 145, 185, 127, 198, 203, 207, 97,
-            246, 194, 175, 155, 142, 188, 143, 120, 83, 122, 178, 63, 208, 197, 232, 24, 228, 212,
-            45, 69, 157, 38, 90, 219, 119, 194, 239, 130, 155, 246, 143, 135, 242, 196, 123, 71,
-            139, 181, 122, 231, 228, 26, 7, 100, 63, 101, 195, 83, 8, 61, 85, 123, 148, 227, 29,
-            164, 162, 161, 49, 39, 73, 141, 46, 179, 240, 52, 109, 165, 238, 210, 233, 188, 36, 90,
-            175, 2, 42, 149, 78, 208, 176, 145, 50, 180, 152, 245, 55, 112, 40, 153, 180, 78, 54,
-            102, 119, 98, 56, 235, 246, 51, 179, 86, 45, 127, 18, 77, 187, 168, 41, 24, 232, 113,
-            149, 138, 148, 33, 143, 215, 150, 188, 105, 131, 254, 236, 199, 206, 56, 44, 130, 134,
-            29, 99, 254, 69, 153, 146, 68, 234, 148, 148, 178, 38, 221, 182, 148, 178, 100, 13, 206,
-            0, 91, 71, 58, 207, 26, 227, 190, 21, 143, 85, 138, 209, 202, 34, 142, 159, 121, 61, 9,
-            57, 2, 48, 162, 89, 126, 14, 83, 173, 40, 247, 170, 154, 112, 12, 204, 48, 38, 7, 173,
-            108, 38, 234, 20, 16, 115, 91, 106, 140, 121, 63, 99, 23, 247, 0, 148, 9, 163, 145, 43,
-            21, 238, 47, 40, 204, 241, 124, 246, 201, 75, 114, 3, 1, 229, 197, 130, 109, 227, 158,
-            133, 188, 125, 179, 220, 51, 170, 121, 175, 202, 243, 37, 103, 13, 27, 53, 157, 8, 177,
-            11, 208, 120, 64, 211, 148, 201, 240, 56,
+            0, 0, 0, 141, 70, 12, 14, 67, 77, 132, 110, 193, 234, 40, 110, 64, 144, 235, 86, 55,
+            111, 242, 123, 221, 193, 170, 202, 225, 216, 86, 84, 159, 112, 31, 167, 5, 119, 121, 10,
+            234, 188, 194, 216, 30, 200, 208, 201, 158, 127, 93, 43, 242, 241, 69, 32, 37, 220, 119,
+            122, 23, 132, 4, 248, 81, 217, 61, 232, 24, 146, 63, 133, 24, 120, 113, 217, 155, 223,
+            149, 214, 149, 239, 240, 169, 224, 155, 161, 81, 83, 252, 155, 77, 34, 75, 110, 30, 113,
+            223, 189, 202, 171, 6, 192, 157, 91, 60, 116, 155, 254, 190, 28, 4, 7, 236, 205, 4, 245,
+            27, 187, 89, 20, 38, 128, 200, 160, 145, 185, 127, 198, 203, 207, 97, 246, 194, 175,
+            155, 142, 188, 143, 120, 83, 122, 178, 63, 208, 197, 232, 24, 228, 212, 45, 69, 157, 38,
+            90, 219, 119, 194, 239, 130, 155, 246, 143, 135, 242, 196, 123, 71, 139, 181, 122, 231,
+            228, 26, 7, 100, 63, 101, 195, 83, 8, 61, 85, 123, 148, 227, 29, 164, 162, 161, 49, 39,
+            73, 141, 46, 179, 240, 52, 109, 165, 238, 210, 233, 188, 36, 90, 175, 2, 42, 149, 78,
+            208, 176, 145, 50, 180, 152, 245, 55, 112, 40, 153, 180, 78, 54, 102, 119, 98, 56, 235,
+            246, 51, 179, 86, 45, 127, 18, 77, 187, 168, 41, 24, 232, 113, 149, 138, 148, 33, 143,
+            215, 150, 188, 105, 131, 254, 236, 199, 206, 56, 44, 130, 134, 29, 99, 254, 69, 153,
+            146, 68, 234, 148, 148, 178, 38, 221, 182, 148, 178, 100, 13, 206, 0, 91, 71, 58, 207,
+            26, 227, 190, 21, 143, 85, 138, 209, 202, 34, 142, 159, 121, 61, 9, 57, 2, 48, 162, 89,
+            126, 14, 83, 173, 40, 247, 170, 154, 112, 12, 204, 48, 38, 7, 173, 108, 38, 234, 20, 16,
+            115, 91, 106, 140, 121, 63, 99, 23, 247, 0, 148, 9, 163, 145, 43, 21, 238, 47, 40, 204,
+            241, 124, 246, 201, 75, 114, 3, 1, 229, 197, 130, 109, 227, 158, 133, 188, 125, 179,
+            220, 51, 170, 121, 175, 202, 243, 37, 103, 13, 27, 53, 157, 8, 177, 11, 208, 120, 64,
+            211, 148, 201, 240, 56,
         ];
         assert_eq(encrypted_log_from_typescript, log);
     }
@@ -282,7 +273,7 @@ mod test {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
         ];
 
-        // `compute_incoming_body_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // `compute_incoming_body_ciphertext(...)` function then derives symmetric key from `eph_sk` and `address_point` and encrypts
         // the note plaintext using AES-128.
         let ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, address_point);
 

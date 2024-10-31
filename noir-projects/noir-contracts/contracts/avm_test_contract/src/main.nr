@@ -212,7 +212,7 @@ contract AvmTest {
 
     #[public]
     fn to_radix_le(input: Field) -> [u8; 10] {
-        input.to_le_radix( /*base=*/ 2)
+        input.to_le_radix(/*base=*/ 2)
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
@@ -248,6 +248,14 @@ contract AvmTest {
         let offset = 0;
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
+    }
+
+    #[public]
+    fn returndata_copy_oracle() {
+        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let returndatasize = dep::aztec::context::public_context::returndata_size();
+        let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
+        assert(returndata == &[1, 2, 3], "Returndata copy failed");
     }
 
     #[public]
@@ -292,7 +300,7 @@ contract AvmTest {
 
     #[public]
     fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/  20)
+        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
 
     /************************************************************************
@@ -425,11 +433,11 @@ contract AvmTest {
 
     #[public]
     fn emit_unencrypted_log() {
-        context.emit_unencrypted_log( /*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log( /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log( /*message=*/ s);
+        context.emit_unencrypted_log(/*message=*/ s);
     }
 
     #[public]
@@ -617,9 +625,9 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        //let _ = nested_call_to_add(1, 2);
-        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        //let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
     }
 }
