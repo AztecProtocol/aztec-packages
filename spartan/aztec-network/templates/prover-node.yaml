@@ -67,7 +67,7 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --prover --archiver"
+            - "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver"
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
