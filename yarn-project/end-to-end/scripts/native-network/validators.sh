@@ -8,6 +8,13 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
+echo "Waiting for l1 contracts to be deployed..."
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
+  sleep 1
+done
+
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
+
 NUM_VALIDATORS="$1"
 
 # enter script dir
@@ -20,8 +27,20 @@ for ((i=0; i<NUM_VALIDATORS; i++))
 do
     PORT=$((8081 + i))
     P2P_PORT=$((40401 + i))
-    CMD+=("./validator.sh $PORT $P2P_PORT")
+
+    # Generate a private key for the validator
+    json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
+    validator_address=$(echo $json_account | jq -r '.address')
+    validator_private_key=$(echo $json_account | jq -r '.privateKey')
+
+    # Add L1 validator. Note this needs to happen in serial
+    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $address --rollup $ROLLUP_CONTRACT_ADDRESS
+
+    CMD+=("./validator.sh $PORT $P2P_PORT $validator_address $validator_private_key")
 done
+
+# forward epoch after registering all validators
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
 
 # If there's only one validator, run it directly
 if [ "$NUM_VALIDATORS" -eq 1 ]; then

@@ -7,9 +7,11 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
-# PORTS
+# PORTS AND L1 ACCOUNT INFO
 PORT="$1"
 P2P_PORT="$2"
+VALIDATOR_ADDRESS="$3"
+VALIDATOR_PRIVATE_KEY="$4"
 
 # Starts the Validator Node
 REPO=$(git rev-parse --show-toplevel)
@@ -37,11 +39,9 @@ output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-nod
 export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 echo "BOOTSTRAP_NODES: $BOOTSTRAP_NODES"
 
-# Generate a private key for the validator
-json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
-export ADDRESS=$(echo $json_account | jq -r '.address')
+export ADDRESS=$VALIDATOR_ADDRESS
 export LOG_LEVEL=${LOG_LEVEL:-"debug"}
-export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
+export VALIDATOR_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
@@ -58,15 +58,5 @@ export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOIN
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}"
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 
-# Add L1 validator
-# this may fail, so try 3 times
-for i in {1..3}; do
-  node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
-  sleep 1
-done
-
-# Fast forward epochs
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
 # Start the Validator Node with the sequencer and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer
-
