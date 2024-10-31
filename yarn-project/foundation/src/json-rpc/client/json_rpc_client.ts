@@ -8,11 +8,12 @@ import { format } from 'util';
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
 import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
-import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
+import { convertFromJsonObj, convertToJsonObj, jsonStringify } from '../convert.js';
 
-export { JsonStringify } from '../convert.js';
+export { jsonStringify } from '../convert.js';
 
 const log = createDebugLogger('json-rpc:json_rpc_client');
+
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
@@ -29,19 +30,20 @@ export async function defaultFetch(
   body: any,
   useApiEndpoints: boolean,
   noRetry = false,
+  stringify = jsonStringify,
 ) {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   if (useApiEndpoints) {
     resp = await fetch(`${host}/${rpcMethod}`, {
       method: 'POST',
-      body: JsonStringify(body),
+      body: stringify(body),
       headers: { 'content-type': 'application/json' },
     });
   } else {
     resp = await fetch(host, {
       method: 'POST',
-      body: JsonStringify({ ...body, method: rpcMethod }),
+      body: stringify({ ...body, method: rpcMethod }),
       headers: { 'content-type': 'application/json' },
     });
   }
@@ -55,6 +57,7 @@ export async function defaultFetch(
     }
     throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
+
   if (!resp.ok) {
     const errorMessage = `(JSON-RPC PROPAGATED) (host ${host}) (method ${rpcMethod}) (code ${resp.status}) ${responseJson.error.message}`;
     if (noRetry || (resp.status >= 400 && resp.status < 500)) {

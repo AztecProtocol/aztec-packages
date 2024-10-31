@@ -1,5 +1,5 @@
 import { type StructType } from '@aztec/foundation/abi';
-import { JsonStringify } from '@aztec/foundation/json-rpc';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn } from '@aztec/foundation/log';
 
 import { getContractArtifact } from '../../utils/aztec.js';
@@ -23,5 +23,5 @@ export async function parseParameterStruct(
   }
 
   const data = parseStructString(encodedString, parameterAbitype.type as StructType);
-  log(`\nStruct Data: \n${JsonStringify(data, true)}\n`);
+  log(`\nStruct Data: \n${jsonStringify(data, true)}\n`);
 }

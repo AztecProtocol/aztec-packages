@@ -57,4 +57,12 @@ export class JsonProxy {
     log.debug(format('JsonProxy:call', methodName, '->', ret));
     return ret;
   }
+
+  public hasMethod(methodName: string): boolean {
+    return hasOwnProperty(Object.getPrototypeOf(this.handler), methodName);
+  }
+
+  public getMethods() {
+    return Object.getOwnPropertyNames(Object.getPrototypeOf(this.handler));
+  }
 }

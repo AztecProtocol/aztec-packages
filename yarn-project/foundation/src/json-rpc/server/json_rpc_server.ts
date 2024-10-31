@@ -4,6 +4,7 @@ import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
+import { type AddressInfo } from 'net';
 
 import { createDebugLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
@@ -19,7 +20,7 @@ export class JsonRpcServer {
   /**
    * The proxy object.
    */
-  public proxy: Pick<JsonProxy, 'call'>;
+  public proxy: JsonProxy;
 
   /**
    * The HTTP server accepting remote requests.
@@ -126,7 +127,7 @@ export class JsonRpcServer {
           ctx.body = {
             jsonrpc,
             id,
-            result: convertBigintsInObj(result), // TODO(palla): We should be able to remove this conversion once we fully migrate to SafeJsonProxy
+            result: convertBigintsInObj(result),
           };
           ctx.status = 200;
         } catch (err: any) {
@@ -224,14 +225,13 @@ export function createStatusRouter(apiPrefix = '') {
 }
 
 /**
- * Wraps a JsonRpcServer in a nodejs http server and starts it.
- * @dev REFACTOR: Use this function across the board to start the server instead of calling http.createServer directly.
+ * Wraps a JsonRpcServer in a nodejs http server and starts it. Returns once starts listening.
  * @returns A running http server.
  */
-export function startHttpRpcServer(
-  rpcServer: JsonRpcServer,
-  options: { port?: string | number; apiPrefix?: string; withStatus?: boolean } = {},
-): http.Server {
+export async function startHttpRpcServer(
+  rpcServer: Pick<JsonRpcServer, 'getApp'>,
+  options: { host?: string; port?: number; apiPrefix?: string; withStatus?: boolean } = {},
+): Promise<http.Server & { port: number }> {
   const app = rpcServer.getApp(options.apiPrefix);
 
   if (options.withStatus) {
@@ -240,9 +240,12 @@ export function startHttpRpcServer(
   }
 
   const httpServer = http.createServer(app.callback());
-  httpServer.listen(options.port);
+  const { promise, resolve } = promiseWithResolvers<void>();
+  httpServer.listen(options.port ?? 0, options.host ?? '0.0.0.0', () => resolve());
+  await promise;
 
-  return httpServer;
+  const port = (httpServer.address() as AddressInfo).port;
+  return Object.assign(httpServer, { port });
 }
 /**
  * List of namespace to server instance.

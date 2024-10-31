@@ -5,4 +5,4 @@ export {
   ClassConverter,
 } from './class_converter.js';
 
-export { JsonStringify } from './convert.js';
+export { jsonStringify } from './convert.js';
