@@ -57,7 +57,7 @@ pub(crate) struct BrilligArtifact<F> {
 /// A pointer to a location in the opcode.
 pub(crate) type OpcodeLocation = usize;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) enum LabelType {
     /// Labels for the entry point bytecode
     Entrypoint,
@@ -87,7 +87,7 @@ impl std::fmt::Display for LabelType {
 ///
 /// It is assumed that an entity will keep a map
 /// of labels to Opcode locations.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct Label {
     pub(crate) label_type: LabelType,
     pub(crate) section: Option<usize>,
@@ -95,7 +95,7 @@ pub(crate) struct Label {
 
 impl Label {
     pub(crate) fn add_section(&self, section: usize) -> Self {
-        Label { label_type: self.label_type, section: Some(section) }
+        Label { label_type: self.label_type.clone(), section: Some(section) }
     }
 
     pub(crate) fn function(func_id: FunctionId) -> Self {
@@ -153,7 +153,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
 
     /// Gets the first unresolved function call of this artifact.
     pub(crate) fn first_unresolved_function_call(&self) -> Option<Label> {
-        self.unresolved_external_call_labels.first().map(|(_, label)| *label)
+        self.unresolved_external_call_labels.first().map(|(_, label)| label.clone())
     }
 
     /// Link with an external brillig artifact called from this artifact.
@@ -202,16 +202,17 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
     fn add_unresolved_jumps_and_calls(&mut self, obj: &BrilligArtifact<F>) {
         let offset = self.index_of_next_opcode();
         for (jump_label, jump_location) in &obj.unresolved_jumps {
-            self.unresolved_jumps.push((jump_label + offset, *jump_location));
+            self.unresolved_jumps.push((jump_label + offset, jump_location.clone()));
         }
 
         for (label_id, position_in_bytecode) in &obj.labels {
-            let old_value = self.labels.insert(*label_id, position_in_bytecode + offset);
+            let old_value = self.labels.insert(label_id.clone(), position_in_bytecode + offset);
             assert!(old_value.is_none(), "overwriting label {label_id} {old_value:?}");
         }
 
         for (position_in_bytecode, label_id) in &obj.unresolved_external_call_labels {
-            self.unresolved_external_call_labels.push((position_in_bytecode + offset, *label_id));
+            self.unresolved_external_call_labels
+                .push((position_in_bytecode + offset, label_id.clone()));
         }
 
         for (position_in_bytecode, call_stack) in obj.locations.iter() {
@@ -266,7 +267,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
     /// Adds a label in the bytecode to specify where this block's
     /// opcodes will start.
     pub(crate) fn add_label_at_position(&mut self, label: Label, position: OpcodeLocation) {
-        let old_value = self.labels.insert(label, position);
+        let old_value = self.labels.insert(label.clone(), position);
         assert!(
             old_value.is_none(),
             "overwriting label {label}. old_value = {old_value:?}, new_value = {position}"

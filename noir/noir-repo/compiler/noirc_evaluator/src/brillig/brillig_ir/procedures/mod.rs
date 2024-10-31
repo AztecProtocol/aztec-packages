@@ -4,6 +4,7 @@ mod check_max_stack_depth;
 mod mem_copy;
 mod prepare_vector_insert;
 mod prepare_vector_push;
+mod revert_with_string;
 mod vector_copy;
 mod vector_pop_back;
 mod vector_pop_front;
@@ -15,6 +16,7 @@ use check_max_stack_depth::compile_check_max_stack_depth_procedure;
 use mem_copy::compile_mem_copy_procedure;
 use prepare_vector_insert::compile_prepare_vector_insert_procedure;
 use prepare_vector_push::compile_prepare_vector_push_procedure;
+use revert_with_string::compile_revert_with_string_procedure;
 use vector_copy::compile_vector_copy_procedure;
 use vector_pop_back::compile_vector_pop_back_procedure;
 use vector_pop_front::compile_vector_pop_front_procedure;
@@ -31,7 +33,7 @@ use super::{
 /// Procedures are a set of complex operations that are common in the noir language.
 /// Extracting them to reusable procedures allows us to reduce the size of the generated Brillig.
 /// Procedures receive their arguments on scratch space to avoid stack dumping&restoring.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) enum ProcedureId {
     ArrayCopy,
     ArrayReverse,
@@ -43,13 +45,14 @@ pub(crate) enum ProcedureId {
     PrepareVectorInsert,
     VectorRemove,
     CheckMaxStackDepth,
+    RevertWithString(String),
 }
 
 pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
     procedure_id: ProcedureId,
 ) -> BrilligArtifact<F> {
     let mut brillig_context = BrilligContext::new_for_procedure(false);
-    brillig_context.enter_context(Label::procedure(procedure_id));
+    brillig_context.enter_context(Label::procedure(procedure_id.clone()));
 
     match procedure_id {
         ProcedureId::MemCopy => compile_mem_copy_procedure(&mut brillig_context),
@@ -71,6 +74,9 @@ pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
         ProcedureId::VectorRemove => compile_vector_remove_procedure(&mut brillig_context),
         ProcedureId::CheckMaxStackDepth => {
             compile_check_max_stack_depth_procedure(&mut brillig_context);
+        }
+        ProcedureId::RevertWithString(revert_string) => {
+            compile_revert_with_string_procedure(&mut brillig_context, revert_string);
         }
     };
 

@@ -997,7 +997,7 @@ impl<'a> Context<'a> {
 
         // Link the entry point with all dependencies
         while let Some(unresolved_fn_label) = entry_point.first_unresolved_function_call() {
-            let artifact = &brillig.find_by_label(unresolved_fn_label);
+            let artifact = &brillig.find_by_label(unresolved_fn_label.clone());
             let artifact = match artifact {
                 Some(artifact) => artifact,
                 None => {

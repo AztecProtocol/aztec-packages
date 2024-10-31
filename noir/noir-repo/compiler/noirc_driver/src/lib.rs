@@ -462,6 +462,7 @@ fn compile_contract_inner(
                 _ => None,
             })
             .collect();
+        println!("Compiled function: {}", name);
 
         functions.push(ContractFunction {
             name,

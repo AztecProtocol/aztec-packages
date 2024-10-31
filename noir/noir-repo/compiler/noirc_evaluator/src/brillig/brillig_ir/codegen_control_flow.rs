@@ -143,7 +143,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
 
         self.enter_section(then_section);
         f(self, true);
-        self.jump_instruction(end_label);
+        self.jump_instruction(end_label.clone());
 
         self.enter_section(otherwise_section);
         f(self, false);
@@ -265,18 +265,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
 
         self.codegen_if_not(condition.address, |ctx| {
             if let Some(assert_message) = assert_message {
-                let error_type = ErrorType::String(assert_message);
-                let error_selector = error_type.selector();
-                ctx.obj.error_types.insert(error_selector, error_type);
-                ctx.indirect_const_instruction(
-                    ReservedRegisters::free_memory_pointer(),
-                    64,
-                    (error_selector.as_u64() as u128).into(),
-                );
-                ctx.trap_instruction(HeapVector {
-                    pointer: ReservedRegisters::free_memory_pointer(),
-                    size: ReservedRegisters::usize_one(),
-                });
+                ctx.revert_with_string(assert_message);
             } else {
                 let revert_data = HeapVector {
                     pointer: ReservedRegisters::free_memory_pointer(),
@@ -286,6 +275,25 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
                 ctx.deallocate_register(revert_data.size);
             };
         });
+    }
+
+    pub(super) fn revert_with_string(&mut self, revert_string: String) {
+        if self.can_call_procedures {
+            self.call_revert_with_string_procedure(revert_string);
+        } else {
+            let error_type = ErrorType::String(revert_string);
+            let error_selector = error_type.selector();
+            self.obj.error_types.insert(error_selector, error_type);
+            self.indirect_const_instruction(
+                ReservedRegisters::free_memory_pointer(),
+                64,
+                (error_selector.as_u64() as u128).into(),
+            );
+            self.trap_instruction(HeapVector {
+                pointer: ReservedRegisters::free_memory_pointer(),
+                size: ReservedRegisters::usize_one(),
+            });
+        }
     }
 
     /// Computes the size of a parameter if it was flattened
