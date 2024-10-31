@@ -60,7 +60,7 @@ function copy() {
 }
 # Write the git archives in parallel
 for project in "${PROJECTS[@]}"; do
-  # Archive Git-tracked files per project into a tar.gz file. Kill shell script if any fail
+  # Copy over JUST the git version of files over (bail if any fail)
   copy $project || kill $0 &
 done
 wait
