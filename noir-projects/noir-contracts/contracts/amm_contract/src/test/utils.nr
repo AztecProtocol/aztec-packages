@@ -56,7 +56,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
             18,
         ))
         .to_address();
-    let liquidity_token = Token::at(liquidity_token_address);
 
     let amm_address = env
         .deploy_self("AMM")
@@ -66,7 +65,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
             liquidity_token_address,
         ))
         .to_address();
-    let amm = AMM::at(amm_address);
 
     // Now we mint both tokens to the liquidity provider and token0 to swapper
     let lp_balance_0 = 20000;
