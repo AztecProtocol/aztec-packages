@@ -70,13 +70,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    const auto pre = builder->get_estimated_num_finalized_gates();
-    std::cout << "pre = " << pre << std::endl;
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    const auto post = builder->get_estimated_num_finalized_gates();
-    std::cout << "post = " << post << std::endl;
-    std::cout << "diff = " << (post - pre) << std::endl;
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
     const BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =

@@ -746,34 +746,41 @@ template <typename Flavor> class SumcheckVerifier {
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
-            if constexpr (IsRecursiveFlavor<Flavor>) {
+            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+                if (round_idx < CONST_ECCVM_PROOF_SIZE_LOG_N) {
+                    typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
+
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                    stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
+                    bool checked = round.check_sum(round_univariate, dummy_round);
+
+                    // Only utilize the checked value if this is not a constant proof size padding round
+                    if (round_idx < multivariate_d) {
+                        verified = verified && checked;
+                    }
+                    multivariate_challenge.emplace_back(round_challenge);
+
+                    round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
+                    gate_separators.partially_evaluate(round_challenge, dummy_round);
+
+                } else {
+                    multivariate_challenge.emplace_back(round_challenge);
+                }
+            } else if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
-                const auto pre = builder->get_estimated_num_finalized_gates();
-                std::cout << "round " << round_idx << "gates = " << pre << std::endl;
 
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
-                const auto A = builder->get_estimated_num_finalized_gates();
-                std::cout << "round " << round_idx << "chunkA = " << (A - pre) << std::endl;
 
                 // Only utilize the checked value if this is not a constant proof size padding round
                 if (round_idx < multivariate_d) {
                     verified = verified && checked;
                 }
                 multivariate_challenge.emplace_back(round_challenge);
-                const auto B = builder->get_estimated_num_finalized_gates();
-                std::cout << "round " << round_idx << "chunkB = " << (B - A) << std::endl;
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
-                const auto C = builder->get_estimated_num_finalized_gates();
-                std::cout << "round " << round_idx << "chunkC = " << (C - B) << std::endl;
                 gate_separators.partially_evaluate(round_challenge, dummy_round);
-                const auto D = builder->get_estimated_num_finalized_gates();
-                std::cout << "round " << round_idx << "chunkD = " << (D - C) << std::endl;
-
-                const auto post = builder->get_estimated_num_finalized_gates();
-                std::cout << "round " << round_idx << "gates for smol chunk = " << (post - pre) << std::endl;
 
             } else {
                 if (round_idx < multivariate_d) {
