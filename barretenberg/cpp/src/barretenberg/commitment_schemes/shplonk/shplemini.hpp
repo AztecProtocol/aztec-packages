@@ -437,7 +437,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
             // Update the batching challenge
             current_batching_challenge *= shplonk_batching_challenge;
-            info(j, " current batching challenge verifier ", current_batching_challenge);
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = shplonk_batching_challenge.get_context();
@@ -497,7 +496,6 @@ template <typename Curve> class ShpleminiVerifier_ {
              zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
             commitments.push_back(libra_univariate_commitment);
             Fr scaling_factor = denominator * shplonk_challenge_power;
-            info("nu power verifier", shplonk_challenge_power);
             scalars.push_back(-scaling_factor);
             shplonk_challenge_power *= shplonk_batching_challenge;
             constant_term += scaling_factor * libra_univariate_evaluation;

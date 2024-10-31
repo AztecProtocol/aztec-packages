@@ -32,12 +32,17 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;
+    info("native gamma ", relation_parameters.gamma);
     relation_parameters.beta = beta;
+    info("native beta ", relation_parameters.beta);
     relation_parameters.beta_sqr = beta * beta;
+    info("native beta.sqr ", relation_parameters.beta_sqr);
     relation_parameters.beta_cube = beta_sqr * beta;
+    info("native beta cube ", relation_parameters.beta_cube);
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
+    info("set perm delta after inversion ", relation_parameters.eccvm_set_permutation_delta);
 
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =

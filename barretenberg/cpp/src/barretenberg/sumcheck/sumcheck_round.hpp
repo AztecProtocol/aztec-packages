@@ -533,13 +533,23 @@ template <typename Flavor> class SumcheckVerifierRound {
                                              std::optional<FF> full_libra_purported_value = std::nullopt)
     {
         // The verifier should never skip computation of contributions from any relation
+        // size_t idx = 0;
+        // for (auto eval : purported_evaluations.get_all()) {
+        //     info("claimed eval ", idx, "   ", eval);
+        //     idx++;
+        // }
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, gate_sparators.partial_evaluation_result);
-        info("rel eval ");
+        // info("rel eval <5>");
 
-        // for (size_t idx = 0; idx < std::get<1>(relation_evaluations).size(); idx++) {
-        //     info(std::get<1>(relation_evaluations)[idx]);
+        // for (size_t idx = 0; idx < std::get<5>(relation_evaluations).size(); idx++) {
+        //     info(std::get<5>(relation_evaluations)[idx]);
         // }
+        // info("rel eval <6>");
+        // for (size_t idx = 0; idx < std::get<6>(relation_evaluations).size(); idx++) {
+        //     info(std::get<6>(relation_evaluations)[idx]);
+        // }
+
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);

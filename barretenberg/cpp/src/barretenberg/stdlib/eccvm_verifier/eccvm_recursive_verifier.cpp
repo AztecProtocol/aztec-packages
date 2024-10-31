@@ -46,12 +46,17 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto beta_sqr = beta * beta;
 
     relation_parameters.gamma = gamma;
+    info("rec gamma ", relation_parameters.gamma);
     relation_parameters.beta = beta;
+    info("rec beta ", relation_parameters.beta);
     relation_parameters.beta_sqr = beta * beta;
+    info("rec beta.sqr ", relation_parameters.beta_sqr);
     relation_parameters.beta_cube = beta_sqr * beta;
+    info("rec beta cube ", relation_parameters.beta_cube);
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
+    info("rec set perm delta after inversion ", relation_parameters.eccvm_set_permutation_delta);
 
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =

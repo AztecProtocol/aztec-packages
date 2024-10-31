@@ -688,13 +688,11 @@ template <typename Flavor> class SumcheckVerifier {
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
-                info("native round target sum: ", round.target_total_sum);
                 gate_separators.partially_evaluate(round_challenge, dummy_round);
 
             } else {
                 if (round_idx < multivariate_d) {
                     bool checked = round.check_sum(round_univariate);
-                    info("checked? ", checked);
                     verified = verified && checked;
                     info("verified? ", checked);
 
