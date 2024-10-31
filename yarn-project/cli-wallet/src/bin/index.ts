@@ -83,7 +83,7 @@ async function main() {
 }
 
 main().catch(err => {
-  debugLogger.error(`Error in command execution`);
+  debugLogger.error(`Error in command execution`, { argv: process.argv });
   debugLogger.error(err + '\n' + err.stack);
   process.exit(1);
 });

@@ -10,11 +10,16 @@ import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 
+
+
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
+
+
 import { injectAztecCommands } from '../cli/index.js';
+
 
 const userLog = createConsoleLogger();
 const debugLogger = createDebugLogger('aztec:cli');
@@ -39,7 +44,7 @@ async function main() {
 }
 
 main().catch(err => {
-  debugLogger.error(`Error in command execution`);
+  debugLogger.error(`Error in command execution`, { argv: process.argv });
   debugLogger.error(err + '\n' + err.stack);
   // See https://nodejs.org/api/process.html#processexitcode
   process.exitCode = 1;
