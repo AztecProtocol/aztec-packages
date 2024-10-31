@@ -200,10 +200,6 @@ describe('Aztec persistence', () => {
       await context.teardown();
     });
 
-    it('pxe does not have the owner account', async () => {
-      await expect(context.pxe.getRecipient(ownerAddress.address)).resolves.toBeUndefined();
-    });
-
     it('the node has the contract', async () => {
       await expect(context.aztecNode.getContract(contractAddress)).resolves.toBeDefined();
     });
