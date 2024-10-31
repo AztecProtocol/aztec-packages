@@ -39,11 +39,17 @@ do
     # Add L1 validator. Note this needs to happen in serial
     node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $validator_address --rollup $ROLLUP_CONTRACT_ADDRESS
 
-    CMD+=("./validator.sh $PORT $P2P_PORT $validator_address $validator_private_key")
+    CMD+=("./_validator.sh $PORT $P2P_PORT $validator_address $validator_private_key")
 done
 
 # forward epoch after registering all validators
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+
+echo "Waiting for validators to be funded..."
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/validators-funded.env ] ; do
+  sleep 1
+done
+touch state/validators-funded.env
 
 # If there's only one validator, run it directly
 if [ "$NUM_VALIDATORS" -eq 1 ]; then
