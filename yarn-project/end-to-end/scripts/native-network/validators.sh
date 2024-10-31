@@ -8,6 +8,8 @@ SCRIPT_NAME=$(basename "$0" .sh)
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
+REPO=$(git rev-parse --show-toplevel)
+
 echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
   sleep 1
@@ -16,6 +18,7 @@ done
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 
 NUM_VALIDATORS="$1"
+export ETHEREUM_HOST=${ETHEREUM_HOST:-http://127.0.0.1:8545}
 
 # enter script dir
 cd "$(dirname "${BASH_SOURCE[0]}")"
