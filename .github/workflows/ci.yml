@@ -644,6 +644,9 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
+          - validators: 16
+            test: test-4epochs.sh
+            patch: spartan/patches/ultra-fast-local-test-constants-nr.diff
           - validators: 3
             test: test-transfer.sh
           - validators: 3
@@ -657,7 +660,10 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: network-test-${{ matrix.test }}
+          concurrency_key: network-test # only can run one at a time
+      - name: "Patch Network Constants"
+        if: matrix.scenario.patch
+        run: patch -p1 < ${{ matrix.scenario.patch }}
       - name: "Setup and Local Network Tests"
         timeout-minutes: 60
         # Only allow transfer test to run on every (non-network-all) PR
