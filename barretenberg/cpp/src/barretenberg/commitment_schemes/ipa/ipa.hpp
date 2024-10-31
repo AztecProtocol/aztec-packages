@@ -307,15 +307,27 @@ template <typename Curve_> class IPA {
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
+        info("vk size: ", vk->get_monomial_points().size());
+        info("opening_claim challenge: ", opening_claim.opening_pair.challenge);
+        info("opening_claim eval: ", opening_claim.opening_pair.evaluation);
+        info("opening_claim comm: ", opening_claim.commitment);
+        info("proof: ");
+        for (auto& val : transcript->proof_data) {
+            info(val);
+        }
+
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
             "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map
                                         // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
                                         // Grumpkin
+        info("poly_length: ", poly_length);
+                                    
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        info("generator_challenge: ", generator_challenge);
 
         if (generator_challenge.is_zero()) {
             throw_or_abort("The generator challenge can't be zero");
@@ -341,6 +353,9 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            info("L_i: ", element_L);
+            info("R_i: ", element_R);
+            info("round_challenge: ", round_challenges[i]);
             if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
@@ -351,6 +366,8 @@ template <typename Curve_> class IPA {
             msm_elements[2 * i + 1] = element_R;
             msm_scalars[2 * i] = round_challenges_inv[i];
             msm_scalars[2 * i + 1] = round_challenges[i];
+            info("round_challenges_inv_i: ", round_challenges_inv[i]);
+            info("round_challenges_i: ", round_challenges[i]);
         }
 
         // Step 5.
@@ -425,7 +442,13 @@ template <typename Curve_> class IPA {
         // Step 10.
         // Compute C_right
         GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
-
+        GroupElement ipa_relation = (aux_generator * opening_claim.opening_pair.evaluation) + LR_sums - right_hand_side;
+        info("aux part: ", (aux_generator * opening_claim.opening_pair.evaluation));
+        info("LR_sums: ", LR_sums);
+        info("G_zero * a_zero: ", (G_zero * a_zero));
+        info("aux_generator * a_zero * b_zero: ", (aux_generator * a_zero * b_zero));
+        info("ipa_relation: ", ipa_relation);
+        info("opening_claim.commitment: ", -opening_claim.commitment);
         // Step 11.
         // Check if C_right == C₀
         return (C_zero.normalize() == right_hand_side.normalize());
@@ -450,6 +473,15 @@ template <typename Curve_> class IPA {
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
+        info("vk size: ", vk->get_monomial_points().size());
+        info("opening_claim challenge: ", opening_claim.opening_pair.challenge.get_value());
+        info("opening_claim eval: ", opening_claim.opening_pair.evaluation.get_value());
+        info("opening_claim comm: ", opening_claim.commitment.get_value());
+        info("proof: ");
+        for (auto& val : transcript->proof_data) {
+            info(val.get_value());
+        }
+
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
@@ -462,9 +494,11 @@ template <typename Curve_> class IPA {
 
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
 
+        info("poly_length: ", poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        info("generator_challenge: ", generator_challenge.get_value());
         auto builder = generator_challenge.get_context();
 
         const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
@@ -474,6 +508,9 @@ template <typename Curve_> class IPA {
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
+        std::vector<Commitment> tmp_msm_elements(pippenger_size);
+        std::vector<Fr> tmp_msm_scalars(pippenger_size);
+
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
         for (size_t i = 0; i < log_poly_length; i++) {
@@ -481,13 +518,24 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            info("L_i: ", element_L.get_value());
+            info("R_i: ", element_R.get_value());
+            info("round_challenge: ", round_challenges[i].get_value());
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
             msm_scalars[2 * i] = round_challenges_inv[i];
             msm_scalars[2 * i + 1] = round_challenges[i];
+
+            tmp_msm_elements[2 * i] = element_L;
+            tmp_msm_elements[2 * i + 1] = element_R;
+            tmp_msm_scalars[2 * i] = round_challenges_inv[i];
+            tmp_msm_scalars[2 * i + 1] = round_challenges[i];
+            info("round_challenges_inv_i: ", round_challenges_inv[i].get_value());
+            info("round_challenges_i: ", round_challenges[i].get_value());
         }
+        GroupElement LR_sums = GroupElement::batch_mul(tmp_msm_elements, tmp_msm_scalars);
 
         //  Step 4.
         // Compute b_zero where b_zero can be computed using the polynomial:
@@ -553,6 +601,14 @@ template <typename Curve_> class IPA {
         msm_scalars.emplace_back(a_zero);
         msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {opening_claim.opening_pair.evaluation}));
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
+        Commitment aux_generator = Commitment::one(builder) * generator_challenge;
+        info("aux part: ", (aux_generator * opening_claim.opening_pair.evaluation).get_value());
+        info("LR_sums: ", LR_sums.get_value());
+        info("G_zero * a_zero: ", (G_zero * a_zero).get_value());
+        info("aux_generator * a_zero * b_zero: ", (aux_generator * a_zero * b_zero).get_value());
+        info("ipa_relation: ", ipa_relation.get_value());
+        info("ipa_relation 2: ", (aux_generator * opening_claim.opening_pair.evaluation) + LR_sums - (G_zero * a_zero + aux_generator * a_zero * b_zero).get_value());
+        info("opening_claim.commitment: ", -opening_claim.commitment.get_value());
         ipa_relation.assert_equal(-opening_claim.commitment);
 
         ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
@@ -694,7 +750,49 @@ template <typename Curve_> class IPA {
         return evaluate_h_poly(u_chals_1, r) + alpha * evaluate_h_poly(u_chals_2, r);
     }
 
-    static std::pair<IpaAccumulator, Polynomial<bb::fr>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
+    static Polynomial<bb::fq> construct_poly_from_u_chals(const std::vector<bb::fq>& u_chals) {
+        const size_t poly_length = (1 << u_chals.size());
+        const size_t log_poly_length = u_chals.size();
+        std::vector<bb::fq> u_chals_inv(u_chals);
+        fq::batch_invert(u_chals_inv);
+        
+
+        // Construct vector s
+        std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
+
+        std::vector<bb::fq> s_vec_temporaries(poly_length / 2);
+
+        bb::fq* previous_round_s = &s_vec_temporaries[0];
+        bb::fq* current_round_s = &s_vec[0];
+        // if number of rounds is even we need to swap these so that s_vec always contains the result
+        if ((log_poly_length & 1) == 0)
+        {
+            std::swap(previous_round_s, current_round_s);
+        }
+        previous_round_s[0] = bb::fq(1);
+        for (size_t i = 0; i < log_poly_length; ++i)
+        {
+            const size_t round_size = 1 << (i + 1);
+            const fq round_challenge = u_chals_inv[i];
+            parallel_for_heuristic(
+                round_size / 2,
+                [&](size_t j) {
+                    current_round_s[j * 2] = previous_round_s[j];
+                    current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
+                }, thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            std::swap(current_round_s, previous_round_s);
+        }
+        return {s_vec, poly_length};
+    }
+
+    static Polynomial<bb::fq> create_h_poly(const std::vector<bb::fq>& u_chals_1, const std::vector<bb::fq>& u_chals_2, bb::fq alpha) {
+        Polynomial h = construct_poly_from_u_chals(u_chals_1);
+        Polynomial h_2 = construct_poly_from_u_chals(u_chals_2);
+        h.add_scaled(h_2, alpha);
+        return h;
+    }
+
+    static std::pair<IpaAccumulator, Polynomial<bb::fq>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
     requires Curve::is_stdlib_type
     {
         using Builder = typename Curve::Builder;
@@ -717,7 +815,17 @@ template <typename Curve_> class IPA {
         output_accumulator.eval_point = r;
         // Evaluate the h polys at r and linearly combine them with alpha challenge
         output_accumulator.eval = evaluate_and_accumulate_h_polys(pair_1.u_chals, pair_2.u_chals, r, alpha);
-        return output_accumulator;
+
+        // Step 4: Compute the new polynomial
+        std::vector<bb::fq> native_u_chals_1;
+        std::vector<bb::fq> native_u_chals_2;
+        for (Fr u_i : pair_1.u_chals) {
+            native_u_chals_1.push_back(bb::fq(u_i.get_value()));
+        }
+        for (Fr u_i : pair_2.u_chals) {
+            native_u_chals_2.push_back(bb::fq(u_i.get_value()));
+        }
+        return {output_accumulator, create_h_poly(native_u_chals_1, native_u_chals_2, fq(alpha.get_value()))};
     }
 };
 
