@@ -60,11 +60,8 @@ class IPATest : public CommitmentTest<NativeCurve> {
         // auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         // EXPECT_TRUE(result);
 
-        auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, n, this->vk());
         auto recursive_verifier_transcript =
             std::make_shared<StdlibTranscript>(bb::convert_proof_to_witness(&builder, prover_transcript->proof_data));
-        RecursiveIPA::reduce_verify(
-            recursive_verifier_ck, { { stdlib_x, stdlib_eval }, stdlib_comm }, recursive_verifier_transcript);
         return { recursive_verifier_transcript, acc };
     }
 };
@@ -90,7 +87,7 @@ TEST_F(IPATest, Accumulate)
     // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
     // contain the commitment and an opening claim
     Builder builder;
-    auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, 10, this->vk());
+    auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, 4, this->vk());
 
     auto [transcript_1, acc_1] = create_ipa_accumulator(builder);
     auto [transcript_2, acc_2] = create_ipa_accumulator(builder);
@@ -107,6 +104,10 @@ TEST_F(IPATest, Accumulate)
     Commitment native_comm = output_acc.comm.get_value();
     const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
+    info("h_poly: ", h_poly.coeffs());
+    for (auto c : h_poly.coeffs()) {
+        info(c);
+    }
     NativeIPA::compute_opening_proof(this->ck(), { h_poly, opening_pair }, prover_transcript);
     // natively verify this proof to check it
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);

@@ -353,9 +353,6 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            info("L_i: ", element_L);
-            info("R_i: ", element_R);
-            info("round_challenge: ", round_challenges[i]);
             if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
@@ -366,8 +363,6 @@ template <typename Curve_> class IPA {
             msm_elements[2 * i + 1] = element_R;
             msm_scalars[2 * i] = round_challenges_inv[i];
             msm_scalars[2 * i + 1] = round_challenges[i];
-            info("round_challenges_inv_i: ", round_challenges_inv[i]);
-            info("round_challenges_i: ", round_challenges[i]);
         }
 
         // Step 5.
@@ -442,13 +437,6 @@ template <typename Curve_> class IPA {
         // Step 10.
         // Compute C_right
         GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
-        GroupElement ipa_relation = (aux_generator * opening_claim.opening_pair.evaluation) + LR_sums - right_hand_side;
-        info("aux part: ", (aux_generator * opening_claim.opening_pair.evaluation));
-        info("LR_sums: ", LR_sums);
-        info("G_zero * a_zero: ", (G_zero * a_zero));
-        info("aux_generator * a_zero * b_zero: ", (aux_generator * a_zero * b_zero));
-        info("ipa_relation: ", ipa_relation);
-        info("opening_claim.commitment: ", -opening_claim.commitment);
         // Step 11.
         // Check if C_right == C₀
         return (C_zero.normalize() == right_hand_side.normalize());
@@ -508,8 +496,6 @@ template <typename Curve_> class IPA {
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
-        std::vector<Commitment> tmp_msm_elements(pippenger_size);
-        std::vector<Fr> tmp_msm_scalars(pippenger_size);
 
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
@@ -518,9 +504,6 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            info("L_i: ", element_L.get_value());
-            info("R_i: ", element_R.get_value());
-            info("round_challenge: ", round_challenges[i].get_value());
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -528,14 +511,6 @@ template <typename Curve_> class IPA {
             msm_scalars[2 * i] = round_challenges_inv[i];
             msm_scalars[2 * i + 1] = round_challenges[i];
 
-            tmp_msm_elements[2 * i] = element_L;
-            tmp_msm_elements[2 * i + 1] = element_R;
-            tmp_msm_scalars[2 * i] = round_challenges_inv[i];
-            tmp_msm_scalars[2 * i + 1] = round_challenges[i];
-            info("round_challenges_inv_i: ", round_challenges_inv[i].get_value());
-            info("round_challenges_i: ", round_challenges[i].get_value());
-        }
-        GroupElement LR_sums = GroupElement::batch_mul(tmp_msm_elements, tmp_msm_scalars);
 
         //  Step 4.
         // Compute b_zero where b_zero can be computed using the polynomial:
@@ -599,16 +574,9 @@ template <typename Curve_> class IPA {
         msm_elements.emplace_back(-G_zero);
         msm_elements.emplace_back(-Commitment::one(builder));
         msm_scalars.emplace_back(a_zero);
-        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {opening_claim.opening_pair.evaluation}));
+        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {-opening_claim.opening_pair.evaluation}));
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         Commitment aux_generator = Commitment::one(builder) * generator_challenge;
-        info("aux part: ", (aux_generator * opening_claim.opening_pair.evaluation).get_value());
-        info("LR_sums: ", LR_sums.get_value());
-        info("G_zero * a_zero: ", (G_zero * a_zero).get_value());
-        info("aux_generator * a_zero * b_zero: ", (aux_generator * a_zero * b_zero).get_value());
-        info("ipa_relation: ", ipa_relation.get_value());
-        info("ipa_relation 2: ", (aux_generator * opening_claim.opening_pair.evaluation) + LR_sums - (G_zero * a_zero + aux_generator * a_zero * b_zero).get_value());
-        info("opening_claim.commitment: ", -opening_claim.commitment.get_value());
         ipa_relation.assert_equal(-opening_claim.commitment);
 
         ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
