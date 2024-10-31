@@ -93,7 +93,8 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
     TupleOfTuplesOfUnivariates accumulators;
-    auto combiner = Fun::compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
+    auto combiner =
+        Fun::compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators, trace_usage_tracker);
 
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);

@@ -10,9 +10,10 @@ namespace bb {
  *
  */
 struct ExecutionTraceUsageTracker {
+    using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
     using MegaTraceBlockSizes = MegaArithmetization::MegaTraceBlocks<size_t>;
-    using MegaTraceActiveRanges = MegaArithmetization::MegaTraceBlocks<std::pair<size_t, size_t>>;
+    using MegaTraceActiveRanges = MegaArithmetization::MegaTraceBlocks<Range>;
     using MegaTraceFixedBlockSizes = MegaArithmetization::TraceBlocks;
 
     MegaTraceBlockSizes max_sizes;
@@ -50,7 +51,7 @@ struct ExecutionTraceUsageTracker {
              zip_view(max_sizes.get(), fixed_sizes.get(), active_ranges.get())) {
             size_t start_idx = fixed_block.trace_offset;
             size_t end_idx = start_idx + max_size;
-            active_range = std::pair<size_t, size_t>{ start_idx, end_idx };
+            active_range = Range{ start_idx, end_idx };
         }
 
         size_t dyadic_circuit_size = circuit.get_circuit_subgroup_size(fixed_sizes.get_total_structured_size());
@@ -101,6 +102,65 @@ struct ExecutionTraceUsageTracker {
                       << ")" << std::endl;
         }
         info("");
+    }
+
+    static std::vector<Range> construct_union_of_ranges(std::vector<Range> ranges)
+    {
+        std::vector<Range> union_ranges;
+
+        // Sort the ranges by start index (secondarily by end_idx if start indices agree)
+        std::sort(ranges.begin(), ranges.end());
+
+        union_ranges.push_back(ranges.front());
+
+        for (const Range& range : ranges) {
+            Range& prev_range = union_ranges.back();
+
+            // If the two ranges overlap or are contiguous, merge them
+            if (range.first <= prev_range.second) { // WORKTODO: I think remove this +1
+                prev_range.second = std::max(range.second, prev_range.second);
+            } else { // otherwise add the present range to the union
+                union_ranges.push_back(range);
+            }
+        }
+
+        return union_ranges;
+    }
+
+    static std::vector<Range> construct_thread_ranges(const std::vector<Range>& union_ranges, size_t num_threads)
+    {
+        // Compute the minimum content per thread (final thread will get the leftovers = total_content % num_threads)
+        size_t total_content = 0;
+        for (const Range& range : union_ranges) {
+            total_content += range.second - range.first;
+        }
+        size_t content_per_thread = total_content / num_threads;
+
+        std::vector<Range> thread_ranges;
+        size_t start_idx = union_ranges.front().first;
+        size_t thread_space_remaining = content_per_thread; // content space remaining in current thread
+        size_t leftovers = 0;                               // content from last range not yet placed in a thread range
+
+        for (const Range& range : union_ranges) {
+
+            size_t range_size = range.second - range.first;
+            size_t content_to_distribute = range_size + leftovers;
+            size_t num_full_threads = content_to_distribute / content_per_thread;
+            leftovers = content_to_distribute % content_per_thread;
+
+            size_t end_idx = range.first;
+            for (size_t i = 0; i < num_full_threads; ++i) {
+                end_idx += thread_space_remaining;
+                thread_ranges.push_back(Range{ start_idx, end_idx });
+                start_idx = end_idx;
+                thread_space_remaining = content_per_thread;
+            }
+            thread_space_remaining = content_per_thread - leftovers;
+        }
+        // Extend the final thread range to the end of the final union range
+        thread_ranges.back().second = union_ranges.back().second;
+
+        return thread_ranges;
     }
 };
 } // namespace bb

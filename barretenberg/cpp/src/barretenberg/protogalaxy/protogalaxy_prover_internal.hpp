@@ -323,11 +323,13 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @return ExtendedUnivariateWithRandomization
      */
     template <typename Parameters, typename TupleOfTuples>
-    static ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
-                                                                const GateSeparatorPolynomial<FF>& gate_separators,
-                                                                const Parameters& relation_parameters,
-                                                                const UnivariateRelationSeparator& alphas,
-                                                                TupleOfTuples& univariate_accumulators)
+    static ExtendedUnivariateWithRandomization compute_combiner(
+        const DeciderPKs& keys,
+        const GateSeparatorPolynomial<FF>& gate_separators,
+        const Parameters& relation_parameters,
+        const UnivariateRelationSeparator& alphas,
+        TupleOfTuples& univariate_accumulators,
+        [[maybe_unused]] ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
     {
         PROFILE_THIS();
 
@@ -365,29 +367,38 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<ExtendedUnivatiatesType> extended_univariates;
         extended_univariates.resize(num_threads);
 
+        std::vector<size_t> work_iterations(num_threads);
+
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = thread_idx * iterations_per_thread;
             const size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t idx = start; idx < end; idx++) {
-                // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they are
-                // still available for skipping relations, but all derived univariate will ignore those evaluations)
-                // No need to initialise extended_univariates to 0, as it's assigned to.
-                constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
-                extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
+                if (trace_usage_tracker.check_is_active(idx)) {
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
+                    // are still available for skipping relations, but all derived univariate will ignore those
+                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
+                    extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
 
-                const FF pow_challenge = gate_separators[idx];
+                    const FF pow_challenge = gate_separators[idx];
 
-                // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
-                // this function have already been folded. Moreover, linear-dependent relations that act over the
-                // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_univariates[thread_idx],
-                                                relation_parameters, // these parameters have already been folded
-                                                pow_challenge);
+                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
+                    // this function have already been folded. Moreover, linear-dependent relations that act over the
+                    // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                    extended_univariates[thread_idx],
+                                                    relation_parameters, // these parameters have already been folded
+                                                    pow_challenge);
+                    work_iterations[thread_idx] += 1;
+                }
             }
         });
+
+        for (auto num : work_iterations) {
+            info("Thread work iters = ", num);
+        }
 
         RelationUtils::zero_univariates(univariate_accumulators);
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
