@@ -76,3 +76,33 @@ export async function setupTestWalletsWithTokens(
 
   return { pxe, wallets, tokenAdminWallet, tokenName: TOKEN_NAME, tokenAddress, recipientWallet };
 }
+
+export async function performTransfers({
+  testWallets,
+  rounds,
+  transferAmount,
+  logger,
+}: {
+  testWallets: TestWallets;
+  rounds: number;
+  transferAmount: bigint;
+  logger: Logger;
+}) {
+  const recipient = testWallets.recipientWallet.getAddress();
+
+  for (let i = 0; i < rounds; i++) {
+    const interactions = await Promise.all(
+      testWallets.wallets.map(async w =>
+        (
+          await TokenContract.at(testWallets.tokenAddress, w)
+        ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+      ),
+    );
+
+    const txs = await Promise.all(interactions.map(async i => await i.prove()));
+
+    await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
+
+    logger.info(`Completed round ${i + 1} / ${rounds}`);
+  }
+}
