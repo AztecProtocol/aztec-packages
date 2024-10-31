@@ -1,10 +1,15 @@
 import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmAppendTreeHint,
   AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
   AztecAddress,
   CallContext,
   type CombinedConstantData,
@@ -28,7 +33,9 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
   Nullifier,
+  type NullifierLeafPreimage,
   type PublicCallRequest,
+  type PublicDataTreeLeafPreimage,
   type PublicInnerCallRequest,
   ReadRequest,
   SerializableContractInstance,
@@ -100,60 +107,94 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
-    // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
+  public tracePublicStorageRead(
+    contractAddress: Fr,
+    slot: Fr,
+    leafPreimage: PublicDataTreeLeafPreimage,
+    leafIndex: Fr,
+    path: Fr[],
+  ) {
     if (this.contractStorageReads.length >= MAX_PUBLIC_DATA_READS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
+    // Temp for backward compatibility
+    const { value } = leafPreimage;
     this.contractStorageReads.push(
       new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(contractAddress)),
     );
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
     );
+
+    // New hinting
+    this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
+
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(
+    contractAddress: Fr,
+    slot: Fr,
+    lowLeafPreimage: PublicDataTreeLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+    newLeafPreimage: PublicDataTreeLeafPreimage,
+    insertionPath: Fr[],
+  ) {
     if (this.contractStorageUpdateRequests.length >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('contract storage write', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
     }
+    // Temp for backward compatibility
+    const { value } = newLeafPreimage;
     this.contractStorageUpdateRequests.push(
       new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, contractAddress),
+    );
+
+    // New hinting
+    const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.avmCircuitHints.storageUpdateRequest.items.push(
+      new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
     );
     this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean, path: Fr[]) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.noteHashReadRequests.length >= MAX_NOTE_HASH_READ_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('note hash read request', MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
     }
+    // Temp for backward compatibility
     this.noteHashReadRequests.push(new TreeLeafReadRequest(noteHash, leafIndex));
     this.avmCircuitHints.noteHashExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
+    // New Hinting
+    this.avmCircuitHints.noteHashReadRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr) {
+  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, path: Fr[]) {
     if (this.noteHashes.length >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
+
+    // New Hinting
+    this.avmCircuitHints.noteHashWriteRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
   }
 
   public traceNullifierCheck(
     _contractAddress: Fr,
     nullifier: Fr,
-    _leafIndex: Fr,
     exists: boolean,
-    _isPending: boolean,
+    lowLeafPreimage: NullifierLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
   ) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
@@ -169,22 +210,37 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.nullifierExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
     );
+
+    // New Hints
+    this.avmCircuitHints.nullifierReadRequest.items.push(
+      new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
+    );
     this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(_contractAddress: Fr, nullifier: Fr) {
+  public traceNewNullifier(
+    _contractAddress: Fr,
+    nullifier: Fr,
+    lowLeafPreimage: NullifierLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+    insertionPath: Fr[],
+  ) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.nullifiers.length >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
     this.nullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+    // New hinting
+    const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
+  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path: Fr[]) {
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     if (this.l1ToL2MsgReadRequests.length >= MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX) {
       throw new SideEffectLimitReachedError('l1 to l2 message read request', MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX);
@@ -193,6 +249,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.l1ToL2MessageExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
+
+    // New Hinting
+    this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
     // NOTE: counter does not increment for l1tol2 message checks (because it doesn't rely on pending messages)
   }
 
@@ -249,6 +308,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   // This tracing function gets called everytime we start simulation/execution.
   // This happens both when starting a new top-level trace and the start of every nested trace
   // We use this to collect the AvmContractBytecodeHints
+  // We need to trace teh merkle tree as well here
   public traceGetBytecode(
     contractAddress: Fr,
     exists: boolean,

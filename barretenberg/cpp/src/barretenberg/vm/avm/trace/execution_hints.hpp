@@ -8,6 +8,104 @@ namespace bb::avm_trace {
 using FF = AvmFlavorSettings::FF;
 using AffinePoint = grumpkin::g1::affine_element;
 
+struct PublicDataTreeLeafPreimage {
+    FF slot;
+    FF value;
+    FF next_index;
+    FF next_slot;
+};
+
+inline void read(uint8_t const*& it, PublicDataTreeLeafPreimage& hint)
+{
+    using serialize::read;
+    read(it, hint.slot);
+    read(it, hint.value);
+    read(it, hint.next_index);
+    read(it, hint.next_slot);
+}
+
+struct PublicDataReadTreeHint {
+    PublicDataTreeLeafPreimage leaf_preimage;
+    FF leaf_index;
+    std::vector<FF> sibling_path;
+};
+
+inline void read(uint8_t const*& it, PublicDataReadTreeHint& hint)
+{
+    using serialize::read;
+    read(it, hint.leaf_preimage);
+    read(it, hint.leaf_index);
+    read(it, hint.sibling_path);
+}
+
+struct PublicDataWriteTreeHint {
+    PublicDataReadTreeHint low_leaf_membership;
+    PublicDataTreeLeafPreimage new_leaf_preimage;
+    std::vector<FF> insertion_path;
+};
+
+inline void read(uint8_t const*& it, PublicDataWriteTreeHint& hint)
+{
+    using serialize::read;
+    read(it, hint.low_leaf_membership);
+    read(it, hint.new_leaf_preimage);
+    read(it, hint.insertion_path);
+}
+
+struct NullifierLeafPreimage {
+    FF nullifier;
+    FF next_nullifier;
+    FF next_index;
+};
+
+inline void read(uint8_t const*& it, NullifierLeafPreimage& hint)
+{
+    using serialize::read;
+    read(it, hint.nullifier);
+    read(it, hint.next_nullifier);
+    read(it, hint.next_index);
+}
+
+struct NullifierReadTreeHint {
+    NullifierLeafPreimage low_leaf_preimage;
+    FF low_leaf_index;
+    std::vector<FF> low_leaf_sibling_path;
+};
+
+inline void read(uint8_t const*& it, NullifierReadTreeHint& hint)
+{
+    using serialize::read;
+    read(it, hint.low_leaf_preimage);
+    read(it, hint.low_leaf_index);
+    read(it, hint.low_leaf_sibling_path);
+}
+
+struct NullifierWriteTreeHint {
+    NullifierReadTreeHint low_leaf_membership;
+    std::vector<FF> insertion_path;
+};
+
+inline void read(uint8_t const*& it, NullifierWriteTreeHint& hint)
+{
+    using serialize::read;
+    read(it, hint.low_leaf_membership);
+    read(it, hint.insertion_path);
+}
+
+struct AppendTreeHint {
+    FF leaf_index;
+    FF leaf_value;
+    std::vector<FF> sibling_path;
+};
+
+inline void read(uint8_t const*& it, AppendTreeHint& hint)
+{
+    using serialize::read;
+    read(it, hint.leaf_index);
+    read(it, hint.leaf_value);
+    read(it, hint.sibling_path);
+}
+
 struct ExternalCallHint {
     FF success;
     std::vector<FF> return_data;
@@ -128,6 +226,13 @@ struct ExecutionHints {
     std::map<FF, ContractInstanceHint> contract_instance_hints;
     // We could make this address-indexed
     std::vector<AvmContractBytecode> all_contract_bytecode;
+    std::vector<PublicDataReadTreeHint> storage_read_hints;
+    std::vector<PublicDataWriteTreeHint> storage_write_hints;
+    std::vector<NullifierReadTreeHint> nullifier_read_hints;
+    std::vector<NullifierWriteTreeHint> nullifier_write_hints;
+    std::vector<AppendTreeHint> note_hash_read_hints;
+    std::vector<AppendTreeHint> note_hash_write_hints;
+    std::vector<AppendTreeHint> l1_to_l2_message_read_hints;
 
     ExecutionHints() = default;
 
@@ -222,6 +327,27 @@ struct ExecutionHints {
         std::vector<AvmContractBytecode> all_contract_bytecode;
         read(it, all_contract_bytecode);
 
+        std::vector<PublicDataReadTreeHint> storage_read_hints;
+        read(it, storage_read_hints);
+
+        std::vector<PublicDataWriteTreeHint> storage_write_hints;
+        read(it, storage_write_hints);
+
+        std::vector<NullifierReadTreeHint> nullifier_read_hints;
+        read(it, nullifier_read_hints);
+
+        std::vector<NullifierWriteTreeHint> nullifier_write_hints;
+        read(it, nullifier_write_hints);
+
+        std::vector<AppendTreeHint> note_hash_read_hints;
+        read(it, note_hash_read_hints);
+
+        std::vector<AppendTreeHint> note_hash_write_hints;
+        read(it, note_hash_write_hints);
+
+        std::vector<AppendTreeHint> l1_to_l2_message_read_hints;
+        read(it, l1_to_l2_message_read_hints);
+
         if (it != data.data() + data.size()) {
             throw_or_abort("Failed to deserialize ExecutionHints: only read " + std::to_string(it - data.data()) +
                            " bytes out of " + std::to_string(data.size()) + " bytes");
@@ -230,7 +356,12 @@ struct ExecutionHints {
         return { std::move(storage_value_hints),    std::move(note_hash_exists_hints),
                  std::move(nullifier_exists_hints), std::move(l1_to_l2_message_exists_hints),
                  std::move(externalcall_hints),     std::move(contract_instance_hints),
-                 std::move(all_contract_bytecode) };
+                 std::move(all_contract_bytecode),  std::move(storage_read_hints),
+                 std::move(storage_write_hints),    std::move(nullifier_read_hints),
+                 std::move(nullifier_write_hints),  std::move(note_hash_read_hints),
+                 std::move(note_hash_write_hints),  std::move(l1_to_l2_message_read_hints)
+
+        };
     }
 
   private:
@@ -240,7 +371,15 @@ struct ExecutionHints {
                    std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints,
                    std::vector<ExternalCallHint> externalcall_hints,
                    std::map<FF, ContractInstanceHint> contract_instance_hints,
-                   std::vector<AvmContractBytecode> all_contract_bytecode)
+                   std::vector<AvmContractBytecode> all_contract_bytecode,
+                   std::vector<PublicDataReadTreeHint> storage_read_hints,
+                   std::vector<PublicDataWriteTreeHint> storage_write_hints,
+                   std::vector<NullifierReadTreeHint> nullifier_read_hints,
+                   std::vector<NullifierWriteTreeHint> nullifier_write_hints,
+                   std::vector<AppendTreeHint> note_hash_read_hints,
+                   std::vector<AppendTreeHint> note_hash_write_hints,
+                   std::vector<AppendTreeHint> l1_to_l2_message_read_hints)
+
         : storage_value_hints(std::move(storage_value_hints))
         , note_hash_exists_hints(std::move(note_hash_exists_hints))
         , nullifier_exists_hints(std::move(nullifier_exists_hints))
@@ -248,6 +387,13 @@ struct ExecutionHints {
         , externalcall_hints(std::move(externalcall_hints))
         , contract_instance_hints(std::move(contract_instance_hints))
         , all_contract_bytecode(std::move(all_contract_bytecode))
+        , storage_read_hints(std::move(storage_read_hints))
+        , storage_write_hints(std::move(storage_write_hints))
+        , nullifier_read_hints(std::move(nullifier_read_hints))
+        , nullifier_write_hints(std::move(nullifier_write_hints))
+        , note_hash_read_hints(std::move(note_hash_read_hints))
+        , note_hash_write_hints(std::move(note_hash_write_hints))
+        , l1_to_l2_message_read_hints(std::move(l1_to_l2_message_read_hints))
     {}
 };
 

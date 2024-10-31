@@ -153,24 +153,24 @@ describe('enqueued_calls_processor', () => {
     ];
     const mockedSimulatorExecutions = [
       // SETUP
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
-        stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
         return Promise.resolve(simulatorResults[0]);
       },
       // APP LOGIC
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotB, fr(0x152));
-        stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotC, fr(0x201));
+        await stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotB, fr(0x152));
+        await stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotC, fr(0x201));
         return Promise.resolve(simulatorResults[1]);
       },
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
         return Promise.resolve(simulatorResults[2]);
       },
     ];
@@ -247,11 +247,11 @@ describe('enqueued_calls_processor', () => {
     ];
     const mockedSimulatorExecutions = [
       // SETUP
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
-        stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
         return Promise.resolve(simulatorResults[0]);
       },
       // APP LOGIC
@@ -259,9 +259,9 @@ describe('enqueued_calls_processor', () => {
         // mock storage writes on the state manager
         return Promise.resolve(simulatorResults[1]);
       },
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
         return Promise.resolve(simulatorResults[2]);
       },
     ];
@@ -313,25 +313,25 @@ describe('enqueued_calls_processor', () => {
 
     const mockedSimulatorExecutions = [
       // SETUP
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
         return Promise.resolve(simulatorResults[0]);
       },
       // APP LOGIC
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
-        stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x200));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x200));
         return Promise.resolve(simulatorResults[1]);
       },
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x201));
-        stateManager.writeStorage(nestedContractAddress, contractSlotD, fr(0x251));
-        stateManager.writeStorage(nestedContractAddress, contractSlotE, fr(0x301));
-        stateManager.writeStorage(nestedContractAddress, contractSlotF, fr(0x351));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x201));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotD, fr(0x251));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotE, fr(0x301));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotF, fr(0x351));
         return Promise.resolve(simulatorResults[2]);
       },
     ];
@@ -424,24 +424,24 @@ describe('enqueued_calls_processor', () => {
 
     const mockedSimulatorExecutions = [
       // SETUP
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
-        stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x102));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotB, fr(0x151));
         return Promise.resolve(simulatorResults[0]);
       },
       // APP LOGIC
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotB, fr(0x152));
-        stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotC, fr(0x204));
+        await stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotB, fr(0x152));
+        await stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotC, fr(0x204));
         return Promise.resolve(simulatorResults[1]);
       },
-      (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x202));
         return Promise.resolve(simulatorResults[2]);
       },
     ];
@@ -579,18 +579,18 @@ describe('enqueued_calls_processor', () => {
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
+        await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
+        await stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
         await stateManager.readStorage(contractAddress, contractSlotA);
         return Promise.resolve(simulatorResults[1]);
       },
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x103));
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x201));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotA, fr(0x103));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x201));
         await stateManager.readStorage(nestedContractAddress, contractSlotA);
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x102));
-        stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x152));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x102));
+        await stateManager.writeStorage(nestedContractAddress, contractSlotC, fr(0x152));
         await stateManager.readStorage(nestedContractAddress, contractSlotA);
         return Promise.resolve(simulatorResults[2]);
       },

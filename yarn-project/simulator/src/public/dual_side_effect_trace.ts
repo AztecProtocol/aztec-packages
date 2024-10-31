@@ -3,7 +3,9 @@ import {
   type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
+  type NullifierLeafPreimage,
   type PublicCallRequest,
+  type PublicDataTreeLeafPreimage,
   type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -36,40 +38,112 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     return this.innerCallTrace.getCounter();
   }
 
-  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
-    this.innerCallTrace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
-    this.enqueuedCallTrace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
+  public tracePublicStorageRead(
+    contractAddress: Fr,
+    slot: Fr,
+    leafPreimage: PublicDataTreeLeafPreimage,
+    leafIndex: Fr,
+    path: Fr[],
+  ) {
+    this.innerCallTrace.tracePublicStorageRead(contractAddress, slot, leafPreimage, leafIndex, path);
+    this.enqueuedCallTrace.tracePublicStorageRead(contractAddress, slot, leafPreimage, leafIndex, path);
   }
 
-  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
-    this.innerCallTrace.tracePublicStorageWrite(contractAddress, slot, value);
-    this.enqueuedCallTrace.tracePublicStorageWrite(contractAddress, slot, value);
+  public tracePublicStorageWrite(
+    contractAddress: Fr,
+    slot: Fr,
+    lowLeafPreimage: PublicDataTreeLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+    newLeafPreimage: PublicDataTreeLeafPreimage,
+    insertionPath: Fr[],
+  ) {
+    this.innerCallTrace.tracePublicStorageWrite(
+      contractAddress,
+      slot,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+      newLeafPreimage,
+      insertionPath,
+    );
+    this.enqueuedCallTrace.tracePublicStorageWrite(
+      contractAddress,
+      slot,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+      newLeafPreimage,
+      insertionPath,
+    );
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
-    this.innerCallTrace.traceNoteHashCheck(_contractAddress, noteHash, leafIndex, exists);
-    this.enqueuedCallTrace.traceNoteHashCheck(_contractAddress, noteHash, leafIndex, exists);
+  public traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean, path: Fr[]) {
+    this.innerCallTrace.traceNoteHashCheck(contractAddress, noteHash, leafIndex, exists, path);
+    this.enqueuedCallTrace.traceNoteHashCheck(contractAddress, noteHash, leafIndex, exists, path);
   }
 
-  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr) {
-    this.innerCallTrace.traceNewNoteHash(_contractAddress, noteHash);
-    this.enqueuedCallTrace.traceNewNoteHash(_contractAddress, noteHash);
+  public traceNewNoteHash(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, path: Fr[]) {
+    this.innerCallTrace.traceNewNoteHash(contractAddress, noteHash, leafIndex, path);
+    this.enqueuedCallTrace.traceNewNoteHash(contractAddress, noteHash, leafIndex, path);
   }
 
-  public traceNullifierCheck(contractAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean) {
-    this.innerCallTrace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
-    this.enqueuedCallTrace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
+  public traceNullifierCheck(
+    contractAddress: Fr,
+    nullifier: Fr,
+    exists: boolean,
+    lowLeafPreimage: NullifierLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+  ) {
+    this.innerCallTrace.traceNullifierCheck(
+      contractAddress,
+      nullifier,
+      exists,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+    );
+    this.enqueuedCallTrace.traceNullifierCheck(
+      contractAddress,
+      nullifier,
+      exists,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+    );
   }
 
-  public traceNewNullifier(contractAddress: Fr, nullifier: Fr) {
-    this.innerCallTrace.traceNewNullifier(contractAddress, nullifier);
-    this.enqueuedCallTrace.traceNewNullifier(contractAddress, nullifier);
+  public traceNewNullifier(
+    contractAddress: Fr,
+    nullifier: Fr,
+    lowLeafPreimage: NullifierLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+    insertionPath: Fr[],
+  ) {
+    this.innerCallTrace.traceNewNullifier(
+      contractAddress,
+      nullifier,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+      insertionPath,
+    );
+    this.enqueuedCallTrace.traceNewNullifier(
+      contractAddress,
+      nullifier,
+      lowLeafPreimage,
+      lowLeafIndex,
+      lowLeafPath,
+      insertionPath,
+    );
   }
 
-  public traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
-    this.innerCallTrace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists);
-    this.enqueuedCallTrace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists);
+  traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path: Fr[]) {
+    this.innerCallTrace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists, path);
+    this.enqueuedCallTrace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists, path);
   }
 
   public traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {

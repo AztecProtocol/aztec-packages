@@ -1,4 +1,4 @@
-import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { GasFees, GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -42,6 +42,7 @@ export function initPersistableStateManager(overrides?: {
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
+  merkleTree?: MerkleTreeWriteOperations;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
