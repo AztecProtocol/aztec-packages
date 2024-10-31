@@ -168,6 +168,7 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
  */
 export function toJSON(obj: any): any {
   // Bigint is a primitive type that needs special handling since it's not serializable
+  // TODO(palla): Ensure this is compatible with the bigint schema we declared in zod
   if (typeof obj === 'bigint') {
     return { type: 'bigint', data: obj.toString() };
   }
