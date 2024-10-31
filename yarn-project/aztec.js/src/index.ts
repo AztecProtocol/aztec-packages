@@ -34,6 +34,7 @@ export {
   type SendMethodOptions,
   SentTx,
   type WaitOpts,
+  type ProfileResult,
 } from './contract/index.js';
 
 export { ContractDeployer } from './deployment/index.js';

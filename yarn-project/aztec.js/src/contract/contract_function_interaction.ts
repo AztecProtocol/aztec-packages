@@ -1,4 +1,4 @@
-import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import type { FunctionCall, TxExecutionRequest, PrivateKernelProverProfileResult } from '@aztec/circuit-types';
 import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
 import {
   type FunctionAbi,
@@ -25,8 +25,14 @@ export type SimulateMethodOptions = {
   gasSettings?: GasSettings;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
-  /** Run the real prover with profiling enabled (get the gate count for each function in the transaction). */
-  profile?: boolean;
+};
+
+/**
+ * The result of a profile() call.
+ */
+export type ProfileResult = PrivateKernelProverProfileResult & {
+  /** The result of the transaction as returned by the contract function. */
+  returnValues: any;
 };
 
 /**
@@ -100,13 +106,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation, options?.profile);
-
-    // Temp
-    if (options.profile) {
-      console.log("Result");
-      console.log(simulatedTx.profileResult);
-    }
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation);
 
     // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
     // since we're interested in the first set of values AFTER the account entrypoint
@@ -117,5 +117,31 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         : simulatedTx.getPublicReturnValues()?.[0].values;
 
     return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+  }
+
+  /**
+   * Simulate a transaction and profile the gate count for each function in the transaction.
+   * @param options - Same options as `simulate`.
+   *
+   * @returns The gate count for each function in the transaction.
+   */
+  public async profile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
+    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
+      throw new Error("Can't profile an unconstrained function.");
+    }
+
+    const txRequest = await this.create();
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation, true);
+
+    const rawReturnValues =
+      this.functionDao.functionType == FunctionType.PRIVATE
+        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
+        : simulatedTx.getPublicReturnValues()?.[0].values;
+    const rawReturnValuesDecoded = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+
+    return {
+      returnValues: rawReturnValuesDecoded,
+      gateCounts: simulatedTx.profileResult!.gateCounts,
+    };
   }
 }
