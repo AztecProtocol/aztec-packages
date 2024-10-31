@@ -1,13 +1,7 @@
-import { BB_RESULT, executeBbClientIvcProveAndVerify } from '@aztec/bb-prover';
-import { ClientIvcProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { encode } from '@msgpack/msgpack';
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { ungzip } from 'pako';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -32,53 +26,33 @@ const logger = createDebugLogger('aztec:clientivc-integration');
 jest.setTimeout(120_000);
 
 describe('Client IVC Integration', () => {
-  let bbWorkingDirectory: string;
-  let bbBinaryPath: string;
+  beforeEach(async () => {});
 
-  beforeEach(async () => {
-    // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.homedir(), 'bb-tmp/', 'bb-client-ivc-integration-'));
-    bbBinaryPath = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '../../../barretenberg/ts/dest/node',
-      'main.js',
-    );
-    logger.debug(`bbBinaryPath is ${bbBinaryPath}`);
-  });
-
-  function uint8ArrayToBase64(uint8Array: Uint8Array): string {
-    // Convert each byte in the Uint8Array to a character, then join them into a binary string
-    const binaryString = Array.from(uint8Array)
-        .map(byte => String.fromCharCode(byte))
-        .join('');
-
-    // Encode the binary string to base64
-    return btoa(binaryString);
+  function base64ToUint8Array(base64: string) {
+    let binaryString = atob(base64);
+    let len = binaryString.length;
+    let bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
   }
 
-  async function proveAndVerifyAztecClient(witnessStack: Uint8Array[], bytecodes: string[]): Promise<boolean> {
-    await fs.writeFile(
-      path.join(bbWorkingDirectory, 'acir.msgpack.b64'),
-      uint8ArrayToBase64(encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64')))),
-    );
-    logger.debug('wrote acir.msgpack.b64');
-
-    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack.b64'), uint8ArrayToBase64(encode(witnessStack)));
-    logger.debug('wrote witnesses.msgpack.b64');
-
-    const provingResult = await executeBbClientIvcProveAndVerify(
-      bbBinaryPath,
-      bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'acir.msgpack.b64'),
-      path.join(bbWorkingDirectory, 'witnesses.msgpack.b64'),
-      logger.info,
+  async function proveAndVerifyAztecClient(
+    witnessStack: Uint8Array[],
+    bytecodes: string[],
+    threads?: number,
+  ): Promise<boolean> {
+    const { AztecClientBackend } = await import('@aztec/bb.js');
+    const backend = new AztecClientBackend(
+      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+      { threads },
     );
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      throw new Error(provingResult.reason);
-    } else {
-      return true
-    }
+    const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+    console.log(`finished running proveAndVerify ${verified}`);
+    await backend.destroy();
+    return verified;
   }
 
   // This test will verify a client IVC proof of a simple tx:
