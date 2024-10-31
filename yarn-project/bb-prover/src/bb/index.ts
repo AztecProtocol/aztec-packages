@@ -17,7 +17,7 @@ async function main() {
 }
 
 main().catch(err => {
-  log(`Error in command execution`, process.argv);
+  log(`Error in command execution`, { argv: process.argv });
   log(err);
   process.exit(1);
 });
