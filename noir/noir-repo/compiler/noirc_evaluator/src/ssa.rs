@@ -199,6 +199,8 @@ impl SsaProgramArtifact {
             self.main_return_witnesses = circuit_artifact.return_witnesses;
         }
         self.names.push(circuit_artifact.name);
+        // Acir and brillig both generate new error types, so we need to merge them
+        // With the ones found during ssa generation.
         self.error_types.extend(circuit_artifact.error_types);
     }
 

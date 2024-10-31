@@ -8,8 +8,8 @@ use crate::brillig::brillig_ir::{
 };
 
 impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
-    /// Conditionally copies a source array to a destination array.
-    /// If the reference count of the source array is 1, then we can directly copy the pointer of the source array to the destination array.
+    /// Reverts with the error selector of the given string
+    /// This procedure is useful to deduplicate generating code for the same selector.
     pub(crate) fn call_revert_with_string_procedure(&mut self, revert_string: String) {
         self.add_procedure_call_instruction(ProcedureId::RevertWithString(revert_string));
     }
