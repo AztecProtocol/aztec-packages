@@ -236,8 +236,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 assert!(location.num_bits() <= 16);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    // operands: vec![make_operand(32, &avm_loc)],
-                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
+                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 }],
                     ..Default::default()
                 });
             }
@@ -249,7 +248,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![
-                        AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 },
+                        AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 },
                         make_operand(16, &condition.to_usize()),
                     ],
                     ..Default::default()
@@ -301,7 +300,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 assert!(location.num_bits() <= 16);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::U16 { value: avm_loc as u32 }],
+                    operands: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u16 }],
                     ..Default::default()
                 });
             }
@@ -357,15 +356,15 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
     let mut avm_instrs = avm_instrs
         .into_iter()
         .map(|i| match i.opcode {
-            AvmOpcode::JUMP_16 | AvmOpcode::JUMPI_16 | AvmOpcode::INTERNALCALL => {
+            AvmOpcode::JUMP_32 | AvmOpcode::JUMPI_32 | AvmOpcode::INTERNALCALL => {
                 let new_operands = i
                     .operands
                     .into_iter()
                     .map(|o| match o {
                         AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
                             let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
-                            assert!(avm_pc.num_bits() <= 16, "Oops! AVM PC is too large!");
-                            AvmOperand::U16 { value: avm_pc as u16 }
+                            assert!(avm_pc.num_bits() <= 32, "Oops! AVM PC is too large!");
+                            AvmOperand::U32 { value: avm_pc as u32 }
                         }
                         _ => o,
                     })
