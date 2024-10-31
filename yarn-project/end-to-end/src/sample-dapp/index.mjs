@@ -33,13 +33,14 @@ async function showPrivateBalances(pxe) {
 
 // docs:start:mintPrivateFunds
 async function mintPrivateFunds(pxe) {
-  const [owner] = await getInitialTestAccountsWallets(pxe);
-  const token = await getToken(owner);
+  const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
+  const token = await getToken(ownerWallet);
 
   await showPrivateBalances(pxe);
 
+  // We mint tokens to the owner
   const mintAmount = 20n;
-  await mintTokensToPrivate(token, owner, owner.getAddress(), mintAmount);
+  await token.methods.mint_to_private(ownerWallet.getAddress(), mintAmount).send().wait();
 
   await showPrivateBalances(pxe);
 }

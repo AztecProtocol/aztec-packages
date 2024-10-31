@@ -158,7 +158,7 @@ contract TokenBridge {
     #[public]
     #[internal]
     fn _call_mint_on_token(amount: Field, secret_hash: Field) {
-        Token::at(storage.token.read()).mint_private(amount, secret_hash).call(&mut context);
+        Token::at(storage.token.read()).mint_private_old(amount, secret_hash).call(&mut context);
     }
     // docs:end:call_mint_on_token
 

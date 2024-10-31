@@ -1,5 +1,5 @@
 import { BatchCall, EventType } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js';
 
 import { TokenContractTest } from './token_contract_test.js';
 
@@ -42,7 +42,12 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We should have created a single new note, for the recipient
     expect(tx.debugInfo?.noteHashes.length).toBe(1);
 
-    const events = await wallets[1].getEvents(EventType.Encrypted, TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getEvents<Transfer>(
+      EventType.Encrypted,
+      TokenContract.events.Transfer,
+      tx.blockNumber!,
+      1,
+    );
 
     expect(events[0]).toEqual({
       from: accounts[0].address,

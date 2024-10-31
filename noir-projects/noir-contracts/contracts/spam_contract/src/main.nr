@@ -36,7 +36,7 @@ contract Spam {
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
-                encode_and_encrypt_note_unconstrained(&mut context, caller_ovpk_m, caller),
+                encode_and_encrypt_note_unconstrained(&mut context, caller_ovpk_m, caller, caller),
             );
         }
 

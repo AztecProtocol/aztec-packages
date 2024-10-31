@@ -128,7 +128,12 @@ describe('e2e_lending_contract', () => {
       const nonce = Fr.random();
       await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: collateralAsset.methods.unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce),
+        action: collateralAsset.methods.transfer_to_public(
+          lendingAccount.address,
+          lendingContract.address,
+          depositAmount,
+          nonce,
+        ),
       });
       await lendingSim.progressSlots(SLOT_JUMP);
       lendingSim.depositPrivate(lendingAccount.address, lendingAccount.key(), depositAmount);
@@ -157,7 +162,12 @@ describe('e2e_lending_contract', () => {
       const nonce = Fr.random();
       await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: collateralAsset.methods.unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce),
+        action: collateralAsset.methods.transfer_to_public(
+          lendingAccount.address,
+          lendingContract.address,
+          depositAmount,
+          nonce,
+        ),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP);
