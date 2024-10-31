@@ -691,7 +691,7 @@ jobs:
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.test }}
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=16-validators.yaml ./scripts/network_test.sh ./src/spartan/$test
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=3-validators.yaml ./scripts/network_test.sh ./src/spartan/$test
 
   l1-contracts-test:
     needs: [build, configure]
