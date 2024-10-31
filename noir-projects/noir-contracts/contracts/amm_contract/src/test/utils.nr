@@ -16,9 +16,11 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
 
-    let token_admin = env.create_account_contract(1);
-    let liquidity_provider = env.create_account_contract(2);
-    let swapper = env.create_account_contract(3);
+    // For token admin we don't ever need authwits so we don't need to deploy an account contract
+    let token_admin = env.create_account();
+    // For the liquidity provider and swapper we do need authwits
+    let liquidity_provider = env.create_account_contract(1);
+    let swapper = env.create_account_contract(2);
 
     // Start the test in the account contract address
     env.impersonate(token_admin);
