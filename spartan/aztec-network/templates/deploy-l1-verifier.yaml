@@ -1,0 +1,58 @@
+{{- if .Values.network.setupL2Contracts }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-deploy-l1-verifier
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: deploy-l1-verifier
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: deploy-l1-verifier
+          image: {{ .Values.images.aztec.image }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              [ $ENABLE = "true" ] || exit 0
+
+              until curl -s -X GET "$AZTEC_NODE_URL/status"; do
+                echo "Waiting for Aztec node $AZTEC_NODE_URL..."
+                sleep 5
+              done
+              echo "Boot node is ready!"
+
+              export ROLLUP_CONTRACT_ADDRESS=$(curl -X POST -H 'Content-Type: application/json' \
+                  -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}' \
+                  "$AZTEC_NODE_URL" \
+                  | jq -r '.result.rollupAddress.data')
+
+              echo "Rollup contract address: $ROLLUP_CONTRACT_ADDRESS"
+              node /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-verifier --verifier real
+              echo "L1 verifier deployed"
+          env:
+            - name: ENABLE
+              value: {{ .Values.jobs.deployL1Verifier.enable | quote }}
+            - name: NODE_NO_WARNINGS
+              value: "1"
+            - name: DEBUG
+              value: "aztec:*"
+            - name: LOG_LEVEL
+              value: "debug"
+            - name: ETHEREUM_HOST
+              value: {{ include "aztec-network.ethereumHost" . | quote }}
+            - name: L1_CHAIN_ID
+              value: {{ .Values.ethereum.chainId | quote }}
+            - name: PRIVATE_KEY
+              value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            - name: AZTEC_NODE_URL
+              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+{{ end }}

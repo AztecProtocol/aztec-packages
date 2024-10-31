@@ -122,7 +122,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Which chain the bot follows',
     defaultValue: 'NONE',
     parseEnv(val) {
-      if (!botFollowChain.includes(val as any)) {
+      if (!(botFollowChain as readonly string[]).includes(val.toUpperCase())) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
       return val as BotFollowChain;

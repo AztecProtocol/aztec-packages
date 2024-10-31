@@ -1,16 +1,12 @@
-import {
-  type IncomingNotesFilter,
-  MerkleTreeId,
-  NoteStatus,
-  type OutgoingNotesFilter,
-  type PublicKey,
-} from '@aztec/circuit-types';
+import { type IncomingNotesFilter, MerkleTreeId, NoteStatus, type OutgoingNotesFilter } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
   Header,
+  type PublicKey,
   SerializableContractInstance,
+  type TaggingSecret,
   computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -36,8 +32,9 @@ import { type PxeDatabase } from './pxe_database.js';
  */
 export class KVPxeDatabase implements PxeDatabase {
   #synchronizedBlock: AztecSingleton<Buffer>;
-  #addresses: AztecArray<Buffer>;
-  #addressIndex: AztecMap<string, number>;
+  #completeAddresses: AztecArray<Buffer>;
+  #completeAddressIndex: AztecMap<string, number>;
+  #addressBook: AztecSet<string>;
   #authWitnesses: AztecMap<string, Buffer[]>;
   #capsules: AztecArray<Buffer[]>;
   #notes: AztecMap<string, Buffer>;
@@ -72,8 +69,10 @@ export class KVPxeDatabase implements PxeDatabase {
   constructor(private db: AztecKVStore) {
     this.#db = db;
 
-    this.#addresses = db.openArray('addresses');
-    this.#addressIndex = db.openMap('address_index');
+    this.#completeAddresses = db.openArray('complete_addresses');
+    this.#completeAddressIndex = db.openMap('complete_address_index');
+
+    this.#addressBook = db.openSet('address_book');
 
     this.#authWitnesses = db.openMap('auth_witnesses');
     this.#capsules = db.openArray('capsules');
@@ -509,15 +508,15 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.#db.transaction(() => {
       const addressString = completeAddress.address.toString();
       const buffer = completeAddress.toBuffer();
-      const existing = this.#addressIndex.get(addressString);
+      const existing = this.#completeAddressIndex.get(addressString);
       if (typeof existing === 'undefined') {
-        const index = this.#addresses.length;
-        void this.#addresses.push(buffer);
-        void this.#addressIndex.set(addressString, index);
+        const index = this.#completeAddresses.length;
+        void this.#completeAddresses.push(buffer);
+        void this.#completeAddressIndex.set(addressString, index);
 
         return true;
       } else {
-        const existingBuffer = this.#addresses.at(existing);
+        const existingBuffer = this.#completeAddresses.at(existing);
 
         if (existingBuffer?.equals(buffer)) {
           return false;
@@ -531,12 +530,12 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   #getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
-    const index = this.#addressIndex.get(address.toString());
+    const index = this.#completeAddressIndex.get(address.toString());
     if (typeof index === 'undefined') {
       return undefined;
     }
 
-    const value = this.#addresses.at(index);
+    const value = this.#completeAddresses.at(index);
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
@@ -545,7 +544,31 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
+    return Promise.resolve(Array.from(this.#completeAddresses).map(v => CompleteAddress.fromBuffer(v)));
+  }
+
+  async addContactAddress(address: AztecAddress): Promise<boolean> {
+    if (this.#addressBook.has(address.toString())) {
+      return false;
+    }
+
+    await this.#addressBook.add(address.toString());
+
+    return true;
+  }
+
+  getContactAddresses(): AztecAddress[] {
+    return [...this.#addressBook.entries()].map(AztecAddress.fromString);
+  }
+
+  async removeContactAddress(address: AztecAddress): Promise<boolean> {
+    if (!this.#addressBook.has(address.toString())) {
+      return false;
+    }
+
+    await this.#addressBook.delete(address.toString());
+
+    return true;
   }
 
   getSynchedBlockNumberForAccount(account: AztecAddress): number | undefined {
@@ -570,25 +593,29 @@ export class KVPxeDatabase implements PxeDatabase {
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
       0,
     );
-    const addressesSize = this.#addresses.length * CompleteAddress.SIZE_IN_BYTES;
+    const addressesSize = this.#completeAddresses.length * CompleteAddress.SIZE_IN_BYTES;
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void> {
-    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecrets);
+  async incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void> {
+    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecretsWithRecipient);
     await this.db.transaction(() => {
-      indexes.forEach(index => {
-        const nextIndex = index ? index + 1 : 1;
-        void this.#taggingSecretIndexes.set(appTaggingSecrets.toString(), nextIndex);
+      indexes.forEach((taggingSecretIndex, listIndex) => {
+        const nextIndex = taggingSecretIndex + 1;
+        const { secret, recipient } = appTaggingSecretsWithRecipient[listIndex];
+        const key = `${secret.toString()}-${recipient.toString()}`;
+        void this.#taggingSecretIndexes.set(key, nextIndex);
       });
     });
   }
 
-  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]> {
+  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]> {
     return this.db.transaction(() =>
-      appTaggingSecrets.map(secret => this.#taggingSecretIndexes.get(secret.toString()) ?? 0),
+      appTaggingSecretsWithRecipient.map(
+        ({ secret, recipient }) => this.#taggingSecretIndexes.get(`${secret.toString()}-${recipient.toString()}`) ?? 0,
+      ),
     );
   }
 }

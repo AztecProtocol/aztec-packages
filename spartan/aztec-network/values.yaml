@@ -30,7 +30,7 @@ bootNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
@@ -44,6 +44,11 @@ bootNode:
       memory: "2Gi"
       cpu: "200m"
   deployContracts: true # Set to false to use manual contract addresses
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
   contracts:
     rollupAddress: ""
     registryAddress: ""
@@ -67,7 +72,7 @@ validator:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
@@ -75,6 +80,11 @@ validator:
     disabled: false
   p2p:
     enabled: "true"
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
   resources:
     requests:
       memory: "2Gi"
@@ -88,9 +98,9 @@ proverNode:
   service:
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
-  proverAgentEnabled: true
+  proverAgentEnabled: false
   resources:
     requests:
       memory: "2Gi"
@@ -102,6 +112,7 @@ pxe:
   externalHost: ""
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*"
+  proverEnable: false
   replicas: 1
   service:
     port: 8080
@@ -176,3 +187,16 @@ ethereum:
       memory: "2Gi"
       cpu: "200m"
   storage: "8Gi"
+
+proverAgent:
+  enabled: true
+  replicas: 1
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  realProofs: false
+  concurrency: 1
+  bb:
+    hardwareConcurrency: ""
+
+jobs:
+  deployL1Verifier:
+    enable: false

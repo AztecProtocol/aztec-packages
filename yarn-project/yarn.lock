@@ -1022,12 +1022,14 @@ __metadata:
     "@noir-lang/types": "workspace:*"
     "@types/jest": ^29.5.0
     "@types/lodash.omit": ^4.5.7
+    "@types/lodash.times": ^4.3.9
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
     koa: ^2.14.2
     koa-router: ^12.0.0
     lodash.omit: ^4.5.0
+    lodash.times: ^4.3.2
     sha3: ^2.1.4
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -4718,7 +4720,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash.times@npm:^4.3.7":
+"@types/lodash.times@npm:^4.3.7, @types/lodash.times@npm:^4.3.9":
   version: 4.3.9
   resolution: "@types/lodash.times@npm:4.3.9"
   dependencies:

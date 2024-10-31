@@ -609,4 +609,8 @@ export class ClientExecutionContext extends ViewDataOracle {
   public getDebugFunctionName() {
     return this.db.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
+
+  public override async incrementAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress) {
+    await this.db.incrementAppTaggingSecret(this.contractAddress, sender, recipient);
+  }
 }

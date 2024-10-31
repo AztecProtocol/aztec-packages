@@ -22,7 +22,13 @@ impl<Context> EasyPrivateUint<Context> {
 
 impl EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
-    pub fn add(self, addend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    pub fn add(
+        self,
+        addend: u64,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
+    ) {
         let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner);
@@ -33,12 +39,19 @@ impl EasyPrivateUint<&mut PrivateContext> {
             self.context,
             outgoing_viewer_keys.ovpk_m,
             owner,
+            sender,
         ));
         // docs:end:insert
     }
 
     // Very similar to `value_note::utils::decrement`.
-    pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    pub fn sub(
+        self,
+        subtrahend: u64,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
+    ) {
         let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
 
         // docs:start:pop_notes
@@ -63,6 +76,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
             self.context,
             outgoing_viewer_keys.ovpk_m,
             owner,
+            sender,
         ));
     }
 }
