@@ -7,7 +7,9 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-    }, tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest,
+    },
+    tests::fixture_builder::FixtureBuilder,
+    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitPublicInputsComposerBuilder {

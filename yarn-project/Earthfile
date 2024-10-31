@@ -118,7 +118,7 @@ protocol-verification-keys:
 rollup-verifier-contract:
     FROM +bb-cli
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c BlockRootRollupArtifact -n UltraHonkVerifier.sol
+    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
 txe:
@@ -283,6 +283,7 @@ prover-client-test:
 # Running this inside the main builder as the point is not to run this through dockerization.
 network-test:
     ARG test=./test-transfer.sh
+    ARG validators=3
     FROM +build
     WORKDIR /usr/src/
     # Bare minimum git setup to run 'git rev-parse --show-toplevel'
@@ -299,7 +300,7 @@ network-test:
         ./ethereum.sh \
         "./prover-node.sh 8078 false" \
         ./pxe.sh \
-        "./validators.sh 3"
+        "./validators.sh $validators"
 
 publish-npm:
     FROM +build

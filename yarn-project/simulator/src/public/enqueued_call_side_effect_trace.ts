@@ -1,5 +1,6 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
@@ -7,7 +8,7 @@ import {
   AztecAddress,
   CallContext,
   type CombinedConstantData,
-  type ContractInstanceWithAddress,
+  type ContractClassIdPreimage,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -44,6 +45,7 @@ import {
   ScopedNoteHash,
   type ScopedNullifier,
   ScopedReadRequest,
+  SerializableContractInstance,
   TreeLeafReadRequest,
   VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -57,8 +59,6 @@ import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
-
-export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
 
 /**
  * A struct containing just the side effects as regular arrays
@@ -307,14 +307,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractInstance(instance: TracedContractInstance) {
+  public traceGetContractInstance(
+    contractAddress: Fr,
+    exists: boolean,
+    instance: SerializableContractInstance = SerializableContractInstance.default(),
+  ) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
-    // TODO(dbanks12): should emit a nullifier read request
 
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
-        instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        contractAddress,
+        exists,
         instance.salt,
         instance.deployer,
         instance.contractClassId,
@@ -326,6 +329,40 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
+  // This tracing function gets called everytime we start simulation/execution.
+  // This happens both when starting a new top-level trace and the start of every nested trace
+  // We use this to collect the AvmContractBytecodeHints
+  public traceGetBytecode(
+    contractAddress: Fr,
+    exists: boolean,
+    bytecode: Buffer = Buffer.alloc(0),
+    contractInstance: SerializableContractInstance = SerializableContractInstance.default(),
+    contractClass: ContractClassIdPreimage = {
+      artifactHash: Fr.zero(),
+      privateFunctionsRoot: Fr.zero(),
+      publicBytecodeCommitment: Fr.zero(),
+    },
+  ) {
+    const instance = new AvmContractInstanceHint(
+      contractAddress,
+      exists,
+      contractInstance.salt,
+      contractInstance.deployer,
+      contractInstance.contractClassId,
+      contractInstance.initializationHash,
+      contractInstance.publicKeys,
+    );
+    // We need to deduplicate the contract instances based on addresses
+    this.avmCircuitHints.contractBytecodeHints.items.push(
+      new AvmContractBytecodeHints(bytecode, instance, contractClass),
+    );
+    this.log.debug(
+      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${JSON.stringify(
+        contractInstance,
+      )}`,
+    );
+  }
+
   /**
    * Trace a nested call.
    * Accept some results from a finished nested call's trace into this one.
@@ -334,7 +371,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** The trace of the nested call. */
     nestedCallTrace: this,
     /** The execution environment of the nested call. */
-    _nestedEnvironment: AvmExecutionEnvironment,
+    nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
@@ -368,6 +405,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         avmCallResults.output,
         gasUsed,
         endSideEffectCounter,
+        nestedEnvironment.address,
       ),
     );
   }

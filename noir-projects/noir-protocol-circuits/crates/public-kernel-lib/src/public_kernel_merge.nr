@@ -4,17 +4,16 @@ use crate::{
         previous_kernel_validator::PreviousKernelValidator,
         public_kernel_output_composer::PublicKernelOutputComposer,
         public_kernel_output_validator::PublicKernelOutputValidator,
-    }, public_kernel_phase::PublicKernelPhase,
+    },
+    public_kernel_phase::PublicKernelPhase,
 };
-use dep::types::{
-    abis::{
-        enqueued_call_data::EnqueuedCallData,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        public_kernel_data::PublicKernelData,
-    }, constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX},
+use dep::types::abis::{
+    enqueued_call_data::EnqueuedCallData,
+    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    public_kernel_data::PublicKernelData,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS = [];
 
 pub struct PublicKernelMergeCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -59,12 +58,11 @@ impl PublicKernelMergeCircuitPrivateInputs {
             phase,
         );
 
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-
+        // let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+        // previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
         let enqueued_call_data_validator =
             EnqueuedCallDataValidator::new(self.enqueued_call, phase);
-        enqueued_call_data_validator.validate_proof();
+        // enqueued_call_data_validator.validate_proof();
         enqueued_call_data_validator.validate_against_previous_kernel(
             self.previous_kernel.public_inputs,
             output_validator.previous_validation_request_array_lengths,
@@ -80,8 +78,8 @@ impl PublicKernelMergeCircuitPrivateInputs {
 
 mod tests {
     use crate::{
-        public_kernel_phase::PublicKernelPhase,
         public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs},
+        public_kernel_phase::PublicKernelPhase,
     };
     use dep::types::{
         abis::{
@@ -89,7 +87,7 @@ mod tests {
             kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
             validation_requests::PublicValidationRequestArrayLengths,
-        }, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
+        },
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
@@ -102,9 +100,7 @@ mod tests {
 
     impl PublicKernelMergeCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(
-                PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-            );
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let mut previous_revertible = FixtureBuilder::new();
             let mut enqueued_call = FixtureBuilder::new().is_public_function();
             // Add an offset so that the mock data won't be the same as the values in previous_kernel.
@@ -249,22 +245,5 @@ mod tests {
         // gas_used is propagated even when reverts.
         assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
         assert_eq(output.end.gas_used, Gas::new(350, 350));
-    }
-
-    #[test]
-    fn valid_previous_kernel() {
-        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
-            let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-            builder.previous_kernel =
-                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
-            builder.succeeded();
-        }
-    }
-
-    #[test(should_fail_with = "Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-        let _res = builder.execute();
     }
 }

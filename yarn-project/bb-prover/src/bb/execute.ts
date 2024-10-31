@@ -153,6 +153,7 @@ export async function generateKeyForNoirCircuit(
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
       let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, log);
+
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS) {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
@@ -506,7 +507,6 @@ export async function generateAvmProof(
   }
 
   // Paths for the inputs
-  const bytecodePath = join(workingDirectory, AVM_BYTECODE_FILENAME);
   const calldataPath = join(workingDirectory, AVM_CALLDATA_FILENAME);
   const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
   const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
@@ -527,10 +527,6 @@ export async function generateAvmProof(
 
   try {
     // Write the inputs to the working directory.
-    await fs.writeFile(bytecodePath, input.bytecode);
-    if (!filePresent(bytecodePath)) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write bytecode at ${bytecodePath}` };
-    }
     await fs.writeFile(
       calldataPath,
       input.calldata.map(fr => fr.toBuffer()),
@@ -555,8 +551,6 @@ export async function generateAvmProof(
     }
 
     const args = [
-      '--avm-bytecode',
-      bytecodePath,
       '--avm-calldata',
       calldataPath,
       '--avm-public-inputs',

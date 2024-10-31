@@ -34,7 +34,7 @@ global G_slot = Point {
 };
 
 mod test {
-    use crate::generators::{Ga1, Ga2, Ga3, Ga4, Ga5, G_slot};
+    use crate::generators::{G_slot, Ga1, Ga2, Ga3, Ga4, Ga5};
     use dep::protocol_types::point::Point;
     use std::hash::derive_generators;
 

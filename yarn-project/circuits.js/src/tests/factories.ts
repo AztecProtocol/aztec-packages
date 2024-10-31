@@ -2,19 +2,23 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   type ContractClassPublic,
+  type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   type PublicFunction,
+  SerializableContractInstance,
   type UnconstrainedFunctionWithMembershipProof,
 } from '../contract/index.js';
 import {
   ARCHIVE_HEIGHT,
+  AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
@@ -24,7 +28,6 @@ import {
   AvmKeyValueHint,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BaseRollupInputs,
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -35,6 +38,7 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
+  GeneratorIndex,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -135,6 +139,7 @@ import {
   VerificationKey,
   VerificationKeyAsFields,
   VerificationKeyData,
+  computeAddress,
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
@@ -146,13 +151,20 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  AvmContractBytecodeHints,
+  AvmProofData,
+  BaseRollupHints,
   EnqueuedCallData,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
   PublicAccumulatedDataArrayLengths,
+  PublicBaseRollupInputs,
   PublicDataLeafHint,
   PublicInnerCallRequest,
   PublicKernelCircuitPrivateInputs,
   PublicKernelInnerCircuitPrivateInputs,
   PublicKernelInnerData,
+  PublicTubeData,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ScopedL2ToL1Message,
@@ -160,9 +172,9 @@ import {
   TreeLeafReadRequest,
   TreeLeafReadRequestHint,
   VMCircuitPublicInputs,
+  VkWitnessData,
 } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
-import { KernelData } from '../structs/kernel/kernel_data.js';
 import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
 import {
   BlockRootOrBlockMergePublicInputs,
@@ -637,22 +649,6 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
   return new PublicKernelData(
     kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyData.makeFakeHonk(),
-    0x42,
-    makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
-  );
-}
-
-/**
- * Makes arbitrary public kernel data.
- * @param seed - The seed to use for generating the previous kernel data.
- * @param kernelPublicInputs - The public kernel public inputs to use for generating the public kernel data.
- * @returns A previous kernel data.
- */
-export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
-  return new KernelData(
-    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
     VerificationKeyData.makeFakeHonk(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
@@ -1233,14 +1229,19 @@ export function makeStateDiffHints(seed = 1): StateDiffHints {
   );
 }
 
-/**
- * Makes arbitrary base rollup inputs.
- * @param seed - The seed to use for generating the base rollup inputs.
- * @returns A base rollup inputs.
- */
-export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
-  const kernelData = makeRollupKernelData(seed);
+function makeVkWitnessData(seed = 1) {
+  return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
+}
 
+function makePrivateTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs) {
+  return new PrivateTubeData(
+    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
+    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
+    makeVkWitnessData(seed + 0x200),
+  );
+}
+
+function makeBaseRollupHints(seed = 1) {
   const start = makePartialStateReference(seed + 0x100);
 
   const stateDiffHints = makeStateDiffHints(seed + 0x600);
@@ -1271,8 +1272,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
-  return BaseRollupInputs.from({
-    kernelData,
+  return BaseRollupHints.from({
     start,
     stateDiffHints,
     sortedPublicDataWrites,
@@ -1281,7 +1281,45 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     lowPublicDataWritesMembershipWitnesses,
     archiveRootMembershipWitness,
     constants,
-    feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
+    feePayerFeeJuiceBalanceReadHint,
+  });
+}
+
+export function makePrivateBaseRollupInputs(seed = 0) {
+  const tubeData = makePrivateTubeData(seed);
+  const hints = makeBaseRollupHints(seed + 0x100);
+
+  return PrivateBaseRollupInputs.from({
+    tubeData,
+    hints,
+  });
+}
+
+function makePublicTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs) {
+  return new PublicTubeData(
+    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
+    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
+    makeVkWitnessData(seed + 0x200),
+  );
+}
+
+function makeAvmProofData(seed = 1) {
+  return new AvmProofData(
+    makeVMCircuitPublicInputs(seed),
+    makeRecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>(AVM_PROOF_LENGTH_IN_FIELDS, seed + 0x100),
+    makeVkWitnessData(seed + 0x200),
+  );
+}
+
+export function makePublicBaseRollupInputs(seed = 0) {
+  const tubeData = makePublicTubeData(seed);
+  const avmProofData = makeAvmProofData(seed + 0x100);
+  const hints = makeBaseRollupHints(seed + 0x100);
+
+  return PublicBaseRollupInputs.from({
+    tubeData,
+    avmProofData,
+    hints,
   });
 }
 
@@ -1314,11 +1352,13 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export function makeContractClassPublic(seed = 0): ContractClassPublic {
+export function makeContractClassPublic(seed = 0, publicDispatchFunction?: PublicFunction): ContractClassPublic {
   const artifactHash = fr(seed + 1);
-  const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
+  const publicFunctions = publicDispatchFunction
+    ? [publicDispatchFunction]
+    : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = publicFunctions[0].bytecode;
+  const packedBytecode = publicDispatchFunction?.bytecode ?? makeBytes(100, seed + 4);
   const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
   const id = computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
@@ -1376,7 +1416,56 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
+    new Fr(seed + 0x400),
   );
+}
+
+export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
+  const salt = new Fr(seed);
+  const initializationHash = new Fr(seed + 1);
+  const deployer = new Fr(seed + 2);
+  const publicKeys = PublicKeys.random();
+
+  const saltedInitializationHash = poseidon2HashWithSeparator(
+    [salt, initializationHash, deployer],
+    GeneratorIndex.PARTIAL_ADDRESS,
+  );
+  const partialAddress = poseidon2HashWithSeparator(
+    [classId, saltedInitializationHash],
+    GeneratorIndex.PARTIAL_ADDRESS,
+  );
+  const address = computeAddress(publicKeys, partialAddress);
+  return new SerializableContractInstance({
+    version: 1,
+    salt,
+    deployer,
+    contractClassId: classId,
+    initializationHash,
+    publicKeys,
+  }).withAddress(address);
+}
+
+export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
+  const { artifactHash, privateFunctionsRoot, packedBytecode, id } = makeContractClassPublic(seed);
+  const instance = makeContractInstanceFromClassId(id, seed + 0x1000);
+
+  const avmHintInstance = new AvmContractInstanceHint(
+    instance.address,
+    true,
+    instance.salt,
+    instance.deployer,
+    instance.contractClassId,
+    instance.initializationHash,
+    instance.publicKeys,
+  );
+
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
+
+  return new AvmContractBytecodeHints(packedBytecode, avmHintInstance, {
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+  });
 }
 
 /**
@@ -1387,7 +1476,7 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
     new Fr(seed),
-    new Fr(seed + 0x1),
+    true /* exists */,
     new Fr(seed + 0x2),
     new Fr(seed + 0x3),
     new Fr(seed + 0x4),
@@ -1421,6 +1510,7 @@ export function makeAvmExecutionHints(
     l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
     externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    contractBytecodeHints: makeVector(baseLength + 6, makeAvmBytecodeHints, seed + 0x4800),
     ...overrides,
   });
 }
@@ -1433,7 +1523,6 @@ export function makeAvmExecutionHints(
 export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCircuitInputs>> = {}): AvmCircuitInputs {
   return AvmCircuitInputs.from({
     functionName: `function${seed}`,
-    bytecode: makeBytes((seed % 100) + 100, seed),
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
     avmHints: makeAvmExecutionHints(seed + 0x3000),

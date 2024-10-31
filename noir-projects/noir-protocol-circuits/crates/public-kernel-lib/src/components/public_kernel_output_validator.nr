@@ -3,9 +3,11 @@ use dep::types::{
     abis::{
         accumulated_data::public_accumulated_data::{
             PublicAccumulatedData, PublicAccumulatedDataArrayLengths,
-        }, kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, VMCircuitPublicInputs},
+        },
+        kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, VMCircuitPublicInputs},
         validation_requests::public_validation_requests::PublicValidationRequestArrayLengths,
-    }, traits::is_empty,
+    },
+    traits::is_empty,
     utils::arrays::{array_length, assert_array_appended, assert_array_prepended},
 };
 

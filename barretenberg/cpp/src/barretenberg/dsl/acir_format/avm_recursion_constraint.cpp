@@ -45,17 +45,16 @@ void create_dummy_vkey_and_proof(Builder& builder,
 
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
     assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-            Flavor::NUM_ALL_ENTITIES * Flavor::NUM_FRS_FR - 2 * Flavor::NUM_FRS_COM - Flavor::NUM_FRS_FR) %
-               (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
+            (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) %
+               (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
            0);
 
     // Derivation of circuit size based on the proof
-    // Here, we should always get CONST_PROOF_SIZE_LOG_N which is not what is
-    // usually set for the AVM proof. As it is a dummy key/proof, it should not matter.
-    auto log_circuit_size =
+    // Here, we should always get CONST_PROOF_SIZE_LOG_N.
+    const auto log_circuit_size =
         (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-         Flavor::NUM_ALL_ENTITIES * Flavor::NUM_FRS_FR - 2 * Flavor::NUM_FRS_COM - Flavor::NUM_FRS_FR) /
-        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
+        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
     /***************************************************************************
      *                  Construct Dummy Verification Key
@@ -109,8 +108,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    // now the zeromorph commitments
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
+    for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
         builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
@@ -120,7 +119,13 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    // lastly the 2 commitments
+    // the gemini fold evaluations which are CONST_PROOF_SIZE_LOG_N
+    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        offset++;
+    }
+
+    // lastly the shplonk batched quotient commitment and kzg quotient commitment
     for (size_t i = 0; i < 2; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -162,14 +167,6 @@ AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
         auto field = field_ct::from_witness_index(&builder, idx);
         key_fields.emplace_back(field);
     }
-
-    // TODO(JEANMON): Once we integrate with public inputs, we will have to decide whether we inject (see
-    // ProofSurgeon::create_indices_for_reconstructed_proof) them as part of proof_fields or through some separate
-    // argument like in the native verifier. The latter will be favored because the public inputs are not part of the
-    // transcript and the verifier code passes the proof to initialize the transcript.
-    // Create witness indices for the
-    // proof with public inputs reinserted std::vector<uint32_t> proof_indices =
-    //     ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
 
     auto fields_from_witnesses = [&](std::vector<uint32_t> const& input) {
         std::vector<field_ct> result;

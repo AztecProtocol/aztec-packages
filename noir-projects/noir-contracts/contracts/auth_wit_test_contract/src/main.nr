@@ -2,7 +2,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract AuthWitTest {
-    use dep::aztec::{protocol_types::address::AztecAddress, macros::functions::{private, public}};
+    use dep::aztec::{macros::functions::{private, public}, protocol_types::address::AztecAddress};
 
     use dep::authwit::auth::{
         assert_inner_hash_valid_authwit, assert_inner_hash_valid_authwit_public,

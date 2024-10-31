@@ -4,13 +4,13 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract FPC {
+    use crate::lib::compute_rebate;
     use dep::aztec::{
+        macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable,
-        macros::{storage::storage, functions::{private, public, initializer, internal}},
     };
     use dep::token::Token;
-    use crate::lib::compute_rebate;
 
     #[storage]
     struct Storage<Context> {
@@ -31,9 +31,9 @@ contract FPC {
         nonce: Field,
     ) {
         assert(asset == storage.other_asset.read_private());
-        Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(
-            &mut context,
-        );
+        Token::at(asset)
+            .transfer_to_public(context.msg_sender(), context.this_address(), amount, nonce)
+            .call(&mut context);
         context.set_as_fee_payer();
         // Would like to get back to
         // FPC::at(context.this_address()).pay_refund_with_shielded_rebate(amount, asset, secret_hash).set_public_teardown_function(&mut context);

@@ -1,6 +1,10 @@
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 
-use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
+use dep::protocol_types::{
+    address::AztecAddress,
+    indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
+    utils::arr_copy_slice,
+};
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 /// transaction. This note should only be added to the non-volatile database if found in an actual block.
@@ -198,3 +202,54 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+
+/// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
+/// Includes the last known index used for tagging with this secret.
+/// For this to work, PXE must know the ivpsk_m of the sender.
+/// For the recipient's side, only the address is needed.
+pub unconstrained fn get_app_tagging_secret(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> IndexedTaggingSecret {
+    let result = get_app_tagging_secret_oracle(sender, recipient);
+    IndexedTaggingSecret::deserialize(result)
+}
+
+#[oracle(getAppTaggingSecret)]
+unconstrained fn get_app_tagging_secret_oracle(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
+
+pub unconstrained fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
+    increment_app_tagging_secret_oracle(sender, recipient);
+}
+
+#[oracle(incrementAppTaggingSecret)]
+unconstrained fn increment_app_tagging_secret_oracle(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+) {}
+
+/// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
+// siloed for the current contract address.
+/// Includes the last known index used for tagging with this secret.
+/// For this to work, PXE must know the ivsk_m of the recipient.
+pub unconstrained fn get_app_tagging_secrets_for_senders(
+    recipient: AztecAddress,
+) -> [IndexedTaggingSecret] {
+    let results = get_app_tagging_secrets_for_senders_oracle(recipient);
+    let mut indexed_tagging_secrets = &[];
+    for i in 0..results.len() {
+        if i % 3 != 0 {
+            continue;
+        }
+        indexed_tagging_secrets = indexed_tagging_secrets.push_back(
+            IndexedTaggingSecret::deserialize([results[i], results[i + 1], results[i + 2]]),
+        );
+    }
+    indexed_tagging_secrets
+}
+
+#[oracle(getAppTaggingSecretsForSenders)]
+unconstrained fn get_app_tagging_secrets_for_senders_oracle(_recipient: AztecAddress) -> [Field] {}

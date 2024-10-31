@@ -1,9 +1,12 @@
 use crate::{
     abis::{
         accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-        validation_requests::RollupValidationRequests, gas_fees::GasFees,
-    }, address::AztecAddress, partial_state_reference::PartialStateReference,
-    traits::{Empty, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+        gas_fees::GasFees, validation_requests::RollupValidationRequests,
+    },
+    address::AztecAddress,
+    constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    partial_state_reference::PartialStateReference,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
@@ -85,9 +88,10 @@ impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInp
 
 mod tests {
     use crate::abis::{
-        kernel_circuit_public_inputs::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-        validation_requests::RollupValidationRequests, gas::Gas, gas_fees::GasFees,
+        gas::Gas, gas_fees::GasFees,
+        kernel_circuit_public_inputs::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        validation_requests::RollupValidationRequests,
     };
     use crate::address::AztecAddress;
     use crate::partial_state_reference::PartialStateReference;

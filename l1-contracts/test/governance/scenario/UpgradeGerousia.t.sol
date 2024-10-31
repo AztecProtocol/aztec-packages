@@ -17,12 +17,13 @@ import {Slot} from "@aztec/core/libraries/TimeMath.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {NewGerousiaPayload} from "./NewGerousiaPayload.sol";
-
+import {Sysstia} from "@aztec/governance/Sysstia.sol";
 /**
  * @title UpgradeGerousiaTest
  * @author Aztec Labs
  * @notice A test that showcases an upgrade of the governance system, here the gerousia contract.
  */
+
 contract UpgradeGerousiaTest is TestBase {
   using ProposalLib for DataStructures.Proposal;
 
@@ -59,8 +60,10 @@ contract UpgradeGerousiaTest is TestBase {
       initialValidators[i - 1] = validator;
     }
 
-    rollup =
-      new Rollup(new MockFeeJuicePortal(), bytes32(0), bytes32(0), address(this), initialValidators);
+    Sysstia sysstia = new Sysstia(token, registry, address(this));
+    rollup = new Rollup(
+      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), initialValidators
+    );
 
     registry.upgrade(address(rollup));
 

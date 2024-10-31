@@ -1,6 +1,8 @@
 use crate::{
-    abis::max_block_number::MaxBlockNumber, traits::{Empty, Serialize, Deserialize},
-    constants::ROLLUP_VALIDATION_REQUESTS_LENGTH, utils::reader::Reader,
+    abis::max_block_number::MaxBlockNumber,
+    constants::ROLLUP_VALIDATION_REQUESTS_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // These are validation requests that cannot be fulfilled in the current context (private or public), and must be

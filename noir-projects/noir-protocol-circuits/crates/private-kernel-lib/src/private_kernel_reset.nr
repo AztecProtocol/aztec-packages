@@ -125,30 +125,37 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
 mod tests {
     use crate::private_kernel_reset::{
-        PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, ALLOWED_PREVIOUS_CIRCUITS,
+        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints,
     };
     use dep::reset_kernel_lib::{
+        reset::{
+            key_validation_hint::KeyValidationHint,
+            read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+        },
         tests::{
             note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
             nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        }, TransientDataIndexHint,
-        reset::{
-            read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
-            key_validation_hint::KeyValidationHint,
         },
-    };
-    use dep::types::constants::{
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX,
+        TransientDataIndexHint,
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
             log_hash::{NoteLogHash, ScopedEncryptedLogHash},
-        }, address::AztecAddress, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+            max_block_number::MaxBlockNumber,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+        },
+        address::AztecAddress,
+        hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+        point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
-        utils::arrays::find_index_hint, traits::is_empty_array, point::Point,
+        traits::is_empty_array,
+        utils::arrays::find_index_hint,
+    };
+    use dep::types::constants::{
+        EMPTY_NESTED_INDEX, GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
     };
 
     struct PrivateKernelResetInputsBuilder<let NUM_INDEX_HINTS: u32> {
@@ -665,7 +672,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
         let _res = builder.execute();
     }
 }

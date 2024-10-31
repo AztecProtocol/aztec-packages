@@ -1,11 +1,13 @@
+use dep::aztec::{context::{gas::GasOpts, PrivateContext, PublicContext}, hash::hash_args_array};
 use dep::aztec::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
     constants::{
-        GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER,
-        GENERATOR_INDEX__AUTHWIT_NULLIFIER, CANONICAL_AUTH_REGISTRY_ADDRESS,
-    }, hash::poseidon2_hash_with_separator,
+        CANONICAL_AUTH_REGISTRY_ADDRESS, GENERATOR_INDEX__AUTHWIT_INNER,
+        GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
+    },
+    hash::poseidon2_hash_with_separator,
 };
-use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
 
 /**
  * Authenticaion witness helper library
@@ -250,7 +252,7 @@ pub fn assert_inner_hash_valid_authwit(
  * @param on_behalf_of The address that have authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit_public
-pub fn assert_current_call_valid_authwit_public(
+pub unconstrained fn assert_current_call_valid_authwit_public(
     context: &mut PublicContext,
     on_behalf_of: AztecAddress,
 ) {
@@ -274,20 +276,19 @@ pub fn assert_current_call_valid_authwit_public(
  *
  * @param on_behalf_of The address that have authorized the `inner_hash`
  */
-pub fn assert_inner_hash_valid_authwit_public(
+pub unconstrained fn assert_inner_hash_valid_authwit_public(
     context: &mut PublicContext,
     on_behalf_of: AztecAddress,
     inner_hash: Field,
 ) {
-    let result: Field = context
-        .call_public_function(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
-            comptime { FunctionSelector::from_signature("consume((Field),Field)") },
-            [on_behalf_of.to_field(), inner_hash].as_slice(),
-            GasOpts::default(),
-        )
-        .deserialize_into();
-    assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
+    let results: [Field] = context.call_public_function(
+        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        comptime { FunctionSelector::from_signature("consume((Field),Field)") },
+        [on_behalf_of.to_field(), inner_hash].as_slice(),
+        GasOpts::default(),
+    );
+    assert(results.len() == 1, "Invalid response from registry");
+    assert(results[0] == IS_VALID_SELECTOR, "Message not authorized by account");
 }
 
 /**
@@ -375,15 +376,18 @@ pub fn compute_authwit_message_hash(
  * @param message_hash The hash of the message to authorize
  * @param authorize True if the message should be authorized, false if it should be revoked
  */
-pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authorize: bool) {
-    context
-        .call_public_function(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
-            comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
-            [message_hash, authorize as Field].as_slice(),
-            GasOpts::default(),
-        )
-        .assert_empty();
+pub unconstrained fn set_authorized(
+    context: &mut PublicContext,
+    message_hash: Field,
+    authorize: bool,
+) {
+    let res = context.call_public_function(
+        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
+        [message_hash, authorize as Field].as_slice(),
+        GasOpts::default(),
+    );
+    assert(res.len() == 0);
 }
 
 /**
@@ -393,13 +397,12 @@ pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authoriz
  *
  * @param reject True if all authwits should be rejected, false otherwise
  */
-pub fn set_reject_all(context: &mut PublicContext, reject: bool) {
-    context
-        .call_public_function(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
-            comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
-            [context.this_address().to_field(), reject as Field].as_slice(),
-            GasOpts::default(),
-        )
-        .assert_empty();
+pub unconstrained fn set_reject_all(context: &mut PublicContext, reject: bool) {
+    let res = context.call_public_function(
+        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
+        [context.this_address().to_field(), reject as Field].as_slice(),
+        GasOpts::default(),
+    );
+    assert(res.len() == 0);
 }

@@ -1,8 +1,10 @@
 use crate::{
-    abis::side_effect::Ordered, address::AztecAddress, constants::PUBLIC_DATA_READ_LENGTH,
+    abis::side_effect::Ordered,
+    address::AztecAddress,
+    constants::PUBLIC_DATA_READ_LENGTH,
     contrakt::storage_read::StorageRead,
-    data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
-    traits::{Empty, Serialize, Deserialize},
+    data::hash::{compute_public_data_tree_index, compute_public_data_tree_value},
+    traits::{Deserialize, Empty, Serialize},
 };
 
 pub struct PublicDataRead {

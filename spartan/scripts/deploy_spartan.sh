@@ -1,10 +1,15 @@
 #!/bin/bash
-set -eux
+set -eu
 set -o pipefail
 
 TAG=$1
 VALUES=$2
 NAMESPACE=${3:-spartan}
+PROD=${4:-true}
+PROD_ARGS=""
+if [ "$PROD" = "true" ] ; then
+  PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
+fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "$TAG" ]; then
@@ -46,16 +51,14 @@ function upgrade() {
     helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
-          --set images.aztec.image="$IMAGE" \
-          --set network.public=true
+          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
+          --set images.aztec.image="$IMAGE"
   else
     helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml \
+          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
           --set images.aztec.image="$IMAGE" \
-          --set network.public=true \
           --wait \
           --wait-for-jobs=true \
           --timeout=30m 2>&1

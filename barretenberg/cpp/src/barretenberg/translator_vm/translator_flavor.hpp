@@ -90,7 +90,8 @@ class TranslatorFlavor {
                                   TranslatorOpcodeConstraintRelation<FF>,
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>>;
+                                  TranslatorNonNativeFieldRelation<FF>,
+                                  TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, HasZK>();
@@ -109,7 +110,8 @@ class TranslatorFlavor {
                    typename TranslatorOpcodeConstraintRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorAccumulatorTransferRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorDecompositionRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations>;
+                   typename TranslatorNonNativeFieldRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorZeroConstraintsRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations>;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
@@ -279,7 +281,7 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
+        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {

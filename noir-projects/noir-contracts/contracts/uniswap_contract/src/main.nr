@@ -8,19 +8,20 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Uniswap {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, SharedImmutable};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
         set_authorized,
     };
 
-    use dep::token::Token;
-    use dep::token_bridge::TokenBridge;
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
     use dep::aztec::macros::{
-        storage::storage, functions::{public, initializer, view, internal, private},
+        functions::{initializer, internal, private, public, view},
+        storage::storage,
     };
+    use dep::token::Token;
+    use dep::token_bridge::TokenBridge;
 
     #[storage]
     struct Storage<Context> {
@@ -114,8 +115,8 @@ contract Uniswap {
         input_asset_bridge: AztecAddress,
         input_amount: Field,
         output_asset_bridge: AztecAddress,
-        // params for using the unshield approval
-        nonce_for_unshield_approval: Field,
+        // params for using the transfer_to_public approval
+        nonce_for_transfer_to_public_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
         minimum_output_amount: Field, // minimum output amount to receive (slippage protection for the swap)
@@ -132,11 +133,11 @@ contract Uniswap {
 
         // Transfer funds to this contract
         Token::at(input_asset)
-            .unshield(
+            .transfer_to_public(
                 context.msg_sender(),
                 context.this_address(),
                 input_amount,
-                nonce_for_unshield_approval,
+                nonce_for_transfer_to_public_approval,
             )
             .call(&mut context);
 

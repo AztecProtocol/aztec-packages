@@ -1,7 +1,8 @@
 use crate::{
+    abis::side_effect::{Ordered, Scoped},
     address::{AztecAddress, EthAddress},
     constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH},
-    abis::side_effect::{Ordered, Scoped}, traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_concat, reader::Reader},
 };
 

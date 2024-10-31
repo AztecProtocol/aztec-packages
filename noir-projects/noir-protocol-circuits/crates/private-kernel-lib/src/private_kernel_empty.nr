@@ -1,9 +1,12 @@
 use dep::types::{
-    header::Header, KernelCircuitPublicInputs, traits::Empty,
-    recursion::{
-        verification_key::{VerificationKey, HonkVerificationKey}, proof::RecursiveProof,
+    header::Header,
+    KernelCircuitPublicInputs,
+    proof::{
+        recursive_proof::RecursiveProof,
         traits::Verifiable,
+        verification_key::{HonkVerificationKey, VerificationKey},
     },
+    traits::Empty,
 };
 
 pub struct EmptyNestedCircuitPublicInputs {
@@ -62,7 +65,7 @@ impl Empty for PrivateKernelEmptyPrivateInputs {
 
 mod tests {
     use crate::private_kernel_empty::{
-        PrivateKernelEmptyPrivateInputs, EmptyNestedCircuitPublicInputs,
+        EmptyNestedCircuitPublicInputs, PrivateKernelEmptyPrivateInputs,
     };
     use dep::types::header::Header;
 

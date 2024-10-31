@@ -4,15 +4,7 @@ import {
   randomContractInstanceWithAddress,
   randomDeployedContract,
 } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  Point,
-  PublicKeys,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, getContractClassFromArtifact } from '@aztec/circuits.js';
 
 export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => {
   describe(testName, () => {
@@ -29,33 +21,11 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
       // Check that the account is correctly registered using the getAccounts and getRecipients methods
       const accounts = await pxe.getRegisteredAccounts();
-      const recipients = await pxe.getRecipients();
       expect(accounts).toContainEqual(completeAddress);
-      expect(recipients).not.toContainEqual(completeAddress);
 
       // Check that the account is correctly registered using the getAccount and getRecipient methods
       const account = await pxe.getRegisteredAccount(completeAddress.address);
-      const recipient = await pxe.getRecipient(completeAddress.address);
       expect(account).toEqual(completeAddress);
-      expect(recipient).toBeUndefined();
-    });
-
-    it('registers a recipient and returns it as a recipient only and not as an account', async () => {
-      const completeAddress = CompleteAddress.random();
-
-      await pxe.registerRecipient(completeAddress);
-
-      // Check that the recipient is correctly registered using the getAccounts and getRecipients methods
-      const accounts = await pxe.getRegisteredAccounts();
-      const recipients = await pxe.getRecipients();
-      expect(accounts).not.toContainEqual(completeAddress);
-      expect(recipients).toContainEqual(completeAddress);
-
-      // Check that the recipient is correctly registered using the getAccount and getRecipient methods
-      const account = await pxe.getRegisteredAccount(completeAddress.address);
-      const recipient = await pxe.getRecipient(completeAddress.address);
-      expect(account).toBeUndefined();
-      expect(recipient).toEqual(completeAddress);
     });
 
     it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
@@ -64,28 +34,6 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
       await pxe.registerAccount(randomSecretKey, randomPartialAddress);
       await pxe.registerAccount(randomSecretKey, randomPartialAddress);
-    });
-
-    // Disabled as CompleteAddress constructor now performs preimage validation.
-    it.skip('cannot register a recipient with the same aztec address but different pub key or partial address', async () => {
-      const recipient1 = CompleteAddress.random();
-      const recipient2 = new CompleteAddress(
-        recipient1.address,
-        new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
-        Fr.random(),
-      );
-
-      await pxe.registerRecipient(recipient1);
-      await expect(() => pxe.registerRecipient(recipient2)).rejects.toThrow(
-        `Complete address with aztec address ${recipient1.address}`,
-      );
-    });
-
-    it('does not throw when registering the same recipient twice (just ignores the second attempt)', async () => {
-      const completeAddress = CompleteAddress.random();
-
-      await pxe.registerRecipient(completeAddress);
-      await pxe.registerRecipient(completeAddress);
     });
 
     it('successfully adds a contract', async () => {

@@ -17,6 +17,18 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
+  event DepositToAztecPublic(
+    bytes32 to, uint256 amount, bytes32 secretHash, bytes32 key, uint256 index
+  );
+
+  event DepositToAztecPrivate(
+    bytes32 secretHashForRedeemingMintedNotes,
+    uint256 amount,
+    bytes32 secretHashForL2MessageConsumption,
+    bytes32 key,
+    uint256 index
+  );
+
   IRegistry public registry;
   IERC20 public underlying;
   bytes32 public l2Bridge;
@@ -34,11 +46,11 @@ contract TokenPortal {
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
    * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
-   * @return The key of the entry in the Inbox
+   * @return The key of the entry in the Inbox and its leaf index
    */
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
-    returns (bytes32)
+    returns (bytes32, uint256)
   {
     // Preamble
     IInbox inbox = IRollup(registry.getRollup()).INBOX();
@@ -52,7 +64,12 @@ contract TokenPortal {
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    return inbox.sendL2Message(actor, contentHash, _secretHash);
+    (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
+
+    // Emit event
+    emit DepositToAztecPublic(_to, _amount, _secretHash, key, index);
+
+    return (key, index);
   }
   // docs:end:deposit_public
 
@@ -62,13 +79,13 @@ contract TokenPortal {
    * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
    * @param _amount - The amount to deposit
    * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be 254 bits (so it can fit in a Field element)
-   * @return The key of the entry in the Inbox
+   * @return The key of the entry in the Inbox and its leaf index
    */
   function depositToAztecPrivate(
     bytes32 _secretHashForRedeemingMintedNotes,
     uint256 _amount,
     bytes32 _secretHashForL2MessageConsumption
-  ) external returns (bytes32) {
+  ) external returns (bytes32, uint256) {
     // Preamble
     IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
@@ -84,7 +101,15 @@ contract TokenPortal {
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    return inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
+    (bytes32 key, uint256 index) =
+      inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
+
+    // Emit event
+    emit DepositToAztecPrivate(
+      _secretHashForRedeemingMintedNotes, _amount, _secretHashForL2MessageConsumption, key, index
+    );
+
+    return (key, index);
   }
   // docs:end:deposit_private
 

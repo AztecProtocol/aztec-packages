@@ -32,8 +32,8 @@ pub fn compare(lhs: Field, operation: u8, rhs: Field) -> bool {
 }
 
 mod test {
-    use super::compare;
     use super::Comparator;
+    use super::compare;
 
     #[test]
     unconstrained fn test_compare() {

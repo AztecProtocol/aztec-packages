@@ -1,4 +1,4 @@
-use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
+use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
 
 pub struct EventSelector {
     // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.

@@ -1,8 +1,8 @@
 use crate::{
-    context::PrivateContext, state_vars::private_mutable::PrivateMutable,
-    oracle::execution::get_contract_address,
+    context::PrivateContext, oracle::execution::get_contract_address,
+    state_vars::private_mutable::PrivateMutable,
 };
-use crate::test::{mocks::mock_note::MockNote, helpers::test_environment::TestEnvironment};
+use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use std::test::OracleMock;
 
 global storage_slot = 17;

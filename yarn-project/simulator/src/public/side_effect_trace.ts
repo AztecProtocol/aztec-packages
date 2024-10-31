@@ -1,11 +1,13 @@
 import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
   AztecAddress,
   CallContext,
+  type ContractClassIdPreimage,
   type ContractInstanceWithAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -27,6 +29,7 @@ import {
   Nullifier,
   type PublicInnerCallRequest,
   ReadRequest,
+  SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -42,7 +45,7 @@ import { type PublicSideEffectTraceInterface } from './side_effect_trace_interfa
 export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
 
 export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
-  public logger = createDebugLogger('aztec:public_side_effect_trace');
+  public log = createDebugLogger('aztec:public_side_effect_trace');
 
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number; // kept as number until finalized for efficiency
@@ -90,8 +93,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.sideEffectCounter++;
   }
 
-  // TODO(dbanks12): checks against tx-wide limit need access to parent trace's length
-
   public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (this.contractStorageReads.length >= MAX_PUBLIC_DATA_READS_PER_TX) {
@@ -103,7 +104,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
     );
-    this.logger.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
+    this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
@@ -114,7 +115,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.contractStorageUpdateRequests.push(
       new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, contractAddress),
     );
-    this.logger.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
+    this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
@@ -136,7 +137,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
-    this.logger.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
+    this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
@@ -161,7 +162,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.nullifierExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
     );
-    this.logger.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
+    this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
@@ -171,7 +172,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
     this.nullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
-    this.logger.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
+    this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
@@ -194,7 +195,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     }
     const recipientAddress = EthAddress.fromField(recipient);
     this.newL2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, this.sideEffectCounter));
-    this.logger.debug(`NEW_L2_TO_L1_MSG cnt: ${this.sideEffectCounter}`);
+    this.log.debug(`NEW_L2_TO_L1_MSG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
@@ -212,18 +213,21 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // This length is for charging DA and is checked on-chain - has to be length of log preimage + 4 bytes.
     // The .length call also has a +4 but that is unrelated
     this.unencryptedLogsHashes.push(new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)));
-    this.logger.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
+    this.log.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractInstance(instance: TracedContractInstance) {
+  public traceGetContractInstance(
+    contractAddress: Fr,
+    exists: boolean,
+    instance: SerializableContractInstance = SerializableContractInstance.default(),
+  ) {
     this.enforceLimitOnNullifierChecks('(contract address nullifier from GETCONTRACTINSTANCE)');
-    // TODO(dbanks12): should emit a nullifier read request
 
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
-        instance.address,
-        new Fr(instance.exists ? 1 : 0),
+        contractAddress,
+        exists,
         instance.salt,
         instance.deployer,
         instance.contractClassId,
@@ -231,8 +235,42 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         instance.publicKeys,
       ),
     );
-    this.logger.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
+    this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
+  }
+
+  // This tracing function gets called everytime we start simulation/execution.
+  // This happens both when starting a new top-level trace and the start of every nested trace
+  // We use this to collect the AvmContractBytecodeHints
+  public traceGetBytecode(
+    contractAddress: Fr,
+    exists: boolean,
+    bytecode: Buffer = Buffer.alloc(0),
+    contractInstance: SerializableContractInstance = SerializableContractInstance.default(),
+    contractClass: ContractClassIdPreimage = {
+      artifactHash: Fr.zero(),
+      privateFunctionsRoot: Fr.zero(),
+      publicBytecodeCommitment: Fr.zero(),
+    },
+  ) {
+    const instance = new AvmContractInstanceHint(
+      contractAddress,
+      exists,
+      contractInstance.salt,
+      contractInstance.deployer,
+      contractInstance.contractClassId,
+      contractInstance.initializationHash,
+      contractInstance.publicKeys,
+    );
+    // We need to deduplicate the contract instances based on addresses
+    this.avmCircuitHints.contractBytecodeHints.items.push(
+      new AvmContractBytecodeHints(bytecode, instance, contractClass),
+    );
+    this.log.debug(
+      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${JSON.stringify(
+        contractInstance,
+      )}`,
+    );
   }
 
   /**
@@ -288,6 +326,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         result.returnValues,
         gasUsed,
         result.endSideEffectCounter,
+        nestedEnvironment.address,
       ),
     );
   }
