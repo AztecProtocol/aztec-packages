@@ -90,9 +90,9 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
 
     // Machine State - Internal Control Flow
-    { OpCode::JUMP_16, { OperandType::UINT16 } },
-    { OpCode::JUMPI_16, { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16 } },
-    { OpCode::INTERNALCALL, { OperandType::UINT16 } },
+    { OpCode::JUMP_32, { OperandType::UINT32 } },
+    { OpCode::JUMPI_32, { OperandType::INDIRECT8, OperandType::UINT32, OperandType::UINT16 } },
+    { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
 
     // Machine State - Memory

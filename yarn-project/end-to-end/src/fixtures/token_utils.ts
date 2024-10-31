@@ -1,4 +1,4 @@
-import { type AztecAddress, BatchCall, type DebugLogger, type Wallet, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, type DebugLogger, type Wallet, retryUntil } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: DebugLogger) {
@@ -23,14 +23,8 @@ export async function mintTokensToPrivate(
   recipient: AztecAddress,
   amount: bigint,
 ) {
-  // We don't have the functionality to mint to private so we mint to the minter address in public and transfer
-  // the tokens to the recipient in private. We use BatchCall to speed the process up.
-  await new BatchCall(minterWallet, [
-    token.methods.mint_public(minterWallet.getAddress(), amount).request(),
-    token.methods.transfer_to_private(recipient, amount).request(),
-  ])
-    .send()
-    .wait();
+  const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
+  await tokenAsMinter.methods.mint_to_private(recipient, amount).send().wait();
 }
 
 const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {

@@ -51,8 +51,8 @@ describe('e2e_cross_chain_messaging token_bridge_public_to_private', () => {
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, shieldAmount);
 
-    // Unshield the tokens again, sending them to the same account, however this can be any account.
-    await crossChainTestHarness.unshieldTokensOnL2(shieldAmount);
+    // Transfer to public the tokens again, sending them to the same account, however this can be any account.
+    await crossChainTestHarness.transferToPublicOnL2(shieldAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, 0n);
   });

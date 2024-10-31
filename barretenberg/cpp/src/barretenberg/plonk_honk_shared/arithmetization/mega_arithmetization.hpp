@@ -74,14 +74,14 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 1 << 7;
-            this->busread = 1 << 7;
-            this->arithmetic = 201000;
+            this->arithmetic = 198000;
             this->delta_range = 90000;
             this->elliptic = 9000;
-            this->aux = 137000;
-            this->poseidon2_external = 2500;
-            this->poseidon2_internal = 11500;
+            this->aux = 136000;
             this->lookup = 72000;
+            this->busread = 1 << 7;
+            this->poseidon2_external = 2500;
+            this->poseidon2_internal = 14000;
         }
     };
 
@@ -228,6 +228,7 @@ template <typename FF_> class MegaArith {
         {
             for (auto block : this->get()) {
                 if (block.size() > block.get_fixed_size()) {
+
                     info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
                          "not be constructed correctly!");
                     summarize();

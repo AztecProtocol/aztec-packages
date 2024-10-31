@@ -134,5 +134,8 @@ export function computeTaggingSecret(knownAddress: CompleteAddress, ivsk: Fq, ex
   const curve = new Grumpkin();
   // Given A (known complete address) -> B (external address) and h == preaddress
   // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B
-  return curve.mul(externalAddressPoint, ivsk.add(new Fq(knownPreaddress.toBigInt())));
+
+  // Beware! h_a + ivsk_a (also known as the address secret) can lead to an address point with a negative y-coordinate, since there's two possible candidates
+  // computeAddressSecret takes care of selecting the one that leads to a positive y-coordinate, which is the only valid address point
+  return curve.mul(externalAddressPoint, computeAddressSecret(knownPreaddress, ivsk));
 }
