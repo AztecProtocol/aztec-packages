@@ -31,7 +31,7 @@ export async function simulate(
   const call = contract.methods[functionName](...functionArgs);
 
   if (profile) {
-    const result = await call.profile();
+    const result = await call.simulateWithProfile();
     printProfileResult(result, log);
   } else {
     const result = await call.simulate();

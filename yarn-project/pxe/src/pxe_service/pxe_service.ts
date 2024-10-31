@@ -533,11 +533,17 @@ export class PXEService implements PXE {
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
-      const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
 
+      let publicInputs: PrivateKernelTailCircuitPublicInputs;
       let profileResult;
       if (profile) {
-        profileResult = (await this.#profileKernalProver(txRequest, this.proofCreator, privateExecutionResult))!;
+        ({ publicInputs, profileResult } = await this.#profileKernalProver(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+        ));
+      } else {
+        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
       }
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -785,14 +791,14 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-  ) {
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
 
     // Dry run the prover with profiler enabled
     const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
-    return result.profileResult;
+    return result;
   }
 
   /**

@@ -123,9 +123,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Simulate a transaction and profile the gate count for each function in the transaction.
    * @param options - Same options as `simulate`.
    *
-   * @returns The gate count for each function in the transaction.
+   * @returns An object containing the function return value and profile result.
    */
-  public async profile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
+  public async simulateWithProfile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       throw new Error("Can't profile an unconstrained function.");
     }
