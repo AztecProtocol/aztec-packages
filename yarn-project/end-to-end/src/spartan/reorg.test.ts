@@ -86,9 +86,9 @@ describe('reorg test', () => {
     debugLogger.info(stdout);
 
     // We only need 2 epochs for a reorg to be triggered, but 3 gives time for the bot to be restarted and the chain to re-stabilize
-    // TODO(#9613): why do we need to wait for 2 epochs?
-    debugLogger.info(`Waiting for 2 epochs to pass`);
-    await sleep(AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION * 2 * 1000);
+    // TODO(#9613): why do we need to wait for 3 epochs?
+    debugLogger.info(`Waiting for 3 epochs to pass`);
+    await sleep(AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION * 3 * 1000);
 
     // TODO(#9327): begin delete
     // The bot must be restarted because the PXE does not handle reorgs without a restart.
