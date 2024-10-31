@@ -1,5 +1,5 @@
 use crate::AMM;
-use dep::token::Token;
+use dep::token::{test::utils::{check_private_balance, mint_private}, Token};
 use dep::uint_note::uint_note::UintNote;
 use aztec::{
     keys::getters::get_public_keys,
@@ -8,10 +8,11 @@ use aztec::{
         random::random,
         storage::storage_read,
     },
-    prelude::AztecAddress,
+    prelude::{AztecAddress, NoteHeader},
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
+use std::test::OracleMock;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress, Field, Field, Field) {
     // Setup env, generate keys
@@ -26,7 +27,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 
     // Deploy tokens to be swapped and a liquidity token
     let token0_address = env
-        .deploy_self("Token")
+        .deploy("./@token_contract", "Token")
         .with_public_void_initializer(Token::interface().constructor(
             token_admin,
             "TestToken0000000000000000000000",
@@ -37,7 +38,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let token0 = Token::at(token0_address);
 
     let token1_address = env
-        .deploy_self("Token")
+        .deploy("./@token_contract", "Token")
         .with_public_void_initializer(Token::interface().constructor(
             token_admin,
             "TestToken1000000000000000000000",
@@ -48,7 +49,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let token1 = Token::at(token1_address);
 
     let liquidity_token_address = env
-        .deploy_self("Token")
+        .deploy("./@token_contract", "Token")
         .with_public_void_initializer(Token::interface().constructor(
             token_admin,
             "TestLiquidityToken0000000000000",
@@ -71,9 +72,14 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let lp_balance_1 = 10000;
     let swapper_balance_0 = 5000;
 
-    token0.mint_to_private(liquidity_provider, lp_balance_0).call(&mut env.private());
-    token1.mint_to_private(liquidity_provider, lp_balance_1).call(&mut env.private());
-    token0.mint_to_private(swapper, swapper_balance_0).call(&mut env.private());
+    mint_private(&mut env, token0_address, liquidity_provider, lp_balance_0);
+    check_private_balance(token0_address, liquidity_provider, lp_balance_0);
+
+    mint_private(&mut env, token1_address, liquidity_provider, lp_balance_1);
+    check_private_balance(token1_address, liquidity_provider, lp_balance_1);
+
+    mint_private(&mut env, token0_address, swapper, swapper_balance_0);
+    check_private_balance(token0_address, swapper, swapper_balance_0);
 
     env.advance_block_by(1);
     (
