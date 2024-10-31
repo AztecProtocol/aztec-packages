@@ -1,11 +1,16 @@
 import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
+  AvmAppendTreeHint,
   AvmContractBytecodeHints,
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
   type AztecAddress,
   type CombinedConstantData,
   type ContractClassIdPreimage,
@@ -28,10 +33,12 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
   Nullifier,
+  type NullifierLeafPreimage,
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   PublicCallRequest,
   PublicDataRead,
+  type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicInnerCallRequest,
   PublicValidationRequestArrayLengths,
@@ -161,10 +168,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public tracePublicStorageRead(
     contractAddress: AztecAddress,
-    slot: Fr,
-    value: Fr,
-    _exists: boolean,
-    _cached: boolean,
+    slot: Fr, // old
+    leafPreimage: PublicDataTreeLeafPreimage,
+    leafIndex: Fr,
+    path: Fr[],
   ) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (
@@ -175,15 +182,24 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    // Temp for backward compatibility
+    const { value } = leafPreimage;
     this.publicDataReads.push(new PublicDataRead(leafSlot, value, this.sideEffectCounter));
-    this.avmCircuitHints.storageValues.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
-    );
+
+    this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(contractAddress: AztecAddress, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    lowLeafPreimage: PublicDataTreeLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+    newLeafPreimage: PublicDataTreeLeafPreimage,
+    insertionPath: Fr[],
+  ) {
     if (
       this.publicDataWrites.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -195,13 +211,21 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    // Temp for backward compatibility
+    const { value } = newLeafPreimage;
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
+
+    // New hinting
+    const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.avmCircuitHints.storageUpdateRequest.items.push(
+      new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
+    );
     this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+  public traceNoteHashCheck(_contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path: Fr[]) {
     // NOTE: contractAddress is unused because noteHash is an already-siloed leaf
     if (
       this.noteHashReadRequests.length + this.previousValidationRequestArrayLengths.noteHashReadRequests >=
@@ -215,10 +239,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.avmCircuitHints.noteHashExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
+    // New Hinting
+    this.avmCircuitHints.noteHashReadRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr) {
+  public traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, path: Fr[]) {
     if (this.noteHashes.length + this.previousAccumulatedDataArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
@@ -227,15 +253,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
+    this.avmCircuitHints.noteHashWriteRequest.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
   }
 
   public traceNullifierCheck(
     contractAddress: AztecAddress,
     nullifier: Fr,
-    _leafIndex: Fr,
     exists: boolean,
-    _isPending: boolean,
+    lowLeafPreimage: NullifierLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
   ) {
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     this.enforceLimitOnNullifierChecks();
@@ -252,23 +280,38 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.avmCircuitHints.nullifierExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
     );
+    // New Hints
+    this.avmCircuitHints.nullifierReadRequest.items.push(
+      new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
+    );
     this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(contractAddress: AztecAddress, nullifier: Fr) {
+  public traceNewNullifier(
+    contractAddress: AztecAddress,
+    nullifier: Fr,
+    lowLeafPreimage: NullifierLeafPreimage,
+    lowLeafIndex: Fr,
+    lowLeafPath: Fr[],
+    insertionPath: Fr[],
+  ) {
     if (this.nullifiers.length + this.previousAccumulatedDataArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
     const siloedNullifier = siloNullifier(contractAddress, nullifier);
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+
+    // New hinting
+    const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.avmCircuitHints.nullifierWriteHints.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceL1ToL2MessageCheck(_contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
+  public traceL1ToL2MessageCheck(_contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path: Fr[]) {
     // NOTE: contractAddress is unused because msgHash is an already-siloed leaf
     if (
       this.l1ToL2MsgReadRequests.length + this.previousValidationRequestArrayLengths.l1ToL2MsgReadRequests >=
@@ -281,6 +324,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.avmCircuitHints.l1ToL2MessageExists.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
+    // New Hinting
+    this.avmCircuitHints.l1ToL2MessageReadRequest.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
   }
 
   public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
