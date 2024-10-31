@@ -145,7 +145,7 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: {{.Values.bootNode.service.serviceName}}
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: {{ include "aztec-network.otelResourceAttributes" . | quote }}
+              value: "k8s.namespace.name={{ .Release.Namespace }}"
             {{- end }}
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}

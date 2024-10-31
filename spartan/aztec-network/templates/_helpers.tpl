@@ -86,10 +86,6 @@ http://{{ include "aztec-network.fullname" . }}-validator-0.{{ include "aztec-ne
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
-{{- define "aztec-network.otelResourceAttributes" -}}
-k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)
-{{- end -}}
-
 {{- define "helpers.flag" -}}
 {{- $name := index . 0 -}}
 {{- $value := index . 1 -}}
