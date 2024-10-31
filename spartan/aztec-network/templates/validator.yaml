@@ -79,16 +79,11 @@ spec:
             - "-c"
             - "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
           startupProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
-            initialDelaySeconds: {{ .Values.validator.startupProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.validator.startupProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.validator.startupProbe.timeoutSeconds }}
-            successThreshold: {{ .Values.validator.startupProbe.successThreshold }}
+            httpGet:
+              path: /status
+              port: {{ .Values.bootNode.service.nodePort }}
             failureThreshold: {{ .Values.validator.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.validator.startupProbe.periodSeconds }}
           livenessProbe:
             exec:
               command:
