@@ -144,8 +144,7 @@ export function createProfileOption() {
   return new Option(
     '-p, --profile',
     'Run the real prover and get the gate count for each function in the transaction.',
-  )
-    .default(false);
+  ).default(false);
 }
 
 async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {

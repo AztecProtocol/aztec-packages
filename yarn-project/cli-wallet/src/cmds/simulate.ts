@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, type AztecAddress, type ProfileResult, Contract } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecAddress, Contract, type ProfileResult } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
@@ -10,7 +10,7 @@ function printProfileResult(result: ProfileResult, log: LogFn) {
 
   log(format('Gate count: '));
   let acc = 0;
-  result.gateCounts.forEach((r) => {
+  result.gateCounts.forEach(r => {
     acc += r.gateCount;
     log(format('  ', r.circuitName.padEnd(30), 'Gates:', r.gateCount, '\tAcc:', acc));
   });

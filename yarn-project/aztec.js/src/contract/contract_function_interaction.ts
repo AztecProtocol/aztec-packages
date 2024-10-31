@@ -1,4 +1,4 @@
-import type { FunctionCall, TxExecutionRequest, PrivateKernelProverProfileResult } from '@aztec/circuit-types';
+import type { FunctionCall, PrivateKernelProverProfileResult, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
 import {
   type FunctionAbi,

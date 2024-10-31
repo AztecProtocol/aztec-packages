@@ -52,9 +52,9 @@ import {
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
+  computeGateCountForCircuit,
   computeVerificationKey,
   executeBbClientIvcProof,
-  computeGateCountForCircuit,
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
