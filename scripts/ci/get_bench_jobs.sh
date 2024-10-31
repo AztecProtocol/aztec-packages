@@ -21,7 +21,7 @@ IFS=',' read -r -a input_labels <<< "$LABELS"
 allow_list+=("${input_labels[@]}")
 
 # Generate potential list of test targets on one line
-test_list=$(get_test_names | grep '+bench' | sed 's/+//' | xargs echo)
+test_list=$(get_test_names | grep 'bench' | xargs echo)
 
 # If branch is master or allow_list contains 'bench-all', return full list
 if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "bench-all" ]]; then
