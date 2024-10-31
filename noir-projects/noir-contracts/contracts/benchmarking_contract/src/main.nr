@@ -22,7 +22,13 @@ contract Benchmarking {
     #[private]
     fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
         // docs:start:increment_valuenote
-        increment(storage.notes.at(owner), value, owner, outgoing_viewer);
+        increment(
+            storage.notes.at(owner),
+            value,
+            owner,
+            outgoing_viewer,
+            outgoing_viewer,
+        );
         // docs:end:increment_valuenote
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
@@ -36,7 +42,13 @@ contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(owner_notes, note.value, owner, outgoing_viewer);
+        increment(
+            owner_notes,
+            note.value,
+            owner,
+            outgoing_viewer,
+            outgoing_viewer,
+        );
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.

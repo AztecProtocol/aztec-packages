@@ -109,6 +109,7 @@ contract Test {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
 
@@ -303,6 +304,7 @@ contract Test {
             5,
             outgoing_viewer_ovpk_m,
             owner,
+            outgoing_viewer,
         ));
 
         // this contract has reached max number of functions, so using this one fn
@@ -320,6 +322,7 @@ contract Test {
                 0,
                 outgoing_viewer_ovpk_m,
                 owner,
+                outgoing_viewer,
             ));
         }
     }
@@ -343,6 +346,7 @@ contract Test {
             &mut context,
             msg_sender_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
         storage_slot += 1;
         Test::at(context.this_address())

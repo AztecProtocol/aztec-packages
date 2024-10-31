@@ -19,6 +19,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
+    sender: AztecAddress,
     plaintext: [u8; P],
     include_public_values_prefix: bool,
 ) -> [u8; M] {
@@ -206,11 +207,16 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
+        let sender = AztecAddress::from_field(
+            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
+        );
+
         let log = compute_private_log_payload(
             contract_address,
             ovsk_app,
             ovpk_m,
             recipient,
+            sender,
             plaintext,
             false,
         );
