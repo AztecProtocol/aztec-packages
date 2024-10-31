@@ -365,9 +365,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
     // has been integrated into noir kernel programs
     bool is_kernel = false;
-    size_t stack_size = folding_stack.size();
-    for (size_t i = 0; i < stack_size; i++) {
-        auto program = folding_stack[i];
+    for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit =
             create_circuit<Builder>(program.constraints, true, 0, program.witness, false, ivc.goblin.op_queue);
