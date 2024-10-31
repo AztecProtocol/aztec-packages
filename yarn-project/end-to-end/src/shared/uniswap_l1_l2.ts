@@ -644,9 +644,7 @@ export const uniswapL1L2TestSuite = (
 
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
       // 1. give user private funds on L2:
-      const [secretForRedeemingWeth, secretHashForRedeemingWeth] = generateClaimSecret();
-      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge, secretHashForRedeemingWeth);
-      await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
+      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge);
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge);
 
       // 2. owner gives uniswap approval to unshield funds:
@@ -802,10 +800,8 @@ export const uniswapL1L2TestSuite = (
     // tests when trying to mix private and public flows:
     it("can't call swap_public on L1 if called swap_private on L2", async () => {
       // get tokens on L2:
-      const [secretForRedeemingWeth, secretHashForRedeemingWeth] = generateClaimSecret();
       logger.info('minting weth on L2');
-      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge, secretHashForRedeemingWeth);
-      await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
+      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge);
 
       // Owner gives uniswap approval to unshield funds to self on its behalf
       logger.info('Approving uniswap to unshield funds to self on my behalf');
