@@ -1,5 +1,6 @@
 mod lib;
 mod state;
+// mod test;
 
 use dep::aztec::macros::aztec;
 
@@ -49,7 +50,7 @@ contract AMM {
         state: SharedImmutable<State, Context>,
     }
 
-    /// Amount of liquidity which gets locked in the pool when liquidity is provided for the first time. It's purpose
+    /// Amount of liquidity which gets locked token_contract0l when liquidity is provided for the first ttoken_contract0purpose
     /// is to prevent the pool from ever emptying which could lead to undefined behavior.
     global MINIMUM_LIQUIDITY = U128::from_integer(1000);
 
