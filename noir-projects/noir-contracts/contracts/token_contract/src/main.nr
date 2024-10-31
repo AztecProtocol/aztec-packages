@@ -600,7 +600,8 @@ contract Token {
         finalization_payload.emit();
     }
 
-    // Transfers token `amount` from public balance of message sender to a private balance of `to`.
+    /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
+    /// in the enqueud call).
     #[private]
     fn mint_to_private(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
@@ -610,7 +611,8 @@ contract Token {
         let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
-        // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
+        // function argument to a message sender, guaranteeing that only a message sender with minter permissions
+        // can successfully execute the function.
         token._finalize_mint_to_private_unsafe(from, amount, hiding_point_slot).enqueue(&mut context);
     }
 
