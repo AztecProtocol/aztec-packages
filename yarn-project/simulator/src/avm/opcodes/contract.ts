@@ -1,23 +1,36 @@
-import { Fr } from '@aztec/circuits.js';
-
 import type { AvmContext } from '../avm_context.js';
-import { Field, TypeTag } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
+
+export enum ContractInstanceMember {
+  DEPLOYER,
+  CLASS_ID,
+  INIT_HASH,
+}
 
 export class GetContractInstance extends Instruction {
   static readonly type: string = 'GETCONTRACTINSTANCE';
   static readonly opcode: Opcode = Opcode.GETCONTRACTINSTANCE;
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect bits
+    OperandType.UINT8, // member enum (immediate)
+    OperandType.UINT16, // addressOffset
+    OperandType.UINT16, // dstOffset
+    OperandType.UINT16, // existsOfsset
   ];
 
-  constructor(private indirect: number, private addressOffset: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private memberEnum: number,
+    private addressOffset: number,
+    private dstOffset: number,
+    private existsOffset: number,
+  ) {
     super();
   }
 
@@ -25,27 +38,38 @@ export class GetContractInstance extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const operands = [this.addressOffset, this.dstOffset];
+    if (!(this.memberEnum in ContractInstanceMember)) {
+      throw new InstructionExecutionError(`Invalid GETCONSTRACTINSTANCE member enum ${this.memberEnum}`);
+    }
+
+    const operands = [this.addressOffset, this.dstOffset, this.existsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [addressOffset, dstOffset] = addressing.resolve(operands, memory);
+    const [addressOffset, dstOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 
     const address = memory.get(addressOffset).toFr();
     const instance = await context.persistableState.getContractInstance(address);
+    const exists = instance !== undefined;
 
-    const data = [
-      new Fr(instance.exists),
-      instance.salt,
-      instance.deployer.toField(),
-      instance.contractClassId,
-      instance.initializationHash,
-      // This this okay ?
-      ...instance.publicKeys.toFields(),
-    ].map(f => new Field(f));
+    let memberValue = new Field(0);
+    if (exists) {
+      switch (this.memberEnum as ContractInstanceMember) {
+        case ContractInstanceMember.DEPLOYER:
+          memberValue = new Field(instance.deployer.toField());
+          break;
+        case ContractInstanceMember.CLASS_ID:
+          memberValue = new Field(instance.contractClassId.toField());
+          break;
+        case ContractInstanceMember.INIT_HASH:
+          memberValue = new Field(instance.initializationHash);
+          break;
+      }
+    }
 
-    memory.setSlice(dstOffset, data);
+    memory.set(existsOffset, new Uint1(exists ? 1 : 0));
+    memory.set(dstOffset, memberValue);
 
-    memory.assert({ reads: 1, writes: 17, addressing });
+    memory.assert({ reads: 1, writes: 2, addressing });
     context.machineState.incrementPc();
   }
 }

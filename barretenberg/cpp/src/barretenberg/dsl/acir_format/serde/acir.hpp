@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "bincode.hpp"
 #include "serde.hpp"
 
@@ -712,7 +713,7 @@ struct BrilligOpcode {
     };
 
     struct Trap {
-        Program::HeapArray revert_data;
+        Program::HeapVector revert_data;
 
         friend bool operator==(const Trap&, const Trap&);
         std::vector<uint8_t> bincodeSerialize() const;

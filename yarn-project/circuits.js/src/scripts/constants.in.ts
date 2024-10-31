@@ -78,9 +78,10 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
   'MAX_L2_GAS_PER_ENQUEUED_CALL',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
-const CPP_GENERATORS: string[] = [];
+const CPP_GENERATORS: string[] = ['PARTIAL_ADDRESS', 'CONTRACT_ADDRESS_V1', 'CONTRACT_LEAF', 'PUBLIC_KEYS_HASH'];
 
 const PIL_CONSTANTS = [
   'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
@@ -126,6 +127,7 @@ const PIL_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
+  'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
 /**
@@ -169,7 +171,7 @@ function processConstantsCpp(
 ): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
+    if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
       // stringify large numbers
       code.push(`#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16)}"` : value}`);
     }

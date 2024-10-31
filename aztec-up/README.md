@@ -25,7 +25,7 @@ VERSION=master aztec-up
 This will install the container built from master branch.
 
 ```
-VERSION=v1.2.3 aztec-up
+VERSION=1.2.3 aztec-up
 ```
 
 This will install tagged release version 1.2.3.

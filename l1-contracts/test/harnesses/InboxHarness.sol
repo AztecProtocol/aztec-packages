@@ -36,4 +36,10 @@ contract InboxHarness is Inbox {
     // -INITIAL_L2_BLOCK_NUM because tree number INITIAL_L2_BLOCK_NUM is not real
     return inProgress - Constants.INITIAL_L2_BLOCK_NUM;
   }
+
+  function getNextMessageIndex() external view returns (uint256) {
+    FrontierLib.Tree storage currentTree = trees[inProgress];
+    uint256 index = (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
+    return index;
+  }
 }

@@ -215,10 +215,6 @@ export const browserTestSuite = (
             createPXEClient,
             getSchnorrAccount,
             Contract,
-            Fr,
-            ExtendedNote,
-            Note,
-            computeSecretHash,
             getDeployedTestAccountsWallets,
             INITIAL_TEST_SECRET_KEYS,
             INITIAL_TEST_SIGNING_KEYS,
@@ -244,7 +240,6 @@ export const browserTestSuite = (
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];
-          const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             owner.getCompleteAddress().publicKeys,
             owner,
@@ -255,25 +250,9 @@ export const browserTestSuite = (
           const { contract: token, txHash } = await tx.wait();
 
           console.log(`Contract Deployed: ${token.address}`);
-          const secret = Fr.random();
-          const secretHash = computeSecretHash(secret);
-          const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
-          const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
-
-          const noteTypeId = token.artifact.notes['TransparentNote'].id;
-          const note = new Note([new Fr(initialBalance), secretHash]);
-          const extendedNote = new ExtendedNote(
-            note,
-            ownerAddress,
-            token.address,
-            storageSlot,
-            noteTypeId,
-            mintPrivateReceipt.txHash,
-          );
-          await owner.addNote(extendedNote);
-
-          await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
+          // We mint tokens to the owner
+          await token.methods.mint_to_private(owner.getAddress(), initialBalance).send().wait();
 
           return [txHash.toString(), token.address.toString()];
         },

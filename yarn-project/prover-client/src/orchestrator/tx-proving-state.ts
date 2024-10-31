@@ -1,43 +1,29 @@
 import {
-  AVM_REQUEST,
-  type AvmProvingRequest,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
   type MerkleTreeId,
   type ProcessedTx,
-  ProvingRequestType,
-  type PublicKernelRequest,
+  type ProofAndVerificationKey,
+  UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VK_INDEX,
   type AppendOnlyTreeSnapshot,
-  type BaseRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type Proof,
-  type RECURSIVE_PROOF_LENGTH,
+  AvmProofData,
+  type BaseRollupHints,
+  Fr,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
+  PublicBaseRollupInputs,
   type RecursiveProof,
-  type VerificationKeyData,
-  makeEmptyProof,
+  type TUBE_PROOF_LENGTH,
+  TUBE_VK_INDEX,
+  TubeInputs,
+  VMCircuitPublicInputs,
+  VkWitnessData,
 } from '@aztec/circuits.js';
-
-export enum TX_PROVING_CODE {
-  NOT_READY,
-  READY,
-  COMPLETED,
-}
-
-export type PublicFunction = {
-  vmRequest: AvmProvingRequest | undefined;
-  vmProof: Proof | undefined;
-  previousProofType: ProvingRequestType;
-  previousKernelProven: boolean;
-  publicKernelRequest: PublicKernelRequest;
-};
-
-// Type encapsulating the instruction to the orchestrator as to what
-// needs to be proven next
-export type TxProvingInstruction = {
-  code: TX_PROVING_CODE;
-  function: PublicFunction | undefined;
-  functionIndex?: number;
-};
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -45,153 +31,127 @@ export type TxProvingInstruction = {
  * Also stores the inputs to the base rollup for this transaction and the tree snapshots
  */
 export class TxProvingState {
-  private publicFunctions: PublicFunction[] = [];
+  private tube?: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
+  private avm?: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
-    public readonly baseRollupInputs: BaseRollupInputs,
+    private readonly baseRollupHints: BaseRollupHints,
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
-  ) {
-    let previousProofType = ProvingRequestType.TUBE_PROOF;
-    for (let i = 0; i < processedTx.publicProvingRequests.length; i++) {
-      const provingRequest = processedTx.publicProvingRequests[i];
-      const publicKernelRequest = provingRequest.type === AVM_REQUEST ? provingRequest.kernelRequest : provingRequest;
-      const vmRequest = provingRequest.type === AVM_REQUEST ? provingRequest : undefined;
-      // TODO(#7124): Remove this temporary hack.
-      // There's no previous kernel for the first inner kernel in a chain of AvmProvingRequests.
-      // Setting its previousKernelProven to be true so that it will be ready once the vm proof is generated.
-      const previousKernelProven = !!vmRequest && previousProofType !== ProvingRequestType.PUBLIC_KERNEL_INNER;
-      const vmProof = provingRequest.type === ProvingRequestType.PUBLIC_KERNEL_TAIL ? makeEmptyProof() : undefined;
-      const publicFunction: PublicFunction = {
-        vmRequest,
-        vmProof,
-        previousProofType,
-        previousKernelProven,
-        publicKernelRequest: {
-          type: publicKernelRequest.type,
-          // We take a deep copy (clone) of the inputs to be modified here and passed to the prover.
-          // bb-prover will also modify the inputs by reference.
-          inputs: publicKernelRequest.inputs.clone(),
-        } as PublicKernelRequest,
-      };
-      this.publicFunctions.push(publicFunction);
-      previousProofType = publicKernelRequest.type;
-    }
+  ) {}
 
-    if (this.publicFunctions.length > 0) {
-      // The first merge kernel takes the tube proof.
-      const firstKernelIndex = this.publicFunctions.findIndex(
-        fn => fn.publicKernelRequest.type === ProvingRequestType.PUBLIC_KERNEL_MERGE,
-      );
-      this.publicFunctions[firstKernelIndex].previousProofType = ProvingRequestType.TUBE_PROOF;
-    }
+  get requireAvmProof() {
+    return !!this.processedTx.avmProvingRequest;
   }
 
-  // Updates the transaction's proving state after completion of a kernel proof
-  // Returns an instruction as to the next stage of tx proving
-  public getNextPublicKernelFromKernelProof(
-    provenIndex: number,
-    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-    verificationKey: VerificationKeyData,
-  ): TxProvingInstruction {
-    const kernelRequest = this.getPublicFunctionState(provenIndex).publicKernelRequest;
-    const provenIsInner = kernelRequest.type === ProvingRequestType.PUBLIC_KERNEL_INNER;
-    // If the proven request is not an inner kernel, its next kernel should not be an inner kernel either.
-    const nextFunctionIndex = provenIsInner
-      ? provenIndex + 1
-      : this.publicFunctions.findIndex(
-          (fn, i) => i > provenIndex && fn.publicKernelRequest.type !== ProvingRequestType.PUBLIC_KERNEL_INNER,
-        );
-    if (nextFunctionIndex >= this.publicFunctions.length || nextFunctionIndex === -1) {
-      // The next kernel index is greater than our set of functions, we are done!
-      return { code: TX_PROVING_CODE.COMPLETED, function: undefined };
-    }
-
-    // There is more work to do, are we ready?
-    const nextFunction = this.publicFunctions[nextFunctionIndex];
-
-    if (provenIsInner && nextFunction.publicKernelRequest.type !== ProvingRequestType.PUBLIC_KERNEL_INNER) {
-      // TODO(#7124): Remove this temporary hack.
-      // If the proven request is inner (with vm proof) and the next one is regular kernel, set the vmProof to be
-      // not undefined.
-      // This should eventually be a real vm proof of the entire enqueued call.
-      nextFunction.vmProof = makeEmptyProof();
-    } else {
-      // pass both the proof and verification key forward to the next circuit
-      nextFunction.publicKernelRequest.inputs.previousKernel.proof = proof;
-      nextFunction.publicKernelRequest.inputs.previousKernel.vk = verificationKey;
-
-      // We need to update this so the state machine knows this proof is ready
-      nextFunction.previousKernelProven = true;
-      nextFunction.previousProofType = kernelRequest.type;
-    }
-
-    if (nextFunction.vmProof === undefined || !nextFunction.previousKernelProven) {
-      // The VM proof for the next function is not ready
-      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
-    }
-
-    // The VM proof is ready, we can continue
-    return { code: TX_PROVING_CODE.READY, function: nextFunction, functionIndex: nextFunctionIndex };
+  public ready() {
+    return !!this.tube && (!this.requireAvmProof || !!this.avm);
   }
 
-  // Updates the transaction's proving state after completion of a tube proof
-  // Returns an instruction as to the next stage of tx proving
-  public getNextPublicKernelFromTubeProof(
-    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
-    verificationKey: VerificationKeyData,
-  ): TxProvingInstruction {
-    const nextFunctionIndex = this.publicFunctions.findIndex(
-      (fn, i) => i > 0 && fn.previousProofType === ProvingRequestType.TUBE_PROOF,
+  public getTubeInputs() {
+    return new TubeInputs(this.processedTx.clientIvcProof);
+  }
+
+  public getAvmInputs() {
+    return this.processedTx.avmProvingRequest!.inputs;
+  }
+
+  public getPrivateBaseInputs() {
+    if (this.requireAvmProof) {
+      throw new Error('Should create public base rollup for a tx requiring avm proof.');
+    }
+    if (!this.tube) {
+      throw new Error('Tx not ready for proving base rollup.');
+    }
+
+    const vkData = this.getTubeVkData();
+    const tubeData = new PrivateTubeData(this.processedTx.data, this.tube.proof, vkData);
+
+    return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
+  }
+
+  public getPublicBaseInputs() {
+    if (!this.requireAvmProof) {
+      throw new Error('Should create private base rollup for a tx not requiring avm proof.');
+    }
+    if (!this.tube) {
+      throw new Error('Tx not ready for proving base rollup: tube proof undefined');
+    }
+    if (!this.avm) {
+      throw new Error('Tx not ready for proving base rollup: avm proof undefined');
+    }
+
+    // Temporary hack.
+    // Passing this.processedTx.data to the tube, which is the output of the simulated public_kernel_tail,
+    // so that the output of the public base will contain all the side effects.
+    // This should be the output of the private_kernel_tail_to_public when the output of the avm proof is the result of
+    // simulating the entire public call stack.
+    const tubeData = new PrivateTubeData(this.processedTx.data, this.tube.proof, this.getTubeVkData());
+
+    const avmProofData = new AvmProofData(
+      VMCircuitPublicInputs.empty(), // TODO
+      this.avm.proof,
+      this.getAvmVkData(),
     );
-    if (nextFunctionIndex === -1) {
-      // There are no public functions to be processed, we are done!
-      return { code: TX_PROVING_CODE.COMPLETED, function: undefined };
-    }
 
-    // There is more work to do, are we ready?
-    const nextFunction = this.publicFunctions[nextFunctionIndex];
-
-    // pass both the proof and verification key forward to the next circuit
-    nextFunction.publicKernelRequest.inputs.previousKernel.proof = proof;
-    nextFunction.publicKernelRequest.inputs.previousKernel.vk = verificationKey;
-
-    // We need to update this so the state machine knows this proof is ready
-    nextFunction.previousKernelProven = true;
-    if (nextFunction.vmProof === undefined) {
-      // The VM proof for the next function is not ready
-      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
-    }
-
-    // The VM proof is ready, we can continue
-    return { code: TX_PROVING_CODE.READY, function: nextFunction, functionIndex: nextFunctionIndex };
+    return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
-  // Updates the transaction's proving state after completion of a VM proof
-  // Returns an instruction as to the next stage of tx proving
-  public getNextPublicKernelFromVMProof(provenIndex: number, proof: Proof): TxProvingInstruction {
-    const provenFunction = this.publicFunctions[provenIndex];
-    provenFunction.vmProof = proof;
-
-    if (!provenFunction.previousKernelProven) {
-      // The previous kernel is not yet ready
-      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
-    }
-    // The previous kernel is ready so we can prove this kernel
-    return { code: TX_PROVING_CODE.READY, function: provenFunction, functionIndex: provenIndex };
+  public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>) {
+    this.tube = tubeProofAndVk;
   }
 
-  // Returns the public function state at the given index
-  // Throws if out of bounds
-  public getPublicFunctionState(functionIndex: number) {
-    if (functionIndex < 0 || functionIndex >= this.publicFunctions.length) {
-      throw new Error(`Requested public function index was out of bounds`);
-    }
-    return this.publicFunctions[functionIndex];
+  public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>) {
+    this.avm = avmProofAndVk;
   }
 
-  // Returns the number of public kernels required by this transaction
-  public getNumPublicKernels() {
-    return this.publicFunctions.length;
+  public verifyStateOrReject(): string | undefined {
+    const kernelPublicInputs = this.processedTx.data;
+
+    const txNoteEncryptedLogs = EncryptedNoteTxL2Logs.hashNoteLogs(
+      kernelPublicInputs.end.noteEncryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.value.toBuffer()),
+    );
+    if (!txNoteEncryptedLogs.equals(this.processedTx.noteEncryptedLogs.hash())) {
+      return `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogs)} === ${Fr.fromBuffer(
+        this.processedTx.noteEncryptedLogs.hash(),
+      )}`;
+    }
+
+    const txEncryptedLogs = EncryptedTxL2Logs.hashSiloedLogs(
+      kernelPublicInputs.end.encryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
+    );
+    if (!txEncryptedLogs.equals(this.processedTx.encryptedLogs.hash())) {
+      // @todo This rejection messages is never seen. Never making it out to the logs
+      return `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogs)} === ${Fr.fromBuffer(
+        this.processedTx.encryptedLogs.hash(),
+      )}`;
+    }
+
+    const txUnencryptedLogs = UnencryptedTxL2Logs.hashSiloedLogs(
+      kernelPublicInputs.end.unencryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
+    );
+    if (!txUnencryptedLogs.equals(this.processedTx.unencryptedLogs.hash())) {
+      return `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogs)} === ${Fr.fromBuffer(
+        this.processedTx.unencryptedLogs.hash(),
+      )}`;
+    }
+  }
+
+  private getTubeVkData() {
+    let vkIndex = TUBE_VK_INDEX;
+    try {
+      vkIndex = getVKIndex(this.tube!.verificationKey);
+    } catch (_ignored) {
+      // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
+    }
+    const vkPath = getVKSiblingPath(vkIndex);
+
+    return new VkWitnessData(this.tube!.verificationKey, vkIndex, vkPath);
+  }
+
+  private getAvmVkData() {
+    const vkIndex = AVM_VK_INDEX;
+    const vkPath = getVKSiblingPath(vkIndex);
+    return new VkWitnessData(this.avm!.verificationKey, AVM_VK_INDEX, vkPath);
   }
 }

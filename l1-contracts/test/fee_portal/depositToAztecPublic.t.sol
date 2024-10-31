@@ -77,12 +77,14 @@ contract DepositToAztecPublic is Test {
     bytes32 to = bytes32(0x0);
     bytes32 secretHash = bytes32(uint256(0x01));
     uint256 amount = 100 ether;
+    uint256 expectedIndex = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(feeJuicePortal), block.chainid),
       recipient: DataStructures.L2Actor(feeJuicePortal.L2_TOKEN_ADDRESS(), 1 + numberOfRollups),
       content: Hash.sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", to, amount)),
-      secretHash: secretHash
+      secretHash: secretHash,
+      index: expectedIndex
     });
 
     bytes32 expectedKey = message.sha256ToField();
@@ -92,16 +94,16 @@ contract DepositToAztecPublic is Test {
 
     Inbox inbox = Inbox(address(Rollup(address(registry.getRollup())).INBOX()));
     assertEq(inbox.totalMessagesInserted(), 0);
-    uint256 index = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(2, index, expectedKey);
+    emit IInbox.MessageSent(2, expectedIndex, expectedKey);
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));
-    emit IFeeJuicePortal.DepositToAztecPublic(to, amount, secretHash, expectedKey);
+    emit IFeeJuicePortal.DepositToAztecPublic(to, amount, secretHash, expectedKey, expectedIndex);
 
-    bytes32 key = feeJuicePortal.depositToAztecPublic(to, amount, secretHash);
+    (bytes32 key, uint256 index) = feeJuicePortal.depositToAztecPublic(to, amount, secretHash);
 
     assertEq(inbox.totalMessagesInserted(), 1);
     assertEq(key, expectedKey);
+    assertEq(index, expectedIndex);
   }
 }

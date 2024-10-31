@@ -37,18 +37,19 @@ export class IncomingNoteDao implements NoteData {
     /** The location of the relevant note in the note hash tree. */
     public index: bigint,
     /** The public key with which the note was encrypted. */
-    public ivpkM: PublicKey,
+    public addressPoint: PublicKey,
   ) {}
 
   static fromPayloadAndNoteInfo(
+    note: Note,
     payload: L1NotePayload,
     noteInfo: NoteInfo,
     dataStartIndexForTx: number,
-    ivpkM: PublicKey,
+    addressPoint: PublicKey,
   ) {
     const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
     return new IncomingNoteDao(
-      payload.note,
+      note,
       payload.contractAddress,
       payload.storageSlot,
       payload.noteTypeId,
@@ -57,7 +58,7 @@ export class IncomingNoteDao implements NoteData {
       noteInfo.noteHash,
       noteInfo.siloedNullifier,
       noteHashIndexInTheWholeTree,
-      ivpkM,
+      addressPoint,
     );
   }
 
@@ -72,7 +73,7 @@ export class IncomingNoteDao implements NoteData {
       this.noteHash,
       this.siloedNullifier,
       this.index,
-      this.ivpkM,
+      this.addressPoint,
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {

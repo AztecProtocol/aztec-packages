@@ -11,6 +11,7 @@ export PROOF_AS_FIELDS="$(pwd)/proof_fields.json"
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove_ultra_keccak_honk -o proof $FLAGS $BFLAG
 $BIN write_vk_ultra_keccak_honk -o vk $FLAGS $BFLAG
+$BIN verify_ultra_keccak_honk -k vk -p proof $FLAGS $BFLAG
 $BIN proof_as_fields_honk -k vk $FLAGS -p $PROOF
 $BIN contract_ultra_honk -k vk $FLAGS -o Verifier.sol
 

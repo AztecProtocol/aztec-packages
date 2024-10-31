@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.61.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.60.0...barretenberg-v0.61.0) (2024-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **avm:** cleanup CALL ([#9551](https://github.com/AztecProtocol/aztec-packages/issues/9551))
+* **avm:** returndatasize + returndatacopy ([#9475](https://github.com/AztecProtocol/aztec-packages/issues/9475))
+* getcontractinstance instruction returns only a specified member ([#9300](https://github.com/AztecProtocol/aztec-packages/issues/9300))
+* **avm/brillig:** revert/rethrow oracle ([#9408](https://github.com/AztecProtocol/aztec-packages/issues/9408))
+
+### Features
+
+* 20-30% cost reduction in recursive ipa algorithm ([#9420](https://github.com/AztecProtocol/aztec-packages/issues/9420)) ([a4bd3e1](https://github.com/AztecProtocol/aztec-packages/commit/a4bd3e14f6cde05f4d59bc48142e9ef4bc78f0ae))
+* **avm/brillig:** Revert/rethrow oracle ([#9408](https://github.com/AztecProtocol/aztec-packages/issues/9408)) ([1bbd724](https://github.com/AztecProtocol/aztec-packages/commit/1bbd724eab39c193c1db1d89570eab9358563fe2))
+* **avm:** Avm replace zeromorph pcs by shplemini ([#9389](https://github.com/AztecProtocol/aztec-packages/issues/9389)) ([07d6dc2](https://github.com/AztecProtocol/aztec-packages/commit/07d6dc29db2eb04154b8f0c66bd1efa74c0e8b9d))
+* **avm:** Cleanup CALL ([#9551](https://github.com/AztecProtocol/aztec-packages/issues/9551)) ([26adc55](https://github.com/AztecProtocol/aztec-packages/commit/26adc55771a204f96e8594f6defde2a4872c88d2))
+* **avm:** Merkle tree gadget ([#9205](https://github.com/AztecProtocol/aztec-packages/issues/9205)) ([d52b616](https://github.com/AztecProtocol/aztec-packages/commit/d52b616a91224c25f24a00b76b984f059c103dcb))
+* **avm:** Returndatasize + returndatacopy ([#9475](https://github.com/AztecProtocol/aztec-packages/issues/9475)) ([8f71006](https://github.com/AztecProtocol/aztec-packages/commit/8f710068a10e09fad9c159306c19c555bb3b5bb6))
+* **avm:** Trace contract class and contract instance ([#8840](https://github.com/AztecProtocol/aztec-packages/issues/8840)) ([84205d8](https://github.com/AztecProtocol/aztec-packages/commit/84205d872067345239913914a84b708d05d8364c))
+* Bytecode hashing init ([#8535](https://github.com/AztecProtocol/aztec-packages/issues/8535)) ([2bb09e5](https://github.com/AztecProtocol/aztec-packages/commit/2bb09e59f648e6182f1097d283451afd3c488d27))
+* Derive address and class id in avm ([#8897](https://github.com/AztecProtocol/aztec-packages/issues/8897)) ([2ebe361](https://github.com/AztecProtocol/aztec-packages/commit/2ebe3611ad3826443b31e5626a4e08cdd90f0f2a))
+* Fixed number of pub inputs for databus commitment propagation ([#9336](https://github.com/AztecProtocol/aztec-packages/issues/9336)) ([8658abd](https://github.com/AztecProtocol/aztec-packages/commit/8658abd46612d3fdf8c8b54902c201c790a52345))
+* Getcontractinstance instruction returns only a specified member ([#9300](https://github.com/AztecProtocol/aztec-packages/issues/9300)) ([29b692f](https://github.com/AztecProtocol/aztec-packages/commit/29b692f9e81e1ee809e37274cf6ac2ab0ca526ce))
+* Print finalized size and log dyadic size during Ultra proof construction ([#9411](https://github.com/AztecProtocol/aztec-packages/issues/9411)) ([84fdc52](https://github.com/AztecProtocol/aztec-packages/commit/84fdc526f73027a3450bcdcc78b826fc9da8df88))
+* Reorder blocks for efficiency ([#9560](https://github.com/AztecProtocol/aztec-packages/issues/9560)) ([10874f4](https://github.com/AztecProtocol/aztec-packages/commit/10874f402c48c0721491f0db8bc0266653193d9b))
+* Sol shplemini in acir tests + contract_gen ([#8874](https://github.com/AztecProtocol/aztec-packages/issues/8874)) ([1c0275d](https://github.com/AztecProtocol/aztec-packages/commit/1c0275db18510fd7d55b400e4a910447859f4acc))
+
+
+### Bug Fixes
+
+* Add native verification test to honk keccak ([#9501](https://github.com/AztecProtocol/aztec-packages/issues/9501)) ([59810e0](https://github.com/AztecProtocol/aztec-packages/commit/59810e070e57fa8e250928608b39c66eaae39a84))
+* **avm:** Address bytecode hashing comments ([#9436](https://github.com/AztecProtocol/aztec-packages/issues/9436)) ([a85f92a](https://github.com/AztecProtocol/aztec-packages/commit/a85f92a24f4ec988a4d472651a0e2827bf9381b2))
+* **avm:** Re-enable sha256 in bulk test, fix bug in AVM SHL/SHR ([#9496](https://github.com/AztecProtocol/aztec-packages/issues/9496)) ([0fe64df](https://github.com/AztecProtocol/aztec-packages/commit/0fe64dfabe6b4413943204ec17a5d0dca3c2d011))
+* Honk shplemini acir artifacts ([#9550](https://github.com/AztecProtocol/aztec-packages/issues/9550)) ([468c100](https://github.com/AztecProtocol/aztec-packages/commit/468c100558f181408ad59b528ad4e43aaa7e7f3a))
+* Revert "feat: sol shplemini in acir tests + contract_gen" ([#9505](https://github.com/AztecProtocol/aztec-packages/issues/9505)) ([3351217](https://github.com/AztecProtocol/aztec-packages/commit/3351217a7e7f1848c43e14d19427e1cd789c78fc))
+
+
+### Miscellaneous
+
+* Align debug logging between AVM sim & witgen ([#9498](https://github.com/AztecProtocol/aztec-packages/issues/9498)) ([7c2d67a](https://github.com/AztecProtocol/aztec-packages/commit/7c2d67a7c63a2b05d8f8d48b1690c87e8bacfc49))
+* **avm::** Fix execution tests in proving mode ([#9466](https://github.com/AztecProtocol/aztec-packages/issues/9466)) ([8e07de8](https://github.com/AztecProtocol/aztec-packages/commit/8e07de8233929d40a433a80064ceec30a69c1360))
+* **avm:** Allocate memory for unshifted polynomials according to their trace col size ([#9345](https://github.com/AztecProtocol/aztec-packages/issues/9345)) ([a67d0e2](https://github.com/AztecProtocol/aztec-packages/commit/a67d0e2122945998119a8643a4fb4e74fccc7f34))
+* Bumping L2 gas and public reads constants ([#9431](https://github.com/AztecProtocol/aztec-packages/issues/9431)) ([91c50dd](https://github.com/AztecProtocol/aztec-packages/commit/91c50dd6c52bc95aab4748d022516fc1b5fd5fe6))
+* Use big endian in sha  ([#9471](https://github.com/AztecProtocol/aztec-packages/issues/9471)) ([bc9828e](https://github.com/AztecProtocol/aztec-packages/commit/bc9828e03ba0924c2cfdaffb4b7455c8eebf01e9))
+
 ## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.59.0...barretenberg-v0.60.0) (2024-10-24)
 
 

@@ -14,7 +14,7 @@ use crate::{
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    recursion::verification_key::VerificationKey,
+    proof::verification_key::VerificationKey,
     traits::{is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };

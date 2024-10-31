@@ -10,7 +10,7 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
-  BaseRollupInputs,
+  BaseRollupHints,
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
@@ -18,7 +18,6 @@ import {
   Fr,
   type GlobalVariables,
   Header,
-  KernelData,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
@@ -43,14 +42,12 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   RootRollupInputs,
   StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
-  type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -74,13 +71,11 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
  */
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
-// Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
-export async function buildBaseRollupInput(
+// Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
+export async function buildBaseRollupHints(
   tx: ProcessedTx,
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeWriteOperations,
-  kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
   const constants = await getConstantRollupData(globalVariables, db);
@@ -175,8 +170,7 @@ export async function buildBaseRollupInput(
     db,
   );
 
-  return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, kernelVk, proof),
+  return BaseRollupHints.from({
     start,
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
@@ -184,9 +178,7 @@ export async function buildBaseRollupInput(
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-
     archiveRootMembershipWitness,
-
     constants,
   });
 }
@@ -396,23 +388,6 @@ export async function getConstantRollupData(
 export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeReadOperations): Promise<AppendOnlyTreeSnapshot> {
   const treeInfo = await db.getTreeInfo(id);
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
-}
-
-export function getKernelDataFor(
-  tx: ProcessedTx,
-  vk: VerificationKeyData,
-  proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
-): KernelData {
-  const leafIndex = getVKIndex(vk);
-
-  return new KernelData(
-    tx.data,
-    proof,
-    // VK for the kernel circuit
-    vk,
-    leafIndex,
-    getVKSiblingPath(leafIndex),
-  );
 }
 
 export function makeEmptyMembershipWitness<N extends number>(height: N) {

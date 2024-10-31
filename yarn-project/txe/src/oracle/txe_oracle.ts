@@ -1,5 +1,6 @@
 import {
   AuthWitness,
+  type EncryptedL2NoteLog,
   MerkleTreeId,
   Note,
   type NoteStatus,
@@ -18,6 +19,7 @@ import {
   type ContractInstanceWithAddress,
   Gas,
   Header,
+  IndexedTaggingSecret,
   type KeyValidationRequest,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
@@ -28,8 +30,10 @@ import {
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  TaggingSecret,
   TxContext,
   computeContractClassId,
+  computeTaggingSecret,
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -43,6 +47,7 @@ import {
   countArgumentsSize,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -79,11 +84,15 @@ export class TXE implements TypedOracle {
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
+  // Return/revert data of the latest nested call.
+  private nestedCallReturndata: Fr[] = [];
 
   private contractDataOracle: ContractDataOracle;
 
   private version: Fr = Fr.ONE;
   private chainId: Fr = Fr.ONE;
+
+  private logsByTags = new Map<string, EncryptedL2NoteLog[]>();
 
   constructor(
     private logger: Logger,
@@ -747,30 +756,53 @@ export class TXE implements TypedOracle {
     return;
   }
 
+  async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
+    // Silo the secret to the app so it can't be used to track other app's notes
+    const secret = poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([new TaggingSecret(secret, recipient)]);
+    return new IndexedTaggingSecret(secret, recipient, index);
+  }
+
+  async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
+    const completeAddresses = await this.txeDatabase.getCompleteAddresses();
+    // Filter out the addresses corresponding to accounts
+    const accounts = await this.keyStore.getAccounts();
+    const senders = completeAddresses.filter(
+      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
+    );
+    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
+    const secrets = senders.map(({ address: sender }) => {
+      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
+      return poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
+    });
+    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
+    const indexes = await this.txeDatabase.getTaggingSecretsIndexes(directionalSecrets);
+    return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
+  }
+
   // AVM oracles
 
-  async avmOpcodeCall(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    args: Fr[],
-    isStaticCall: boolean,
-  ) {
+  async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean) {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
     const currentMessageSender = AztecAddress.fromField(this.msgSender);
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
 
     const callContext = new CallContext(
       /* msgSender */ currentContractAddress,
       targetContractAddress,
-      functionSelector,
+      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       isStaticCall,
     );
 
     const executionResult = await this.executePublicFunction(args, callContext, this.sideEffectsCounter);
+    // Save return/revert data for later.
+    this.nestedCallReturndata = executionResult.returnValues;
 
     // Apply side effects
     if (!executionResult.reverted) {
@@ -787,9 +819,16 @@ export class TXE implements TypedOracle {
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
 
     return executionResult;
+  }
+
+  avmOpcodeReturndataSize(): number {
+    return this.nestedCallReturndata.length;
+  }
+
+  avmOpcodeReturndataCopy(rdOffset: number, copySize: number): Fr[] {
+    return this.nestedCallReturndata.slice(rdOffset, rdOffset + copySize);
   }
 
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
