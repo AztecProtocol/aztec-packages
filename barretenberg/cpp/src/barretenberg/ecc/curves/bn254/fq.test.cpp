@@ -531,7 +531,7 @@ TEST(fq, NegAndSelfNeg0CmpRegression)
 }
 
 // This test shows that ((lo|hi)% modulus) in uint512_t is equivalent to (lo + 2^256 * hi) in field elements so we
-// don't have to use the slow API
+// don't have to use the slow API (uint512_t' modulo operation)
 TEST(fq, EquivalentRandomness)
 {
     auto& engine = numeric::get_debug_randomness();

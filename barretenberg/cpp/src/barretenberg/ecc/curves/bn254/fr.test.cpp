@@ -380,7 +380,7 @@ TEST(fr, Uint256Conversions)
     EXPECT_EQ(a, c);
 }
 // This test shows that ((lo|hi)% modulus) in uint512_t is equivalent to (lo + 2^256 * hi) in field elements so we
-// don't have to use the slow API
+// don't have to use the slow API (uint512_t's modulo operation)
 TEST(fr, EquivalentRandomness)
 {
     auto& engine = numeric::get_debug_randomness();

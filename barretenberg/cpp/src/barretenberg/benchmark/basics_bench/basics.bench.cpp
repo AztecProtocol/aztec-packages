@@ -473,7 +473,7 @@ void bn254fr_random(State& state)
     numeric::RNG& engine = numeric::get_randomness();
     for (auto _ : state) {
         state.PauseTiming();
-        size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
+        size_t num_cycles = 1UL << static_cast<size_t>(state.range(0));
         state.ResumeTiming();
         for (size_t i = 0; i < num_cycles; i++) {
             benchmark::DoNotOptimize(fr::random_element(&engine));
@@ -499,5 +499,5 @@ BENCHMARK(sequential_copy)->Unit(kMicrosecond)->DenseRange(20, 25);
 BENCHMARK(uint_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
 BENCHMARK(uint_extended_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
 BENCHMARK(pippenger)->Unit(kMicrosecond)->DenseRange(16, 20)->Setup(DoPippengerSetup)->Iterations(5);
-BENCHMARK(bn254fr_random)->Unit(kMicrosecond)->DenseRange(10, 16);
+BENCHMARK(bn254fr_random)->Unit(kMicrosecond)->DenseRange(10, 20);
 BENCHMARK_MAIN();
