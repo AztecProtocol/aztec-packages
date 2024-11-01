@@ -7,6 +7,9 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## 0.X.X
+### Serialization changes
+We have tweaked how multiple entities in our public APIs are serialized. Because of this change, trying to use an older client to query a component from this version may fail.
+
 ### [TXE] Single execution environment
 Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
 This ensures every single test runs in a consistent environment and allows for clearer test syntax:
