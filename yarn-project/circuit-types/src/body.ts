@@ -79,9 +79,11 @@ export class Body {
     });
     // push the final tx effect's fields
     txEffectsFields.push(fields.slice(startIndex, fields.length));
-    const txEffects = txEffectsFields.map((effect, i) =>
-      TxEffect.fromFields(effect, noteEncryptedLogs?.txLogs[i], encryptedLogs?.txLogs[i], unencryptedLogs?.txLogs[i]),
-    );
+    const txEffects = txEffectsFields
+      .filter(effect => effect.length)
+      .map((effect, i) =>
+        TxEffect.fromFields(effect, noteEncryptedLogs?.txLogs[i], encryptedLogs?.txLogs[i], unencryptedLogs?.txLogs[i]),
+      );
     return new this(txEffects);
   }
 

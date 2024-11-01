@@ -232,7 +232,10 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
     await this.worldState.syncImmediate(fromBlock - 1);
-    const db = await this.worldState.fork(fromBlock - 1);
+    // NB: separated the dbs as both a block builder and public processor need to track and update tree state
+    // see public_processor.ts for context
+    const publicDb = await this.worldState.fork(fromBlock - 1);
+    const proverDb = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(
@@ -242,11 +245,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
     );
 
     const cleanUp = async () => {
-      await db.close();
+      await publicDb.close();
+      await proverDb.close();
       this.jobs.delete(job.getId());
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, db, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicDb, proverDb, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -255,15 +259,16 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler {
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
-    db: MerkleTreeWriteOperations,
+    publicDb: MerkleTreeWriteOperations,
+    proverDb: MerkleTreeWriteOperations,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
-      db,
+      publicDb,
       epochNumber,
       blocks,
-      this.prover.createEpochProver(db),
+      this.prover.createEpochProver(proverDb),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,

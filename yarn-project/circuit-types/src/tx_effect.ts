@@ -1,5 +1,5 @@
 import {
-  EncryptedL2Log,
+  type EncryptedL2Log,
   EncryptedL2NoteLog,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
