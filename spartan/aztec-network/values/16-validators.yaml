@@ -49,10 +49,10 @@ validator:
     disabled: false
 
 bot:
-  replicas: 5
-  txIntervalSeconds: 4
-  privateTransfersPerTx: 2
-  publicTransfersPerTx: 2
+  replicas: 1
+  txIntervalSeconds: 1
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 1
 
 bootNode:
   validator:
