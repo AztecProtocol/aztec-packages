@@ -10,8 +10,6 @@ namespace bb::stdlib::recursion::honk {
  */
 void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
-    info("number of public inputs in ultra proof: ",
-         static_cast<uint32_t>(static_cast<uint256_t>(proof.ultra_proof[1])));
     // Construct stdlib mega verification key
     auto stdlib_mega_vk =
         std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.mega_verification_key);
