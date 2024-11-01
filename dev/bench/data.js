@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730468559641,
+  "lastUpdate": 1730470253095,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "17c612740dc3563321bf69c1760de1ef88b22124",
-          "message": "feat: modify contract instance to include public keys (#9153)\n\nIn this PR we are doing the ground work for the new address scheme by\r\nmodifying the contract instance to include the full public keys instead\r\nof only the public keys hash. We need the full public keys because we\r\nneed to verify the preimage of the new address, which requires the ivpk,\r\nand we need to verify the ivpk's correctness by manually computing the\r\npublic keys hash.",
-          "timestamp": "2024-10-17T16:45:12-05:00",
-          "tree_id": "a808d71f357d7561b5ca75018984dab4d7d850c1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/17c612740dc3563321bf69c1760de1ef88b22124"
-        },
-        "date": 1729203069176,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29588.701966,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28107.555924 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5420.065596000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5075.373547000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87251.83216800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87251834000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15297.473012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15297474000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2726524051,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2726524051 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126683570,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126683570 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 127818611,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127818611 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b98e93f4befb985c72e8768f378face2dcc79810",
+          "message": "feat: Faster randomness sampling for field elements (#9627)\n\nChanges the algorithm for converting uint512_ts to fields. The result is\r\nequivalent (we can make an even faster version, but without the\r\nequivalence). 1.5x faster on the mainframe, 5x in wasm\r\nBefore. Native\r\n\r\n![image](https://github.com/user-attachments/assets/6314999c-b32e-402a-a2f4-a6829c08be59)\r\nAfter. Native:\r\n\r\n![image](https://github.com/user-attachments/assets/5a3d46ee-2a36-4a2d-8f4c-109dcd4eb496)\r\n\r\nBefore. Wasm:\r\n\r\n![image](https://github.com/user-attachments/assets/e7cf2c94-0a79-4dfb-9141-6d73c061c269)\r\n\r\n\r\nAfter. Wasm:\r\n\r\n![image](https://github.com/user-attachments/assets/06c05002-d3fc-4b22-ac93-68f8939708db)",
+          "timestamp": "2024-11-01T13:25:27Z",
+          "tree_id": "3668edf9f1ea19e95f1971033e3467cc1fe92952",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b98e93f4befb985c72e8768f378face2dcc79810"
+        },
+        "date": 1730470245386,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29061.564850999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27692.211099 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5354.980000999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5062.612838999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 86240.890573,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 86240893000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15165.42334,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15165424000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2506227079,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2506227079 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127307488,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127307488 ns\nthreads: 1"
           }
         ]
       }
