@@ -119,7 +119,7 @@ template <class Builder> class goblin_field {
     }
 
     // done in the translator circuit
-    void assert_is_in_field() {};
+    void assert_is_in_field(){};
 };
 template <typename C> inline std::ostream& operator<<(std::ostream& os, goblin_field<C> const& v)
 {
