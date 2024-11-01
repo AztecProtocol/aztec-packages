@@ -5,7 +5,7 @@ The aim is to verify acir tests verify through a given backend binary. "Backend 
 - bb (native CLI)
 - bb.js (typescript CLI)
 - bb.js-dev (symlink in your PATH that runs the typescript CLI via ts-node)
-- bb.js.browser (script in `headless-test` that runs a a test through bb.js in a browser instance via playwright)
+- bb.js.browser (script in `headless-test` that runs a test through bb.js in a browser instance via playwright)
 
 To run:
 
