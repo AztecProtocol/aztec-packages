@@ -18,7 +18,7 @@ export interface ValidatorClientConfig {
   disableValidator: boolean;
 
   /** Interval between polling for new attestations from peers */
-  attestationPoolingIntervalMs: number;
+  attestationPollingIntervalMs: number;
 
   /** Wait for attestations timeout */
   attestationWaitTimeoutMs: number;
@@ -35,10 +35,10 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Do not run the validator',
     ...booleanConfigHelper(),
   },
-  attestationPoolingIntervalMs: {
-    env: 'VALIDATOR_ATTESTATIONS_POOLING_INTERVAL_MS',
+  attestationPollingIntervalMs: {
+    env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',
     description: 'Interval between polling for new attestations',
-    ...numberConfigHelper(1000),
+    ...numberConfigHelper(200),
   },
   attestationWaitTimeoutMs: {
     env: 'VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS',

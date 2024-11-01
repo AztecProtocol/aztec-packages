@@ -37,7 +37,7 @@ describe('ValidationService', () => {
 
     config = {
       validatorPrivateKey: validatorPrivateKey,
-      attestationPoolingIntervalMs: 1000,
+      attestationPollingIntervalMs: 1000,
       attestationWaitTimeoutMs: 1000,
       disableValidator: false,
     };
