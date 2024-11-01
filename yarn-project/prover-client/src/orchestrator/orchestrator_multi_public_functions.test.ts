@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { EmptyTxValidator, mockTx } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -43,7 +43,12 @@ describe('prover/orchestrator/public-functions', () => {
         context.orchestrator.startNewEpoch(1, 1);
         await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
 
-        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
+        const [processed, failed] = await context.processPublicFunctions(
+          txs,
+          numTransactions,
+          undefined,
+          new EmptyTxValidator(),
+        );
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 

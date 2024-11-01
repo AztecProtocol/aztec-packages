@@ -1,5 +1,6 @@
 import {
   type FailedTx,
+  MerkleTreeId,
   type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
@@ -15,10 +16,14 @@ import {
   type GlobalVariables,
   type Header,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
+  PublicDataTreeLeaf,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -183,9 +188,41 @@ export class PublicProcessor {
         if (processedTxHandler) {
           await processedTxHandler.addNewTx(processedTx);
         }
+        // This is a bit of a hack - if there is no tx validator, we don't catch duplicate nullifiers
+        // and the below insert will fail, whereas tests expect it to fail later on
+        if (txValidator) {
+          // Update the state so that the next tx in the loop has the correct .startState
+          // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
+          // a) had only 1 tx with public calls per block, so this loop had len 1
+          // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
+          // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
+          // The below is taken from buildBaseRollupHints:
+          await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, processedTx.data.end.noteHashes);
+          try {
+            await this.db.batchInsert(
+              MerkleTreeId.NULLIFIER_TREE,
+              processedTx.data.end.nullifiers.map(n => n.toBuffer()),
+              NULLIFIER_SUBTREE_HEIGHT,
+            );
+          } catch (error) {
+            throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
+          }
+
+          const allPublicDataUpdateRequests = padArrayEnd(
+            processedTx.finalPublicDataUpdateRequests,
+            PublicDataUpdateRequest.empty(),
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          );
+          const allPublicDataWrites = allPublicDataUpdateRequests.map(
+            ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
+          );
+          await this.db.batchInsert(
+            MerkleTreeId.PUBLIC_DATA_TREE,
+            allPublicDataWrites.map(x => x.toBuffer()),
+            PUBLIC_DATA_SUBTREE_HEIGHT,
+          );
+        }
         result.push(processedTx);
-        console.log("Note state not updated:")
-        console.log(processedTx.data.startState);
         returns = returns.concat(returnValues ?? []);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
