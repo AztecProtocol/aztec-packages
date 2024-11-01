@@ -72,7 +72,8 @@ class IPATest : public CommitmentTest<NativeCurve> {
         auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
         RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
-        info("IPA Recursive Verifier estimated num gates = ", builder.get_estimated_num_finalized_gates());
+        builder.finalize_circuit(/*ensure_nonzero=*/false);
+        info("IPA Recursive Verifier num finalizedgates = ", builder.get_num_finalized_gates());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
@@ -97,8 +98,11 @@ class IPATest : public CommitmentTest<NativeCurve> {
         // polynomial.
         auto [output_claim, h_poly] =
             RecursiveIPA::accumulate(recursive_verifier_ck, transcript_1, claim_1, transcript_2, claim_2);
-        info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation estimated num gates = ",
-             builder.get_estimated_num_finalized_gates());
+        builder.finalize_circuit(/*ensure_nonzero=*/false);
+        info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
+             builder.get_num_finalized_gates());
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Run the IPA prover on this new accumulated claim.
         auto prover_transcript = std::make_shared<NativeTranscript>();

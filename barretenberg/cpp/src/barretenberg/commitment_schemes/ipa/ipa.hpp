@@ -716,17 +716,14 @@ template <typename Curve_> class IPA {
         {
             const size_t round_size = 1 << (i + 1);
             const fq round_challenge = u_chals_inv[i];
-            info("round_challenge = ", round_challenge);
             parallel_for_heuristic(
                 round_size / 2,
                 [&](size_t j) {
                     current_round_s[j * 2] = previous_round_s[j];
                     current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
                 }, thread_heuristics::FF_MULTIPLICATION_COST * 2);
-            info("current_round_s[1] = ", current_round_s[1]);
             std::swap(current_round_s, previous_round_s);
         }
-        info("s_vec[1] = ", s_vec[1]);
         return {s_vec, poly_length};
     }
 
