@@ -32,8 +32,6 @@ interface IRollup {
 
   function prune() external;
 
-  function canPrune() external view returns (bool);
-
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
@@ -102,14 +100,16 @@ interface IRollup {
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function canPrune() external view returns (bool);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
   function getClaimableEpoch() external view returns (Epoch);
   function getEpochForBlock(uint256 blockNumber) external view returns (Epoch);
-  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
-    external
-    view;
+  function validateEpochProofRightClaimAtTime(
+    Timestamp _ts,
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
+  ) external view;
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
