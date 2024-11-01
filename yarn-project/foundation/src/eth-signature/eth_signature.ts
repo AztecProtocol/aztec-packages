@@ -45,6 +45,10 @@ export class Signature {
     return new Signature(r, s, v, isEmpty);
   }
 
+  static isValid0xString(sig: `0x${string}`): boolean {
+    return /^0x[0-9a-f]{129,}$/i.test(sig);
+  }
+
   /**
    * A seperate method exists for this as when signing locally with viem, as when
    * parsing from viem, we can expect the v value to be a u8, rather than our
@@ -105,5 +109,9 @@ export class Signature {
       v: this.v,
       isEmpty: this.isEmpty,
     };
+  }
+
+  toJSON() {
+    return this.to0xString();
   }
 }
