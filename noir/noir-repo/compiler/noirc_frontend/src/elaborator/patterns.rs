@@ -510,30 +510,6 @@ impl<'context> Elaborator<'context> {
         self.resolve_turbofish_generics(item_generic_kinds, turbofish_generics)
     }
 
-    pub(super) fn resolve_alias_turbofish_generics(
-        &mut self,
-        type_alias: &TypeAlias,
-        generics: Vec<Type>,
-        unresolved_turbofish: Option<Vec<UnresolvedType>>,
-        span: Span,
-    ) -> Vec<Type> {
-        let Some(turbofish_generics) = unresolved_turbofish else {
-            return generics;
-        };
-
-        if turbofish_generics.len() != generics.len() {
-            self.push_err(TypeCheckError::GenericCountMismatch {
-                item: format!("alias {}", type_alias.name),
-                expected: generics.len(),
-                found: turbofish_generics.len(),
-                span,
-            });
-            return generics;
-        }
-
-        self.resolve_turbofish_generics(&type_alias.generics, turbofish_generics)
-    }
-
     pub(super) fn resolve_turbofish_generics(
         &mut self,
         kinds: Vec<Kind>,
