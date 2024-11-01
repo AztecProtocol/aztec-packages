@@ -18,11 +18,13 @@ constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
 #endif
-// Buffer with randomness sampled from a CSPRNG
-thread_local uint8_t random_buffer[RANDOM_BUFFER_SIZE];
-// Offset into the unused part of the buffer
-thread_local ssize_t random_buffer_offset = -1;
-
+struct RandomBufferWrapper {
+    // Buffer with randomness sampled from a CSPRNG
+    uint8_t buffer[RANDOM_BUFFER_SIZE];
+    // Offset into the unused part of the buffer
+    ssize_t offset = -1;
+};
+thread_local RandomBufferWrapper random_buffer_wrapper;
 /**
  * @brief Generate an array of random unsigned ints sampled from a CSPRNG
  *
@@ -38,10 +40,10 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
 
     // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
     // We could preserve the leftover bytes, but it's a bit messy
-    if (random_buffer_offset == -1 ||
-        (static_cast<size_t>(random_buffer_offset) + random_data_buffer_size) > RANDOM_BUFFER_SIZE) {
+    if (random_buffer_wrapper.offset == -1 ||
+        (static_cast<size_t>(random_buffer_wrapper.offset) + random_data_buffer_size) > RANDOM_BUFFER_SIZE) {
         size_t bytes_left = RANDOM_BUFFER_SIZE;
-        uint8_t* current_offset = random_buffer;
+        uint8_t* current_offset = random_buffer_wrapper.buffer;
         // Sample until we fill the buffer
         while (bytes_left != 0) {
 #ifndef __wasm__
@@ -59,11 +61,11 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
                 bytes_left -= static_cast<size_t>(read_bytes);
             }
         }
-        random_buffer_offset = 0;
+        random_buffer_wrapper.offset = 0;
     }
 
-    memcpy(&random_data, random_buffer + random_buffer_offset, random_data_buffer_size);
-    random_buffer_offset += random_data_buffer_size;
+    memcpy(&random_data, random_buffer_wrapper.buffer + random_buffer_wrapper.offset, random_data_buffer_size);
+    random_buffer_wrapper.offset += random_data_buffer_size;
     return random_data;
 }
 } // namespace
