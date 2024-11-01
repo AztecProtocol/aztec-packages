@@ -18,15 +18,6 @@ impl BitsQueryable for FieldElement {
     }
 }
 
-impl<T> BitsQueryable for T
-where
-    T: Into<u128> + Copy,
-{
-    fn num_bits(&self) -> usize {
-        get_msb((*self).into())
-    }
-}
-
 impl BitsQueryable for MemoryAddress {
     fn num_bits(&self) -> usize {
         match self {
@@ -36,6 +27,19 @@ impl BitsQueryable for MemoryAddress {
     }
 }
 
+macro_rules! impl_bits_queryable_for_integers {
+    ($($t:ty),+) => {
+        $(
+            impl BitsQueryable for $t {
+                fn num_bits(&self) -> usize {
+                    get_msb(*self as u128)
+                }
+            }
+        )+
+    };
+}
+
+impl_bits_queryable_for_integers!(u8, u16, u32, u64, u128, usize);
 
 pub fn bits_needed_for<T: BitsQueryable>(val: &T) -> usize {
     match val.num_bits() {
