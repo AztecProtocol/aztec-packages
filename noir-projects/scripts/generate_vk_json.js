@@ -82,16 +82,26 @@ function getBarretenbergHash() {
   });
 }
 
-function generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk) {
+function generateArtifactHash(
+  barretenbergHash,
+  bytecodeHash,
+  isMegaHonk,
+  isRecursive
+) {
   return `${barretenbergHash}-${bytecodeHash}-${
     isMegaHonk ? "mega-honk" : "ultra-honk"
-  }`;
+  }-${isRecursive}`;
 }
 
-async function getArtifactHash(artifactPath, isMegaHonk) {
+async function getArtifactHash(artifactPath, isMegaHonk, isRecursive) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
-  return generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk);
+  return generateArtifactHash(
+    barretenbergHash,
+    bytecodeHash,
+    isMegaHonk,
+    isRecursive
+  );
 }
 
 async function hasArtifactHashChanged(artifactHash, vkDataPath) {
@@ -125,8 +135,13 @@ async function processArtifact(
   syncWithS3
 ) {
   const isMegaHonk = isMegaHonkCircuit(artifactName);
+  const isRecursive = true;
 
-  const artifactHash = await getArtifactHash(artifactPath, isMegaHonk);
+  const artifactHash = await getArtifactHash(
+    artifactPath,
+    isMegaHonk,
+    isRecursive
+  );
 
   const vkDataPath = vkDataFileNameForArtifactName(outputFolder, artifactName);
 
@@ -145,7 +160,8 @@ async function processArtifact(
       outputFolder,
       artifactPath,
       artifactHash,
-      isMegaHonk
+      isMegaHonk,
+      isRecursive
     );
     if (syncWithS3) {
       await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
@@ -162,7 +178,8 @@ async function generateVKData(
   outputFolder,
   artifactPath,
   artifactHash,
-  isMegaHonk
+  isMegaHonk,
+  isRecursive
 ) {
   if (isMegaHonk) {
     console.log("Generating new mega honk vk for", artifactName);
@@ -178,7 +195,12 @@ async function generateVKData(
 
   const writeVkCommand = `${BB_BIN_PATH} ${
     isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
-  } -h -b "${artifactPath}" -o "${binaryVkPath}"`;
+  } -h -b "${artifactPath}" -o "${binaryVkPath}" ${
+    isRecursive ? "--recursive" : ""
+  }`;
+
+  console.log("WRITE VK CMD: ", writeVkCommand);
+
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
     isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;

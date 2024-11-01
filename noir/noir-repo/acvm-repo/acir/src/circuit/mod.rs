@@ -68,11 +68,6 @@ pub struct Circuit<F> {
     // c++ code at the moment when it is, due to OpcodeLocation needing a comparison
     // implementation which is never generated.
     pub assert_messages: Vec<(OpcodeLocation, AssertionPayload<F>)>,
-
-    /// States whether the backend should use a SNARK recursion friendly prover.
-    /// If implemented by a backend, this means that proofs generated with this circuit
-    /// will be friendly for recursively verifying inside of another SNARK.
-    pub recursive: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -445,7 +440,6 @@ mod tests {
             public_parameters: PublicInputs(BTreeSet::from_iter(vec![Witness(2), Witness(12)])),
             return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(4), Witness(12)])),
             assert_messages: Default::default(),
-            recursive: false,
         };
         let program = Program { functions: vec![circuit], unconstrained_functions: Vec::new() };
 
@@ -481,7 +475,6 @@ mod tests {
             public_parameters: PublicInputs(BTreeSet::from_iter(vec![Witness(2)])),
             return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(2)])),
             assert_messages: Default::default(),
-            recursive: false,
         };
         let program = Program { functions: vec![circuit], unconstrained_functions: Vec::new() };
 

@@ -90,7 +90,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system{
             .varnum = 6,
-            .recursive = true,
             .num_acir_opcodes = 7,
             .public_inputs = { 1, 2 },
             .logic_constraints = { logic_constraint },
@@ -126,7 +125,8 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        auto builder =
+            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
         return builder;
     }
@@ -170,13 +170,13 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system{};
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = true;
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        auto outer_circuit =
+            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
         return outer_circuit;
     }

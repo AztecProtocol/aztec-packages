@@ -115,6 +115,7 @@ export async function generateKeyForNoirCircuit(
   workingDirectory: string,
   circuitName: string,
   compiledCircuit: NoirCompiledCircuit,
+  recursive: boolean,
   flavor: UltraHonkFlavor,
   log: LogFn,
   force = false,
@@ -148,7 +149,7 @@ export async function generateKeyForNoirCircuit(
       await fs.writeFile(bytecodePath, bytecode);
 
       // args are the output path and the input bytecode path
-      const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
+      const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath, recursive ? '--recursive' : ''];
       const timer = new Timer();
       let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, log);
 
@@ -264,6 +265,7 @@ export async function computeVerificationKey(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  recursive: boolean,
   flavor: UltraHonkFlavor | 'mega_honk',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
@@ -295,12 +297,8 @@ export async function computeVerificationKey(
     const logFunction = (message: string) => {
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
-    let result = await executeBB(
-      pathToBB,
-      `write_vk_${flavor}`,
-      ['-o', outputPath, '-b', bytecodePath, '-v'],
-      logFunction,
-    );
+    const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
+    let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }
@@ -346,6 +344,7 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: LogFn,
@@ -374,7 +373,7 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
-    const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v'];
+    const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v', recursive ? '--recursive' : ''];
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
@@ -557,7 +556,7 @@ export async function generateAvmProof(
       avmHintsPath,
       '-o',
       outputPath,
-      currentLogLevel == 'debug' ? '-d' : 'verbose' ? '-v' : '',
+      currentLogLevel == 'debug' ? '-d' : currentLogLevel == 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -845,11 +844,18 @@ export async function generateContractForCircuit(
   log: LogFn,
   force = false,
 ) {
+  // Verifier contracts are never recursion friendly, because non-recursive proofs are generated using the keccak256 hash function.
+  // We need to use the same hash function during verification so proofs generated using keccak256 are cheap to verify on ethereum
+  // (where the verifier contract would be deployed) whereas if we want to verify the proof within a snark (for recursion) we want
+  // to use a snark-friendly hash function.
+  const recursive = false;
+
   const vkResult = await generateKeyForNoirCircuit(
     pathToBB,
     workingDirectory,
     circuitName,
     compiledCircuit,
+    recursive,
     'ultra_keccak_honk',
     log,
     force,
