@@ -756,14 +756,26 @@ export class TXE implements TypedOracle {
     return;
   }
 
+  async incrementAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
+    await this.txeDatabase.incrementTaggingSecretsIndexes([directionalSecret]);
+  }
+
   async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    const directionalSecret = await this.#calculateDirectionalSecret(this.contractAddress, sender, recipient);
+    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([directionalSecret]);
+    return IndexedTaggingSecret.fromTaggingSecret(directionalSecret, index);
+  }
+
+  async #calculateDirectionalSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
-    const secret = poseidon2Hash([sharedSecret.x, sharedSecret.y, this.contractAddress]);
-    const [index] = await this.txeDatabase.getTaggingSecretsIndexes([new TaggingSecret(secret, recipient)]);
-    return new IndexedTaggingSecret(secret, recipient, index);
+    const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+    // Get the index of the secret, ensuring the directionality (sender -> recipient)
+    const directionalSecret = new TaggingSecret(siloedSecret, recipient);
+    return directionalSecret;
   }
 
   async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {

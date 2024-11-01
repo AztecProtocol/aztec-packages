@@ -258,6 +258,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getAppTaggingSecret');
   }
 
+  incrementAppTaggingSecret(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
+    throw new OracleMethodNotAvailableError('incrementAppTaggingSecret');
+  }
+
   getAppTaggingSecretsForSenders(_recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
     throw new OracleMethodNotAvailableError('getAppTaggingSecretsForSenders');
   }

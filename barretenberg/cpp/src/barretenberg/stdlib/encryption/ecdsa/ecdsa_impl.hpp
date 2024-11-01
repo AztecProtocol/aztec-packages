@@ -82,8 +82,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
     // Read more about this at: https://www.derpturkey.com/inherent-malleability-of-ecdsa-signatures/amp/
     s.assert_less_than((Fr::modulus + 1) / 2);
 
-    Fr u1 = z / s;
-    Fr u2 = r / s;
+    // We already checked that s is nonzero
+    Fr u1 = z.div_without_denominator_check(s);
+    Fr u2 = r.div_without_denominator_check(s);
 
     public_key.validate_on_curve();
 
