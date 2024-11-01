@@ -31,6 +31,7 @@ TEST_SCRIPT="./test-transfer.sh"
 PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
+LOG_LEVEL="info"
 
 # Function to display help message
 display_help() {

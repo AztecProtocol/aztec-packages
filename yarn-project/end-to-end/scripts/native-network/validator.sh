@@ -4,6 +4,11 @@ set -eu
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
 
+echo "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+echo "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+echo "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+echo "LOG_JSON: $LOG_JSON"
+
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 

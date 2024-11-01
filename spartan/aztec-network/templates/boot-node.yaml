@@ -99,6 +99,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: POD_DNS_NAME
               value: "$(POD_NAME).{{ include "aztec-network.fullname" . }}-boot-node.$(POD_NAMESPACE).svc.cluster.local"
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL

@@ -1,0 +1,16 @@
+{
+  "name": "experiments",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -b",
+    "go": "node dest/src/index.js"
+  },
+  "dependencies": {
+    "typescript": "^5.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.18"
+  }
+}
