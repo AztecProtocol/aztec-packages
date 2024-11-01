@@ -17,7 +17,7 @@ using namespace bb;
     the number of connected components = the number of pair (i, j), 0<=i, j <16, i.e 256
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
@@ -49,7 +49,7 @@ TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates)
  * It must be one connected component, cause all gates have shifts
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_shifts)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_shifts)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     for (size_t i = 0; i < 16; ++i) {
@@ -79,7 +79,7 @@ TEST(ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_shifts)
     all variables must be isolated and the number of connected components = 0, all variables in one gate
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_boolean_gates)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_boolean_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
@@ -104,7 +104,7 @@ TEST(ultra_circuit_constructor, test_graph_for_boolean_gates)
  *  x1, y1, x2, y2, x3, y3
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
 {
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
@@ -137,7 +137,7 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
    x1, y1, x3, y3
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
 {
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
@@ -167,7 +167,7 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
    x5, y5, x6, y6, x7, y7, x8, y8
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_elliptic_together)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_together)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
@@ -221,7 +221,7 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_together)
    e_idx, f_idx, g_idx, h_idx
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_sort_constraints)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     fr a = fr::one();
@@ -259,7 +259,7 @@ TEST(ultra_circuit_constructor, test_graph_for_sort_constraints)
     a1_idx, b1_idx, ..., h1_idx
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_sort_constraints_with_edges)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints_with_edges)
 {
     fr a = fr::one();
     fr b = fr(2);
@@ -314,7 +314,7 @@ TEST(ultra_circuit_constructor, test_graph_for_sort_constraints_with_edges)
    the result is one connected component
  */
 
-TEST(ultra_circuit_constructor, test_graph_with_plookup_accumulators)
+TEST(boomerang_ultra_circuit_constructor, test_graph_with_plookup_accumulators)
 {
     UltraCircuitBuilder circuit_builder = UltraCircuitBuilder();
 
@@ -343,7 +343,7 @@ TEST(ultra_circuit_constructor, test_graph_with_plookup_accumulators)
     in circuit
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
@@ -377,7 +377,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate)
  * Other variables have gates count = 1.
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate_with_shifts)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate_with_shifts)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
@@ -414,7 +414,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate_
  * all variables except for zero index must have gates count = 1.
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_boolean_gates)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_boolean_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
@@ -438,7 +438,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_boolean_gates)
  * all variables in 2 connected components must have gates count = 1
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     fr a = fr::one();
@@ -482,7 +482,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constrain
  * all variables in 2 connected components must have gates count = 1
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints_with_edges)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints_with_edges)
 {
     fr a = fr::one();
     fr b = fr(2);
@@ -545,7 +545,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constrain
  * all variables in connected components must have gates count = 1
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_ecc_add_gates)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_add_gates)
 {
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
@@ -583,7 +583,7 @@ TEST(ultra_circuit_constructor, test_variables_gates_counts_for_ecc_add_gates)
  * all variables in connected components must have gates count = 1.
  */
 
-TEST(ultra_circuit_constructor, test_variables_gates_counts_for_ecc_dbl_gate)
+TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_dbl_gate)
 {
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
@@ -626,7 +626,7 @@ std::vector<uint32_t> add_variables(UltraCircuitBuilder& circuit_constructor, st
  * all variables must be in one connected component.
  */
 
-TEST(ultra_circuit_constructor, test_graph_for_range_constraints)
+TEST(boomerang_ultra_circuit_constructor, test_graph_for_range_constraints)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto indices = add_variables(circuit_constructor, { 1, 2, 3, 4 });
@@ -644,7 +644,7 @@ TEST(ultra_circuit_constructor, test_graph_for_range_constraints)
  * all variables must be in one connected component
  */
 
-TEST(ultra_circuit_constructor, composed_range_constraint)
+TEST(boomerang_ultra_circuit_constructor, composed_range_constraint)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c = fr::random_element();

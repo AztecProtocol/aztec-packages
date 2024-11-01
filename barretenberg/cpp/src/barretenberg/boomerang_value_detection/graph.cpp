@@ -18,13 +18,13 @@ inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circui
     auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
     gate_variables.erase(unique_variables, gate_variables.end());
     if (gate_variables.empty()) {
-    } else {
-        for (size_t i = 0; i < gate_variables.size(); i++) {
-            gate_variables[i] = this->to_real(ultra_circuit_builder, gate_variables[i]);
-        }
-        for (const auto& variable_index : gate_variables) {
-            variables_gate_counts[variable_index] += 1;
-        }
+        return;
+    }
+    for (size_t i = 0; i < gate_variables.size(); i++) {
+        gate_variables[i] = this->to_real(ultra_circuit_builder, gate_variables[i]);
+    }
+    for (const auto& variable_index : gate_variables) {
+        variables_gate_counts[variable_index] += 1;
     }
 }
 
@@ -242,11 +242,11 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
         std::vector<uint32_t> sorted_variables;
         for (size_t i = 0; i < range_gates; i++) {
             auto current_gate = this->get_sort_constraint_connected_component(ultra_circuit_constructor, i);
-            if (!current_gate.empty()) {
-                sorted_variables.insert(sorted_variables.end(), current_gate.begin(), current_gate.end());
-            } else {
+            if (current_gate.empty()) {
                 this->connect_all_variables_in_vector(ultra_circuit_constructor, sorted_variables, true);
                 sorted_variables.clear();
+            } else {
+                sorted_variables.insert(sorted_variables.end(), current_gate.begin(), current_gate.end());
             }
         }
     }
@@ -302,37 +302,37 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
                                                  bool is_sorted_variables)
 {
     if (variables_vector.empty()) {
-    } else {
-        if (is_sorted_variables) {
-            for (size_t i = 0; i < variables_vector.size() - 1; i++) {
-                if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
-                    variables_vector[i + 1] != ultra_circuit_builder.zero_idx &&
-                    variables_vector[i] != variables_vector[i + 1]) {
-                    {
-                        bool first_variable_is_not_constant =
-                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
-                        bool second_variable_is_not_constant =
-                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i + 1]);
-                        if (first_variable_is_not_constant && second_variable_is_not_constant) {
-                            this->add_new_edge(variables_vector[i], variables_vector[i + 1]);
-                        }
+        return;
+    }
+    if (is_sorted_variables) {
+        for (size_t i = 0; i < variables_vector.size() - 1; i++) {
+            if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
+                variables_vector[i + 1] != ultra_circuit_builder.zero_idx &&
+                variables_vector[i] != variables_vector[i + 1]) {
+                {
+                    bool first_variable_is_not_constant =
+                        this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
+                    bool second_variable_is_not_constant =
+                        this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i + 1]);
+                    if (first_variable_is_not_constant && second_variable_is_not_constant) {
+                        this->add_new_edge(variables_vector[i], variables_vector[i + 1]);
                     }
                 }
             }
-        } else {
-            for (size_t i = 0; i < variables_vector.size() - 1; i++) {
-                for (size_t j = i + 1; j < variables_vector.size(); j++) {
-                    if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
-                        variables_vector[j] != ultra_circuit_builder.zero_idx &&
-                        variables_vector[i] != variables_vector[j]) {
+        }
+    } else {
+        for (size_t i = 0; i < variables_vector.size() - 1; i++) {
+            for (size_t j = i + 1; j < variables_vector.size(); j++) {
+                if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
+                    variables_vector[j] != ultra_circuit_builder.zero_idx &&
+                    variables_vector[i] != variables_vector[j]) {
 
-                        bool first_variable_is_not_constant =
-                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
-                        bool second_variable_is_not_constant =
-                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[j]);
-                        if (first_variable_is_not_constant && second_variable_is_not_constant) {
-                            this->add_new_edge(variables_vector[i], variables_vector[j]);
-                        }
+                    bool first_variable_is_not_constant =
+                        this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
+                    bool second_variable_is_not_constant =
+                        this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[j]);
+                    if (first_variable_is_not_constant && second_variable_is_not_constant) {
+                        this->add_new_edge(variables_vector[i], variables_vector[j]);
                     }
                 }
             }
@@ -619,7 +619,9 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
 }
 
 /**
- * @brief this method removes false cases in lookup table for a given gate
+ * @brief this method removes false cases in lookup table for a given gate.
+ * it uses all functions above for lookup tables to remove all variables that appear in one gate,
+ * if they are not dangerous
  * @tparam FF
  * @param ultra_circuit_builder
  * @param variables_in_one_gate

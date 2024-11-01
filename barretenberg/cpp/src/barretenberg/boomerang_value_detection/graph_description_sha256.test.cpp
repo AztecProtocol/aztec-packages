@@ -36,8 +36,6 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
 
     std::vector<field_ct> output = output_bits.to_unverified_byte_slices(4);
 
-    info("num gates = ", builder.get_num_gates());
-
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
