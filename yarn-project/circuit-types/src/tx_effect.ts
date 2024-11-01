@@ -11,6 +11,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -246,11 +247,17 @@ export class TxEffect {
     return this.nullifiers.length === 0;
   }
 
-  /**
-   * Returns a string representation of the TxEffect object.
-   */
+  /** Returns a hex representation of the TxEffect object. */
   toString(): string {
     return this.toBuffer().toString('hex');
+  }
+
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(TxEffect);
   }
 
   [inspect.custom]() {

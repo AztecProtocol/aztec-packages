@@ -1,6 +1,8 @@
 import { BufferReader } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import isEqual from 'lodash.isequal';
+import { z } from 'zod';
 
 import { LogId } from './log_id.js';
 import { UnencryptedL2Log } from './unencrypted_l2_log.js';
@@ -15,6 +17,23 @@ export class ExtendedUnencryptedL2Log {
     /** The data contents of the log. */
     public readonly log: UnencryptedL2Log,
   ) {}
+
+  toJSON() {
+    return { id: this.id, log: this.log };
+  }
+
+  static get schema() {
+    return z
+      .object({
+        id: LogId.schema,
+        log: UnencryptedL2Log.schema,
+      })
+      .transform(ExtendedUnencryptedL2Log.from);
+  }
+
+  static from(fields: FieldsOf<ExtendedUnencryptedL2Log>) {
+    return new ExtendedUnencryptedL2Log(fields.id, fields.log);
+  }
 
   /**
    * Serializes log to a buffer.

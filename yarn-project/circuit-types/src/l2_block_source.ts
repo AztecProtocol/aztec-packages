@@ -1,5 +1,7 @@
 import { type EthAddress, type Header } from '@aztec/circuits.js';
 
+import { z } from 'zod';
+
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
 import { type TxReceipt } from './tx/tx_receipt.js';
@@ -130,14 +132,21 @@ export type L2BlockTag = 'latest' | 'proven' | 'finalized';
 export type L2Tips = Record<L2BlockTag, L2BlockId>;
 
 /** Identifies a block by number and hash. */
-export type L2BlockId =
-  | {
-      number: 0;
-      hash: undefined;
-    }
-  | {
-      /** L2 block number. */
-      number: number;
-      /** L2 block hash. */
-      hash: string;
-    };
+export type L2BlockId = z.infer<typeof L2BlockIdSchema>;
+
+const L2BlockIdSchema = z.union([
+  z.object({
+    number: z.literal(0),
+    hash: z.undefined(),
+  }),
+  z.object({
+    number: z.number(),
+    hash: z.string(),
+  }),
+]);
+
+export const L2TipsSchema = z.object({
+  latest: L2BlockIdSchema,
+  proven: L2BlockIdSchema,
+  finalized: L2BlockIdSchema,
+}) satisfies z.ZodType<L2Tips>;

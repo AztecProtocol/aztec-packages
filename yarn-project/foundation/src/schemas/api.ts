@@ -1,10 +1,20 @@
 import { type z } from 'zod';
 
 type ZodFor<T> = z.ZodType<T, z.ZodTypeDef, any>;
+
+// This monstruosity is used for mapping function arguments to their schema representation.
+// The complexity is required to satisfy ZodTuple which requires a fixed length tuple and
+// has a very annoying type of [] | [ZodTypeAny, ...ZodTypeAny], and most types fail to match
+// the second option. While a purely recursive approach works, it fails when trying to deal
+// with optional arguments (ie optional items in the tuple), and ts does not really like them
+// during a recursion and fails with infinite stack depth.
+// This type appears to satisfy everyone. Everyone but me.
 type ZodMapTypes<T> = T extends []
   ? []
-  : T extends [infer Head, ...infer Rest]
-  ? [ZodFor<Head>, ...ZodMapTypes<Rest>]
+  : T extends [item: infer Head, ...infer Rest]
+  ? [ZodFor<Head>, ...{ [K in keyof Rest]: ZodFor<Rest[K]> }]
+  : T extends [item?: infer Head, ...infer Rest]
+  ? [z.ZodOptional<ZodFor<Head>>, ...{ [K in keyof Rest]: ZodFor<Rest[K]> }]
   : never;
 
 /** Maps all functions in an interface to their schema representation. */

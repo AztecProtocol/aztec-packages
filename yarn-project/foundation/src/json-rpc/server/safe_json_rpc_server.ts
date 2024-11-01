@@ -9,7 +9,7 @@ import { ZodError } from 'zod';
 
 import { createDebugLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
-import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/index.js';
+import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
 import { jsonStringify2 } from '../convert.js';
 import { assert } from '../js_utils.js';
 
@@ -44,7 +44,7 @@ export class SafeJsonRpcServer {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
         } else if (err instanceof ZodError) {
-          const message = err.issues.map(e => e.message).join(', ') || 'Validation error';
+          const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32701, message } };
         } else {
@@ -180,8 +180,7 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-
-    const args = this.schema[methodName].parameters().parse(jsonParams);
+    const args = parseWithOptionals(jsonParams, this.schema[methodName].parameters());
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
