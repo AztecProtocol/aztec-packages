@@ -92,7 +92,7 @@ export class RecursiveProof<N extends number> {
 
   /** Creates an instance from a hex string with expected size. */
   static schemaFor<N extends number>(expectedSize?: N) {
-    return schemas.Hex.transform(str => RecursiveProof.fromString(str, expectedSize));
+    return schemas.HexString.transform(str => RecursiveProof.fromString(str, expectedSize));
   }
 }
 

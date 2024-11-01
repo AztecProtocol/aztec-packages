@@ -1,6 +1,7 @@
 import type http from 'http';
 
 import { type ApiSchemaFor } from '../../schemas/api.js';
+import { makeFetch } from '../client/json_rpc_client.js';
 import { createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
 import { startHttpRpcServer } from '../server/json_rpc_server.js';
 import { type SafeJsonRpcServer, createSafeJsonRpcServer } from '../server/safe_json_rpc_server.js';
@@ -17,6 +18,7 @@ export async function createJsonRpcTestSetup<T extends object>(
 ): Promise<JsonRpcTestContext<T>> {
   const server = createSafeJsonRpcServer<T>(handler, schema);
   const httpServer = await startHttpRpcServer(server, { host: '127.0.0.1' });
-  const client = createSafeJsonRpcClient<T>(`http://127.0.0.1:${httpServer.port}`, schema);
+  const noRetryFetch = makeFetch([], true);
+  const client = createSafeJsonRpcClient<T>(`http://127.0.0.1:${httpServer.port}`, schema, false, false, noRetryFetch);
   return { server, client, httpServer };
 }

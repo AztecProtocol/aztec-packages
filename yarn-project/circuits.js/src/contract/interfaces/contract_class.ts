@@ -1,5 +1,8 @@
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 const VERSION = 1 as const;
 
@@ -30,6 +33,21 @@ export interface PrivateFunction {
   vkHash: Fr;
 }
 
+const PrivateFunctionSchema = z.object({
+  selector: schemas.FunctionSelector,
+  vkHash: schemas.Fr,
+}) satisfies z.ZodType<PrivateFunction, any, any>;
+
+/** Private function definition with executable bytecode. */
+export interface ExecutablePrivateFunction extends PrivateFunction {
+  /** ACIR and Brillig bytecode */
+  bytecode: Buffer;
+}
+
+const ExecutablePrivateFunctionSchema = PrivateFunctionSchema.and(
+  z.object({ bytecode: schemas.BufferB64 }),
+) satisfies z.ZodType<ExecutablePrivateFunction, any, any>;
+
 /** Public function definition within a contract class. */
 export interface PublicFunction {
   /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
@@ -38,6 +56,11 @@ export interface PublicFunction {
   bytecode: Buffer;
 }
 
+export const PublicFunctionSchema = z.object({
+  selector: schemas.FunctionSelector,
+  bytecode: schemas.BufferB64,
+}) satisfies z.ZodType<PublicFunction, any, any>;
+
 /** Unconstrained function definition. */
 export interface UnconstrainedFunction {
   /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
@@ -45,6 +68,64 @@ export interface UnconstrainedFunction {
   /** Brillig. */
   bytecode: Buffer;
 }
+
+const UnconstrainedFunctionSchema = z.object({
+  /** lala */
+  selector: schemas.FunctionSelector,
+  bytecode: schemas.BufferB64,
+}) satisfies z.ZodType<UnconstrainedFunction, any, any>;
+
+/** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
+export type PrivateFunctionMembershipProof = {
+  artifactMetadataHash: Fr;
+  functionMetadataHash: Fr;
+  unconstrainedFunctionsArtifactTreeRoot: Fr;
+  privateFunctionTreeSiblingPath: Fr[];
+  privateFunctionTreeLeafIndex: number;
+  artifactTreeSiblingPath: Fr[];
+  artifactTreeLeafIndex: number;
+};
+
+const PrivateFunctionMembershipProofSchema = z.object({
+  artifactMetadataHash: schemas.Fr,
+  functionMetadataHash: schemas.Fr,
+  unconstrainedFunctionsArtifactTreeRoot: schemas.Fr,
+  privateFunctionTreeSiblingPath: z.array(schemas.Fr),
+  privateFunctionTreeLeafIndex: schemas.Integer,
+  artifactTreeSiblingPath: z.array(schemas.Fr),
+  artifactTreeLeafIndex: schemas.Integer,
+}) satisfies z.ZodType<PrivateFunctionMembershipProof, any, any>;
+
+/** A private function with a memebership proof. */
+export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
+
+/** Sibling paths and commitments for proving membership of an unconstrained function within a contract class. */
+export type UnconstrainedFunctionMembershipProof = {
+  artifactMetadataHash: Fr;
+  functionMetadataHash: Fr;
+  privateFunctionsArtifactTreeRoot: Fr;
+  artifactTreeSiblingPath: Fr[];
+  artifactTreeLeafIndex: number;
+};
+
+const UnconstrainedFunctionMembershipProofSchema = z.object({
+  artifactMetadataHash: schemas.Fr,
+  functionMetadataHash: schemas.Fr,
+  privateFunctionsArtifactTreeRoot: schemas.Fr,
+  artifactTreeSiblingPath: z.array(schemas.Fr),
+  artifactTreeLeafIndex: schemas.Integer,
+}) satisfies z.ZodType<UnconstrainedFunctionMembershipProof, any, any>;
+
+/** An unconstrained function with a membership proof. */
+export type UnconstrainedFunctionWithMembershipProof = UnconstrainedFunction & UnconstrainedFunctionMembershipProof;
+
+export const ContractClassSchema = z.object({
+  version: z.literal(VERSION),
+  artifactHash: schemas.Fr,
+  privateFunctions: z.array(PrivateFunctionSchema),
+  publicFunctions: z.array(PublicFunctionSchema),
+  packedBytecode: schemas.BufferB64,
+}) satisfies z.ZodType<ContractClass, any, any>;
 
 /** Commitments to fields of a contract class. */
 interface ContractClassCommitments {
@@ -66,37 +147,14 @@ export type ContractClassPublic = {
 } & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
 
+export const ContractClassPublicSchema = z
+  .object({
+    id: schemas.Fr,
+    privateFunctionsRoot: schemas.Fr,
+    privateFunctions: z.array(ExecutablePrivateFunctionSchema.and(PrivateFunctionMembershipProofSchema)),
+    unconstrainedFunctions: z.array(UnconstrainedFunctionSchema.and(UnconstrainedFunctionMembershipProofSchema)),
+  })
+  .and(ContractClassSchema.omit({ privateFunctions: true })) satisfies z.ZodType<ContractClassPublic, any, any>;
+
 /** The contract class with the block it was initially deployed at */
 export type ContractClassPublicWithBlockNumber = { l2BlockNumber: number } & ContractClassPublic;
-
-/** Private function definition with executable bytecode. */
-export interface ExecutablePrivateFunction extends PrivateFunction {
-  /** ACIR and Brillig bytecode */
-  bytecode: Buffer;
-}
-
-/** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
-export type PrivateFunctionMembershipProof = {
-  artifactMetadataHash: Fr;
-  functionMetadataHash: Fr;
-  unconstrainedFunctionsArtifactTreeRoot: Fr;
-  privateFunctionTreeSiblingPath: Fr[];
-  privateFunctionTreeLeafIndex: number;
-  artifactTreeSiblingPath: Fr[];
-  artifactTreeLeafIndex: number;
-};
-
-/** A private function with a memebership proof. */
-export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
-
-/** Sibling paths and commitments for proving membership of an unconstrained function within a contract class. */
-export type UnconstrainedFunctionMembershipProof = {
-  artifactMetadataHash: Fr;
-  functionMetadataHash: Fr;
-  privateFunctionsArtifactTreeRoot: Fr;
-  artifactTreeSiblingPath: Fr[];
-  artifactTreeLeafIndex: number;
-};
-
-/** An unconstrained function with a membership proof. */
-export type UnconstrainedFunctionWithMembershipProof = UnconstrainedFunction & UnconstrainedFunctionMembershipProof;

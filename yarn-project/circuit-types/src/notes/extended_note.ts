@@ -1,5 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { Note } from '../logs/l1_payload/payload.js';
@@ -48,6 +49,14 @@ export class ExtendedNote {
     return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(ExtendedNote);
+  }
+
   toString() {
     return '0x' + this.toBuffer().toString('hex');
   }
@@ -76,6 +85,10 @@ export class UniqueNote extends ExtendedNote {
     public nonce: Fr,
   ) {
     super(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+  }
+
+  static override get schema() {
+    return hexSchemaFor(UniqueNote);
   }
 
   override toBuffer(): Buffer {

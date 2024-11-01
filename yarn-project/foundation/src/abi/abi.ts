@@ -1,4 +1,5 @@
 import { inflate } from 'pako';
+import { z } from 'zod';
 
 import { type Fr } from '../fields/fields.js';
 import { type FunctionSelector } from './function_selector.js';
@@ -347,43 +348,30 @@ export type FieldLayout = {
   slot: Fr;
 };
 
-/**
- * Defines artifact of a contract.
- */
+/** Defines artifact of a contract. */
 export interface ContractArtifact {
-  /**
-   * The name of the contract.
-   */
+  /** The name of the contract. */
   name: string;
 
-  /**
-   * The version of compiler used to create this artifact
-   */
+  /** The version of compiler used to create this artifact */
   aztecNrVersion?: string;
 
-  /**
-   * The functions of the contract.
-   */
+  /** The functions of the contract. */
   functions: FunctionArtifact[];
-  /**
-   * The outputs of the contract.
-   */
+
+  /** The outputs of the contract. */
   outputs: {
     structs: Record<string, AbiType[]>;
     globals: Record<string, AbiValue[]>;
   };
-  /**
-   * Storage layout
-   */
+
+  /** Storage layout */
   storageLayout: Record<string, FieldLayout>;
-  /**
-   * The notes used in the contract.
-   */
+
+  /** The notes used in the contract. */
   notes: Record<string, ContractNote>;
 
-  /**
-   * The map of file ID to the source code and path of the file.
-   */
+  /** The map of file ID to the source code and path of the file. */
   fileMap: DebugFileMap;
 }
 
@@ -400,6 +388,20 @@ export interface FunctionDebugMetadata {
    */
   files: DebugFileMap;
 }
+
+// CONTINUE HERE
+export const ContractArtifactSchema = z.object({
+  name: z.string(),
+  aztecNrVersion: z.string().optional(),
+  functions: z.array(FunctionArtifactSchema),
+  outputs: z.object({
+    structs: z.record(z.array(AbiTypeSchema)),
+    globals: z.record(z.array(AbiValueSchema)),
+  }),
+  storageLayout: z.record(FieldLayoutSchema),
+  notes: z.record(ContractNoteSchema),
+  fileMap: z.record(DebugFileMapSchema),
+});
 
 /**
  * Gets a function artifact including debug metadata given its name or selector.

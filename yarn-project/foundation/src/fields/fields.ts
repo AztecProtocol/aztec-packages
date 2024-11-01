@@ -302,6 +302,7 @@ export class Fr extends BaseField {
     return Fr.fromBuffer(rootBuf);
   }
 
+  // TODO(palla/schemas): Use toString instead of structured type
   toJSON() {
     return {
       type: 'Fr',

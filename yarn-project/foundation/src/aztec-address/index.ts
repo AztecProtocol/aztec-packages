@@ -19,6 +19,10 @@ export class AztecAddress extends Fr {
     super(buffer);
   }
 
+  static isAddress(str: string) {
+    return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
+  }
+
   [inspect.custom]() {
     return `AztecAddress<${this.toString()}>`;
   }

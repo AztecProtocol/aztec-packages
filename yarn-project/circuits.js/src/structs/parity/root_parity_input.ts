@@ -65,6 +65,6 @@ export class RootParityInput<PROOF_LENGTH extends number> {
 
   /** Creates an instance from a hex string with expected size. */
   static schemaFor<N extends number>(expectedSize?: N) {
-    return schemas.Hex.transform(str => RootParityInput.fromString(str, expectedSize));
+    return schemas.HexString.transform(str => RootParityInput.fromString(str, expectedSize));
   }
 }
