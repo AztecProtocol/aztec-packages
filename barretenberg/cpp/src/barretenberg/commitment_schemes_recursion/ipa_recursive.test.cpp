@@ -1,4 +1,5 @@
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
@@ -26,8 +27,7 @@ class IPATest : public CommitmentTest<NativeCurve> {
     using RecursiveIPA = IPA<Curve>;
     using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
-    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_accumulator(Builder& builder,
-                                                                                             const size_t n)
+    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder, const size_t n)
     {
         // First generate an ipa proof
         auto poly = Polynomial::random(n);
@@ -54,41 +54,51 @@ class IPATest : public CommitmentTest<NativeCurve> {
         auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
+        // Construct stdlib verifier transcript
         auto recursive_verifier_transcript =
             std::make_shared<StdlibTranscript>(bb::convert_proof_to_witness(&builder, prover_transcript->proof_data));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
 
+    /**
+     * @brief Tests IPA recursion
+     * @details Creates an IPA claim and then runs the recursive IPA verification and checks that the circuit is valid.
+     * @param POLY_LENGTH
+     */
     void test_recursive_ipa(const size_t POLY_LENGTH)
     {
         Builder builder;
         auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
-        auto [stdlib_transcript, stdlib_claim] = create_ipa_accumulator(builder, POLY_LENGTH);
+        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
         RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     /**
      * @brief Tests IPA accumulation by accumulating two IPA claims and proving the accumulated claim
-     *
+     * @details Creates two IPA claims, and then two IPA accumulators through recursive verification. Proves the
+     * accumulated claim and checks that it verifies.
      * @param POLY_LENGTH
      */
     void test_accumulation(const size_t POLY_LENGTH)
     {
         // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
         // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
-        // contain the commitment and an opening claim
+        // contain the commitment and an opening claim.
         Builder builder;
         auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
 
-        auto [transcript_1, acc_1] = create_ipa_accumulator(builder, POLY_LENGTH);
-        auto [transcript_2, acc_2] = create_ipa_accumulator(builder, POLY_LENGTH);
+        auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH);
+        auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH);
 
-        // Construct the accumulator and polynomial from the u_chals
+        // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
+        // polynomial.
         auto [output_claim, h_poly] =
-            RecursiveIPA::accumulate(recursive_verifier_ck, transcript_1, acc_1, transcript_2, acc_2);
+            RecursiveIPA::accumulate(recursive_verifier_ck, transcript_1, claim_1, transcript_2, claim_2);
 
-        // now make an ipa proof with this claim
+        // Run the IPA prover on this new accumulated claim.
         auto prover_transcript = std::make_shared<NativeTranscript>();
         const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
                                                      bb::fq(output_claim.opening_pair.evaluation.get_value()) };
@@ -96,7 +106,7 @@ class IPATest : public CommitmentTest<NativeCurve> {
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
         NativeIPA::compute_opening_proof(this->ck(), { h_poly, opening_pair }, prover_transcript);
-        // natively verify this proof to check it
+        // Natively verify this proof to check it.
         auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
