@@ -134,7 +134,7 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
   spanName: string | ((this: T, ...args: Parameters<F>) => string),
   attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Attributes),
   extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => Attributes,
-  traceId?: string,
+  traceId?: (this: T, ...args: Parameters<F>) => string,
 ): SpanDecorator<T, F> {
   // the return value of trackSpan is a decorator
   return (originalMethod: F, _context: ClassMethodDecoratorContext<T>) => {
@@ -143,12 +143,13 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
     return function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
       const name = typeof spanName === 'function' ? spanName.call(this, ...args) : spanName;
       const currentAttrs = typeof attributes === 'function' ? attributes.call(this, ...args) : attributes;
+      const currentTraceId = typeof traceId === 'function' ? traceId.call(this, ...args) : traceId;
 
       // Allow setting of the traceId on the span
       let ctx: Context | undefined = context.active();
-      if (traceId !== undefined) {
+      if (currentTraceId !== undefined) {
         const spanContext = {
-          traceId: traceId,
+          traceId: currentTraceId,
           spanId: crypto.randomUUID() as string,
           traceFlags: TraceFlags.SAMPLED,
           isRemote: false,

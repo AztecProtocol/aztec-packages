@@ -523,7 +523,7 @@ export class Sequencer {
     [Attributes.BLOCK_NUMBER]: block.number,
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
-  }))
+  }), undefined, /*traceId=*/ block => block.archive.toString()) // TODO(md): this will prevent this becoming a sub span of the full block building tx????
   protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();

@@ -409,7 +409,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
-  }))
+  }), undefined, /*traceId=*/ attestation => attestation.archive.toString())
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
     this.logger.debug(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
     await this.mempools.attestationPool.addAttestations([attestation]);
@@ -427,7 +427,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: block.p2pMessageIdentifier().toString(),
-  }))
+  }), undefined, /*traceId=*/ block => block.archive.toString())
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
     this.logger.verbose(`Received block ${block.p2pMessageIdentifier()} from external peer.`);
     const attestation = await this.blockReceivedCallback(block);
@@ -449,7 +449,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: attestation.p2pMessageIdentifier().toString(),
-  }))
+  }), undefined, /*traceId=*/ attestation => attestation.archive.toString())
   private broadcastAttestation(attestation: BlockAttestation): void {
     this.propagate(attestation);
   }
