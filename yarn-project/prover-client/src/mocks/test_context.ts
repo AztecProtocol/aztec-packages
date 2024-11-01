@@ -138,7 +138,7 @@ export class TestContext {
       processor,
       simulationProvider,
       globalVariables,
-      publicDb,
+      proverDb,
       localProver,
       agent,
       orchestrator,
