@@ -40,8 +40,7 @@ contract Test {
     // For testing non-note encrypted logs
     // #[private]
     fn emit_array_as_encrypted_log(cond: bool) {
-        let mut context = std::mem::zeroed::<TestContext>();
-        context.side_effect_counter = cond as u32 + 7;
+        let mut context = TestContext { side_effect_counter: cond as u32 + 7 };
 
         // side_effect_counter == 7
         assert(context.side_effect_counter != 0, "this assert should not be triggered");
@@ -49,7 +48,9 @@ contract Test {
         // Print a unique constant so that this position is more easily found in SSA printouts
         println(340_282_366_920_938_463_463_374_607_431_768_211_455);
         if cond {
-            encode_and_encrypt_event_with_randomness(&mut context)();
+            encode_and_encrypt_event_with_randomness(&mut context);
+        } else {
+            context.side_effect_counter += 3;
         }
         println(340_282_366_920_938_463_463_374_607_431_768_211_455);
 

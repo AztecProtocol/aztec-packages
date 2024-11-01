@@ -64,16 +64,19 @@ pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
 // https://github.com/noir-lang/noir/issues/5771
 // If you get weird behavior it might be because of it.
 pub fn encode_and_encrypt_event_with_randomness(context: &mut TestContext)
-    -> fn[(&mut TestContext,)]() -> ()
+ //   -> fn[(&mut TestContext,)]() -> ()
 {
-    || {
+    let f = || {
         let ovpk: OvpkM = std::mem::zeroed();
         // let ivpk: IvpkM = std::mem::zeroed();
         let recipient: AztecAddress = std::mem::zeroed();
-        let _ = context.request_ovsk_app(ovpk.hash());
+        let hash = ovpk.hash();
+        println(hash);
+        let _ = context.request_ovsk_app(hash);
         let _ = compute_raw_event_log(recipient);
         context.side_effect_counter += 1;
-    }
+    };
+    f();
 }
 
 pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let N: u32>(

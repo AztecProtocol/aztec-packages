@@ -593,12 +593,11 @@ impl Empty for PrivateContext {
 }
 
 impl TestContext {
-    pub fn request_ovsk_app(&mut self, pk_m_hash: Field) -> Field {
+    pub fn request_ovsk_app(&mut self, pk_m_hash: Field) {
         // let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
         if pk_m_hash + 1 == pk_m_hash {
             // We get a match so the cached request is the latest one
-            100
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
@@ -609,8 +608,8 @@ impl TestContext {
             // assert(request.pk_m.hash() == pk_m_hash);
             // self.key_validation_requests_and_generators.push(request_and_generator);
             // self.last_key_validation_requests[key_index] = Option::some(std::mem::zeroed());
-            self.side_effect_counter = 200;
-            200
+            self.side_effect_counter = 300;
         }
+        println(self.side_effect_counter);
     }
 }
