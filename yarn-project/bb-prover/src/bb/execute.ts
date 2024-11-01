@@ -444,12 +444,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (
-      !filePresent(vkPath) ||
-      !filePresent(proofPath) ||
-      !filePresent(translatorVkPath) ||
-      !filePresent(eccVkPath)
-    ) {
+    if (!filePresent(vkPath) || !filePresent(proofPath) || !filePresent(translatorVkPath) || !filePresent(eccVkPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
@@ -643,7 +638,6 @@ export async function verifyClientIvcProof(
     const args = ['-o', targetPath];
     const timer = new Timer();
     const command = 'verify_client_ivc';
-    console.log("Client IVC args ",args);
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
@@ -746,7 +740,7 @@ export async function writeVkAsFields(
  * @param pathToBB - The full path to the bb binary
  * @param proofPath - The directory containing the binary proof
  * @param proofFileName - The filename of the proof
- * @param vkFileName - The filename of the verification key
+ * @param vkFileName - The filename oFailed to verify proof from key!f the verification key
  * @param log - A logging function
  * @returns An object containing a result indication and duration taken
  */
