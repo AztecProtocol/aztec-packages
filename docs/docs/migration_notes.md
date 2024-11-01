@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.X.X
+## 0.62.0
 ### [TXE] Single execution environment
 Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
 This ensures every single test runs in a consistent environment and allows for clearer test syntax:
@@ -18,7 +18,7 @@ This ensures every single test runs in a consistent environment and allows for c
 ```
 This implies every contract has to be deployed before it can be tested (via `env.deploy` or `env.deploy_self`) and of course it has to be recompiled if its code was changed before TXE can use the modified bytecode.
 
-### Unique of L1 to L2 messages
+### Uniqueness of L1 to L2 messages
 
 L1 to L2 messages have been updated to guarantee their uniqueness. This means that the hash of an L1 to L2 message cannot be precomputed, and must be obtained from the `MessageSent` event emitted by the `Inbox` contract, found in the L1 transaction receipt that inserted the message:
 
@@ -46,6 +46,25 @@ getL1ToL2MessageMembershipWitness(
   l1ToL2Message: Fr,
 - startIndex: bigint,
 ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
+```
+
+### Address is now a point
+
+The address now serves as someone's public key to encrypt incoming notes. An address point has a corresponding address secret, which is used to decrypt the notes encrypted with the address point.
+
+### Notes no longer store a hash of the nullifier public keys, and now store addresses
+
+Because of removing key rotation, we can now store addresses as the owner of a note. Because of this and the above change, we can and have removed the process of registering a recipient, because now we do not need any keys of the recipient.
+
+example_note.nr
+```diff
+-npk_m_hash: Field
++owner: AztecAddress
+```
+
+PXE Interface
+```diff
+-registerRecipient(completeAddress: CompleteAddress)
 ```
 
 ## 0.58.0
