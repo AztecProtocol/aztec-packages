@@ -66,7 +66,7 @@ describe('Simulator oracle', () => {
       return { completeAddress, ivsk: keys.masterIncomingViewingSecretKey };
     });
     for (const sender of senders) {
-      await database.addCompleteAddress(sender.completeAddress);
+      await database.addContactAddress(sender.completeAddress.address);
     }
 
     const logs: { [k: string]: EncryptedL2NoteLog[] } = {};
