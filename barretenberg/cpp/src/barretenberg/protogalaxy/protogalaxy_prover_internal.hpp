@@ -109,7 +109,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const ProverPolynomials& polynomials,
         const RelationSeparator& alphas_,
         const RelationParameters<FF>& relation_parameters,
-        [[maybe_unused]] ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
 
     {
 
@@ -201,7 +201,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                               std::span<const FF> deltas,
                                                               const std::vector<FF>& full_honk_evaluations)
     {
-        // PROFILE_THIS_NAME("PG::construct_perturbator_coefficients");
         auto width = full_honk_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
         parallel_for_heuristic(
@@ -291,7 +290,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                 const Parameters& relation_parameters,
                                                 const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("PG::accumulate_relation_univariates");
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
         //  Check if the relation is skippable to speed up accumulation
@@ -350,8 +348,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
-        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version
-        // that doesn't skip computation), so we need to define types depending on the template instantiation
+        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
+        // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
             std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
@@ -367,9 +365,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<ExtendedUnivatiatesType> extended_univariates;
         extended_univariates.resize(num_threads);
 
-        // std::vector<size_t> work_iterations(num_threads);
-
-        // Distrivute the execution trace rows across threads so that each handles an equal number of active rows
+        // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads);
 
         // Accumulate the contribution from each sub-relation
@@ -394,14 +390,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                     extended_univariates[thread_idx],
                                                     relation_parameters, // these parameters have already been folded
                                                     pow_challenge);
-                    // work_iterations[thread_idx] += 1;
                 }
             }
         });
-
-        // for (auto num : work_iterations) {
-        //     info("Thread work iters = ", num);
-        // }
 
         RelationUtils::zero_univariates(univariate_accumulators);
         // Accumulate the per-thread univariate accumulators into a single set of accumulators

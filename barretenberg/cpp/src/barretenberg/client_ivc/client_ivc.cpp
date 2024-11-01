@@ -180,7 +180,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
             circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
     }
 
-    // Update the full IVC trace usage based on the present circuit
+    // Update the accumulator trace usage based on the present circuit
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it

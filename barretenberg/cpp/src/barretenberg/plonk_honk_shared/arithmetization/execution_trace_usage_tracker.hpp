@@ -7,9 +7,9 @@ namespace bb {
 
 /**
  * @brief Tracks the cumulative usage of the execution trace across a series of circuits
- * @details Primary uses are (1) determining the minimum required structured trace configuration for a given series of
- * circuits, and (2) determining the optimal distribution of rows across threads to evenly distribute work since unused
- * rows often do not require any computation.
+ * @details Primary uses are (1) determining the minimum required structured trace block sizes for a series of circuits
+ * in an IVC, and (2) determining the optimal distribution of rows across threads to evenly distribute work based on the
+ * fact that unused rows often do not require any computation.
  *
  */
 struct ExecutionTraceUsageTracker {
@@ -147,7 +147,7 @@ struct ExecutionTraceUsageTracker {
     /**
      * @brief Construct sorted disjoint ranges representing the union of an arbitrary set of ranges
      * @details Used to convert the more complex set of active ranges for the gate types into a set of well formed
-     * ranges that can be used to determine efficient distribution of execution trace rows across threads.
+     * ranges that can be more easily analyzed.
      *
      * @param ranges Arbitrary set of input ranges (in practice, active ranges of gate types)
      * @return std::vector<Range>
@@ -181,7 +181,7 @@ struct ExecutionTraceUsageTracker {
      * @details In practive this is used to determine even distribution of execution trace rows across threads according
      * to ranges describing the active rows of an IVC accumulator
      *
-     * @param union_ranges
+     * @param union_ranges A set of sorted, disjoint ranges
      * @param num_threads
      * @return std::vector<Range>
      */
