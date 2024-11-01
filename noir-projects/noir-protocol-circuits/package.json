@@ -2,6 +2,7 @@
   "name": "noir-protocol-circuits-generator",
   "version": "0.0.0",
   "main": "index.js",
+  "license": "Apache-2.0",
   "dependencies": {
     "@iarna/toml": "^2.2.5"
   }
