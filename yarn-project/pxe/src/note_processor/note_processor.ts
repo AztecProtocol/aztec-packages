@@ -147,11 +147,16 @@ export class NoteProcessor {
         // We iterate over both encrypted and unencrypted logs to decrypt the notes since partial notes are passed
         // via the unencrypted logs stream.
         for (const txFunctionLogs of [encryptedTxFunctionLogs, unencryptedTxFunctionLogs]) {
+          const isFromPublic = txFunctionLogs === unencryptedTxFunctionLogs;
           for (const functionLogs of txFunctionLogs) {
             for (const unprocessedLog of functionLogs.logs) {
               this.stats.seen++;
-              const incomingNotePayload = L1NotePayload.decryptAsIncoming(unprocessedLog.data, addressSecret);
-              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(unprocessedLog.data, ovskM);
+              const incomingNotePayload = L1NotePayload.decryptAsIncoming(
+                unprocessedLog.data,
+                addressSecret,
+                isFromPublic,
+              );
+              const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(unprocessedLog.data, ovskM, isFromPublic);
 
               if (incomingNotePayload || outgoingNotePayload) {
                 if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
