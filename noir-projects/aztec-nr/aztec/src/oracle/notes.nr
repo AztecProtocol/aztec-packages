@@ -221,6 +221,16 @@ unconstrained fn get_app_tagging_secret_oracle(
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
 
+pub unconstrained fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
+    increment_app_tagging_secret_oracle(sender, recipient);
+}
+
+#[oracle(incrementAppTaggingSecret)]
+unconstrained fn increment_app_tagging_secret_oracle(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+) {}
+
 /// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
 // siloed for the current contract address.
 /// Includes the last known index used for tagging with this secret.

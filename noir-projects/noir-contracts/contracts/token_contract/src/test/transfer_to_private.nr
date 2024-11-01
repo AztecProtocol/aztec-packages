@@ -1,9 +1,8 @@
 use crate::{test::utils, Token};
 use dep::aztec::{
-    keys::getters::get_public_keys, oracle::random::random, prelude::NoteHeader,
+    keys::getters::get_public_keys, oracle::random::random,
     protocol_types::storage::map::derive_storage_slot_in_map,
 };
-use dep::uint_note::uint_note::UintNote;
 use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_transfer_to_private`
@@ -45,20 +44,13 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
-    // is not called and we don't have a `NoteProcessor` in TXE.
-    let balances_owner_slot =
-        derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient);
-
-    env.add_note(
-        &mut UintNote {
-            value: U128::from_integer(amount),
-            owner: recipient,
-            randomness: note_randomness,
-            header: NoteHeader::empty(),
-        },
-        balances_owner_slot,
+    // We need to manually add the note because #8771 has not yet been implemented
+    utils::add_token_note(
+        env,
         token_contract_address,
+        recipient,
+        amount,
+        note_randomness,
     );
 
     // Recipient's private balance should be equal to the amount

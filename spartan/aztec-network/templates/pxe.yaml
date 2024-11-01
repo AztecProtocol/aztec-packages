@@ -57,6 +57,8 @@ spec:
               value: "{{ .Values.pxe.logLevel }}"
             - name: DEBUG
               value: "{{ .Values.pxe.debug }}"
+            - name: PXE_PROVER_ENABLED
+              value: "{{ .Values.pxe.proverEnabled }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.port }}

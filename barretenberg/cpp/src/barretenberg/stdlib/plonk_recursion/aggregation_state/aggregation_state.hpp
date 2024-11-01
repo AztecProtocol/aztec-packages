@@ -109,11 +109,11 @@ aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
 {
     std::array<typename Curve::BaseField, 4> aggregation_elements;
     for (size_t i = 0; i < 4; ++i) {
-        aggregation_elements[i] =
-            typename Curve::BaseField(Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i]),
-                                      Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 1]),
-                                      Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 2]),
-                                      Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 3]));
+        aggregation_elements[i] = Curve::BaseField::construct_from_limbs(
+            Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i]),
+            Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 1]),
+            Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 2]),
+            Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 3]));
         aggregation_elements[i].assert_is_in_field();
     }
 
