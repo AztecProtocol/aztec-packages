@@ -42,7 +42,7 @@ struct ExecutionTraceUsageTracker {
     }
 
     // Update the max block utilization and active trace ranges based on the data from a provided circuit
-    void update(Builder& circuit)
+    void update(const Builder& circuit)
     {
         // Update the max utilization of each gate block
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
@@ -152,7 +152,7 @@ struct ExecutionTraceUsageTracker {
      * @param ranges Arbitrary set of input ranges (in practice, active ranges of gate types)
      * @return std::vector<Range>
      */
-    static std::vector<Range> construct_union_of_ranges(std::vector<Range> ranges)
+    static std::vector<Range> construct_union_of_ranges(std::vector<Range>& ranges)
     {
         std::vector<Range> union_ranges;
 
@@ -186,7 +186,7 @@ struct ExecutionTraceUsageTracker {
      * @return std::vector<Range>
      */
     static std::vector<Range> construct_ranges_for_equal_content_distribution(const std::vector<Range>& union_ranges,
-                                                                              size_t num_threads)
+                                                                              const size_t num_threads)
     {
         // Compute the minimum content per thread (final thread will get the leftovers = total_content % num_threads)
         size_t total_content = 0;

@@ -42,6 +42,13 @@ template <typename FF_> class MegaArith {
                              aux,        poseidon2_external, poseidon2_internal,
                              lookup };
         }
+        auto get() const
+        {
+            return RefArray{ ecc_op,     pub_inputs,         busread,
+                             arithmetic, delta_range,        elliptic,
+                             aux,        poseidon2_external, poseidon2_internal,
+                             lookup };
+        }
 
         auto get_gate_blocks()
         {
