@@ -178,7 +178,10 @@ async function generateVKData(
 
   const writeVkCommand = `${BB_BIN_PATH} ${
     isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
-  } -h -b "${artifactPath}" -o "${binaryVkPath}"`;
+  } -h -b "${artifactPath}" -o "${binaryVkPath}" --recursive`;
+
+  console.log("WRITE VK CMD: ", writeVkCommand);
+
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
     isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
