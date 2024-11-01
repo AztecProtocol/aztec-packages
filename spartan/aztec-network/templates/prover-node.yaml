@@ -93,12 +93,31 @@ spec:
             - name: PROVER_PUBLISHER_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
             # get private proofs from the boot node
-            - name: PROVER_COORDINATION_NODE_URL
-              value: {{ include "aztec-network.bootNodeUrl" . | quote }}
             - name: PROVER_JOB_SOURCE_URL
               value: "http://$(POD_IP):{{ .Values.proverNode.service.nodePort }}"
+            - name: P2P_ENABLED
+              value: "{{ .Values.proverNode.p2pEnabled }}"
+            - name: P2P_TCP_ANNOUNCE_ADDR
+              {{- if .Values.proverNode.externalTcpHost }}
+              value: "{{ .Values.proverNode.externalTcpHost }}:{{ .Values.proverNode.service.p2pTcpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.proverNode.service.p2pTcpPort }}"
+              {{- end }}
+            - name: P2P_UDP_ANNOUNCE_ADDR
+              {{- if .Values.proverNode.externalUdpHost }}
+              value: "{{ .Values.proverNode.externalUdpHost }}:{{ .Values.proverNode.service.p2pUdpPort }}"
+              {{- else }}
+              value: "$(POD_DNS_NAME):{{ .Values.proverNode.service.p2pUdpPort }}"
+              {{- end }}
+            - name: P2P_TCP_LISTEN_ADDR
+              value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
+            - name: P2P_UDP_LISTEN_ADDR
+              value: "0.0.0.0:{{ .Values.proverNode.service.p2pUdpPort }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
+            - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
+            - containerPort: {{ .Values.proverNode.service.p2pUdpPort }}
+              protocol: UDP
           resources:
             {{- toYaml .Values.proverNode.resources | nindent 12 }}
       volumes:
@@ -140,12 +159,17 @@ spec:
   ports:
     - port: {{ .Values.proverNode.service.nodePort }}
       name: node
+    - port: {{ .Values.proverNode.service.p2pTcpPort }}
+      name: p2p-tcp
+    - port: {{ .Values.proverNode.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
 ---
 {{if .Values.network.public }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-prover-node-lb
+  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-tcp
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
@@ -156,5 +180,27 @@ spec:
   ports:
     - port: {{ .Values.proverNode.service.nodePort }}
       name: node
+    - port: {{ .Values.proverNode.service.p2pTcpPort }}
+      name: p2p-tcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-node-lb-udp
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: prover-node
+  ports:
+    - port: {{ .Values.proverNode.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
 {{ end }}
 {{ end }}

@@ -60,6 +60,10 @@ spec:
               value: "{{ .Values.bot.pxeProverEnabled }}"
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.bot.proverRealProofs }}"
+            - name: BOT_MAX_CONSECUTIVE_ERRORS
+              value: "3"
+            - name: BOT_STOP_WHEN_UNHEALTHY
+              value: "true"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.port }}

@@ -4,12 +4,10 @@ import { TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
+import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 
-const { PXE_URL } = process.env;
-if (!PXE_URL) {
-  throw new Error('PXE_URL env variable must be set');
-}
+const config = getConfig(process.env);
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
@@ -22,6 +20,18 @@ describe('token transfer test', () => {
   let testWallets: TestWallets;
 
   beforeAll(async () => {
+    let PXE_URL;
+    if (isK8sConfig(config)) {
+      await startPortForward({
+        resource: 'svc/spartan-aztec-network-pxe',
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_PXE_PORT,
+        hostPort: config.HOST_PXE_PORT,
+      });
+      PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+    } else {
+      PXE_URL = config.PXE_URL;
+    }
     testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
