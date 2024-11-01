@@ -40,6 +40,10 @@ export PROVER_PUBLISHER_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478c
 export PROVER_COORDINATION_NODE_URL="http://127.0.0.1:8080"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export PROVER_JOB_SOURCE_URL="http://127.0.0.1:$PORT"
+export OTEL_RESOURCE_ATTRIBUTES="service.name=prover-node-${PORT}"
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-}"
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}"
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 
 # Start the Prover Node with the prover and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --prover-node --prover --archiver
