@@ -223,6 +223,7 @@ export class Archiver implements ArchiveSource {
     const { l1StartBlock } = this.l1constants;
     const { blocksSynchedTo = l1StartBlock, messagesSynchedTo = l1StartBlock } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
+    const currentL1Timestamp = BigInt((await this.publicClient.getBlock()).timestamp);
 
     // ********** Ensuring Consistency of data pulled from L1 **********
 
@@ -255,7 +256,7 @@ export class Archiver implements ArchiveSource {
       // blocks from more than 2 epochs ago, so we want to make sure we have the latest view of
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
-      await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+      await this.handleEpochPrune(provenBlockNumber, currentL1Timestamp);
     }
 
     // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
@@ -266,12 +267,11 @@ export class Archiver implements ArchiveSource {
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
-  private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
+  private async handleEpochPrune(provenBlockNumber: bigint, currentL1Timestamp: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
 
     const canPrune =
-      localPendingBlockNumber > provenBlockNumber &&
-      (await this.rollup.read.canPrune({ blockNumber: currentL1BlockNumber }));
+      localPendingBlockNumber > provenBlockNumber && (await this.rollup.read.canPruneAt([currentL1Timestamp]));
 
     if (canPrune) {
       this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
