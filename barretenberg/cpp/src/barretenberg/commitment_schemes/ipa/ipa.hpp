@@ -88,7 +88,6 @@ template <typename Curve_> class IPA {
    using CK = CommitmentKey<Curve>;
    using VK = VerifierCommitmentKey<Curve>;
    using VerifierAccumulator = stdlib::recursion::honk::IpaPolyCommitmentPair<Curve>;
-   using IpaAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
@@ -736,13 +735,13 @@ template <typename Curve_> class IPA {
         return h;
     }
 
-    static std::pair<IpaAccumulator, Polynomial<bb::fq>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, IpaAccumulator acc_1, auto& transcript_2, IpaAccumulator acc_2)
+    static std::pair<OpeningClaim<Curve>, Polynomial<bb::fq>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
     requires Curve::is_stdlib_type
     {
         using Builder = typename Curve::Builder;
         // Step 1: Run the verifier for each IPA instance
-        VerifierAccumulator pair_1 = reduce_verify(verifier_ck, {{ acc_1.eval_point, acc_1.eval }, acc_1.comm}, transcript_1);
-        VerifierAccumulator pair_2 = reduce_verify(verifier_ck, {{ acc_2.eval_point, acc_2.eval }, acc_2.comm}, transcript_2);
+        VerifierAccumulator pair_1 = reduce_verify(verifier_ck, claim_1, transcript_1);
+        VerifierAccumulator pair_2 = reduce_verify(verifier_ck, claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
@@ -754,11 +753,11 @@ template <typename Curve_> class IPA {
         auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
         // Step 3: Compute the new accumulator
-        IpaAccumulator output_accumulator;
-        output_accumulator.comm = pair_1.comm + pair_2.comm * alpha;
-        output_accumulator.eval_point = r;
+        OpeningClaim<Curve> output_claim;
+        output_claim.commitment = pair_1.comm + pair_2.comm * alpha;
+        output_claim.opening_pair.challenge = r;
         // Evaluate the h polys at r and linearly combine them with alpha challenge
-        output_accumulator.eval = evaluate_and_accumulate_h_polys(pair_1.u_chals_inv, pair_2.u_chals_inv, r, alpha);
+        output_claim.opening_pair.evaluation = evaluate_and_accumulate_h_polys(pair_1.u_chals_inv, pair_2.u_chals_inv, r, alpha);
 
         // Step 4: Compute the new polynomial
         std::vector<bb::fq> native_u_chals_inv_1;
@@ -769,7 +768,7 @@ template <typename Curve_> class IPA {
         for (Fr u_inv_i : pair_2.u_chals_inv) {
             native_u_chals_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
-        return {output_accumulator, create_h_poly(native_u_chals_inv_1, native_u_chals_inv_2, fq(alpha.get_value()))};
+        return {output_claim, create_h_poly(native_u_chals_inv_1, native_u_chals_inv_2, fq(alpha.get_value()))};
     }
 };
 

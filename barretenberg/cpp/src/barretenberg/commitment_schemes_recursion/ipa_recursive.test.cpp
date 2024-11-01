@@ -22,13 +22,12 @@ class IPATest : public CommitmentTest<NativeCurve> {
     using VK = VerifierCommitmentKey<NativeCurve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename NativeCurve::AffineElement;
-    using IpaAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
     using NativeIPA = IPA<NativeCurve>;
     using RecursiveIPA = IPA<Curve>;
     using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
-    std::pair<std::shared_ptr<StdlibTranscript>, IpaAccumulator> create_ipa_accumulator(Builder& builder,
-                                                                                        const size_t n)
+    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_accumulator(Builder& builder,
+                                                                                             const size_t n)
     {
         // First generate an ipa proof
         auto poly = Polynomial::random(n);
@@ -53,23 +52,27 @@ class IPATest : public CommitmentTest<NativeCurve> {
         auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
         auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
         auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
-        IpaAccumulator acc{ stdlib_comm, stdlib_x, stdlib_eval };
+        OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
         auto recursive_verifier_transcript =
             std::make_shared<StdlibTranscript>(bb::convert_proof_to_witness(&builder, prover_transcript->proof_data));
-        return { recursive_verifier_transcript, acc };
+        return { recursive_verifier_transcript, stdlib_opening_claim };
     }
 
     void test_recursive_ipa(const size_t POLY_LENGTH)
     {
         Builder builder;
         auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
-        auto [transcript_1, acc_1] = create_ipa_accumulator(builder, POLY_LENGTH);
+        auto [stdlib_transcript, stdlib_claim] = create_ipa_accumulator(builder, POLY_LENGTH);
 
-        RecursiveIPA::reduce_verify(
-            recursive_verifier_ck, { { acc_1.eval_point, acc_1.eval }, acc_1.comm }, transcript_1);
+        RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
     }
 
+    /**
+     * @brief Tests IPA accumulation by accumulating two IPA claims and proving the accumulated claim
+     *
+     * @param POLY_LENGTH
+     */
     void test_accumulation(const size_t POLY_LENGTH)
     {
         // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
@@ -82,14 +85,14 @@ class IPATest : public CommitmentTest<NativeCurve> {
         auto [transcript_2, acc_2] = create_ipa_accumulator(builder, POLY_LENGTH);
 
         // Construct the accumulator and polynomial from the u_chals
-        auto [output_acc, h_poly] =
+        auto [output_claim, h_poly] =
             RecursiveIPA::accumulate(recursive_verifier_ck, transcript_1, acc_1, transcript_2, acc_2);
 
         // now make an ipa proof with this claim
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_acc.eval_point.get_value()),
-                                                     bb::fq(output_acc.eval.get_value()) };
-        Commitment native_comm = output_acc.comm.get_value();
+        const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
+                                                     bb::fq(output_claim.opening_pair.evaluation.get_value()) };
+        Commitment native_comm = output_claim.commitment.get_value();
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
         NativeIPA::compute_opening_proof(this->ck(), { h_poly, opening_pair }, prover_transcript);
@@ -104,11 +107,19 @@ class IPATest : public CommitmentTest<NativeCurve> {
 
 #define IPA_TEST
 
+/**
+ * @brief Tests IPA recursion with polynomial of length 4
+ * @details More details in test_recursive_ipa
+ */
 TEST_F(IPATest, RecursiveSmall)
 {
     test_recursive_ipa(/*POLY_LENGTH=*/4);
 }
 
+/**
+ * @brief Tests IPA recursion with polynomial of length 1024
+ * @details More details in test_recursive_ipa
+ */
 TEST_F(IPATest, RecursiveMedium)
 {
     test_recursive_ipa(/*POLY_LENGTH=*/1024);
@@ -116,7 +127,7 @@ TEST_F(IPATest, RecursiveMedium)
 
 /**
  * @brief Test accumulation with polynomials of length 4
- *
+ * @details More details in test_accumulation
  */
 TEST_F(IPATest, AccumulateSmall)
 {
@@ -125,7 +136,7 @@ TEST_F(IPATest, AccumulateSmall)
 
 /**
  * @brief Test accumulation with polynomials of length 789
- *
+ * @details More details in test_accumulation
  */
 TEST_F(IPATest, AccumulateMedium)
 {

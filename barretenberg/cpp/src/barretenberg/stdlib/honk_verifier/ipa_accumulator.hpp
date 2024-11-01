@@ -3,12 +3,6 @@
 #include <vector>
 namespace bb::stdlib::recursion::honk {
 
-template <typename Curve> struct IpaAccumulator {
-    typename Curve::Group comm;
-    typename Curve::ScalarField eval_point;
-    typename Curve::ScalarField eval;
-};
-
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1009): Make the us vector an array after we constify eccvm
 // circuit size.
 template <typename Curve> struct IpaPolyCommitmentPair {
