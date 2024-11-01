@@ -1081,7 +1081,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           // infinitely loop back to the tested instruction
           // infinite loop should break on side effect overrun error,
           // but otherwise will run out of gas
-          // Note: 15 is the byte index, calucalted as 3*size(Set.wireFormat8)
+          // Note: 15 is the byte index, calculated as 3*size(Set.wireFormat8)
           new Jump(/*jumpOffset*/ 15),
         ]);
         const context = initContext({ persistableState });
