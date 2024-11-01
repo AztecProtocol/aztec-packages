@@ -34,7 +34,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [WASM](#wasm)
     - [How to run](#how-to-run)
   - [Debugging](#debugging)
-    - [Debugging Verifification Failures](#debugging-verifification-failures)
+    - [Debugging Verification Failures](#debugging-verifification-failures)
     - [Improving LLDB Debugging](#improving-lldb-debugging)
     - [Using Tracy to Profile Memory/CPU](#using-tracy-to-profile-memorycpu)
 
