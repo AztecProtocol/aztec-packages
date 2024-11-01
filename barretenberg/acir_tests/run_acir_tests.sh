@@ -2,6 +2,7 @@
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
+#   RECURSIVE: to enable --recursive for each test.
 set -eu
 
 # Catch when running in parallel
@@ -13,13 +14,13 @@ trap handle_sigchild SIGCHLD
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 HONK=${HONK:-false}
-RECURSIVE=${RECURSIVE:-false}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
 TEST_NAMES=("$@")
 # We get little performance benefit over 16 cores (in fact it can be worse).
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+RECURSIVE=${RECURSIVE:-false}
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
@@ -29,7 +30,7 @@ else
     BIN=$(realpath $(which $BIN))
 fi
 
-export BIN CRS_PATH VERBOSE BRANCH
+export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
 
 # copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
 ./clone_test_vectors.sh

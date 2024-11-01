@@ -4,7 +4,7 @@ set -eu
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
-if [ "${RECURSIVE}" = "true" ]; then
+if [ "${RECURSIVE:-false}" = "true" ]; then
     FLAGS+=" --recursive"
 fi
 
