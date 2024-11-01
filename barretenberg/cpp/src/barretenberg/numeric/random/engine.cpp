@@ -1,17 +1,54 @@
 #include "engine.hpp"
 #include "barretenberg/common/assert.hpp"
 #include <array>
+#include <cstring>
 #include <functional>
+#include <mutex>
 #include <random>
+#include <sys/random.h>
 
 namespace bb::numeric {
 
 namespace {
+#ifndef __wasm__
+constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
+#else
+constexpr size_t RANDOM_BUFFER_SIZE = 256;
+constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
+#endif
+uint8_t random_buffer[RANDOM_BUFFER_SIZE];
+ssize_t random_buffer_offset = -1;
+#ifndef NO_MULTITHREADING
+std::mutex random_buffer_mutex;
+#endif
 auto generate_random_data()
 {
     std::array<unsigned int, 32> random_data;
-    std::random_device source;
-    std::generate(std::begin(random_data), std::end(random_data), std::ref(source));
+    constexpr size_t random_data_buffer_size = sizeof(random_data);
+    // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
+#ifndef NO_MULTITHREADING
+    std::unique_lock<std::mutex> lock(random_buffer_mutex);
+#endif
+    if (random_data_buffer_size == 1 ||
+        (static_cast<size_t>(random_buffer_offset) + random_data_buffer_size) > RANDOM_BUFFER_SIZE) {
+        size_t bytes_left = RANDOM_BUFFER_SIZE;
+        uint8_t* current_offset = random_buffer;
+        while (bytes_left != 0) {
+#ifndef __wasm__
+            auto read_bytes = getrandom(current_offset, bytes_left, 0);
+#else
+            ssize_t read_bytes =
+                getentropy(current_offset, BYTES_PER_GETENTROPY_READ) == -1 ? -1 : BYTES_PER_GETENTROPY_READ;
+#endif
+            if (read_bytes != -1) {
+                current_offset += read_bytes;
+                bytes_left -= static_cast<size_t>(read_bytes);
+            }
+        }
+        random_buffer_offset = 0;
+    }
+    memcpy(&random_data, random_buffer + random_buffer_offset, random_data_buffer_size);
+    random_buffer_offset += random_data_buffer_size;
     return random_data;
 }
 } // namespace
