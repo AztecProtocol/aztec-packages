@@ -659,8 +659,7 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
-    # TODO(#9640): remove this once the test is re-enabled on master
-    if: github.ref_name == '9640-re-enable-kind-network-test-on-master'
+    if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
@@ -676,7 +675,7 @@ jobs:
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
-        if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
+        if: contains(github.event.pull_request.labels.*.name, 'kind-network-all')
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
