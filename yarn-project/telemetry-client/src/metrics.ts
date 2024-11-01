@@ -26,6 +26,12 @@ export const CIRCUIT_SIZE = 'aztec.circuit.size';
 export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 
+export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
+export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
+
+export const MEMPOOL_PROVER_QUOTE_COUNT = 'aztec.mempool.prover_quote_count';
+export const MEMPOOL_PROVER_QUOTE_SIZE = 'aztec.mempool.prover_quote_size';
+
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
@@ -73,3 +79,6 @@ export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size'
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
+
+/** p2p metrics */
+export const P2P_PEER_COUNT = 'aztec.p2p.peer_count';

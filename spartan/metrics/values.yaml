@@ -30,6 +30,8 @@ opentelemetry-collector:
   presets:
     kubernetesAttributes:
       enabled: true
+    hostMetrics:
+      enabled: true
   config:
     exporters:
       # debug:

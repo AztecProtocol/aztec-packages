@@ -58,6 +58,7 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
+import { P2PMetrics } from '../metrics/index.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -78,13 +79,16 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService extends WithTracer implements P2PService {
+export class LibP2PService  implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
 
   // Request and response sub service
-  private reqresp: ReqResp;
+  public reqresp: ReqResp;
+
+  // Metrics
+  private metrics: P2PMetrics;
 
   /**
    * Callback for when a block is received from a peer.
@@ -105,10 +109,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    // Instatntiate tracer
-    super(telemetry, 'LibP2PService');
+    // Instatntiate Metrics
+    this.metrics = new P2PMetrics(telemetry, 'P2P');
 
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
+    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger, this.metrics);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
@@ -121,6 +125,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       );
       return Promise.resolve(undefined);
     };
+  }
+
+  get tracer() {
+    return this.metrics.tracer;
   }
 
   /**
