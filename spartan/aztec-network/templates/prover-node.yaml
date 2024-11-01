@@ -101,13 +101,13 @@ spec:
               {{- if .Values.proverNode.externalTcpHost }}
               value: "{{ .Values.proverNode.externalTcpHost }}:{{ .Values.proverNode.service.p2pTcpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.proverNode.service.p2pTcpPort }}"
+              value: "$(POD_IP):{{ .Values.proverNode.service.p2pTcpPort }}"
               {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
               {{- if .Values.proverNode.externalUdpHost }}
               value: "{{ .Values.proverNode.externalUdpHost }}:{{ .Values.proverNode.service.p2pUdpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.proverNode.service.p2pUdpPort }}"
+              value: "$(POD_IP):{{ .Values.proverNode.service.p2pUdpPort }}"
               {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
