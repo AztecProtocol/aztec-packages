@@ -45,12 +45,6 @@ done
 # forward epoch after registering all validators
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
 
-echo "Waiting for validators to be funded..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/validators-funded.env ] ; do
-  sleep 1
-done
-touch state/validators-funded.env
-
 # If there's only one validator, run it directly
 if [ "$NUM_VALIDATORS" -eq 1 ]; then
     echo "Running single validator directly"
