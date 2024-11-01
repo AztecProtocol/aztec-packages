@@ -35,6 +35,7 @@ import {
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
+import { P2PMetrics } from '../metrics/index.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -120,6 +121,7 @@ export async function createTestLibP2PService(
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
+  const p2pMetrics = new P2PMetrics(telemetry, 'P2PService');
   return new LibP2PService(
     config,
     p2pNode as PubSubLibp2p,
@@ -128,7 +130,7 @@ export async function createTestLibP2PService(
     l2BlockSource,
     proofVerifier,
     worldStateSynchronizer,
-    telemetry,
+    p2pMetrics,
   );
 }
 

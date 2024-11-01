@@ -17,6 +17,7 @@ import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { configureP2PClientAddresses } from '../util.js';
+import { P2PMetrics } from '../metrics/index.js';
 
 export * from './p2p_client.js';
 
@@ -44,6 +45,8 @@ export const createP2PClient = async (
 
   let p2pService;
 
+  const p2pMetrics = new P2PMetrics(telemetry, 'P2PClient');
+
   if (_config.p2pEnabled) {
     config = await configureP2PClientAddresses(_config);
 
@@ -60,10 +63,10 @@ export const createP2PClient = async (
       proofVerifier,
       worldStateSynchronizer,
       store,
-      telemetry,
+      p2pMetrics,
     );
   } else {
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(store, l2BlockSource, mempools, p2pService, config.keepProvenTxsInPoolFor, telemetry);
+  return new P2PClient(store, l2BlockSource, mempools, p2pService, config.keepProvenTxsInPoolFor, p2pMetrics);
 };

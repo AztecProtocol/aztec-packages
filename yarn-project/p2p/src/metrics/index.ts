@@ -1,6 +1,6 @@
 
 
-import { UpDownCounter, TelemetryClient, Metrics, WithTracer } from '@aztec/telemetry-client';
+import { type UpDownCounter, type TelemetryClient, Metrics, WithTracer } from '@aztec/telemetry-client';
 
 export class P2PMetrics extends WithTracer {
     private peerCount: UpDownCounter;

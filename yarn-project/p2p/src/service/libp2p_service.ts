@@ -18,7 +18,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -58,7 +58,7 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { P2PMetrics } from '../metrics/index.js';
+import { type P2PMetrics } from '../metrics/index.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -87,9 +87,6 @@ export class LibP2PService  implements P2PService {
   // Request and response sub service
   public reqresp: ReqResp;
 
-  // Metrics
-  private metrics: P2PMetrics;
-
   /**
    * Callback for when a block is received from a peer.
    * @param block - The block received from the peer.
@@ -105,13 +102,10 @@ export class LibP2PService  implements P2PService {
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    telemetry: TelemetryClient,
+    private metrics: P2PMetrics,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    // Instatntiate Metrics
-    this.metrics = new P2PMetrics(telemetry, 'P2P');
-
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger, this.metrics);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
@@ -217,7 +211,7 @@ export class LibP2PService  implements P2PService {
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecKVStore,
-    telemetry: TelemetryClient,
+    metrics: P2PMetrics,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -320,7 +314,7 @@ export class LibP2PService  implements P2PService {
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
-      telemetry,
+      metrics,
       requestResponseHandlers,
     );
   }

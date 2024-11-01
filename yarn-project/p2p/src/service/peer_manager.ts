@@ -8,9 +8,7 @@ import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
 import { type PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
-import { TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { P2PMetrics } from '../metrics/index.js';
+import { type P2PMetrics } from '../metrics/index.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
