@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "./field_declarations.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 namespace bb {
 
@@ -687,11 +688,18 @@ template <class T> field<T> field<T>::random_element(numeric::RNG* engine) noexc
     if (engine == nullptr) {
         engine = &numeric::get_randomness();
     }
-
-    uint512_t source = engine->get_random_uint512();
-    uint512_t q(modulus);
-    uint512_t reduced = source % q;
-    return field(reduced.lo);
+    constexpr field pow_2_256 = field(uint256_t(1) << 128).sqr();
+    field lo;
+    field hi;
+    *(uint256_t*)lo.data = engine->get_random_uint256();
+    *(uint256_t*)hi.data = engine->get_random_uint256();
+    lo.self_reduce_once();
+    lo.self_reduce_once();
+    lo.self_reduce_once();
+    hi.self_reduce_once();
+    hi.self_reduce_once();
+    hi.self_reduce_once();
+    return lo + (pow_2_256 * hi);
 }
 
 template <class T> constexpr size_t field<T>::primitive_root_log_size() noexcept

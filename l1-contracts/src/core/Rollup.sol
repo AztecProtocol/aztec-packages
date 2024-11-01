@@ -121,15 +121,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     setupEpoch();
   }
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
-    public
-    view
-    override(IRollup)
-    returns (bytes32)
-  {
-    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
-  }
-
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
@@ -151,25 +142,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   {
     fakeBlockNumberAsProven(blockNumber);
     assumeProvenThroughBlockNumber = blockNumber;
-  }
-
-  function fakeBlockNumberAsProven(uint256 blockNumber) private {
-    if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
-
-      // If this results on a new epoch, create a fake claim for it
-      // Otherwise nextEpochToProve will report an old epoch
-      Epoch epoch = getEpochForBlock(blockNumber);
-      if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
-        proofClaim = DataStructures.EpochProofClaim({
-          epochToProve: epoch,
-          basisPointFee: 0,
-          bondAmount: 0,
-          bondProvider: address(0),
-          proposerClaimant: msg.sender
-        });
-      }
-    }
   }
 
   /**
@@ -367,7 +339,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slot = getSlotAt(_ts);
 
     // Consider if a prune will hit in this slot
-    uint256 pendingBlockNumber = _canPruneAt(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+    uint256 pendingBlockNumber =
+      _canPruneAtTime(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
     Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
@@ -441,7 +414,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     public
     override(IRollup)
   {
-    validateEpochProofRightClaim(_quote);
+    validateEpochProofRightClaimAtTime(Timestamp.wrap(block.timestamp), _quote);
 
     Slot currentSlot = getCurrentSlot();
     Epoch epochToProve = getEpochToProve();
@@ -543,6 +516,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
       emit L2ProofVerified(blockNumber, "CHEAT");
     }
+  }
+
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+    public
+    view
+    override(IRollup)
+    returns (bytes32)
+  {
+    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
   }
 
   /**
@@ -684,16 +666,20 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
-    public
-    view
-    override(IRollup)
-  {
+  function validateEpochProofRightClaimAtTime(
+    Timestamp _ts,
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
+  ) public view override(IRollup) {
     SignatureLib.verify(_quote.signature, _quote.quote.prover, quoteToDigest(_quote.quote));
 
-    Slot currentSlot = getCurrentSlot();
-    address currentProposer = getCurrentProposer();
+    Slot currentSlot = getSlotAt(_ts);
+    address currentProposer = getProposerAt(_ts);
     Epoch epochToProve = getEpochToProve();
+
+    require(
+      _quote.quote.validUntilSlot >= currentSlot,
+      Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot)
+    );
 
     require(
       _quote.quote.basisPointFee <= 10_000,
@@ -733,11 +719,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     require(
       _quote.quote.bondAmount <= availableFundsInEscrow,
       Errors.Rollup__InsufficientFundsInEscrow(_quote.quote.bondAmount, availableFundsInEscrow)
-    );
-
-    require(
-      _quote.quote.validUntilSlot >= currentSlot,
-      Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot)
     );
   }
 
@@ -794,6 +775,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return bytes32(0);
   }
 
+  function canPrune() public view override(IRollup) returns (bool) {
+    return _canPruneAtTime(Timestamp.wrap(block.timestamp));
+  }
+
   function _prune() internal {
     // TODO #8656
     delete proofClaim;
@@ -809,11 +794,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     emit PrunedPending(tips.provenBlockNumber, pending);
   }
 
-  function canPrune() public view returns (bool) {
-    return _canPruneAt(Timestamp.wrap(block.timestamp));
-  }
-
-  function _canPruneAt(Timestamp _ts) internal view returns (bool) {
+  function _canPruneAtTime(Timestamp _ts) internal view returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
@@ -861,7 +842,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber =
-      _canPruneAt(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+      _canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
     _validateHeaderForSubmissionBase(
       _header, _currentTime, _txEffectsHash, pendingBlockNumber, _flags
     );
@@ -984,6 +965,25 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     if (address(this) != FEE_JUICE_PORTAL.canonicalRollup()) {
       require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
       require(_header.globalVariables.gasFees.feePerL2Gas == 0, Errors.Rollup__NonZeroL2Fee());
+    }
+  }
+
+  function fakeBlockNumberAsProven(uint256 blockNumber) private {
+    if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
+      tips.provenBlockNumber = blockNumber;
+
+      // If this results on a new epoch, create a fake claim for it
+      // Otherwise nextEpochToProve will report an old epoch
+      Epoch epoch = getEpochForBlock(blockNumber);
+      if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
+        proofClaim = DataStructures.EpochProofClaim({
+          epochToProve: epoch,
+          basisPointFee: 0,
+          bondAmount: 0,
+          bondProvider: address(0),
+          proposerClaimant: msg.sender
+        });
+      }
     }
   }
 }
