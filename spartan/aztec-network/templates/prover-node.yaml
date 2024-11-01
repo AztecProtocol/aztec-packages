@@ -113,6 +113,16 @@ spec:
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pUdpPort }}"
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}

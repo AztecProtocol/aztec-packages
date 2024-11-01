@@ -136,6 +136,10 @@ spec:
               value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.validator.service.p2pUdpPort }}"
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
