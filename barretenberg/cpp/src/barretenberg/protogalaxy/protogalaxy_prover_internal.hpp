@@ -131,7 +131,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
         // Distrivute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(num_threads);
+        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
@@ -366,7 +366,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         extended_univariates.resize(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(num_threads);
+        trace_usage_tracker.construct_thread_ranges(num_threads, common_polynomial_size);
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {

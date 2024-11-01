@@ -128,17 +128,24 @@ struct ExecutionTraceUsageTracker {
      * given number of threads.
      *
      * @param num_threads Num ranges over which to distribute the data
+     * @param full_domain_size Size of full domain; needed only for unstructured case
      */
-    void construct_thread_ranges(const size_t num_threads)
+    void construct_thread_ranges(const size_t num_threads, const size_t full_domain_size)
     {
-        // Copy the ranges into a simple std container for preocessing by subsequent methods (cheap)
+        // Copy the ranges into a simple std container for processing by subsequent methods (cheap)
         std::vector<Range> active_ranges_copy;
         for (const auto& range : active_ranges.get()) {
             active_ranges_copy.push_back(range);
         }
 
         // Convert the active ranges for each gate type into a set of sorted non-overlapping ranges (union of the input)
-        std::vector<Range> simplified_active_ranges = construct_union_of_ranges(active_ranges_copy);
+        std::vector<Range> simplified_active_ranges;
+        if (trace_structure == TraceStructure::NONE) {
+            // If not using a structured trace, set the active range to the whole domain
+            simplified_active_ranges.push_back(Range{ 0, full_domain_size });
+        } else {
+            simplified_active_ranges = construct_union_of_ranges(active_ranges_copy);
+        }
 
         // Determine ranges in the structured trace that even distibute the active content across threads
         thread_ranges = construct_ranges_for_equal_content_distribution(simplified_active_ranges, num_threads);
@@ -165,7 +172,7 @@ struct ExecutionTraceUsageTracker {
             Range& prev_range = union_ranges.back();
 
             // If the two ranges overlap or are contiguous, merge them
-            if (range.first <= prev_range.second) { // WORKTODO: I think remove this +1
+            if (range.first <= prev_range.second) {
                 prev_range.second = std::max(range.second, prev_range.second);
             } else { // otherwise add the present range to the union
                 union_ranges.push_back(range);
