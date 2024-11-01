@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -55,5 +56,15 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     expectedSize?: PROOF_LENGTH,
   ): RootParityInput<PROOF_LENGTH> {
     return RootParityInput.fromBuffer(Buffer.from(str, 'hex'), expectedSize);
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string with expected size. */
+  static schemaFor<N extends number>(expectedSize?: N) {
+    return schemas.Hex.transform(str => RootParityInput.fromString(str, expectedSize));
   }
 }

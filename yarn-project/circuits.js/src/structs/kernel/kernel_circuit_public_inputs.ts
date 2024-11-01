@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type GasFees } from '../gas_fees.js';
@@ -100,5 +101,15 @@ export class KernelCircuitPublicInputs {
 
   static fromString(str: string) {
     return KernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(KernelCircuitPublicInputs);
   }
 }

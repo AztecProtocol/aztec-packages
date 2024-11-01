@@ -2,7 +2,7 @@ import {
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
-  type ProvingRequestResult,
+  type ProvingRequestResultFor,
   ProvingRequestType,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
@@ -154,7 +154,7 @@ export class ProverAgent {
     }
   }
 
-  private getProof(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
+  private getProof(request: ProvingRequest): Promise<ProvingRequestResultFor<typeof type>> {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
