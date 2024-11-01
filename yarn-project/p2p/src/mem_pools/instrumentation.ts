@@ -12,6 +12,11 @@ type MetricsLabels = {
   objectSize: Metrics;
 }
 
+/**
+ * Get the metrics labels for a given pool name.
+ * They must all have different names, as if duplicates appear, it will brick
+ * the metrics instance
+ */
 function getMetricsLabels(name: PoolName): MetricsLabels {
   if (name === PoolName.TX_POOL) {
     return {
