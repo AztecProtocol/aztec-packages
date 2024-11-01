@@ -35,6 +35,7 @@ bootNode:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+  realProofs: false
   validator:
     disabled: true
   p2p:

@@ -28,6 +28,7 @@ bootNode:
   debug: "aztec:*,-aztec:avm_simulator:*,-aztec:world-state:database,discv5:*,-JsonProxy:*"
   validator:
     disabled: true
+  realProofs: true
 
 proverNode:
   realProofs: true
@@ -41,7 +42,7 @@ pxe:
 bot:
   enabled: true
   pxeProverEnabled: true
-  txIntervalSeconds: 200
+  txIntervalSeconds: 1
 
 jobs:
   deployL1Verifier:
