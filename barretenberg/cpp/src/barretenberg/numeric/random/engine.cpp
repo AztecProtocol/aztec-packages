@@ -131,7 +131,6 @@ RNG& get_debug_randomness(bool reset, std::uint_fast64_t seed)
  */
 RNG& get_randomness()
 {
-    return get_debug_randomness();
 #ifdef BBERG_DEBUG_LOG
     // Use determinism for logging
     return get_debug_randomness();
