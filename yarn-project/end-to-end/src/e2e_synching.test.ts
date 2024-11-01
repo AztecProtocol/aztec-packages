@@ -85,9 +85,6 @@ type VariantDefinition = {
   txComplexity: TxComplexity;
 };
 
-// TODO(Miranda): This test currently fails because it overflows blobs (36txs per block).
-// It works when changing blocks to 11 txs. Remove this msg + test again once more blobs per block have been added.
-
 /**
  * Helper class that wraps a certain variant of test, provides functionality for
  * setting up the test state (e.g., funding accounts etc) and to generate a list of transactions.

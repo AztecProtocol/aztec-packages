@@ -364,7 +364,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     const circuitName = mapProtocolArtifactNameToCircuitName(artifactName);
 
     let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
-    // With the blob circuit, we require a long array of private inputs.
+    // With the blob circuit, we require a long array of constants and lots of unconstrained.
     // Unfortunately, this overflows wasm limits, so cannot be simulated via wasm.
     // The below forces use of the native simulator just for this circuit:
     if (artifactName == 'BlockRootRollupArtifact' && !(simulationProvider instanceof NativeACVMSimulator)) {
