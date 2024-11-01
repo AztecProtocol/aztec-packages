@@ -10,6 +10,7 @@
 namespace bb::numeric {
 
 namespace {
+
 #ifndef __wasm__
 constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
 #else
@@ -21,9 +22,11 @@ ssize_t random_buffer_offset = -1;
 #ifndef NO_MULTITHREADING
 std::mutex random_buffer_mutex;
 #endif
-auto generate_random_data()
+template <size_t size_in_unsigned_ints> auto generate_random_data()
 {
-    std::array<unsigned int, 32> random_data;
+    static_assert(size_in_unsigned_ints > 0);
+    static_assert(size_in_unsigned_ints <= 32);
+    std::array<unsigned int, size_in_unsigned_ints> random_data;
     constexpr size_t random_data_buffer_size = sizeof(random_data);
     // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
 #ifndef NO_MULTITHREADING
@@ -57,28 +60,28 @@ class RandomEngine : public RNG {
   public:
     uint8_t get_random_uint8() override
     {
-        auto buf = generate_random_data();
+        auto buf = generate_random_data<1>();
         uint32_t out = buf[0];
         return static_cast<uint8_t>(out);
     }
 
     uint16_t get_random_uint16() override
     {
-        auto buf = generate_random_data();
+        auto buf = generate_random_data<1>();
         uint32_t out = buf[0];
         return static_cast<uint16_t>(out);
     }
 
     uint32_t get_random_uint32() override
     {
-        auto buf = generate_random_data();
+        auto buf = generate_random_data<1>();
         uint32_t out = buf[0];
         return static_cast<uint32_t>(out);
     }
 
     uint64_t get_random_uint64() override
     {
-        auto buf = generate_random_data();
+        auto buf = generate_random_data<2>();
         auto lo = static_cast<uint64_t>(buf[0]);
         auto hi = static_cast<uint64_t>(buf[1]);
         return (lo + (hi << 32ULL));
@@ -86,20 +89,26 @@ class RandomEngine : public RNG {
 
     uint128_t get_random_uint128() override
     {
-        auto big = get_random_uint256();
-        auto lo = static_cast<uint128_t>(big.data[0]);
-        auto hi = static_cast<uint128_t>(big.data[1]);
+        const auto get64 = [](const std::array<uint32_t, 4>& buffer, const size_t offset) {
+            auto lo = static_cast<uint64_t>(buffer[0 + offset]);
+            auto hi = static_cast<uint64_t>(buffer[1 + offset]);
+            return (lo + (hi << 32ULL));
+        };
+        auto buf = generate_random_data<4>();
+        auto lo = static_cast<uint128_t>(get64(buf, 0));
+        auto hi = static_cast<uint128_t>(get64(buf, 2));
+
         return (lo + (hi << static_cast<uint128_t>(64ULL)));
     }
 
     uint256_t get_random_uint256() override
     {
-        const auto get64 = [](const std::array<uint32_t, 32>& buffer, const size_t offset) {
+        const auto get64 = [](const std::array<uint32_t, 8>& buffer, const size_t offset) {
             auto lo = static_cast<uint64_t>(buffer[0 + offset]);
             auto hi = static_cast<uint64_t>(buffer[1 + offset]);
             return (lo + (hi << 32ULL));
         };
-        auto buf = generate_random_data();
+        auto buf = generate_random_data<8>();
         uint64_t lolo = get64(buf, 0);
         uint64_t lohi = get64(buf, 2);
         uint64_t hilo = get64(buf, 4);
