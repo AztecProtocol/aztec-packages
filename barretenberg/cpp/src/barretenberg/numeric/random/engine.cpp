@@ -12,37 +12,58 @@ namespace bb::numeric {
 namespace {
 
 #ifndef __wasm__
+// When working on native we allocate 1M of memory to sample randomness from urandom
 constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
 #else
+// In wasm the API we are using can only give 256 bytes per call, so there is no point in creating a larger buffer
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
 #endif
+// Buffer with randomness sampled from a CSPRNG
 uint8_t random_buffer[RANDOM_BUFFER_SIZE];
+// Offset into the unused part of the buffer
 ssize_t random_buffer_offset = -1;
+
 #ifndef NO_MULTITHREADING
+// We don't want races to happen
 std::mutex random_buffer_mutex;
 #endif
-template <size_t size_in_unsigned_ints> auto generate_random_data()
+
+/**
+ * @brief Generate an array of random unsigned ints sampled from a CSPRNG
+ *
+ * @tparam size_in_unsigned_ints Size of the array
+ * @return std::array<unsigned int, size_in_unsigned_ints>
+ */
+template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigned_ints> generate_random_data()
 {
     static_assert(size_in_unsigned_ints > 0);
     static_assert(size_in_unsigned_ints <= 32);
     std::array<unsigned int, size_in_unsigned_ints> random_data;
     constexpr size_t random_data_buffer_size = sizeof(random_data);
-    // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
+
 #ifndef NO_MULTITHREADING
     std::unique_lock<std::mutex> lock(random_buffer_mutex);
 #endif
-    if (random_data_buffer_size == 1 ||
+
+    // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
+    // We could preserve the leftover bytes, but it's a bit messy
+    if (random_buffer_offset == -1 ||
         (static_cast<size_t>(random_buffer_offset) + random_data_buffer_size) > RANDOM_BUFFER_SIZE) {
         size_t bytes_left = RANDOM_BUFFER_SIZE;
         uint8_t* current_offset = random_buffer;
+        // Sample until we fill the buffer
         while (bytes_left != 0) {
 #ifndef __wasm__
+            // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);
 #else
+            // Sample through a "syscall" on wasm. We can't request more than 256, it fails and results in an infinite
+            // loop
             ssize_t read_bytes =
                 getentropy(current_offset, BYTES_PER_GETENTROPY_READ) == -1 ? -1 : BYTES_PER_GETENTROPY_READ;
 #endif
+            // If we read something, update the leftover
             if (read_bytes != -1) {
                 current_offset += read_bytes;
                 bytes_left -= static_cast<size_t>(read_bytes);
@@ -50,6 +71,7 @@ template <size_t size_in_unsigned_ints> auto generate_random_data()
         }
         random_buffer_offset = 0;
     }
+
     memcpy(&random_data, random_buffer + random_buffer_offset, random_data_buffer_size);
     random_buffer_offset += random_data_buffer_size;
     return random_data;
