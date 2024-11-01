@@ -307,27 +307,16 @@ template <typename Curve_> class IPA {
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
-        info("vk size: ", vk->get_monomial_points().size());
-        info("opening_claim challenge: ", opening_claim.opening_pair.challenge);
-        info("opening_claim eval: ", opening_claim.opening_pair.evaluation);
-        info("opening_claim comm: ", opening_claim.commitment);
-        info("proof: ");
-        for (auto& val : transcript->proof_data) {
-            info(val);
-        }
-
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
             "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map
                                         // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
                                         // Grumpkin
-        info("poly_length: ", poly_length);
                                     
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
-        info("generator_challenge: ", generator_challenge);
 
         if (generator_challenge.is_zero()) {
             throw_or_abort("The generator challenge can't be zero");
@@ -461,15 +450,6 @@ template <typename Curve_> class IPA {
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
-        info("vk size: ", vk->get_monomial_points().size());
-        info("opening_claim challenge: ", opening_claim.opening_pair.challenge.get_value());
-        info("opening_claim eval: ", opening_claim.opening_pair.evaluation.get_value());
-        info("opening_claim comm: ", opening_claim.commitment.get_value());
-        info("proof: ");
-        for (auto& val : transcript->proof_data) {
-            info(val.get_value());
-        }
-
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
@@ -482,11 +462,9 @@ template <typename Curve_> class IPA {
 
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
 
-        info("poly_length: ", poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
-        info("generator_challenge: ", generator_challenge.get_value());
         auto builder = generator_challenge.get_context();
 
         const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
@@ -510,7 +488,7 @@ template <typename Curve_> class IPA {
             msm_elements[2 * i + 1] = element_R;
             msm_scalars[2 * i] = round_challenges_inv[i];
             msm_scalars[2 * i + 1] = round_challenges[i];
-
+        }
 
         //  Step 4.
         // Compute b_zero where b_zero can be computed using the polynomial:
@@ -576,12 +554,11 @@ template <typename Curve_> class IPA {
         msm_scalars.emplace_back(a_zero);
         msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {-opening_claim.opening_pair.evaluation}));
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
-        Commitment aux_generator = Commitment::one(builder) * generator_challenge;
         ipa_relation.assert_equal(-opening_claim.commitment);
 
         ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
         // This should return an actual VerifierAccumulator
-        return {round_challenges, G_zero};
+        return {round_challenges_inv, G_zero};
     }
 
   public:
@@ -704,26 +681,25 @@ template <typename Curve_> class IPA {
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
 
-    static Fr evaluate_h_poly(std::vector<Fr> u_chals, Fr r) {
+    static Fr evaluate_h_poly(const std::vector<Fr>& u_chals_inv, Fr r) {
         Fr h_eval = 1;
         Fr r_pow = r;
-        for (Fr u_i : u_chals) {
-            h_eval *= (Fr(1) + u_i * r_pow);
-            r_pow *= r;
+        size_t len = u_chals_inv.size();
+        for (size_t i = 0; i < len; i++) {
+            h_eval *= (Fr(1) + u_chals_inv[len - 1 - i] * r_pow);
+            r_pow *= r_pow;
         }
         return h_eval;
     }
 
-    static Fr evaluate_and_accumulate_h_polys(std::vector<Fr> u_chals_1, std::vector<Fr> u_chals_2, Fr r, Fr alpha) {
-        return evaluate_h_poly(u_chals_1, r) + alpha * evaluate_h_poly(u_chals_2, r);
+    static Fr evaluate_and_accumulate_h_polys(std::vector<Fr> u_chals_inv_1, std::vector<Fr> u_chals_inv_2, Fr r, Fr alpha) {
+        auto result = evaluate_h_poly(u_chals_inv_1, r) + alpha * evaluate_h_poly(u_chals_inv_2, r);
+        return result;
     }
 
-    static Polynomial<bb::fq> construct_poly_from_u_chals(const std::vector<bb::fq>& u_chals) {
-        const size_t poly_length = (1 << u_chals.size());
-        const size_t log_poly_length = u_chals.size();
-        std::vector<bb::fq> u_chals_inv(u_chals);
-        fq::batch_invert(u_chals_inv);
-        
+    static Polynomial<bb::fq> construct_poly_from_u_chals(const std::vector<bb::fq>& u_chals_inv) {
+        const size_t poly_length = (1 << u_chals_inv.size());
+        const size_t log_poly_length = u_chals_inv.size();
 
         // Construct vector s
         std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
@@ -753,9 +729,9 @@ template <typename Curve_> class IPA {
         return {s_vec, poly_length};
     }
 
-    static Polynomial<bb::fq> create_h_poly(const std::vector<bb::fq>& u_chals_1, const std::vector<bb::fq>& u_chals_2, bb::fq alpha) {
-        Polynomial h = construct_poly_from_u_chals(u_chals_1);
-        Polynomial h_2 = construct_poly_from_u_chals(u_chals_2);
+    static Polynomial<bb::fq> create_h_poly(const std::vector<bb::fq>& u_chals_inv_1, const std::vector<bb::fq>& u_chals_inv_2, bb::fq alpha) {
+        Polynomial h = construct_poly_from_u_chals(u_chals_inv_1);
+        Polynomial h_2 = construct_poly_from_u_chals(u_chals_inv_2);
         h.add_scaled(h_2, alpha);
         return h;
     }
@@ -771,9 +747,9 @@ template <typename Curve_> class IPA {
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
         StdlibTranscript transcript;
-        transcript.send_to_verifier("u_chals_1", pair_1.u_chals);
+        transcript.send_to_verifier("u_chals_inv_1", pair_1.u_chals_inv);
         transcript.send_to_verifier("U_1", pair_1.comm);
-        transcript.send_to_verifier("u_chals_2", pair_2.u_chals);
+        transcript.send_to_verifier("u_chals_inv_2", pair_2.u_chals_inv);
         transcript.send_to_verifier("U_2", pair_2.comm);
         auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
@@ -782,18 +758,18 @@ template <typename Curve_> class IPA {
         output_accumulator.comm = pair_1.comm + pair_2.comm * alpha;
         output_accumulator.eval_point = r;
         // Evaluate the h polys at r and linearly combine them with alpha challenge
-        output_accumulator.eval = evaluate_and_accumulate_h_polys(pair_1.u_chals, pair_2.u_chals, r, alpha);
+        output_accumulator.eval = evaluate_and_accumulate_h_polys(pair_1.u_chals_inv, pair_2.u_chals_inv, r, alpha);
 
         // Step 4: Compute the new polynomial
-        std::vector<bb::fq> native_u_chals_1;
-        std::vector<bb::fq> native_u_chals_2;
-        for (Fr u_i : pair_1.u_chals) {
-            native_u_chals_1.push_back(bb::fq(u_i.get_value()));
+        std::vector<bb::fq> native_u_chals_inv_1;
+        std::vector<bb::fq> native_u_chals_inv_2;
+        for (Fr u_inv_i : pair_1.u_chals_inv) {
+            native_u_chals_inv_1.push_back(bb::fq(u_inv_i.get_value()));
         }
-        for (Fr u_i : pair_2.u_chals) {
-            native_u_chals_2.push_back(bb::fq(u_i.get_value()));
+        for (Fr u_inv_i : pair_2.u_chals_inv) {
+            native_u_chals_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
-        return {output_accumulator, create_h_poly(native_u_chals_1, native_u_chals_2, fq(alpha.get_value()))};
+        return {output_accumulator, create_h_poly(native_u_chals_inv_1, native_u_chals_inv_2, fq(alpha.get_value()))};
     }
 };
 
