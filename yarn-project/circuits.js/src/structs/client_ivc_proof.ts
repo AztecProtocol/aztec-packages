@@ -57,7 +57,7 @@ export class ClientIvcProof {
   async writeToOutputDirectory(directory: string) {
     const { megaVkBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer } = this;
     const fileData = [
-      ['mega_vk', this.megaVkBuffer],
+      ['mega_vk', megaVkBuffer],
       ['client_ivc_proof', clientIvcProofBuffer],
       ['translator_vk', translatorVkBuffer],
       ['ecc_vk', eccVkBuffer],
@@ -67,12 +67,7 @@ export class ClientIvcProof {
 
   static fromBuffer(buffer: Buffer | BufferReader): ClientIvcProof {
     const reader = BufferReader.asReader(buffer);
-    return new ClientIvcProof(
-      reader.readBuffer(),
-      reader.readBuffer(),
-      reader.readBuffer(),
-      reader.readBuffer(),
-    );
+    return new ClientIvcProof(reader.readBuffer(), reader.readBuffer(), reader.readBuffer(), reader.readBuffer());
   }
 
   public toBuffer() {
