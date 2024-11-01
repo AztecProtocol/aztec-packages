@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 export class TaggingSecret {
@@ -16,5 +16,13 @@ export class IndexedTaggingSecret extends TaggingSecret {
 
   override toFields(): Fr[] {
     return [this.secret, this.recipient, new Fr(this.index)];
+  }
+
+  static fromFields(serialized: Fr[]) {
+    return new this(serialized[0], AztecAddress.fromField(serialized[1]), serialized[2].toNumber());
+  }
+
+  static fromTaggingSecret(directionalSecret: TaggingSecret, index: number) {
+    return new this(directionalSecret.secret, directionalSecret.recipient, index);
   }
 }
