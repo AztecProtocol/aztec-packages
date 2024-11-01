@@ -1,0 +1,44 @@
+##########
+# BEWARE #
+##########
+# You need to deploy the metrics helm chart before using this values file.
+# head to spartan/metrics and run `./install.sh`
+# (then `./forward.sh` if you want to see it)
+telemetry:
+  enabled: false
+  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
+
+validator:
+  debug: "aztec:*,-aztec:avm_simulator:*,-aztec:world-state:database,discv5:*,-JsonProxy:*"
+  replicas: 0
+  external: true
+  validator:
+    disabled: false
+
+bootNode:
+  debug: "aztec:*,-aztec:avm_simulator:*,-aztec:world-state:database,discv5:*,-JsonProxy:*"
+  external: true
+  validator:
+    disabled: true
+
+proverNode:
+  external: true
+
+proverAgent:
+  replicas: 6
+  realProofs: false
+  jobSourceUrl: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
+  bb:
+    hardwareConcurrency: 16
+
+pxe:
+  external: true
+
+bot:
+  enabled: false
+
+ethereum:
+  external: true
+
+network:
+  setupL2Contracts: false

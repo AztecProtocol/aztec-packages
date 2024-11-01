@@ -4,13 +4,16 @@ set -o pipefail
 
 TAG=$1
 VALUES=$2
-NAMESPACE=${3:-spartan}
-PROD=${4:-true}
+JOB_SOURCE_URL=$3
+NAMESPACE=${4:-spartan}
+PROD=${5:-true}
 PROD_ARGS=""
 if [ "$PROD" = "true" ] ; then
   PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
 fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+JOB_SOURCE_URL=http://spartan-aztec-network-prover-node.spartan.svc.cluster.local:8080
 
 if [ -z "$TAG" ]; then
   echo "Usage: $0 <docker image tag> <values> (optional: <namespace>)"
@@ -25,18 +28,6 @@ function cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-function show_status_until_pxe_ready() {
-  set +x
-  sleep 15 # let helm upgrade start
-  kubectl get pods -n $NAMESPACE
-  for i in {1..20} ; do
-    # Show once a minute x 20 minutes
-    kubectl get pods -n $NAMESPACE
-    sleep 60
-  done
-}
-show_status_until_pxe_ready &
-
 function log_stern() {
   set +x
   stern $NAMESPACE -n $NAMESPACE 2>&1 > "$SCRIPT_DIR/logs/$NAMESPACE-deploy.log"
@@ -44,24 +35,26 @@ function log_stern() {
 log_stern &
 
 function upgrade() {
-  # Load the Docker images into kind
-  kind load docker-image aztecprotocol/aztec:$TAG
   # pull and resolve the image just to be absolutely sure k8s gets the latest image in the tag we want
   #docker pull --platform linux/amd64 aztecprotocol/aztec:$TAG
   #IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$TAG)
+  # Load the Docker images into kind
+  kind load docker-image aztecprotocol/aztec:$TAG
   IMAGE=aztecprotocol/aztec:$TAG
   if ! [ -z "${PRINT_ONLY:-}" ] ; then
     helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
           --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
-          --set images.aztec.image="$IMAGE"
+          --set images.aztec.image="$IMAGE" \
+          --set proverAgent.jobSourceUrl=$JOB_SOURCE_URL
   else
     helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
           --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
           --set images.aztec.image="$IMAGE" \
+          --set proverAgent.jobSourceUrl=$JOB_SOURCE_URL \
           --wait \
           --wait-for-jobs=true \
           --timeout=30m 2>&1
