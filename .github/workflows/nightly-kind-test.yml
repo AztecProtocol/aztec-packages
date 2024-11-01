@@ -74,7 +74,7 @@ jobs:
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
             export FORCE_COLOR=1
-            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts || true
+            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts
 
   success-check:
     runs-on: ubuntu-20.04
