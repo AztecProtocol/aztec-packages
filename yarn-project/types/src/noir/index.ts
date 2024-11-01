@@ -40,7 +40,7 @@ export interface NoirFunctionAbi {
     visibility: ABIParameterVisibility;
   };
   /** Mapping of error selector => error type */
-  error_types: Record<string, AbiErrorType>;
+  error_types: Partial<Record<string, AbiErrorType>>;
 }
 
 /**

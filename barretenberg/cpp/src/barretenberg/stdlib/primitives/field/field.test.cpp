@@ -108,6 +108,17 @@ template <typename Builder> class stdlib_field : public testing::Test {
     }
 
     /**
+     * @brief Test that bool is converted correctly
+     *
+     */
+    static void test_bool_conversion_regression()
+    {
+        Builder builder = Builder();
+        field_ct one = field_ct(witness_ct(&builder, 1));
+        bool_ct b_false = bool_ct(one * field_ct(0));
+        EXPECT_FALSE(b_false.get_value());
+    }
+    /**
      * @brief Demonstrate current behavior of assert_equal.
      */
     static void test_assert_equal()
@@ -1097,6 +1108,11 @@ TYPED_TEST(stdlib_field, test_create_range_constraint)
 TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
+}
+
+TYPED_TEST(stdlib_field, test_bool_conversion_regression)
+{
+    TestFixture::test_bool_conversion_regression();
 }
 
 TYPED_TEST(stdlib_field, test_div)

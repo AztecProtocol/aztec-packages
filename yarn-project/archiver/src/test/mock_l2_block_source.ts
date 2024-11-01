@@ -67,8 +67,8 @@ export class MockL2BlockSource implements L2BlockSource {
     return Promise.resolve(this.l2Blocks.length);
   }
 
-  public async getProvenBlockNumber(): Promise<number> {
-    return this.provenBlockNumber ?? (await this.getBlockNumber());
+  public getProvenBlockNumber(): Promise<number> {
+    return Promise.resolve(this.provenBlockNumber);
   }
 
   public getProvenL2EpochNumber(): Promise<number | undefined> {

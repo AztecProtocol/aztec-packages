@@ -5,7 +5,8 @@ set -eu
 cd "$(dirname "$0")"/../..
 
 BRANCH=$1
-LABELS=$2
+# support labels with hyphens for backwards compatibility:
+LABELS=$(echo $2 | sed 's/-/_/g')
 
 # Function to parse YAML and extract test names
 get_test_names() {
@@ -36,6 +37,11 @@ allow_list=(
   "e2e_prover_coordination"
   "e2e_lending_contract"
   "kind_network_smoke"
+  "guides_dapp_testing"
+  "guides_sample_dapp"
+  "guides_sample_dapp_ci"
+  "guides_up_quick_start"
+  "guides_writing_an_account_contract"
 )
 
 # Add labels from input to the allow_list

@@ -4,7 +4,7 @@
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
-  name: {{ .Values.global.namespace }}-latency
+  name: {{ .Values.global.targetNamespace }}-latency
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "network-shaping.labels" . | nindent 4 }}
@@ -28,7 +28,7 @@ spec:
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
-  name: {{ .Values.global.namespace }}-bandwidth
+  name: {{ .Values.global.targetNamespace }}-bandwidth
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "network-shaping.labels" . | nindent 4 }}
@@ -54,7 +54,7 @@ spec:
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
-  name: {{ .Values.global.namespace }}-packet-loss
+  name: {{ .Values.global.targetNamespace }}-packet-loss
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "network-shaping.labels" . | nindent 4 }}
@@ -71,4 +71,27 @@ spec:
     correlation: {{ .Values.networkShaping.conditions.packetLoss.correlation | quote }}
   duration: 8760h
 {{- end }}
+
+{{- if .Values.networkShaping.conditions.killProvers.enabled }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: {{ .Values.global.targetNamespace }}-kill-provers
+  namespace: {{ .Values.global.chaosMeshNamespace }}
+  labels:
+    {{- include "network-shaping.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  action: pod-failure
+  mode: all
+  selector:
+    namespaces:
+      - {{ .Values.global.targetNamespace }}
+    labelSelectors:
+      app: prover-node
+  duration: {{ .Values.networkShaping.conditions.killProvers.duration }}
+{{- end }}
+
 {{- end }}

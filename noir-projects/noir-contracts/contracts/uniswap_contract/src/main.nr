@@ -115,8 +115,8 @@ contract Uniswap {
         input_asset_bridge: AztecAddress,
         input_amount: Field,
         output_asset_bridge: AztecAddress,
-        // params for using the unshield approval
-        nonce_for_unshield_approval: Field,
+        // params for using the transfer_to_public approval
+        nonce_for_transfer_to_public_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
         minimum_output_amount: Field, // minimum output amount to receive (slippage protection for the swap)
@@ -133,11 +133,11 @@ contract Uniswap {
 
         // Transfer funds to this contract
         Token::at(input_asset)
-            .unshield(
+            .transfer_to_public(
                 context.msg_sender(),
                 context.this_address(),
                 input_amount,
-                nonce_for_unshield_approval,
+                nonce_for_transfer_to_public_approval,
             )
             .call(&mut context);
 

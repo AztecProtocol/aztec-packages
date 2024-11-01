@@ -21,7 +21,7 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve(this.messagesPerBlock.get(Number(blockNumber)) ?? []);
   }
 
-  getL1ToL2MessageIndex(_l1ToL2Message: Fr, _startIndex: bigint): Promise<bigint | undefined> {
+  getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     throw new Error('Method not implemented.');
   }
 

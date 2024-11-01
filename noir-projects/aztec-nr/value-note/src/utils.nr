@@ -23,6 +23,7 @@ pub fn increment(
     amount: Field,
     recipient: AztecAddress,
     outgoing_viewer: AztecAddress, // docs:end:increment_args
+    sender: AztecAddress,
 ) {
     let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
@@ -32,6 +33,7 @@ pub fn increment(
         balance.context,
         outgoing_viewer_ovpk_m,
         recipient,
+        sender,
     ));
 }
 
@@ -44,8 +46,9 @@ pub fn decrement(
     amount: Field,
     owner: AztecAddress,
     outgoing_viewer: AztecAddress,
+    sender: AztecAddress,
 ) {
-    let sum = decrement_by_at_most(balance, amount, owner, outgoing_viewer);
+    let sum = decrement_by_at_most(balance, amount, owner, outgoing_viewer, sender);
     assert(sum == amount, "Balance too low");
 }
 
@@ -62,6 +65,7 @@ pub fn decrement_by_at_most(
     max_amount: Field,
     owner: AztecAddress,
     outgoing_viewer: AztecAddress,
+    sender: AztecAddress,
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let notes = balance.pop_notes(options);
@@ -80,7 +84,7 @@ pub fn decrement_by_at_most(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment(balance, change_value, owner, outgoing_viewer);
+    increment(balance, change_value, owner, outgoing_viewer, sender);
 
     decremented
 }

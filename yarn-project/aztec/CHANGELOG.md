@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.61.0...aztec-package-v0.62.0) (2024-11-01)
+
+
+### Features
+
+* Token private mint optimization ([#9606](https://github.com/AztecProtocol/aztec-packages/issues/9606)) ([e8fadc7](https://github.com/AztecProtocol/aztec-packages/commit/e8fadc799d015046016b16eeadbb55be929d20c2))
+
+
+### Bug Fixes
+
+* **k8s:** Boot node long sync ([#9610](https://github.com/AztecProtocol/aztec-packages/issues/9610)) ([1b85840](https://github.com/AztecProtocol/aztec-packages/commit/1b85840cf52442e920f4c25bf67e6bd2066606bc))
+* Multi-node metrics working ([#9486](https://github.com/AztecProtocol/aztec-packages/issues/9486)) ([fd974e1](https://github.com/AztecProtocol/aztec-packages/commit/fd974e1ba91e01910751ed87da6dbeb068faba4f))
+* Stop bot in case of tx errors ([#9421](https://github.com/AztecProtocol/aztec-packages/issues/9421)) ([6650641](https://github.com/AztecProtocol/aztec-packages/commit/6650641e5711ed9746ccc846a0efc0c68aeafdc3))
+
+
+### Miscellaneous
+
+* Replacing unshield naming with transfer_to_public ([#9608](https://github.com/AztecProtocol/aztec-packages/issues/9608)) ([247e9eb](https://github.com/AztecProtocol/aztec-packages/commit/247e9eb28e931874e98781addebe9a343ba7afe1))
+* Token partial notes refactor pt. 1 ([#9490](https://github.com/AztecProtocol/aztec-packages/issues/9490)) ([3d631f5](https://github.com/AztecProtocol/aztec-packages/commit/3d631f5e98439554443483520011c1c21d18f993))
+
+## [0.61.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.60.0...aztec-package-v0.61.0) (2024-10-30)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.59.0...aztec-package-v0.60.0) (2024-10-24)
 
 
