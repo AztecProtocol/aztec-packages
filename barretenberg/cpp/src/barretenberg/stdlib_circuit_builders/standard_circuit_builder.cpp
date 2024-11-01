@@ -1,11 +1,11 @@
 #include "standard_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/serialize/cbind.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
+
+#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 
 namespace bb {
 

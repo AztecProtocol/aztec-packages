@@ -11,7 +11,7 @@
 
 using namespace bb;
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose)
+TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_decompose)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c = fr::random_element();
@@ -27,7 +27,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose)
     EXPECT_EQ(variables_in_on_gate.size(), 1);
 }
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose2)
+TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_decompose2)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c = fr::random_element();
@@ -43,7 +43,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose2)
     EXPECT_EQ(variables_in_on_gate.size(), 1);
 }
 
-TEST(utils, test_selectors_for_decompose)
+TEST(boomerang_utils, test_selectors_for_decompose)
 {
     auto is_power_two = [&](const uint256_t& number) { return number > 0 && ((number & (number - 1)) == 0); };
     const uint64_t target_range_bitnum = 14;
@@ -65,7 +65,7 @@ TEST(utils, test_selectors_for_decompose)
     EXPECT_EQ(q_3_is_power_two, true);
 }
 
-TEST(ultra_circuit_constructor, test_variable_gates_count_for_two_decomposes)
+TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_two_decomposes)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c1 = fr::random_element();
@@ -88,7 +88,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_two_decomposes)
     EXPECT_EQ(variables_in_one_gate.size(), 2);
 }
 
-TEST(ultra_circuit_constructor, test_decompose_with_boolean_gates)
+TEST(boomerang_ultra_circuit_constructor, test_decompose_with_boolean_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c1 = fr::random_element();
@@ -113,7 +113,7 @@ TEST(ultra_circuit_constructor, test_decompose_with_boolean_gates)
     EXPECT_EQ(variables_in_one_gate.size(), 22);
 }
 
-TEST(ultra_circuit_constructor, test_decompose_for_6_bit_number)
+TEST(boomerang_ultra_circuit_constructor, test_decompose_for_6_bit_number)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c = fr::random_element();

@@ -81,6 +81,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component
             }
             if (arithmetic_block.q_arith()[index] == 3) {
                 // TODO(daniel): want to process this case later
+                ASSERT(false);
             }
         }
     }
@@ -218,8 +219,8 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     std::map<FF, uint32_t> constant_variable_indices = ultra_circuit_constructor.constant_variable_indices;
     const auto& arithmetic_block = ultra_circuit_constructor.blocks.arithmetic;
     auto arithmetic_gates_numbers = arithmetic_block.size();
-    bool arithmetic_gates_exists = arithmetic_gates_numbers > 0;
-    if (arithmetic_gates_exists) {
+    bool arithmetic_gates_exist = arithmetic_gates_numbers > 0;
+    if (arithmetic_gates_exist) {
         for (size_t i = 0; i < arithmetic_gates_numbers; i++) {
             auto gate_variables = this->get_arithmetic_gate_connected_component(ultra_circuit_constructor, i);
             this->connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
@@ -522,7 +523,7 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
     }
 }
 /**
- * @brief this method removes false cases variables from aes plookup tables.
+ * @brief this method removes false positive cass variables from aes plookup tables.
  * AES_SBOX_MAP, AES_SPARSE_MAP, AES_SPARSE_NORMALIZE tables are used in read_from_1_to_2_table function which
  * return values C2[0], so C3[0] isn't used anymore in these cases, but this situation isn't dangerous.
  * So, we have to remove these variables.
