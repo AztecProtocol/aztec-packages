@@ -20,8 +20,13 @@ contract MockFeeJuicePortal is IFeeJuicePortal {
 
   function distributeFees(address, uint256) external override {}
 
-  function depositToAztecPublic(bytes32, uint256, bytes32) external pure override returns (bytes32) {
-    return bytes32(0);
+  function depositToAztecPublic(bytes32, uint256, bytes32)
+    external
+    pure
+    override
+    returns (bytes32, uint256)
+  {
+    return (bytes32(0), 0);
   }
 
   function canonicalRollup() external pure override returns (address) {

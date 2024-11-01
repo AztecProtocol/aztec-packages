@@ -1,5 +1,6 @@
+import { Fr } from '../fields/fields.js';
 import { type ABIParameterVisibility, type FunctionArtifact } from './abi.js';
-import { decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
+import { decodeFromAbi, decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
 
 describe('abi/decoder', () => {
   // Copied from noir-contracts/contracts/test_contract/target/Test.json
@@ -73,5 +74,111 @@ describe('abi/decoder', () => {
     expect(decodeFunctionSignatureWithParameterNames(abi.name, abi.parameters)).toMatchInlineSnapshot(
       `"testCodeGen(aField: Field, aBool: bool, aNumber: u32, anArray: [Field;2], aStruct: (amount: Field, secretHash: Field), aDeepStruct: (aField: Field, aBool: bool, aNote: (amount: Field, secretHash: Field), manyNotes: [(amount: Field, secretHash: Field);3]))"`,
     );
+  });
+});
+
+describe('decoder', () => {
+  it('decodes an i8', () => {
+    let decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 8,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('00000000000000000000000000000000000000000000000000000000000000ff', 'hex'))],
+    );
+    expect(decoded).toBe(-1n);
+
+    decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 8,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000007f', 'hex'))],
+    );
+    expect(decoded).toBe(2n ** 7n - 1n);
+  });
+
+  it('decodes an i16', () => {
+    let decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 16,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000ffff', 'hex'))],
+    );
+    expect(decoded).toBe(-1n);
+
+    decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 16,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000007fff', 'hex'))],
+    );
+    expect(decoded).toBe(2n ** 15n - 1n);
+  });
+
+  it('decodes an i32', () => {
+    let decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 32,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('00000000000000000000000000000000000000000000000000000000ffffffff', 'hex'))],
+    );
+    expect(decoded).toBe(-1n);
+
+    decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 32,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000007fffffff', 'hex'))],
+    );
+    expect(decoded).toBe(2n ** 31n - 1n);
+  });
+
+  it('decodes an i64', () => {
+    let decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 64,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000ffffffffffffffff', 'hex'))],
+    );
+    expect(decoded).toBe(-1n);
+
+    decoded = decodeFromAbi(
+      [
+        {
+          kind: 'integer',
+          sign: 'signed',
+          width: 64,
+        },
+      ],
+      [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000007fffffffffffffff', 'hex'))],
+    );
+    expect(decoded).toBe(2n ** 63n - 1n);
   });
 });

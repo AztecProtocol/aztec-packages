@@ -1,12 +1,13 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type Command } from 'commander';
+import { type Command, Option } from 'commander';
 
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
   l1ChainIdOption,
+  makePxeOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
@@ -207,8 +208,19 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .requiredOption('--l1-chain-id <string>', 'The chain id of the L1 network', '31337')
-    .addOption(pxeOption)
+    .addOption(
+      new Option('--l1-chain-id <string>', 'The chain id of the L1 network')
+        .env('L1_CHAIN_ID')
+        .default('31337')
+        .makeOptionMandatory(true),
+    )
+    .addOption(makePxeOption(false).conflicts('rollup-address'))
+    .addOption(
+      new Option('--rollup-address <string>', 'The address of the rollup contract')
+        .env('ROLLUP_CONTRACT_ADDRESS')
+        .argParser(parseEthereumAddress)
+        .conflicts('rpc-url'),
+    )
     .option('--l1-private-key <string>', 'The L1 private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
@@ -222,6 +234,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
       if (options.verifier === 'mock') {
         await deployMockVerifier(
+          options.rollupAddress?.toString(),
           options.l1RpcUrl,
           options.l1ChainId,
           options.l1PrivateKey,
@@ -232,6 +245,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         );
       } else {
         await deployUltraHonkVerifier(
+          options.rollupAddress?.toString(),
           options.l1RpcUrl,
           options.l1ChainId,
           options.l1PrivateKey,

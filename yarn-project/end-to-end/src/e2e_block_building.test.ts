@@ -11,6 +11,7 @@ import {
   Fr,
   L1NotePayload,
   type PXE,
+  TxStatus,
   type Wallet,
   deriveKeys,
   retryUntil,
@@ -442,7 +443,7 @@ describe('e2e_block_building', () => {
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
       expect(await contract.methods.get_public_value(ownerAddress).simulate()).toEqual(20n);
 
-      // Now move to a new epoch and past the proof claim window
+      // Now move to a new epoch and past the proof claim window to cause a reorg
       logger.info('Advancing past the proof claim window');
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.advanceSlots(AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS + 1); // off-by-one?
@@ -450,13 +451,25 @@ describe('e2e_block_building', () => {
       // Wait a bit before spawning a new pxe
       await sleep(2000);
 
+      // tx1 is valid because it was build against a proven block number
+      // the sequencer will bring it back on chain
+      await retryUntil(
+        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.SUCCESS,
+        'wait for re-inclusion',
+        60,
+        1,
+      );
+
+      const newTx1Receipt = await aztecNode.getTxReceipt(tx1.txHash);
+      expect(newTx1Receipt.blockNumber).toEqual(tx1.blockNumber);
+      expect(newTx1Receipt.blockHash).not.toEqual(tx1.blockHash);
+
       // Send another tx which should be mined a block that is built on the reorg'd chain
       // We need to send it from a new pxe since pxe doesn't detect reorgs (yet)
       logger.info(`Creating new PXE service`);
       const pxeServiceConfig = { ...getPXEServiceConfig() };
       const newPxe = await createPXEService(aztecNode, pxeServiceConfig);
       const newWallet = await createAccount(newPxe);
-      expect(await pxe.getBlockNumber()).toEqual(initialBlockNumber + 1);
 
       // TODO: Contract.at should automatically register the instance in the pxe
       logger.info(`Registering contract at ${contract.address} in new pxe`);
@@ -465,8 +478,8 @@ describe('e2e_block_building', () => {
 
       logger.info('Sending new tx on reorgd chain');
       const tx2 = await contractFromNewPxe.methods.increment_public_value(ownerAddress, 10).send().wait();
-      expect(await contractFromNewPxe.methods.get_public_value(ownerAddress).simulate()).toEqual(10n);
-      expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
+      expect(await contractFromNewPxe.methods.get_public_value(ownerAddress).simulate()).toEqual(30n);
+      expect(tx2.blockNumber).toEqual(initialBlockNumber + 3);
     });
   });
 });

@@ -33,6 +33,17 @@ template <typename CycleGroup> struct VMOperation {
         return res;
     }
     bool operator==(const VMOperation<CycleGroup>& other) const = default;
+
+    std::array<uint256_t, 2> get_base_point_standard_form() const
+    {
+        uint256_t x(base_point.x);
+        uint256_t y(base_point.y);
+        if (base_point.is_point_at_infinity()) {
+            x = 0;
+            y = 0;
+        }
+        return { x, y };
+    }
 };
 template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;

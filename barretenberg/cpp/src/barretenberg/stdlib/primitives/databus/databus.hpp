@@ -18,7 +18,7 @@ template <typename Builder> class databus {
 
       public:
         bus_vector(const BusId bus_idx)
-            : bus_idx(bus_idx){};
+            : bus_idx(bus_idx) {};
 
         /**
          * @brief Set the entries of the bus vector from possibly unnormalized or constant inputs
@@ -249,7 +249,7 @@ template <class Builder> class DataBusDepot {
         l1.create_range_constraint(Fq::NUM_LIMB_BITS, "l1");
         l2.create_range_constraint(Fq::NUM_LIMB_BITS, "l2");
         l3.create_range_constraint(Fq::NUM_LAST_LIMB_BITS, "l3");
-        return Fq(l0, l1, l2, l3, /*can_overflow=*/false);
+        return Fq::construct_from_limbs(l0, l1, l2, l3, /*can_overflow=*/false);
     }
 
     void assert_equality_of_commitments(const Commitment& P0, const Commitment& P1)

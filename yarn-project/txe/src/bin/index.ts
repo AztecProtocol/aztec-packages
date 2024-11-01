@@ -18,7 +18,7 @@ function main() {
   const txeServer = createTXERpcServer(logger);
   const app = txeServer.getApp();
   // add status route
-  const statusRouter = createStatusRouter();
+  const statusRouter = createStatusRouter(() => txeServer.isHealthy());
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
   const httpServer = http.createServer(app.callback());

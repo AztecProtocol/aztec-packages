@@ -332,7 +332,7 @@ export class BarretenbergApi {
     constraintSystemBuf: Uint8Array,
     recursive: boolean,
     honkRecursion: boolean,
-  ): Promise<[number, number, number]> {
+  ): Promise<[number, number]> {
     const inArgs = [constraintSystemBuf, recursive, honkRecursion].map(serializeBufferable);
     const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -341,7 +341,7 @@ export class BarretenbergApi {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
+    return out as [number, number];
   }
 
   async acirNewAcirComposer(sizeHint: number): Promise<Ptr> {
