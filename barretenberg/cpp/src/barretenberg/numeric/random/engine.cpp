@@ -10,13 +10,18 @@ namespace bb::numeric {
 
 namespace {
 
-#ifndef __wasm__
-// When working on native we allocate 1M of memory to sample randomness from urandom
-constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
-#else
-// In wasm the API we are using can only give 256 bytes per call, so there is no point in creating a larger buffer
+#if defined(__wasm__) || defined(__APPLE__)
+
+// In wasm and on mac os the API we are using can only give 256 bytes per call, so there is no point in creating a
+// larger buffer
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
+
+#else
+
+// When working on native we allocate 1M of memory to sample randomness from urandom
+constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
+
 #endif
 struct RandomBufferWrapper {
     // Buffer with randomness sampled from a CSPRNG
@@ -46,14 +51,14 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
         uint8_t* current_offset = random_buffer_wrapper.buffer;
         // Sample until we fill the buffer
         while (bytes_left != 0) {
-#ifndef __wasm__
-            // Sample from urandom on native
-            auto read_bytes = getrandom(current_offset, bytes_left, 0);
-#else
+#if defined(__wasm__) || defined(__APPLE__)
             // Sample through a "syscall" on wasm. We can't request more than 256, it fails and results in an infinite
             // loop
             ssize_t read_bytes =
                 getentropy(current_offset, BYTES_PER_GETENTROPY_READ) == -1 ? -1 : BYTES_PER_GETENTROPY_READ;
+#else
+            // Sample from urandom on native
+            auto read_bytes = getrandom(current_offset, bytes_left, 0);
 #endif
             // If we read something, update the leftover
             if (read_bytes != -1) {
