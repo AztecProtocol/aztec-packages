@@ -1,13 +1,14 @@
-import { getL2BlockProposedLogs, retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
+import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { type LogFn, type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { type PublicClient, createPublicClient, http } from 'viem';
+import { type PublicClient, createPublicClient, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrl: string;
@@ -85,7 +86,7 @@ export async function proverStats(opts: {
   // Map from l2 block number to the l1 block in which it was submitted
   const l2BlockSubmissions: Record<string, bigint> = {};
   for (const blockEvent of blockEvents) {
-    l2BlockSubmissions[blockEvent.args.blockNumber.toString()] = blockEvent.blockNumber;
+    l2BlockSubmissions[blockEvent.args.blockNumber!.toString()] = blockEvent.blockNumber;
   }
 
   // If we want raw logs, output them
@@ -172,7 +173,17 @@ async function getL2BlockEvents(
   const events = [];
   while (blockNum <= lastBlockNum) {
     const end = blockNum + batchSize > lastBlockNum + 1n ? lastBlockNum + 1n : blockNum + batchSize;
-    const newEvents = await getL2BlockProposedLogs(publicClient, rollup, blockNum, end);
+
+    const newEvents = await publicClient.getLogs({
+      address: getAddress(rollup.toString()),
+      event: getAbiItem({
+        abi: RollupAbi,
+        name: 'L2BlockProposed',
+      }),
+      fromBlock: blockNum,
+      toBlock: end + 1n, // the toBlock argument in getLogs is exclusive
+    });
+
     events.push(...newEvents);
     debugLog.verbose(`Got ${newEvents.length} events querying l2 block submitted from block ${blockNum} to ${end}`);
     blockNum += batchSize;

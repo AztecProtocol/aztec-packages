@@ -4,13 +4,6 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { createStore } from '@aztec/kv-store/utils';
-import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
-import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-import { getCanonicalMultiCallEntrypointContract } from '@aztec/protocol-contracts/multi-call-entrypoint';
-import { getCanonicalRouter } from '@aztec/protocol-contracts/router';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
@@ -46,18 +39,6 @@ export async function createPXEService(
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
   const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);
-  for (const contract of [
-    getCanonicalClassRegisterer(),
-    getCanonicalInstanceDeployer(),
-    getCanonicalMultiCallEntrypointContract(),
-    getCanonicalFeeJuice(),
-    getCanonicalKeyRegistry(),
-    getCanonicalAuthRegistry(),
-    getCanonicalRouter(),
-  ]) {
-    await server.registerContract(contract);
-  }
-
   await server.start();
   return server;
 }
@@ -73,5 +54,5 @@ function createProver(config: PXEServiceConfig, logSuffix?: string) {
   }
   const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> & PXEServiceConfig;
   const log = createDebugLogger('aztec:pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
-  return BBNativePrivateKernelProver.new(bbConfig, log);
+  return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, log);
 }

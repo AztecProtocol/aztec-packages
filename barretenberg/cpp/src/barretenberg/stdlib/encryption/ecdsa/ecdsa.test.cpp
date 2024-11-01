@@ -50,8 +50,12 @@ TEST(stdlib_ecdsa, verify_signature)
 
     EXPECT_EQ(signature_result.get_value(), true);
 
-    std::cerr << "num gates = " << builder.get_num_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING, "ECDSA", "Signature Verification Test", "Gate Count", builder.get_num_gates());
+    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+    benchmark_info(Builder::NAME_STRING,
+                   "ECDSA",
+                   "Signature Verification Test",
+                   "Gate Count",
+                   builder.get_estimated_num_finalized_gates());
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -91,8 +95,12 @@ TEST(stdlib_ecdsa, verify_r1_signature)
 
     EXPECT_EQ(signature_result.get_value(), true);
 
-    std::cerr << "num gates = " << builder.get_num_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING, "ECDSA", "Signature Verification Test", "Gate Count", builder.get_num_gates());
+    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+    benchmark_info(Builder::NAME_STRING,
+                   "ECDSA",
+                   "Signature Verification Test",
+                   "Gate Count",
+                   builder.get_estimated_num_finalized_gates());
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -135,8 +143,12 @@ TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_succeed)
 
     EXPECT_EQ(signature_result.get_value(), true);
 
-    std::cerr << "num gates = " << builder.get_num_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING, "ECDSA", "Signature Verification Test", "Gate Count", builder.get_num_gates());
+    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+    benchmark_info(Builder::NAME_STRING,
+                   "ECDSA",
+                   "Signature Verification Test",
+                   "Gate Count",
+                   builder.get_estimated_num_finalized_gates());
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -179,8 +191,12 @@ TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_fail)
 
     EXPECT_EQ(signature_result.get_value(), false);
 
-    std::cerr << "num gates = " << builder.get_num_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING, "ECDSA", "Signature Verification Test", "Gate Count", builder.get_num_gates());
+    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+    benchmark_info(Builder::NAME_STRING,
+                   "ECDSA",
+                   "Signature Verification Test",
+                   "Gate Count",
+                   builder.get_estimated_num_finalized_gates());
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }

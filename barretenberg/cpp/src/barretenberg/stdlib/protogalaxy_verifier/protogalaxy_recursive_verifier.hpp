@@ -5,7 +5,6 @@
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {

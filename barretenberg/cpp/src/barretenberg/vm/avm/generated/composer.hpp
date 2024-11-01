@@ -32,8 +32,6 @@ class AvmComposer {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
-    bool contains_recursive_proof = false;
     bool computed_witness = false;
 
     AvmComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }

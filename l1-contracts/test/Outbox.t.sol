@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {Outbox} from "../src/core/messagebridge/Outbox.sol";
-import {IOutbox} from "../src/core/interfaces/messagebridge/IOutbox.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
-import {Hash} from "../src/core/libraries/Hash.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 

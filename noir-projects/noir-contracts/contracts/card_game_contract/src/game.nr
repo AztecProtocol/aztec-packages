@@ -1,10 +1,10 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
 use crate::cards::Card;
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
-global NUMBER_OF_PLAYERS: u64 = 2;
-global NUMBER_OF_CARDS_DECK: u64 = 2;
+global NUMBER_OF_PLAYERS: u32 = 2;
+global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-struct PlayerEntry {
+pub struct PlayerEntry {
     address: AztecAddress,
     deck_strength: u32,
     points: u64,
@@ -16,7 +16,7 @@ impl PlayerEntry {
     }
 }
 
-global PLAYER_SERIALIZED_LEN: Field = 3;
+global PLAYER_SERIALIZED_LEN: u32 = 3;
 
 impl Deserialize<PLAYER_SERIALIZED_LEN> for PlayerEntry {
     fn deserialize(fields: [Field; PLAYER_SERIALIZED_LEN]) -> PlayerEntry {
@@ -36,19 +36,19 @@ impl Eq for PlayerEntry {
     }
 }
 
-global PLAYABLE_CARDS = 4;
+global PLAYABLE_CARDS: u32 = 4;
 
-struct Game {
+pub struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
     rounds_cards: [Card; PLAYABLE_CARDS],
     started: bool,
     finished: bool,
     claimed: bool,
-    current_player: u64,
-    current_round: u64,
+    current_player: u32,
+    current_round: u32,
 }
 
-global GAME_SERIALIZED_LEN: Field = 15;
+global GAME_SERIALIZED_LEN: u32 = 15;
 
 impl Serialize<GAME_SERIALIZED_LEN> for Game {
     fn serialize(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
@@ -67,7 +67,7 @@ impl Serialize<GAME_SERIALIZED_LEN> for Game {
             game.finished as Field,
             game.claimed as Field,
             game.current_player as Field,
-            game.current_round as Field
+            game.current_round as Field,
         ]
     }
 }
@@ -79,8 +79,10 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
 
         let players = [player1, player2];
         let rounds_cards = [
-            Card::from_field(fields[6]), Card::from_field(fields[7]),
-            Card::from_field(fields[8]), Card::from_field(fields[9])
+            Card::from_field(fields[6]),
+            Card::from_field(fields[7]),
+            Card::from_field(fields[8]),
+            Card::from_field(fields[9]),
         ];
         Game {
             players,
@@ -88,8 +90,8 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
             started: fields[10] as bool,
             finished: fields[11] as bool,
             claimed: fields[12] as bool,
-            current_player: fields[13] as u64,
-            current_round: fields[14] as u64
+            current_player: fields[13] as u32,
+            current_round: fields[14] as u32,
         }
     }
 }
@@ -117,7 +119,9 @@ impl Game {
             let entry = self.players[i];
             assert(entry.is_initialized(), "Game not full");
         }
-        let sorted_by_deck_strength = self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| a.deck_strength < b.deck_strength);
+        let sorted_by_deck_strength = self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| {
+            a.deck_strength < b.deck_strength
+        });
         self.players = sorted_by_deck_strength;
         self.started = true;
     }
@@ -155,7 +159,7 @@ impl Game {
     }
 
     fn _finish_round(&mut self) {
-        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
+        let round_offset = self.current_round as u32 * NUMBER_OF_PLAYERS;
         self.current_round += 1;
 
         let mut winner_index = 0;

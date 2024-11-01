@@ -135,7 +135,7 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 //         EXPECT_EQ(uint256_t(result[i].get_value()).data[0] & 0xffffffffUL,
 //                   uint256_t(expected[i]).data[0] & 0xffffffffUL);
 //     }
-//     info("num gates = %zu\n", builder.get_num_gates());
+//     info("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
 //     auto prover = composer.create_prover();
 
@@ -167,7 +167,7 @@ TEST(stdlib_sha256, test_plookup_55_bytes)
     EXPECT_EQ(uint256_t(output[5].get_value()), 0xbde22ab0U);
     EXPECT_EQ(uint256_t(output[6].get_value()), 0x54a8fac7U);
     EXPECT_EQ(uint256_t(output[7].get_value()), 0x93791fc7U);
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -192,7 +192,7 @@ TEST(stdlib_sha256, test_55_bytes)
     EXPECT_EQ(output[5].get_value(), fr(0xbde22ab0ULL));
     EXPECT_EQ(output[6].get_value(), fr(0x54a8fac7ULL));
     EXPECT_EQ(output[7].get_value(), fr(0x93791fc7ULL));
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -216,7 +216,7 @@ TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
     EXPECT_EQ(uint256_t(output[5].get_value()).data[0], (uint64_t)0x96177A9CU);
     EXPECT_EQ(uint256_t(output[6].get_value()).data[0], (uint64_t)0xB410FF61U);
     EXPECT_EQ(uint256_t(output[7].get_value()).data[0], (uint64_t)0xF20015ADU);
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -243,7 +243,7 @@ TEST(stdlib_sha256, test_NIST_vector_one)
     EXPECT_EQ(output[5].get_value(), fr(0x96177A9CULL));
     EXPECT_EQ(output[6].get_value(), fr(0xB410FF61ULL));
     EXPECT_EQ(output[7].get_value(), fr(0xF20015ADULL));
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -267,7 +267,7 @@ TEST(stdlib_sha256, test_NIST_vector_two)
     EXPECT_EQ(output[5].get_value(), 0x64FF2167ULL);
     EXPECT_EQ(output[6].get_value(), 0xF6ECEDD4ULL);
     EXPECT_EQ(output[7].get_value(), 0x19DB06C1ULL);
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -292,7 +292,7 @@ TEST(stdlib_sha256, test_NIST_vector_three)
     EXPECT_EQ(output[5].get_value(), 0x7dc4b5aaULL);
     EXPECT_EQ(output[6].get_value(), 0xe11204c0ULL);
     EXPECT_EQ(output[7].get_value(), 0x8ffe732bULL);
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -318,7 +318,7 @@ TEST(stdlib_sha256, test_NIST_vector_four)
     EXPECT_EQ(output[6].get_value(), 0xbd56c61cULL);
     EXPECT_EQ(output[7].get_value(), 0xcccd9504ULL);
 
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -357,7 +357,7 @@ HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
     EXPECT_EQ(output[6].get_value(), 0xa519105aULL);
     EXPECT_EQ(output[7].get_value(), 0x1eadd6e4ULL);
 
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);

@@ -25,6 +25,9 @@
       "path": "../noir-protocol-circuits-types"
     },
     {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../simulator"
     },
     {

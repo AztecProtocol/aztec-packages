@@ -16,7 +16,7 @@ enum TransactionState {
 
 class LMDBTransaction {
   public:
-    LMDBTransaction(LMDBEnvironment& env, bool readOnly = false);
+    LMDBTransaction(LMDBEnvironment::SharedPtr env, bool readOnly = false);
     LMDBTransaction(const LMDBTransaction& other) = delete;
     LMDBTransaction(LMDBTransaction&& other) = delete;
     LMDBTransaction& operator=(const LMDBTransaction& other) = delete;
@@ -34,7 +34,7 @@ class LMDBTransaction {
     virtual void abort();
 
   protected:
-    LMDBEnvironment& _environment;
+    std::shared_ptr<LMDBEnvironment> _environment;
     MDB_txn* _transaction;
     TransactionState state;
 };

@@ -1,36 +1,40 @@
 // A contract used along with `Parent` contract to test nested calls.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Child {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize, Map};
+    use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        context::gas::GasOpts, protocol_types::{abis::call_context::CallContext},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys, utils::comparison::Comparator
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        keys::getters::get_public_keys,
+        macros::{functions::{internal, private, public}, storage::storage},
+        note::note_getter_options::NoteGetterOptions,
+        utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
 
-    #[aztec(storage)]
-    struct Storage {
-        current_value: PublicMutable<Field>,
-        a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
+    #[storage]
+    struct Storage<Context> {
+        current_value: PublicMutable<Field, Context>,
+        a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
-    #[aztec(private)]
+    #[private]
     fn value(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     // Can only be called from this contract.
-    #[aztec(private)]
-    #[aztec(internal)]
+    #[private]
+    #[internal]
     fn value_internal(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp
-    #[aztec(public)]
+    #[public]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
             + context.chain_id()
@@ -42,7 +46,7 @@ contract Child {
     }
 
     // Sets `current_value` to `new_value`
-    #[aztec(public)]
+    #[public]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
         context.emit_unencrypted_log(new_value);
@@ -50,16 +54,21 @@ contract Child {
         new_value
     }
 
-    #[aztec(private)]
+    #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_keys = get_current_public_keys(&mut context, owner);
+        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
 
-        let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, owner_keys.ovpk_m, owner_keys.ivpk_m, owner));
+        let mut note = ValueNote::new(new_value, owner);
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
+            &mut context,
+            owner_ovpk_m,
+            owner,
+            context.msg_sender(),
+        ));
         new_value
     }
 
-    #[aztec(private)]
+    #[private]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
@@ -68,7 +77,7 @@ contract Child {
     }
 
     // Increments `current_value` by `new_value`
-    #[aztec(public)]
+    #[public]
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
@@ -78,8 +87,8 @@ contract Child {
     }
 
     // Increments `current_value` by `new_value`. Can only be called from this contract.
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
@@ -88,21 +97,21 @@ contract Child {
         new_value
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_value_twice_with_nested_first() {
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_value_with_two_nested_calls() {
         Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
         Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);

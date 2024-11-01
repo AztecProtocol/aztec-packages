@@ -2,7 +2,6 @@ import { type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
-  Fq,
   Fr,
   GeneratorIndex,
   GrumpkinScalar,
@@ -11,7 +10,6 @@ import {
   KeyValidationRequest,
   type PartialAddress,
   Point,
-  computeAddress,
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
@@ -21,7 +19,7 @@ import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize'
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
- * Used for managing keys. Can hold keys of multiple accounts and allows for key rotation.
+ * Used for managing keys. Can hold keys of multiple accounts.
  */
 export class KeyStore {
   #keys: AztecMap<string, Buffer>;
@@ -55,8 +53,8 @@ export class KeyStore {
       publicKeys,
     } = deriveKeys(sk);
 
-    const publicKeysHash = publicKeys.hash();
-    const account = computeAddress(publicKeysHash, partialAddress);
+    const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const { address: account } = completeAddress;
 
     // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
     await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
@@ -83,7 +81,7 @@ export class KeyStore {
     await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.masterTaggingPublicKey.hash().toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(new CompleteAddress(account, publicKeys, partialAddress));
+    return Promise.resolve(completeAddress);
   }
 
   /**
@@ -105,55 +103,31 @@ export class KeyStore {
    * @returns The key validation request.
    */
   public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkMHash);
+    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkMHash);
 
     // Now we find the master public key for the account
-    // Since each public keys buffer contains multiple public keys, we need to find the one that matches the hash.
-    // Then we store the index of the key in the buffer to be able to quickly obtain the corresponding secret key.
-    let pkM: PublicKey | undefined;
-    let keyIndexInBuffer = 0;
-    {
-      const pkMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
-      if (!pkMsBuffer) {
-        throw new Error(
-          `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
-        );
-      }
+    const pkMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
+    if (!pkMBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
+      );
+    }
 
-      // Now we iterate over the public keys in the buffer to find the one that matches the hash
-      const numKeys = this.#calculateNumKeys(pkMsBuffer, Point);
-      for (; keyIndexInBuffer < numKeys; keyIndexInBuffer++) {
-        const foundPkM = Point.fromBuffer(
-          pkMsBuffer.subarray(keyIndexInBuffer * Point.SIZE_IN_BYTES, (keyIndexInBuffer + 1) * Point.SIZE_IN_BYTES),
-        );
-        if (foundPkM.hash().equals(pkMHash)) {
-          pkM = foundPkM;
-          break;
-        }
-      }
+    const pkM = Point.fromBuffer(pkMBuffer);
 
-      if (!pkM) {
-        throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
-      }
+    if (!pkM.hash().equals(pkMHash)) {
+      throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
     }
 
     // Now we find the secret key for the public key
-    let skM: GrumpkinScalar | undefined;
-    {
-      const skMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
-      if (!skMsBuffer) {
-        throw new Error(
-          `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
-        );
-      }
-
-      skM = GrumpkinScalar.fromBuffer(
-        skMsBuffer.subarray(
-          keyIndexInBuffer * GrumpkinScalar.SIZE_IN_BYTES,
-          (keyIndexInBuffer + 1) * GrumpkinScalar.SIZE_IN_BYTES,
-        ),
+    const skMBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    if (!skMBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
       );
     }
+
+    const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
     if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
@@ -164,6 +138,22 @@ export class KeyStore {
     const skApp = computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
     return Promise.resolve(new KeyValidationRequest(pkM, skApp));
+  }
+
+  /**
+   * Gets the master nullifier public key for a given account.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account address for which to retrieve the master nullifier public key.
+   * @returns The master nullifier public key for the account.
+   */
+  public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
+    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+    if (!masterNullifierPublicKeyBuffer) {
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
+    }
+    return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
 
   /**
@@ -215,13 +205,12 @@ export class KeyStore {
   }
 
   /**
-   * Retrieves application incoming viewing secret key.
+   * Retrieves master incoming viewing secret key.
    * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application incoming viewing secret key for.
-   * @param app - The application address to retrieve the incoming viewing secret key for.
-   * @returns A Promise that resolves to the application incoming viewing secret key.
+   * @param account - The account to retrieve the master incoming viewing secret key for.
+   * @returns A Promise that resolves to the master incoming viewing secret key.
    */
-  public async getAppIncomingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+  public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
     const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
     if (!masterIncomingViewingSecretKeyBuffer) {
       throw new Error(
@@ -230,12 +219,7 @@ export class KeyStore {
     }
     const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
-    return Promise.resolve(
-      poseidon2HashWithSeparator(
-        [masterIncomingViewingSecretKey.hi, masterIncomingViewingSecretKey.lo, app],
-        GeneratorIndex.IVSK_M,
-      ),
-    );
+    return Promise.resolve(masterIncomingViewingSecretKey);
   }
 
   /**
@@ -270,60 +254,21 @@ export class KeyStore {
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkM);
+    const [keyPrefix, account] = this.getKeyPrefixAndAccount(pkM);
 
-    // We get the secret keys buffer and iterate over the values in the buffer to find the one that matches pkM
-    let skM: GrumpkinScalar | undefined;
-    {
-      const secretKeysBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
-      if (!secretKeysBuffer) {
-        throw new Error(
-          `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
-        );
-      }
+    const secretKeyBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    if (!secretKeyBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
+      );
+    }
 
-      const numKeys = this.#calculateNumKeys(secretKeysBuffer, GrumpkinScalar);
-      for (let i = 0; i < numKeys; i++) {
-        const foundSkM = GrumpkinScalar.fromBuffer(
-          secretKeysBuffer.subarray(i * GrumpkinScalar.SIZE_IN_BYTES, (i + 1) * GrumpkinScalar.SIZE_IN_BYTES),
-        );
-        if (derivePublicKeyFromSecretKey(foundSkM).equals(pkM)) {
-          skM = foundSkM;
-          break;
-        }
-      }
-
-      if (!skM) {
-        throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
-      }
+    const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
+    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+      throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 
     return Promise.resolve(skM);
-  }
-
-  /**
-   * Rotates the master nullifier key for the specified account.
-   *
-   * @dev This function updates the secret and public keys associated with the account.
-   * It appends a new secret key to the existing secret keys, derives the
-   * corresponding public key, and updates the stored keys accordingly.
-   *
-   * @param account - The account address for which the master nullifier key is being rotated.
-   * @param newSecretKey - (Optional) A new secret key of type Fq. If not provided, a random key is generated.
-   * @throws If the account does not have existing nullifier secret keys or public keys.
-   * @returns A Promise that resolves when the key rotation is complete.
-   */
-  public async rotateMasterNullifierKey(account: AztecAddress, newSecretKey: Fq = Fq.random()) {
-    // We append the secret key to the array of secret keys
-    await this.#appendValue(`${account.toString()}-nsk_m`, newSecretKey);
-
-    // Now we derive the public key from the new secret key and append it to the buffer of original public keys
-    const newPublicKey = derivePublicKeyFromSecretKey(newSecretKey);
-    await this.#appendValue(`${account.toString()}-npk_m`, newPublicKey);
-
-    // At last we store npk_m_hash under `account-npk_m_hash` key to be able to obtain address and key prefix
-    // using the #getKeyPrefixAndAccount function later on
-    await this.#appendValue(`${account.toString()}-npk_m_hash`, newPublicKey.hash());
   }
 
   /**
@@ -332,12 +277,10 @@ export class KeyStore {
    * @dev Note that this is quite inefficient but it should not matter because there should never be too many keys
    * in the key store.
    */
-  #getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
+  public getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
     const valueBuffer = serializeToBuffer(value);
     for (const [key, val] of this.#keys.entries()) {
-      // `val` can contain multiple values due to key rotation so we check if the value is in the buffer instead
-      // of just calling `.equals(...)`
-      if (val.includes(valueBuffer)) {
+      if (val.equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
             const account = AztecAddress.fromString(key.split('-')[0]);
@@ -347,18 +290,5 @@ export class KeyStore {
       }
     }
     throw new Error(`Could not find key prefix.`);
-  }
-
-  async #appendValue(key: string, value: Bufferable) {
-    const currentValue = this.#keys.get(key);
-    if (!currentValue) {
-      throw new Error(`Could not find current value for key ${key}`);
-    }
-
-    await this.#keys.set(key, serializeToBuffer([currentValue, value]));
-  }
-
-  #calculateNumKeys(buf: Buffer, T: typeof Point | typeof Fq) {
-    return buf.byteLength / T.SIZE_IN_BYTES;
   }
 }

@@ -134,8 +134,6 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
                                                                     RefVector(stdlib_w_evaluations), // shifted
                                                                     u_challenge_in_circuit,
                                                                     Commitment::one(&builder),
-                                                                    stdlib_verifier_transcript,
-                                                                    {},
-                                                                    {});
+                                                                    stdlib_verifier_transcript);
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

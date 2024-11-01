@@ -143,11 +143,11 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     auto lhs = TestFixture::generators[0];
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
     cycle_group_ct c;
-    std::cout << "pre = " << builder.get_num_gates() << std::endl;
+    std::cout << "pre = " << builder.get_estimated_num_finalized_gates() << std::endl;
     for (size_t i = 0; i < 3; ++i) {
         c = a.dbl();
     }
-    std::cout << "post = " << builder.get_num_gates() << std::endl;
+    std::cout << "post = " << builder.get_estimated_num_finalized_gates() << std::endl;
     AffineElement expected(Element(lhs).dbl());
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);

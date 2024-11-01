@@ -2,7 +2,7 @@ import { Fq, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, type MemoryValue, Uint8, Uint32 } from '../avm_memory_types.js';
+import { Field, type MemoryValue, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { MultiScalarMul } from './multi_scalar_mul.js';
 
@@ -16,17 +16,17 @@ describe('MultiScalarMul Opcode', () => {
     const buf = Buffer.from([
       MultiScalarMul.opcode, // opcode
       7, // indirect
-      ...Buffer.from('12345678', 'hex'), // pointsOffset
-      ...Buffer.from('23456789', 'hex'), // scalars Offset
-      ...Buffer.from('3456789a', 'hex'), // outputOffset
-      ...Buffer.from('456789ab', 'hex'), // pointsLengthOffset
+      ...Buffer.from('1234', 'hex'), // pointsOffset
+      ...Buffer.from('2345', 'hex'), // scalars Offset
+      ...Buffer.from('3456', 'hex'), // outputOffset
+      ...Buffer.from('4567', 'hex'), // pointsLengthOffset
     ]);
     const inst = new MultiScalarMul(
       /*indirect=*/ 7,
-      /*pointsOffset=*/ 0x12345678,
-      /*scalarsOffset=*/ 0x23456789,
-      /*outputOffset=*/ 0x3456789a,
-      /*pointsLengthOffset=*/ 0x456789ab,
+      /*pointsOffset=*/ 0x1234,
+      /*scalarsOffset=*/ 0x2345,
+      /*outputOffset=*/ 0x3456,
+      /*pointsLengthOffset=*/ 0x4567,
     );
 
     expect(MultiScalarMul.deserialize(buf)).toEqual(inst);
@@ -50,7 +50,7 @@ describe('MultiScalarMul Opcode', () => {
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] where the types are [Field, Field, Uint8, Field, Field, Uint8, ...]
     const storedPoints: MemoryValue[] = points
       .map(p => p.toFields())
-      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint8(inf.toNumber())]);
+      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint1(inf.toNumber())]);
     const pointsOffset = 0;
     context.machineState.memory.setSlice(pointsOffset, storedPoints);
     // Store scalars
@@ -90,7 +90,7 @@ describe('MultiScalarMul Opcode', () => {
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] where the types are [Field, Field, Uint8, Field, Field, Uint8, ...]
     const storedPoints: MemoryValue[] = points
       .map(p => p.toFields())
-      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint8(inf.toNumber())]);
+      .flatMap(([x, y, inf]) => [new Field(x), new Field(y), new Uint1(inf.toNumber())]);
     const pointsOffset = 0;
     context.machineState.memory.setSlice(pointsOffset, storedPoints);
     // Store scalars

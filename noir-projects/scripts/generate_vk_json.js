@@ -28,8 +28,37 @@ function vkDataFileNameForArtifactName(outputFolder, artifactName) {
   return path.join(outputFolder, `${artifactName}.vk.data.json`);
 }
 
+function getFunctionArtifactPath(outputFolder, functionName) {
+  return path.join(outputFolder, `${functionName}.tmp.json`);
+}
+
+async function createFunctionArtifact(
+  contractArtifactPath,
+  functionName,
+  outputFolder
+) {
+  const contractArtifact = JSON.parse(await fs.readFile(contractArtifactPath));
+  const artifact = contractArtifact.functions.find(
+    (fn) => fn.name === functionName
+  );
+  if (!artifact) {
+    throw new Error(`Cannot find artifact for function: ${functionName}.`);
+  }
+
+  const artifactPath = getFunctionArtifactPath(outputFolder, functionName);
+  await fs.writeFile(artifactPath, JSON.stringify(artifact, null, 2));
+  return artifactPath;
+}
+
+async function removeFunctionArtifact(artifactPath) {
+  await fs.unlink(artifactPath);
+}
+
 async function getBytecodeHash(artifactPath) {
   const { bytecode } = JSON.parse(await fs.readFile(artifactPath));
+  if (!bytecode) {
+    throw new Error("No bytecode found in artifact: " + artifactPath);
+  }
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
@@ -59,63 +88,57 @@ function generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk) {
   }`;
 }
 
-async function getNewArtifactHash(
-  artifactPath,
-  outputFolder,
-  artifactName,
-  isMegaHonk
-) {
+async function getArtifactHash(artifactPath, isMegaHonk) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
-  const artifactHash = generateArtifactHash(
-    barretenbergHash,
-    bytecodeHash,
-    isMegaHonk
-  );
+  return generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk);
+}
 
-  const vkDataPath = vkDataFileNameForArtifactName(outputFolder, artifactName);
+async function hasArtifactHashChanged(artifactHash, vkDataPath) {
   try {
     const { artifactHash: previousArtifactHash } = JSON.parse(
       await fs.readFile(vkDataPath, "utf8")
     );
     if (previousArtifactHash === artifactHash) {
-      return null;
+      return false;
     } else {
       console.log(
         `Circuit ${artifactName} has changed, old hash ${previousArtifactHash}, new hash ${artifactHash}`
       );
     }
   } catch (ignored) {
-    console.log("No on disk vk found for", artifactName);
+    console.log(`No on disk vk found in: ${vkDataPath}`);
   }
-  return artifactHash;
+  return true;
 }
 
 function isMegaHonkCircuit(artifactName) {
-  // TODO Uncomment when mega honk vks are supported in the protocol
-  // return megaHonkPatterns.some((pattern) =>
-  //   artifactName.match(new RegExp(pattern))
-  // );
-  return false;
+  return megaHonkPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  );
 }
 
-async function processArtifact(artifactPath, outputFolder) {
-  const artifactName = path.basename(artifactPath, ".json");
+async function processArtifact(
+  artifactPath,
+  artifactName,
+  outputFolder,
+  syncWithS3
+) {
   const isMegaHonk = isMegaHonkCircuit(artifactName);
 
-  const artifactHash = await getNewArtifactHash(
-    artifactPath,
-    outputFolder,
-    artifactName,
-    isMegaHonk
-  );
-  if (!artifactHash) {
-    console.log("Reusing on disk vk for", artifactName);
+  const artifactHash = await getArtifactHash(artifactPath, isMegaHonk);
+
+  const vkDataPath = vkDataFileNameForArtifactName(outputFolder, artifactName);
+
+  const hasChanged = await hasArtifactHashChanged(artifactHash, vkDataPath);
+  if (!hasChanged) {
+    console.log(`Reusing on disk vk: ${vkDataPath}`);
     return;
   }
 
-  let vkData = await readVKFromS3(artifactName, artifactHash);
-
+  let vkData = syncWithS3
+    ? await readVKFromS3(artifactName, artifactHash)
+    : undefined;
   if (!vkData) {
     vkData = await generateVKData(
       artifactName,
@@ -124,15 +147,14 @@ async function processArtifact(artifactPath, outputFolder) {
       artifactHash,
       isMegaHonk
     );
-    await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
+    if (syncWithS3) {
+      await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
+    }
   } else {
     console.log("Using VK from remote cache for", artifactName);
   }
 
-  await fs.writeFile(
-    vkDataFileNameForArtifactName(outputFolder, artifactName),
-    JSON.stringify(vkData, null, 2)
-  );
+  await fs.writeFile(vkDataPath, JSON.stringify(vkData, null, 2));
 }
 
 async function generateVKData(
@@ -186,14 +208,35 @@ async function generateVKData(
 }
 
 async function main() {
-  let [artifactPath, outputFolder] = process.argv.slice(2);
+  let [artifactPath, outputFolder, functionName] = process.argv.slice(2);
   if (!artifactPath || !outputFolder) {
     console.log(
-      "Usage: node generate_vk_json.js <artifactPath> <outputFolder>"
+      "Usage: node generate_vk_json.js <artifactPath> <outputFolder> [functionName]"
     );
     return;
   }
-  processArtifact(artifactPath, outputFolder);
+
+  const sourceArtifactPath = !functionName
+    ? artifactPath
+    : await createFunctionArtifact(artifactPath, functionName, outputFolder);
+
+  const artifactName = [
+    path.basename(artifactPath, ".json"),
+    functionName ? `-${functionName}` : "",
+  ].join("");
+
+  const syncWithS3 = true;
+
+  await processArtifact(
+    sourceArtifactPath,
+    artifactName,
+    outputFolder,
+    syncWithS3
+  );
+
+  if (sourceArtifactPath !== artifactPath) {
+    await removeFunctionArtifact(sourceArtifactPath);
+  }
 }
 
 function generateS3Client() {

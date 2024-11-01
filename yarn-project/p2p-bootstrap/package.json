@@ -61,6 +61,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }

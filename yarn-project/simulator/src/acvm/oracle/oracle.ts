@@ -1,8 +1,7 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { KeyValidationRequest } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
@@ -71,7 +70,7 @@ export class Oracle {
       instance.deployer,
       instance.contractClassId,
       instance.initializationHash,
-      instance.publicKeysHash,
+      ...instance.publicKeys.toFields(),
     ].map(toACVMField);
   }
 
@@ -329,72 +328,6 @@ export class Oracle {
     this.typedOracle.emitEncryptedNoteLog(+noteHashCounter, processedInput, +counter);
   }
 
-  computeEncryptedEventLog(
-    [contractAddress]: ACVMField[],
-    [randomness]: ACVMField[],
-    [eventTypeId]: ACVMField[],
-    [ovskApp]: ACVMField[],
-    [ovpkMX]: ACVMField[],
-    [ovpkMY]: ACVMField[],
-    [ovpkMIsInfinite]: ACVMField[],
-    [ivpkMX]: ACVMField[],
-    [ivpkMY]: ACVMField[],
-    [ivpkMIsInfinite]: ACVMField[],
-    [recipient]: ACVMField[],
-    preimage: ACVMField[],
-  ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
-    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
-    const encLog = this.typedOracle.computeEncryptedEventLog(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(randomness),
-      Fr.fromString(eventTypeId),
-      ovKeys,
-      ivpkM,
-      AztecAddress.fromString(recipient),
-      preimage.map(fromACVMField),
-    );
-    const bytes: ACVMField[] = [];
-    encLog.forEach(v => {
-      bytes.push(toACVMField(v));
-    });
-    return bytes;
-  }
-
-  computeEncryptedNoteLog(
-    [contractAddress]: ACVMField[],
-    [storageSlot]: ACVMField[],
-    [noteTypeId]: ACVMField[],
-    [ovskApp]: ACVMField[],
-    [ovpkMX]: ACVMField[],
-    [ovpkMY]: ACVMField[],
-    [ovpkMIsInfinite]: ACVMField[],
-    [ivpkMX]: ACVMField[],
-    [ivpkMY]: ACVMField[],
-    [ivpkMIsInfinite]: ACVMField[],
-    [recipient]: ACVMField[],
-    preimage: ACVMField[],
-  ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
-    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
-    const encLog = this.typedOracle.computeEncryptedNoteLog(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(storageSlot),
-      NoteSelector.fromField(Fr.fromString(noteTypeId)),
-      ovKeys,
-      ivpkM,
-      AztecAddress.fromString(recipient),
-      preimage.map(fromACVMField),
-    );
-    const bytes: ACVMField[] = [];
-    encLog.forEach(v => {
-      bytes.push(toACVMField(v));
-    });
-    return bytes;
-  }
-
   emitUnencryptedLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
@@ -427,7 +360,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const { endSideEffectCounter, returnsHash } = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
@@ -435,7 +367,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return [endSideEffectCounter, returnsHash].map(toACVMField);
   }
@@ -446,16 +377,15 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
-  ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+  ): Promise<ACVMField> {
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
+    return toACVMField(newArgsHash);
   }
 
   async setPublicTeardownFunctionCall(
@@ -464,32 +394,38 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
-  ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+  ): Promise<ACVMField> {
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
+    return toACVMField(newArgsHash);
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
 
-  aes128Encrypt(input: ACVMField[], initializationVector: ACVMField[], key: ACVMField[]): ACVMField[] {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(input.map(fromACVMField).map(f => f.toNumber()));
-    const processedIV = Buffer.from(initializationVector.map(fromACVMField).map(f => f.toNumber()));
-    const processedKey = Buffer.from(key.map(fromACVMField).map(f => f.toNumber()));
+  async getAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.getAppTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+    return taggingSecret.toFields().map(toACVMField);
+  }
 
-    // Encrypt the input
-    const ciphertext = this.typedOracle.aes128Encrypt(processedInput, processedIV, processedKey);
+  async incrementAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+  }
 
-    // Convert each byte of ciphertext to a field and return it
-    return Array.from(ciphertext).map(byte => toACVMField(byte));
+  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
+    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
   }
 }

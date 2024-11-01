@@ -109,9 +109,18 @@ impl<'a> NodeFinder<'a> {
 
                 if name_matches("test", prefix) || name_matches("should_fail_with", prefix) {
                     self.completion_items.push(snippet_completion_item(
-                        "test(should_fail_with=\"...\")",
+                        "test(should_fail_with = \"...\")",
                         CompletionItemKind::METHOD,
-                        "test(should_fail_with=\"${1:message}\")",
+                        "test(should_fail_with = \"${1:message}\")",
+                        None,
+                    ));
+                }
+            }
+            AttributeTarget::Let => {
+                if name_matches("allow", prefix) || name_matches("unused_variables", prefix) {
+                    self.completion_items.push(simple_completion_item(
+                        "allow(unused_variables)",
+                        CompletionItemKind::METHOD,
                         None,
                     ));
                 }

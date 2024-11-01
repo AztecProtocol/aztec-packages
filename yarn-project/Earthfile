@@ -35,7 +35,7 @@ build:
     BUILD ../barretenberg/cpp/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+nargo
-    BUILD ../noir-projects/+build
+    BUILD --pass-args ../noir-projects/+build
     BUILD ../l1-contracts/+build
     BUILD ../barretenberg/ts/+build
     BUILD ../noir/+packages
@@ -118,12 +118,12 @@ protocol-verification-keys:
 rollup-verifier-contract:
     FROM +bb-cli
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c BlockRootRollupArtifact -n UltraHonkVerifier.sol
+    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
 txe:
     FROM +cli-base
-    RUN yarn workspaces focus @aztec/txe --production && yarn cache clean
+    RUN yarn workspaces focus @aztec/txe && yarn cache clean
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/txe/dest/bin/index.js"]
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -159,7 +159,6 @@ aztec:
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
     RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
     LET port=8080
     ENV PORT=$port
@@ -191,10 +190,13 @@ export-aztec-faucet:
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
+    BUILD ../spartan/+charts
     FROM +cli-base
     RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
+    COPY --dir ../spartan/+charts/usr/src/spartan /usr/src/spartan
+
     SAVE ARTIFACT /usr/src /usr/src
 
 anvil:
@@ -210,10 +212,19 @@ end-to-end-base:
         && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
         && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
         && apt update && apt install curl chromium nodejs netcat-openbsd -y \
-        && rm -rf /var/lib/apt/lists/*
+        && rm -rf /var/lib/apt/lists/* \
+        && mkdir -p /usr/local/bin \
+        && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+        && chmod +x /usr/local/bin/kubectl \
+        && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+        && chmod +x get_helm.sh \
+        && ./get_helm.sh \
+        && rm get_helm.sh
+
     ENV CHROME_BIN="/usr/bin/chromium"
-    ENV PATH=/opt/foundry/bin:$PATH
+    ENV PATH=/opt/foundry/bin:/usr/local/bin:$PATH
     ENV HARDWARE_CONCURRENCY=""
+    ENV FAKE_PROOFS=""
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
     ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
@@ -227,7 +238,6 @@ end-to-end:
 
     COPY +anvil/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
@@ -266,9 +276,6 @@ format-check:
 
 test:
     FROM +build
-
-    RUN mkdir -p /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     RUN yarn test
 
 run-e2e:
@@ -282,3 +289,34 @@ prover-client-test:
     ARG test
     ARG debug=""
     RUN cd prover-client && DEBUG=$debug yarn test $test
+
+# NOTE: This is not in the end-to-end Earthfile as that is entirely LOCALLY commands that will go away sometime.
+# Running this inside the main builder as the point is not to run this through dockerization.
+network-test:
+    ARG test=./test-transfer.sh
+    ARG validators=3
+    FROM +build
+    WORKDIR /usr/src/
+    # Bare minimum git setup to run 'git rev-parse --show-toplevel'
+    RUN git init -b master
+    COPY ../scripts/+scripts/run_interleaved.sh scripts/run_interleaved.sh
+    WORKDIR /usr/src/yarn-project
+    # All script arguments are in the end-to-end/scripts/native-network folder
+    ENV LOG_LEVEL=verbose
+    RUN INTERLEAVED=true end-to-end/scripts/native_network_test.sh \
+        "$test" \
+        ./deploy-l1-contracts.sh \
+        ./deploy-l2-contracts.sh \
+        ./boot-node.sh \
+        ./ethereum.sh \
+        "./prover-node.sh 8078 false" \
+        ./pxe.sh \
+        "./validators.sh $validators"
+
+publish-npm:
+    FROM +build
+    ARG DIST_TAG="latest"
+    ARG VERSION
+    ARG DRY_RUN=0
+    WORKDIR /usr/src/yarn-project
+    RUN --secret NPM_TOKEN ./publish_npm.sh $DIST_TAG $VERSION $DRY_RUN

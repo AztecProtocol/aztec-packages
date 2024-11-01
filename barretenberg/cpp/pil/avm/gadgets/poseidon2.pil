@@ -9,6 +9,16 @@ namespace poseidon2(256);
     // Selector is boolean
     sel_poseidon_perm * (1 - sel_poseidon_perm) = 0;
 
+    // If this selector is on, we will read/write the input/outpu values from/to memory
+    pol commit sel_poseidon_perm_mem_op;
+    sel_poseidon_perm_mem_op * (1 - sel_poseidon_perm_mem_op) = 0;
+    // This is used by the bytecode hashing trace where the inputs are not stored in memory
+    pol commit sel_poseidon_perm_immediate;
+    sel_poseidon_perm_immediate * (1 - sel_poseidon_perm_immediate) = 0;
+
+    // If inactive the mem op and immediate selectors must be 0
+    sel_poseidon_perm = sel_poseidon_perm_mem_op + sel_poseidon_perm_immediate;
+
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
     sel_poseidon_perm = 0;
@@ -27,17 +37,19 @@ namespace poseidon2(256);
     pol commit mem_addr_write_b;
     pol commit mem_addr_write_c;
     pol commit mem_addr_write_d;
+    // Space Id
+    pol commit space_id;
 
-    // Accessed read / write addresses are contiguous blocks
-    sel_poseidon_perm * (mem_addr_read_a - input_addr) = 0;
-    sel_poseidon_perm * (mem_addr_read_b - (input_addr + 1)) = 0;
-    sel_poseidon_perm * (mem_addr_read_c - (input_addr + 2)) = 0;
-    sel_poseidon_perm * (mem_addr_read_d - (input_addr + 3)) = 0;
+    // Accessed read / write addresses are contiguous blocks ( would be nice if we could use sel_poseidon * sel_mem_op)
+    sel_poseidon_perm_mem_op * (mem_addr_read_a - input_addr) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_read_b - (input_addr + 1)) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_read_c - (input_addr + 2)) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_read_d - (input_addr + 3)) = 0;
 
-    sel_poseidon_perm * (mem_addr_write_a - output_addr) = 0;
-    sel_poseidon_perm * (mem_addr_write_b - (output_addr + 1)) = 0;
-    sel_poseidon_perm * (mem_addr_write_c - (output_addr + 2)) = 0;
-    sel_poseidon_perm * (mem_addr_write_d - (output_addr + 3)) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_write_a - output_addr) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_write_b - (output_addr + 1)) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_write_c - (output_addr + 2)) = 0;
+    sel_poseidon_perm_mem_op * (mem_addr_write_d - (output_addr + 3)) = 0;
 
     // The input values are represented by a_0, a_1, a_2, a_3
     pol commit a_0;
@@ -53,43 +65,43 @@ namespace poseidon2(256);
 
     // ==== READ MEM OPS =====
     #[PERM_POS_MEM_READ_A]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_read_a, a_0, main.zeroes}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_read_a, a_0, main.zeroes}
     is
     mem.sel_op_poseidon_read_a {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     #[PERM_POS_MEM_READ_B]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_read_b, a_1, main.zeroes}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_read_b, a_1, main.zeroes}
     is
     mem.sel_op_poseidon_read_b {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     #[PERM_POS_MEM_READ_C]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_read_c, a_2, main.zeroes}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_read_c, a_2, main.zeroes}
     is
     mem.sel_op_poseidon_read_c {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     #[PERM_POS_MEM_READ_D]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_read_d, a_3, main.zeroes}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_read_d, a_3, main.zeroes}
     is
     mem.sel_op_poseidon_read_d {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     //// ==== WRITE MEM OPS =====
     #[PERM_POS_MEM_WRITE_A]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_write_a, b_0, sel_poseidon_perm}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_write_a, b_0, sel_poseidon_perm}
     is
     mem.sel_op_poseidon_write_a {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     #[PERM_POS_MEM_WRITE_B]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_write_b, b_1, sel_poseidon_perm}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_write_b, b_1, sel_poseidon_perm}
     is
     mem.sel_op_poseidon_write_b {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     #[PERM_POS_MEM_WRITE_C]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_write_c, b_2, sel_poseidon_perm}
+    sel_poseidon_perm_mem_op {clk, space_id, mem_addr_write_c, b_2, sel_poseidon_perm}
     is
     mem.sel_op_poseidon_write_c {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 
     #[PERM_POS_MEM_WRITE_D]
-    sel_poseidon_perm {clk, main.space_id, mem_addr_write_d, b_3, sel_poseidon_perm}
+     sel_poseidon_perm_mem_op {clk, space_id, mem_addr_write_d, b_3, sel_poseidon_perm}
     is
     mem.sel_op_poseidon_write_d {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
 

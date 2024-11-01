@@ -1,26 +1,32 @@
-use dep::aztec::{note::{note_header::NoteHeader, note_interface::NoteInterface}, context::PrivateContext};
-
-global TEST_NOTE_LEN: Field = 1;
-// TEST_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global TEST_NOTE_BYTES_LENGTH: Field = 1 * 32 + 64;
+use dep::aztec::{
+    context::PrivateContext,
+    macros::notes::note,
+    note::{note_header::NoteHeader, note_interface::NullifiableNote},
+    protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}},
+};
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
-// WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform 
+// WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform
 // serialized_note attack on it. This note has been developed purely for testing purposes so that it can easily be
 // manually added to PXE. Do not use for real applications.
-#[aztec(note)]
-struct TestNote {
+#[note]
+#[derive(Serialize, Deserialize)]
+pub struct TestNote {
     value: Field,
 }
 
-impl NoteInterface<TEST_NOTE_LEN, TEST_NOTE_BYTES_LENGTH> for TestNote {
+impl NullifiableNote for TestNote {
 
-    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
-        // This note is expected to be shared between users and for this reason can't be nullified using a secret.
+    fn compute_nullifier(
+        _self: Self,
+        _context: &mut PrivateContext,
+        _note_hash_for_nullify: Field,
+    ) -> Field {
+        // This note is expected to be shared between users and fstructor this reason can't be nullified using a secret.
         0
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(_self: Self) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
         0
     }

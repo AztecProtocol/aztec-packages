@@ -21,4 +21,14 @@ export class AggregateTxValidator<T extends Tx | ProcessedTx> implements TxValid
 
     return [txPool, invalidTxs];
   }
+
+  async validateTx(tx: T): Promise<boolean> {
+    for (const validator of this.#validators) {
+      const valid = await validator.validateTx(tx);
+      if (!valid) {
+        return false;
+      }
+    }
+    return true;
+  }
 }

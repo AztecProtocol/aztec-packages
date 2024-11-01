@@ -19,12 +19,11 @@ struct Transcript {
     Fr[NUMBER_OF_ALPHAS] alphas;
     Fr[CONST_PROOF_SIZE_LOG_N] gateChallenges;
     Fr[CONST_PROOF_SIZE_LOG_N] sumCheckUChallenges;
+    // Gemini
     Fr rho;
-    // Zero morph
-    Fr zmX;
-    Fr zmY;
-    Fr zmZ;
-    Fr zmQuotient;
+    Fr geminiR;
+    Fr shplonkNu;
+    Fr shplonkZ;
     // Derived
     Fr publicInputsDelta;
 }
@@ -32,7 +31,7 @@ struct Transcript {
 library TranscriptLib {
     function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (Transcript memory t)
     {
         Fr previousChallenge;
@@ -45,11 +44,14 @@ library TranscriptLib {
         (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge);
 
         (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge);
+
         (t.rho, previousChallenge) = generateRhoChallenge(proof, previousChallenge);
 
-        (t.zmY, previousChallenge) = generateZMYChallenge(previousChallenge, proof);
+        (t.geminiR, previousChallenge) = generateGeminiRChallenge(proof, previousChallenge);
 
-        (t.zmX, t.zmZ, previousChallenge) = generateZMXZChallenges(previousChallenge, proof);
+        (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
+
+        (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
 
         return t;
     }
@@ -64,7 +66,7 @@ library TranscriptLib {
 
     function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
         bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
@@ -99,7 +101,7 @@ library TranscriptLib {
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
-        view
+        pure
         returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
         bytes32[13] memory round1;
@@ -124,7 +126,7 @@ library TranscriptLib {
     // Alpha challenges non-linearise the gate contributions
     function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
-        view
+        pure
         returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
@@ -155,7 +157,7 @@ library TranscriptLib {
 
     function generateGateChallenges(Fr previousChallenge)
         internal
-        view
+        pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -168,7 +170,7 @@ library TranscriptLib {
 
     function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -188,7 +190,7 @@ library TranscriptLib {
 
     function generateRhoChallenge(Honk.Proof memory proof, Fr prevChallenge)
         internal
-        view
+        pure
         returns (Fr rho, Fr nextPreviousChallenge)
     {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
@@ -204,48 +206,66 @@ library TranscriptLib {
         (rho, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    function generateZMYChallenge(Fr previousChallenge, Honk.Proof memory proof)
-        internal
-        view
-        returns (Fr zeromorphY, Fr nextPreviousChallenge)
-    {
-        uint256[CONST_PROOF_SIZE_LOG_N * 4 + 1] memory zmY;
-        zmY[0] = Fr.unwrap(previousChallenge);
-
-        for (uint256 i; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-            zmY[1 + i * 4] = proof.zmCqs[i].x_0;
-            zmY[2 + i * 4] = proof.zmCqs[i].x_1;
-            zmY[3 + i * 4] = proof.zmCqs[i].y_0;
-            zmY[4 + i * 4] = proof.zmCqs[i].y_1;
-        }
-
-        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
-        Fr unused;
-        (zeromorphY, unused) = splitChallenge(nextPreviousChallenge);
-    }
-
-    function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof)
+    function generateGeminiRChallenge(Honk.Proof memory proof, Fr prevChallenge)
         internal
         pure
-        returns (Fr zeromorphX, Fr zeromorphZ, Fr nextPreviousChallenge)
+        returns (Fr geminiR, Fr nextPreviousChallenge)
     {
-        uint256[4 + 1] memory buf;
-        buf[0] = Fr.unwrap(previousChallenge);
+        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
+        gR[0] = Fr.unwrap(prevChallenge);
 
-        buf[1] = proof.zmCq.x_0;
-        buf[2] = proof.zmCq.x_1;
-        buf[3] = proof.zmCq.y_0;
-        buf[4] = proof.zmCq.y_1;
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
+            gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
+            gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
+            gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;
+            gR[4 + i * 4] = proof.geminiFoldComms[i].y_1;
+        }
 
-        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
-        (zeromorphX, zeromorphZ) = splitChallenge(nextPreviousChallenge);
+        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
+        Fr unused;
+        (geminiR, unused) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateShplonkNuChallenge(Honk.Proof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr shplonkNu, Fr nextPreviousChallenge)
+    {
+        uint256[(CONST_PROOF_SIZE_LOG_N) + 1] memory shplonkNuChallengeElements;
+        shplonkNuChallengeElements[0] = Fr.unwrap(prevChallenge);
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            shplonkNuChallengeElements[i + 1] = Fr.unwrap(proof.geminiAEvaluations[i]);
+        }
+
+        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
+        Fr unused;
+        (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateShplonkZChallenge(Honk.Proof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr shplonkZ, Fr nextPreviousChallenge)
+    {
+        uint256[5] memory shplonkZChallengeElements;
+        shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
+
+        shplonkZChallengeElements[1] = proof.shplonkQ.x_0;
+        shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
+        shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
+        shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
+
+        nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
+        Fr unused;
+        (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
     // TODO: mod q proof points
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
     // TODO: move this back to probably each instance to avoid dynamic init of arrays in the Transcript Lib
-    function loadProof(bytes calldata proof) internal view returns (Honk.Proof memory) {
+    function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory) {
         Honk.Proof memory p;
 
         // Metadata
@@ -332,9 +352,10 @@ library TranscriptLib {
         }
 
         boundary = boundary + (NUMBER_OF_ENTITIES * 0x20);
-        // Zero morph Commitments
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            // Explicitly stating the x0, x1, y0, y1 start and end boundaries to make the calldata slicing bearable
+
+        // Gemini
+        // Read gemini fold univariates
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
             uint256 xStart = boundary + (i * 0x80);
             uint256 xEnd = xStart + 0x20;
 
@@ -346,8 +367,7 @@ library TranscriptLib {
 
             uint256 y1Start = yEnd;
             uint256 y1End = y1Start + 0x20;
-
-            p.zmCqs[i] = Honk.G1ProofPoint({
+            p.geminiFoldComms[i] = Honk.G1ProofPoint({
                 x_0: uint256(bytes32(proof[xStart:xEnd])),
                 x_1: uint256(bytes32(proof[x1Start:x1End])),
                 y_0: uint256(bytes32(proof[yStart:yEnd])),
@@ -355,20 +375,33 @@ library TranscriptLib {
             });
         }
 
-        boundary = boundary + (CONST_PROOF_SIZE_LOG_N * 0x80);
+        boundary = boundary + ((CONST_PROOF_SIZE_LOG_N - 1) * 0x80);
 
-        p.zmCq = Honk.G1ProofPoint({
+        // Read gemini a evaluations
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+            uint256 start = boundary + (i * 0x20);
+            uint256 end = start + 0x20;
+            p.geminiAEvaluations[i] = FrLib.fromBytes32(bytes32(proof[start:end]));
+        }
+
+        boundary = boundary + (CONST_PROOF_SIZE_LOG_N * 0x20);
+
+        // Shplonk
+        p.shplonkQ = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[boundary:boundary + 0x20])),
             x_1: uint256(bytes32(proof[boundary + 0x20:boundary + 0x40])),
             y_0: uint256(bytes32(proof[boundary + 0x40:boundary + 0x60])),
             y_1: uint256(bytes32(proof[boundary + 0x60:boundary + 0x80]))
         });
 
-        p.zmPi = Honk.G1ProofPoint({
-            x_0: uint256(bytes32(proof[boundary + 0x80:boundary + 0xa0])),
-            x_1: uint256(bytes32(proof[boundary + 0xa0:boundary + 0xc0])),
-            y_0: uint256(bytes32(proof[boundary + 0xc0:boundary + 0xe0])),
-            y_1: uint256(bytes32(proof[boundary + 0xe0:boundary + 0x100]))
+        boundary = boundary + 0x80;
+
+        // KZG
+        p.kzgQuotient = Honk.G1ProofPoint({
+            x_0: uint256(bytes32(proof[boundary:boundary + 0x20])),
+            x_1: uint256(bytes32(proof[boundary + 0x20:boundary + 0x40])),
+            y_0: uint256(bytes32(proof[boundary + 0x40:boundary + 0x60])),
+            y_1: uint256(bytes32(proof[boundary + 0x60:boundary + 0x80]))
         });
 
         return p;

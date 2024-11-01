@@ -163,4 +163,43 @@ TEST(Polynomial, Full)
     };
     ASSERT_DEATH(no_full_bad(), ".*start_index.*other.start_index.*");
 }
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
+// expand, but it is currently unused.
+TEST(Polynomial, Expand)
+{
+    // Suppress warnings about fork(), we're OK with the edge cases.
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    auto test_subset_good = []() {
+        // Expand legally within poly
+        auto poly = bb::Polynomial<FF>::random(4, 10, /*start index*/ 1);
+        poly.expand(1, 6);
+        poly.expand(0, 9);
+        poly.expand(0, 10);
+    };
+    ASSERT_NO_FATAL_FAILURE(test_subset_good());
+
+    auto test_subset_bad1 = []() {
+        auto poly = bb::Polynomial<FF>::random(4, 10, /*start index*/ 1);
+        // Expand beyond virtual size
+        poly.expand(1, 11);
+    };
+    ASSERT_DEATH(test_subset_bad1(), ".*new_end_index.*virtual_size.*");
+
+    auto test_subset_bad2 = []() {
+        auto poly = bb::Polynomial<FF>::random(5, 10, /*start index*/ 1);
+        // Expand illegally on start_index
+        poly.expand(2, 7);
+    };
+    ASSERT_DEATH(test_subset_bad2(), ".*new_start_index.*start_index.*");
+
+    auto test_subset_bad3 = []() {
+        auto poly = bb::Polynomial<FF>::random(5, 10, /*start_index*/ 1);
+        // Expand illegally on end_index
+        poly.expand(1, 3);
+    };
+    ASSERT_DEATH(test_subset_bad3(), ".*new_end_index.*end_index.*");
+}
+
 #endif

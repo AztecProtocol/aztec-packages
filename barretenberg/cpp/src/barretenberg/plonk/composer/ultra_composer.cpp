@@ -142,23 +142,15 @@ UltraWithKeccakVerifier UltraComposer::create_ultra_with_keccak_verifier(Circuit
     return output_state;
 }
 
-size_t UltraComposer::compute_dyadic_circuit_size(CircuitBuilder& circuit)
-{
-    const size_t filled_gates = circuit.num_gates + circuit.public_inputs.size();
-    const size_t size_required_for_lookups = circuit.get_tables_size() + circuit.get_lookups_size();
-    const size_t total_num_gates = std::max(filled_gates, size_required_for_lookups);
-    return circuit.get_circuit_subgroup_size(total_num_gates + NUM_RESERVED_GATES);
-}
-
 std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& circuit)
 {
     if (circuit_proving_key) {
         return circuit_proving_key;
     }
 
-    circuit.finalize_circuit();
+    circuit.finalize_circuit(/*ensure_nonzero=*/false);
 
-    const size_t subgroup_size = compute_dyadic_circuit_size(circuit);
+    const size_t subgroup_size = circuit.get_circuit_subgroup_size(circuit.get_finalized_total_circuit_size());
 
     auto crs = srs::get_bn254_crs_factory()->get_prover_crs(subgroup_size + 1);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/392): Composer type

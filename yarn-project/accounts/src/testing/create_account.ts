@@ -30,8 +30,6 @@ export async function createAccounts(
   secrets: Fr[] = [],
   waitOpts: WaitOpts = { interval: 0.1 },
 ): Promise<AccountWalletWithSecretKey[]> {
-  const accounts = [];
-
   if (secrets.length == 0) {
     secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
   } else if (secrets.length > 0 && secrets.length !== numberOfAccounts) {
@@ -39,25 +37,22 @@ export async function createAccounts(
   }
 
   // Prepare deployments
-  for (const secret of secrets) {
-    const signingKey = deriveSigningKey(secret);
-    const account = getSchnorrAccount(pxe, secret, signingKey);
-    // Unfortunately the function below is not stateless and we call it here because it takes a long time to run and
-    // the results get stored within the account object. By calling it here we increase the probability of all the
-    // accounts being deployed in the same block because it makes the deploy() method basically instant.
-    await account.getDeployMethod().then(d =>
-      d.prove({
+  const accountsAndDeployments = await Promise.all(
+    secrets.map(async secret => {
+      const signingKey = deriveSigningKey(secret);
+      const account = getSchnorrAccount(pxe, secret, signingKey);
+      const deployMethod = await account.getDeployMethod();
+      const provenTx = await deployMethod.prove({
         contractAddressSalt: account.salt,
         skipClassRegistration: true,
         skipPublicDeployment: true,
         universalDeploy: true,
-      }),
-    );
-    accounts.push(account);
-  }
+      });
+      return { account, provenTx };
+    }),
+  );
 
   // Send them and await them to be mined
-  const txs = await Promise.all(accounts.map(account => account.deploy()));
-  await Promise.all(txs.map(tx => tx.wait(waitOpts)));
-  return Promise.all(accounts.map(account => account.getWallet()));
+  await Promise.all(accountsAndDeployments.map(({ provenTx }) => provenTx.send().wait(waitOpts)));
+  return Promise.all(accountsAndDeployments.map(({ account }) => account.getWallet()));
 }

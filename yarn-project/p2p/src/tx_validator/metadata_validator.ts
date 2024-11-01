@@ -27,6 +27,10 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     return Promise.resolve([validTxs, invalidTxs]);
   }
 
+  validateTx(tx: T): Promise<boolean> {
+    return Promise.resolve(this.#hasCorrectChainId(tx) && this.#isValidForBlockNumber(tx));
+  }
+
   #hasCorrectChainId(tx: T): boolean {
     if (!tx.data.constants.txContext.chainId.equals(this.chainId)) {
       this.#log.warn(

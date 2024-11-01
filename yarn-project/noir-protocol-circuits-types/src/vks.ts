@@ -1,31 +1,23 @@
 import {
   BASE_PARITY_INDEX,
-  BASE_ROLLUP_INDEX,
   BLOCK_MERGE_ROLLUP_INDEX,
+  BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
   BLOCK_ROOT_ROLLUP_INDEX,
   EMPTY_NESTED_INDEX,
   Fr,
   MERGE_ROLLUP_INDEX,
   type MerkleTree,
   MerkleTreeCalculator,
+  PRIVATE_BASE_ROLLUP_VK_INDEX,
   PRIVATE_KERNEL_EMPTY_INDEX,
   PRIVATE_KERNEL_INIT_INDEX,
   PRIVATE_KERNEL_INNER_INDEX,
-  PRIVATE_KERNEL_RESET_BIG_INDEX,
-  PRIVATE_KERNEL_RESET_FULL_INDEX,
-  PRIVATE_KERNEL_RESET_FULL_INNER_INDEX,
-  PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
-  PRIVATE_KERNEL_RESET_SMALL_INDEX,
-  PRIVATE_KERNEL_RESET_TINY_INDEX,
   PRIVATE_KERNEL_TAIL_INDEX,
   PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-  PUBLIC_KERNEL_APP_LOGIC_INDEX,
-  PUBLIC_KERNEL_SETUP_INDEX,
-  PUBLIC_KERNEL_TAIL_INDEX,
-  PUBLIC_KERNEL_TEARDOWN_INDEX,
+  PUBLIC_BASE_ROLLUP_VK_INDEX,
   ROOT_PARITY_INDEX,
   ROOT_ROLLUP_INDEX,
-  VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -39,72 +31,43 @@ import RootParityVkJson from '../artifacts/keys/parity_root.vk.data.json' assert
 import PrivateKernelEmptyVkJson from '../artifacts/keys/private_kernel_empty.vk.data.json' assert { type: 'json' };
 import PrivateKernelInitVkJson from '../artifacts/keys/private_kernel_init.vk.data.json' assert { type: 'json' };
 import PrivateKernelInnerVkJson from '../artifacts/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetFullVkJson from '../artifacts/keys/private_kernel_reset.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetBigVkJson from '../artifacts/keys/private_kernel_reset_big.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetFullInnerVkJson from '../artifacts/keys/private_kernel_reset_full_inner.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetMediumVkJson from '../artifacts/keys/private_kernel_reset_medium.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetSmallVkJson from '../artifacts/keys/private_kernel_reset_small.vk.data.json' assert { type: 'json' };
-import PrivateKernelResetTinyVkJson from '../artifacts/keys/private_kernel_reset_tiny.vk.data.json' assert { type: 'json' };
 import PrivateKernelTailVkJson from '../artifacts/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
 import PrivateKernelTailToPublicVkJson from '../artifacts/keys/private_kernel_tail_to_public.vk.data.json' assert { type: 'json' };
-import PublicKernelAppLogicVkJson from '../artifacts/keys/public_kernel_app_logic.vk.data.json' assert { type: 'json' };
-import PublicKernelSetupVkJson from '../artifacts/keys/public_kernel_setup.vk.data.json' assert { type: 'json' };
-import PublicKernelTailVkJson from '../artifacts/keys/public_kernel_tail.vk.data.json' assert { type: 'json' };
-import PublicKernelTeardownVkJson from '../artifacts/keys/public_kernel_teardown.vk.data.json' assert { type: 'json' };
-import BaseRollupVkJson from '../artifacts/keys/rollup_base.vk.data.json' assert { type: 'json' };
+import PrivateBaseRollupVkJson from '../artifacts/keys/rollup_base_private.vk.data.json' assert { type: 'json' };
+import PublicBaseRollupVkJson from '../artifacts/keys/rollup_base_public.vk.data.json' assert { type: 'json' };
 import BlockMergeRollupVkJson from '../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
 import BlockRootRollupVkJson from '../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
+import EmptyBlockRootRollupVkJson from '../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
 import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
 import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
+import TubeVkJson from '../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
 import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts.js';
+import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from './private_kernel_reset_data.js';
+import { keyJsonToVKData } from './utils/vk_json.js';
 
-interface VkJson {
-  keyAsBytes: string;
-  keyAsFields: string[];
-}
+// TODO Include this in the normal maps when the tube is implemented in noir
+export const TubeVk = keyJsonToVKData(TubeVkJson);
 
-function keyJsonToVKData(json: VkJson): VerificationKeyData {
-  const { keyAsBytes, keyAsFields } = json;
-  return new VerificationKeyData(
-    new VerificationKeyAsFields(
-      assertLength(
-        keyAsFields.map((str: string) => new Fr(Buffer.from(str.slice(2), 'hex'))),
-        VERIFICATION_KEY_LENGTH_IN_FIELDS,
-      ),
-      // TODO(#7410) what should be the vk hash here?
-      new Fr(Buffer.from(keyAsFields[0].slice(2), 'hex')),
-    ),
-    Buffer.from(keyAsBytes, 'hex'),
-  );
-}
-
-const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
+export const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   EmptyNestedArtifact: keyJsonToVKData(EmptyNestedVkJson),
   PrivateKernelEmptyArtifact: keyJsonToVKData(PrivateKernelEmptyVkJson),
-  PublicKernelSetupArtifact: keyJsonToVKData(PublicKernelSetupVkJson),
-  PublicKernelAppLogicArtifact: keyJsonToVKData(PublicKernelAppLogicVkJson),
-  PublicKernelTeardownArtifact: keyJsonToVKData(PublicKernelTeardownVkJson),
-  PublicKernelTailArtifact: keyJsonToVKData(PublicKernelTailVkJson),
   BaseParityArtifact: keyJsonToVKData(BaseParityVkJson),
   RootParityArtifact: keyJsonToVKData(RootParityVkJson),
-  BaseRollupArtifact: keyJsonToVKData(BaseRollupVkJson),
+  PrivateBaseRollupArtifact: keyJsonToVKData(PrivateBaseRollupVkJson),
+  PublicBaseRollupArtifact: keyJsonToVKData(PublicBaseRollupVkJson),
   MergeRollupArtifact: keyJsonToVKData(MergeRollupVkJson),
   BlockRootRollupArtifact: keyJsonToVKData(BlockRootRollupVkJson),
+  EmptyBlockRootRollupArtifact: keyJsonToVKData(EmptyBlockRootRollupVkJson),
   BlockMergeRollupArtifact: keyJsonToVKData(BlockMergeRollupVkJson),
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
 };
 
-const ClientCircuitVks: Record<ClientProtocolArtifact, VerificationKeyData> = {
+export const ClientCircuitVks: Record<ClientProtocolArtifact, VerificationKeyData> = {
   PrivateKernelInitArtifact: keyJsonToVKData(PrivateKernelInitVkJson),
   PrivateKernelInnerArtifact: keyJsonToVKData(PrivateKernelInnerVkJson),
-  PrivateKernelResetFullArtifact: keyJsonToVKData(PrivateKernelResetFullVkJson),
-  PrivateKernelResetFullInnerArtifact: keyJsonToVKData(PrivateKernelResetFullInnerVkJson),
-  PrivateKernelResetBigArtifact: keyJsonToVKData(PrivateKernelResetBigVkJson),
-  PrivateKernelResetMediumArtifact: keyJsonToVKData(PrivateKernelResetMediumVkJson),
-  PrivateKernelResetSmallArtifact: keyJsonToVKData(PrivateKernelResetSmallVkJson),
-  PrivateKernelResetTinyArtifact: keyJsonToVKData(PrivateKernelResetTinyVkJson),
   PrivateKernelTailArtifact: keyJsonToVKData(PrivateKernelTailVkJson),
   PrivateKernelTailToPublicArtifact: keyJsonToVKData(PrivateKernelTailToPublicVkJson),
+  ...PrivateKernelResetVks,
 };
 
 export const ProtocolCircuitVks: Record<ProtocolArtifact, VerificationKeyData> = {
@@ -117,25 +80,18 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   PrivateKernelEmptyArtifact: PRIVATE_KERNEL_EMPTY_INDEX,
   PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_INDEX,
   PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_INDEX,
-  PrivateKernelResetFullArtifact: PRIVATE_KERNEL_RESET_FULL_INDEX,
-  PrivateKernelResetFullInnerArtifact: PRIVATE_KERNEL_RESET_FULL_INNER_INDEX,
-  PrivateKernelResetBigArtifact: PRIVATE_KERNEL_RESET_BIG_INDEX,
-  PrivateKernelResetMediumArtifact: PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
-  PrivateKernelResetSmallArtifact: PRIVATE_KERNEL_RESET_SMALL_INDEX,
-  PrivateKernelResetTinyArtifact: PRIVATE_KERNEL_RESET_TINY_INDEX,
   PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_INDEX,
   PrivateKernelTailToPublicArtifact: PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-  PublicKernelSetupArtifact: PUBLIC_KERNEL_SETUP_INDEX,
-  PublicKernelAppLogicArtifact: PUBLIC_KERNEL_APP_LOGIC_INDEX,
-  PublicKernelTeardownArtifact: PUBLIC_KERNEL_TEARDOWN_INDEX,
-  PublicKernelTailArtifact: PUBLIC_KERNEL_TAIL_INDEX,
   BaseParityArtifact: BASE_PARITY_INDEX,
   RootParityArtifact: ROOT_PARITY_INDEX,
-  BaseRollupArtifact: BASE_ROLLUP_INDEX,
+  PrivateBaseRollupArtifact: PRIVATE_BASE_ROLLUP_VK_INDEX,
+  PublicBaseRollupArtifact: PUBLIC_BASE_ROLLUP_VK_INDEX,
   MergeRollupArtifact: MERGE_ROLLUP_INDEX,
   BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
+  EmptyBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+  ...PrivateKernelResetVkIndexes,
 };
 
 function buildVKTree() {
@@ -148,6 +104,8 @@ function buildVKTree() {
     const index = ProtocolCircuitVkIndexes[key as ProtocolArtifact];
     vkHashes[index] = value.keyAsFields.hash.toBuffer();
   }
+
+  vkHashes[TUBE_VK_INDEX] = TubeVk.keyAsFields.hash.toBuffer();
 
   return calculator.computeTree(vkHashes);
 }
@@ -177,8 +135,7 @@ export function getVKIndex(vk: VerificationKeyData | VerificationKeyAsFields | F
 
   const index = getVKTree().getIndex(hash.toBuffer());
   if (index < 0) {
-    //throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
-    return 0; // faked for now
+    throw new Error(`VK index for ${hash.toString()} not found in VK tree`);
   }
   return index;
 }

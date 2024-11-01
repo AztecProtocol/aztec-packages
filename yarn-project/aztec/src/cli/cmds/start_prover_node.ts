@@ -14,7 +14,7 @@ import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@a
 
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { extractL1ContractAddresses, extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions } from '../util.js';
 
 export const startProverNode = async (
   options: any,
@@ -32,7 +32,6 @@ export const startProverNode = async (
   const proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
-    l1Contracts: extractL1ContractAddresses(options),
   };
 
   if (!options.archiver && !proverConfig.archiverUrl) {
@@ -63,7 +62,7 @@ export const startProverNode = async (
   // Load l1 contract addresses from aztec node if not set.
   const isRollupAddressSet =
     proverConfig.l1Contracts?.rollupAddress && !proverConfig.l1Contracts.rollupAddress.isZero();
-  const nodeUrl = proverConfig.nodeUrl ?? proverConfig.txProviderNodeUrl;
+  const nodeUrl = proverConfig.nodeUrl ?? proverConfig.proverCoordinationNodeUrl;
   if (nodeUrl && !isRollupAddressSet) {
     userLog(`Loading L1 contract addresses from aztec node at ${nodeUrl}`);
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
@@ -84,7 +83,7 @@ export const startProverNode = async (
   signalHandlers.push(proverNode.stop);
 
   // Automatically start proving unproven blocks
-  proverNode.start();
+  await proverNode.start();
 
   return services;
 };

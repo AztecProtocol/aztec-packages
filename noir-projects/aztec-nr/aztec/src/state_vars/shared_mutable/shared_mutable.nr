@@ -1,19 +1,23 @@
 use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, header::Header, address::AztecAddress,
-    traits::{FromField, ToField}
+    address::AztecAddress,
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    traits::{Deserialize, FromField, Serialize, ToField},
+    utils::arrays::array_concat,
 };
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::state_vars::{
-    storage::Storage,
-    shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
-};
 use crate::oracle::storage::storage_read;
+use crate::state_vars::{
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+    },
+    storage::Storage,
+};
 use dep::std::mem::zeroed;
 
 mod test;
 
-struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
+pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
     storage_slot: Field,
 }
@@ -30,20 +34,10 @@ global HASH_SEPARATOR: u32 = 2;
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
 // can actually use it here
-impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
-
-// TODO: extract into a utils module once  we can do arithmetic on generics, i.e. https://github.com/noir-lang/noir/issues/4784
-fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
-    assert_eq(N + M, O);
-    let mut out: [Field; O] = [0; O];
-    for i in 0..N {
-        out[i] = arr_n[i];
-    }
-    for i in 0..M {
-        out[N+i] = arr_m[i];
-    }
-    out
-}
+impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
@@ -56,7 +50,10 @@ fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [
 // future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
 // The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
 // `schedule_delay_change`.
-impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context>
+where
+    T: ToField + FromField + Eq,
+{
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -71,59 +68,22 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
+        poseidon2_hash_with_separator([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
-    }
-
-    // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us
-    // reuse this function in SharedMutablePrivateGetter.
-    fn historical_read_from_public_storage(
-        self,
-        header: Header,
-        address: AztecAddress
-    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) {
-        let historical_block_number = header.global_variables.block_number as u32;
-
-        // We could simply produce historical inclusion proofs for both the ScheduledValueChange and
-        // ScheduledDelayChange, but that'd require one full sibling path per storage slot (since due to kernel siloing
-        // the storage is not contiguous), and in the best case in which T is a single field that'd be 4 slots.
-        // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
-        // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
-        // the size of T.
-        let (value_change_hint, delay_change_hint) = unsafe {
-            get_public_storage_hints(address, self.storage_slot, historical_block_number)
-        };
-
-        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
-        let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
-
-        if hash != 0 {
-            assert_eq(
-                hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
-            );
-        } else {
-            // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
-            // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
-            assert_eq(
-                value_change_hint, ScheduledValueChange::deserialize(zeroed()), "Non-zero value change for zero hash"
-            );
-            assert_eq(
-                delay_change_hint, ScheduledDelayChange::deserialize(zeroed()), "Non-zero delay change for zero hash"
-            );
-        };
-
-        (value_change_hint, delay_change_hint, historical_block_number)
+        poseidon2_hash_with_separator([self.storage_slot], HASH_SEPARATOR)
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext>
+where
+    T: ToField + FromField + Eq,
+{
 
     pub fn schedule_value_change(self, new_value: T) {
         let mut value_change = self.read_value_change();
@@ -179,7 +139,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
     fn write(
         self,
         value_change: ScheduledValueChange<T>,
-        delay_change: ScheduledDelayChange<INITIAL_DELAY>
+        delay_change: ScheduledDelayChange<INITIAL_DELAY>,
     ) {
         // Whenever we write to public storage, we write both the value change and delay change as well as the hash of
         // them both. This guarantees that the hash is always kept up to date.
@@ -191,19 +151,22 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
         self.context.storage_write(self.get_delay_change_storage_slot(), delay_change);
         self.context.storage_write(
             self.get_hash_storage_slot(),
-            SharedMutable::hash_scheduled_data(value_change, delay_change)
+            SharedMutable::hash_scheduled_data(value_change, delay_change),
         );
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext>
+where
+    T: ToField + FromField + Eq,
+{
     pub fn get_current_value_in_private(self) -> T {
         // When reading the current value in private we construct a historical state proof for the public value.
         // However, since this value might change, we must constrain the maximum transaction block number as this proof
         // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
-
-        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage(self.context.get_header(), self.context.this_address());
+        let (value_change, delay_change, historical_block_number) =
+            self.historical_read_from_public_storage();
 
         // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
         // takes into consideration any scheduled delay changes.
@@ -212,8 +175,10 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         // block, i.e. at block 201. But if there was a delay change scheduled for block 210 to reduce the delay to 20
         // blocks, then if a value change was scheduled at block 210 it would go into effect at block 230, which is
         // earlier than what we'd expect if we only considered the current delay.
-        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_block_number);
-        let block_horizon = value_change.get_block_horizon(historical_block_number, effective_minimum_delay);
+        let effective_minimum_delay =
+            delay_change.get_effective_minimum_delay_at(historical_block_number);
+        let block_horizon =
+            value_change.get_block_horizon(historical_block_number, effective_minimum_delay);
 
         // We prevent this transaction from being included in any block after the block horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
@@ -221,19 +186,66 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         value_change.get_current_at(historical_block_number)
     }
 
+    fn historical_read_from_public_storage(
+        self,
+    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) {
+        let header = self.context.get_header();
+        let address = self.context.this_address();
+
+        let historical_block_number = header.global_variables.block_number as u32;
+
+        // We could simply produce historical inclusion proofs for both the ScheduledValueChange and
+        // ScheduledDelayChange, but that'd require one full sibling path per storage slot (since due to kernel siloing
+        // the storage is not contiguous), and in the best case in which T is a single field that'd be 4 slots.
+        // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
+        // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
+        // the size of T.
+        let (value_change_hint, delay_change_hint) = unsafe {
+            get_public_storage_hints(address, self.storage_slot, historical_block_number)
+        };
+
+        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
+        let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
+
+        if hash != 0 {
+            assert_eq(
+                hash,
+                SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint),
+                "Hint values do not match hash",
+            );
+        } else {
+            // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
+            // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
+            assert_eq(
+                value_change_hint,
+                ScheduledValueChange::deserialize(zeroed()),
+                "Non-zero value change for zero hash",
+            );
+            assert_eq(
+                delay_change_hint,
+                ScheduledDelayChange::deserialize(zeroed()),
+                "Non-zero delay change for zero hash",
+            );
+        };
+
+        (value_change_hint, delay_change_hint, historical_block_number)
+    }
+
     fn hash_scheduled_data(
         value_change: ScheduledValueChange<T>,
-        delay_change: ScheduledDelayChange<INITIAL_DELAY>
+        delay_change: ScheduledDelayChange<INITIAL_DELAY>,
     ) -> Field {
-        // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
-        // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
-        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
+        let concatenated: [Field; 4] =
+            array_concat(value_change.serialize(), delay_change.serialize());
         poseidon2_hash(concatenated)
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
-    unconstrained pub fn get_current_value_in_unconstrained(self) -> T {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext>
+where
+    T: ToField + FromField + Eq,
+{
+    pub unconstrained fn get_current_value_in_unconstrained(self) -> T {
         let block_number = self.context.block_number() as u32;
         self.read_value_change().get_current_at(block_number)
     }
@@ -246,8 +258,11 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedCon
 unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     address: AztecAddress,
     storage_slot: Field,
-    block_number: u32
-) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>) where T: ToField + FromField + Eq {
+    block_number: u32,
+) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>)
+where
+    T: ToField + FromField + Eq,
+{
     // This function cannot be part of the &mut PrivateContext impl because that'd mean that by passing `self` we'd also
     // be passing a mutable reference to an unconstrained function, which is not allowed. We therefore create a dummy
     // state variable here so that we can access the methods to compute storage slots. This will all be removed in the
@@ -255,6 +270,7 @@ unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     let dummy: SharedMutable<T, INITIAL_DELAY, ()> = SharedMutable::new((), storage_slot);
 
     (
-        storage_read(address, dummy.get_value_change_storage_slot(), block_number), storage_read(address, dummy.get_delay_change_storage_slot(), block_number)
+        storage_read(address, dummy.get_value_change_storage_slot(), block_number),
+        storage_read(address, dummy.get_delay_change_storage_slot(), block_number),
     )
 }

@@ -86,15 +86,21 @@ osxcross:
 ########################################################################################################################
 # Build foundry.
 foundry-build:
-  LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
+  LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   FROM +base-build
+  # We use rustup rather than cargo to manage the cargo version via a tool-chain file
+  # It is done this way to avoid conflicting with noir builds
+  # This image should only be rebuilt when our foundry tag changes, so it should be extremely infrequent
+  RUN apt remove -y cargo
+  RUN apt update && apt install -y rustup
   RUN ulimit -n 65535 \
       && git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git \
       && cd foundry \
-      && cargo build --profile local \
+      && echo '[toolchain]\nchannel = "1.80.0"\n' > rust-toolchain.toml \
+      && cargo build --release \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
-          mv ./target/local/$t /opt/foundry/bin/$t; \
+          mv ./target/release/$t /opt/foundry/bin/$t; \
           strip /opt/foundry/bin/$t; \
       done \
       && rm -rf /foundry
@@ -104,7 +110,7 @@ foundry-build:
 
 foundry:
   BUILD +foundry-build
-  LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
+  LET FOUNDRY_TAG = 25f24e677a6a32a62512ad4f561995589ac2c7dc
   ARG TARGETARCH
   FROM ubuntu:noble
   COPY +foundry-build/opt/foundry /opt/foundry

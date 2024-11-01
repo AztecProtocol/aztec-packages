@@ -53,19 +53,18 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
      * @tparam skip_count Construct univariates that skip some of the indices when computing results
      * @return The univariates whose extensions will be used to construct the combiner.
      */
-    template <size_t skip_count = 0> auto row_to_univariates(size_t row_idx) const
+    template <size_t LENGTH, size_t skip_count = 0> auto row_to_univariates(size_t row_idx) const
     {
         auto prover_polynomials_views = get_polynomials_views();
-        std::array<Univariate<FF, NUM, 0, skip_count>, prover_polynomials_views[0].size()> results;
+        std::array<Univariate<FF, LENGTH, 0, skip_count>, prover_polynomials_views[0].size()> results;
         // Set the size corresponding to the number of rows in the execution trace
-        size_t pk_idx = 0;
         // Iterate over the prover polynomials' views corresponding to each proving key
-        for (auto& get_all : prover_polynomials_views) {
+        for (size_t dpk_idx = 0; auto& get_all : prover_polynomials_views) {
             // Iterate over all columns in the trace execution of an proving key and extract their value at row_idx.
             for (auto [result, poly_ptr] : zip_view(results, get_all)) {
-                result.evaluations[pk_idx] = poly_ptr[row_idx];
+                result.evaluations[dpk_idx] = poly_ptr[row_idx];
             }
-            pk_idx++;
+            dpk_idx++;
         }
         return results;
     }

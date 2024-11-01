@@ -33,15 +33,15 @@ export async function cancelTx(
     nonce,
     cancellable: true,
   });
-
-  const txPromise = await wallet.proveTx(txRequest, true);
-  const tx = new SentTx(wallet, wallet.sendTx(txPromise));
+  const txSimulationResult = await wallet.simulateTx(txRequest, true);
+  const txProvingResult = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+  const sentTx = new SentTx(wallet, wallet.sendTx(txProvingResult.toTx()));
   try {
-    await tx.wait();
+    await sentTx.wait();
 
     log('Transaction has been cancelled');
 
-    const cancelReceipt = await tx.getReceipt();
+    const cancelReceipt = await sentTx.getReceipt();
     log(` Tx fee: ${cancelReceipt.transactionFee}`);
     log(` Status: ${cancelReceipt.status}`);
     log(` Block number: ${cancelReceipt.blockNumber}`);

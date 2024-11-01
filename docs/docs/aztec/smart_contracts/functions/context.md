@@ -88,10 +88,11 @@ The `args_hash` is the result of pedersen hashing all of a function's inputs.
 
 ### Return Values
 
-The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./inner_workings.md) for more details.
+The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./attributes.md#after-expansion) for more details.
 
-    return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
-
+```rust
+return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
+```
 ## Max Block Number
 
 Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:

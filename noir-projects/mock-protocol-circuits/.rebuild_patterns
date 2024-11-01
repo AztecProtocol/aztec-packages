@@ -1,0 +1,4 @@
+^noir-projects/mock-protocol-circuits/.*\.(nr|toml)$
+^noir-projects/mock-protocol-circuits/bootstrap.sh$
+^noir-projects/noir-protocol-circuits/crates/types/.*\.(nr|toml)$
+^noir-projects/scripts/generate_vk_json.js$

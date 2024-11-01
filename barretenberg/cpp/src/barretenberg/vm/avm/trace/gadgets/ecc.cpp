@@ -13,6 +13,7 @@ std::vector<AvmEccTraceBuilder::EccTraceEntry> AvmEccTraceBuilder::finalize()
 void AvmEccTraceBuilder::reset()
 {
     ecc_trace.clear();
+    ecc_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 element AvmEccTraceBuilder::embedded_curve_add(element lhs, element rhs, uint32_t clk)

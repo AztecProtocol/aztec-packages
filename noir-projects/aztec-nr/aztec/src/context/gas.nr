@@ -1,6 +1,6 @@
-struct GasOpts {
-  l2_gas: Option<Field>,
-  da_gas: Option<Field>,
+pub struct GasOpts {
+    l2_gas: Option<Field>,
+    da_gas: Option<Field>,
 }
 
 impl GasOpts {

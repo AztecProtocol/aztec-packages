@@ -1,8 +1,11 @@
 import { type NullifierMembershipWitness } from '@aztec/circuit-types';
-import { type FunctionSelector, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  type ContractInstanceWithAddress,
+  type FunctionSelector,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type MessageLoadOracleInputs } from '../acvm/index.js';
 

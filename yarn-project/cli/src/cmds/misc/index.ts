@@ -4,7 +4,7 @@ import { type Command } from 'commander';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 
-export * from './deploy_contracts.js';
+export * from './setup_contracts.js';
 
 export function injectCommands(program: Command, log: LogFn) {
   program

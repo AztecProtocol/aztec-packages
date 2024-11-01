@@ -13,6 +13,7 @@ namespace bb::avm_trace {
 void AvmBinaryTraceBuilder::reset()
 {
     binary_trace.clear();
+    binary_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 /**
@@ -48,7 +49,10 @@ void AvmBinaryTraceBuilder::entry_builder(
 {
     // Given the instruction tag, calculate the number of bytes to decompose values into
     // The number of rows for this entry will be number of bytes + 1
-    size_t num_bytes = 1 << (static_cast<uint8_t>(instr_tag) - 1);
+    // Both U1 and U8 are 1 byte.
+    size_t num_bytes = instr_tag == AvmMemoryTag::U1
+                           ? 1
+                           : 1 << (static_cast<uint8_t>(instr_tag) - static_cast<uint8_t>(AvmMemoryTag::U8));
 
     // Big Endian encoded
     std::vector<uint8_t> a_bytes = bytes_decompose_le(a);
@@ -103,7 +107,7 @@ void AvmBinaryTraceBuilder::entry_builder(
  */
 FF AvmBinaryTraceBuilder::op_and(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
-    if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
+    if (instr_tag == AvmMemoryTag::FF) {
         return FF::zero();
     }
     // Cast to bits and perform AND operation
@@ -127,7 +131,7 @@ FF AvmBinaryTraceBuilder::op_and(FF const& a, FF const& b, AvmMemoryTag instr_ta
  */
 FF AvmBinaryTraceBuilder::op_or(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
-    if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
+    if (instr_tag == AvmMemoryTag::FF) {
         return FF::zero();
     }
     // Cast to bits and perform OR operation
@@ -151,7 +155,7 @@ FF AvmBinaryTraceBuilder::op_or(FF const& a, FF const& b, AvmMemoryTag instr_tag
  */
 FF AvmBinaryTraceBuilder::op_xor(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
-    if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
+    if (instr_tag == AvmMemoryTag::FF) {
         return FF::zero();
     }
     // Cast to bits and perform XOR operation
@@ -192,17 +196,23 @@ void AvmBinaryTraceBuilder::finalize_lookups(std::vector<AvmFullRow<FF>>& main_t
         main_trace.at(clk).lookup_byte_operations_counts = count;
     }
 
-    for (uint8_t avm_in_tag = 0; avm_in_tag < 5; avm_in_tag++) {
-        // The +1 here is because the instruction tags we care about (i.e excl U0 and FF) has the range [1,5]
-        main_trace.at(avm_in_tag).lookup_byte_lengths_counts = byte_length_counter[avm_in_tag + 1];
+    for (uint8_t avm_in_tag = static_cast<uint8_t>(AvmMemoryTag::U1);
+         avm_in_tag <= static_cast<uint8_t>(AvmMemoryTag::U128);
+         avm_in_tag++) {
+        // lookup indices start at 0
+        uint8_t lookup_index = avm_in_tag - static_cast<uint8_t>(AvmMemoryTag::U1);
+        main_trace.at(lookup_index).lookup_byte_lengths_counts = byte_length_counter[avm_in_tag];
     }
 }
 
 void AvmBinaryTraceBuilder::finalize_lookups_for_testing(std::vector<AvmFullRow<FF>>& main_trace)
 {
-    for (uint8_t avm_in_tag = 0; avm_in_tag < 5; avm_in_tag++) {
-        // The +1 here is because the instruction tags we care about (i.e excl U0 and FF) has the range [1,5]
-        main_trace.at(avm_in_tag).lookup_byte_lengths_counts = byte_length_counter[avm_in_tag + 1];
+    for (uint8_t avm_in_tag = static_cast<uint8_t>(AvmMemoryTag::U1);
+         avm_in_tag <= static_cast<uint8_t>(AvmMemoryTag::U128);
+         avm_in_tag++) {
+        // lookup indices start at 0
+        uint8_t lookup_index = avm_in_tag - static_cast<uint8_t>(AvmMemoryTag::U1);
+        main_trace.at(lookup_index).lookup_byte_lengths_counts = byte_length_counter[avm_in_tag];
     }
 }
 

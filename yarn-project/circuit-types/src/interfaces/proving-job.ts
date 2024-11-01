@@ -1,18 +1,18 @@
 import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BaseRollupInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
-  type Proof,
-  type PublicKernelCircuitPublicInputs,
+  type PublicBaseRollupInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
@@ -24,31 +24,32 @@ import {
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 
-import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/processed_tx.js';
+import { type CircuitName } from '../stats/index.js';
 
-export type AvmProofAndVerificationKey = {
-  proof: Proof;
-  verificationKey: AvmVerificationKeyData;
-};
-
-export type PublicInputsAndRecursiveProof<T> = {
-  inputs: T;
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+export type ProofAndVerificationKey<P> = {
+  proof: P;
   verificationKey: VerificationKeyData;
 };
 
-export type PublicInputsAndTubeProof<T> = {
+export function makeProofAndVerificationKey<P>(
+  proof: P,
+  verificationKey: VerificationKeyData,
+): ProofAndVerificationKey<P> {
+  return { proof, verificationKey };
+}
+
+export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH> = {
   inputs: T;
-  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
+  proof: RecursiveProof<N>;
   verificationKey: VerificationKeyData;
 };
 
-export function makePublicInputsAndRecursiveProof<T>(
+export function makePublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH>(
   inputs: T,
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  proof: RecursiveProof<N>,
   verificationKey: VerificationKeyData,
 ) {
-  const result: PublicInputsAndRecursiveProof<T> = {
+  const result: PublicInputsAndRecursiveProof<T, N> = {
     inputs,
     proof,
     verificationKey,
@@ -65,11 +66,10 @@ export enum ProvingRequestType {
   PRIVATE_KERNEL_EMPTY,
   PUBLIC_VM,
 
-  PUBLIC_KERNEL_NON_TAIL,
-  PUBLIC_KERNEL_TAIL,
-
-  BASE_ROLLUP,
+  PRIVATE_BASE_ROLLUP,
+  PUBLIC_BASE_ROLLUP,
   MERGE_ROLLUP,
+  EMPTY_BLOCK_ROOT_ROLLUP,
   BLOCK_ROOT_ROLLUP,
   BLOCK_MERGE_ROLLUP,
   ROOT_ROLLUP,
@@ -80,21 +80,44 @@ export enum ProvingRequestType {
   TUBE_PROOF,
 }
 
+export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): CircuitName {
+  switch (type) {
+    case ProvingRequestType.PRIVATE_KERNEL_EMPTY:
+      return 'private-kernel-empty';
+    case ProvingRequestType.PUBLIC_VM:
+      return 'avm-circuit';
+    case ProvingRequestType.PRIVATE_BASE_ROLLUP:
+      return 'private-base-rollup';
+    case ProvingRequestType.PUBLIC_BASE_ROLLUP:
+      return 'public-base-rollup';
+    case ProvingRequestType.MERGE_ROLLUP:
+      return 'merge-rollup';
+    case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
+      return 'empty-block-root-rollup';
+    case ProvingRequestType.BLOCK_ROOT_ROLLUP:
+      return 'block-root-rollup';
+    case ProvingRequestType.BLOCK_MERGE_ROLLUP:
+      return 'block-merge-rollup';
+    case ProvingRequestType.ROOT_ROLLUP:
+      return 'root-rollup';
+    case ProvingRequestType.BASE_PARITY:
+      return 'base-parity';
+    case ProvingRequestType.ROOT_PARITY:
+      return 'root-parity';
+    case ProvingRequestType.TUBE_PROOF:
+      return 'tube-circuit';
+    default:
+      throw new Error(`Cannot find circuit name for proving request type: ${type}`);
+  }
+}
+
+export type AvmProvingRequest = {
+  type: ProvingRequestType.PUBLIC_VM;
+  inputs: AvmCircuitInputs;
+};
+
 export type ProvingRequest =
-  | {
-      type: ProvingRequestType.PUBLIC_VM;
-      inputs: AvmCircuitInputs;
-    }
-  | {
-      type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL;
-      kernelType: PublicKernelNonTailRequest['type'];
-      inputs: PublicKernelNonTailRequest['inputs'];
-    }
-  | {
-      type: ProvingRequestType.PUBLIC_KERNEL_TAIL;
-      kernelType: PublicKernelTailRequest['type'];
-      inputs: PublicKernelTailRequest['inputs'];
-    }
+  | AvmProvingRequest
   | {
       type: ProvingRequestType.BASE_PARITY;
       inputs: BaseParityInputs;
@@ -104,8 +127,12 @@ export type ProvingRequest =
       inputs: RootParityInputs;
     }
   | {
-      type: ProvingRequestType.BASE_ROLLUP;
-      inputs: BaseRollupInputs;
+      type: ProvingRequestType.PRIVATE_BASE_ROLLUP;
+      inputs: PrivateBaseRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.PUBLIC_BASE_ROLLUP;
+      inputs: PublicBaseRollupInputs;
     }
   | {
       type: ProvingRequestType.MERGE_ROLLUP;
@@ -114,6 +141,10 @@ export type ProvingRequest =
   | {
       type: ProvingRequestType.BLOCK_ROOT_ROLLUP;
       inputs: BlockRootRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP;
+      inputs: EmptyBlockRootRollupInputs;
     }
   | {
       type: ProvingRequestType.BLOCK_MERGE_ROLLUP;
@@ -132,26 +163,22 @@ export type ProvingRequest =
       inputs: TubeInputs;
     };
 
-export type ProvingRequestPublicInputs = {
+export type ProvingRequestResults = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
-  [ProvingRequestType.PUBLIC_VM]: AvmProofAndVerificationKey;
-
-  [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>;
-  [ProvingRequestType.PUBLIC_KERNEL_TAIL]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
-
-  [ProvingRequestType.BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
+  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
-
   [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  // TODO(#7369) properly structure tube proof flow
-  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> };
+  [ProvingRequestType.TUBE_PROOF]: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
 };
 
-export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestPublicInputs[T];
+export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestResults[T];
 
 export interface ProvingJobSource {
   /**

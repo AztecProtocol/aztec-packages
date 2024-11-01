@@ -1,0 +1,54 @@
+VERSION 0.8
+# Sets up Earthly boilerplate for using our s3 cache.
+
+setup-cache-helper:
+  FROM scratch
+  COPY *.sh .
+  SAVE ARTIFACT ./*
+
+SETUP_CACHE:
+  FUNCTION
+  COPY +setup-cache-helper/* /usr/src/build-system/s3-cache-scripts/
+
+# needed intermediary to call out to LOCALLY and go back to normal context
+compute-content-hash:
+  ARG local_directory_equivalent
+  ARG rebuild_patterns
+  LOCALLY
+  RUN [ ! -z "$rebuild_patterns" ] || (echo 'Did not pass rebuild patterns to cache command!' && exit 1)
+  LET content_hash_script="$(pwd)/compute-content-hash.sh"
+  LET content_hash=$(cd "../../$local_directory_equivalent" && AZTEC_CACHE_REBUILD_PATTERNS="$rebuild_patterns" "$content_hash_script")
+  FROM ubuntu:noble
+  RUN echo "$content_hash" > .content-hash
+  SAVE ARTIFACT .content-hash
+
+WRITE_CONTENT_HASH:
+  FUNCTION
+  ARG rebuild_patterns
+  LET local_dir=$(pwd | sed 's|^/usr/src/||')
+  COPY (+compute-content-hash/.content-hash --local_directory_equivalent="$local_dir" --rebuild_patterns="$rebuild_patterns") .
+
+# 1) copies necessary context
+# 2) first tries our rebuild pattern and context against our S3/minio cache
+# 3) if not, we build with $command
+# 4) then we try to upload to S3/minio cache for next time
+WITH_CACHE:
+  FUNCTION
+  ARG command
+  ARG prefix
+  ARG rebuild_patterns
+  ARG build_artifacts
+  # print a clean version as the one below will be obfuscated
+  RUN echo "--> RUN WITH CACHE $command (start)"
+  DO +SETUP_CACHE
+  DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
+  # configure AWS access and S3 cache params (note these can be blank if not using S3 build cache)
+  # we abuse secrets here somewhat to keep a stable build hash in Earthly, as secrets don't affect earthly's caching
+  RUN --secret AWS_ACCESS_KEY_ID \
+      --secret AWS_SECRET_ACCESS_KEY \
+      --secret S3_BUILD_CACHE_UPLOAD \
+      --secret S3_BUILD_CACHE_DOWNLOAD \
+      --secret S3_BUILD_CACHE_MINIO_URL \
+      # Note, this should be edited in tandem with the ARGs above, but for clean logs we wrap this in a script
+      /usr/src/build-system/s3-cache-scripts/earthly-s3-cache.sh
+  RUN echo "--> RUN WITH CACHE $command (end)"

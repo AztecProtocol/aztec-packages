@@ -1,9 +1,9 @@
 import {
+  type AvmProvingRequest,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
   type PublicInputsAndRecursiveProof,
-  type PublicInputsAndTubeProof,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -11,7 +11,6 @@ import {
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
-  type AvmExecutionHints,
   ClientIvcProof,
   Fr,
   type Gas,
@@ -20,52 +19,18 @@ import {
   KernelCircuitPublicInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type PublicDataUpdateRequest,
-  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
-  type PublicKernelTailCircuitPrivateInputs,
   type RecursiveProof,
   type TUBE_PROOF_LENGTH,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
-import { type CircuitName } from '../stats/stats.js';
-
-/**
- * Used to communicate to the prover which type of circuit to prove
- */
-export enum PublicKernelType {
-  NON_PUBLIC = 'non-public',
-  SETUP = 'setup',
-  APP_LOGIC = 'app-logic',
-  TEARDOWN = 'teardown',
-  TAIL = 'tail',
+export enum PublicKernelPhase {
+  SETUP,
+  APP_LOGIC,
+  TEARDOWN,
 }
-
-export type PublicKernelTailRequest = {
-  type: PublicKernelType.TAIL;
-  inputs: PublicKernelTailCircuitPrivateInputs;
-};
-
-export type PublicKernelNonTailRequest = {
-  type: PublicKernelType.SETUP | PublicKernelType.APP_LOGIC | PublicKernelType.TEARDOWN;
-  inputs: PublicKernelCircuitPrivateInputs;
-};
-
-export type PublicKernelRequest = PublicKernelTailRequest | PublicKernelNonTailRequest;
-
-export const AVM_REQUEST = 'AVM' as const;
-
-export type AvmProvingRequest = {
-  type: typeof AVM_REQUEST;
-  functionName: string; // informational only
-  bytecode: Buffer;
-  calldata: Fr[];
-  avmHints: AvmExecutionHints;
-  kernelRequest: PublicKernelNonTailRequest;
-};
-
-export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
@@ -89,14 +54,14 @@ export type ProcessedTx = Pick<Tx, 'clientIvcProof' | 'noteEncryptedLogs' | 'enc
    */
   revertReason: SimulationError | undefined;
   /**
-   * The inputs for AVM and kernel proving.
+   * The request for AVM proving.
    */
-  publicProvingRequests: PublicProvingRequest[];
+  avmProvingRequest: AvmProvingRequest | undefined;
   /**
    * Gas usage per public execution phase.
    * Doesn't account for any base costs nor DA gas used in private execution.
    */
-  gasUsed: Partial<Record<PublicKernelType, Gas>>;
+  gasUsed: Partial<Record<PublicKernelPhase, Gas>>;
   /**
    * All public data updates for this transaction, including those created
    * or updated by the protocol, such as balance updates from fee payments.
@@ -153,10 +118,17 @@ export type FailedTx = {
 export function makeProcessedTx(
   tx: Tx,
   kernelOutput: KernelCircuitPublicInputs,
-  publicProvingRequests: PublicProvingRequest[],
-  revertReason?: SimulationError,
-  gasUsed: ProcessedTx['gasUsed'] = {},
-  finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
+  {
+    revertReason,
+    gasUsed = {},
+    avmProvingRequest,
+    finalPublicDataUpdateRequests,
+  }: {
+    revertReason?: SimulationError;
+    gasUsed?: ProcessedTx['gasUsed'];
+    avmProvingRequest?: AvmProvingRequest;
+    finalPublicDataUpdateRequests?: PublicDataUpdateRequest[];
+  } = {},
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
@@ -168,7 +140,7 @@ export function makeProcessedTx(
     unencryptedLogs: tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
-    publicProvingRequests,
+    avmProvingRequest,
     gasUsed,
     finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
   };
@@ -201,7 +173,7 @@ export function makePaddingProcessedTx(
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
-    publicProvingRequests: [],
+    avmProvingRequest: undefined,
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
     verificationKey: kernelOutput.verificationKey,
@@ -214,7 +186,7 @@ export function makePaddingProcessedTx(
  * @returns A valid padding processed tx.
  */
 export function makePaddingProcessedTxFromTubeProof(
-  kernelOutput: PublicInputsAndTubeProof<KernelCircuitPublicInputs>,
+  kernelOutput: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof TUBE_PROOF_LENGTH>,
 ): PaddingProcessedTxFromTube {
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
@@ -226,7 +198,7 @@ export function makePaddingProcessedTxFromTubeProof(
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
-    publicProvingRequests: [],
+    avmProvingRequest: undefined,
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
     verificationKey: kernelOutput.verificationKey,
@@ -238,12 +210,19 @@ export function makePaddingProcessedTxFromTubeProof(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr, vkTreeRoot: Fr): ProcessedTx {
+export function makeEmptyProcessedTx(
+  header: Header,
+  chainId: Fr,
+  version: Fr,
+  vkTreeRoot: Fr,
+  protocolContractTreeRoot: Fr,
+): ProcessedTx {
   const emptyKernelOutput = KernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   emptyKernelOutput.constants.vkTreeRoot = vkTreeRoot;
+  emptyKernelOutput.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
@@ -255,7 +234,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr, v
     clientIvcProof: ClientIvcProof.empty(),
     isEmpty: true,
     revertReason: undefined,
-    publicProvingRequests: [],
+    avmProvingRequest: undefined,
     gasUsed: {},
     finalPublicDataUpdateRequests: [],
   };
@@ -352,19 +331,4 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
 export function validateProcessedTx(tx: ProcessedTx): void {
   validateProcessedTxLogs(tx);
   // TODO: validate other fields
-}
-
-export function mapPublicKernelToCircuitName(kernelType: PublicKernelRequest['type']): CircuitName {
-  switch (kernelType) {
-    case PublicKernelType.SETUP:
-      return 'public-kernel-setup';
-    case PublicKernelType.APP_LOGIC:
-      return 'public-kernel-app-logic';
-    case PublicKernelType.TEARDOWN:
-      return 'public-kernel-teardown';
-    case PublicKernelType.TAIL:
-      return 'public-kernel-tail';
-    default:
-      throw new Error(`Unknown kernel type: ${kernelType}`);
-  }
 }

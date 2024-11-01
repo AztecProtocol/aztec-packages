@@ -1,7 +1,9 @@
 import {
   type ABIParameter,
+  type ABIVariable,
   type ContractArtifact,
   type FunctionArtifact,
+  decodeFunctionSignature,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
@@ -82,25 +84,25 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(Fr.ZERO, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
+    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeysHash(publicKeysHash: Fr, wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(publicKeysHash, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, ${args}) {
+    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
   public static deployWithOpts<M extends keyof ${contractName}['methods']>(
-    opts: { publicKeysHash?: Fr; method?: M; wallet: Wallet },
+    opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
     ...args: Parameters<${contractName}['methods'][M]>
   ) {
     return new DeployMethod<${contractName}>(
-      opts.publicKeysHash ?? Fr.ZERO,
+      opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
       ${artifactName},
       ${contractName}.at,
@@ -247,7 +249,7 @@ function generateEvents(events: any[] | undefined) {
   const eventsMetadata = events.map(event => {
     const eventName = event.path.split('::').at(-1);
 
-    const eventDefProps = event.fields.map((field: any) => `${field.name}: Fr`);
+    const eventDefProps = event.fields.map((field: ABIVariable) => `${field.name}: ${abiTypeToTypescript(field.type)}`);
     const eventDef = `
       export type ${eventName} = {
         ${eventDefProps.join('\n')}
@@ -255,14 +257,14 @@ function generateEvents(events: any[] | undefined) {
     `;
 
     const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
-    const eventType = `${eventName}: {decode: (payload: L1EventPayload | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
-
+    const eventType = `${eventName}: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }`;
+    // Reusing the decodeFunctionSignature
+    const eventSignature = decodeFunctionSignature(eventName, event.fields);
+    const eventSelector = `EventSelector.fromSignature('${eventSignature}')`;
     const eventImpl = `${eventName}: {
-        decode: this.decodeEvent(${event.fields.length}, EventSelector.fromSignature('${eventName}(${event.fields
-      .map(() => 'Field')
-      .join(',')})'), [${fieldNames}]),
-      eventSelector: EventSelector.fromSignature('${eventName}(${event.fields.map(() => 'Field').join(',')})'),
-      fieldNames: [${fieldNames}],
+        abiType: ${JSON.stringify(event, null, 4)},
+        eventSelector: ${eventSelector},
+        fieldNames: [${fieldNames}],
       }`;
 
     return {
@@ -275,32 +277,7 @@ function generateEvents(events: any[] | undefined) {
   return {
     eventDefs: eventsMetadata.map(({ eventDef }) => eventDef).join('\n'),
     events: `
-    // Partial application is chosen is to avoid the duplication of so much codegen.
-  private static decodeEvent<T>(fieldsLength: number, eventSelector: EventSelector, fields: string[]): (payload: L1EventPayload | undefined) => T | undefined {
-    return (payload: L1EventPayload | undefined): T | undefined => {
-      if (payload === undefined) {
-        return undefined;
-      }
-      if (!eventSelector.equals(payload.eventTypeId)) {
-        return undefined;
-      }
-      if (payload.event.items.length !== fieldsLength) {
-        throw new Error(
-          'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
-        );
-      }
-
-      return fields.reduce(
-        (acc, curr, i) => ({
-          ...acc,
-          [curr]: payload.event.items[i],
-        }),
-        {} as T,
-      );
-    };
-  }
-
-  public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
+    public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
     return {
       ${eventsMetadata.map(({ eventImpl }) => eventImpl).join(',\n')}
     };
@@ -334,6 +311,7 @@ export function generateTypescriptContractInterface(input: ContractArtifact, art
 
 /* eslint-disable */
 import {
+  type AbiType,
   AztecAddress,
   type AztecAddressLike,
   CompleteAddress,
@@ -345,6 +323,7 @@ import {
   type ContractMethod,
   type ContractStorageLayout,
   type ContractNotes,
+  decodeFromAbi,
   DeployMethod,
   EthAddress,
   type EthAddressLike,
@@ -358,6 +337,8 @@ import {
   NoteSelector,
   Point,
   type PublicKey,
+  PublicKeys,
+  type UnencryptedL2Log,
   type Wallet,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';

@@ -2,7 +2,9 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.cpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
+#include <tuple>
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
@@ -11,10 +13,12 @@
 
 using namespace bb;
 
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
+
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-
+STANDARD_TESTING_TAGS
 template <class Builder> class BoolTest : public ::testing::Test {};
 
 using CircuitTypes = ::testing::Types<bb::CircuitSimulatorBN254, bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
@@ -26,30 +30,59 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
 
-    auto gates_before = builder.get_num_gates();
+    auto gates_before = builder.get_estimated_num_finalized_gates();
 
     bool_ct a = witness_ct(&builder, bb::fr::one());
     bool_ct b = witness_ct(&builder, bb::fr::zero());
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
     a = a ^ b; // a = 1
     EXPECT_EQ(a.get_value(), 1);
+
+    // Tags are merged on XOR
+    EXPECT_EQ(a.get_origin_tag(), first_two_merged_tag);
+
     b = !b; // b = 1 (witness 0)
     EXPECT_EQ(b.get_value(), 1);
+
+    // Tag is preserved on NOT
+    EXPECT_EQ(b.get_origin_tag(), challenge_origin_tag);
+
+    a.set_origin_tag(submitted_value_origin_tag);
+
     bool_ct d = (a == b); //
     EXPECT_EQ(d.get_value(), 1);
+
+    // Tags are merged on ==
+    EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
+
     d = false; // d = 0
+    d.set_origin_tag(challenge_origin_tag);
     EXPECT_EQ(d.get_value(), 0);
+
     bool_ct e = a | d; // e = 1 = a
     EXPECT_EQ(e.get_value(), 1);
+
+    // Tags are merged on OR
+    EXPECT_EQ(e.get_origin_tag(), first_two_merged_tag);
+
     bool_ct f = e ^ b; // f = 0
     EXPECT_EQ(f.get_value(), 0);
+
+    f.set_origin_tag(challenge_origin_tag);
     d = (!f) & a; // d = 1
     EXPECT_EQ(d.get_value(), 1);
+
+    // Tags are merged on AND
+    EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
     if (!IsSimulator<Builder>) {
-        auto gates_after = builder.get_num_gates();
+        auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 6UL);
     }
 }
@@ -137,7 +170,14 @@ TYPED_TEST(BoolTest, LogicalAnd)
 
     bool_ct a = witness_ct(&builder, 1);
     bool_ct b = witness_ct(&builder, 1);
-    (!a) && (!b);
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    auto c = (!a) && (!b);
+
+    // Tags are merged on logical AND
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -151,7 +191,9 @@ TYPED_TEST(BoolTest, And)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 1));
         bool_ct b = witness_ct(&builder, (bool)(i % 2 == 1));
+        // clang-format off
         a& b;
+        // clang-format on
     }
 
     bool result = CircuitChecker::check(builder);
@@ -166,17 +208,23 @@ TYPED_TEST(BoolTest, AndConstants)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 2));
         bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
+        // clang-format off
         a& b;
+        // clang-format on
     }
     for (size_t i = 0; i < 32; ++i) {
         if (i % 2 == 0) {
             bool_ct a = witness_ct(&builder, (bool)(i % 2));
             bool_ct b(&builder, (bool)(i % 3 == 1));
+            // clang-format off
             a& b;
+            // clang-format on
         } else {
             bool_ct a(&builder, (bool)(i % 2));
             bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
+            // clang-format off
             a& b;
+            // clang-format on
         }
     }
 
@@ -289,8 +337,16 @@ TYPED_TEST(BoolTest, Implies)
             bool b_val = (bool)(i > 1 ? true : false);
             bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
             bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
+            if (!(lhs_constant || rhs_constant)) {
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+            }
             bool_ct c = a.implies(b);
             EXPECT_EQ(c.get_value(), !a.get_value() || b.get_value());
+            if (!(lhs_constant || rhs_constant)) {
+                // Tags are merged on implies
+                EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            }
         }
     }
 
@@ -312,8 +368,17 @@ TYPED_TEST(BoolTest, ImpliesBothWays)
             bool b_val = (bool)(i > 1 ? true : false);
             bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
             bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
+            if (!(lhs_constant || rhs_constant)) {
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+            }
             bool_ct c = a.implies_both_ways(b);
             EXPECT_EQ(c.get_value(), !(a.get_value() ^ b.get_value()));
+
+            if (!(lhs_constant || rhs_constant)) {
+                // Tags are merged on implies both ways
+                EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            }
         }
     }
 
@@ -465,11 +530,21 @@ TYPED_TEST(BoolTest, ConditionalAssign)
         bool_ct r_ct = rhs_constant ? bool_ct(right) : (witness_ct(&builder, right));
         bool_ct cond = (witness_ct(&builder, condition));
 
+        if (!(lhs_constant | rhs_constant)) {
+            cond.set_origin_tag(submitted_value_origin_tag);
+            l_ct.set_origin_tag(challenge_origin_tag);
+            r_ct.set_origin_tag(next_challenge_tag);
+        }
         auto result = bool_ct::conditional_assign(cond, l_ct, r_ct);
+
+        if (!(lhs_constant | rhs_constant)) {
+            // Tags are merged on conditional assign
+            EXPECT_EQ(result.get_origin_tag(), first_second_third_merged_tag);
+        }
 
         EXPECT_EQ(result.get_value(), condition ? left : right);
     }
-    info("num gates = ", builder.get_num_gates());
+    info("num gates = ", builder.get_estimated_num_finalized_gates());
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
@@ -514,8 +589,14 @@ TYPED_TEST(BoolTest, Normalize)
     auto generate_constraints = [&builder](bool value, bool is_constant, bool is_inverted) {
         bool_ct a = is_constant ? bool_ct(&builder, value) : witness_ct(&builder, value);
         bool_ct b = is_inverted ? !a : a;
+        if (!is_constant) {
+            b.set_origin_tag(submitted_value_origin_tag);
+        }
         bool_ct c = b.normalize();
         EXPECT_EQ(c.get_value(), value ^ is_inverted);
+        if (!is_constant) {
+            EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
+        }
     };
 
     generate_constraints(false, false, false);

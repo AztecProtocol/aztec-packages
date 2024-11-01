@@ -15,8 +15,6 @@ export * from './factory.js';
 
 export { retrieveL2ProofVerifiedEvents, retrieveBlockFromRollup } from './archiver/data_retrieval.js';
 
-export { getL2BlockProposedLogs } from './archiver/eth_log_handlers.js';
-
 const log = createDebugLogger('aztec:archiver');
 
 /**
@@ -27,6 +25,7 @@ async function main() {
   const config = getArchiverConfigFromEnv();
   const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
+  log.info(`Starting archiver in main(): ${JSON.stringify(config)}`);
   const publicClient = createPublicClient({
     chain: localhost,
     transport: http(rpcUrl),

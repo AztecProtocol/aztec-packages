@@ -6,15 +6,13 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 
 export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
-    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.dstOffset],
-      memory,
-    );
-    memory.checkTags(this.inTag, aOffset, bOffset);
+    const operands = [this.aOffset, this.bOffset, this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
+    memory.checkTagsAreSame(aOffset, bOffset);
 
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
@@ -22,7 +20,7 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
     const dest = this.compute(a, b);
     memory.set(dstOffset, dest);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 2, writes: 1, addressing });
     context.machineState.incrementPc();
   }
 

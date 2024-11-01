@@ -21,6 +21,11 @@ export class NetCrs {
   }
 
   async downloadG1Data() {
+    // Skip the download if numPoints is 0 (would download the entire file due to bad range header otherwise)
+    if (this.numPoints === 0) {
+      return (this.data = new Uint8Array([]));
+    }
+
     const g1End = this.numPoints * 64 - 1;
 
     const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat', {

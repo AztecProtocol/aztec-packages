@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    header::Header, address::AztecAddress, hash::compute_siloed_nullifier,
-    constants::DEPLOYER_CONTRACT_ADDRESS
+    address::AztecAddress, constants::DEPLOYER_CONTRACT_ADDRESS, hash::compute_siloed_nullifier,
+    header::Header,
 };
 
 trait ProveContractDeployment {
@@ -10,7 +10,8 @@ trait ProveContractDeployment {
 impl ProveContractDeployment for Header {
     fn prove_contract_deployment(self, contract_address: AztecAddress) {
         // Compute deployment nullifier
-        let nullifier = compute_siloed_nullifier(DEPLOYER_CONTRACT_ADDRESS, contract_address.to_field());
+        let nullifier =
+            compute_siloed_nullifier(DEPLOYER_CONTRACT_ADDRESS, contract_address.to_field());
 
         self.prove_nullifier_inclusion(nullifier);
     }
@@ -23,7 +24,8 @@ trait ProveContractNonDeployment {
 impl ProveContractNonDeployment for Header {
     fn prove_contract_non_deployment(self, contract_address: AztecAddress) {
         // Compute deployment nullifier
-        let nullifier = compute_siloed_nullifier(DEPLOYER_CONTRACT_ADDRESS, contract_address.to_field());
+        let nullifier =
+            compute_siloed_nullifier(DEPLOYER_CONTRACT_ADDRESS, contract_address.to_field());
 
         // docs:start:prove_nullifier_non_inclusion
         self.prove_nullifier_non_inclusion(nullifier);

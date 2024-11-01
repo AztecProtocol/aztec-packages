@@ -5,7 +5,8 @@
   "exports": {
     ".": "./dest/index.js",
     "./prover-agent": "./dest/prover-agent/index.js",
-    "./orchestrator": "./dest/orchestrator/index.js"
+    "./orchestrator": "./dest/orchestrator/index.js",
+    "./helpers": "./dest/orchestrator/block-building-helpers.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -41,6 +42,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -65,6 +69,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",

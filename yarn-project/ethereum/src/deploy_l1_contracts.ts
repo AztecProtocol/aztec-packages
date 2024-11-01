@@ -2,6 +2,31 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
+import {
+  ApellaAbi,
+  ApellaBytecode,
+  FeeJuicePortalAbi,
+  FeeJuicePortalBytecode,
+  GerousiaAbi,
+  GerousiaBytecode,
+  InboxAbi,
+  InboxBytecode,
+  NomismatokopioAbi,
+  NomismatokopioBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  RegistryAbi,
+  RegistryBytecode,
+  RollupAbi,
+  RollupBytecode,
+  RollupLinkReferences,
+  SysstiaAbi,
+  SysstiaBytecode,
+  TestERC20Abi,
+  TestERC20Bytecode,
+  TxsDecoderAbi,
+  TxsDecoderBytecode,
+} from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
 import {
@@ -21,7 +46,6 @@ import {
   http,
   numberToHex,
   padHex,
-  zeroAddress,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -47,6 +71,20 @@ export type DeployL1Contracts = {
   l1ContractAddresses: L1ContractAddresses;
 };
 
+export interface LinkReferences {
+  [fileName: string]: {
+    [contractName: string]: ReadonlyArray<{
+      start: number;
+      length: number;
+    }>;
+  };
+}
+
+export interface Libraries {
+  linkReferences: LinkReferences;
+  libraryCode: Record<string, ContractArtifacts>;
+}
+
 /**
  * Contract artifacts
  */
@@ -59,6 +97,10 @@ export interface ContractArtifacts {
    * The contract bytecode
    */
   contractBytecode: Hex;
+  /**
+   * The contract libraries
+   */
+  libraries?: Libraries;
 }
 
 /**
@@ -89,6 +131,101 @@ export interface L1ContractArtifactsForDeployment {
    * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
+  /**
+   * Nomismatokopio contract artifacts.
+   */
+  nomismatokopio: ContractArtifacts;
+  /**
+   * Sysstia contract artifacts.
+   */
+  sysstia: ContractArtifacts;
+  /**
+   * Gerousia contract artifacts.
+   */
+  gerousia: ContractArtifacts;
+  /**
+   * Apella contract artifacts.
+   */
+  apella: ContractArtifacts;
+}
+
+export const l1Artifacts: L1ContractArtifactsForDeployment = {
+  registry: {
+    contractAbi: RegistryAbi,
+    contractBytecode: RegistryBytecode,
+  },
+  inbox: {
+    contractAbi: InboxAbi,
+    contractBytecode: InboxBytecode,
+  },
+  outbox: {
+    contractAbi: OutboxAbi,
+    contractBytecode: OutboxBytecode,
+  },
+  rollup: {
+    contractAbi: RollupAbi,
+    contractBytecode: RollupBytecode,
+    libraries: {
+      linkReferences: RollupLinkReferences,
+      libraryCode: {
+        TxsDecoder: {
+          contractAbi: TxsDecoderAbi,
+          contractBytecode: TxsDecoderBytecode,
+        },
+      },
+    },
+  },
+  feeJuice: {
+    contractAbi: TestERC20Abi,
+    contractBytecode: TestERC20Bytecode,
+  },
+  feeJuicePortal: {
+    contractAbi: FeeJuicePortalAbi,
+    contractBytecode: FeeJuicePortalBytecode,
+  },
+  sysstia: {
+    contractAbi: SysstiaAbi,
+    contractBytecode: SysstiaBytecode,
+  },
+  nomismatokopio: {
+    contractAbi: NomismatokopioAbi,
+    contractBytecode: NomismatokopioBytecode,
+  },
+  gerousia: {
+    contractAbi: GerousiaAbi,
+    contractBytecode: GerousiaBytecode,
+  },
+  apella: {
+    contractAbi: ApellaAbi,
+    contractBytecode: ApellaBytecode,
+  },
+};
+
+export interface DeployL1ContractsArgs {
+  /**
+   * The address of the L2 Fee Juice contract.
+   */
+  l2FeeJuiceAddress: AztecAddress;
+  /**
+   * The vk tree root.
+   */
+  vkTreeRoot: Fr;
+  /**
+   * The protocol contract tree root.
+   */
+  protocolContractTreeRoot: Fr;
+  /**
+   * The block number to assume proven through.
+   */
+  assumeProvenThrough?: number;
+  /**
+   * The salt for CREATE2 deployment.
+   */
+  salt: number | undefined;
+  /**
+   * The initial validators for the rollup contract.
+   */
+  initialValidators?: EthAddress[];
 }
 
 export type L1Clients = {
@@ -134,7 +271,6 @@ export function createL1Clients(
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
- * @param contractsToDeploy - The set of L1 artifacts to be deployed
  * @param args - Arguments for initialization of L1 contracts
  * @returns A list of ETH addresses of the deployed contracts.
  */
@@ -143,14 +279,7 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
   logger: DebugLogger,
-  contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: {
-    l2FeeJuiceAddress: AztecAddress;
-    vkTreeRoot: Fr;
-    assumeProvenThrough?: number;
-    salt: number | undefined;
-    initialValidators?: EthAddress[];
-  },
+  args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -165,7 +294,7 @@ export const deployL1Contracts = async (
     return await (await fetch(rpcUrl, content)).json();
   };
   if (isAnvilTestChain(chain.id)) {
-    const interval = 12;
+    const interval = 12; // @todo  #8084
     const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
@@ -177,46 +306,86 @@ export const deployL1Contracts = async (
 
   const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  // Governance stuff
+  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
 
-  const registryAddress = await deployer.deploy(contractsToDeploy.registry, [account.address.toString()]);
+  const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
-
+  const feeJuiceAddress = await govDeployer.deploy(l1Artifacts.feeJuice);
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
+  // @todo  #8084
+  // @note These numbers are just chosen to make testing simple.
+  const quorumSize = 6n;
+  const roundSize = 10n;
+  const gerousiaAddress = await govDeployer.deploy(l1Artifacts.gerousia, [
+    registryAddress.toString(),
+    quorumSize,
+    roundSize,
+  ]);
+  logger.info(`Deployed Gerousia at ${gerousiaAddress}`);
 
-  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
+  const apellaAddress = await govDeployer.deploy(l1Artifacts.apella, [
+    feeJuiceAddress.toString(),
+    gerousiaAddress.toString(),
+  ]);
+  logger.info(`Deployed Apella at ${apellaAddress}`);
 
-  const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
-    getAddress(registryAddress.toString()),
-    getAddress(feeJuicePortalAddress.toString()),
+  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
+    feeJuiceAddress.toString(),
+    1n * 10n ** 18n, // @todo  #8084
+    apellaAddress.toString(),
+  ]);
+  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
+
+  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
+    feeJuiceAddress.toString(),
+    registryAddress.toString(),
+    apellaAddress.toString(),
+  ]);
+  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
+
+  await govDeployer.waitForDeployments();
+  logger.info(`All governance contracts deployed`);
+
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+
+  const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
+    registryAddress.toString(),
+    feeJuiceAddress.toString(),
+    args.l2FeeJuiceAddress.toString(),
+  ]);
+  logger.info(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
+
+  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
+    feeJuicePortalAddress.toString(),
+    sysstiaAddress.toString(),
     args.vkTreeRoot.toString(),
+    args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
   ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 
   await deployer.waitForDeployments();
-  logger.info(`All contracts deployed`);
+  logger.info(`All core contracts deployed`);
 
   const feeJuicePortal = getContract({
     address: feeJuicePortalAddress.toString(),
-    abi: contractsToDeploy.feeJuicePortal.contractAbi,
+    abi: l1Artifacts.feeJuicePortal.contractAbi,
     client: walletClient,
   });
 
   const feeJuice = getContract({
     address: feeJuiceAddress.toString(),
-    abi: contractsToDeploy.feeJuice.contractAbi,
+    abi: l1Artifacts.feeJuice.contractAbi,
     client: walletClient,
   });
 
   const rollup = getContract({
     address: getAddress(rollupAddress.toString()),
-    abi: contractsToDeploy.rollup.contractAbi,
+    abi: l1Artifacts.rollup.contractAbi,
     client: walletClient,
   });
 
@@ -235,22 +404,16 @@ export const deployL1Contracts = async (
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
   logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
-  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
-    const initPortalTxHash = await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]);
+  if (!(await feeJuicePortal.read.initialized([]))) {
+    const initPortalTxHash = await feeJuicePortal.write.initialize([]);
     txHashes.push(initPortalTxHash);
-    logger.verbose(
-      `Fee juice portal initializing with registry ${registryAddress.toString()} in tx ${initPortalTxHash}`,
-    );
+    logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
   } else {
     logger.verbose(`Fee juice portal is already initialized`);
   }
 
   logger.info(
-    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
   if (isAnvilTestChain(chain.id)) {
@@ -292,7 +455,7 @@ export const deployL1Contracts = async (
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
-    abi: contractsToDeploy.registry.contractAbi,
+    abi: l1Artifacts.registry.contractAbi,
     client: walletClient,
   });
   if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
@@ -303,6 +466,20 @@ export const deployL1Contracts = async (
     txHashes.push(upgradeTxHash);
   } else {
     logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
+  }
+
+  // If the owner is not the Apella contract, transfer ownership to the Apella contract
+  if ((await registryContract.read.owner([])) !== getAddress(apellaAddress.toString())) {
+    const transferOwnershipTxHash = await registryContract.write.transferOwnership(
+      [getAddress(apellaAddress.toString())],
+      {
+        account,
+      },
+    );
+    logger.verbose(
+      `Transferring the ownership of the registry contract at ${registryAddress} to the Apella ${apellaAddress} in tx ${transferOwnershipTxHash}`,
+    );
+    txHashes.push(transferOwnershipTxHash);
   }
 
   // Wait for all actions to be mined
@@ -316,6 +493,10 @@ export const deployL1Contracts = async (
     outboxAddress,
     feeJuiceAddress,
     feeJuicePortalAddress,
+    nomismatokopioAddress,
+    sysstiaAddress,
+    gerousiaAddress,
+    apellaAddress,
   };
 
   return {
@@ -337,10 +518,7 @@ class L1Deployer {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
   }
 
-  async deploy(
-    params: { contractAbi: Narrow<Abi | readonly unknown[]>; contractBytecode: Hex },
-    args: readonly unknown[] = [],
-  ): Promise<EthAddress> {
+  async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
     const { txHash, address } = await deployL1Contract(
       this.walletClient,
       this.publicClient,
@@ -348,6 +526,7 @@ class L1Deployer {
       params.contractBytecode,
       args,
       this.salt,
+      params.libraries,
       this.logger,
     );
     if (txHash) {
@@ -359,6 +538,50 @@ class L1Deployer {
   async waitForDeployments(): Promise<void> {
     await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
   }
+}
+
+/**
+ * Compiles a contract source code using the provided solc compiler.
+ * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
+ * @param contractName - Contract name within the file (eg HonkVerifier)
+ * @param source - Source code to compile
+ * @param solc - Solc instance
+ * @returns ABI and bytecode of the compiled contract
+ */
+export function compileContract(
+  fileName: string,
+  contractName: string,
+  source: string,
+  solc: { compile: (source: string) => string },
+): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
+  const input = {
+    language: 'Solidity',
+    sources: {
+      [fileName]: {
+        content: source,
+      },
+    },
+    settings: {
+      // we require the optimizer
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      evmVersion: 'cancun',
+      outputSelection: {
+        '*': {
+          '*': ['evm.bytecode.object', 'abi'],
+        },
+      },
+    },
+  };
+
+  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+
+  const abi = output.contracts[fileName][contractName].abi;
+  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
+
+  return { abi, bytecode };
 }
 
 // docs:start:deployL1Contract
@@ -379,10 +602,51 @@ export async function deployL1Contract(
   bytecode: Hex,
   args: readonly unknown[] = [],
   maybeSalt?: Hex,
+  libraries?: Libraries,
   logger?: DebugLogger,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let address: Hex | null | undefined = undefined;
+
+  if (libraries) {
+    // @note  Assumes that we wont have nested external libraries.
+
+    const replacements: Record<string, EthAddress> = {};
+
+    for (const libraryName in libraries?.libraryCode) {
+      const lib = libraries.libraryCode[libraryName];
+
+      const { address } = await deployL1Contract(
+        walletClient,
+        publicClient,
+        lib.contractAbi,
+        lib.contractBytecode,
+        [],
+        maybeSalt,
+        undefined,
+        logger,
+      );
+
+      for (const linkRef in libraries.linkReferences) {
+        for (const c in libraries.linkReferences[linkRef]) {
+          const start = 2 + 2 * libraries.linkReferences[linkRef][c][0].start;
+          const length = 2 * libraries.linkReferences[linkRef][c][0].length;
+
+          const toReplace = bytecode.slice(start, start + length);
+          replacements[toReplace] = address;
+        }
+      }
+    }
+
+    const escapeRegExp = (s: string) => {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape special characters
+    };
+
+    for (const toReplace in replacements) {
+      const replacement = replacements[toReplace].toString().slice(2);
+      bytecode = bytecode.replace(new RegExp(escapeRegExp(toReplace), 'g'), replacement) as Hex;
+    }
+  }
 
   if (maybeSalt) {
     const salt = padHex(maybeSalt, { size: 32 });

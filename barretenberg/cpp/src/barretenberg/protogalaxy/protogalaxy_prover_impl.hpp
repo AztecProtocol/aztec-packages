@@ -11,7 +11,9 @@ template <class DeciderProvingKeys>
 void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK> keys,
                                                                                    const std::string& domain_separator)
 {
-    ZoneScopedN("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+
+    PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+
     OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
     oink_prover.prove();
 }
@@ -19,7 +21,7 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_k
 template <class DeciderProvingKeys>
 void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_key()
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
@@ -27,7 +29,7 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_
     if (!key->is_accumulator) {
         run_oink_prover_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(key->proving_key.log_circuit_size, 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     idx++;
@@ -46,24 +48,21 @@ std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>, Polynomial<type
 ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     const std::shared_ptr<const typename DeciderProvingKeys::DeciderPK>& accumulator)
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::perturbator_round");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
+    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? Fun::compute_perturbator(accumulator, deltas)
-                                           : Polynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    const Polynomial<FF> perturbator = accumulator->is_accumulator ? Fun::compute_perturbator(accumulator, deltas)
+                                                                   : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
-            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
-        }
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
     return std::make_tuple(deltas, perturbator);
@@ -79,7 +78,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
                                                                 const std::vector<FF>& deltas,
                                                                 const DeciderProvingKeys& keys)
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::combiner_quotient_round");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
@@ -88,7 +87,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(keys);
-    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, keys[0]->proving_key.log_circuit_size };
+    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
     const UnivariateRelationParameters relation_parameters =
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
@@ -119,7 +118,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
+    PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
@@ -162,8 +161,9 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
 template <class DeciderProvingKeys>
 FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::prove()
 {
-    ZoneScopedN("ProtogalaxyProver::prove");
-    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
+
+    PROFILE_THIS_NAME("ProtogalaxyProver::prove");
+
     // Ensure keys are all of the same size
     for (size_t idx = 0; idx < DeciderProvingKeys::NUM - 1; ++idx) {
         if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {

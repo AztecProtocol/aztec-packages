@@ -29,10 +29,10 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
-  constructor(private db: MerkleTreeOperations) {}
+  constructor(private db: MerkleTreeReadOperations) {}
 
   async getNoteHashReadRequestsHints(
     readRequests: Tuple<TreeLeafReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
@@ -49,15 +49,13 @@ export class HintsBuilder {
     nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
   ) {
-    return (
-      await buildSiloedNullifierReadRequestHints(
-        this,
-        nullifierReadRequests,
-        pendingNullifiers,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      )
-    ).hints;
+    return await buildSiloedNullifierReadRequestHints(
+      this,
+      nullifierReadRequests,
+      pendingNullifiers,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    );
   }
 
   getNullifierNonExistentReadRequestHints(

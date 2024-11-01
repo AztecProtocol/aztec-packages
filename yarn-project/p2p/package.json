@@ -2,7 +2,11 @@
   "name": "@aztec/p2p",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./mocks": "./dest/mocks/index.js",
+    "./bootstrap": "./dest/bootstrap/bootstrap.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -37,6 +41,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -86,9 +93,11 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.14.6",
+    "get-port": "^7.1.0",
     "it-drain": "^3.0.5",
     "it-length": "^3.0.6",
     "jest": "^29.5.0",

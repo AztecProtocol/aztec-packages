@@ -27,7 +27,7 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-describe('Key Registry', () => {
+describe('Keys', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode;

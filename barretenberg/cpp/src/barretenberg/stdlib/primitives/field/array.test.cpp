@@ -38,7 +38,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
         auto filled_len = array_length<Builder>(values_ct);
         EXPECT_EQ(filled_len.get_value(), filled);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
@@ -52,7 +52,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
         EXPECT_EQ(filled_len.get_value(), 0);
         EXPECT_TRUE(filled_len.is_constant());
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
@@ -97,7 +97,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
         auto popped = array_pop<Builder>(values_ct);
         EXPECT_EQ(popped.get_value(), values[filled - 1]);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     };
@@ -149,7 +149,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
         array_push<Builder>(values_ct, value_ct);
         EXPECT_EQ(value_ct.get_value(), values_ct[filled].get_value());
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
@@ -189,7 +189,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
 
         EXPECT_EQ(num_pushes, ARRAY_LEN);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
@@ -246,7 +246,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
         is_empty = is_array_empty<Builder>(values_ct);
         EXPECT_EQ(is_empty.get_value(), true);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     };
@@ -278,7 +278,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
 
         bool proof_result = false;
         if (!builder.failed()) {
-            info("num gates = ", builder.get_num_gates());
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
             proof_result = CircuitChecker::check(builder);
         }
 
@@ -569,7 +569,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
         EXPECT_EQ(arr[2].get_values().first.get_value(), 3);
         EXPECT_EQ(arr[2].get_values().second.get_value(), 30);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }

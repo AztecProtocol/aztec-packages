@@ -42,7 +42,7 @@ TEST(crypto_merkle_tree, test_check_membership)
     bool_ct is_member_ =
         check_membership(root, create_witness_hash_path(builder, db.get_hash_path(1)), field_ct(1), seven);
 
-    printf("num gates = %zu\n", builder.get_num_gates());
+    printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(is_member.get_value(), true);
@@ -71,7 +71,7 @@ TEST(crypto_merkle_tree, test_batch_update_membership)
     field_ct start_idx = field_ct(witness_ct(&builder, fr(4)));
     batch_update_membership(new_root, old_root, old_hash_path_1, values, start_idx);
     batch_update_membership(new_root, old_root, old_hash_path_2, values, start_idx);
-    printf("num gates = %zu\n", builder.get_num_gates());
+    printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
@@ -87,7 +87,7 @@ TEST(crypto_merkle_tree, test_assert_check_membership)
 
     assert_check_membership(root, create_witness_hash_path(builder, db.get_hash_path(0)), field_ct(0), zero);
 
-    printf("num gates = %zu\n", builder.get_num_gates());
+    printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -105,7 +105,7 @@ TEST(crypto_merkle_tree, test_assert_check_membership_fail)
 
     assert_check_membership(root, create_witness_hash_path(builder, db.get_hash_path(0)), field_ct(1), zero);
 
-    printf("num gates = %zu\n", builder.get_num_gates());
+    printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, false);
@@ -132,7 +132,7 @@ TEST(crypto_merkle_tree, test_update_members)
 
         update_membership(new_root, new_value, old_root, old_path, old_value, zero);
 
-        printf("num gates = %zu\n", builder.get_num_gates());
+        printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -156,7 +156,7 @@ TEST(crypto_merkle_tree, test_update_members)
 
         update_membership(new_root, new_value, old_root, new_path, old_value, zero);
 
-        printf("num gates = %zu\n", builder.get_num_gates());
+        printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -179,7 +179,7 @@ TEST(crypto_merkle_tree, test_tree)
 
     assert_check_tree(root, values);
 
-    printf("num gates = %zu\n", builder.get_num_gates());
+    printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -243,7 +243,7 @@ TEST(crypto_merkle_tree, test_update_memberships)
 
     update_memberships(old_root_ct, new_roots_ct, new_values_ct, old_values_ct, old_hash_paths_ct, old_indices_ct);
 
-    printf("num gates = %zu\n", builder.get_num_gates());
+    printf("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }

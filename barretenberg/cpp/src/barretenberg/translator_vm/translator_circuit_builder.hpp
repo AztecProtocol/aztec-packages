@@ -358,7 +358,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, std::shared_ptr<ECCOpQueue> op_queue)
         : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
     {
-        BB_OP_COUNT_TIME_NAME("TranslatorCircuitBuilder::constructor");
+        PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
         feed_ecc_op_queue_into_circuit(op_queue);
     }
 

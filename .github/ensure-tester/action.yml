@@ -8,11 +8,12 @@ inputs:
   run:
     # command to run once tester available
     required: false
-
   ttl:
     required: false
     description: "Time to live for the tester instance in minutes"
     default: 30
+  spot_strategy:
+    default: BestEffort
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -23,7 +24,7 @@ runs:
       run: |
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
-        echo "spot_strategy=BestEffort" >> $GITHUB_OUTPUT
+        echo "spot_strategy=${{ inputs.spot_strategy }}" >> $GITHUB_OUTPUT
         echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
         echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
         # no github runners, 'bare spot' in action code
@@ -31,7 +32,7 @@ runs:
         echo "ttl=${{ inputs.ttl }}" >> $GITHUB_OUTPUT
         SIZE=large
         if [[ $TYPE == 4core-* ]]; then
-          SIZE=large
+          SIZE=xlarge
         elif [[ $TYPE == 8core-* ]]; then
           SIZE=2xlarge
         elif [[ $TYPE == 16core-* ]]; then
@@ -93,6 +94,16 @@ runs:
             chmod 600 ~/.ssh/build_instance_key
           " || true
         fi
+
+    - name: Setup yq
+      shell: bash
+      run: |
+        set -x
+        scripts/run_on_tester "
+          wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O ./yq
+          chmod +x ./yq
+          sudo mv ./yq /usr/bin/yq
+        "
 
     - name: Ensure Tester Cleanup
       uses: gacts/run-and-post-run@v1

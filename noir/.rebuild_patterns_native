@@ -3,7 +3,6 @@
 ^noir/scripts/test_native.sh
 ^noir/noir-repo/acvm-repo
 ^noir/noir-repo/compiler
-^noir/noir-repo/aztec_macros
 ^noir/noir-repo/noir_stdlib
 ^noir/noir-repo/tooling/backend_interface
 ^noir/noir-repo/tooling/bb_abstraction_leaks

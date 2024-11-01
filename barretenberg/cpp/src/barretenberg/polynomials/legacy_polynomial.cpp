@@ -15,13 +15,6 @@
 
 namespace bb {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(const size_t n_elements)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
-}
-
 template <typename Fr> void LegacyPolynomial<Fr>::allocate_backing_memory(size_t n_elements)
 {
     size_ = n_elements;

@@ -12,6 +12,7 @@ import {
     NUMBER_OF_SUBRELATIONS,
     NUMBER_OF_ALPHAS,
     NUMBER_UNSHIFTED,
+    NUMBER_TO_BE_SHIFTED,
     BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N
 } from "../HonkTypes.sol";
@@ -28,10 +29,12 @@ import {RelationsLib} from "../Relations.sol";
 // Errors
 error PublicInputsLengthWrong();
 error SumcheckFailed();
-error ZeromorphFailed();
+error ShpleminiFailed();
 
 /// Smart contract verifier of honk proofs
 contract BlakeHonkVerifier is IVerifier {
+    using FrLib for Fr;
+
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
@@ -51,14 +54,13 @@ contract BlakeHonkVerifier is IVerifier {
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
 
-        // Zeromorph
-        bool zeromorphVerified = verifyZeroMorph(p, vk, t);
-        if (!zeromorphVerified) revert ZeromorphFailed();
+        bool shpleminiVerified = verifyShplemini(p, vk, t);
+        if (!shpleminiVerified) revert ShpleminiFailed();
 
-        return sumcheckVerified && zeromorphVerified; // Boolean condition not required - nice for vanity :)
+        return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function loadVerificationKey() internal view returns (Honk.VerificationKey memory) {
+    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
         return VK.loadVerificationKey();
     }
 
@@ -117,7 +119,7 @@ contract BlakeHonkVerifier is IVerifier {
 
     function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget)
         internal
-        view
+        pure
         returns (bool checked)
     {
         Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
@@ -191,103 +193,84 @@ contract BlakeHonkVerifier is IVerifier {
         newEvaluation = currentEvaluation * univariateEval;
     }
 
-    function verifyZeroMorph(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
+    // Avoid stack too deep
+    struct ShpleminiIntermediates {
+        Fr unshiftedScalar;
+        Fr shiftedScalar;
+        // Scalar to be multiplied by [1]₁
+        Fr constantTermAccumulator;
+        // Accumulator for powers of rho
+        Fr batchingChallenge;
+        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
+        Fr batchedEvaluation;
+    }
+
+    function verifyShplemini(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
         internal
         view
         returns (bool verified)
     {
-        // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
-        Fr batchedEval = Fr.wrap(0);
-        Fr batchedScalar = Fr.wrap(1);
+        ShpleminiIntermediates memory mem; // stack
 
-        // We linearly combine all evaluations (unshifted first, then shifted)
-        for (uint256 i = 0; i < NUMBER_OF_ENTITIES; ++i) {
-            batchedEval = batchedEval + proof.sumcheckEvaluations[i] * batchedScalar;
-            batchedScalar = batchedScalar * tp.rho;
-        }
+        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
+        Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = computeSquares(tp.geminiR);
 
-        // Get k commitments
-        Honk.G1Point memory c_zeta = computeCZeta(proof, tp);
-        Honk.G1Point memory c_zeta_x = computeCZetaX(proof, vk, tp, batchedEval);
-        Honk.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
+        // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
+        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
+        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
-        // KZG pairing accumulator
-        // WORKTODO: concerned that this is zero - it is multiplied by a point later on
-        Fr evaluation = Fr.wrap(0);
-        verified = zkgReduceVerify(proof, tp, evaluation, c_zeta_Z);
-    }
+        Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals =
+            computeInvertedGeminiDenominators(tp, powers_of_evaluation_challenge);
 
-    // Compute commitment to lifted degree quotient identity
-    function computeCZeta(Honk.Proof memory proof, Transcript memory tp) internal view returns (Honk.G1Point memory) {
-        Fr[LOG_N + 1] memory scalars;
-        Honk.G1ProofPoint[LOG_N + 1] memory commitments;
+        mem.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
+        mem.shiftedScalar =
+            tp.geminiR.invert() * (inverse_vanishing_evals[0] - (tp.shplonkNu * inverse_vanishing_evals[1]));
 
-        // Initial contribution
-        commitments[0] = proof.zmCq;
         scalars[0] = Fr.wrap(1);
+        commitments[0] = convertProofPoint(proof.shplonkQ);
 
-        // TODO: optimize pow operations here ? batch mulable
-        for (uint256 k = 0; k < LOG_N; ++k) {
-            Fr degree = Fr.wrap((1 << k) - 1);
-            Fr scalar = FrLib.pow(tp.zmY, k);
-            scalar = scalar * FrLib.pow(tp.zmX, (1 << LOG_N) - Fr.unwrap(degree) - 1);
-            scalar = scalar * MINUS_ONE;
+        /* Batch multivariate opening claims, shifted and unshifted
+        * The vector of scalars is populated as follows:
+        * \f[
+        * \left(
+        * - \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+        * \ldots,
+        * - \rho^{i+k-1} \times \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+        * - \rho^{i+k} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right),
+        * \ldots,
+        * - \rho^{k+m-1} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+        * \right)
+        * \f]
+        *
+        * The following vector is concatenated to the vector of commitments:
+        * \f[
+        * f_0, \ldots, f_{m-1}, f_{\text{shift}, 0}, \ldots, f_{\text{shift}, k-1}
+        * \f]
+        *
+        * Simultaneously, the evaluation of the multilinear polynomial
+        * \f[
+        * \sum \rho^i \cdot f_i + \sum \rho^{i+k} \cdot f_{\text{shift}, i}
+        * \f]
+        * at the challenge point \f$ (u_0,\ldots, u_{n-1}) \f$ is computed.
+        *
+        * This approach minimizes the number of iterations over the commitments to multilinear polynomials
+        * and eliminates the need to store the powers of \f$ \rho \f$.
+        */
+        mem.batchingChallenge = Fr.wrap(1);
+        mem.batchedEvaluation = Fr.wrap(0);
 
-            scalars[k + 1] = scalar;
-            commitments[k + 1] = proof.zmCqs[k];
-        }
-
-        // Convert all commitments for batch mul
-        Honk.G1Point[LOG_N + 1] memory comms = convertPoints(commitments);
-
-        return batchMul(comms, scalars);
-    }
-
-    struct CZetaXParams {
-        Fr phi_numerator;
-        Fr phi_n_x;
-        Fr rho_pow;
-        Fr phi_1;
-        Fr phi_2;
-        Fr x_pow_2k;
-        Fr x_pow_2kp1;
-    }
-
-    function computeCZetaX(
-        Honk.Proof memory proof,
-        Honk.VerificationKey memory vk,
-        Transcript memory tp,
-        Fr batchedEval
-    ) internal view returns (Honk.G1Point memory) {
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory scalars;
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory commitments;
-        CZetaXParams memory cp;
-
-        // Phi_n(x) = (x^N - 1) / (x - 1)
-        cp.phi_numerator = FrLib.pow(tp.zmX, (1 << LOG_N)) - Fr.wrap(1);
-        cp.phi_n_x = FrLib.div(cp.phi_numerator, tp.zmX - Fr.wrap(1));
-
-        // Add contribution: -v * x * \Phi_n(x) * [1]_1
-        // Add base
-        scalars[0] = MINUS_ONE * batchedEval * tp.zmX * cp.phi_n_x;
-        commitments[0] = Honk.G1Point({x: 1, y: 2}); // One
-
-        // f - Add all unshifted commitments
-        // g - Add add to be shifted commitments
-
-        // f commitments are accumulated at (zm_x * r)
-        cp.rho_pow = Fr.wrap(1);
         for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
-            scalars[i] = tp.zmX * cp.rho_pow;
-            cp.rho_pow = cp.rho_pow * tp.rho;
+            scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+            mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
         for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
-            scalars[i] = cp.rho_pow;
-            cp.rho_pow = cp.rho_pow * tp.rho;
+            scalars[i] = mem.shiftedScalar.neg() * mem.batchingChallenge;
+            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+            mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
-        // TODO: dont accumulate these into the comms array, just accumulate directly
         commitments[1] = vk.qm;
         commitments[2] = vk.qc;
         commitments[3] = vk.ql;
@@ -337,90 +320,134 @@ contract BlakeHonkVerifier is IVerifier {
         commitments[43] = convertProofPoint(proof.w4);
         commitments[44] = convertProofPoint(proof.zPerm);
 
-        // Add scalar contributions
-        // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
-        // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))
-        cp.x_pow_2k = tp.zmX;
-        cp.x_pow_2kp1 = tp.zmX * tp.zmX;
-        for (uint256 k; k < CONST_PROOF_SIZE_LOG_N; ++k) {
-            bool dummy_round = k >= LOG_N;
+        /* Batch gemini claims from the prover
+         * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
+         * aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
+         *
+         * 1. Moves the vector
+         * \f[
+         * \left( \text{com}(A_1), \text{com}(A_2), \ldots, \text{com}(A_{n-1}) \right)
+         * \f]
+        * to the 'commitments' vector.
+        *
+        * 2. Computes the scalars:
+        * \f[
+        * \frac{\nu^{2}}{z + r^2}, \frac{\nu^3}{z + r^4}, \ldots, \frac{\nu^{n-1}}{z + r^{2^{n-1}}}
+        * \f]
+        * and places them into the 'scalars' vector.
+        *
+        * 3. Accumulates the summands of the constant term:
+         * \f[
+         * \sum_{i=2}^{n-1} \frac{\nu^{i} \cdot A_i(-r^{2^i})}{z + r^{2^i}}
+         * \f]
+         * and adds them to the 'constant_term_accumulator'.
+         */
+        mem.constantTermAccumulator = Fr.wrap(0);
+        mem.batchingChallenge = tp.shplonkNu.sqr();
 
-            // note: defaults to 0
-            Fr scalar;
+        for (uint256 i; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            bool dummy_round = i >= (LOG_N - 1);
+
+            Fr scalingFactor = Fr.wrap(0);
             if (!dummy_round) {
-                cp.phi_1 = FrLib.div(cp.phi_numerator, cp.x_pow_2kp1 - Fr.wrap(1));
-                cp.phi_2 = FrLib.div(cp.phi_numerator, cp.x_pow_2k - Fr.wrap(1));
-
-                scalar = cp.x_pow_2k * cp.phi_1;
-                scalar = scalar - (tp.sumCheckUChallenges[k] * cp.phi_2);
-                scalar = scalar * tp.zmX;
-                scalar = scalar * MINUS_ONE;
-
-                cp.x_pow_2k = cp.x_pow_2kp1;
-                cp.x_pow_2kp1 = cp.x_pow_2kp1 * cp.x_pow_2kp1;
+                scalingFactor = mem.batchingChallenge * inverse_vanishing_evals[i + 2];
+                scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
             }
 
-            scalars[NUMBER_OF_ENTITIES + 1 + k] = scalar;
-            commitments[NUMBER_OF_ENTITIES + 1 + k] = convertProofPoint(proof.zmCqs[k]);
+            mem.constantTermAccumulator =
+                mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+
+            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
-        return batchMul2(commitments, scalars);
+        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
+        // Compute evaluation A₀(r)
+        Fr a_0_pos = computeGeminiBatchedUnivariateEvaluation(
+            tp, mem.batchedEvaluation, proof.geminiAEvaluations, powers_of_evaluation_challenge
+        );
+
+        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
+
+        // Finalise the batch opening claim
+        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
+        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
+
+        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
+
+        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
+        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
+
+        Honk.G1Point memory P_0 = batchMul(commitments, scalars);
+        Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
+
+        return pairing(P_0, P_1);
     }
 
-    // TODO: TODO: TODO: optimize
-    // Scalar Mul and acumulate into total
-    function batchMul(Honk.G1Point[LOG_N + 1] memory base, Fr[LOG_N + 1] memory scalars)
-        internal
-        view
-        returns (Honk.G1Point memory result)
-    {
-        uint256 limit = LOG_N + 1;
-        assembly {
-            let success := 0x01
-            let free := mload(0x40)
-
-            // Write the original into the accumulator
-            // Load into memory forecMUL, leave offset foreccAdd result
-            // base is an array of pointers, so we have to dereference them
-            mstore(add(free, 0x40), mload(mload(base)))
-            mstore(add(free, 0x60), mload(add(0x20, mload(base))))
-            // Add scalar
-            mstore(add(free, 0x80), mload(scalars))
-            success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, free, 0x40))
-
-            let count := 0x01
-
-            for {} lt(count, limit) { count := add(count, 1) } {
-                // Get loop offsets
-                let base_base := add(base, mul(count, 0x20))
-                let scalar_base := add(scalars, mul(count, 0x20))
-
-                mstore(add(free, 0x40), mload(mload(base_base)))
-                mstore(add(free, 0x60), mload(add(0x20, mload(base_base))))
-                // Add scalar
-                mstore(add(free, 0x80), mload(scalar_base))
-
-                success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
-                success := and(success, staticcall(gas(), 6, free, 0x80, free, 0x40))
-            }
-
-            mstore(result, mload(free))
-            mstore(add(result, 0x20), mload(add(free, 0x20)))
+    function computeSquares(Fr r) internal pure returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {
+        squares[0] = r;
+        for (uint256 i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            squares[i] = squares[i - 1].sqr();
         }
+    }
+
+    function computeInvertedGeminiDenominators(
+        Transcript memory tp,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory eval_challenge_powers
+    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals) {
+        Fr eval_challenge = tp.shplonkZ;
+        inverse_vanishing_evals[0] = (eval_challenge - eval_challenge_powers[0]).invert();
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            Fr round_inverted_denominator = Fr.wrap(0);
+            if (i <= LOG_N + 1) {
+                round_inverted_denominator = (eval_challenge + eval_challenge_powers[i]).invert();
+            }
+            inverse_vanishing_evals[i + 1] = round_inverted_denominator;
+        }
+    }
+
+    function computeGeminiBatchedUnivariateEvaluation(
+        Transcript memory tp,
+        Fr batchedEvalAccumulator,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers
+    ) internal view returns (Fr a_0_pos) {
+        for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
+            Fr challengePower = geminiEvalChallengePowers[i - 1];
+            Fr u = tp.sumCheckUChallenges[i - 1];
+            Fr evalNeg = geminiEvaluations[i - 1];
+
+            Fr batchedEvalRoundAcc = (
+                (challengePower * batchedEvalAccumulator * Fr.wrap(2))
+                    - evalNeg * (challengePower * (Fr.wrap(1) - u) - u)
+            );
+            // Divide by the denominator
+            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
+
+            bool is_dummy_round = (i > LOG_N);
+            if (!is_dummy_round) {
+                batchedEvalAccumulator = batchedEvalRoundAcc;
+            }
+        }
+
+        a_0_pos = batchedEvalAccumulator;
     }
 
     // This implementation is the same as above with different constants
-    function batchMul2(
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory base,
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory scalars
+    function batchMul(
+        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
+        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
-        uint256 limit = NUMBER_OF_ENTITIES + LOG_N + 1;
+        uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
         assembly {
             let success := 0x01
             let free := mload(0x40)
 
             // Write the original into the accumulator
-            // Load into memory forecMUL, leave offset foreccAdd result
+            // Load into memory for ecMUL, leave offset for eccAdd result
             // base is an array of pointers, so we have to dereference them
             mstore(add(free, 0x40), mload(mload(base)))
             mstore(add(free, 0x60), mload(add(0x20, mload(base))))
@@ -450,27 +477,6 @@ contract BlakeHonkVerifier is IVerifier {
         }
     }
 
-    function zkgReduceVerify(
-        Honk.Proof memory proof,
-        Transcript memory tp,
-        Fr evaluation,
-        Honk.G1Point memory commitment
-    ) internal view returns (bool) {
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.zmPi);
-        Honk.G1Point memory ONE = Honk.G1Point({x: 1, y: 2});
-
-        Honk.G1Point memory P0 = commitment;
-        P0 = ecAdd(P0, ecMul(quotient_commitment, tp.zmX));
-
-        Honk.G1Point memory evalAsPoint = ecMul(ONE, evaluation);
-        P0 = ecSub(P0, evalAsPoint);
-
-        Honk.G1Point memory P1 = negateInplace(quotient_commitment);
-
-        // Perform pairing check
-        return pairing(P0, P1);
-    }
-
     function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) internal view returns (bool) {
         bytes memory input = abi.encodePacked(
             rhs.x,
@@ -490,7 +496,8 @@ contract BlakeHonkVerifier is IVerifier {
         );
 
         (bool success, bytes memory result) = address(0x08).staticcall(input);
-        return abi.decode(result, (bool));
+        bool decodedResult = abi.decode(result, (bool));
+        return success && decodedResult;
     }
 }
 

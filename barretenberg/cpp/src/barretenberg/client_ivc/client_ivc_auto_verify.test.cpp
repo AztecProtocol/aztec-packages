@@ -38,7 +38,7 @@ class ClientIVCAutoVerifyTests : public ::testing::Test {
      * polynomials will bump size to next power of 2)
      *
      */
-    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
+    static Builder create_mock_circuit(ClientIVC& ivc, bool is_kernel, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -49,6 +49,8 @@ class ClientIVCAutoVerifyTests : public ::testing::Test {
         // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
+
+        circuit.databus_propagation_data.is_kernel = is_kernel;
         return circuit;
     }
 };
@@ -62,17 +64,37 @@ TEST_F(ClientIVCAutoVerifyTests, Basic)
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
 
-    {
-        // Initialize the IVC with an arbitrary circuit
-        Builder circuit_0 = create_mock_circuit(ivc);
-        ivc.accumulate(circuit_0);
-    }
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false);
+    ivc.accumulate(circuit_0);
 
-    {
-        // Create another circuit and accumulate
-        Builder circuit_1 = create_mock_circuit(ivc);
-        ivc.accumulate(circuit_1);
-    }
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc, /*is_kernel=*/true);
+    ivc.accumulate(circuit_1);
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief The number of circuits processed can be odd as long as the last one is a kernel
+ *
+ */
+TEST_F(ClientIVCAutoVerifyTests, BasicOdd)
+{
+    ClientIVC ivc;
+    ivc.auto_verify_mode = true;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc, /*is_kernel=*/true);
+    ivc.accumulate(circuit_1);
+
+    // Create another circuit and accumulate
+    Builder circuit_2 = create_mock_circuit(ivc, /*is_kernel=*/true);
+    ivc.accumulate(circuit_2);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -90,7 +112,8 @@ TEST_F(ClientIVCAutoVerifyTests, BasicLarge)
     size_t NUM_CIRCUITS = 6;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
+        bool is_kernel = (idx % 2 == 1); // every second circuit is a kernel
+        circuits.emplace_back(create_mock_circuit(ivc, is_kernel));
     }
 
     // Accumulate each circuit
@@ -112,10 +135,10 @@ TEST_F(ClientIVCAutoVerifyTests, BasicStructured)
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // Construct some circuits of varying size
-    Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
-    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/8);
-    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
-    Builder circuit_3 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
+    Builder circuit_0 = create_mock_circuit(ivc, /*is_kernel=*/false, /*log2_num_gates=*/5);
+    Builder circuit_1 = create_mock_circuit(ivc, /*is_kernel=*/true, /*log2_num_gates=*/8);
+    Builder circuit_2 = create_mock_circuit(ivc, /*is_kernel=*/false, /*log2_num_gates=*/11);
+    Builder circuit_3 = create_mock_circuit(ivc, /*is_kernel=*/true, /*log2_num_gates=*/11);
 
     // The circuits can be accumulated as normal due to the structured trace
     ivc.accumulate(circuit_0);
@@ -139,7 +162,8 @@ TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
     size_t NUM_CIRCUITS = 4;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
+        bool is_kernel = (idx % 2 == 1); // every second circuit is a kernel
+        circuits.emplace_back(create_mock_circuit(ivc, is_kernel));
     }
 
     // Precompute the verification keys that will be needed for the IVC
@@ -167,7 +191,8 @@ TEST_F(ClientIVCAutoVerifyTests, StructuredPrecomputedVKs)
     size_t NUM_CIRCUITS = 4;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc, /*log2_num_gates=*/5));
+        bool is_kernel = (idx % 2 == 1); // every second circuit is a kernel
+        circuits.emplace_back(create_mock_circuit(ivc, is_kernel, /*log2_num_gates=*/5));
     }
 
     // Precompute the (structured) verification keys that will be needed for the IVC

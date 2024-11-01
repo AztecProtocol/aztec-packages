@@ -1,5 +1,6 @@
 #include "bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 using namespace bb;
 
@@ -50,6 +51,7 @@ bool_t<Builder>::bool_t(const bool_t<Builder>& other)
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
 }
 
 template <typename Builder>
@@ -59,6 +61,7 @@ bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
 }
 
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool other)
@@ -76,6 +79,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
     return *this;
 }
 
@@ -85,6 +89,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
     return *this;
 }
 
@@ -177,6 +182,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
         result.witness_index = IS_CONSTANT;
         result.witness_inverted = false;
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -257,6 +263,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         result.witness_inverted = false;
         result.witness_index = IS_CONSTANT;
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -316,6 +323,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
         result.witness_inverted = false;
         result.witness_index = IS_CONSTANT;
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -333,6 +341,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
         bool_t<Builder> result(context == nullptr ? other.context : context);
         result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
         result.witness_index = IS_CONSTANT;
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return result;
     } else if ((witness_index != IS_CONSTANT) && (other.witness_index == IS_CONSTANT)) {
         if (other.witness_bool ^ other.witness_inverted) {
@@ -376,6 +385,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
                                     right_coefficient,
                                     bb::fr::neg_one(),
                                     constant_coefficient });
+
+        result.tag = OriginTag(tag, other.tag);
         return result;
     }
 }
@@ -438,12 +449,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies(const bool_
     return (!(*this) || other); // P => Q is equiv. to !P || Q (not(P) or Q).
 }
 
-/**
- *      (P => Q) && (P => R)
- * <=>  (!P || Q) && (!P || R)
- * <=>  !P || (Q && R)           [by distributivity of propositional logic]
- * <=>  P => (Q && R)            [a.k.a. distribution of implication over conjunction]
- */
 template <typename Builder> void bool_t<Builder>::must_imply(const bool_t& other, std::string const& msg) const
 {
     (this->implies(other)).assert_equal(true, msg);

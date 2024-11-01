@@ -6,18 +6,24 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32,
-    num_non_revertibles: u32 // Hint. Should check in this function.
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
+    num_non_revertibles: u32, // Hint. Should check in this function.
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq,
+{
     if num_non_revertibles != 0 {
         assert(
-            sorted_array[num_non_revertibles - 1].counter() < split_counter, "counter of last non-revertible item is not less than the split counter"
+            sorted_array[num_non_revertibles - 1].counter() < split_counter,
+            "counter of last non-revertible item is not less than the split counter",
         );
     }
 
     if num_non_revertibles != N {
         let first_revertible_counter = sorted_array[num_non_revertibles].counter();
         assert(
-            (first_revertible_counter == 0) | (first_revertible_counter >= split_counter), "counter of first revertible item is not greater than or equal to the split counter"
+            (first_revertible_counter == 0) | (first_revertible_counter >= split_counter),
+            "counter of first revertible item is not greater than or equal to the split counter",
         );
     }
 
@@ -47,11 +53,14 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
     is_transformed: fn[Env](T, S) -> bool,
-    split_counter: u32
-) where T: Ordered + Empty + Eq, S: Empty + Eq {
-    let num_non_revertibles = unsafe {
-        find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
-    };
+    split_counter: u32,
+)
+where
+    T: Ordered + Empty + Eq,
+    S: Empty + Eq,
+{
+    let num_non_revertibles =
+        unsafe { find_index_hint(sorted_array, |n: T| n.counter() >= split_counter) };
 
     assert_split_transformed_value_arrays_with_hint(
         sorted_array,
@@ -59,17 +68,19 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
         transformed_value_array_gte,
         is_transformed,
         split_counter,
-        num_non_revertibles
+        num_non_revertibles,
     );
 }
 
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
-        utils::arrays::assert_split_transformed_value_arrays::{assert_split_transformed_value_arrays, assert_split_transformed_value_arrays_with_hint}
+        utils::arrays::assert_split_transformed_value_arrays::{
+            assert_split_transformed_value_arrays, assert_split_transformed_value_arrays_with_hint,
+        },
     };
 
-    global NUM_TEST_ITEMS = 5;
+    global NUM_TEST_ITEMS: u32 = 5;
 
     fn is_transformed(from: TestValue, to: Field) -> bool {
         from.value == to
@@ -79,7 +90,7 @@ mod tests {
         sorted_array: [TestValue; NUM_TEST_ITEMS],
         transformed_value_array_lt: [Field; NUM_TEST_ITEMS],
         transformed_value_array_gte: [Field; NUM_TEST_ITEMS],
-        split_counter: u32
+        split_counter: u32,
     }
 
     impl TestBuilder {
@@ -89,14 +100,19 @@ mod tests {
                 TestValue { value: 30, counter: 7 },
                 TestValue { value: 80, counter: 11 },
                 TestValue { value: 10, counter: 13 },
-                TestValue { value: 50, counter: 29 }
+                TestValue { value: 50, counter: 29 },
             ];
 
             let transformed_value_array_lt = pad_end([40, 30, 80], 0);
 
             let transformed_value_array_gte = pad_end([10, 50], 0);
 
-            TestBuilder { sorted_array, transformed_value_array_lt, transformed_value_array_gte, split_counter: 12 }
+            TestBuilder {
+                sorted_array,
+                transformed_value_array_lt,
+                transformed_value_array_gte,
+                split_counter: 12,
+            }
         }
 
         pub fn execute(self) {
@@ -105,7 +121,7 @@ mod tests {
                 self.transformed_value_array_lt,
                 self.transformed_value_array_gte,
                 is_transformed,
-                self.split_counter
+                self.split_counter,
             );
         }
 
@@ -116,7 +132,7 @@ mod tests {
                 self.transformed_value_array_gte,
                 is_transformed,
                 self.split_counter,
-                num_non_revertibles
+                num_non_revertibles,
             );
         }
     }
@@ -160,19 +176,19 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="counter of first revertible item is not greater than or equal to the split counter")]
+    #[test(should_fail_with = "counter of first revertible item is not greater than or equal to the split counter")]
     fn assert_split_transformed_value_arrays_num_non_revertible_too_small_fails() {
         let builder = TestBuilder::new();
         builder.execute_with_num_non_revertibles(2);
     }
 
-    #[test(should_fail_with="counter of last non-revertible item is not less than the split counter")]
+    #[test(should_fail_with = "counter of last non-revertible item is not less than the split counter")]
     fn assert_split_transformed_value_arrays_num_non_revertible_too_big_fails() {
         let mut builder = TestBuilder::new();
         builder.execute_with_num_non_revertibles(4);
     }
 
-    #[test(should_fail_with="invalid transformed value")]
+    #[test(should_fail_with = "invalid transformed value")]
     fn assert_split_transformed_value_arrays_wrong_transformed_value_in_lt_fails() {
         let mut builder = TestBuilder::new();
 
@@ -181,7 +197,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="invalid transformed value")]
+    #[test(should_fail_with = "invalid transformed value")]
     fn assert_split_transformed_value_arrays_wrong_transformed_value_in_gte_fails() {
         let mut builder = TestBuilder::new();
 
@@ -190,7 +206,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_extra_non_empty_item_in_lt_fails() {
         let mut builder = TestBuilder::new();
 
@@ -199,7 +215,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_extra_non_empty_item_in_gte_fails() {
         let mut builder = TestBuilder::new();
 
@@ -208,7 +224,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_end_with_non_empty_item_in_lt_fails() {
         let mut builder = TestBuilder::new();
 
@@ -217,7 +233,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="array should be padded with empty items")]
+    #[test(should_fail_with = "array should be padded with empty items")]
     fn assert_split_transformed_value_arrays_end_with_non_empty_item_in_gte_fails() {
         let mut builder = TestBuilder::new();
 

@@ -271,6 +271,11 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
     /**
      * Initialize round variables with previous block output
      **/
+    /**
+     * We can initialize round variables a and c and put value h_init[0] and
+     * h_init[4] in .normal, and don't do lookup for maj_output, because majority and choose
+     * functions will do that in the next step
+     **/
     sparse_value<Builder> a = sparse_value<Builder>(h_init[0]);
     auto b = map_into_maj_sparse_form(h_init[1]);
     auto c = map_into_maj_sparse_form(h_init[2]);

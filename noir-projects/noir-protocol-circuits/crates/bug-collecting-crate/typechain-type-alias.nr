@@ -1,15 +1,15 @@
-The typescript binding generator has a bug when we use type aliases because 
+The typescript binding generator has a bug when we use type aliases because
 the abi says that they have the same struct path.
 
 For example:
 
 
 
-struct Generic<N> {
+pub struct Generic<N> {
     x : [Field; N]
 }
 
-struct Concrete {
+pub struct Concrete {
     gen2 : Generic<2>,
     gen4 : Generic<4>,
 

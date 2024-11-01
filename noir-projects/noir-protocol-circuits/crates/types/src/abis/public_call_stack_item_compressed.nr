@@ -1,24 +1,24 @@
 use crate::abis::{call_context::CallContext, gas::Gas};
 use crate::address::AztecAddress;
 use crate::constants::PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH;
-use crate::traits::{Empty, Serialize, Deserialize};
+use crate::traits::{Deserialize, Empty, Serialize};
 use crate::utils::reader::Reader;
 
 /**
  * A compressed version of the PublicCallStackItem struct used to compute the "hash"
  * of a PublicCallStackItem.
- * 
+ *
  * Historically, we have been zeroing most values in the PublicCallStackItem struct
  * to compute the hash involved when adding a PublicCallStackItem to the PublicCallStack.
- * 
+ *
  * This struct is used to store the values that we did not zero out, and allow us to hash
  * only these, thereby skipping a lot of computation and saving us a lot of constraints
- * 
- * Essentially this struct exists such that we don't have a `hash` function in the 
+ *
+ * Essentially this struct exists such that we don't have a `hash` function in the
  * PublicCallStackItem struct that practically throws away some values of the struct
  * without clearly indicating that it does so.
  */
-struct PublicCallStackItemCompressed {
+pub struct PublicCallStackItemCompressed {
     contract_address: AztecAddress,
     call_context: CallContext,
     args_hash: Field,
@@ -49,14 +49,15 @@ impl Empty for PublicCallStackItemCompressed {
             returns_hash: 0,
             revert_code: 0,
             start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty()
+            end_gas_left: Gas::empty(),
         }
     }
 }
 
 impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItemCompressed {
     fn serialize(self) -> [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> = BoundedVec::new();
+        let mut fields: BoundedVec<Field, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> =
+            BoundedVec::new();
 
         fields.push(self.contract_address.to_field());
         fields.extend_from_array(self.call_context.serialize());
@@ -73,7 +74,9 @@ impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItem
 }
 
 impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItemCompressed {
-    fn deserialize(fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH]) -> PublicCallStackItemCompressed {
+    fn deserialize(
+        fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH],
+    ) -> PublicCallStackItemCompressed {
         let mut reader = Reader::new(fields);
 
         let item = PublicCallStackItemCompressed {
@@ -83,7 +86,7 @@ impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackIt
             returns_hash: reader.read(),
             revert_code: reader.read() as u8,
             start_gas_left: reader.read_struct(Gas::deserialize),
-            end_gas_left: reader.read_struct(Gas::deserialize)
+            end_gas_left: reader.read_struct(Gas::deserialize),
         };
         reader.finish();
         item

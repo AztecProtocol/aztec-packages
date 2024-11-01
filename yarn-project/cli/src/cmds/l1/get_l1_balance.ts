@@ -1,7 +1,7 @@
 import { type EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { type LogFn } from '@aztec/foundation/log';
-import { PortalERC20Abi } from '@aztec/l1-artifacts';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, getContract, http } from 'viem';
 
@@ -22,7 +22,7 @@ export async function getL1Balance(
   if (token) {
     const gasL1 = getContract({
       address: token.toString(),
-      abi: PortalERC20Abi,
+      abi: TestERC20Abi,
       client: publicClient,
     });
 

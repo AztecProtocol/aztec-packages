@@ -1,15 +1,13 @@
 import {
   type ClientIvcProof,
-  type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 
@@ -28,6 +26,8 @@ export type PrivateKernelSimulateOutput<PublicInputsType> = {
   verificationKey: VerificationKeyAsFields;
 
   outputWitness: WitnessMap;
+
+  bytecode: Buffer;
 };
 
 /**
@@ -42,14 +42,6 @@ export type AppCircuitSimulateOutput = {
  * siloed commitments necessary for maintaining transaction privacy and security on the network.
  */
 export interface PrivateKernelProver {
-  /**
-   * Computes the siloed commitments for a given set of public inputs.
-   *
-   * @param publicInputs - The public inputs containing the contract address and new note hashes to be used in generating siloed note hashes.
-   * @returns An array of Fr (finite field) elements representing the siloed commitments.
-   */
-  getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
-
   /**
    * Creates a proof output for a given signed transaction request and private call data for the first iteration.
    *
@@ -77,7 +69,7 @@ export interface PrivateKernelProver {
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
   simulateProofReset(
-    privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputsVariants,
+    privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**

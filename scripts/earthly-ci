@@ -23,17 +23,36 @@ export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.yml
 
 function wipe_non_cache_docker_state {
-  echo "Detected corrupted docker images. Wiping and trying again."
-  # Based on https://stackoverflow.com/a/75849307
-  # wipe everything but volumes where we have earthly cache
-  sudo service docker stop
-  sudo bash -c 'rm -rf /var/lib/docker/{buildkit,containers,image,network,overlay2,plugins.runtimes,swarm,tmp,trust}/*'
-  # restart docker - might take down builds, but we need to recover anyway
-  sudo service docker restart
+  flock -n "/var/lock/wipe_docker_state.lock" bash -c '
+    echo "Detected corrupted docker images. Wiping and trying again."
+    # Based on https://stackoverflow.com/a/75849307
+    # wipe everything but volumes where we have earthly cache
+    sudo service docker stop
+    sudo bash -c '"'"'rm -rf /var/lib/docker/{buildkit,containers,image,network,overlay2,plugins,runtimes,swarm,tmp,trust}/*'"'"' || true
+    # restart docker - might take down builds, but we need to recover anyway
+    sudo service docker restart
+  '
 }
 
 EARTHLY_RUN_STATS_JSON="earthly-run-stats.json"
-EARTHLY_ARGS="--logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-}"
+# Run earthly with our necesary secrets initialized
+# AWS credentials can be blank, however we will not use the S3 cache at all if so.
+
+EARTHLY_ARGS=""
+
+function run_earthly() {
+  # We abuse secrets with regular config that we don't want to alter the cache (see https://docs.earthly.dev/docs/guides/secrets)
+  # we do not run with minio in CI
+  earthly --logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON \
+          --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+          --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+          --secret S3_BUILD_CACHE_MINIO_URL="" \
+          --secret S3_BUILD_CACHE_UPLOAD="true" \
+          --secret S3_BUILD_CACHE_DOWNLOAD="true" \
+          --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} \
+          $EARTHLY_ARGS \
+          $@
+}
 
 function print_earthly_command_timings() {
   jq --version >/dev/null || return
@@ -57,7 +76,7 @@ function print_earthly_command_timings() {
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
-  if earthly $EARTHLY_ARGS $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
+  if run_earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
     print_earthly_command_timings || true
     exit 0  # Success, exit the script
   else
@@ -91,9 +110,12 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       fi
       sleep 20
     elif grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null \
+         || grep 'could not start container "earthly-buildkitd"' $OUTPUT_FILE >/dev/null \
          || grep 'could not determine buildkit address - is Docker or Podman running?' $OUTPUT_FILE >/dev/null \
          || grep 'please make sure the URL is valid, and Docker 18.09 or later is installed on the remote host' $OUTPUT_FILE >/dev/null \
          || grep 'docker: failed to register layer' $OUTPUT_FILE >/dev/null \
+         || grep 'docker: error during connect:' $OUTPUT_FILE >/dev/null \
+         || grep 'docker: failed to write digest data' >/dev/null \
          || grep 'docker: unexpected EOF' $OUTPUT_FILE >/dev/null ; then
       wipe_non_cache_docker_state
       # wait for other docker restarts

@@ -1,13 +1,13 @@
 #include "barretenberg/honk/utils/testing.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-using Flavor = UltraFlavor;
+using Flavor = MegaFlavor;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 
@@ -34,7 +34,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
     };
 
     auto run_test = [&](bool is_random_input) {
-        // Combiner test on prover polynomisls containing random values, restricted to only the standard arithmetic
+        // Combiner test on prover polynomials containing random values, restricted to only the standard arithmetic
         // relation.
         if (is_random_input) {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
@@ -58,18 +58,18 @@ TEST(Protogalaxy, CombinerOn2Keys)
             auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 9704UL,
-                                                                          13245288UL,
-                                                                          75534568UL,
-                                                                          224626280UL,
-                                                                          498269160UL,
-                                                                          934211944UL,
-                                                                          1570203368UL,
-                                                                          2443992168UL,
-                                                                          3593327080UL,
-                                                                          5055956840UL,
-                                                                          6869630184UL,
-                                                                          9072095848UL });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 11480UL,
+                                                                          14117208UL,
+                                                                          78456280UL,
+                                                                          230777432UL,
+                                                                          508829400UL,
+                                                                          950360920UL,
+                                                                          1593120728UL,
+                                                                          2474857560UL,
+                                                                          3633320152UL,
+                                                                          5106257240UL,
+                                                                          6931417560UL,
+                                                                          9146549848UL });
             EXPECT_EQ(result_no_skipping, expected_result);
         } else {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);

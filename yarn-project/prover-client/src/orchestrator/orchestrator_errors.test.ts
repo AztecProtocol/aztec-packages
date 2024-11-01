@@ -1,4 +1,3 @@
-import { PROVING_STATUS } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -29,7 +28,8 @@ describe('prover/orchestrator/errors', () => {
         makeBloatedProcessedTx(context.actualDb, 4),
       ];
 
-      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
+      context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -39,77 +39,79 @@ describe('prover/orchestrator/errors', () => {
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
       ).rejects.toThrow('Rollup not accepting further transactions');
 
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
-
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+      const block = await context.orchestrator.setBlockCompleted();
+      expect(block.number).toEqual(context.blockNumber);
+      await context.orchestrator.finaliseEpoch();
     });
 
-    it('throws if adding a transaction before start', async () => {
+    it('throws if adding too many blocks', async () => {
+      context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      await context.orchestrator.setBlockCompleted();
+
+      await expect(
+        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, []),
+      ).rejects.toThrow('Epoch not accepting further blocks');
+    });
+
+    it('throws if adding a transaction before starting epoch', async () => {
+      await expect(
+        async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
+      ).rejects.toThrow(`Invalid proving state, call startNewBlock before adding transactions`);
+    });
+
+    it('throws if adding a transaction before starting block', async () => {
+      context.orchestrator.startNewEpoch(1, 1);
       await expect(
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
       ).rejects.toThrow(`Invalid proving state, call startNewBlock before adding transactions`);
     });
 
     it('throws if completing a block before start', async () => {
+      context.orchestrator.startNewEpoch(1, 1);
       await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
         'Invalid proving state, call startNewBlock before adding transactions or completing the block',
       );
     });
 
-    it('throws if finalising an incomplete block', async () => {
-      await expect(async () => await context.orchestrator.finaliseBlock()).rejects.toThrow(
-        'Invalid proving state, a block must be proven before it can be finalised',
-      );
-    });
-
-    it('throws if setting an incomplete block completed', async () => {
+    it('throws if setting an incomplete block as completed', async () => {
+      context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(3, context.globalVariables, []);
       await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
         `Block not ready for completion: expecting ${3} more transactions.`,
       );
     });
 
-    it('throws if finalising an already finalised block', async () => {
-      const txs = await Promise.all([
-        makeEmptyProcessedTestTx(context.actualDb),
-        makeEmptyProcessedTestTx(context.actualDb),
-      ]);
-
-      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
-
-      await context.orchestrator.setBlockCompleted();
-
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
-      await expect(async () => await context.orchestrator.finaliseBlock()).rejects.toThrow('Block already finalised');
-    });
-
     it('throws if adding to a cancelled block', async () => {
+      context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
-
-      context.orchestrator.cancelBlock();
+      context.orchestrator.cancel();
 
       await expect(
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
-      ).rejects.toThrow('Rollup not accepting further transactions');
+      ).rejects.toThrow('Invalid proving state when adding a tx');
     });
 
     it.each([[-4], [0], [1], [8.1]] as const)(
       'fails to start a block with %i transactions',
       async (blockSize: number) => {
+        context.orchestrator.startNewEpoch(1, 1);
         await expect(
           async () => await context.orchestrator.startNewBlock(blockSize, context.globalVariables, []),
-        ).rejects.toThrow(`Length of txs for the block should be at least two (got ${blockSize})`);
+        ).rejects.toThrow(`Invalid number of txs for block (got ${blockSize})`);
       },
     );
 
+    it.each([[-4], [0], [8.1]] as const)('fails to start an epoch with %i blocks', (epochSize: number) => {
+      context.orchestrator.startNewEpoch(1, 1);
+      expect(() => context.orchestrator.startNewEpoch(1, epochSize)).toThrow(
+        `Invalid number of blocks for epoch (got ${epochSize})`,
+      );
+    });
+
     it('rejects if too many l1 to l2 messages are provided', async () => {
-      // Assemble a fake transaction
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
+      context.orchestrator.startNewEpoch(1, 1);
       await expect(
         async () => await context.orchestrator.startNewBlock(2, context.globalVariables, l1ToL2Messages),
       ).rejects.toThrow('Too many L1 to L2 messages');

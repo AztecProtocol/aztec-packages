@@ -5,10 +5,10 @@ mod tail_to_public_output_composer;
 use crate::components::tail_to_public_output_composer::TailToPublicOutputComposer;
 use dep::types::{
     abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    tests::fixture_builder::FixtureBuilder
+    tests::fixture_builder::FixtureBuilder,
 };
 
-struct TailToPublicOutputComposerBuilder {
+pub struct TailToPublicOutputComposerBuilder {
     previous_kernel: FixtureBuilder,
 }
 

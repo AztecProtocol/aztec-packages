@@ -17,7 +17,6 @@ aztec-faucet/data*
 aztec-node/data*
 aztec/log
 circuits.js/fixtures/*.json
-circuits.js/src/structs/kernel/private_kernel_reset_circuit_private_inputs_variants.ts
 docs/dist
 end-to-end/addresses.json
 end-to-end/flame_graph
@@ -39,6 +38,7 @@ builder/src/target
 builder/src/crs
 builder/src/types
 noir-protocol-circuits-types/artifacts
+noir-protocol-circuits-types/src/private_kernel_reset_data.ts
 noir-protocol-circuits-types/src/types/
 ivc-integration/artifacts
 ivc-integration/src/types/

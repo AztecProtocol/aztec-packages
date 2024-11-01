@@ -1,11 +1,11 @@
 import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { AuthRegistryContract, AuthWitTestContract } from '@aztec/noir-contracts.js';
-import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 150_000;
 
@@ -21,7 +21,7 @@ describe('e2e_authwit_tests', () => {
   beforeAll(async () => {
     ({ wallets } = await setup(2));
     // docs:start:public_deploy_accounts
-    await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
+    await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
     // docs:end:public_deploy_accounts
 
     const nodeInfo = await wallets[0].getNodeInfo();
@@ -174,7 +174,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: true,
         });
 
-        const registry = await AuthRegistryContract.at(getCanonicalAuthRegistry().instance.address, wallets[1]);
+        const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallets[1]);
         await registry.methods.consume(wallets[0].getAddress(), innerHash).send().wait();
 
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
@@ -207,7 +207,7 @@ describe('e2e_authwit_tests', () => {
             isValidInPublic: false,
           });
 
-          const registry = await AuthRegistryContract.at(getCanonicalAuthRegistry().instance.address, wallets[1]);
+          const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallets[1]);
           await expect(registry.methods.consume(wallets[0].getAddress(), innerHash).simulate()).rejects.toThrow(
             /unauthorized/,
           );

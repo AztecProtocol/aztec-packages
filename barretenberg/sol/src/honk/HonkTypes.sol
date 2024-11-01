@@ -136,9 +136,10 @@ library Honk {
         // Sumcheck
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
-        // Zero morph
-        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N] zmCqs;
-        Honk.G1ProofPoint zmCq;
-        Honk.G1ProofPoint zmPi;
+        // Shplemini
+        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
+        Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
+        Honk.G1ProofPoint shplonkQ;
+        Honk.G1ProofPoint kzgQuotient;
     }
 }

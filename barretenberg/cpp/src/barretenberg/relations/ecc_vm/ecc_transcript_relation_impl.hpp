@@ -212,7 +212,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * If q_mul = 1 OR q_add = 1 OR q_eq = 1, require (transcript_Px, transcript_Py) is valid ecc point
      * q_mul/q_add/q_eq mutually exclusive, can represent as sum of 3
      */
-    const auto validate_on_curve = q_mul + q_add + q_mul + q_eq;
+    const auto validate_on_curve = q_add + q_mul + q_eq;
     const auto on_curve_check =
         transcript_Py * transcript_Py - transcript_Px * transcript_Px * transcript_Px - get_curve_b();
     std::get<13>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 6

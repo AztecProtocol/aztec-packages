@@ -3,7 +3,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PartialStateReference } from '../partial_state_reference.js';
 import { type RollupTypes } from '../shared.js';
-import { ConstantRollupData } from './base_rollup.js';
+import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
  * Output of the base and merge rollup circuits.

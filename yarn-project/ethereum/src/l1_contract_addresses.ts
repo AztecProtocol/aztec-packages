@@ -1,6 +1,5 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { DebugLogger } from '@aztec/foundation/log';
 
 /**
  * The names of the current L1 contract addresses.
@@ -14,6 +13,10 @@ export const l1ContractsNames = [
   'outboxAddress',
   'feeJuiceAddress',
   'feeJuicePortalAddress',
+  'nomismatokopioAddress',
+  'sysstiaAddress',
+  'gerousiaAddress',
+  'apellaAddress',
 ] as const;
 
 /**
@@ -56,37 +59,24 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
     description: 'The deployed L1 Fee Juice portal contract address.',
     parseEnv,
   },
+  nomismatokopioAddress: {
+    env: 'NOMISMATOKOPIO_CONTRACT_ADDRESS',
+    description: 'The deployed L1 nomismatokopio contract address',
+    parseEnv,
+  },
+  sysstiaAddress: {
+    env: 'SYSSTIA_CONTRACT_ADDRESS',
+    description: 'The deployed L1 sysstia contract address',
+    parseEnv,
+  },
+  gerousiaAddress: {
+    env: 'GEROUSIA_CONTRACT_ADDRESS',
+    description: 'The deployed L1 gerousia contract address',
+    parseEnv,
+  },
+  apellaAddress: {
+    env: 'APELLA_CONTRACT_ADDRESS',
+    description: 'The deployed L1 apella contract address',
+    parseEnv,
+  },
 };
-
-export function getL1ContractAddressesFromEnv() {
-  return getConfigFromMappings<L1ContractAddresses>(l1ContractAddressesMapping);
-}
-
-function convertToL1ContractAddresses(obj: any): L1ContractAddresses {
-  if (typeof obj !== 'object' || obj === null) {
-    throw new Error('Object is not valid');
-  }
-
-  const result: Partial<L1ContractAddresses> = {};
-
-  for (const key of l1ContractsNames) {
-    const value = obj[key];
-    result[key] = EthAddress.fromString(value);
-  }
-
-  return result as L1ContractAddresses;
-}
-
-export async function getL1ContractAddressesFromUrl(url: string, log: DebugLogger): Promise<L1ContractAddresses> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error when fetching L1 contracts from ${url}. Status: ${response.status}`);
-    }
-    const data = await response.json();
-    return convertToL1ContractAddresses(data);
-  } catch (error) {
-    log.error(`Error fetching JSON from ${url}:`, error);
-    throw error;
-  }
-}

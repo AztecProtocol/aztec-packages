@@ -31,6 +31,10 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
     return [validTxs, invalidTxs];
   }
 
+  validateTx(tx: T): Promise<boolean> {
+    return this.#uniqueNullifiers(tx, new Set<bigint>());
+  }
+
   async #uniqueNullifiers(tx: AnyTx, thisBlockNullifiers: Set<bigint>): Promise<boolean> {
     const nullifiers = tx.data.getNonEmptyNullifiers().map(x => x.toBigInt());
 

@@ -66,7 +66,7 @@ mod block;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use fxhash::FxHashMap as HashMap;
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 use crate::ssa::{
     ir::{
@@ -91,12 +91,18 @@ impl Ssa {
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn mem2reg(mut self) -> Ssa {
         for function in self.functions.values_mut() {
-            let mut context = PerFunctionContext::new(function);
-            context.mem2reg();
-            context.remove_instructions();
-            context.update_data_bus();
+            function.mem2reg();
         }
         self
+    }
+}
+
+impl Function {
+    pub(crate) fn mem2reg(&mut self) {
+        let mut context = PerFunctionContext::new(self);
+        context.mem2reg();
+        context.remove_instructions();
+        context.update_data_bus();
     }
 }
 
@@ -112,11 +118,20 @@ struct PerFunctionContext<'f> {
     ///
     /// We avoid removing individual instructions as we go since removing elements
     /// from the middle of Vecs many times will be slower than a single call to `retain`.
-    instructions_to_remove: BTreeSet<InstructionId>,
+    instructions_to_remove: HashSet<InstructionId>,
 
     /// Track a value's last load across all blocks.
     /// If a value is not used in anymore loads we can remove the last store to that value.
     last_loads: HashMap<ValueId, (InstructionId, BasicBlockId)>,
+
+    /// Track whether a reference was passed into another entry point
+    /// This is needed to determine whether we can remove a store.
+    calls_reference_input: HashSet<ValueId>,
+
+    /// Track whether a reference has been aliased, and store the respective
+    /// instruction that aliased that reference.
+    /// If that store has been set for removal, we can also remove this instruction.
+    aliased_references: HashMap<ValueId, HashSet<InstructionId>>,
 }
 
 impl<'f> PerFunctionContext<'f> {
@@ -129,8 +144,10 @@ impl<'f> PerFunctionContext<'f> {
             post_order,
             inserter: FunctionInserter::new(function),
             blocks: BTreeMap::new(),
-            instructions_to_remove: BTreeSet::new(),
+            instructions_to_remove: HashSet::default(),
             last_loads: HashMap::default(),
+            calls_reference_input: HashSet::default(),
+            aliased_references: HashMap::default(),
         }
     }
 
@@ -148,42 +165,108 @@ impl<'f> PerFunctionContext<'f> {
             self.analyze_block(block, references);
         }
 
+        let mut all_terminator_values = HashSet::default();
+        let mut per_func_block_params: HashSet<ValueId> = HashSet::default();
+        for (block_id, _) in self.blocks.iter() {
+            let block_params = self.inserter.function.dfg.block_parameters(*block_id);
+            per_func_block_params.extend(block_params.iter());
+            let terminator = self.inserter.function.dfg[*block_id].unwrap_terminator();
+            terminator.for_each_value(|value| {
+                self.recursively_add_values(value, &mut all_terminator_values);
+            });
+        }
+
         // If we never load from an address within a function we can remove all stores to that address.
         // This rule does not apply to reference parameters, which we must also check for before removing these stores.
-        for (block_id, block) in self.blocks.iter() {
-            let block_params = self.inserter.function.dfg.block_parameters(*block_id);
+        for (_, block) in self.blocks.iter() {
             for (store_address, store_instruction) in block.last_stores.iter() {
-                let is_reference_param = block_params.contains(store_address);
-                let terminator = self.inserter.function.dfg[*block_id].unwrap_terminator();
+                let store_alias_used = self.is_store_alias_used(
+                    store_address,
+                    block,
+                    &all_terminator_values,
+                    &per_func_block_params,
+                );
 
-                let is_return = matches!(terminator, TerminatorInstruction::Return { .. });
-                let remove_load = if is_return {
-                    // Determine whether the last store is used in the return value
-                    let mut is_return_value = false;
-                    terminator.for_each_value(|return_value| {
-                        is_return_value = return_value == *store_address || is_return_value;
-                    });
-
-                    // If the last load of a store is not part of the block with a return terminator,
-                    // we can safely remove this store.
-                    let last_load_not_in_return = self
-                        .last_loads
-                        .get(store_address)
-                        .map(|(_, last_load_block)| *last_load_block != *block_id)
-                        .unwrap_or(true);
-                    !is_return_value && last_load_not_in_return
-                } else {
-                    self.last_loads.get(store_address).is_none()
-                };
-
-                let is_reference_alias = block
+                let is_dereference = block
                     .expressions
                     .get(store_address)
                     .map_or(false, |expression| matches!(expression, Expression::Dereference(_)));
 
-                if remove_load && !is_reference_param && !is_reference_alias {
+                if self.last_loads.get(store_address).is_none()
+                    && !store_alias_used
+                    && !is_dereference
+                {
                     self.instructions_to_remove.insert(*store_instruction);
                 }
+            }
+        }
+    }
+
+    // Extra checks on where a reference can be used aside a load instruction.
+    // Even if all loads to a reference have been removed we need to make sure that
+    // an allocation did not come from an entry point or was passed to an entry point.
+    fn is_store_alias_used(
+        &self,
+        store_address: &ValueId,
+        block: &Block,
+        all_terminator_values: &HashSet<ValueId>,
+        per_func_block_params: &HashSet<ValueId>,
+    ) -> bool {
+        let func_params = self.inserter.function.parameters();
+        let reference_parameters = func_params
+            .iter()
+            .filter(|param| self.inserter.function.dfg.value_is_reference(**param))
+            .collect::<BTreeSet<_>>();
+
+        let mut store_alias_used = false;
+        if let Some(expression) = block.expressions.get(store_address) {
+            if let Some(aliases) = block.aliases.get(expression) {
+                let allocation_aliases_parameter =
+                    aliases.any(|alias| reference_parameters.contains(&alias));
+                if allocation_aliases_parameter == Some(true) {
+                    store_alias_used = true;
+                }
+
+                let allocation_aliases_parameter =
+                    aliases.any(|alias| per_func_block_params.contains(&alias));
+                if allocation_aliases_parameter == Some(true) {
+                    store_alias_used = true;
+                }
+
+                let allocation_aliases_parameter =
+                    aliases.any(|alias| self.calls_reference_input.contains(&alias));
+                if allocation_aliases_parameter == Some(true) {
+                    store_alias_used = true;
+                }
+
+                let allocation_aliases_parameter =
+                    aliases.any(|alias| all_terminator_values.contains(&alias));
+                if allocation_aliases_parameter == Some(true) {
+                    store_alias_used = true;
+                }
+
+                let allocation_aliases_parameter = aliases.any(|alias| {
+                    if let Some(alias_instructions) = self.aliased_references.get(&alias) {
+                        self.instructions_to_remove.is_disjoint(alias_instructions)
+                    } else {
+                        false
+                    }
+                });
+
+                if allocation_aliases_parameter == Some(true) {
+                    store_alias_used = true;
+                }
+            }
+        }
+
+        store_alias_used
+    }
+
+    fn recursively_add_values(&self, value: ValueId, set: &mut HashSet<ValueId>) {
+        set.insert(value);
+        if let Some((elements, _)) = self.inserter.function.dfg.get_array_constant(value) {
+            for array_element in elements {
+                self.recursively_add_values(array_element, set);
             }
         }
     }
@@ -286,21 +369,6 @@ impl<'f> PerFunctionContext<'f> {
                 } else {
                     references.mark_value_used(address, self.inserter.function);
 
-                    let expression =
-                        references.expressions.entry(result).or_insert(Expression::Other(result));
-                    // Make sure this load result is marked an alias to itself
-                    if let Some(aliases) = references.aliases.get_mut(expression) {
-                        // If we have an alias set, add to the set
-                        aliases.insert(result);
-                    } else {
-                        // Otherwise, create a new alias set containing just the load result
-                        references
-                            .aliases
-                            .insert(Expression::Other(result), AliasSet::known(result));
-                    }
-                    // Mark that we know a load result is equivalent to the address of a load.
-                    references.set_known_value(result, address);
-
                     self.last_loads.insert(address, (instruction, block_id));
                 }
             }
@@ -316,11 +384,16 @@ impl<'f> PerFunctionContext<'f> {
                     self.instructions_to_remove.insert(*last_store);
                 }
 
-                let known_value = references.get_known_value(value);
-                if let Some(known_value) = known_value {
-                    let known_value_is_address = known_value == address;
-                    if known_value_is_address {
-                        self.instructions_to_remove.insert(instruction);
+                if self.inserter.function.dfg.value_is_reference(value) {
+                    if let Some(expression) = references.expressions.get(&value) {
+                        if let Some(aliases) = references.aliases.get(expression) {
+                            aliases.for_each(|alias| {
+                                self.aliased_references
+                                    .entry(alias)
+                                    .or_default()
+                                    .insert(instruction);
+                            });
+                        }
                     }
                 }
 
@@ -375,7 +448,20 @@ impl<'f> PerFunctionContext<'f> {
                     references.aliases.insert(expression, aliases);
                 }
             }
-            Instruction::Call { arguments, .. } => self.mark_all_unknown(arguments, references),
+            Instruction::Call { arguments, .. } => {
+                for arg in arguments {
+                    if self.inserter.function.dfg.value_is_reference(*arg) {
+                        if let Some(expression) = references.expressions.get(arg) {
+                            if let Some(aliases) = references.aliases.get(expression) {
+                                aliases.for_each(|alias| {
+                                    self.calls_reference_input.insert(alias);
+                                });
+                            }
+                        }
+                    }
+                }
+                self.mark_all_unknown(arguments, references);
+            }
             _ => (),
         }
     }
@@ -750,12 +836,14 @@ mod tests {
         // acir fn main f0 {
         //   b0():
         //     v9 = allocate
+        //     store Field 0 at v9
         //     v10 = allocate
         //     jmp b1()
         //   b1():
         //     return
         // }
         let ssa = ssa.mem2reg();
+        println!("{}", ssa);
 
         let main = ssa.main();
         assert_eq!(main.reachable_blocks().len(), 2);
@@ -764,12 +852,14 @@ mod tests {
         assert_eq!(count_loads(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_loads(b1, &main.dfg), 0);
 
-        // All stores should be removed.
+        // The first store is not removed as it is used as a nested reference in another store.
+        // We would need to track whether the store where `v9` is the store value gets removed to know whether
+        // to remove it.
+        assert_eq!(count_stores(main.entry_block(), &main.dfg), 1);
         // The first store in b1 is removed since there is another store to the same reference
         // in the same block, and the store is not needed before the later store.
         // The rest of the stores are also removed as no loads are done within any blocks
         // to the stored values.
-        assert_eq!(count_stores(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_stores(b1, &main.dfg), 0);
 
         let b1_instructions = main.dfg[b1].instructions();

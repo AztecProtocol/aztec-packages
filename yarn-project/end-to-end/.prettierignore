@@ -1,2 +1,2 @@
 src/e2e_sandbox_example.test.ts
-src/fixtures/dumps/block_result.json
+src/fixtures/dumps/*.json

@@ -1,44 +1,45 @@
-import {
-  type ARCHIVE_HEIGHT,
-  type Header,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
+import type {
+  ARCHIVE_HEIGHT,
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  Header,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  ProtocolContractAddresses,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ProtocolContractAddresses,
-} from '@aztec/types/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum';
+import type { ContractArtifact } from '@aztec/foundation/abi';
+import type { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type L2Block } from '../l2_block.js';
-import {
-  type FromLogType,
-  type GetUnencryptedLogsResponse,
-  type L2BlockL2Logs,
-  type LogFilter,
-  type LogType,
+import type { L2Block } from '../l2_block.js';
+import type {
+  EncryptedL2NoteLog,
+  FromLogType,
+  GetUnencryptedLogsResponse,
+  L2BlockL2Logs,
+  LogFilter,
+  LogType,
 } from '../logs/index.js';
-import { type MerkleTreeId } from '../merkle_tree_id.js';
-import { type PublicDataWitness } from '../public_data_witness.js';
-import { type SiblingPath } from '../sibling_path/index.js';
-import { type PublicSimulationOutput, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
-import { type TxEffect } from '../tx_effect.js';
-import { type SequencerConfig } from './configs.js';
-import { type L2BlockNumber } from './l2_block_number.js';
-import { type NullifierMembershipWitness } from './nullifier_tree.js';
-import { type ProverConfig } from './prover-client.js';
+import type { MerkleTreeId } from '../merkle_tree_id.js';
+import type { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
+import type { PublicDataWitness } from '../public_data_witness.js';
+import type { SiblingPath } from '../sibling_path/index.js';
+import type { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../tx/index.js';
+import type { TxEffect } from '../tx_effect.js';
+import type { SequencerConfig } from './configs.js';
+import type { L2BlockNumber } from './l2_block_number.js';
+import type { NullifierMembershipWitness } from './nullifier_tree.js';
+import type { ProverConfig } from './prover-client.js';
+import { type ProverCoordination } from './prover-coordination.js';
 
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode {
+export interface AztecNode extends ProverCoordination {
   /**
    * Find the index of the given leaf in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
@@ -74,13 +75,11 @@ export interface AztecNode {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @param startIndex - The index to start searching from.
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
-    startIndex: bigint,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
   /**
@@ -254,6 +253,14 @@ export interface AztecNode {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
+   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
+   * @param tags - The tags to filter the logs by.
+   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
+   * that tag.
+   */
+  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+
+  /**
    * Method to submit a transaction to the p2p pool.
    * @param tx - The transaction to be submitted.
    * @returns Nothing.
@@ -313,7 +320,7 @@ export interface AztecNode {
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getHeader(): Promise<Header>;
+  getHeader(blockNumber?: L2BlockNumber): Promise<Header>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -356,4 +363,16 @@ export interface AztecNode {
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
+
+  /**
+   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
+   * @param quote - The quote to store
+   */
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
+
+  /**
+   * Returns the received quotes for a given epoch
+   * @param epoch - The epoch for which to get the quotes
+   */
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 }

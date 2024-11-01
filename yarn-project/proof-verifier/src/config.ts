@@ -24,6 +24,8 @@ export type ProofVerifierConfig = {
   bbWorkingDirectory: string;
   /** Whether to skip cleanup of bb temporary files */
   bbSkipCleanup: boolean;
+  /** The polling interval viem uses in ms */
+  viemPollingIntervalMS: number;
 } & TelemetryClientConfig;
 
 export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig> = {
@@ -65,6 +67,11 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
     env: 'BB_SKIP_CLEANUP',
     description: 'Whether to skip cleanup of bb temporary files',
     ...booleanConfigHelper(false),
+  },
+  viemPollingIntervalMS: {
+    env: 'VERIFIER_VIEM_POLLING_INTERVAL_MS',
+    description: 'The polling interval viem uses in ms',
+    ...numberConfigHelper(1_000),
   },
 };
 

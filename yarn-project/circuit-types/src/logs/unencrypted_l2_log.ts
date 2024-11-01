@@ -21,10 +21,7 @@ export class UnencryptedL2Log {
   ) {}
 
   get length(): number {
-    // We want the length of the buffer output from function_l2_logs -> toBuffer to equal the stored log length in the kernels.
-    // The kernels store the length of the processed log as 4 bytes; thus for this length value to match the log length stored in the kernels,
-    // we need to add four to the length here.
-    // https://github.com/AztecProtocol/aztec-packages/issues/6578#issuecomment-2125003435
+    // This +4 is because we prefix the log length - see toBuffer below
     return this.data.length + AztecAddress.SIZE_IN_BYTES + 4;
   }
 

@@ -7,12 +7,30 @@ import { fetchCode } from './fetch_code/index.js';
 
 const debug = createDebug('bb.js:wasm');
 
-export async function fetchModuleAndThreads(desiredThreads?: number) {
+export async function fetchModuleAndThreads(desiredThreads = 32) {
   const shared = getSharedMemoryAvailable();
-  const threads = shared ? desiredThreads : 1;
+
+  const availableThreads = shared ? await getAvailableThreads() : 1;
+  // We limit the number of threads to 32 as we do not benefit from greater numbers.
+  const limitedThreads = Math.min(desiredThreads, availableThreads, 32);
+
   const code = await fetchCode(shared);
   const module = await WebAssembly.compile(code);
-  return { module, threads };
+  return { module, threads: limitedThreads };
+}
+
+async function getAvailableThreads(): Promise<number> {
+  if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+    return navigator.hardwareConcurrency;
+  } else {
+    try {
+      const os = await import('os');
+      return os.cpus().length;
+    } catch (e) {
+      debug(`Could not detect environment. Falling back to one thread.: {e}`);
+      return 1;
+    }
+  }
 }
 
 export class BarretenbergWasm extends BarretenbergWasmMain {

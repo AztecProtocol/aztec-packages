@@ -209,7 +209,8 @@ template <typename Flavor> class SumcheckProver {
         auto round_univariate = round.compute_univariate(
             round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
         {
-            ZoneScopedN("rest of sumcheck round 1");
+
+            PROFILE_THIS_NAME("rest of sumcheck round 1");
 
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
@@ -226,8 +227,11 @@ template <typename Flavor> class SumcheckProver {
                                                       // release memory?        // All but final round
                                                       // We operate on partially_evaluated_polynomials in place.
         }
+        vinfo("completed sumcheck round 0");
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-            ZoneScopedN("sumcheck loop");
+
+            PROFILE_THIS_NAME("sumcheck loop");
+
             // Write the round univariate to the transcript
             round_univariate = round.compute_univariate(round_idx,
                                                         partially_evaluated_polynomials,
@@ -248,6 +252,7 @@ template <typename Flavor> class SumcheckProver {
 
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
+            vinfo("completed sumcheck round ", round_idx);
         }
         // Check that the challenges \f$ u_0,\ldots, u_{d-1} \f$ do not satisfy the equation \f$ u_0(1-u_0) + \ldots +
         // u_{d-1} (1 - u_{d-1}) = 0 \f$. This equation is satisfied with probability ~ 1/|FF|, in such cases the prover
@@ -265,7 +270,11 @@ template <typename Flavor> class SumcheckProver {
         // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
         // transcript.
         if constexpr (Flavor::HasZK) {
-            transcript->send_to_verifier("Libra:evaluations", zk_sumcheck_data.libra_evaluations);
+            for (size_t idx = 0; idx < multivariate_d; idx++) {
+                const FF& libra_evaluation = zk_sumcheck_data.libra_evaluations[idx];
+                std::string libra_evaluation_label = "Libra:evaluation_" + std::to_string(idx);
+                transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
+            }
         };
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
@@ -398,7 +407,9 @@ polynomials that are sent in clear.
         EvalMaskingScalars eval_masking_scalars;
 
         for (size_t k = 0; k < NUM_ALL_WITNESS_ENTITIES; ++k) {
-            eval_masking_scalars[k] = FF::random_element();
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1136): Once Shplemini supports ZK, these
+            // constants must be generated in Oink
+            eval_masking_scalars[k] = FF(0);
         };
         // Generate random scalars \f$ \rho_1,\ldots, \rho_{N_w}\f$ to mask the evaluations of witness polynomials and
         // populate the table masking_terms_evaluations with the terms \f$ \rho_j \cdot (1-k) \cdot k \f$
@@ -737,6 +748,7 @@ template <typename Flavor> class SumcheckVerifier {
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
                 // Only utilize the checked value if this is not a constant proof size padding round
@@ -766,7 +778,7 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (Flavor::HasZK) {
             for (size_t idx = 0; idx < multivariate_d; idx++) {
                 libra_evaluations[idx] =
-                    transcript->template receive_from_prover<FF>("libra_evaluation" + std::to_string(idx));
+                    transcript->template receive_from_prover<FF>("Libra:evaluation_" + std::to_string(idx));
                 full_libra_purported_value += libra_evaluations[idx];
             };
             full_libra_purported_value *= libra_challenge;

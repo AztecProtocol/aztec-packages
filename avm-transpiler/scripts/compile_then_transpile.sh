@@ -24,7 +24,8 @@ artifacts_to_transpile=$($NARGO compile --show-artifact-paths $@ | tee /dev/tty 
 # If the script is run via docker, however, the user will see this output on stdout and will be able to redirect.
 
 # Transpile each artifact
-for artifact in "$artifacts_to_transpile"; do
+# `$artifacts_to_transpile` needs to be unquoted here, otherwise it will break if there are multiple artifacts
+for artifact in $artifacts_to_transpile; do
   # transpiler input and output files are the same (modify in-place)
   $TRANSPILER "$artifact" "$artifact"
 done

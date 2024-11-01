@@ -2,6 +2,7 @@ import {
   Field,
   MeteredTaggedMemory,
   TaggedMemory,
+  Uint1,
   Uint8,
   Uint16,
   Uint32,
@@ -10,9 +11,9 @@ import {
 } from './avm_memory_types.js';
 
 describe('TaggedMemory', () => {
-  it('Elements should be undefined after construction', () => {
+  it('Elements should be Field(0) after construction', () => {
     const mem = new TaggedMemory();
-    expect(mem.get(10)).toBe(undefined);
+    expect(mem.get(10)).toStrictEqual(new Field(0));
   });
 
   it(`Should set and get integral types`, () => {
@@ -98,8 +99,105 @@ describe('MeteredTaggedMemory', () => {
   });
 });
 
-type IntegralClass = typeof Uint8 | typeof Uint16 | typeof Uint32 | typeof Uint64 | typeof Uint128;
-describe.each([Uint8, Uint16, Uint32, Uint64, Uint128])('Integral Types', (clsValue: IntegralClass) => {
+type IntegralClass = typeof Uint1 | typeof Uint8 | typeof Uint16 | typeof Uint32 | typeof Uint64 | typeof Uint128;
+
+describe.each([Uint1])('Integral Types (U1 only)', (clsValue: IntegralClass) => {
+  describe(`${clsValue.name}`, () => {
+    it(`Should construct a new ${clsValue.name} from a number`, () => {
+      const x = new clsValue(1);
+      expect(x.toBigInt()).toStrictEqual(1n);
+    });
+
+    it(`Should construct a new ${clsValue.name} from a bigint`, () => {
+      const x = new clsValue(0n);
+      expect(x.toBigInt()).toStrictEqual(0n);
+    });
+
+    it(`Should build a new ${clsValue.name}`, () => {
+      const x = new clsValue(0);
+      const newX = x.build(1n);
+      expect(newX).toStrictEqual(new clsValue(1n));
+    });
+
+    it(`Should add two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(0);
+      const b = new clsValue(1);
+      const result = a.add(b);
+      expect(result).toStrictEqual(new clsValue(1n));
+    });
+
+    it(`Should subtract two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(1);
+      const b = new clsValue(0);
+      const result = a.sub(b);
+      expect(result).toStrictEqual(new clsValue(1n));
+    });
+
+    it(`Should multiply two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(1);
+      const b = new clsValue(1);
+      const result = a.mul(b);
+      expect(result).toStrictEqual(new clsValue(1n));
+    });
+
+    it(`Should divide two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(1);
+      const b = new clsValue(1);
+      const result = a.div(b);
+      expect(result).toStrictEqual(new clsValue(1n));
+    });
+
+    it(`Should shift right ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(1);
+      const result = uintA.shr(new clsValue(1n));
+      expect(result).toEqual(new clsValue(0n));
+    });
+
+    it(`Should shift left ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(1);
+      const result = uintA.shl(new clsValue(1n));
+      expect(result).toEqual(new clsValue(0n));
+    });
+
+    it(`Should and two ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(1);
+      const uintB = new clsValue(1);
+      const result = uintA.and(uintB);
+      expect(result).toEqual(new clsValue(1n));
+    });
+
+    it(`Should or two ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(0);
+      const uintB = new clsValue(1);
+      const result = uintA.or(uintB);
+      expect(result).toEqual(new clsValue(1n));
+    });
+
+    it(`Should xor two ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(1);
+      const uintB = new clsValue(1);
+      const result = uintA.xor(uintB);
+      expect(result).toEqual(new clsValue(0n));
+    });
+
+    it(`Should check equality of two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(1);
+      const b = new clsValue(1);
+      const c = new clsValue(0);
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+    });
+
+    it(`Should check if one ${clsValue.name} is less than another correctly`, () => {
+      const a = new clsValue(0);
+      const b = new clsValue(1);
+      expect(a.lt(b)).toBe(true);
+      expect(b.lt(a)).toBe(false);
+    });
+  });
+});
+
+describe.each([Uint8, Uint16, Uint32, Uint64, Uint128])('Integral Types (excluding U1)', (clsValue: IntegralClass) => {
   describe(`${clsValue.name}`, () => {
     it(`Should construct a new ${clsValue.name} from a number`, () => {
       const x = new clsValue(5);

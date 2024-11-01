@@ -97,6 +97,13 @@ export class SimulationError extends Error {
         get() {
           return getStack();
         },
+        /**
+         * We need a setter to avoid the error "TypeError: Cannot set property stack of #<SimulationError> which has only a getter"
+         * whenever we are traversing a nested error chain. However, we don't want to allow setting the stack, since the simulation
+         * error is always gonna be the root of the error chain.
+         * @param value
+         */
+        set(_: string | undefined) {},
       },
     });
   }

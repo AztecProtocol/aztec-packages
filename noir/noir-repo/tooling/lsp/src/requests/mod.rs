@@ -18,7 +18,7 @@ use nargo_fmt::Config;
 
 use noirc_frontend::graph::CrateId;
 use noirc_frontend::hir::def_map::CrateDefMap;
-use noirc_frontend::{graph::Dependency, macros_api::NodeInterner};
+use noirc_frontend::{graph::Dependency, node_interner::NodeInterner};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -238,7 +238,11 @@ pub(crate) fn on_initialize(
                 )),
                 completion_provider: Some(lsp_types::OneOf::Right(lsp_types::CompletionOptions {
                     resolve_provider: None,
-                    trigger_characters: Some(vec![".".to_string(), ":".to_string()]),
+                    trigger_characters: Some(vec![
+                        ".".to_string(), // For method calls
+                        ":".to_string(), // For paths
+                        "$".to_string(), // For $var inside `quote { ... }`
+                    ]),
                     all_commit_characters: None,
                     work_done_progress_options: WorkDoneProgressOptions {
                         work_done_progress: None,
@@ -374,7 +378,7 @@ fn character_to_line_offset(line: &str, character: u32) -> Result<usize, Error> 
     }
 }
 
-fn to_lsp_location<'a, F>(
+pub(crate) fn to_lsp_location<'a, F>(
     files: &'a F,
     file_id: F::FileId,
     definition_span: noirc_errors::Span,

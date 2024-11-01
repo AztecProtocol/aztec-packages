@@ -54,6 +54,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     const std::shared_ptr<RecursiveVerificationKey>& vkey,
     const QUEUE_TYPE type)
 {
+    // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
+    std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
+
     switch (type) {
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
@@ -66,10 +69,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier.keys_to_fold[1]->witness_commitments,
-                          verifier.keys_to_fold[1]->public_inputs,
-                          verifier.keys_to_fold[1]->verification_key->databus_propagation_data);
+        decider_vk = verifier.keys_to_fold[1]; // decider vk for the incoming circuit
+
         break;
     }
     case QUEUE_TYPE::OINK: {
@@ -84,17 +85,22 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
         // Initialize the gate challenges to zero for use in first round of folding
-        auto log_circuit_size = static_cast<size_t>(verifier_accum->verification_key->log_circuit_size);
-        verifier_accumulator->gate_challenges = std::vector<FF>(log_circuit_size, 0);
+        verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier_accum->witness_commitments,
-                          verifier_accum->public_inputs,
-                          verifier_accum->verification_key->databus_propagation_data);
+        decider_vk = verifier_accum; // decider vk for the incoming circuit
 
         break;
     }
     }
+
+    // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
+    // checks between the calldata commitments and the return data commitments contained within the public inputs
+    bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
+        decider_vk->witness_commitments.return_data,
+        decider_vk->witness_commitments.calldata,
+        decider_vk->witness_commitments.secondary_calldata,
+        decider_vk->public_inputs,
+        decider_vk->verification_key->databus_propagation_data);
 }
 
 /**
@@ -134,6 +140,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
     stdlib_verification_queue.clear();
 
+    // Propagate return data commitments via the public inputs for use in databus consistency checks
+    bus_depot.propagate_return_data_commitments(circuit);
+
     // Perform recursive merge verification for every merge proof in the queue
     process_recursive_merge_verification_queue(circuit);
 }
@@ -147,11 +156,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * @param circuit
  * @param precomputed_vk
  */
-void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
+void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
 {
-    is_kernel = !is_kernel; // toggle on each call (every even circuit is a kernel)
-
-    if (auto_verify_mode && is_kernel) {
+    if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
         complete_kernel_circuit_logic(circuit);
     }
 
@@ -174,6 +181,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // Set the verification key from precomputed if available, else compute it
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
+    if (mock_vk) {
+        honk_vk->set_metadata(proving_key->proving_key);
+    }
 
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
@@ -181,7 +191,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         oink_prover.prove();
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
-        proving_key->gate_challenges = std::vector<FF>(proving_key->proving_key.log_circuit_size, 0);
+        proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
@@ -214,7 +224,10 @@ ClientIVC::Proof ClientIVC::prove()
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;
     MergeProof& merge_proof = merge_verification_queue[0];
-    return { fold_proof, decider_prove(), goblin.prove(merge_proof) };
+    HonkProof decider_proof = decider_prove();
+    // Free the accumulator to save memory
+    fold_output.accumulator = nullptr;
+    return { fold_proof, std::move(decider_proof), goblin.prove(merge_proof) };
 };
 
 bool ClientIVC::verify(const Proof& proof,

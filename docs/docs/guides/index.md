@@ -11,9 +11,9 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 ## Getting Started
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/guides/developer_guides/getting_started/quickstart'>
+  <Card shadow='tl' link='/guides/developer_guides/getting_started'>
     <CardHeader>
-      <h3>Quickstart</h3>
+      <h3>Getting Started</h3>
     </CardHeader>
     <CardBody>
      Get started on Aztec by installing the sandbox and playing with it
@@ -47,7 +47,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
       <h3>Testing Contracts</h3>
     </CardHeader>
     <CardBody>
-      Write tests for your contracts and run them in the TXE 
+      Write tests for your contracts and run them in the TXE
     </CardBody>
   </Card>
 
@@ -73,7 +73,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
       <h3>Send a transaction</h3>
     </CardHeader>
     <CardBody>
-      Use Aztec.JS to send a transaction by calling a function on a smart contract 
+      Use Aztec.JS to send a transaction by calling a function on a smart contract
     </CardBody>
   </Card>
 
@@ -109,6 +109,27 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
     </CardHeader>
     <CardBody>
       Test that your contracts can work with multiple interactions by running a second PXE
+    </CardBody>
+  </Card>
+</div>
+
+## Running Aztec Nodes
+
+<div className="card-container">
+  <Card shadow='tl' link='/guides/developer_guides/running_nodes/running_validators'>
+    <CardHeader>
+      <h3>Run Aztec Validator Nodes</h3>
+    </CardHeader>
+    <CardBody>
+      Participate in the Aztec protocol as a validator (also called a sequencer) that helps form consensus on what goes into a block. Runs on consumer hardware.
+    </CardBody>
+  </Card>
+  <Card shadow='tl' link='/guides/developer_guides/running_nodes/running_provers'>
+    <CardHeader>
+      <h3>Run Aztec Prover Nodes</h3>
+    </CardHeader>
+    <CardBody>
+      Participate in the Aztec protocol as a prover node, proving the rollup integrity that is pivotal to the protocol. Runs on hardware fit for data centers.
     </CardBody>
   </Card>
 </div>

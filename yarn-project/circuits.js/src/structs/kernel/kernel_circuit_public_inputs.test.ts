@@ -39,6 +39,7 @@ describe('KernelCircuitPublicInputs', () => {
             }),
           ),
           new Fr(0),
+          new Fr(1),
           GlobalVariables.empty(),
         ),
         PartialStateReference.empty(),

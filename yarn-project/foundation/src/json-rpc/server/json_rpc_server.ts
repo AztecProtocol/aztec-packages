@@ -33,9 +33,14 @@ export class JsonRpcServer {
     private objectClassMap: JsonClassConverterInput,
     /** List of methods to disallow from calling remotely */
     public readonly disallowedMethods: string[] = [],
+    private healthCheck: StatusCheckFn = () => true,
     private log = createDebugLogger('json-rpc:server'),
   ) {
     this.proxy = new JsonProxy(handler, stringClassMap, objectClassMap);
+  }
+
+  public isHealthy(): boolean | Promise<boolean> {
+    return this.healthCheck();
   }
 
   /**
@@ -205,15 +210,25 @@ export class JsonRpcServer {
   }
 }
 
+export type StatusCheckFn = () => boolean | Promise<boolean>;
+
 /**
  * Creates a router for handling a plain status request that will return 200 status when running.
+ * @param getCurrentStatus - List of health check functions to run.
  * @param apiPrefix - The prefix to use for all api requests
  * @returns - The router for handling status requests.
  */
-export function createStatusRouter(apiPrefix = '') {
+export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = '') {
   const router = new Router({ prefix: `${apiPrefix}` });
-  router.get('/status', (ctx: Koa.Context) => {
-    ctx.status = 200;
+  router.get('/status', async (ctx: Koa.Context) => {
+    let ok: boolean;
+    try {
+      ok = (await getCurrentStatus()) === true;
+    } catch (err) {
+      ok = false;
+    }
+
+    ctx.status = ok ? 200 : 500;
   });
   return router;
 }
@@ -296,5 +311,22 @@ export function createNamespacedJsonRpcServer(
     { stringClassMap: {}, objectClassMap: {} } as ClassMaps,
   );
 
-  return new JsonRpcServer(Object.create(handler), classMaps.stringClassMap, classMaps.objectClassMap, [], log);
+  const aggregateHealthCheck = async () => {
+    const statuses = await Promise.allSettled(
+      servers.flatMap(services =>
+        Object.entries(services).map(async ([name, service]) => ({ name, healthy: await service.isHealthy() })),
+      ),
+    );
+    const allHealthy = statuses.every(result => result.status === 'fulfilled' && result.value.healthy);
+    return allHealthy;
+  };
+
+  return new JsonRpcServer(
+    Object.create(handler),
+    classMaps.stringClassMap,
+    classMaps.objectClassMap,
+    [],
+    aggregateHealthCheck,
+    log,
+  );
 }

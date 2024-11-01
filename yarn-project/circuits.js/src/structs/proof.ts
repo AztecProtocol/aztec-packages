@@ -91,6 +91,13 @@ export class Proof {
   static fromString(str: string) {
     return Proof.fromBuffer(Buffer.from(str, 'hex'));
   }
+
+  /** Returns whether this proof is actually empty. */
+  public isEmpty() {
+    return (
+      this.buffer.length === EMPTY_PROOF_SIZE && this.buffer.every(byte => byte === 0) && this.numPublicInputs === 0
+    );
+  }
 }
 
 /**

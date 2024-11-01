@@ -62,7 +62,7 @@ template <typename FF_> class TranslatorDecompositionRelationImpl {
         3  // decomposition of z2 into 2 limbs subrelation
     };
     /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+     * @brief Upper bound on the degrees of subrelations considered as polynomials only in witness
 polynomials,
      * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
      * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
@@ -118,6 +118,8 @@ polynomials,
         2  // decomposition of z2 into 2 limbs subrelation
     };
 
+    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *

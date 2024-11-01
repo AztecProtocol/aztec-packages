@@ -1,6 +1,7 @@
 ---
 title: CLI Wallet
 tags: [sandbox, wallet, cli]
+keywords: [wallet, cli wallet]
 ---
 
 For development, it may be useful to deploy, transact, or create notes in a non-programmatic way. You can use Aztec's CLI Wallet for thing such as:
@@ -36,6 +37,7 @@ It will also try to determine which type is expected. For example, if the alias 
 
 You can create arbitrary aliases with the `alias` command. For example `aztec-wallet alias accounts test_alias 0x2c37902cdade7710bd2355e5949416dc5e43a16e0b13a5560854d2451d92d289`.
 
+:::
 
 ## Account Management
 
@@ -149,5 +151,5 @@ The Add Note method makes it easy to store notes on your local PXE if they haven
 It expects `name` and `storageFieldName`. For example, if the `#[storage]` struct had a `available_members: PrivateMutable<JediMember>` property:
 
 ```bash
-aztec-note add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
+aztec-wallet add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
 ```

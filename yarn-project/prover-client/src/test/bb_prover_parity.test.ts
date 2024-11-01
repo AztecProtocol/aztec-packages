@@ -32,7 +32,7 @@ describe('prover/bb_prover/parity', () => {
       bbProver = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return bbProver;
     };
-    context = await TestContext.new(logger, 'legacy', 1, buildProver);
+    context = await TestContext.new(logger, 'native', 1, buildProver);
   });
 
   afterAll(async () => {
@@ -97,7 +97,7 @@ describe('prover/bb_prover/parity', () => {
 
     const defectiveVerificationKey = new RootParityInput(
       validProof,
-      VerificationKeyAsFields.makeFake(),
+      VerificationKeyAsFields.makeFakeHonk(),
       baseParityVkPath,
       validPublicInputs,
     );

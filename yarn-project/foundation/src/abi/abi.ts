@@ -309,6 +309,20 @@ export type ContractNote = {
    * Type of the note (e.g., 'TransparentNote')
    */
   typ: string;
+  /**
+   * Fields of the note.
+   */
+  fields: NoteField[];
+};
+
+/** Type representing a field of a note (e.g. `amount` in `TokenNote`). */
+export type NoteField = {
+  /** Name of the field (e.g. `amount`). */
+  name: string;
+  /** Index where the note field starts in the serialized note array. */
+  index: number;
+  /** Whether the field can be unset when creating the note (in the partial notes flow). */
+  nullable: boolean;
 };
 
 /**

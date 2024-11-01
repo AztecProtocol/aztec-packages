@@ -56,13 +56,18 @@ class MockDatabusProducer {
      */
     void populate_kernel_databus(ClientCircuit& circuit)
     {
-        for (auto& val : kernel_return_data) { // populate calldata from previous kernel return data
+        // Populate calldata from previous kernel return data (if it exists)
+        for (auto& val : kernel_return_data) {
             circuit.add_public_calldata(circuit.add_variable(val));
         }
-        for (auto& val : app_return_data) { // populate secondary_calldata from app return data
+        // Populate secondary_calldata from app return data (if it exists), then clear the app return data
+        for (auto& val : app_return_data) {
             circuit.add_public_secondary_calldata(circuit.add_variable(val));
         }
-        kernel_return_data = generate_random_bus_array(); // update the return data for the present kernel circuit
+        app_return_data.clear();
+
+        // Mock the return data for the present kernel circuit
+        kernel_return_data = generate_random_bus_array();
         for (auto& val : kernel_return_data) {
             circuit.add_public_return_data(circuit.add_variable(val));
         }
@@ -93,13 +98,14 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
   public:
     /**
-     * @brief Create a the next circuit (app/kernel) in a mocked private function execution stack
+     * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    ClientCircuit create_next_circuit(ClientIVC& ivc)
+    ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
     {
         circuit_counter++;
 
-        bool is_kernel = (circuit_counter % 2 == 0); // Every other circuit is a kernel, starting from the second
+        // Assume only every second circuit is a kernel, unless force_is_kernel == true
+        bool is_kernel = (circuit_counter % 2 == 0) || force_is_kernel;
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         if (is_kernel) {

@@ -1,6 +1,9 @@
-use crate::{abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}}, traits::Empty};
+use crate::{
+    abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}},
+    traits::Empty,
+};
 
-struct PublicDataTreeLeaf {
+pub struct PublicDataTreeLeaf {
     slot: Field,
     value: Field,
 }
@@ -23,7 +26,7 @@ impl PublicDataTreeLeaf {
     }
 }
 
-struct OverridablePublicDataTreeLeaf {
+pub struct OverridablePublicDataTreeLeaf {
     leaf: PublicDataTreeLeaf,
     override_counter: u32,
 }
@@ -37,10 +40,14 @@ impl Empty for OverridablePublicDataTreeLeaf {
 impl Readable<PublicDataRead> for OverridablePublicDataTreeLeaf {
     fn assert_match_read_request(self, read_request: PublicDataRead) {
         assert_eq(
-            self.leaf.slot, read_request.leaf_slot, "leaf_slot in OverridablePublicDataTreeLeaf does not match read request"
+            self.leaf.slot,
+            read_request.leaf_slot,
+            "leaf_slot in OverridablePublicDataTreeLeaf does not match read request",
         );
         assert_eq(
-            self.leaf.value, read_request.value, "value in OverridablePublicDataTreeLeaf does not match read request"
+            self.leaf.value,
+            read_request.value,
+            "value in OverridablePublicDataTreeLeaf does not match read request",
         );
     }
 }
@@ -50,4 +57,3 @@ impl Overridable for OverridablePublicDataTreeLeaf {
         self.override_counter
     }
 }
-

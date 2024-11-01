@@ -25,6 +25,8 @@ std::tuple<uint256_t, uint256_t> decompose(uint256_t const& a, uint8_t const b)
 uint8_t mem_tag_bits(AvmMemoryTag in_tag)
 {
     switch (in_tag) {
+    case AvmMemoryTag::U1:
+        return 1;
     case AvmMemoryTag::U8:
         return 8;
     case AvmMemoryTag::U16:
@@ -37,8 +39,6 @@ uint8_t mem_tag_bits(AvmMemoryTag in_tag)
         return 128;
     case AvmMemoryTag::FF:
         return 254;
-    case AvmMemoryTag::U0:
-        return 0;
     }
     return 0;
 }
@@ -48,6 +48,8 @@ uint8_t mem_tag_bits(AvmMemoryTag in_tag)
 FF cast_to_mem_tag(uint256_t input, AvmMemoryTag in_tag)
 {
     switch (in_tag) {
+    case AvmMemoryTag::U1:
+        return FF{ static_cast<uint8_t>(input & 1) };
     case AvmMemoryTag::U8:
         return FF{ static_cast<uint8_t>(input) };
     case AvmMemoryTag::U16:
@@ -57,11 +59,9 @@ FF cast_to_mem_tag(uint256_t input, AvmMemoryTag in_tag)
     case AvmMemoryTag::U64:
         return FF{ static_cast<uint64_t>(input) };
     case AvmMemoryTag::U128:
-        return FF{ uint256_t::from_uint128(uint128_t(input)) };
+        return FF{ uint256_t::from_uint128(static_cast<uint128_t>(input)) };
     case AvmMemoryTag::FF:
         return input;
-    case AvmMemoryTag::U0:
-        return FF{ 0 };
     }
     // Need this for gcc compilation even though we fully handle the switch cases
     // We should never reach this point
@@ -80,6 +80,7 @@ FF cast_to_mem_tag(uint256_t input, AvmMemoryTag in_tag)
 void AvmAluTraceBuilder::reset()
 {
     alu_trace.clear();
+    alu_trace.shrink_to_fit(); // Reclaim memory.
     range_checked_required = false;
 }
 
@@ -194,8 +195,10 @@ FF AvmAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     FF c = cast_to_mem_tag(c_u256, in_tag);
 
-    uint8_t limb_bits = mem_tag_bits(in_tag) / 2;
-    uint8_t num_bits = mem_tag_bits(in_tag);
+    uint8_t bits = mem_tag_bits(in_tag);
+    // limbs are size 1 for u1
+    uint8_t limb_bits = bits == 1 ? 1 : bits / 2;
+    uint8_t num_bits = bits;
 
     // Decompose a
     auto [alu_a_lo, alu_a_hi] = decompose(a_u256, limb_bits);
@@ -247,7 +250,7 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     if (b_u256 == 0) {
         return 0;
     }
-    uint8_t limb_bits = mem_tag_bits(in_tag) / 2;
+    uint8_t limb_bits = in_tag == AvmMemoryTag::U1 ? 1 : mem_tag_bits(in_tag) / 2;
     uint8_t num_bits = mem_tag_bits(in_tag);
     // Decompose a
     auto [alu_a_lo, alu_a_hi] = decompose(b_u256, limb_bits);
@@ -260,7 +263,8 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     // We perform the range checks here
     if (in_tag != AvmMemoryTag::FF) {
-        cmp_builder.range_check_builder.assert_range(uint128_t(c_u256), mem_tag_bits(in_tag), EventEmitter::ALU, clk);
+        cmp_builder.range_check_builder.assert_range(
+            static_cast<uint128_t>(c_u256), mem_tag_bits(in_tag), EventEmitter::ALU, clk);
     }
     // Also check the remainder < divisor (i.e. remainder < b)
     bool is_gt = cmp_builder.constrained_gt(b, rem_u256, clk, EventEmitter::ALU);
@@ -446,6 +450,7 @@ FF AvmAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const c
  */
 FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk)
 {
+    // TODO(9497): this should raise error flag in main trace, not assert
     ASSERT(in_tag != AvmMemoryTag::FF);
     // Check that the shifted amount is an 8-bit integer
     ASSERT(uint256_t(b) < 256);
@@ -508,6 +513,7 @@ FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
  */
 FF AvmAluTraceBuilder::op_shr(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk)
 {
+    // TODO(9497): this should raise error flag in main trace, not assert
     ASSERT(in_tag != AvmMemoryTag::FF);
     // Check that the shifted amount is an 8-bit integer
     ASSERT(uint256_t(b) < 256);
@@ -653,6 +659,7 @@ void AvmAluTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
 
         if (src.tag.has_value()) {
             dest.alu_ff_tag = FF(src.tag == AvmMemoryTag::FF ? 1 : 0);
+            dest.alu_u1_tag = FF(src.tag == AvmMemoryTag::U1 ? 1 : 0);
             dest.alu_u8_tag = FF(src.tag == AvmMemoryTag::U8 ? 1 : 0);
             dest.alu_u16_tag = FF(src.tag == AvmMemoryTag::U16 ? 1 : 0);
             dest.alu_u32_tag = FF(src.tag == AvmMemoryTag::U32 ? 1 : 0);

@@ -1,10 +1,11 @@
-use crate::abis::public_call_stack_item::PublicCallStackItem;
+use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 
 // Mocked here as the only remaining non-recursive proof
-struct Proof {}
+pub struct Proof {}
 
-struct PublicCallData {
-    call_stack_item: PublicCallStackItem,
+// TODO(#7124): To be deprecated.
+pub struct PublicCallData {
+    public_inputs: PublicCircuitPublicInputs,
     proof: Proof,
     bytecode_hash: Field,
 }

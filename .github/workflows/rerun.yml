@@ -1,20 +1,57 @@
-# from https://github.com/orgs/community/discussions/67654
+# adapted from https://github.com/orgs/community/discussions/67654
+# altered to not rerun if we are not the newest commit in the run's branch (exception for master/main)
 on:
   workflow_dispatch:
     inputs:
       run_id:
         required: true
+      rerun_mode:
+        description: 'Specify rerun mode: failed or all'
+        required: false
+        default: 'failed'
+
 jobs:
   rerun:
     runs-on: ubuntu-latest
     permissions:
-      actions: write
+      actions: write  # Needed for 'gh run rerun'
     steps:
-      - name: rerun ${{ inputs.run_id }}
+      - name: Wait for run to finish
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           GH_DEBUG: api
         run: |
           gh run watch ${{ inputs.run_id }} > /dev/null 2>&1
-          gh run rerun ${{ inputs.run_id }} --failed
+
+      - name: Rerun jobs if the commit is the latest on the branch
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GH_DEBUG: api
+          RERUN_MODE: ${{ inputs.rerun_mode }}
+        run: |
+          RUN_ID="${{ inputs.run_id }}"
+          # Get the run details
+          RUN_INFO=$(gh run view $RUN_ID --json headSha,headBranch,event)
+          # Extract the commit SHA, branch name, and event type
+          COMMIT_SHA=$(echo "$RUN_INFO" | jq -r '.headSha')
+          BRANCH_NAME=$(echo "$RUN_INFO" | jq -r '.headBranch')
+          EVENT_TYPE=$(echo "$RUN_INFO" | jq -r '.event')
+
+          # Get the latest commit SHA on the branch
+          LATEST_COMMIT_SHA=$(gh api repos/${{ github.repository }}/commits/$BRANCH_NAME --jq .sha)
+
+          # Compare the SHAs
+          if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]] && [[ "$BRANCH_NAME" != "master" && "$BRANCH_NAME" != "main" ]] ; then
+            echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA) and the branch is not master/main. Skipping rerun."
+          else
+            echo "Commit $COMMIT_SHA is the latest on branch $BRANCH_NAME. Proceeding with rerun."
+
+            if [[ "$RERUN_MODE" == "all" ]]; then
+              gh run rerun $RUN_ID
+            else
+              gh run rerun $RUN_ID --failed
+            fi
+          fi
+

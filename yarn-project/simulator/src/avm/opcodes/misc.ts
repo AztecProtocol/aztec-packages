@@ -15,10 +15,10 @@ export class DebugLog extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // Opcode
     OperandType.UINT8, // Indirect
-    OperandType.UINT32, // message memory address
-    OperandType.UINT32, // message size
-    OperandType.UINT32, // fields memory address
-    OperandType.UINT32, // fields size address
+    OperandType.UINT16, // message memory address
+    OperandType.UINT16, // message size
+    OperandType.UINT16, // fields memory address
+    OperandType.UINT16, // fields size address
   ];
 
   constructor(
@@ -33,17 +33,15 @@ export class DebugLog extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [messageOffset, fieldsOffset, fieldsSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset],
-      memory,
-    );
+    const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
 
-    const memoryOperations = { reads: 1 + fieldsSize + this.messageSize, writes: 0, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost());
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);
     const fields = memory.getSlice(fieldsOffset, fieldsSize);
@@ -57,7 +55,7 @@ export class DebugLog extends Instruction {
 
     DebugLog.logger.verbose(formattedStr);
 
-    memory.assert(memoryOperations);
+    memory.assert({ reads: 1 + fieldsSize + this.messageSize, addressing });
     context.machineState.incrementPc();
   }
 }

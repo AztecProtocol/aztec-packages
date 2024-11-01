@@ -4,6 +4,7 @@ set -eu
 cd $(dirname "$0")/../noir-repo
 
 ./.github/scripts/wasm-bindgen-install.sh
+./.github/scripts/playwright-install.sh
 
 # Set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
@@ -15,6 +16,5 @@ export PATH="${PATH}:/usr/src/noir/noir-repo/target/release/"
 
 yarn --immutable
 yarn build
-./.github/scripts/playwright-install.sh
 
 yarn test

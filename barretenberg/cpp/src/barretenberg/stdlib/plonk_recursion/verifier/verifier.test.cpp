@@ -344,7 +344,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
     static void check_recursive_verification_circuit(OuterBuilder& outer_circuit, bool expected_result)
     {
-        info("number of gates in recursive verification circuit = ", outer_circuit.get_num_gates());
+        info("number of gates in recursive verification circuit = ", outer_circuit.get_estimated_num_finalized_gates());
         OuterComposer outer_composer;
         auto prover = outer_composer.create_prover(outer_circuit);
         auto verifier = outer_composer.create_verifier(outer_circuit);

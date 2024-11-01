@@ -3,23 +3,22 @@ mod validate_initial_values;
 mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
 
-use crate::{
-    components::{
+use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    private_kernel_circuit_public_inputs_composer::create_first_nullifier
-}
+    private_kernel_circuit_public_inputs_composer::create_first_nullifier,
 };
 use dep::types::{
     abis::{
-    private_call_request::PrivateCallRequest,
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
-    private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths
-},
-    tests::{fixture_builder::FixtureBuilder}, transaction::tx_request::TxRequest,
-    constants::PRIVATE_KERNEL_INIT_INDEX
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
+        private_call_request::PrivateCallRequest,
+        private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
+    },
+    constants::PRIVATE_KERNEL_INIT_INDEX,
+    tests::fixture_builder::FixtureBuilder,
+    transaction::tx_request::TxRequest,
 };
 
-struct PrivateKernelCircuitOutputValidatorBuilder {
+pub struct PrivateKernelCircuitOutputValidatorBuilder {
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
     output: FixtureBuilder,
@@ -37,7 +36,12 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         previous_kernel.nullifiers.push(first_nullifier);
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 
-        PrivateKernelCircuitOutputValidatorBuilder { previous_kernel, private_call, output, tx_request }
+        PrivateKernelCircuitOutputValidatorBuilder {
+            previous_kernel,
+            private_call,
+            output,
+            tx_request,
+        }
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
@@ -54,13 +58,14 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
     pub fn validate_as_first_call(self) {
         let private_call = self.private_call.to_private_call_data();
-        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
+        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
-            private_call.call_stack_item.public_inputs,
+            private_call.public_inputs,
             array_lengths,
-            FixtureBuilder::vk_tree_root()
+            FixtureBuilder::vk_tree_root(),
+            self.private_call.protocol_contract_tree_root,
         );
     }
 
@@ -68,18 +73,21 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         // Append one private call request for the current call.
         let num_private_call_requests = self.previous_kernel.private_call_requests.len();
-        previous_kernel.end.private_call_stack[num_private_call_requests] = PrivateCallRequest::empty();
+        previous_kernel.end.private_call_stack[num_private_call_requests] =
+            PrivateCallRequest::empty();
         previous_kernel.end.private_call_stack[num_private_call_requests].args_hash = 98765432;
 
-        let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(previous_kernel);
+        let previous_kernel_array_lengths =
+            PrivateKernelCircuitPublicInputsArrayLengths::new(previous_kernel);
         let private_call = self.private_call.to_private_call_data();
-        let private_call_array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
+        let private_call_array_lengths =
+            PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             previous_kernel_array_lengths,
-            private_call.call_stack_item.public_inputs,
-            private_call_array_lengths
+            private_call.public_inputs,
+            private_call_array_lengths,
         );
     }
 }

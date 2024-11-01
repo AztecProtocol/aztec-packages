@@ -1,9 +1,4 @@
-import {
-  type DecodedReturn,
-  type FunctionArtifact,
-  type FunctionSelector,
-  decodeReturnValues,
-} from '@aztec/foundation/abi';
+import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -24,7 +19,7 @@ export async function executeUnconstrainedFunction(
   functionSelector: FunctionSelector,
   args: Fr[],
   log = createDebugLogger('aztec:simulator:unconstrained_execution'),
-): Promise<DecodedReturn> {
+): Promise<AbiDecoded> {
   log.verbose(`Executing unconstrained function ${contractAddress}:${functionSelector}(${artifact.name})`);
 
   const acir = artifact.bytecode;
@@ -42,6 +37,6 @@ export async function executeUnconstrainedFunction(
   });
 
   const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
-  return decodeReturnValues(artifact.returnTypes, returnWitness);
+  return decodeFromAbi(artifact.returnTypes, returnWitness);
 }
 // docs:end:execute_unconstrained_function

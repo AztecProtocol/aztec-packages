@@ -1,0 +1,6 @@
+GetSnapshotTest
+└── given multiple listed rollups
+    ├── when _version exists
+    │   └── it should return the snapshot
+    └── when _version does not exists
+        └── it should return empty snapshot

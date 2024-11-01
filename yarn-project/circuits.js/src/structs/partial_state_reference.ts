@@ -69,4 +69,12 @@ export class PartialStateReference {
   isEmpty(): boolean {
     return this.noteHashTree.isZero() && this.nullifierTree.isZero() && this.publicDataTree.isZero();
   }
+
+  public equals(other: this): boolean {
+    return (
+      this.noteHashTree.equals(other.noteHashTree) &&
+      this.nullifierTree.equals(other.nullifierTree) &&
+      this.publicDataTree.equals(other.publicDataTree)
+    );
+  }
 }

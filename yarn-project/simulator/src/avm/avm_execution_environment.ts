@@ -1,16 +1,6 @@
-import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { FunctionSelector, type GlobalVariables } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-
-export class AvmContextInputs {
-  static readonly SIZE = 2;
-
-  constructor(private calldataSize: Fr, private isStaticCall: boolean) {}
-
-  public toFields(): Fr[] {
-    return [this.calldataSize, new Fr(this.isStaticCall)];
-  }
-}
 
 /**
  * Contains variables that remain constant during AVM execution
@@ -19,41 +9,29 @@ export class AvmContextInputs {
 export class AvmExecutionEnvironment {
   constructor(
     public readonly address: AztecAddress,
-    public readonly storageAddress: AztecAddress,
     public readonly sender: AztecAddress,
     public readonly functionSelector: FunctionSelector, // may be temporary (#7224)
     public readonly contractCallDepth: Fr,
     public readonly transactionFee: Fr,
-    public readonly header: Header,
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
-    public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
-  ) {
-    // We encode some extra inputs (AvmContextInputs) in calldata.
-    // This will have to go once we move away from one proof per call.
-    const inputs = new AvmContextInputs(new Fr(calldata.length), isStaticCall).toFields();
-    this.calldata = [...inputs, ...calldata];
-  }
+  ) {}
 
   private deriveEnvironmentForNestedCallInternal(
     targetAddress: AztecAddress,
     calldata: Fr[],
     functionSelector: FunctionSelector,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     return new AvmExecutionEnvironment(
       /*address=*/ targetAddress,
-      /*storageAddress=*/ targetAddress,
       /*sender=*/ this.address,
       functionSelector,
       this.contractCallDepth.add(Fr.ONE),
       this.transactionFee,
-      this.header,
       this.globals,
       isStaticCall,
-      isDelegateCall,
       calldata,
     );
   }
@@ -68,7 +46,6 @@ export class AvmExecutionEnvironment {
       calldata,
       functionSelector,
       /*isStaticCall=*/ false,
-      /*isDelegateCall=*/ false,
     );
   }
 
@@ -82,20 +59,6 @@ export class AvmExecutionEnvironment {
       calldata,
       functionSelector,
       /*isStaticCall=*/ true,
-      /*isDelegateCall=*/ false,
     );
-  }
-
-  public newDelegateCall(
-    _targetAddress: AztecAddress,
-    _calldata: Fr[],
-    _functionSelector: FunctionSelector,
-  ): AvmExecutionEnvironment {
-    throw new Error('Delegate calls not supported!');
-  }
-
-  public getCalldataWithoutPrefix(): Fr[] {
-    // clip off the first few entries
-    return this.calldata.slice(AvmContextInputs.SIZE);
   }
 }

@@ -29,7 +29,7 @@ using public_witness_t = public_witness_t<Builder>;
 
 //     EXPECT_EQ(output.get_value(), expected);
 
-//     info("num gates = %zu\n", builder.get_num_gates());
+//     info("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
 //     bool proof_result = CircuitChecker::check(builder);
 //     EXPECT_EQ(proof_result, true);
@@ -48,7 +48,7 @@ TEST(stdlib_blake2s, test_single_block_plookup)
 
     EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
 
-    info("builder gates = ", builder.get_num_gates());
+    info("builder gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -67,7 +67,7 @@ TEST(stdlib_blake2s, test_single_block_plookup)
 
 //     EXPECT_EQ(output.get_value(), expected);
 
-//     info("num gates = %zu\n", builder.get_num_gates());
+//     info("num gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
 //     bool proof_result = CircuitChecker::check(builder);
 //     EXPECT_EQ(proof_result, true);
@@ -86,7 +86,7 @@ TEST(stdlib_blake2s, test_double_block_plookup)
 
     EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
 
-    info("builder gates = ", builder.get_num_gates());
+    info("builder gates = ", builder.get_estimated_num_finalized_gates());
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);

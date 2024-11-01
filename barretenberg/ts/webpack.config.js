@@ -52,6 +52,9 @@ export default {
   ],
   resolve: {
     plugins: [new ResolveTypeScriptPlugin()],
+    fallback: {
+      "os": false
+    }
   },
   devServer: {
     hot: false,

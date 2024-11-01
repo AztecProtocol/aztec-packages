@@ -1,10 +1,11 @@
 use crate::{
-    constants::{GAS_LENGTH, FIXED_DA_GAS, FIXED_L2_GAS}, traits::{Deserialize, Serialize, Empty},
-    abis::gas_fees::GasFees
+    abis::gas_fees::GasFees,
+    constants::{FIXED_DA_GAS, FIXED_L2_GAS, GAS_LENGTH},
+    traits::{Deserialize, Empty, Serialize},
 };
 use std::ops::{Add, Sub};
 
-struct Gas {
+pub struct Gas {
     da_gas: u32,
     l2_gas: u32,
 }
@@ -74,4 +75,3 @@ fn serialization_of_empty() {
     let deserialized = Gas::deserialize(serialized);
     assert(item.eq(deserialized));
 }
-

@@ -1,11 +1,14 @@
 use crate::{
-    abis::{public_call_stack_item_compressed::PublicCallStackItemCompressed, side_effect::Ordered},
-    constants::PUBLIC_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    abis::{call_context::CallContext, side_effect::Ordered},
+    address::AztecAddress,
+    constants::PUBLIC_CALL_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
-struct PublicCallRequest {
-    item: PublicCallStackItemCompressed,
+pub struct PublicCallRequest {
+    call_context: CallContext,
+    args_hash: Field,
     counter: u32,
 }
 
@@ -17,19 +20,21 @@ impl Ordered for PublicCallRequest {
 
 impl Eq for PublicCallRequest {
     fn eq(self, other: PublicCallRequest) -> bool {
-        (other.item == self.item) & (other.counter == self.counter)
+        (self.call_context == other.call_context)
+            & (self.args_hash == other.args_hash)
+            & (self.counter == other.counter)
     }
 }
 
 impl Empty for PublicCallRequest {
     fn empty() -> Self {
-        PublicCallRequest { item: PublicCallStackItemCompressed::empty(), counter: 0 }
+        PublicCallRequest { call_context: CallContext::empty(), args_hash: 0, counter: 0 }
     }
 }
 
 impl PublicCallRequest {
     pub fn expose_to_public(self) -> Self {
-        PublicCallRequest { item: self.item, counter: 0 }
+        PublicCallRequest { call_context: self.call_context, args_hash: self.args_hash, counter: 0 }
     }
 }
 
@@ -37,7 +42,8 @@ impl Serialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
     fn serialize(self) -> [Field; PUBLIC_CALL_REQUEST_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_CALL_REQUEST_LENGTH> = BoundedVec::new();
 
-        fields.extend_from_array(self.item.serialize());
+        fields.extend_from_array(self.call_context.serialize());
+        fields.push(self.args_hash);
         fields.push(self.counter as Field);
 
         assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
@@ -50,7 +56,11 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
     fn deserialize(fields: [Field; PUBLIC_CALL_REQUEST_LENGTH]) -> PublicCallRequest {
         let mut reader = Reader::new(fields);
 
-        let request = PublicCallRequest { item: reader.read_struct(PublicCallStackItemCompressed::deserialize), counter: reader.read_u32() };
+        let request = PublicCallRequest {
+            call_context: reader.read_struct(CallContext::deserialize),
+            args_hash: reader.read(),
+            counter: reader.read_u32(),
+        };
         reader.finish();
         request
     }

@@ -1,14 +1,13 @@
-import { FEE_JUICE_ADDRESS } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
+import { ProtocolContractAddress, ProtocolContractArtifact } from '@aztec/protocol-contracts';
 
 /**
  * Computes the storage slot within the Fee Juice contract for the balance of the fee payer.
  */
 export function computeFeePayerBalanceStorageSlot(feePayer: AztecAddress) {
-  return deriveStorageSlotInMap(FeeJuiceArtifact.storageLayout.balances.slot, feePayer);
+  return deriveStorageSlotInMap(ProtocolContractArtifact.FeeJuice.storageLayout.balances.slot, feePayer);
 }
 
 /**
@@ -18,7 +17,6 @@ export function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Fr {
   if (feePayer.isZero()) {
     return Fr.ZERO;
   }
-  const feeJuice = AztecAddress.fromBigInt(FEE_JUICE_ADDRESS);
   const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-  return computePublicDataTreeLeafSlot(feeJuice, balanceSlot);
+  return computePublicDataTreeLeafSlot(ProtocolContractAddress.FeeJuice, balanceSlot);
 }

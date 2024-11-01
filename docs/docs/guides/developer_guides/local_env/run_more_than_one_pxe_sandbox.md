@@ -1,16 +1,8 @@
 ---
 title: Running Multiple PXEs in the Sandbox
-sidebar_position: 2
+sidebar_position: 3
 tags: [PXE]
 ---
-
-:::warning
-
-Unfortunately, this is currently not working due to a bug when attempting to run an `aztec` command with the sandbox running. This will be fixed in a future version.
-
-:::
-
---
 
 When you run the sandbox, the Aztec node and PXE have their own http server. This makes it possible to run two PXEs on your local machine, which can be useful for testing that notes are accurately stored and remaining private in their respective PXEs.
 

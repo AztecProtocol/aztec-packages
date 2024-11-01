@@ -1,0 +1,8 @@
+MintAvailableTest
+├── given rate is 0
+│       └── it returns 0
+└── given rate is not 0
+    ├── given same time as deployment
+    │   └── it returns 0
+    └── given after deployment
+        └── it returns >0

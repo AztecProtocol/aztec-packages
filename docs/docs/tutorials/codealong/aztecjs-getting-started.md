@@ -7,7 +7,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
 
-This guide assumes you have followed the [quickstart](../../guides/developer_guides/getting_started/quickstart.md).
+This guide assumes you have followed the [quickstart](../../guides/developer_guides/getting_started).
 
 ## Prerequisites
 
@@ -347,4 +347,4 @@ Follow the [dapp tutorial](./simple_dapp/index.md).
 ### Optional: Learn more about concepts mentioned here
 
 - [Authentication witness](../../aztec/concepts/accounts/authwit.md)
-- [Functions under the hood](../../aztec/smart_contracts/functions/inner_workings.md)
+- [Functions under the hood](../../aztec/smart_contracts/functions/function_transforms.md)

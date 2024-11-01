@@ -71,6 +71,26 @@ export class BufferReader {
   }
 
   /**
+   * Reads a 256-bit unsigned integer from the buffer at the current index position.
+   * Updates the index position by 32 bytes after reading the number.
+   *
+   * Assumes the number is stored in big-endian format.
+   *
+   * @returns The read 256 bit value as a bigint.
+   */
+  public readUInt256(): bigint {
+    this.#rangeCheck(32);
+
+    let result = BigInt(0);
+    for (let i = 0; i < 32; i++) {
+      result = (result << BigInt(8)) | BigInt(this.buffer[this.index + i]);
+    }
+
+    this.index += 32;
+    return result;
+  }
+
+  /**
    * Reads a 16-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 2 bytes after reading the number.
    *
@@ -318,6 +338,14 @@ export class BufferReader {
    */
   public getLength(): number {
     return this.buffer.length;
+  }
+
+  /**
+   * Gets bytes remaining to be read from the buffer.
+   * @returns Bytes remaining to be read from the buffer.
+   */
+  public remainingBytes(): number {
+    return this.buffer.length - this.index;
   }
 
   #rangeCheck(numBytes: number) {
