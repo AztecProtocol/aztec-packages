@@ -6,7 +6,10 @@
 namespace bb {
 
 /**
- * @brief A debugging utility for tracking the max size of each block over all circuits in the IVC
+ * @brief Tracks the cumulative usage of the execution trace across a series of circuits
+ * @details Primary uses are (1) determining the minimum required structured trace configuration for a given series of
+ * circuits, and (2) determining the optimal distribution of rows across threads to evenly distribute work since unused
+ * rows often do not require any computation.
  *
  */
 struct ExecutionTraceUsageTracker {
@@ -16,12 +19,13 @@ struct ExecutionTraceUsageTracker {
     using MegaTraceActiveRanges = MegaArithmetization::MegaTraceBlocks<Range>;
     using MegaTraceFixedBlockSizes = MegaArithmetization::TraceBlocks;
 
-    MegaTraceBlockSizes max_sizes;
-    MegaTraceFixedBlockSizes fixed_sizes;
-    MegaTraceActiveRanges active_ranges;
+    MegaTraceBlockSizes max_sizes;        // max utilization of each block
+    MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
+    MegaTraceActiveRanges active_ranges;  // ranges utlized by the accumulator within the ambient structured trace
 
-    std::vector<Range> thread_ranges;
+    std::vector<Range> thread_ranges; // ranges within the ambient space over which utilized space is evenly distibuted
 
+    // Max sizes of the "tables" for databus and conventional lookups (distinct from the sizes of their gate blocks)
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
 
@@ -37,18 +41,22 @@ struct ExecutionTraceUsageTracker {
         fixed_sizes.compute_offsets(/*is_structured=*/true);
     }
 
-    // Update the max block sizes based on the block sizes of a provided circuit
+    // Update the max block utilization and active trace ranges based on the data from a provided circuit
     void update(Builder& circuit)
     {
+        // Update the max utilization of each gate block
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
             max_size = std::max(block.size(), max_size);
         }
+
+        // update the max sixe of the databus and lookup tables
         max_databus_size = std::max({ max_databus_size,
                                       circuit.get_calldata().size(),
                                       circuit.get_secondary_calldata().size(),
                                       circuit.get_return_data().size() });
         max_tables_size = std::max(max_tables_size, circuit.get_tables_size());
 
+        // Update the active ranges of the trace based on max block utilization
         for (auto [max_size, fixed_block, active_range] :
              zip_view(max_sizes.get(), fixed_sizes.get(), active_ranges.get())) {
             size_t start_idx = fixed_block.trace_offset;
@@ -56,19 +64,19 @@ struct ExecutionTraceUsageTracker {
             active_range = Range{ start_idx, end_idx };
         }
 
+        // The active ranges for the databus and lookup relations (both based on log-deriv lookup argument) must
+        // incorporate both the lookup/read gate blocks as well as the rows containing the data that is being read.
+        // Update the corresponding ranges accordingly. (Note: tables are constructed at the 'bottom' of the trace).
         size_t dyadic_circuit_size = circuit.get_circuit_subgroup_size(fixed_sizes.get_total_structured_size());
-
-        // Update ranges for databus and lookups to incorporate their respective tables
-        active_ranges.busread.first = 0;
+        active_ranges.busread.first = 0; // databus data is stored at the top of the trace
         active_ranges.busread.second = std::max(max_databus_size, active_ranges.busread.second);
         active_ranges.lookup.first = std::min(dyadic_circuit_size - max_tables_size, active_ranges.lookup.first);
-        active_ranges.lookup.second = dyadic_circuit_size;
+        active_ranges.lookup.second = dyadic_circuit_size; // lookups are stored at the bottom of the trace
     }
 
     // Check whether an index is contained within the active ranges
     bool check_is_active(const size_t idx)
     {
-        // WORKTODO: if unstructured, just use genuine circuit content here
         // If structured trace is not in use, assume the whole trace is active
         if (trace_structure == TraceStructure::NONE) {
             return true;
@@ -115,15 +123,24 @@ struct ExecutionTraceUsageTracker {
         info("");
     }
 
+    /**
+     * @brief Construct ranges  of execution trace rows that evenly distribute the active content of the trace across a
+     * given number of threads.
+     *
+     * @param num_threads Num ranges over which to distribute the data
+     */
     void construct_thread_ranges(const size_t num_threads)
     {
+        // Copy the ranges into a simple std container for preocessing by subsequent methods (cheap)
         std::vector<Range> active_ranges_copy;
         for (const auto& range : active_ranges.get()) {
             active_ranges_copy.push_back(range);
         }
 
+        // Convert the active ranges for each gate type into a set of sorted non-overlapping ranges (union of the input)
         std::vector<Range> simplified_active_ranges = construct_union_of_ranges(active_ranges_copy);
 
+        // Determine ranges in the structured trace that even distibute the active content across threads
         thread_ranges = construct_ranges_for_equal_content_distribution(simplified_active_ranges, num_threads);
     }
 
