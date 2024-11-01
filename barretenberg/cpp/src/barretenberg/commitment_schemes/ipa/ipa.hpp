@@ -371,7 +371,38 @@ template <typename Curve_> class IPA {
 
         // Step 7.
         // Construct vector s
-        std::span<Fr> s_vec(construct_poly_from_u_chals_inv(round_challenges_inv).coeffs());
+        std::span<Fr> s_span(construct_poly_from_u_chals_inv(round_challenges_inv).coeffs());
+        std::vector<Fr> s_vec(poly_length, Fr::one());
+
+        std::vector<Fr> s_vec_temporaries(poly_length / 2);
+
+        Fr* previous_round_s = &s_vec_temporaries[0];
+        Fr* current_round_s = &s_vec[0];
+        // if number of rounds is even we need to swap these so that s_vec always contains the result
+        if ((log_poly_length & 1) == 0)
+        {
+            std::swap(previous_round_s, current_round_s);
+        }
+        previous_round_s[0] = Fr(1);
+        for (size_t i = 0; i < log_poly_length; ++i)
+        {
+            const size_t round_size = 1 << (i + 1);
+            const Fr round_challenge = round_challenges_inv[i];
+            parallel_for_heuristic(
+                round_size / 2,
+                [&](size_t j) {
+                    current_round_s[j * 2] = previous_round_s[j];
+                    current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
+                }, thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            std::swap(current_round_s, previous_round_s);
+        }
+        // check the diff between s_vec and s_span
+        for(size_t i = 0; i < poly_length; i++) {
+            if(s_vec[i] != s_span[i]) {
+                info("failed at index: ", i);
+                throw_or_abort("s_vec != s_span");
+            }
+        }
 
         std::span<const Commitment> srs_elements = vk->get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
