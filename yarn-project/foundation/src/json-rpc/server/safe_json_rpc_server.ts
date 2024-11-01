@@ -10,7 +10,7 @@ import { ZodError } from 'zod';
 import { createDebugLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/index.js';
-import { jsonStringify2, toJSON } from '../convert.js';
+import { jsonStringify2 } from '../convert.js';
 import { assert } from '../js_utils.js';
 
 export class SafeJsonRpcServer {
@@ -71,9 +71,9 @@ export class SafeJsonRpcServer {
       this.log.error(`Error on API handler: ${error}`);
     });
 
+    app.use(compress({ br: false } as any));
     app.use(jsonResponse);
     app.use(exceptionHandler);
-    app.use(compress({ br: false } as any));
     app.use(bodyParser({ jsonLimit: '50mb', enableTypes: ['json'], detectJSON: () => true }));
     app.use(cors());
     app.use(router.routes());
@@ -182,8 +182,7 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
 
     const args = this.schema[methodName].parameters().parse(jsonParams);
-    const rawRet = await method.apply(this.handler, args);
-    const ret = toJSON(rawRet); // TODO(palla): Remove this call and kill toJSON, the json middleware in the server with the replacer should handle it
+    const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
   }
