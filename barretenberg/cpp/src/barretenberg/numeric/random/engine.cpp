@@ -3,7 +3,6 @@
 #include <array>
 #include <cstring>
 #include <functional>
-#include <mutex>
 #include <random>
 #include <sys/random.h>
 
@@ -20,14 +19,9 @@ constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
 #endif
 // Buffer with randomness sampled from a CSPRNG
-uint8_t random_buffer[RANDOM_BUFFER_SIZE];
+thread_local uint8_t random_buffer[RANDOM_BUFFER_SIZE];
 // Offset into the unused part of the buffer
-ssize_t random_buffer_offset = -1;
-
-#ifndef NO_MULTITHREADING
-// We don't want races to happen
-std::mutex random_buffer_mutex;
-#endif
+thread_local ssize_t random_buffer_offset = -1;
 
 /**
  * @brief Generate an array of random unsigned ints sampled from a CSPRNG
@@ -41,10 +35,6 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
     static_assert(size_in_unsigned_ints <= 32);
     std::array<unsigned int, size_in_unsigned_ints> random_data;
     constexpr size_t random_data_buffer_size = sizeof(random_data);
-
-#ifndef NO_MULTITHREADING
-    std::unique_lock<std::mutex> lock(random_buffer_mutex);
-#endif
 
     // if the buffer is not initialized or doesn't contain enough bytes, sample randomness
     // We could preserve the leftover bytes, but it's a bit messy
