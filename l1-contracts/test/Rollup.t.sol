@@ -115,6 +115,23 @@ contract RollupTest is DecoderBase {
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(_slot))));
   }
 
+  function testClaimInTheFuture(uint256 _futureSlot) public setUpFor("mixed_block_1") {
+    uint256 futureSlot = bound(_futureSlot, 1, 1e20);
+    _testBlock("mixed_block_1", false, 1);
+
+    rollup.validateEpochProofRightClaimAtTime(Timestamp.wrap(block.timestamp), signedQuote);
+
+    Timestamp t = rollup.getTimestampForSlot(quote.validUntilSlot + Slot.wrap(futureSlot));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__QuoteExpired.selector,
+        Slot.wrap(futureSlot) + quote.validUntilSlot,
+        signedQuote.quote.validUntilSlot
+      )
+    );
+    rollup.validateEpochProofRightClaimAtTime(t, signedQuote);
+  }
+
   function testClaimableEpoch(uint256 epochForMixedBlock) public setUpFor("mixed_block_1") {
     epochForMixedBlock = bound(epochForMixedBlock, 1, 10);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
@@ -266,6 +283,8 @@ contract RollupTest is DecoderBase {
 
   function testClaimTwice() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
+    quote.validUntilSlot = Epoch.wrap(1e9).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
 
     rollup.claimEpochProofRight(signedQuote);
 
@@ -291,7 +310,8 @@ contract RollupTest is DecoderBase {
 
   function testClaimOutsideClaimPhase() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
-
+    quote.validUntilSlot = Epoch.wrap(1e9).toSlots();
+    signedQuote = _quoteToSignedQuote(quote);
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
 
     vm.expectRevert(
@@ -840,19 +860,6 @@ contract RollupTest is DecoderBase {
     _submitEpochProof(rollup, 1, preArchive, data.archive, preBlockHash, wrongBlockHash, bytes32(0));
   }
 
-  function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)
-    internal
-    view
-    returns (EpochProofQuoteLib.SignedEpochProofQuote memory)
-  {
-    bytes32 digest = rollup.quoteToDigest(_quote);
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-    return EpochProofQuoteLib.SignedEpochProofQuote({
-      quote: _quote,
-      signature: SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s})
-    });
-  }
-
   function _testBlock(string memory name, bool _submitProof) public {
     _testBlock(name, _submitProof, 0);
   }
@@ -997,5 +1004,18 @@ contract RollupTest is DecoderBase {
     bytes memory proof = "";
 
     _rollup.submitEpochRootProof(_epochSize, args, fees, aggregationObject, proof);
+  }
+
+  function _quoteToSignedQuote(EpochProofQuoteLib.EpochProofQuote memory _quote)
+    internal
+    view
+    returns (EpochProofQuoteLib.SignedEpochProofQuote memory)
+  {
+    bytes32 digest = rollup.quoteToDigest(_quote);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+    return EpochProofQuoteLib.SignedEpochProofQuote({
+      quote: _quote,
+      signature: SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s})
+    });
   }
 }
