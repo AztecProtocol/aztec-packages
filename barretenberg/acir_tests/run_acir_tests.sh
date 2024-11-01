@@ -13,6 +13,7 @@ trap handle_sigchild SIGCHLD
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 HONK=${HONK:-false}
+RECURSIVE=${RECURSIVE:-false}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
@@ -47,12 +48,12 @@ SKIP_ARRAY+=(regression_5045)
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
     # Don't run programs with Honk recursive verifier
-    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof double_verify_honk_proof_recursive)
+    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof)
 fi
 
 if [ "$HONK" = true ]; then
     # Don't run programs with Plonk recursive verifier(s)
-    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_proof_recursive double_verify_nested_proof)
+    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_nested_proof)
 fi
 
 function test() {
