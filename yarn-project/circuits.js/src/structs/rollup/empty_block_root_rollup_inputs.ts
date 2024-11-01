@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -84,5 +85,15 @@ export class EmptyBlockRootRollupInputs {
    */
   static fromString(str: string) {
     return EmptyBlockRootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(EmptyBlockRootRollupInputs);
   }
 }

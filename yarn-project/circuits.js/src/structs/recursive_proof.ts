@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { Proof, makeEmptyProof } from './proof.js';
@@ -82,6 +83,16 @@ export class RecursiveProof<N extends number> {
    */
   static fromString<N extends number>(str: string, expectedSize?: N): RecursiveProof<N> {
     return RecursiveProof.fromBuffer(Buffer.from(str, 'hex'), expectedSize);
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string with expected size. */
+  static schemaFor<N extends number>(expectedSize?: N) {
+    return schemas.Hex.transform(str => RecursiveProof.fromString(str, expectedSize));
   }
 }
 

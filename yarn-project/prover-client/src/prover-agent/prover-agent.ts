@@ -2,15 +2,14 @@ import {
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
-  type ProvingRequestResult,
+  type ProvingRequestResultFor,
   ProvingRequestType,
   type ServerCircuitProver,
+  makeProvingRequestResult,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
-
-import { ProvingError } from './proving-error.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
@@ -123,15 +122,17 @@ export class ProverAgent {
     this.log.info('Agent stopped');
   }
 
-  private async work(jobSource: ProvingJobSource, job: ProvingJob<ProvingRequest>): Promise<void> {
+  private async work<TRequest extends ProvingRequest>(
+    jobSource: ProvingJobSource,
+    job: ProvingJob<TRequest>,
+  ): Promise<void> {
     try {
       this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
+      const type: TRequest['type'] = job.request.type;
       const [time, result] = await elapsed(this.getProof(job.request));
       if (this.isRunning()) {
-        this.log.verbose(
-          `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
-        );
-        await jobSource.resolveProvingJob(job.id, result);
+        this.log.verbose(`Processed proving job id=${job.id} type=${ProvingRequestType[type]} duration=${time}ms`);
+        await jobSource.resolveProvingJob(job.id, makeProvingRequestResult(type, result));
       } else {
         this.log.verbose(
           `Dropping proving job id=${job.id} type=${
@@ -147,14 +148,18 @@ export class ProverAgent {
         } else {
           this.log.error(`Error processing proving job id=${job.id} type=${type}: ${err}`, err);
         }
-        await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
+        const reason = (err as any)?.message ?? String(err);
+        await jobSource.rejectProvingJob(job.id, reason);
       } else {
         this.log.verbose(`Dropping proving job id=${job.id} type=${type}: agent stopped: ${(err as any).stack || err}`);
       }
     }
   }
 
-  private getProof(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
+  private getProof<TRequest extends ProvingRequest>(
+    request: TRequest,
+  ): Promise<ProvingRequestResultFor<TRequest['type']>['result']>;
+  private getProof(request: ProvingRequest): Promise<ProvingRequestResultFor<typeof type>['result']> {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
