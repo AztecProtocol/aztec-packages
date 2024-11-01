@@ -3,7 +3,7 @@ import {
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
-  type ProvingRequestResult,
+  type ProvingRequestResultFor,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -42,7 +42,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { ProvingQueueMetrics } from './queue_metrics.js';
 
 type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = ProvingJob<T> &
-  PromiseWithResolvers<ProvingRequestResult<T['type']>> & {
+  PromiseWithResolvers<ProvingRequestResultFor<T['type']>> & {
     signal?: AbortSignal;
     epochNumber?: number;
     attempts: number;
@@ -131,7 +131,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     }
   }
 
-  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResult<T>): Promise<void> {
+  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResultFor<T>): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running.');
     }
@@ -228,12 +228,12 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     request: T,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProvingRequestResult<T['type']>> {
+  ): Promise<ProvingRequestResultFor<T['type']>['result']> {
     if (!this.runningPromise.isRunning()) {
       return Promise.reject(new Error('Proving queue is not running.'));
     }
 
-    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResult<T['type']>>();
+    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResultFor<T['type']>>();
     const item: ProvingJobWithResolvers<T> = {
       id: this.generateId(),
       request,
@@ -261,7 +261,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     const byteSize = serializeToBuffer(item.request.inputs).length;
     this.metrics.recordNewJob(item.request.type, byteSize);
 
-    return promise;
+    return promise.then(({ result }) => result);
   }
 
   getEmptyPrivateKernelProof(

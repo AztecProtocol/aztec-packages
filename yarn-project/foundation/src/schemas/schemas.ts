@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { EthAddress } from '../eth-address/index.js';
 import { Signature } from '../eth-signature/eth_signature.js';
-import { hasHexPrefix } from '../string/index.js';
+import { hasHexPrefix, isHex, withoutHexPrefix } from '../string/index.js';
 
 /**
  * Validation schemas for common types. Every schema should match its type toJSON.
@@ -45,4 +45,7 @@ export const schemas = {
       })
       .transform(({ data }) => Buffer.from(data)),
   ]),
+
+  /** Hex string with an optional 0x prefix, which gets removed as part of the parsing */
+  Hex: z.string().refine(isHex, 'Not a valid hex string').transform(withoutHexPrefix),
 };

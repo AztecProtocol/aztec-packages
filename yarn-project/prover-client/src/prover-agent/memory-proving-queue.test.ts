@@ -89,7 +89,10 @@ describe('MemoryProvingQueue', () => {
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
     const vk = VerificationKeyAsFields.makeFakeHonk();
     const vkPath = makeTuple(VK_TREE_HEIGHT, Fr.zero);
-    await queue.resolveProvingJob(job!.id, new RootParityInput(proof, vk, vkPath, publicInputs));
+    await queue.resolveProvingJob(job!.id, {
+      type: ProvingRequestType.BASE_PARITY,
+      result: new RootParityInput(proof, vk, vkPath, publicInputs),
+    });
     await expect(promise).resolves.toEqual(new RootParityInput(proof, vk, vkPath, publicInputs));
   });
 
@@ -149,7 +152,7 @@ describe('MemoryProvingQueue', () => {
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
       makeParityPublicInputs(),
     );
-    await queue.resolveProvingJob(job!.id, output);
+    await queue.resolveProvingJob(job!.id, { type: ProvingRequestType.BASE_PARITY, result: output });
     await expect(promise).resolves.toEqual(output);
   });
 });
