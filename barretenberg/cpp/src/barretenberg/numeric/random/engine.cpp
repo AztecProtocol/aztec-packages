@@ -65,7 +65,7 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
     }
 
     memcpy(&random_data, random_buffer_wrapper.buffer + random_buffer_wrapper.offset, random_data_buffer_size);
-    random_buffer_wrapper.offset += random_data_buffer_size;
+    random_buffer_wrapper.offset += static_cast<ssize_t>(random_data_buffer_size);
     return random_data;
 }
 } // namespace
