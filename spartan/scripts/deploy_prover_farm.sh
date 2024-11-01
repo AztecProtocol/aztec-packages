@@ -13,7 +13,7 @@ if [ "$PROD" = "true" ] ; then
 fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-JOB_SOURCE_URL=http://spartan-aztec-network-prover-node.spartan.svc.cluster.local:8080
+JOB_SOURCE_URL="http://81.97.37.135:40500"
 
 if [ -z "$TAG" ]; then
   echo "Usage: $0 <docker image tag> <values> (optional: <namespace>)"

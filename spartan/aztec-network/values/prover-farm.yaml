@@ -29,7 +29,11 @@ proverAgent:
   realProofs: false
   jobSourceUrl: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
   bb:
-    hardwareConcurrency: 16
+    hardwareConcurrency: 32
+  resources:
+    requests:
+      memory: "128Gi"
+      cpu: "32"
 
 pxe:
   external: true
