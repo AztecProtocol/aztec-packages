@@ -4,9 +4,9 @@ import { startHttpRpcServer } from '../server/json_rpc_server.js';
 import {
   type SafeJsonRpcServer,
   createNamespacedSafeJsonRpcServer,
-  createSafeJsonRpcServer,
   makeHandler,
 } from '../server/safe_json_rpc_server.js';
+import { createJsonRpcTestSetup } from './integration.js';
 
 describe('JsonRpc integration', () => {
   let testState: TestState;
@@ -28,9 +28,7 @@ describe('JsonRpc integration', () => {
     let client: TestStateApi;
 
     beforeEach(async () => {
-      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
-      httpServer = await startHttpRpcServer(server, { host: '127.0.0.1' });
-      client = createSafeJsonRpcClient<TestStateApi>(`http://127.0.0.1:${httpServer.port}`, TestStateSchema);
+      ({ server, httpServer, client } = await createJsonRpcTestSetup(testState, TestStateSchema));
     });
 
     it('calls an RPC function with a primitive parameter', async () => {

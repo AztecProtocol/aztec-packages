@@ -230,6 +230,10 @@ export class VerificationKeyData {
     return this.keyAsFields.isRecursive;
   }
 
+  static empty() {
+    return new VerificationKeyData(VerificationKeyAsFields.makeEmpty(0), Buffer.alloc(0));
+  }
+
   static makeFakeHonk(): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }

@@ -12,6 +12,7 @@ export * from './processed-tx-handler.js';
 export * from './prover-client.js';
 export * from './prover-coordination.js';
 export * from './proving-job.js';
+export * from './proving-job-source.js';
 export * from './server_circuit_prover.js';
 export * from './sync-status.js';
 export * from './world_state.js';

@@ -4,7 +4,7 @@ import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from
 
 import { type EpochProver } from './epoch-prover.js';
 import { type MerkleTreeReadOperations } from './merkle_tree_operations.js';
-import { type ProvingJobSource } from './proving-job.js';
+import { type ProvingJobSource } from './proving-job-source.js';
 
 /**
  * The prover configuration.
