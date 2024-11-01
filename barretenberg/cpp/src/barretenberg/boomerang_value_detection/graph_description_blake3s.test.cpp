@@ -21,7 +21,7 @@ using UltraBuilder = UltraCircuitBuilder;
  * All graphs must have one connected component
  */
 
-TEST(stdlib_blake3s, test_single_block_plookup)
+TEST(boomerang_stdlib_blake3s, test_single_block_plookup)
 {
     auto builder = UltraBuilder();
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
@@ -39,7 +39,7 @@ TEST(stdlib_blake3s, test_single_block_plookup)
     EXPECT_EQ(connected_components.size(), 1);
 }
 
-TEST(stdlib_blake3s, test_double_block_plookup)
+TEST(boomerang_stdlib_blake3s, test_double_block_plookup)
 {
     auto builder = UltraBuilder();
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";

@@ -25,7 +25,7 @@ using field_ct = field_t<Builder>;
  all these tests check graph description for sha256 circuits. All circuits have to consist from 1 connected component
  */
 
-TEST(stdlib_sha256, test_graph_for_sha256_55_bytes)
+TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
 {
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
@@ -43,7 +43,7 @@ TEST(stdlib_sha256, test_graph_for_sha256_55_bytes)
     EXPECT_EQ(connected_components.size(), 1);
 }
 
-HEAVY_TEST(stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
+HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
 {
     typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
     typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;

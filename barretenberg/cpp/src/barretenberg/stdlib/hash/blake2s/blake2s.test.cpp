@@ -87,4 +87,7 @@ TEST(stdlib_blake2s, test_double_block_plookup)
     EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
 
     info("builder gates = ", builder.get_num_gates());
+
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
 }

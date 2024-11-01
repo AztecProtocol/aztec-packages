@@ -24,7 +24,7 @@ using public_witness_t = public_witness_t<Builder>;
  * all graphs must have one connected component.
  */
 
-TEST(stdlib_blake2s, test_graph_for_blake2s_single_block_plookup)
+TEST(boomerang_stdlib_blake2s, test_graph_for_blake2s_single_block_plookup)
 {
     Builder builder;
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
@@ -36,10 +36,9 @@ TEST(stdlib_blake2s, test_graph_for_blake2s_single_block_plookup)
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    graph.print_connected_components();
 }
 
-TEST(stdlib_blake2s, test_graph_for_blake2s_double_block_plookup)
+TEST(boomerang_stdlib_blake2s, test_graph_for_blake2s_double_block_plookup)
 {
     Builder builder;
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
@@ -51,8 +50,6 @@ TEST(stdlib_blake2s, test_graph_for_blake2s_double_block_plookup)
     auto expected = crypto::blake2s(input_v);
 
     EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
-
-    info("builder gates = ", builder.get_num_gates());
 
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();

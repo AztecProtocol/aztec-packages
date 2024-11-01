@@ -12,15 +12,15 @@ using namespace bb;
  */
 
 template <typename FF>
-void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circuit_builder,
-                                        std::vector<uint32_t>& gate_variables)
+inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circuit_builder,
+                                               std::vector<uint32_t>& gate_variables)
 {
     auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
     gate_variables.erase(unique_variables, gate_variables.end());
     if (gate_variables.empty()) {
     } else {
         for (size_t i = 0; i < gate_variables.size(); i++) {
-            gate_variables[i] = to_real(ultra_circuit_builder, gate_variables[i]);
+            gate_variables[i] = this->to_real(ultra_circuit_builder, gate_variables[i]);
         }
         for (const auto& variable_index : gate_variables) {
             variables_gate_counts[variable_index] += 1;
@@ -80,11 +80,11 @@ inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component
                 }
             }
             if (arithmetic_block.q_arith()[index] == 3) {
-                info("TODO");
+                // TODO(daniel): want to process this case later
             }
         }
     }
-    process_gate_variables(ultra_circuit_builder, gate_variables);
+    this->process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
@@ -125,7 +125,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
             }
         }
     }
-    process_gate_variables(ultra_circuit_builder, gate_variables);
+    this->process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
@@ -151,9 +151,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component
         auto fourth_idx = delta_range_block.w_4()[index];
         gate_variables.insert(gate_variables.end(), { left_idx, right_idx, out_idx, fourth_idx });
     }
-    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
-    gate_variables.erase(unique_variables, gate_variables.end());
-    process_gate_variables(ultra_circuit_builder, gate_variables);
+    this->process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
@@ -194,13 +192,12 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
             }
         }
     }
-    process_gate_variables(ultra_circuit_builder, gate_variables);
+    this->process_gate_variables(ultra_circuit_builder, gate_variables);
     return gate_variables;
 }
 
 /**
- * @brief Construct a new Graph from Ultra_Circuit_Builder
- *
+ * @brief Construct a new Graph from Ultra Circuit Builder
  * @tparam FF
  * @param ultra_circuit_constructor
  */
@@ -224,8 +221,8 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     bool arithmetic_gates_exists = arithmetic_gates_numbers > 0;
     if (arithmetic_gates_exists) {
         for (size_t i = 0; i < arithmetic_gates_numbers; i++) {
-            auto gate_variables = get_arithmetic_gate_connected_component(ultra_circuit_constructor, i);
-            connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
+            auto gate_variables = this->get_arithmetic_gate_connected_component(ultra_circuit_constructor, i);
+            this->connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
         }
     }
     const auto& elliptic_block = ultra_circuit_constructor.blocks.elliptic;
@@ -233,8 +230,9 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     bool elliptic_gates_exist = elliptic_gates_numbers > 0;
     if (elliptic_gates_exist) {
         for (size_t i = 0; i < elliptic_gates_numbers; i++) {
-            std::vector<uint32_t> gate_variables = get_elliptic_gate_connected_component(ultra_circuit_constructor, i);
-            connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
+            std::vector<uint32_t> gate_variables =
+                this->get_elliptic_gate_connected_component(ultra_circuit_constructor, i);
+            this->connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
         }
     }
     const auto& range_block = ultra_circuit_constructor.blocks.delta_range;
@@ -243,11 +241,11 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     if (range_gates_exists) {
         std::vector<uint32_t> sorted_variables;
         for (size_t i = 0; i < range_gates; i++) {
-            auto current_gate = get_sort_constraint_connected_component(ultra_circuit_constructor, i);
+            auto current_gate = this->get_sort_constraint_connected_component(ultra_circuit_constructor, i);
             if (!current_gate.empty()) {
                 sorted_variables.insert(sorted_variables.end(), current_gate.begin(), current_gate.end());
             } else {
-                connect_all_variables_in_vector(ultra_circuit_constructor, sorted_variables, true);
+                this->connect_all_variables_in_vector(ultra_circuit_constructor, sorted_variables, true);
                 sorted_variables.clear();
             }
         }
@@ -258,15 +256,15 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     bool lookup_gates_exists = lookup_gates > 0;
     if (lookup_gates_exists) {
         for (size_t i = 0; i < lookup_gates; i++) {
-            std::vector<uint32_t> variable_indices = get_plookup_gate_connected_component(ultra_circuit_constructor, i);
-            connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices, false);
+            std::vector<uint32_t> variable_indices =
+                this->get_plookup_gate_connected_component(ultra_circuit_constructor, i);
+            this->connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices, false);
         }
     }
 }
 
 /**
  * @brief this method checks whether the variable with given index is not constant
- *
  * @tparam FF
  * @param ultra_circuit_builder
  * @param variable_index
@@ -303,7 +301,8 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
                                                  const std::vector<uint32_t>& variables_vector,
                                                  bool is_sorted_variables)
 {
-    if (!variables_vector.empty()) {
+    if (variables_vector.empty()) {
+    } else {
         if (is_sorted_variables) {
             for (size_t i = 0; i < variables_vector.size() - 1; i++) {
                 if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
@@ -311,11 +310,11 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
                     variables_vector[i] != variables_vector[i + 1]) {
                     {
                         bool first_variable_is_not_constant =
-                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
+                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
                         bool second_variable_is_not_constant =
-                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i + 1]);
+                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i + 1]);
                         if (first_variable_is_not_constant && second_variable_is_not_constant) {
-                            add_new_edge(variables_vector[i], variables_vector[i + 1]);
+                            this->add_new_edge(variables_vector[i], variables_vector[i + 1]);
                         }
                     }
                 }
@@ -328,11 +327,11 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
                         variables_vector[i] != variables_vector[j]) {
 
                         bool first_variable_is_not_constant =
-                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
+                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
                         bool second_variable_is_not_constant =
-                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[j]);
+                            this->check_is_not_constant_variable(ultra_circuit_builder, variables_vector[j]);
                         if (first_variable_is_not_constant && second_variable_is_not_constant) {
-                            add_new_edge(variables_vector[i], variables_vector[j]);
+                            this->add_new_edge(variables_vector[i], variables_vector[j]);
                         }
                     }
                 }
@@ -358,7 +357,7 @@ void Graph_<FF>::add_new_edge(const uint32_t& first_variable_index, const uint32
 }
 
 /**
- * @brief this method implements algorithm depth first search for undirected graph
+ * @brief this method implements depth-first search algorithm for undirected graphs
  * @tparam FF
  * @param variable_index
  * @param is_used
@@ -399,7 +398,7 @@ template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_conne
         if (pair.first != 0 && variables_degree[pair.first] > 0) {
             if (!is_used.contains(pair.first)) {
                 std::vector<uint32_t> connected_component;
-                depth_first_search(pair.first, is_used, connected_component);
+                this->depth_first_search(pair.first, is_used, connected_component);
                 std::sort(connected_component.begin(), connected_component.end());
                 connected_components.emplace_back(connected_component);
             }
@@ -410,7 +409,12 @@ template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_conne
 
 /**
  * @brief this method removes variables that were created in a function decompose_into_default_range
- * because they are false cases and don't give any useful information about security
+ * because they are false cases and don't give any useful information about security of the circuit.
+ * decompose_into_default_range function creates addition gates with shifts for intermediate variables,
+ * i.e. variables from left, right and output wires. They have variable gates count = 1 or 2, but they are not
+ * dangerous. so, we have to remove these variables from the analyzer. The situation is dangerous, if first variable
+ * from accumulators have variables gate count = 1. It means that it was used only in decompose gate, and it's not
+ * properly constrained.
  * @tparam FF
  * @param ultra_circuit_constructor
  * @param variables_in_one_gate
@@ -431,18 +435,18 @@ inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilde
         // we have to remove left, right and output wires of the current gate, cause they'are new_limbs, and they are
         // useless for the analyzer
         auto fourth_idx = arithmetic_block.w_4()[current_index];
-        accumulators_indices.emplace_back(to_real(ultra_circuit_constructor, fourth_idx));
+        accumulators_indices.emplace_back(this->to_real(ultra_circuit_constructor, fourth_idx));
         auto left_idx = arithmetic_block.w_l()[current_index];
         if (left_idx != zero_idx) {
-            variables_in_one_gate.erase(to_real(ultra_circuit_constructor, left_idx));
+            variables_in_one_gate.erase(this->to_real(ultra_circuit_constructor, left_idx));
         }
         auto right_idx = arithmetic_block.w_r()[current_index];
         if (right_idx != zero_idx) {
-            variables_in_one_gate.erase(to_real(ultra_circuit_constructor, right_idx));
+            variables_in_one_gate.erase(this->to_real(ultra_circuit_constructor, right_idx));
         }
         auto out_idx = arithmetic_block.w_o()[current_index];
         if (out_idx != zero_idx) {
-            variables_in_one_gate.erase(to_real(ultra_circuit_constructor, out_idx));
+            variables_in_one_gate.erase(this->to_real(ultra_circuit_constructor, out_idx));
         }
         auto q_arith = arithmetic_block.q_arith()[current_index];
         if (q_arith == 1 || current_index == arithmetic_block.size() - 1) {
@@ -482,7 +486,7 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
 {
     auto is_power_two = [&](const uint256_t& number) { return number > 0 && ((number & (number - 1)) == 0); };
     auto find_position = [&](uint32_t variable_index) {
-        return decompose_variables.contains(to_real(ultra_circuit_builder, variable_index));
+        return decompose_variables.contains(this->to_real(ultra_circuit_builder, variable_index));
     };
     auto& arithmetic_block = ultra_circuit_builder.blocks.arithmetic;
     if (arithmetic_block.size() > 0) {
@@ -511,7 +515,7 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
                 if (((find_left && find_right && find_out) || (find_left && find_right && !find_out) ||
                      (find_left && find_right && !find_out) || (find_left && !find_right && !find_out)) &&
                     !find_fourth) {
-                    i = process_current_decompose_chain(ultra_circuit_builder, variables_in_one_gate, i);
+                    i = this->process_current_decompose_chain(ultra_circuit_builder, variables_in_one_gate, i);
                 }
             }
         }
@@ -543,8 +547,8 @@ inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_
                                                          BasicTableId::AES_SPARSE_NORMALIZE };
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     if (aes_plookup_tables.contains(table_id)) {
-        uint32_t real_out_idx = to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
-        uint32_t real_right_idx = to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
+        uint32_t real_out_idx = this->to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
+        uint32_t real_right_idx = this->to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
         if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
             bool find_out = find_position(real_out_idx);
             auto q_c = lookup_block.q_c()[gate_index];
@@ -558,7 +562,10 @@ inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_
 }
 
 /**
- * @brief this method removes false cases in sha256 lookup tables
+ * @brief this method removes false cases in sha256 lookup tables.
+ * tables which are enumerated in the unordered set sha256_plookup_tables
+ * are used in read_from_1_to_2_table function which return C2[0], so C3[0]
+ * isn't used anymore, but this situation isn't dangerous. So, we have to remove these variables.
  * @tparam FF
  * @param variables_in_one_gate
  * @param ultra_circuit_builder
@@ -590,8 +597,8 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
                                                             BasicTableId::SHA256_BASE28_ROTATE3,
                                                             BasicTableId::SHA256_BASE28_ROTATE6 };
     if (sha256_plookup_tables.contains(table_id)) {
-        uint32_t real_right_idx = to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
-        uint32_t real_out_idx = to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
+        uint32_t real_right_idx = this->to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
+        uint32_t real_out_idx = this->to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
         if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
             // auto q_m = lookup_block.q_m()[gate_index];
             auto q_c = lookup_block.q_c()[gate_index];
@@ -637,28 +644,30 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
             std::set<bb::fr> column_3(table.column_3.begin(), table.column_3.end());
             bb::plookup::BasicTableId table_id = table.id;
             // false cases for AES
-            remove_unnecessary_aes_plookup_variables(
+            this->remove_unnecessary_aes_plookup_variables(
                 variables_in_one_gate, ultra_circuit_builder, table_id, gate_index);
             // false cases for sha256
-            remove_unnecessary_sha256_plookup_variables(
+            this->remove_unnecessary_sha256_plookup_variables(
                 variables_in_one_gate, ultra_circuit_builder, table_id, gate_index);
+            // if the amount of unique elements from columns of plookup tables = 1, it means that
+            // variable from this column aren't used and we can remove it.
             if (column_1.size() == 1) {
                 uint32_t left_idx = lookup_block.w_l()[gate_index];
-                uint32_t real_left_idx = to_real(ultra_circuit_builder, left_idx);
+                uint32_t real_left_idx = this->to_real(ultra_circuit_builder, left_idx);
                 bool find_left = find_position(real_left_idx);
                 if (find_left) {
                     variables_in_one_gate.erase(real_left_idx);
                 }
             }
             if (column_2.size() == 1) {
-                uint32_t real_right_idx = to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
+                uint32_t real_right_idx = this->to_real(ultra_circuit_builder, lookup_block.w_r()[gate_index]);
                 bool find_right = find_position(real_right_idx);
                 if (find_right) {
                     variables_in_one_gate.erase(real_right_idx);
                 }
             }
             if (column_3.size() == 1) {
-                uint32_t real_out_idx = to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
+                uint32_t real_out_idx = this->to_real(ultra_circuit_builder, lookup_block.w_o()[gate_index]);
                 bool find_out = find_position(real_out_idx);
                 if (find_out) {
                     variables_in_one_gate.erase(real_out_idx);
@@ -682,7 +691,7 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     if (lookup_block.size() > 0) {
         for (size_t i = 0; i < lookup_block.size(); i++) {
-            process_current_plookup_gate(ultra_circuit_builder, variables_in_one_gate, i);
+            this->process_current_plookup_gate(ultra_circuit_builder, variables_in_one_gate, i);
         }
     }
 }
@@ -699,7 +708,7 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
 {
     std::unordered_set<uint32_t> variables_in_one_gate;
     for (const auto& pair : variables_gate_counts) {
-        bool is_not_constant_variable = check_is_not_constant_variable(ultra_circuit_builder, pair.first);
+        bool is_not_constant_variable = this->check_is_not_constant_variable(ultra_circuit_builder, pair.first);
         if (pair.second == 1 && pair.first != 0 && is_not_constant_variable) {
             variables_in_one_gate.insert(pair.first);
         }
@@ -708,15 +717,15 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     std::unordered_set<uint32_t> decompose_varialbes;
     for (auto& pair : range_lists) {
         for (auto& elem : pair.second.variable_indices) {
-            bool is_not_constant_variable = check_is_not_constant_variable(ultra_circuit_builder, elem);
+            bool is_not_constant_variable = this->check_is_not_constant_variable(ultra_circuit_builder, elem);
             if (variables_gate_counts[ultra_circuit_builder.real_variable_index[elem]] == 1 &&
                 is_not_constant_variable) {
                 decompose_varialbes.insert(ultra_circuit_builder.real_variable_index[elem]);
             }
         }
     }
-    remove_unnecessary_decompose_variables(ultra_circuit_builder, variables_in_one_gate, decompose_varialbes);
-    remove_unnecessary_plookup_variables(ultra_circuit_builder, variables_in_one_gate);
+    this->remove_unnecessary_decompose_variables(ultra_circuit_builder, variables_in_one_gate, decompose_varialbes);
+    this->remove_unnecessary_plookup_variables(ultra_circuit_builder, variables_in_one_gate);
     return variables_in_one_gate;
 }
 
@@ -779,7 +788,9 @@ template <typename FF> void Graph_<FF>::print_connected_components()
 }
 
 /**
- * @brief this method prints a number of gate for each variable
+ * @brief this method prints a number of gates for each variable.
+ * while processing the arithmetic circuit, we count for each variable the number of gates it has participated in.
+ * sometimes for debugging purposes it is useful to see how many gates each variable has participated in.
  * @tparam FF
  */
 
@@ -791,7 +802,10 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
 }
 
 /**
- * @brief this method prints a number of edges for each variable
+ * @brief this method prints a number of edges for each variable.
+ * while processing the arithmetic circuit, we conut for each variable the number of edges, i.e. connections with other
+ * variables though the gates. perhaps in the future counting the number of edges for each vertex can be useful for
+ * analysis, and this function will be used for debugging.
  * @tparam FF
  */
 

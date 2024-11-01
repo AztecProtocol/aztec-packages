@@ -111,9 +111,9 @@ template <typename FF> class Graph_ {
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
                                   // connections between each other
     std::unordered_map<uint32_t, size_t>
-        variables_gate_counts; // we use this data structure to count, how many gates used every variable
+        variables_gate_counts; // we use this data structure to count, how many gates use every variable
     std::unordered_map<uint32_t, size_t>
-        variables_degree; // we use this data structure to count, how many edges have every variable
+        variables_degree; // we use this data structure to count, how many every variable have edges
 };
 
 using Graph = Graph_<bb::fr>;
