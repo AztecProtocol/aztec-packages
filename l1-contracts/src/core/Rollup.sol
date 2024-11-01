@@ -127,7 +127,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
   function prune() external override(IRollup) {
-    require(canPruneAt(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
+    require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
   }
 
@@ -339,7 +339,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slot = getSlotAt(_ts);
 
     // Consider if a prune will hit in this slot
-    uint256 pendingBlockNumber = canPruneAt(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+    uint256 pendingBlockNumber = canPrune() ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
     Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
@@ -454,7 +454,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) public override(IRollup) {
-    if (canPruneAt(Timestamp.wrap(block.timestamp))) {
+    if (canPrune()) {
       _prune();
     }
     bytes32 txsEffectsHash = TxsDecoder.decode(_body);
@@ -774,7 +774,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return bytes32(0);
   }
 
-  function canPruneAt(Timestamp _ts) public view override(IRollup) returns (bool) {
+  function canPrune() public view override(IRollup) returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
@@ -782,7 +782,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       return false;
     }
 
-    Slot currentSlot = getSlotAt(_ts);
+    Slot currentSlot = getCurrentSlot();
     Epoch oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
     Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
 
@@ -836,8 +836,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _txEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    uint256 pendingBlockNumber =
-      canPruneAt(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+    uint256 pendingBlockNumber = canPrune() ? tips.provenBlockNumber : tips.pendingBlockNumber;
     _validateHeaderForSubmissionBase(
       _header, _currentTime, _txEffectsHash, pendingBlockNumber, _flags
     );
