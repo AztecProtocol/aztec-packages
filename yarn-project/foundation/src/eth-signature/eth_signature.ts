@@ -46,7 +46,7 @@ export class Signature {
   }
 
   static isValid0xString(sig: `0x${string}`): boolean {
-    return /^0x[0-9a-f]{130,}$/i.test(sig);
+    return /^0x[0-9a-f]{129,}$/i.test(sig);
   }
 
   /**
