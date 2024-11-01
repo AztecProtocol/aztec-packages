@@ -3,8 +3,8 @@ set -eu
 
 VFLAG=${VERBOSE:+-v}
 FLAGS="-c $CRS_PATH $VFLAG"
-if [ "${RECURSIVE:-false}" = "true" ]; then
-    FLAGS+=" --recursive"
+if [ "${RECURSIVE}" = "true" ]; then
+    FLAGS="$FLAGS --recursive"
 fi
 
 # This is the fastest flow, because it only generates pk/vk once, gate count once, etc.

@@ -4,8 +4,8 @@ set -eu
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
-if [ "${RECURSIVE:-false}" = "true" ]; then
-    FLAGS+=" --recursive"
+if [ "${RECURSIVE}" = "true" ]; then
+    FLAGS="$FLAGS --recursive"
 fi
 
 # Test we can perform the proof/verify flow.

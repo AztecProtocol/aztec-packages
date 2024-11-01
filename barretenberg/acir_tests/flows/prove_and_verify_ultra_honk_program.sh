@@ -3,8 +3,8 @@ set -eu
 
 VFLAG=${VERBOSE:+-v}
 FLAGS="-c $CRS_PATH $VFLAG"
-if [ "${RECURSIVE:-false}" = "true" ]; then
-    FLAGS+=" --recursive"
+if [ "${RECURSIVE}" = "true" ]; then
+    FLAGS="$FLAGS --recursive"
 fi
 
 $BIN prove_and_verify_ultra_honk_program $FLAGS -b ./target/program.json
