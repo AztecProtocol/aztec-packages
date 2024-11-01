@@ -68,4 +68,6 @@ spec:
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
 {{- end }}

@@ -92,7 +92,8 @@
     "viem": "^2.7.15",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
-    "winston": "^3.10.0"
+    "winston": "^3.10.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "0x": "^5.7.0",

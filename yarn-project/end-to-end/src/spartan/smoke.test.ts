@@ -5,16 +5,28 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
-const { PXE_URL } = process.env;
-if (!PXE_URL) {
-  throw new Error('PXE_URL env variable must be set');
-}
+import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
+
+const config = getConfig(process.env);
+
 const debugLogger = createDebugLogger('aztec:spartan-test:smoke');
 // const userLog = createConsoleLogger();
 
 describe('smoke test', () => {
   let pxe: PXE;
   beforeAll(async () => {
+    let PXE_URL;
+    if (isK8sConfig(config)) {
+      await startPortForward({
+        resource: 'svc/spartan-aztec-network-pxe',
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_PXE_PORT,
+        hostPort: config.HOST_PXE_PORT,
+      });
+      PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+    } else {
+      PXE_URL = config.PXE_URL;
+    }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
   });
   it('should be able to get node enr', async () => {
