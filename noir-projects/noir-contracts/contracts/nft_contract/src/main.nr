@@ -178,7 +178,6 @@ contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> Field {
-        let to_keys = get_public_keys(to);
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
 
         // We create a setup payload with unpopulated/zero token id for 'to'
@@ -187,8 +186,10 @@ contract NFT {
         let note_randomness = unsafe { random() };
         let note_setup_payload = NFTNote::setup_payload().new(to, note_randomness, to_note_slot);
 
-        // We encrypt the note log
-        let setup_log = note_setup_payload.encrypt_log(context, to_keys, to);
+        // We set the ovpk to the message sender's ovpk and we encrypt the log.
+        let from_ovpk = get_public_keys(context.msg_sender()).ovpk_m;
+        let setup_log =
+            note_setup_payload.encrypt_log(context, from_ovpk, to, context.msg_sender());
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
@@ -227,7 +228,7 @@ contract NFT {
     fn _store_payload_in_transient_storage_unsafe(
         slot: Field,
         point: Point,
-        setup_log: [Field; 16],
+        setup_log: [Field; 15],
     ) {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
@@ -256,7 +257,7 @@ contract NFT {
     fn _finalize_transfer_to_private(
         from: AztecAddress,
         token_id: Field,
-        note_transient_storage_slot: Field,
+        hiding_point_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
@@ -268,7 +269,7 @@ contract NFT {
 
         // Finalize the partial note with the `token_id`
         let finalization_payload =
-            NFTNote::finalization_payload().new(context, note_transient_storage_slot, token_id);
+            NFTNote::finalization_payload().new(context, hiding_point_slot, token_id);
 
         // At last we emit the note hash and the final log
         finalization_payload.emit();
@@ -307,6 +308,7 @@ contract NFT {
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
     }
 

@@ -1,5 +1,6 @@
 import { currentLevel, onLog, setLevel } from '@aztec/foundation/log';
 
+import { OpenTelemetryTransportV3 } from '@opentelemetry/winston-transport';
 import * as path from 'path';
 import * as process from 'process';
 import * as winston from 'winston';
@@ -30,36 +31,15 @@ function createWinstonLocalFileLogger() {
   });
 }
 
-function extractNegativePatterns(debugString: string): string[] {
-  return (
-    debugString
-      .split(',')
-      .filter(p => p.startsWith('-'))
-      // Remove the leading '-' from the pattern
-      .map(p => p.slice(1))
-      // Remove any '*' from the pattern
-      .map(p => p.replace('*', ''))
-  );
-}
-
 /** Creates a winston logger that logs everything to stdout in json format */
-function createWinstonJsonStdoutLogger(
-  debugString: string = process.env.DEBUG ??
-    'aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*',
-) {
-  const ignorePatterns = extractNegativePatterns(debugString);
-  const ignoreAztecPattern = format(info => {
-    if (ignorePatterns.some(pattern => info.module.startsWith(pattern))) {
-      return false; // Skip logging this message
-    }
-    return info;
-  });
+function createWinstonJsonStdoutLogger() {
   return winston.createLogger({
     level: currentLevel,
     transports: [
       new winston.transports.Console({
-        format: format.combine(format.timestamp(), ignoreAztecPattern(), format.json()),
+        format: format.combine(format.timestamp(), format.json()),
       }),
+      new OpenTelemetryTransportV3(),
     ],
   });
 }

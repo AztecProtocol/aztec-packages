@@ -9,7 +9,7 @@ export const startTXE = (options: any, debugLogger: DebugLogger) => {
   const txeServer = createTXERpcServer(debugLogger);
   const app = txeServer.getApp();
   // add status route
-  const statusRouter = createStatusRouter();
+  const statusRouter = createStatusRouter(() => txeServer.isHealthy());
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
   const httpServer = http.createServer(app.callback());

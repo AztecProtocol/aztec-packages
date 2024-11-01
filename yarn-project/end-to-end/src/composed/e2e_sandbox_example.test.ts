@@ -1,20 +1,11 @@
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  ExtendedNote,
-  Fr,
-  GrumpkinScalar,
-  Note,
-  type PXE,
-  computeSecretHash,
-  createDebugLogger,
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { Fr, GrumpkinScalar, type PXE, createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
 import { format } from 'util';
+
+import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
@@ -58,44 +49,12 @@ describe('e2e_sandbox_example', () => {
     ////////////// DEPLOY OUR TOKEN CONTRACT //////////////
 
     const initialSupply = 1_000_000n;
-    logger.info(`Deploying token contract...`);
 
-    // Deploy the contract and set Alice as the admin while doing so
-    const contract = await TokenContract.deploy(aliceWallet, alice, 'TokenName', 'TokenSymbol', 18).send().deployed();
-    logger.info(`Contract successfully deployed at address ${contract.address.toShortString()}`);
-
-    // Create the contract abstraction and link it to Alice's wallet for future signing
-    const tokenContractAlice = await TokenContract.at(contract.address, aliceWallet);
-
-    // Create a secret and a corresponding hash that will be used to mint funds privately
-    const aliceSecret = Fr.random();
-    const aliceSecretHash = computeSecretHash(aliceSecret);
-
-    logger.info(`Minting tokens to Alice...`);
-    // Mint the initial supply privately "to secret hash"
-    const receipt = await tokenContractAlice.methods.mint_private(initialSupply, aliceSecretHash).send().wait();
-
-    // Add the newly created "pending shield" note to PXE
-    const note = new Note([new Fr(initialSupply), aliceSecretHash]);
-    await aliceWallet.addNote(
-      new ExtendedNote(
-        note,
-        alice,
-        contract.address,
-        TokenContract.storage.pending_shields.slot,
-        TokenContract.notes.TransparentNote.id,
-        receipt.txHash,
-      ),
-    );
-
-    // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
-    // to a "token note")
-    await tokenContractAlice.methods.redeem_shield(alice, initialSupply, aliceSecret).send().wait();
-    logger.info(`${initialSupply} tokens were successfully minted and redeemed by Alice`);
+    const tokenContractAlice = await deployToken(aliceWallet, initialSupply, logger);
     // docs:end:Deployment
 
     // ensure that token contract is registered in PXE
-    expect(await pxe.getContracts()).toEqual(expect.arrayContaining([contract.address]));
+    expect(await pxe.getContracts()).toEqual(expect.arrayContaining([tokenContractAlice.address]));
 
     // docs:start:Balance
 
@@ -143,27 +102,8 @@ describe('e2e_sandbox_example', () => {
     // Alice is nice and she adds Bob as a minter
     await tokenContractAlice.methods.set_minter(bob, true).send().wait();
 
-    const bobSecret = Fr.random();
-    const bobSecretHash = computeSecretHash(bobSecret);
-    // Bob now has a secret 🥷
-
     const mintQuantity = 10_000n;
-    logger.info(`Minting ${mintQuantity} tokens to Bob...`);
-    const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, bobSecretHash).send().wait();
-
-    const bobPendingShield = new Note([new Fr(mintQuantity), bobSecretHash]);
-    await bobWallet.addNote(
-      new ExtendedNote(
-        bobPendingShield,
-        bob,
-        contract.address,
-        TokenContract.storage.pending_shields.slot,
-        TokenContract.notes.TransparentNote.id,
-        mintPrivateReceipt.txHash,
-      ),
-    );
-
-    await tokenContractBob.methods.redeem_shield(bob, mintQuantity, bobSecret).send().wait();
+    await mintTokensToPrivate(tokenContractBob, bobWallet, bob, mintQuantity);
 
     // Check the new balances
     aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();

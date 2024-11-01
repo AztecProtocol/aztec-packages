@@ -24,7 +24,7 @@ contract Counter {
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let counters = storage.counters;
-        counters.at(owner).add(headstart, owner, outgoing_viewer);
+        counters.at(owner).add(headstart, owner, outgoing_viewer, context.msg_sender());
     }
     // docs:end:constructor
 
@@ -38,7 +38,7 @@ contract Counter {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, outgoing_viewer);
+        counters.at(owner).add(1, owner, outgoing_viewer, context.msg_sender());
     }
     // docs:end:increment
     // docs:start:get_counter

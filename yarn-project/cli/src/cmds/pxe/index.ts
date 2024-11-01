@@ -13,7 +13,6 @@ import {
   parseOptionalInteger,
   parseOptionalLogId,
   parseOptionalTxHash,
-  parsePartialAddress,
   parsePublicKey,
   pxeOption,
 } from '../../utils/commands.js';
@@ -92,22 +91,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('register-recipient')
-    .description('Register a recipient in the PXE.')
-    .requiredOption('-a, --address <aztecAddress>', "The account's Aztec address.", parseAztecAddress)
-    .requiredOption('-p, --public-key <publicKey>', 'The account public key.', parsePublicKey)
-    .requiredOption(
-      '-pa, --partial-address <partialAddress>',
-      'The partially computed address of the account contract.',
-      parsePartialAddress,
-    )
-    .addOption(pxeOption)
-    .action(async ({ address, publicKey, partialAddress, rpcUrl }) => {
-      const { registerRecipient } = await import('./register_recipient.js');
-      await registerRecipient(address, publicKey, partialAddress, rpcUrl, debugLogger, log);
-    });
-
-  program
     .command('get-accounts')
     .description('Gets all the Aztec accounts stored in the PXE.')
     .addOption(pxeOption)
@@ -125,25 +108,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (address, options) => {
       const { getAccount } = await import('./get_account.js');
       await getAccount(address, options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-recipients')
-    .description('Gets all the recipients stored in the PXE.')
-    .addOption(pxeOption)
-    .action(async (options: any) => {
-      const { getRecipients } = await import('./get_recipients.js');
-      await getRecipients(options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-recipient')
-    .description('Gets a recipient given its Aztec address.')
-    .argument('<address>', 'The Aztec address to get recipient for', parseAztecAddress)
-    .addOption(pxeOption)
-    .action(async (address, options) => {
-      const { getRecipient } = await import('./get_recipient.js');
-      await getRecipient(address, options.rpcUrl, debugLogger, log);
     });
 
   program

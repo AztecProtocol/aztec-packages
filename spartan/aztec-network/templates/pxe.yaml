@@ -57,6 +57,8 @@ spec:
               value: "{{ .Values.pxe.logLevel }}"
             - name: DEBUG
               value: "{{ .Values.pxe.debug }}"
+            - name: PXE_PROVER_ENABLED
+              value: "{{ .Values.pxe.proverEnabled }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.port }}
@@ -68,10 +70,8 @@ spec:
                 - -c
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
-                  -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.port }} > /tmp/probe_output.txt && \
-                  cat /tmp/probe_output.txt && \
-                  grep -q '"enr:-' /tmp/probe_output.txt
+                  -d '{"jsonrpc":"2.0","method":"pxe_isGlobalStateSynchronized","params":[],"id":67}' \
+                  127.0.0.1:{{ .Values.pxe.service.port }} | grep -q '"result":true'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}
