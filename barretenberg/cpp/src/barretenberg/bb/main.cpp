@@ -1445,7 +1445,7 @@ int main(int argc, char* argv[])
         std::string vk_path = get_option(args, "-k", "./target/vk");
         std::string pk_path = get_option(args, "-r", "./target/pk");
         bool honk_recursion = flag_present(args, "-h");
-        bool recursive = flag_present(args, "--recursive");
+        bool recursive = flag_present(args, "--recursive"); // Not every flavor handles it.
         CRS_PATH = get_option(args, "-c", CRS_PATH);
 
         // Skip CRS initialization for any command which doesn't require the CRS.
