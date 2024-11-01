@@ -124,10 +124,17 @@ struct ExecutionTraceUsageTracker {
 
         std::vector<Range> simplified_active_ranges = construct_union_of_ranges(active_ranges_copy);
 
-        thread_ranges = construct_thread_ranges_internal(simplified_active_ranges, num_threads);
-        // print_thread_ranges();
+        thread_ranges = construct_ranges_for_equal_content_distribution(simplified_active_ranges, num_threads);
     }
 
+    /**
+     * @brief Construct sorted disjoint ranges representing the union of an arbitrary set of ranges
+     * @details Used to convert the more complex set of active ranges for the gate types into a set of well formed
+     * ranges that can be used to determine efficient distribution of execution trace rows across threads.
+     *
+     * @param ranges Arbitrary set of input ranges (in practice, active ranges of gate types)
+     * @return std::vector<Range>
+     */
     static std::vector<Range> construct_union_of_ranges(std::vector<Range> ranges)
     {
         std::vector<Range> union_ranges;
@@ -151,8 +158,18 @@ struct ExecutionTraceUsageTracker {
         return union_ranges;
     }
 
-    static std::vector<Range> construct_thread_ranges_internal(const std::vector<Range>& union_ranges,
-                                                               size_t num_threads)
+    /**
+     * @brief Given a set of ranges indicating "active" regions of an ambient space, define a given number of new ranges
+     * on the ambient space which evenly divide the content
+     * @details In practive this is used to determine even distribution of execution trace rows across threads according
+     * to ranges describing the active rows of an IVC accumulator
+     *
+     * @param union_ranges
+     * @param num_threads
+     * @return std::vector<Range>
+     */
+    static std::vector<Range> construct_ranges_for_equal_content_distribution(const std::vector<Range>& union_ranges,
+                                                                              size_t num_threads)
     {
         // Compute the minimum content per thread (final thread will get the leftovers = total_content % num_threads)
         size_t total_content = 0;

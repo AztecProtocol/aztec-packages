@@ -25,7 +25,7 @@ TEST_F(ExecutionTraceUsageTrackerTest, ConstructUnionRanges)
     EXPECT_EQ(union_ranges, expected_union_ranges);
 }
 
-// Test construction of ranges of indices per each thread that evenly distribute work according to the provided ranges
+// Test construction of ranges of indices for each thread that evenly distribute work according to the provided ranges
 TEST_F(ExecutionTraceUsageTrackerTest, ConstructThreadRanges)
 {
     using Range = ExecutionTraceUsageTracker::Range;
@@ -36,7 +36,7 @@ TEST_F(ExecutionTraceUsageTrackerTest, ConstructThreadRanges)
 
     const size_t num_threads = 4;
     std::vector<Range> thread_ranges =
-        ExecutionTraceUsageTracker::construct_thread_ranges_internal(union_ranges, num_threads);
+        ExecutionTraceUsageTracker::construct_ranges_for_equal_content_distribution(union_ranges, num_threads);
 
     EXPECT_EQ(thread_ranges, expected_thread_ranges);
 }

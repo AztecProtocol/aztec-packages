@@ -180,7 +180,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
             circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
     }
 
-    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
+    // Update the full IVC trace usage based on the present circuit
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
@@ -221,8 +221,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    trace_usage_tracker.print(); // print minimum structured sizes for each block
-    trace_usage_tracker.print_active_ranges();
+    trace_usage_tracker.print();                  // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;

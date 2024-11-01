@@ -125,34 +125,20 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             return tmp;
         }();
 
-        //
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a
-        // single thread. For now we use a power of 2 number of threads simply to ensure the round size is evenly
-        // divided.
-        const size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
-        const size_t min_iterations_per_thread =
-            1 << 6; // min number of iterations for which we'll spin up a unique thread
-        const size_t desired_num_threads = polynomial_size / min_iterations_per_thread;
-        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
-        // // DEBUG
-        // num_threads = 16;
-        num_threads = num_threads > 0 ? num_threads : 1; // ensure num threads is >= 1
-        // const size_t iterations_per_thread = polynomial_size / num_threads; // actual iterations per thread
-        //
+        // Determine the number of threads over which to distribute the work
+        const size_t num_threads = compute_num_threads(polynomial_size);
 
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
+        // Distrivute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
             const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-            // const size_t start = thread_idx * iterations_per_thread;
-            // const size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t idx = start; idx < end; idx++) {
+                // The contribution is only non-trivial at a given row if the accumulator is active at that row
                 if (trace_usage_tracker.check_is_active(idx)) {
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
@@ -353,28 +339,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const Parameters& relation_parameters,
         const UnivariateRelationSeparator& alphas,
         TupleOfTuples& univariate_accumulators,
-        [[maybe_unused]] ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
+        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
     {
         PROFILE_THIS();
 
         // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
         constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
+        // Determine the number of threads over which to distribute the work
         const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a
-        // single thread. For now we use a power of 2 number of threads simply to ensure the round size is evenly
-        // divided.
-        const size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
-        const size_t min_iterations_per_thread =
-            1 << 6; // min number of iterations for which we'll spin up a unique thread
-        const size_t desired_num_threads = common_polynomial_size / min_iterations_per_thread;
-        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
-        // // DEBUG
-        // num_threads = 16;
-        num_threads = num_threads > 0 ? num_threads : 1; // ensure num threads is >= 1
-        // const size_t iterations_per_thread = common_polynomial_size / num_threads; // actual iterations per thread
+        const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version
         // that doesn't skip computation), so we need to define types depending on the template instantiation
@@ -393,18 +367,15 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<ExtendedUnivatiatesType> extended_univariates;
         extended_univariates.resize(num_threads);
 
-        std::vector<size_t> work_iterations(num_threads);
-        trace_usage_tracker.construct_thread_ranges(num_threads);
-        // trace_usage_tracker.print_thread_ranges();
+        // std::vector<size_t> work_iterations(num_threads);
 
-        // WORKTODO: need to ensure correct behavior for non-structured case..
+        // Distrivute the execution trace rows across threads so that each handles an equal number of active rows
+        trace_usage_tracker.construct_thread_ranges(num_threads);
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
             const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-            // const size_t start = thread_idx * iterations_per_thread;
-            // const size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t idx = start; idx < end; idx++) {
                 if (trace_usage_tracker.check_is_active(idx)) {
@@ -423,7 +394,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                     extended_univariates[thread_idx],
                                                     relation_parameters, // these parameters have already been folded
                                                     pow_challenge);
-                    work_iterations[thread_idx] += 1;
+                    // work_iterations[thread_idx] += 1;
                 }
             }
         });
@@ -620,6 +591,25 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             alpha_idx++;
         }
         return result;
+    }
+
+    /**
+     * @brief Determine number of threads for multithreading of perterbator/combiner operations
+     * @details Potentially uses fewer threads than are available to avoid distributing very small amounts of work
+     *
+     * @param domain_size
+     * @return size_t
+     */
+    static size_t compute_num_threads(const size_t domain_size)
+    {
+        const size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
+        const size_t min_iterations_per_thread =
+            1 << 6; // min number of iterations for which we'll spin up a unique thread
+        const size_t desired_num_threads = domain_size / min_iterations_per_thread;
+        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
+        num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
+
+        return num_threads;
     }
 };
 } // namespace bb
