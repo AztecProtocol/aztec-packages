@@ -371,38 +371,7 @@ template <typename Curve_> class IPA {
 
         // Step 7.
         // Construct vector s
-        std::span<Fr> s_span(construct_poly_from_u_chals_inv(round_challenges_inv).coeffs());
-        std::vector<Fr> s_vec(poly_length, Fr::one());
-
-        std::vector<Fr> s_vec_temporaries(poly_length / 2);
-
-        Fr* previous_round_s = &s_vec_temporaries[0];
-        Fr* current_round_s = &s_vec[0];
-        // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_length & 1) == 0)
-        {
-            std::swap(previous_round_s, current_round_s);
-        }
-        previous_round_s[0] = Fr(1);
-        for (size_t i = 0; i < log_poly_length; ++i)
-        {
-            const size_t round_size = 1 << (i + 1);
-            const Fr round_challenge = round_challenges_inv[i];
-            parallel_for_heuristic(
-                round_size / 2,
-                [&](size_t j) {
-                    current_round_s[j * 2] = previous_round_s[j];
-                    current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
-                }, thread_heuristics::FF_MULTIPLICATION_COST * 2);
-            std::swap(current_round_s, previous_round_s);
-        }
-        // check the diff between s_vec and s_span
-        for(size_t i = 0; i < poly_length; i++) {
-            if(s_vec[i] != s_span[i]) {
-                info("failed at index: ", i);
-                throw_or_abort("s_vec != s_span");
-            }
-        }
+        Polynomial<Fr> s_poly(construct_poly_from_u_chals_inv(round_challenges_inv));
 
         std::span<const Commitment> srs_elements = vk->get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
@@ -423,7 +392,7 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-           {0, {&s_vec[0], /*size*/ poly_length}}, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
+           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
 
         // Step 9.
         // Receive a₀ from the prover
@@ -747,14 +716,17 @@ template <typename Curve_> class IPA {
         {
             const size_t round_size = 1 << (i + 1);
             const fq round_challenge = u_chals_inv[i];
+            info("round_challenge = ", round_challenge);
             parallel_for_heuristic(
                 round_size / 2,
                 [&](size_t j) {
                     current_round_s[j * 2] = previous_round_s[j];
                     current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
                 }, thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            info("current_round_s[1] = ", current_round_s[1]);
             std::swap(current_round_s, previous_round_s);
         }
+        info("s_vec[1] = ", s_vec[1]);
         return {s_vec, poly_length};
     }
 
