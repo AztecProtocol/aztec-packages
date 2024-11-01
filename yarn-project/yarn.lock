@@ -584,6 +584,7 @@ __metadata:
     webpack: ^5.88.2
     webpack-cli: ^5.1.4
     winston: ^3.10.0
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 
@@ -1022,12 +1023,14 @@ __metadata:
     "@noir-lang/types": "workspace:*"
     "@types/jest": ^29.5.0
     "@types/lodash.omit": ^4.5.7
+    "@types/lodash.times": ^4.3.9
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
     koa: ^2.14.2
     koa-router: ^12.0.0
     lodash.omit: ^4.5.0
+    lodash.times: ^4.3.2
     sha3: ^2.1.4
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -4718,7 +4721,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash.times@npm:^4.3.7":
+"@types/lodash.times@npm:^4.3.7, @types/lodash.times@npm:^4.3.9":
   version: 4.3.9
   resolution: "@types/lodash.times@npm:4.3.9"
   dependencies:
@@ -16755,7 +16758,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.22.4":
+"zod@npm:^3.22.4, zod@npm:^3.23.8":
   version: 3.23.8
   resolution: "zod@npm:3.23.8"
   checksum: 15949ff82118f59c893dacd9d3c766d02b6fa2e71cf474d5aa888570c469dbf5446ac5ad562bb035bf7ac9650da94f290655c194f4a6de3e766f43febd432c5c

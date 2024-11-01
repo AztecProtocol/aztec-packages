@@ -78,11 +78,27 @@ spec:
             - "/bin/bash"
             - "-c"
             - "sleep 10 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer"
+          startupProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.validator.service.nodePort }}
+            failureThreshold: {{ .Values.validator.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.validator.startupProbe.periodSeconds }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - curl -fSs http://127.0.0.1:{{ .Values.validator.service.nodePort }}/status
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 3
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
           env:
-            - name: POD_NAME
+            - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
@@ -118,13 +134,13 @@ spec:
               {{- if .Values.validator.externalTcpHost }}
               value: "{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.p2pTcpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pTcpPort }}"
+              value: "$(POD_IP):{{ .Values.validator.service.p2pTcpPort }}"
               {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
               {{- if .Values.validator.externalUdpHost }}
               value: "{{ .Values.validator.externalUdpHost }}:{{ .Values.validator.service.p2pUdpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pUdpPort }}"
+              value: "$(POD_IP):{{ .Values.validator.service.p2pUdpPort }}"
               {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"

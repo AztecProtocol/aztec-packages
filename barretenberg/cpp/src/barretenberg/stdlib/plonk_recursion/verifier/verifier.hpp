@@ -345,7 +345,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
                 l1.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l1");
                 l2.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l2");
                 l3.create_range_constraint(fq_ct::NUM_LAST_LIMB_BITS, "l3");
-                return fq_ct(l0, l1, l2, l3, false);
+                return fq_ct::unsafe_construct_from_limbs(l0, l1, l2, l3, false);
             };
 
         fr_ct recursion_separator_challenge = transcript.get_challenge_field_element("separator", 2);

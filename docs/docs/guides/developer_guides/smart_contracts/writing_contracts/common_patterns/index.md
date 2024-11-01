@@ -93,7 +93,7 @@ When you send someone a note, the note hash gets added to the note hash tree. To
 1. When sending someone a note, use `encrypt_and_emit_note` (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
 2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public.
 
-#include_code pxe_add_note yarn-project/end-to-end/src/e2e_cheat_codes.test.ts typescript
+#include_code pxe_add_note yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
 
 In the token contract, TransparentNotes are stored in a set called "pending_shields" which is in storage slot 5tutorials/tutorials/codealong/contract_tutorials/token_contract.md#contract-storage)
 
@@ -131,7 +131,7 @@ To send a note to someone, they need to have a key which we can encrypt the note
 There are several patterns here:
 
 1. Give the contract a key and share it amongst all participants. This leaks privacy, as anyone can see all the notes in the contract.
-2. `Unshield` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../../../tutorials/examples/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
+2. `transfer_to_public` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../../../tutorials/examples/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
 
 There are several other designs we are discussing through [in this discourse post](https://discourse.aztec.network/t/how-to-handle-private-escrows-between-two-parties/2440) but they need some changes in the protocol or in our demo contract. If you are interested in this discussion, please participate in the discourse post!
 

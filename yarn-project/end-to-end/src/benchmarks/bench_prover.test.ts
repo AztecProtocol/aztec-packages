@@ -100,16 +100,15 @@ describe('benchmarks/proving', () => {
       logger: ctx.logger,
     });
 
-    const { secret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      1_000_000_000_000n,
+    const { claimSecret, messageLeafIndex } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
       1_000_000_000_000n,
       initialFpContract.address,
     );
 
     await Promise.all([
-      initialGasContract.methods.claim(initialFpContract.address, 1e12, secret).send().wait(),
+      initialGasContract.methods.claim(initialFpContract.address, 1e12, claimSecret, messageLeafIndex).send().wait(),
       initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
-      initialTokenContract.methods.privately_mint_private_note(1e12).send().wait(),
+      initialTokenContract.methods.mint_to_private(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
     ]);
 
     recipient = CompleteAddress.random();
@@ -153,8 +152,6 @@ describe('benchmarks/proving', () => {
       await pxe.registerContract(initialTokenContract);
       await pxe.registerContract(initialTestContract);
       await pxe.registerContract(initialFpContract);
-
-      await pxe.registerRecipient(recipient);
 
       provingPxes.push(pxe);
     }

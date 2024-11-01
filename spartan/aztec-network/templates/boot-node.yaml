@@ -69,12 +69,16 @@ spec:
               "-c",
               "sleep 30 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
+          startupProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.bootNode.service.nodePort }}
+            periodSeconds: {{ .Values.bootNode.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.bootNode.startupProbe.failureThreshold }}
           livenessProbe:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
+            httpGet:
+              path: /status
+              port: {{ .Values.bootNode.service.nodePort }}
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 30
@@ -89,7 +93,7 @@ spec:
               subPath: contracts.env
           {{- end }}
           env:
-            - name: POD_NAME
+            - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
@@ -127,13 +131,13 @@ spec:
               {{- if .Values.bootNode.externalTcpHost }}
               value: "{{ .Values.bootNode.externalTcpHost }}:{{ .Values.bootNode.service.p2pTcpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pTcpPort }}"
+              value: "$(POD_IP):{{ .Values.bootNode.service.p2pTcpPort }}"
               {{- end }}
             - name: P2P_UDP_ANNOUNCE_ADDR
               {{- if .Values.bootNode.externalUdpHost }}
               value: "{{ .Values.bootNode.externalUdpHost }}:{{ .Values.bootNode.service.p2pUdpPort }}"
               {{- else }}
-              value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pUdpPort }}"
+              value: "$(POD_IP):{{ .Values.bootNode.service.p2pUdpPort }}"
               {{- end }}
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.bootNode.service.p2pTcpPort }}"

@@ -48,13 +48,13 @@ contract FeeJuice {
     }
 
     #[private]
-    fn claim(to: AztecAddress, amount: Field, secret: Field) {
+    fn claim(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
         let portal_address = storage.portal_address.read_private();
         assert(!portal_address.is_zero());
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, portal_address);
+        context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
 
         // TODO(palla/gas) Emit an unencrypted log to announce which L1 to L2 message has been claimed
         // Otherwise, we cannot trace L1 deposits to their corresponding claims on L2

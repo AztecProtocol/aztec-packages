@@ -191,7 +191,12 @@ contract TokenBlacklist {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.add(to, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, msg_sender_ovpk_m, to),
+            encode_and_encrypt_note_unconstrained(
+                &mut context,
+                msg_sender_ovpk_m,
+                to,
+                context.msg_sender(),
+            ),
         );
     }
 
@@ -212,7 +217,7 @@ contract TokenBlacklist {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
@@ -241,11 +246,13 @@ contract TokenBlacklist {
             &mut context,
             from_ovpk_m,
             from,
+            from,
         ));
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
     }
 
@@ -264,7 +271,7 @@ contract TokenBlacklist {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);

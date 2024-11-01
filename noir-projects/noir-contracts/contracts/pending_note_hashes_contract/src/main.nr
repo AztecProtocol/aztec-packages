@@ -47,6 +47,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
@@ -96,6 +97,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
 
@@ -120,6 +122,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
 
@@ -136,10 +139,20 @@ contract PendingNoteHashes {
         // Insert note
         let emission = owner_balance.insert(&mut note);
 
-        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner));
+        emission.emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+            context.msg_sender(),
+        ));
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(&mut context, outgoing_viewer_ovpk_m, owner));
+        emission.emit(encode_and_encrypt_note(
+            &mut context,
+            outgoing_viewer_ovpk_m,
+            owner,
+            context.msg_sender(),
+        ));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -359,6 +372,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
@@ -372,6 +386,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
 
@@ -392,6 +407,7 @@ contract PendingNoteHashes {
                 context,
                 outgoing_viewer_ovpk_m,
                 owner,
+                context.msg_sender(),
             ));
         }
     }

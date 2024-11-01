@@ -1,5 +1,7 @@
 use crate::context::gas::GasOpts;
-use crate::hash::{compute_message_hash, compute_message_nullifier, compute_secret_hash};
+use crate::hash::{
+    compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash,
+};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::{MAX_FIELD_VALUE, PUBLIC_DISPATCH_SELECTOR};
@@ -42,7 +44,7 @@ impl PublicContext {
         leaf_index: Field,
     ) {
         let secret_hash = compute_secret_hash(secret);
-        let message_hash = compute_message_hash(
+        let message_hash = compute_l1_to_l2_message_hash(
             sender,
             self.chain_id(),
             /*recipient=*/
@@ -50,8 +52,9 @@ impl PublicContext {
             self.version(),
             content,
             secret_hash,
+            leaf_index,
         );
-        let nullifier = compute_message_nullifier(message_hash, secret, leaf_index);
+        let nullifier = compute_l1_to_l2_message_nullifier(message_hash, secret);
 
         assert(
             !self.nullifier_exists(nullifier, self.this_address()),

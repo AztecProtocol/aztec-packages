@@ -53,14 +53,14 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        values_file: ["default.yaml", "3-validators.yaml"]
+        test: ["transfer", "reorg"]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
-        timeout-minutes: 45
+        timeout-minutes: 90
         with:
           runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
           builder_type: builder-x86
@@ -69,12 +69,12 @@ jobs:
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
-          tester_ttl: 40
+          tester_ttl: 90
           run: |
             set -eux
             ./spartan/scripts/setup_local_k8s.sh
             export FORCE_COLOR=1
-            NAMESPACE=transfer FRESH_INSTALL=true VALUES_FILE=${{ matrix.values_file }} ./scripts/network_test.sh ./src/spartan/transfer.test.ts || true
+            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts || true
 
   success-check:
     runs-on: ubuntu-20.04

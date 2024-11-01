@@ -48,6 +48,7 @@ contract TestLog {
             // outgoing is set to other, incoming is set to msg sender
             other_ovpk_m,
             context.msg_sender(),
+            other,
         ));
 
         // We duplicate the emission, but specifying different incoming and outgoing parties
@@ -57,6 +58,7 @@ contract TestLog {
             // outgoing is set to msg sender, incoming is set to other
             msg_sender_ovpk_m,
             other,
+            context.msg_sender(),
         ));
 
         let event1 = ExampleEvent1 {
@@ -70,6 +72,7 @@ contract TestLog {
             // outgoing is set to other, incoming is set to msg sender
             other_ovpk_m,
             context.msg_sender(),
+            other,
         ));
     }
 

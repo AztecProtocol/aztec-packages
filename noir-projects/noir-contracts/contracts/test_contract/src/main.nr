@@ -109,6 +109,7 @@ contract Test {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
 
@@ -303,6 +304,7 @@ contract Test {
             5,
             outgoing_viewer_ovpk_m,
             owner,
+            outgoing_viewer,
         ));
 
         // this contract has reached max number of functions, so using this one fn
@@ -320,6 +322,7 @@ contract Test {
                 0,
                 outgoing_viewer_ovpk_m,
                 owner,
+                outgoing_viewer,
             ));
         }
     }
@@ -343,6 +346,7 @@ contract Test {
             &mut context,
             msg_sender_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
         storage_slot += 1;
         Test::at(context.this_address())
@@ -386,6 +390,7 @@ contract Test {
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
+        message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash =
@@ -394,6 +399,7 @@ contract Test {
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             portal_address,
+            message_leaf_index,
         );
     }
 
@@ -413,9 +419,10 @@ contract Test {
         content: Field,
         secret: Field,
         sender: EthAddress,
+        message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
     #[private]

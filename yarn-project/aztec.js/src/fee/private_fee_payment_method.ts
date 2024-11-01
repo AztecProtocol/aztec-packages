@@ -57,9 +57,9 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
-        name: 'unshield',
+        name: 'transfer_to_public',
         args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
-        selector: FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
+        selector: FunctionSelector.fromSignature('transfer_to_public((Field),(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: this.asset,

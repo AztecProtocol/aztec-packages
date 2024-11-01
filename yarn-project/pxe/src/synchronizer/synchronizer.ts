@@ -371,15 +371,15 @@ export class Synchronizer {
 
   async #removeNullifiedNotes(notes: IncomingNoteDao[]) {
     // now group the decoded incoming notes by public key
-    const publicKeyToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
+    const addressPointToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
     for (const noteDao of notes) {
-      const notesForPublicKey = publicKeyToIncomingNotes.get(noteDao.ivpkM) ?? [];
-      notesForPublicKey.push(noteDao);
-      publicKeyToIncomingNotes.set(noteDao.ivpkM, notesForPublicKey);
+      const notesForAddressPoint = addressPointToIncomingNotes.get(noteDao.addressPoint) ?? [];
+      notesForAddressPoint.push(noteDao);
+      addressPointToIncomingNotes.set(noteDao.addressPoint, notesForAddressPoint);
     }
 
     // now for each group, look for the nullifiers in the nullifier tree
-    for (const [publicKey, notes] of publicKeyToIncomingNotes.entries()) {
+    for (const [publicKey, notes] of addressPointToIncomingNotes.entries()) {
       const nullifiers = notes.map(n => n.siloedNullifier);
       const relevantNullifiers: Fr[] = [];
       for (const nullifier of nullifiers) {
