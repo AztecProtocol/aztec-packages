@@ -211,7 +211,7 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
 void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
 {
     // op_set increments the pc, so we need to store the current pc and then jump back to it
-    // to legaly reset the pc.
+    // to legally reset the pc.
     auto current_pc = pc;
     op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, OpCode::SET_FF, true);
     op_jump(current_pc, true);
@@ -1678,8 +1678,11 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     // TODO: validate bounds
     auto returndata_slice =
         std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
-    write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
+
     pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
+
+    // Crucial to perform this operation after having incremented pc
+    write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
 }
 
 /**************************************************************************************************
@@ -1799,7 +1802,8 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 
     const bool id_zero = read_d.val == 0;
     FF const inv = !id_zero ? read_d.val.invert() : 1;
-    uint32_t next_pc = !id_zero ? jmp_dest : pc + 1;
+    uint32_t next_pc =
+        !id_zero ? jmp_dest : pc + static_cast<uint32_t>(Deserialization::get_pc_increment(OpCode::JUMPI_32));
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
@@ -1841,13 +1845,13 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 void AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
+    const auto next_pc = pc + Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     // We store the next instruction as the return location
     mem_trace_builder.write_into_memory(INTERNAL_CALL_SPACE_ID,
                                         clk,
                                         IntermRegister::IB,
                                         internal_return_ptr,
-                                        FF(pc + 1),
+                                        FF(next_pc),
                                         AvmMemoryTag::FF,
                                         AvmMemoryTag::U32);
 
@@ -1858,7 +1862,7 @@ void AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_ia = FF(jmp_dest),
-        .main_ib = FF(pc + 1),
+        .main_ib = FF(next_pc),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_b = FF(internal_return_ptr),
         .main_pc = FF(pc),
@@ -2433,6 +2437,7 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     main_trace.push_back(row);
 
     debug("note_hash_exists side-effect cnt: ", side_effect_counter);
+    pc += Deserialization::get_pc_increment(OpCode::NOTEHASHEXISTS);
 }
 
 void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
@@ -2451,7 +2456,7 @@ void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_off
     debug("emit_note_hash side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
 
-    pc += Deserialization::get_pc_increment(OpCode::NOTEHASHEXISTS);
+    pc += Deserialization::get_pc_increment(OpCode::EMITNOTEHASH);
 }
 
 void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
@@ -2547,7 +2552,7 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_sel_op_get_contract_instance = FF(1),
         };
         main_trace.push_back(row);
-
+        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
     } else {
 
         ContractInstanceMember chosen_member = static_cast<ContractInstanceMember>(member_enum);
@@ -2612,6 +2617,8 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         });
 
+        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
+
         // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
         // writes
         write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
@@ -2621,8 +2628,6 @@ void AvmTraceBuilder::op_get_contract_instance(
 
         debug("contract_instance cnt: ", side_effect_counter);
         side_effect_counter++;
-
-        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
     }
 }
 
@@ -2797,6 +2802,8 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
+    pc += Deserialization::get_pc_increment(opcode);
+
     // Write the success flag to memory
     write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
     external_call_counter++;
@@ -2808,8 +2815,6 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
     if (opcode == OpCode::CALL) {
         side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
     }
-
-    pc += Deserialization::get_pc_increment(opcode);
 }
 
 /**
@@ -3186,10 +3191,10 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         ff_result.emplace_back(result[i]);
     }
 
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
-
     pc += Deserialization::get_pc_increment(OpCode::SHA256COMPRESSION);
+
+    // Crucial to perform this operation after having incremented pc
+    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
 }
 
 /**
@@ -3243,10 +3248,11 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, u
     // Note: We use the keccak_op_clk to ensure that the keccakf1600 operation is performed at the same clock cycle
     // as the main trace that has the selector
     std::array<uint64_t, KECCAKF1600_INPUT_SIZE> result = keccak_trace_builder.keccakf1600(clk, input);
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 
     pc += Deserialization::get_pc_increment(OpCode::KECCAKF1600);
+
+    // Crucial to perform this operation after having incremented pc
+    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 }
 
 void AvmTraceBuilder::op_ec_add(uint16_t indirect,
@@ -3303,12 +3309,12 @@ void AvmTraceBuilder::op_ec_add(uint16_t indirect,
 
     gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
 
+    pc += Deserialization::get_pc_increment(OpCode::ECADD);
+
     // Write point coordinates
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
-
-    pc += Deserialization::get_pc_increment(OpCode::ECADD);
 }
 
 void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
@@ -3388,12 +3394,12 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     // run out of gas. Casting/truncating here is not secure.
     gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
+    pc += Deserialization::get_pc_increment(OpCode::MSM);
+
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
-
-    pc += Deserialization::get_pc_increment(OpCode::MSM);
 }
 
 /**************************************************************************************************
@@ -3482,9 +3488,10 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
         .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
     });
 
-    write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
-
     pc += Deserialization::get_pc_increment(OpCode::TORADIXBE);
+
+    // Crucial to perform this operation after having incremented pc
+    write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
 }
 
 /**************************************************************************************************

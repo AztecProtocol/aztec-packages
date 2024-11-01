@@ -317,13 +317,14 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 // CALL internal routine
 // ADD M[4] with M[7] and output in M[9]
 // Internal routine bytecode is at the end.
-// Bytecode layout: SET INTERNAL_CALL ADD RETURN SET INTERNAL_RETURN
-//                   0        1        2     3    4         5
+// Bytecode layout: SET_32 INTERNAL_CALL ADD_16 RETURN SET_32 INTERNAL_RETURN
+// Instr. Index      0           1        2        3      4         5
+// PC Index          0           9        14       22     28        37
 TEST_F(AvmExecutionTests, simpleInternalCall)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_32) + // opcode SET
-                               "00"                     // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
+    std::string bytecode_hex = to_hex(OpCode::SET_32) +         // opcode SET
+                               "00"                             // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +    //
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "0004"                           // dst_offset 4
                                + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
@@ -363,7 +364,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     auto trace = gen_trace_from_bytecode(bytecode);
 
     // Expected sequence of PCs during execution
-    std::vector<FF> pc_sequence{ 0, 1, 4, 5, 2, 3 };
+    std::vector<FF> pc_sequence{ 0, 9, 28, 37, 14, 22 };
 
     for (size_t i = 0; i < 6; i++) {
         EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
@@ -384,10 +385,11 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
 // MAIN: SET(4,2) SET(7,3) G
 // Whole execution should compute: (4 + 7) * 17 = 187
 // Bytecode layout: SET(4,2) SET(7,3) INTERNAL_CALL_G RETURN BYTECODE(F2) BYTECODE(F1) BYTECODE(G)
-//                     0         1            2          3         4           6            8
+// Instr Index:        0         1            2          3         4           6            8
+// PC Index:           0         9           18         23        29           35           41
 // BYTECODE(F1): ADD(2,3,2) INTERNAL_RETURN
 // BYTECODE(F2): MUL(2,3,2) INTERNAL_RETURN
-// BYTECODE(G): INTERNAL_CALL(6) SET(17,3) INTERNAL_CALL(4) INTERNAL_RETURN
+// BYTECODE(G): INTERNAL_CALL(35) SET(17,3) INTERNAL_CALL(29) INTERNAL_RETURN
 TEST_F(AvmExecutionTests, nestedInternalCalls)
 {
     auto internalCallInstructionHex = [](std::string const& dst_offset) {
@@ -414,10 +416,10 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 
     const std::string bytecode_f1 = to_hex(OpCode::ADD_8) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
     const std::string bytecode_f2 = to_hex(OpCode::MUL_8) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
-    const std::string bytecode_g = internalCallInstructionHex("06") + setInstructionHex("11", "03") +
-                                   internalCallInstructionHex("04") + to_hex(OpCode::INTERNALRETURN);
+    const std::string bytecode_g = internalCallInstructionHex("23") + setInstructionHex("11", "03") +
+                                   internalCallInstructionHex("1D") + to_hex(OpCode::INTERNALRETURN);
     std::string bytecode_hex = setInstructionHex("04", "02") + setInstructionHex("07", "03") +
-                               internalCallInstructionHex("08") + return_instruction_hex + bytecode_f2 + bytecode_f1 +
+                               internalCallInstructionHex("29") + return_instruction_hex + bytecode_f2 + bytecode_f1 +
                                bytecode_g;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
@@ -438,45 +440,46 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
     auto trace = gen_trace_from_bytecode(bytecode);
 
     // Expected sequence of PCs during execution
-    std::vector<FF> pc_sequence{ 0, 1, 2, 8, 6, 7, 9, 10, 4, 5, 11, 3 };
+    std::vector<FF> pc_sequence{ 0, 9, 18, 41, 35, 40, 46, 55, 29, 34, 60, 23 };
 
-    for (size_t i = 0; i < 6; i++) {
+    for (size_t i = 0; i < 12; i++) {
         EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the multiplication selector.
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_mul == 1; });
     EXPECT_EQ(row->main_ic, 187);
-    EXPECT_EQ(row->main_pc, 4);
+    EXPECT_EQ(row->main_pc, 29);
 
     validate_trace(std::move(trace), public_inputs);
 }
 
 // Positive test with JUMP and CALLDATACOPY
-// We test bytecode which first invoke CALLDATACOPY on a FF array of two values.
+// We test bytecode which first invokes CALLDATACOPY on a FF array of two values.
 // Then, a JUMP call skips a SUB opcode to land to a FDIV operation and RETURN.
 // Calldata: [13, 156]
-// Bytecode layout: CALLDATACOPY  JUMP  SUB  FDIV  RETURN
-//                        0         1    2    3     4
+// Bytecode layout: SET_8 SET_8 CALLDATACOPY  JUMP  SUB  FDIV  RETURN
+// Instr. Index:     0      1         2        3     4     5     6
+// PC index:         0      5         10       18    23    28    33
 TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset 101
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                             // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // val
+                               "00"                             // dst_offset
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +    //
                                "02"                             // val
-                               "01"                             // dst_offset 101
+                               "01"                             // dst_offset
                                + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
                                "00"                             // Indirect flag
                                "0000"                           // cd_offset
-                               "0001"                           // copy_size
+                               "0001"                           // copy_size offset 2 and copysize 2
                                "000A"                           // dst_offset // M[10] = 13, M[11] = 156
                                + to_hex(OpCode::JUMP_32) +      // opcode JUMP
-                               "00000005"                       // jmp_dest (FDIV located at 3)
+                               "0000001C"                       // jmp_dest (FDIV located at 28)
                                + to_hex(OpCode::SUB_8) +        // opcode SUB
                                "00"                             // Indirect flag
                                "0B"                             // addr 11
@@ -512,23 +515,22 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     // JUMP
     EXPECT_THAT(instructions.at(3),
                 AllOf(Field(&Instruction::op_code, OpCode::JUMP_32),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(5)))));
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(28)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
     auto trace = gen_trace(bytecode, std::vector<FF>{ 13, 156 }, public_inputs_vec, returndata, execution_hints);
 
     // Expected sequence of PCs during execution
-    std::vector<FF> pc_sequence{
-        0, 1, 2, 3, 4, 6,
-    };
+    std::vector<FF> pc_sequence{ 0, 5, 10, 18, 28, 33 };
 
-    for (size_t i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 6; i++) {
         EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
     }
 
     // Find the first row enabling the fdiv selector.
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fdiv == 1; });
+    ASSERT_TRUE(row != trace.end());
     EXPECT_EQ(row->main_ic, 12);
 
     // Find the first row enabling the subtraction selector.
@@ -545,19 +547,20 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 // Then, we set value 20 (UINT16) at memory offset 101.
 // Then, a JUMPI call is performed. Depending of the conditional value, the next opcode (ADD) is
 // omitted or not, i.e., we jump to the subsequent opcode MUL.
-// Bytecode layout: CALLDATACOPY  SET  JUMPI  ADD   MUL  RETURN
-//                        0        1     2     3     4      5
-// We test this bytecode with two calldatacopy values: 9873123 and 0.
+// Bytecode layout: SET  SET  CALLDATACOPY  SET  JUMPI  ADD   MUL  RETURN
+// Instr. Index:     0    1        2         3     4     5     6     7
+// PC Index:         0    5       10        18    23    31    39    44
+// We test this bytecode with two calldatacopy inputs: {9873123} and {0}.
 TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
 {
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                             // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // val
+                               "00"                             // dst_offset
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +    //
                                "01"                             // val
                                "01"                             // dst_offset
                                + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
@@ -567,27 +570,27 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                "000A"                           // dst_offset 10
                                + to_hex(OpCode::SET_8) +        // opcode SET
                                "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U16) +
-                               "14"                         // val 20
-                               "65"                         // dst_offset 101
-                               + to_hex(OpCode::JUMPI_32) + // opcode JUMPI
-                               "00"                         // Indirect flag
-                               "00000006"                   // jmp_dest (MUL located at 6)
-                               "000A"                       // cond_offset 10
-                               + to_hex(OpCode::ADD_16) +   // opcode ADD
-                               "00"                         // Indirect flag
-                               "0065"                       // addr 101
-                               "0065"                       // addr 101
-                               "0065"                       // output addr 101
-                               + to_hex(OpCode::MUL_8) +    // opcode MUL
-                               "00"                         // Indirect flag
-                               "65"                         // addr 101
-                               "65"                         // addr 101
-                               "66"                         // output of MUL addr 102
-                               + to_hex(OpCode::RETURN) +   // opcode RETURN
-                               "00"                         // Indirect flag
-                               "0000"                       // ret offset 0
-                               "0000"                       // ret size 0
+                               + to_hex(AvmMemoryTag::U16) +    //
+                               "14"                             // val 20
+                               "65"                             // dst_offset 101
+                               + to_hex(OpCode::JUMPI_32) +     // opcode JUMPI
+                               "00"                             // Indirect flag
+                               "00000027"                       // jmp_dest (MUL located at 39)
+                               "000A"                           // cond_offset 10
+                               + to_hex(OpCode::ADD_16) +       // opcode ADD
+                               "00"                             // Indirect flag
+                               "0065"                           // addr 101
+                               "0065"                           // addr 101
+                               "0065"                           // output addr 101
+                               + to_hex(OpCode::MUL_8) +        // opcode MUL
+                               "00"                             // Indirect flag
+                               "65"                             // addr 101
+                               "65"                             // addr 101
+                               "66"                             // output of MUL addr 102
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "0000"                           // ret offset 0
+                               "0000"                           // ret size 0
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
@@ -602,7 +605,7 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
         instructions.at(4),
         AllOf(Field(&Instruction::op_code, OpCode::JUMPI_32),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(6), VariantWith<uint16_t>(10)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(39), VariantWith<uint16_t>(10)))));
 
     std::vector<FF> returndata;
     ExecutionHints execution_hints;
@@ -610,15 +613,15 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     auto trace_no_jump = gen_trace(bytecode, std::vector<FF>{ 0 }, public_inputs_vec, returndata, execution_hints);
 
     // Expected sequence of PCs during execution with jump
-    std::vector<FF> pc_sequence_jump{ 0, 1, 2, 3, 4, 6, 7 };
+    std::vector<FF> pc_sequence_jump{ 0, 5, 10, 18, 23, 39, 44 };
     // Expected sequence of PCs during execution without jump
-    std::vector<FF> pc_sequence_no_jump{ 0, 1, 2, 3, 4, 5, 6, 7 };
+    std::vector<FF> pc_sequence_no_jump{ 0, 5, 10, 18, 23, 31, 39, 44 };
 
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < 7; i++) {
         EXPECT_EQ(trace_jump.at(i + 1).main_pc, pc_sequence_jump.at(i));
     }
 
-    for (size_t i = 0; i < 6; i++) {
+    for (size_t i = 0; i < 8; i++) {
         EXPECT_EQ(trace_no_jump.at(i + 1).main_pc, pc_sequence_no_jump.at(i));
     }
 
@@ -1723,12 +1726,14 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // CHECK EMIT NULLIFIER
     auto emit_nullifier_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_nullifier == 1; });
+    ASSERT_TRUE(emit_nullifier_row != trace.end());
     EXPECT_EQ(emit_nullifier_row->main_ia, 1);
     EXPECT_EQ(emit_nullifier_row->main_side_effect_counter, 1);
 
     uint32_t emit_nullifier_out_offset = START_EMIT_NULLIFIER_WRITE_OFFSET;
     auto emit_nullifier_kernel_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_nullifier_out_offset; });
+    ASSERT_TRUE(emit_nullifier_kernel_out_row != trace.end());
     EXPECT_EQ(emit_nullifier_kernel_out_row->main_kernel_value_out, 1);
     EXPECT_EQ(emit_nullifier_kernel_out_row->main_kernel_side_effect_out, 1);
     feed_output(emit_nullifier_out_offset, 1, 1, 0);
@@ -1736,6 +1741,8 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // CHECK EMIT UNENCRYPTED LOG
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
+    ASSERT_TRUE(emit_log_row != trace.end());
+
     // Trust me bro for now, this is the truncated sha output
     FF expected_hash = FF(std::string("0x00b5c135991581f3049df936e35ef23af34bb04a4775426481d944d35a618e9d"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
@@ -1746,6 +1753,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
     auto emit_log_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
+    ASSERT_TRUE(emit_log_kernel_out_row != trace.end());
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
@@ -1754,12 +1762,14 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // CHECK SEND L2 TO L1 MSG
     auto send_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_l2_to_l1_msg == 1; });
+    ASSERT_TRUE(send_row != trace.end());
     EXPECT_EQ(send_row->main_ia, 1);
     EXPECT_EQ(send_row->main_ib, 1);
     EXPECT_EQ(send_row->main_side_effect_counter, 3);
 
     auto msg_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET; });
+    ASSERT_TRUE(msg_out_row != trace.end());
     EXPECT_EQ(msg_out_row->main_kernel_value_out, 1);
     EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 3);
     EXPECT_EQ(msg_out_row->main_kernel_metadata_out, 1);
@@ -1960,15 +1970,14 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
 TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
 {
     // hash exists from a value that has not previously been written to will require a hint to process
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01" // value 1
-                               "01" // dst_offset 1
-                               // Cast set to field
-                               + to_hex(OpCode::CAST_8) + // opcode CAST
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) +
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +             // opcode SET
+                               "00"                                // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +       //
+                               "01"                                // value 1
+                               "01"                                // dst_offset 1
+                               + to_hex(OpCode::CAST_8) +          // opcode CAST to field
+                               "00"                                // Indirect flag
+                               + to_hex(AvmMemoryTag::FF) +        //
                                "01"                                // dst 1
                                "01"                                // dst 1
                                + to_hex(OpCode::NOTEHASHEXISTS) +  // opcode NOTEHASHEXISTS
@@ -2009,12 +2018,14 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     // CHECK NOTEHASHEXISTS
     auto note_hash_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_note_hash_exists == 1; });
+    ASSERT_TRUE(note_hash_row != trace.end());
     EXPECT_EQ(note_hash_row->main_ia, 1); // Read value
     EXPECT_EQ(note_hash_row->main_ib, 1); // Storage slot
     EXPECT_EQ(note_hash_row->main_side_effect_counter, 0);
 
     auto note_hash_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_NOTE_HASH_EXISTS_WRITE_OFFSET; });
+    ASSERT_TRUE(note_hash_out_row != trace.end());
     EXPECT_EQ(note_hash_out_row->main_kernel_value_out, 1); // value
     EXPECT_EQ(note_hash_out_row->main_kernel_side_effect_out, 0);
     EXPECT_EQ(note_hash_out_row->main_kernel_metadata_out, 1); // exists
@@ -2023,12 +2034,14 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     // CHECK NULLIFIEREXISTS
     auto nullifier_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_nullifier_exists == 1; });
+    ASSERT_TRUE(nullifier_row != trace.end());
     EXPECT_EQ(nullifier_row->main_ia, 1); // Read value
     EXPECT_EQ(nullifier_row->main_ib, 1); // Storage slot
     EXPECT_EQ(nullifier_row->main_side_effect_counter, 1);
 
     auto nullifier_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_NULLIFIER_EXISTS_OFFSET; });
+    ASSERT_TRUE(nullifier_out_row != trace.end());
     EXPECT_EQ(nullifier_out_row->main_kernel_value_out, 1); // value
     // TODO(#8287)
     EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 0);
@@ -2038,12 +2051,14 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     // CHECK L1TOL2MSGEXISTS
     auto l1_to_l2_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l1_to_l2_msg_exists == 1; });
+    ASSERT_TRUE(l1_to_l2_row != trace.end());
     EXPECT_EQ(l1_to_l2_row->main_ia, 1); // Read value
     EXPECT_EQ(l1_to_l2_row->main_ib, 1); // Storage slot
     EXPECT_EQ(l1_to_l2_row->main_side_effect_counter, 2);
 
     auto msg_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET; });
+    ASSERT_TRUE(msg_out_row != trace.end());
     EXPECT_EQ(msg_out_row->main_kernel_value_out, 1); // value
     // TODO(#8287)
     EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 0);
@@ -2239,6 +2254,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodeBadEnum)
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
+    ASSERT_THAT(instructions, SizeIs(2));
 
     std::vector<FF> calldata;
     std::vector<FF> returndata;
@@ -2248,6 +2264,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodeBadEnum)
     // Bad enum should raise error flag
     auto address_row = std::ranges::find_if(
         trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_get_contract_instance == 1; });
+    ASSERT_TRUE(address_row != trace.end());
     EXPECT_EQ(address_row->main_op_err, FF(1));
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
