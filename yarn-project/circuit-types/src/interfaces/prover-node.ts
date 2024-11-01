@@ -43,18 +43,3 @@ export class ProverNodeApiSchema implements ApiSchemaFor<ProverNodeApi> {
 
   sendEpochProofQuote = z.function().args(EpochProofQuote.schema).returns(z.void());
 }
-
-export class Validator2<T> {
-  constructor(public readonly schema: ApiSchemaFor<T>) {}
-
-  // TODO: Remove typecasts
-  public validateArgs(methodName: string, args: any[]): any[] {
-    const schema = this.schema[methodName as keyof ApiSchemaFor<T>];
-    return schema.parameters().parse(args);
-  }
-
-  public validateReturn(methodName: string, ret: any): any {
-    const schema = this.schema[methodName as keyof ApiSchemaFor<T>];
-    return schema.returnType().parse(ret);
-  }
-}
