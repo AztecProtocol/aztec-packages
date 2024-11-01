@@ -15,7 +15,12 @@ import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { ProtocolCircuitVkIndexes, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import {
+  ProtocolCircuitVkIndexes,
+  ServerCircuitVks,
+  getVKSiblingPath,
+  getVKTreeRoot,
+} from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -52,6 +57,9 @@ describe('prover/bb_prover/parity', () => {
     const rootInputs = await Promise.all(
       baseParityInputs.map(baseInputs => context.prover.getBaseParityProof(baseInputs)),
     );
+
+    logger.debug('BaseParity VK from JSON', { fields: ServerCircuitVks.BaseParityArtifact.keyAsFields.toFields() });
+    logger.debug('BaseParity VK from INPUT', { fields: rootInputs[0].verificationKey.toFields() });
 
     // Verify the base parity proofs
     await expect(
