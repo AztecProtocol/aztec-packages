@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.X.X
+## 0.62.0
 ### [TXE] Single execution environment
 Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
 This ensures every single test runs in a consistent environment and allows for clearer test syntax:
@@ -18,6 +18,55 @@ This ensures every single test runs in a consistent environment and allows for c
 ```
 This implies every contract has to be deployed before it can be tested (via `env.deploy` or `env.deploy_self`) and of course it has to be recompiled if its code was changed before TXE can use the modified bytecode.
 
+### Uniqueness of L1 to L2 messages
+
+L1 to L2 messages have been updated to guarantee their uniqueness. This means that the hash of an L1 to L2 message cannot be precomputed, and must be obtained from the `MessageSent` event emitted by the `Inbox` contract, found in the L1 transaction receipt that inserted the message:
+
+```solidity
+event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash);
+```
+
+This event now also includes an `index`. This index was previously required to consume an L1 to L2 message in a public function, and now it is also required for doing so in a private function, since it is part of the message hash preimage. The `PrivateContext` in aztec-nr has been updated to reflect this:
+
+```diff
+pub fn consume_l1_to_l2_message(
+    &mut self,
+    content: Field,
+    secret: Field,
+    sender: EthAddress,
++   leaf_index: Field,
+) {
+```
+
+This change has also modified the internal structure of the archiver database, making it incompatible with previous ones. Last, the API for obtaining an L1 to L2 message membership witness has been simplified to leverage message uniqueness:
+
+```diff
+getL1ToL2MessageMembershipWitness(
+  blockNumber: L2BlockNumber,
+  l1ToL2Message: Fr,
+- startIndex: bigint,
+): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
+```
+
+### Address is now a point
+
+The address now serves as someone's public key to encrypt incoming notes. An address point has a corresponding address secret, which is used to decrypt the notes encrypted with the address point.
+
+### Notes no longer store a hash of the nullifier public keys, and now store addresses
+
+Because of removing key rotation, we can now store addresses as the owner of a note. Because of this and the above change, we can and have removed the process of registering a recipient, because now we do not need any keys of the recipient.
+
+example_note.nr
+```diff
+-npk_m_hash: Field
++owner: AztecAddress
+```
+
+PXE Interface
+```diff
+-registerRecipient(completeAddress: CompleteAddress)
+```
+
 ## 0.58.0
 ### [l1-contracts] Inbox's MessageSent event emits global tree index
 Earlier `MessageSent` event in Inbox emitted a subtree index (index of the message in the subtree of the l2Block). But the nodes and Aztec.nr expects the index in the global L1_TO_L2_MESSAGES_TREE. So to make it easier to parse this, Inbox now emits this global index.
@@ -26,7 +75,7 @@ Earlier `MessageSent` event in Inbox emitted a subtree index (index of the messa
 
 ### Changes to PXE API and `ContractFunctionInteraction``
 
-PXE APIs have been refactored to better reflext the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
+PXE APIs have been refactored to better reflect the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
 
 * `.simulateTx`: Now returns a `TxSimulationResult`, containing the output of private execution, kernel simulation and public simulation (optional).
 * `.proveTx`: Now accepts the result of executing the private part of a transaction, so simulation doesn't have to happen again.
