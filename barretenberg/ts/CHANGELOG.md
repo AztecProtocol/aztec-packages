@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.61.0...barretenberg.js-v0.62.0) (2024-11-01)
+
+
+### Features
+
+* Faster square roots ([#2694](https://github.com/AztecProtocol/aztec-packages/issues/2694)) ([722ec5c](https://github.com/AztecProtocol/aztec-packages/commit/722ec5c3dfdc2a5e467528ed94a25677f8800087))
+
+## [0.61.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.60.0...barretenberg.js-v0.61.0) (2024-10-30)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.59.0...barretenberg.js-v0.60.0) (2024-10-24)
 
 

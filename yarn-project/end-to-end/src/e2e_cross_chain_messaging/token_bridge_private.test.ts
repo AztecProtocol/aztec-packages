@@ -52,32 +52,19 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      crossChainTestHarness.generateClaimSecret();
-    const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
-      crossChainTestHarness.generateClaimSecret();
-
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
-      secretHashForRedeemingMintedNotes,
-      bridgeAmount,
-      secretHashForL2MessageConsumption,
-    );
+    const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    await crossChainTestHarness.makeMessageConsumable(msgHash);
+    await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
-    await crossChainTestHarness.consumeMessageOnAztecAndMintPrivately(
-      secretHashForRedeemingMintedNotes,
-      bridgeAmount,
-      secretForL2MessageConsumption,
-    );
+    await crossChainTestHarness.consumeMessageOnAztecAndMintPrivately(claim);
     // tokens were minted privately in a TransparentNote which the owner (person who knows the secret) must redeem:
-    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
+    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, claim.redeemSecret);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
@@ -121,57 +108,51 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   it('Someone else can mint funds to me on my behalf (privately)', async () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
-    const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      crossChainTestHarness.generateClaimSecret();
-    const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
-      crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
-      secretHashForRedeemingMintedNotes,
-      bridgeAmount,
-      secretHashForL2MessageConsumption,
-    );
+    const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgHash);
+    await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     const content = sha256ToField([
       Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-      secretHashForL2MessageConsumption,
+      claim.claimSecretHash,
       new Fr(bridgeAmount),
     ]);
+
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
       content,
-      secretHashForL2MessageConsumption,
+      claim.claimSecretHash,
+      new Fr(claim.messageLeafIndex),
     );
 
     // Sending wrong secret hashes should fail:
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
+        .methods.claim_private(claim.claimSecretHash, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
         .prove(),
-    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
     const consumptionReceipt = await l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)
+      .methods.claim_private(claim.redeemSecretHash, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
       .send()
       .wait();
 
     // Now user1 can claim the notes that user2 minted on their behalf.
     await crossChainTestHarness.addPendingShieldNoteToPXE(
       bridgeAmount,
-      secretHashForRedeemingMintedNotes,
+      claim.redeemSecretHash,
       consumptionReceipt.txHash,
     );
-    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
+    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, claim.redeemSecret);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
   }),
     90_000;

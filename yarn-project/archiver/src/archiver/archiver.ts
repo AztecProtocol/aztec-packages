@@ -343,7 +343,7 @@ export class Archiver implements ArchiveSource {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        this.log.info(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
+        this.log.verbose(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
         await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
         // if we are here then we must have a valid proven epoch number
         await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
@@ -686,13 +686,12 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return this.store.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
   getContractClassIds(): Promise<Fr[]> {
@@ -925,8 +924,8 @@ class ArchiverStoreHelper
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(blockNumber);
   }
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    return this.store.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
   getLogs<TLogType extends LogType>(
     from: number,

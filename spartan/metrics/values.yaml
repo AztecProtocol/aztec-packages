@@ -1,5 +1,5 @@
 opentelemetry-collector:
-  mode: daemonset
+  mode: deployment
 
   service:
     enabled: true
@@ -28,9 +28,6 @@ opentelemetry-collector:
       protocol: TCP
 
   presets:
-    logsCollection:
-      enabled: true
-      includeCollectorLogs: true
     kubernetesAttributes:
       enabled: true
   config:

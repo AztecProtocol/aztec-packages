@@ -54,6 +54,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES;
+    // Total number of folded polynomials, which is just all polynomials except the shifts
+    static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from Mega

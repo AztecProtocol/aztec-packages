@@ -93,6 +93,7 @@ library Constants {
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant FIELDS_PER_BLOB = 4096;
+  uint256 internal constant PRIVATE_LOG_SIZE_IN_BYTES = 576;
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
   uint256 internal constant AZTEC_SLOT_DURATION = 24;
   uint256 internal constant AZTEC_EPOCH_DURATION = 16;

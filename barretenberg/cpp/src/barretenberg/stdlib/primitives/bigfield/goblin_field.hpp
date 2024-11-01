@@ -53,9 +53,13 @@ template <class Builder> class goblin_field {
 
     // N.B. this method is because AggregationState expects group element coordinates to be split into 4 slices
     // (we could update to only use 2 for Mega but that feels complex)
-    goblin_field(field_ct lolo, field_ct lohi, field_ct hilo, field_ct hihi, [[maybe_unused]] bool can_overflow = false)
-        : limbs{ lolo + lohi * (uint256_t(1) << NUM_LIMB_BITS), hilo + hihi * (uint256_t(1) << NUM_LIMB_BITS) }
-    {}
+    static goblin_field construct_from_limbs(
+        field_ct lolo, field_ct lohi, field_ct hilo, field_ct hihi, [[maybe_unused]] bool can_overflow = false)
+    {
+        goblin_field result;
+        result.limbs = { lolo + lohi * (uint256_t(1) << NUM_LIMB_BITS), hilo + hihi * (uint256_t(1) << NUM_LIMB_BITS) };
+        return result;
+    }
 
     void assert_equal(const goblin_field& other) const
     {
