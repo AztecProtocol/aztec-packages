@@ -143,7 +143,7 @@ impl Context {
             EnableSideEffectsIf { .. }
             | ArrayGet { .. }
             | ArraySet { .. }
-            | Allocate
+            | Allocate { .. }
             | Store { .. }
             | Load { .. } => true,
 

@@ -741,7 +741,7 @@ impl<'a> Context<'a> {
             Instruction::ArrayGet { .. } | Instruction::ArraySet { .. } => {
                 self.handle_array_operation(instruction_id, dfg)?;
             }
-            Instruction::Allocate => {
+            Instruction::Allocate { .. } => {
                 return Err(RuntimeError::UnknownReference {
                     call_stack: self.acir_context.get_call_stack().clone(),
                 });

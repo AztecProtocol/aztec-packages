@@ -1,6 +1,6 @@
 pub(crate) mod data_bus;
 
-use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap};
 
 use acvm::{acir::circuit::ErrorSelector, FieldElement};
 use noirc_errors::Location;
@@ -185,12 +185,11 @@ impl FunctionBuilder {
         self.current_block
     }
 
-    /// Insert an allocate instruction at the end of the current block, allocating the
-    /// given amount of field elements. Returns the result of the allocate instruction,
+    /// Insert an allocate instruction at the end of the current block, with the
+    /// given initial value to store in the allocation. Returns the result of the allocate instruction,
     /// which is always a Reference to the allocated data.
-    pub(crate) fn insert_allocate(&mut self, element_type: Type) -> ValueId {
-        let reference_type = Type::Reference(Arc::new(element_type));
-        self.insert_instruction(Instruction::Allocate, Some(vec![reference_type])).first()
+    pub(crate) fn insert_allocate(&mut self, initial_value: ValueId) -> ValueId {
+        self.insert_instruction(Instruction::Allocate { initial_value }, None).first()
     }
 
     pub(crate) fn set_location(&mut self, location: Location) -> &mut FunctionBuilder {

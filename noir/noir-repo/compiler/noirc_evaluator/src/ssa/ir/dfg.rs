@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::ssa::{function_builder::data_bus::DataBus, ir::instruction::SimplifyResult};
 
@@ -338,6 +338,9 @@ impl DataFlowGraph {
         match instruction.result_type() {
             InstructionResultType::Known(typ) => vec![typ],
             InstructionResultType::Operand(value) => vec![self.type_of_value(value)],
+            InstructionResultType::ReferenceToOperand(value) => {
+                vec![Type::Reference(Arc::new(self.type_of_value(value)))]
+            }
             InstructionResultType::None => vec![],
             InstructionResultType::Unknown => {
                 ctrl_typevars.expect("Control typevars required but not given")
@@ -635,21 +638,5 @@ impl<'dfg> std::ops::Index<usize> for InsertInstructionResult<'dfg> {
                 panic!("Cannot index into InsertInstructionResult::InstructionRemoved")
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::DataFlowGraph;
-    use crate::ssa::ir::{instruction::Instruction, types::Type};
-
-    #[test]
-    fn make_instruction() {
-        let mut dfg = DataFlowGraph::default();
-        let ins = Instruction::Allocate;
-        let ins_id = dfg.make_instruction(ins, Some(vec![Type::field()]));
-
-        let results = dfg.instruction_results(ins_id);
-        assert_eq!(results.len(), 1);
     }
 }

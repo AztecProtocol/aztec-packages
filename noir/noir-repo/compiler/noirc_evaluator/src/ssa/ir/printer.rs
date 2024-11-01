@@ -171,7 +171,7 @@ fn display_instruction_inner(
         Instruction::Call { func, arguments } => {
             writeln!(f, "call {}({})", show(*func), value_list(function, arguments))
         }
-        Instruction::Allocate => writeln!(f, "allocate"),
+        Instruction::Allocate { initial_value } => writeln!(f, "allocate {}", show(*initial_value)),
         Instruction::Load { address } => writeln!(f, "load {}", show(*address)),
         Instruction::Store { address, value } => {
             writeln!(f, "store {} at {}", show(*value), show(*address))

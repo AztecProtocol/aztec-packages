@@ -284,7 +284,7 @@ impl<'block> BrilligBlock<'block> {
                     self.brillig_context.deallocate_single_addr(condition);
                 }
             }
-            Instruction::Allocate => {
+            Instruction::Allocate { initial_value } => {
                 let result_value = dfg.instruction_results(instruction_id)[0];
                 let pointer = self.variables.define_single_addr_variable(
                     self.function_context,
@@ -293,6 +293,10 @@ impl<'block> BrilligBlock<'block> {
                     dfg,
                 );
                 self.brillig_context.codegen_allocate_immediate_mem(pointer.address, 1);
+
+                let source_variable = self.convert_ssa_value(*initial_value, dfg);
+                self.brillig_context
+                    .store_instruction(pointer.address, source_variable.extract_register());
             }
             Instruction::Store { address, value } => {
                 let address_var = self.convert_ssa_single_addr_value(*address, dfg);

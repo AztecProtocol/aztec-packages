@@ -132,7 +132,6 @@
 //!   v12 = add v10, v11
 //!   store v12 at v5         (new store)
 use fxhash::FxHashMap as HashMap;
-use std::collections::{BTreeMap, HashSet};
 
 use acvm::{acir::AcirField, acir::BlackBoxFunc, FieldElement};
 use iter_extended::vecmap;
@@ -186,18 +185,6 @@ struct Context<'f> {
     /// Maps start of branch -> end of branch
     branch_ends: HashMap<BasicBlockId, BasicBlockId>,
 
-    /// Maps an address to the old and new value of the element at that address
-    /// These only hold stores for one block at a time and is cleared
-    /// between inlining of branches.
-    store_values: HashMap<ValueId, Store>,
-
-    /// Stores all allocations local to the current branch.
-    /// Since these branches are local to the current branch (ie. only defined within one branch of
-    /// an if expression), they should not be merged with their previous value or stored value in
-    /// the other branch since there is no such value. The ValueId here is that which is returned
-    /// by the allocate instruction.
-    local_allocations: HashSet<ValueId>,
-
     /// A stack of each jmpif condition that was taken to reach a particular point in the program.
     /// When two branches are merged back into one, this constitutes a join point, and is analogous
     /// to the rest of the program after an if statement. When such a join point / end block is
@@ -217,13 +204,6 @@ struct Context<'f> {
 }
 
 #[derive(Clone)]
-pub(crate) struct Store {
-    old_value: ValueId,
-    new_value: ValueId,
-    call_stack: CallStack,
-}
-
-#[derive(Clone)]
 struct ConditionalBranch {
     // Contains the last processed block during the processing of the branch.
     last_block: BasicBlockId,
@@ -231,10 +211,6 @@ struct ConditionalBranch {
     old_condition: ValueId,
     // The condition of the branch
     condition: ValueId,
-    // The store values accumulated when processing the branch
-    store_values: HashMap<ValueId, Store>,
-    // The allocations accumulated when processing the branch
-    local_allocations: HashSet<ValueId>,
 }
 
 struct ConditionalContext {
@@ -263,8 +239,6 @@ fn flatten_function_cfg(function: &mut Function, no_predicates: &HashMap<Functio
     let mut context = Context {
         inserter: FunctionInserter::new(function),
         cfg,
-        store_values: HashMap::default(),
-        local_allocations: HashSet::new(),
         branch_ends,
         slice_sizes: HashMap::default(),
         condition_stack: Vec::new(),
@@ -429,13 +403,9 @@ impl<'f> Context<'f> {
         let old_condition = *condition;
         let then_condition = self.inserter.resolve(old_condition);
 
-        let old_stores = std::mem::take(&mut self.store_values);
-        let old_allocations = std::mem::take(&mut self.local_allocations);
         let branch = ConditionalBranch {
             old_condition,
             condition: self.link_condition(then_condition),
-            store_values: old_stores,
-            local_allocations: old_allocations,
             last_block: *then_destination,
         };
         let cond_context = ConditionalContext {
@@ -463,21 +433,11 @@ impl<'f> Context<'f> {
         );
         let else_condition = self.link_condition(else_condition);
 
-        // Make sure the else branch sees the previous values of each store
-        // rather than any values created in the 'then' branch.
-        let old_stores = std::mem::take(&mut cond_context.then_branch.store_values);
-        cond_context.then_branch.store_values = std::mem::take(&mut self.store_values);
-        self.undo_stores_in_then_branch(&cond_context.then_branch.store_values);
-
-        let old_allocations = std::mem::take(&mut self.local_allocations);
         let else_branch = ConditionalBranch {
             old_condition: cond_context.then_branch.old_condition,
             condition: else_condition,
-            store_values: old_stores,
-            local_allocations: old_allocations,
             last_block: *block,
         };
-        cond_context.then_branch.local_allocations.clear();
         cond_context.else_branch = Some(else_branch);
         self.condition_stack.push(cond_context);
 
@@ -499,10 +459,7 @@ impl<'f> Context<'f> {
         }
 
         let mut else_branch = cond_context.else_branch.unwrap();
-        let stores_in_branch = std::mem::replace(&mut self.store_values, else_branch.store_values);
-        self.local_allocations = std::mem::take(&mut else_branch.local_allocations);
         else_branch.last_block = *block;
-        else_branch.store_values = stores_in_branch;
         cond_context.else_branch = Some(else_branch);
 
         // We must remember to reset whether side effects are enabled when both branches
@@ -571,8 +528,6 @@ impl<'f> Context<'f> {
                 .first()
         });
 
-        let call_stack = cond_context.call_stack;
-        self.merge_stores(cond_context.then_branch, cond_context.else_branch, call_stack);
         self.arguments_stack.pop();
         self.arguments_stack.pop();
         self.arguments_stack.push(args);
@@ -627,101 +582,6 @@ impl<'f> Context<'f> {
         self.insert_instruction_with_typevars(enable_side_effects, None, call_stack);
     }
 
-    /// Merge any store instructions found in each branch.
-    ///
-    /// This function relies on the 'then' branch being merged before the 'else' branch of a jmpif
-    /// instruction. If this ordering is changed, the ordering that store values are merged within
-    /// this function also needs to be changed to reflect that.
-    fn merge_stores(
-        &mut self,
-        then_branch: ConditionalBranch,
-        else_branch: Option<ConditionalBranch>,
-        call_stack: CallStack,
-    ) {
-        // Address -> (then_value, else_value, value_before_the_if)
-        let mut new_map = BTreeMap::new();
-
-        for (address, store) in then_branch.store_values {
-            new_map.insert(address, (store.new_value, store.old_value, store.old_value));
-        }
-
-        if else_branch.is_some() {
-            for (address, store) in else_branch.clone().unwrap().store_values {
-                if let Some(entry) = new_map.get_mut(&address) {
-                    entry.1 = store.new_value;
-                } else {
-                    new_map.insert(address, (store.old_value, store.new_value, store.old_value));
-                }
-            }
-        }
-
-        let then_condition = then_branch.condition;
-        let else_condition = if let Some(branch) = else_branch {
-            branch.condition
-        } else {
-            self.inserter.function.dfg.make_constant(FieldElement::zero(), Type::bool())
-        };
-        let block = self.inserter.function.entry_block();
-
-        // Merging must occur in a separate loop as we cannot borrow `self` as mutable while `value_merger` does
-        let mut new_values = HashMap::default();
-        for (address, (then_case, else_case, _)) in &new_map {
-            let instruction = Instruction::IfElse {
-                then_condition,
-                then_value: *then_case,
-                else_condition,
-                else_value: *else_case,
-            };
-            let dfg = &mut self.inserter.function.dfg;
-            let value = dfg
-                .insert_instruction_and_results(instruction, block, None, call_stack.clone())
-                .first();
-
-            new_values.insert(address, value);
-        }
-
-        // Replace stores with new merged values
-        for (address, (_, _, old_value)) in &new_map {
-            let value = new_values[address];
-            let address = *address;
-            self.insert_instruction_with_typevars(
-                Instruction::Store { address, value },
-                None,
-                call_stack.clone(),
-            );
-
-            if let Some(store) = self.store_values.get_mut(&address) {
-                store.new_value = value;
-            } else {
-                self.store_values.insert(
-                    address,
-                    Store {
-                        old_value: *old_value,
-                        new_value: value,
-                        call_stack: call_stack.clone(),
-                    },
-                );
-            }
-        }
-    }
-
-    fn remember_store(&mut self, address: ValueId, new_value: ValueId, call_stack: CallStack) {
-        if !self.local_allocations.contains(&address) {
-            if let Some(store_value) = self.store_values.get_mut(&address) {
-                store_value.new_value = new_value;
-            } else {
-                let load = Instruction::Load { address };
-
-                let load_type = Some(vec![self.inserter.function.dfg.type_of_value(new_value)]);
-                let old_value = self
-                    .insert_instruction_with_typevars(load.clone(), load_type, call_stack.clone())
-                    .first();
-
-                self.store_values.insert(address, Store { old_value, new_value, call_stack });
-            }
-        }
-    }
-
     /// Push the given instruction to the end of the entry block of the current function.
     ///
     /// Note that each ValueId of the instruction will be mapped via self.inserter.resolve.
@@ -731,16 +591,9 @@ impl<'f> Context<'f> {
     fn push_instruction(&mut self, id: InstructionId) -> Vec<ValueId> {
         let (instruction, call_stack) = self.inserter.map_instruction(id);
         let instruction = self.handle_instruction_side_effects(instruction, call_stack.clone());
-        let is_allocate = matches!(instruction, Instruction::Allocate);
 
         let entry = self.inserter.function.entry_block();
         let results = self.inserter.push_instruction_value(instruction, id, entry, call_stack);
-
-        // Remember an allocate was created local to this branch so that we do not try to merge store
-        // values across branches for it later.
-        if is_allocate {
-            self.local_allocations.insert(results.first());
-        }
 
         results.results().into_owned()
     }
@@ -779,8 +632,25 @@ impl<'f> Context<'f> {
                     Instruction::Constrain(lhs, rhs, message)
                 }
                 Instruction::Store { address, value } => {
-                    self.remember_store(address, value, call_stack);
-                    Instruction::Store { address, value }
+                    // Instead of storing `value`, store `if condition { value } else { previous_value }`
+                    let typ = self.inserter.function.dfg.type_of_value(value);
+                    let load = Instruction::Load { address };
+                    let previous_value = self
+                        .insert_instruction_with_typevars(load, Some(vec![typ]), call_stack.clone())
+                        .first();
+
+                    let not = Instruction::Not(condition);
+                    let else_condition = self.insert_instruction(not, call_stack.clone());
+
+                    let instruction = Instruction::IfElse {
+                        then_condition: condition,
+                        then_value: value,
+                        else_condition,
+                        else_value: previous_value,
+                    };
+
+                    let updated_value = self.insert_instruction(instruction, call_stack);
+                    Instruction::Store { address, value: updated_value }
                 }
                 Instruction::RangeCheck { value, max_bit_size, assert_message } => {
                     // Replace value with `value * predicate` to zero out value when predicate is inactive.
@@ -901,16 +771,6 @@ impl<'f> Context<'f> {
             Instruction::binary(BinaryOp::Add, field, not_condition),
             call_stack,
         )
-    }
-
-    fn undo_stores_in_then_branch(&mut self, store_values: &HashMap<ValueId, Store>) {
-        for (address, store) in store_values {
-            let address = *address;
-            let value = store.old_value;
-            let instruction = Instruction::Store { address, value };
-            // Considering the location of undoing a store to be the same as the original store.
-            self.insert_instruction_with_typevars(instruction, None, store.call_stack.clone());
-        }
     }
 }
 
@@ -1214,7 +1074,8 @@ mod test {
         let c1 = builder.add_parameter(Type::bool());
         let c4 = builder.add_parameter(Type::bool());
 
-        let r1 = builder.insert_allocate(Type::field());
+        let zero = builder.field_constant(0u128);
+        let r1 = builder.insert_allocate(zero);
 
         let store_value = |builder: &mut FunctionBuilder, value: u128| {
             let value = builder.field_constant(value);
@@ -1326,84 +1187,6 @@ mod test {
         assert_eq!(merged_values, vec![3, 5, 6]);
     }
 
-    #[test]
-    fn allocate_in_single_branch() {
-        // Regression test for #1756
-        // fn foo() -> Field {
-        //     let mut x = 0;
-        //     x
-        // }
-        //
-        // fn main(cond:bool) {
-        //     if cond {
-        //         foo();
-        //     };
-        // }
-        //
-        // // Translates to the following before the flattening pass:
-        // fn main f2 {
-        //   b0(v0: u1):
-        //     jmpif v0 then: b1, else: b2
-        //   b1():
-        //     v2 = allocate
-        //     store Field 0 at v2
-        //     v4 = load v2
-        //     jmp b2()
-        //   b2():
-        //     return
-        // }
-        // The bug is that the flattening pass previously inserted a load
-        // before the first store to allocate, which loaded an uninitialized value.
-        // In this test we assert the ordering is strictly Allocate then Store then Load.
-        let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id);
-
-        let b1 = builder.insert_block();
-        let b2 = builder.insert_block();
-
-        let v0 = builder.add_parameter(Type::bool());
-        builder.terminate_with_jmpif(v0, b1, b2);
-
-        builder.switch_to_block(b1);
-        let v2 = builder.insert_allocate(Type::field());
-        let zero = builder.field_constant(0u128);
-        builder.insert_store(v2, zero);
-        let _v4 = builder.insert_load(v2, Type::field());
-        builder.terminate_with_jmp(b2, vec![]);
-
-        builder.switch_to_block(b2);
-        builder.terminate_with_return(vec![]);
-
-        let ssa = builder.finish().flatten_cfg();
-        let main = ssa.main();
-
-        // Now assert that there is not a load between the allocate and its first store
-        // The Expected IR is:
-        //
-        // fn main f2 {
-        //   b0(v0: u1):
-        //     enable_side_effects v0
-        //     v6 = allocate
-        //     store Field 0 at v6
-        //     v7 = load v6
-        //     v8 = not v0
-        //     enable_side_effects u1 1
-        //     return
-        // }
-        let instructions = main.dfg[main.entry_block()].instructions();
-
-        let find_instruction = |predicate: fn(&Instruction) -> bool| {
-            instructions.iter().position(|id| predicate(&main.dfg[*id])).unwrap()
-        };
-
-        let allocate_index = find_instruction(|i| matches!(i, Instruction::Allocate));
-        let store_index = find_instruction(|i| matches!(i, Instruction::Store { .. }));
-        let load_index = find_instruction(|i| matches!(i, Instruction::Load { .. }));
-
-        assert!(allocate_index < store_index);
-        assert!(store_index < load_index);
-    }
-
     /// Work backwards from an instruction to find all the constant values
     /// that were used to construct it. E.g for:
     ///
@@ -1491,8 +1274,7 @@ mod test {
         //       v6 = cast v5 as u32
         //       v8 = truncate v6 to 1 bits, max_bit_size: 32
         //       v9 = cast v8 as u1
-        //       v10 = allocate
-        //       store u8 0 at v10
+        //       v10 = allocate u8 0
         //       jmpif v9 then: b2, else: b3
         //     b2():
         //       v12 = cast v5 as Field
@@ -1526,8 +1308,7 @@ mod test {
         let v8 = builder.insert_binary(v6, BinaryOp::Mod, i_two);
         let v9 = builder.insert_cast(v8, Type::bool());
 
-        let v10 = builder.insert_allocate(Type::field());
-        builder.insert_store(v10, zero);
+        let v10 = builder.insert_allocate(zero);
 
         builder.terminate_with_jmpif(v9, b1, b2);
 
@@ -1575,10 +1356,8 @@ mod test {
         //
         // fn main f1 {
         //   b0():
-        //     v0 = allocate
-        //     store Field 0 at v0
-        //     v2 = allocate
-        //     store Field 2 at v2
+        //     v0 = allocate Field 0
+        //     v2 = allocate Field 2
         //     v4 = load v2
         //     v5 = lt v4, Field 2
         //     jmpif v5 then: b1, else: b2
@@ -1628,10 +1407,8 @@ mod test {
         let ten = builder.field_constant(10u128);
         let one_hundred = builder.field_constant(100u128);
 
-        let v0 = builder.insert_allocate(Type::field());
-        builder.insert_store(v0, zero);
-        let v2 = builder.insert_allocate(Type::field());
-        builder.insert_store(v2, two);
+        let v0 = builder.insert_allocate(zero);
+        let v2 = builder.insert_allocate(two);
         let v4 = builder.insert_load(v2, Type::field());
         let v5 = builder.insert_binary(v4, BinaryOp::Lt, two);
         builder.terminate_with_jmpif(v5, b1, b2);

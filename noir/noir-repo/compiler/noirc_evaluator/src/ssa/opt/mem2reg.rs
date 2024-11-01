@@ -443,11 +443,28 @@ impl<'f> PerFunctionContext<'f> {
 
                 references.set_known_value(address, value);
             }
-            Instruction::Allocate => {
+            Instruction::Allocate { initial_value } => {
                 // Register the new reference
+                let initial_value = *initial_value;
                 let result = self.inserter.function.dfg.instruction_results(instruction)[0];
                 references.expressions.insert(result, Expression::Other(result));
                 references.aliases.insert(Expression::Other(result), AliasSet::known(result));
+
+                self.check_array_aliasing(references, initial_value);
+
+                if self.inserter.function.dfg.value_is_reference(initial_value) {
+                    if let Some(expression) = references.expressions.get(&initial_value) {
+                        if let Some(aliases) = references.aliases.get(expression) {
+                            aliases.for_each(|alias| {
+                                self.aliased_references
+                                    .entry(alias)
+                                    .or_default()
+                                    .insert(instruction);
+                            });
+                        }
+                    }
+                }
+                references.set_known_value(result, initial_value);
             }
             Instruction::ArrayGet { array, .. } => {
                 let result = self.inserter.function.dfg.instruction_results(instruction)[0];
@@ -636,26 +653,26 @@ impl<'f> PerFunctionContext<'f> {
     fn cleanup_function(&mut self) {
         // Removing remaining unused loads during mem2reg can help expose removable stores that the initial
         // mem2reg pass deemed we could not remove due to the existence of those unused loads.
-        let removed_loads = self.remove_unused_loads();
-        let remaining_last_stores = self.remove_unloaded_last_stores(&removed_loads);
-        let stores_were_removed =
-            self.remove_remaining_last_stores(&removed_loads, &remaining_last_stores);
+        // let removed_loads = self.remove_unused_loads();
+        // let remaining_last_stores = self.remove_unloaded_last_stores(&removed_loads);
+        // let stores_were_removed =
+        //     self.remove_remaining_last_stores(&removed_loads, &remaining_last_stores);
 
         // When removing some last loads with the last stores we will map the load result to the store value.
         // We need to then map all the instructions again as we do not know which instructions are reliant on the load result.
-        if stores_were_removed {
-            let mut block_order = PostOrder::with_function(self.inserter.function).into_vec();
-            block_order.reverse();
-            for block in block_order {
-                let instructions = self.inserter.function.dfg[block].take_instructions();
-                for instruction in instructions {
-                    if !self.instructions_to_remove.contains(&instruction) {
-                        self.inserter.push_instruction(instruction, block);
-                    }
-                }
-                self.inserter.map_terminator_in_place(block);
-            }
-        }
+        // if stores_were_removed {
+        //     let mut block_order = PostOrder::with_function(self.inserter.function).into_vec();
+        //     block_order.reverse();
+        //     for block in block_order {
+        //         let instructions = self.inserter.function.dfg[block].take_instructions();
+        //         for instruction in instructions {
+        //             if !self.instructions_to_remove.contains(&instruction) {
+        //                 self.inserter.push_instruction(instruction, block);
+        //             }
+        //         }
+        //         self.inserter.map_terminator_in_place(block);
+        //     }
+        // }
     }
 
     /// Cleanup remaining loads across the entire function
@@ -863,7 +880,7 @@ impl<'f> PerFunctionContext<'f> {
         removed_loads: &HashMap<ValueId, u32>,
         remaining_last_stores: &HashMap<ValueId, (InstructionId, u32)>,
     ) -> bool {
-        let mut stores_were_removed = false;
+        let mut loads_were_removed = false;
         // Filter out any still in use load results and any load results that do not contain addresses from the remaining last stores
         self.load_results.retain(|_, PerFuncLoadResultContext { load_instruction, uses, .. }| {
             let Instruction::Load { address } = self.inserter.function.dfg[*load_instruction]
@@ -912,10 +929,10 @@ impl<'f> PerFunctionContext<'f> {
                 self.inserter.map_value(*result, value);
                 self.instructions_to_remove.insert(context.load_instruction);
 
-                stores_were_removed = true;
+                loads_were_removed = true;
             }
         }
-        stores_were_removed
+        loads_were_removed
     }
 }
 
@@ -941,8 +958,7 @@ mod tests {
     fn test_simple() {
         // fn func() {
         //   b0():
-        //     v0 = allocate
-        //     store [Field 1, Field 2] in v0
+        //     v0 = allocate [Field 1, Field 2]
         //     v1 = load v0
         //     v2 = array_get v1, index 1
         //     return v2
@@ -950,13 +966,13 @@ mod tests {
 
         let func_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("func".into(), func_id);
-        let v0 = builder.insert_allocate(Type::Array(Arc::new(vec![Type::field()]), 2));
         let one = builder.field_constant(FieldElement::one());
         let two = builder.field_constant(FieldElement::one());
 
         let element_type = Arc::new(vec![Type::field()]);
         let array_type = Type::Array(element_type, 2);
         let array = builder.array_constant(vector![one, two], array_type.clone());
+        let v0 = builder.insert_allocate(array);
 
         builder.insert_store(v0, array);
         let v1 = builder.insert_load(v0, array_type);
@@ -982,8 +998,7 @@ mod tests {
     fn test_simple_with_call() {
         // fn func {
         //   b0():
-        //     v0 = allocate
-        //     store v0, Field 1
+        //     v0 = allocate Field 1
         //     v1 = load v0
         //     call f0(v0)
         //     return v1
@@ -991,9 +1006,8 @@ mod tests {
 
         let func_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("func".into(), func_id);
-        let v0 = builder.insert_allocate(Type::field());
         let one = builder.field_constant(FieldElement::one());
-        builder.insert_store(v0, one);
+        let v0 = builder.insert_allocate(one);
         let v1 = builder.insert_load(v0, Type::field());
         let f0 = builder.import_intrinsic_id(Intrinsic::AssertConstant);
         builder.insert_call(f0, vec![v0], vec![]);
@@ -1005,7 +1019,7 @@ mod tests {
         let block_id = func.entry_block();
 
         assert_eq!(count_loads(block_id, &func.dfg), 0);
-        assert_eq!(count_stores(block_id, &func.dfg), 1);
+        assert_eq!(count_stores(block_id, &func.dfg), 0);
 
         let ret_val_id = match func.dfg[block_id].terminator().unwrap() {
             TerminatorInstruction::Return { return_values, .. } => return_values.first().unwrap(),
@@ -1018,15 +1032,18 @@ mod tests {
     fn test_simple_with_return() {
         // fn func {
         //   b0():
-        //     v0 = allocate
+        //     v0 = allocate Field 0
         //     store v0, Field 1
         //     return v0
         // }
 
         let func_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("func".into(), func_id);
-        let v0 = builder.insert_allocate(Type::field());
+
+        let const_zero = builder.field_constant(FieldElement::zero());
         let const_one = builder.field_constant(FieldElement::one());
+
+        let v0 = builder.insert_allocate(const_zero);
         builder.insert_store(v0, const_one);
         builder.terminate_with_return(vec![v0]);
 
@@ -1072,8 +1089,7 @@ mod tests {
     fn multiple_blocks() {
         // fn main {
         //   b0():
-        //     v0 = allocate
-        //     store Field 5 in v0
+        //     v0 = allocate Field 5
         //     v1 = load v0
         //     jmp b1(v1):
         //   b1(v2: Field):
@@ -1085,10 +1101,8 @@ mod tests {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-        let v0 = builder.insert_allocate(Type::field());
-
         let five = builder.field_constant(5u128);
-        builder.insert_store(v0, five);
+        let v0 = builder.insert_allocate(five);
 
         let v1 = builder.insert_load(v0, Type::field());
         let b1 = builder.insert_block();
@@ -1110,7 +1124,7 @@ mod tests {
         // Expected result:
         // acir fn main f0 {
         //   b0():
-        //     v7 = allocate
+        //     v7 = allocate Field 5
         //     jmp b1(Field 5)
         //   b1(v3: Field):
         //     return v3, Field 5, Field 6
@@ -1146,10 +1160,8 @@ mod tests {
     fn load_aliases_in_predecessor_block() {
         // fn main {
         //     b0():
-        //       v0 = allocate
-        //       store Field 0 at v0
-        //       v2 = allocate
-        //       store v0 at v2
+        //       v0 = allocate Field 0
+        //       v2 = allocate v0
         //       v3 = load v2
         //       v4 = load v2
         //       jmp b1()
@@ -1163,13 +1175,9 @@ mod tests {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-        let v0 = builder.insert_allocate(Type::field());
-
         let zero = builder.field_constant(0u128);
-        builder.insert_store(v0, zero);
-
-        let v2 = builder.insert_allocate(Type::Reference(Arc::new(Type::field())));
-        builder.insert_store(v2, v0);
+        let v0 = builder.insert_allocate(zero);
+        let v2 = builder.insert_allocate(v0);
 
         let v3 = builder.insert_load(v2, Type::field());
         let v4 = builder.insert_load(v2, Type::field());
@@ -1195,8 +1203,8 @@ mod tests {
         // Expected result:
         // acir fn main f0 {
         //   b0():
-        //     v9 = allocate
-        //     v10 = allocate
+        //     v9 = allocate Field 0
+        //     v10 = allocate v9
         //     jmp b1()
         //   b1():
         //     return
@@ -1210,10 +1218,7 @@ mod tests {
         assert_eq!(count_loads(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_loads(b1, &main.dfg), 0);
 
-        // All stores should be removed.
-        // The first store in b1 is removed since there is another store to the same reference
-        // in the same block, and the store is not needed before the later store.
-        // The rest of the stores are also removed as no loads are done within any blocks
+        // All stores should be removed as no loads are done within any blocks
         // to the stored values.
         assert_eq!(count_stores(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_stores(b1, &main.dfg), 0);
@@ -1228,16 +1233,11 @@ mod tests {
     fn remove_unused_loads_and_stores() {
         // acir(inline) fn main f0 {
         //     b0():
-        //       v0 = allocate
-        //       store Field 1 at v0
-        //       v2 = allocate
-        //       store Field 1 at v2
-        //       v4 = allocate
-        //       store u1 0 at v4
-        //       v5 = allocate
-        //       store u1 0 at v5
-        //       v6 = allocate
-        //       store u1 0 at v6
+        //       v0 = allocate Field 1
+        //       v2 = allocate Field 1
+        //       v4 = allocate u1 0
+        //       v5 = allocate u1 0
+        //       v6 = allocate u1 0
         //       jmp b1(u1 0)
         //     b1(v7: u32):
         //       v9 = eq v7, u32 0
@@ -1275,22 +1275,14 @@ mod tests {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-        let v0 = builder.insert_allocate(Type::field());
         let one = builder.numeric_constant(1u128, Type::field());
-        builder.insert_store(v0, one);
-
-        let v2 = builder.insert_allocate(Type::field());
-        builder.insert_store(v2, one);
+        let v0 = builder.insert_allocate(one);
+        let v2 = builder.insert_allocate(one);
 
         let zero_bool = builder.numeric_constant(0u128, Type::bool());
-        let v4 = builder.insert_allocate(Type::bool());
-        builder.insert_store(v4, zero_bool);
-
-        let v6 = builder.insert_allocate(Type::bool());
-        builder.insert_store(v6, zero_bool);
-
-        let v8 = builder.insert_allocate(Type::bool());
-        builder.insert_store(v8, zero_bool);
+        let v4 = builder.insert_allocate(zero_bool);
+        let v6 = builder.insert_allocate(zero_bool);
+        let v8 = builder.insert_allocate(zero_bool);
 
         let b1 = builder.insert_block();
         builder.terminate_with_jmp(b1, vec![zero_bool]);
@@ -1350,11 +1342,11 @@ mod tests {
         // Expected result:
         // acir(inline) fn main f0 {
         //     b0():
-        //       v27 = allocate
-        //       v28 = allocate
-        //       v29 = allocate
-        //       v30 = allocate
-        //       v31 = allocate
+        //       v27 = allocate Field 0
+        //       v28 = allocate Field 0
+        //       v29 = allocate u1 0
+        //       v30 = allocate u1 0
+        //       v31 = allocate u1 0
         //       jmp b1(u1 0)
         //     b1(v7: u32):
         //       v32 = eq v7, u32 0
@@ -1390,10 +1382,8 @@ mod tests {
         //
         // acir(inline) fn main f0 {
         //     b0():
-        //       v0 = allocate
-        //       store Field 0 at v0
-        //       v2 = allocate
-        //       store v0 at v2
+        //       v0 = allocate Field 0
+        //       v2 = allocate v0
         //       jmp b1(Field 0)
         //     b1(v3: Field):
         //       v4 = eq v3, Field 0
@@ -1416,13 +1406,10 @@ mod tests {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-        let v0 = builder.insert_allocate(Type::field());
         let zero = builder.numeric_constant(0u128, Type::field());
-        builder.insert_store(v0, zero);
+        let v0 = builder.insert_allocate(zero);
+        let v2 = builder.insert_allocate(v0);
 
-        let v2 = builder.insert_allocate(Type::field());
-        // Construct alias
-        builder.insert_store(v2, v0);
         let v2_type = builder.current_function.dfg.type_of_value(v2);
         assert!(builder.current_function.dfg.value_is_reference(v2));
 
@@ -1467,8 +1454,7 @@ mod tests {
         let main = ssa.main();
         assert_eq!(main.reachable_blocks().len(), 4);
 
-        // The store from the original SSA should remain
-        assert_eq!(count_stores(main.entry_block(), &main.dfg), 2);
+        assert_eq!(count_stores(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_stores(b2, &main.dfg), 1);
 
         assert_eq!(count_loads(b2, &main.dfg), 1);
@@ -1479,22 +1465,17 @@ mod tests {
     fn accurate_tracking_of_load_results() {
         // acir(inline) fn main f0 {
         //     b0():
-        //       v0 = allocate
-        //       store Field 5 at v0
-        //       v2 = allocate
-        //       store u32 10 at v2
+        //       v0 = allocate Field 5
+        //       v2 = allocate u32 10
         //       v4 = load v0
         //       v5 = load v2
-        //       v6 = allocate
-        //       store v4 at v6
-        //       v7 = allocate
-        //       store v5 at v7
+        //       v6 = allocate v4
+        //       v7 = allocate v5
         //       v8 = load v6
         //       v9 = load v7
         //       v10 = load v6
         //       v11 = load v7
-        //       v12 = allocate
-        //       store Field 0 at v12
+        //       v12 = allocate Field 0
         //       v15 = eq v11, u32 0
         //       jmpif v15 then: b1, else: b2
         //     b1():
@@ -1509,23 +1490,19 @@ mod tests {
         let main_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("main".into(), main_id);
 
-        let v0 = builder.insert_allocate(Type::field());
         let five = builder.numeric_constant(5u128, Type::field());
-        builder.insert_store(v0, five);
+        let v0 = builder.insert_allocate(five);
 
-        let v2 = builder.insert_allocate(Type::unsigned(32));
         let ten = builder.numeric_constant(10u128, Type::unsigned(32));
-        builder.insert_store(v2, ten);
+        let v2 = builder.insert_allocate(ten);
 
         let v4 = builder.insert_load(v0, Type::field());
         let v5 = builder.insert_load(v2, Type::unsigned(32));
         let v4_type = builder.current_function.dfg.type_of_value(v4);
         let v5_type = builder.current_function.dfg.type_of_value(v5);
 
-        let v6 = builder.insert_allocate(Type::field());
-        builder.insert_store(v6, v4);
-        let v7 = builder.insert_allocate(Type::unsigned(32));
-        builder.insert_store(v7, v5);
+        let v6 = builder.insert_allocate(v4);
+        let v7 = builder.insert_allocate(v5);
 
         let v8 = builder.insert_load(v6, v4_type.clone());
         let _v9 = builder.insert_load(v7, v5_type.clone());
@@ -1533,9 +1510,8 @@ mod tests {
         let _v10 = builder.insert_load(v6, v4_type);
         let v11 = builder.insert_load(v7, v5_type);
 
-        let v12 = builder.insert_allocate(Type::field());
         let zero = builder.numeric_constant(0u128, Type::field());
-        builder.insert_store(v12, zero);
+        let v12 = builder.insert_allocate(zero);
 
         let zero_u32 = builder.numeric_constant(0u128, Type::unsigned(32));
         let v15 = builder.insert_binary(v11, BinaryOp::Eq, zero_u32);
@@ -1570,11 +1546,11 @@ mod tests {
         // Expected result:
         // acir(inline) fn main f0 {
         //     b0():
-        //       v20 = allocate
-        //       v21 = allocate
-        //       v24 = allocate
-        //       v25 = allocate
-        //       v30 = allocate
+        //       v20 = allocate Field 5
+        //       v21 = allocate u32 10
+        //       v24 = allocate v20
+        //       v25 = allocate v21
+        //       v30 = allocate Field 0
         //       store Field 0 at v30
         //       jmpif u1 0 then: b1, else: b2
         //     b1():
@@ -1589,10 +1565,7 @@ mod tests {
         let main = ssa.main();
         assert_eq!(main.reachable_blocks().len(), 3);
 
-        // A single store from the entry block should remain.
-        // If we are not appropriately handling unused stores across a function,
-        // we would expect all five stores from the original SSA to remain.
-        assert_eq!(count_stores(main.entry_block(), &main.dfg), 1);
+        assert_eq!(count_stores(main.entry_block(), &main.dfg), 0);
         // The store from the conditional block should remain,
         // as it is loaded from in a successor block and used in the return terminator.
         assert_eq!(count_stores(b1, &main.dfg), 1);
@@ -1606,13 +1579,13 @@ mod tests {
     fn keep_unused_store_only_used_as_an_alias_across_blocks() {
         // acir(inline) fn main f0 {
         //     b0(v0: u32):
-        //       v1 = allocate
-        //       store u32 0 at v1
-        //       v3 = allocate
+        //       v1 = allocate u32 0
+        //       store u32 1 at v1
+        //       v3 = allocate v1
         //       store v1 at v3
-        //       v4 = allocate
+        //       v4 = allocate u32 0
         //       store v0 at v4
-        //       v5 = allocate
+        //       v5 = allocate v3
         //       store v4 at v5
         //       jmp b1(u32 0)
         //     b1(v6: u32):
@@ -1640,18 +1613,22 @@ mod tests {
 
         let v0 = builder.add_parameter(Type::unsigned(32));
 
-        let v1 = builder.insert_allocate(Type::unsigned(32));
         let zero = builder.numeric_constant(0u128, Type::unsigned(32));
-        builder.insert_store(v1, zero);
+        let one = builder.numeric_constant(1u128, Type::unsigned(32));
+        let v1 = builder.insert_allocate(zero);
+        builder.insert_store(v1, one);
 
         let v1_type = builder.type_of_value(v1);
-        let v3 = builder.insert_allocate(v1_type.clone());
+        let v3 = builder.insert_allocate(v1);
         builder.insert_store(v3, v1);
 
-        let v4 = builder.insert_allocate(Type::unsigned(32));
+        let v4 = builder.insert_allocate(zero);
         builder.insert_store(v4, v0);
 
-        let v5 = builder.insert_allocate(Type::Reference(Arc::new(Type::unsigned(32))));
+        // Initialize with v3, then store v4 to try to confuse it a little.
+        // This test was a bit hard to translate when allocations were changed
+        // to require an initial value.
+        let v5 = builder.insert_allocate(v3);
         builder.insert_store(v5, v4);
 
         let b1 = builder.insert_block();
@@ -1701,7 +1678,7 @@ mod tests {
         // We expect all the stores to remain.
         // The references in b0 are aliased and those are aliases may never be stored to again,
         // but they are loaded from and used in later instructions.
-        // We need to make sure that the store of the address being aliased, is not removed from the program.
+        // We need to make sure that the store of the address being aliased is not removed from the program.
         assert_eq!(count_stores(main.entry_block(), &main.dfg), 4);
         // The store inside of the loop should remain
         assert_eq!(count_stores(b2, &main.dfg), 1);

@@ -206,10 +206,9 @@ pub(crate) enum Instruction {
     /// Performs a function call with a list of its arguments.
     Call { func: ValueId, arguments: Vec<ValueId> },
 
-    /// Allocates a region of memory. Note that this is not concerned with
-    /// the type of memory, the type of element is determined when loading this memory.
+    /// Allocates a region of memory, storing inside it the given initial value.
     /// This is used for representing mutable variables and references.
-    Allocate,
+    Allocate { initial_value: ValueId },
 
     /// Loads a value from memory.
     Load { address: ValueId },
@@ -289,6 +288,9 @@ impl Instruction {
         match self {
             Instruction::Binary(binary) => binary.result_type(),
             Instruction::Cast(_, typ) => InstructionResultType::Known(typ.clone()),
+            Instruction::Allocate { initial_value } => {
+                InstructionResultType::ReferenceToOperand(*initial_value)
+            }
             Instruction::Not(value)
             | Instruction::Truncate { value, .. }
             | Instruction::ArraySet { array: value, .. }
@@ -301,10 +303,9 @@ impl Instruction {
             | Instruction::DecrementRc { .. }
             | Instruction::RangeCheck { .. }
             | Instruction::EnableSideEffectsIf { .. } => InstructionResultType::None,
-            Instruction::Allocate { .. }
-            | Instruction::Load { .. }
-            | Instruction::ArrayGet { .. }
-            | Instruction::Call { .. } => InstructionResultType::Unknown,
+            Instruction::Load { .. } | Instruction::ArrayGet { .. } | Instruction::Call { .. } => {
+                InstructionResultType::Unknown
+            }
         }
     }
 
@@ -328,7 +329,7 @@ impl Instruction {
         match self {
             // These either have side-effects or interact with memory
             EnableSideEffectsIf { .. }
-            | Allocate
+            | Allocate { .. }
             | Load { .. }
             | Store { .. }
             | IncrementRc { .. }
@@ -375,7 +376,7 @@ impl Instruction {
             Cast(_, _)
             | Not(_)
             | Truncate { .. }
-            | Allocate
+            | Allocate { .. }
             | Load { .. }
             | ArrayGet { .. }
             | IfElse { .. }
@@ -437,7 +438,7 @@ impl Instruction {
             | Instruction::Truncate { .. }
             | Instruction::Constrain(_, _, _)
             | Instruction::RangeCheck { .. }
-            | Instruction::Allocate
+            | Instruction::Allocate { .. }
             | Instruction::Load { .. }
             | Instruction::Store { .. }
             | Instruction::IfElse { .. }
@@ -480,7 +481,9 @@ impl Instruction {
                 func: f(*func),
                 arguments: vecmap(arguments.iter().copied(), f),
             },
-            Instruction::Allocate => Instruction::Allocate,
+            Instruction::Allocate { initial_value } => {
+                Instruction::Allocate { initial_value: f(*initial_value) }
+            }
             Instruction::Load { address } => Instruction::Load { address: f(*address) },
             Instruction::Store { address, value } => {
                 Instruction::Store { address: f(*address), value: f(*value) }
@@ -550,7 +553,9 @@ impl Instruction {
                 f(*address);
                 f(*value);
             }
-            Instruction::Allocate { .. } => (),
+            Instruction::Allocate { initial_value } => {
+                f(*initial_value);
+            }
             Instruction::ArrayGet { array, index } => {
                 f(*array);
                 f(*index);
@@ -856,6 +861,10 @@ impl From<String> for Box<ConstrainError> {
 pub(crate) enum InstructionResultType {
     /// The result type of this instruction matches that of this operand
     Operand(ValueId),
+
+    /// The result type of this instruction is a reference containing the operand's type.
+    /// This is used for `Instruction::Allocate`.
+    ReferenceToOperand(ValueId),
 
     /// The result type of this instruction is known to be this type - independent of its operands.
     Known(Type),
