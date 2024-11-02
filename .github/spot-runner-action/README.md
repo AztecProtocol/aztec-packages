@@ -3,7 +3,7 @@
 
 Remember to use npm run build before pushing!
 
-# EC2 Github Action Builder
+# EC2 GitHub Action Builder
 
 ## TL;DR
 Jump to [examples](#example-usage)
@@ -29,13 +29,16 @@ Supported operating system AMIs:
 ### Cost Savings
 Operating system	vCPUs	Per-minute rate (USD)
 ```text
-OS     vCPU   GH Price/Minute      EC2 Price/Minute
-Linux	2      $0.008             $0.001284 (c5a.large)
-Linux	4      $0.016             $0.00257  (c5a.xlarge)
-Linux	8      $0.032             $0.00514  (c5a.2xlarge)
-Linux	16     $0.064             $0.0114   (c5.4xlarge)
-Linux	32     $0.128             $0.02054  (c5a.8xlarge)
-Linux	64     $0.256             $0.041067 (c5a.16xlarge)
+
+| **Operating System** | **vCPUs** | **GitHub Price/Minute (USD)** | **EC2 Price/Minute (USD)** | **EC2 Instance Type**       |
+|----------------------|-----------|-------------------------------|----------------------------|-----------------------------|
+| Linux                | 2         | $0.008                        | $0.001284                  | c5a.large                   |
+| Linux                | 4         | $0.016                        | $0.00257                   | c5a.xlarge                  |
+| Linux                | 8         | $0.032                        | $0.00514                   | c5a.2xlarge                 |
+| Linux                | 16        | $0.064                        | $0.0114                    | c5.4xlarge                  |
+| Linux                | 32        | $0.128                        | $0.02054                   | c5a.8xlarge                 |
+| Linux                | 64        | $0.256                        | $0.041067                  | c5a.16xlarge                |
+
 ```
 
 Sources:
