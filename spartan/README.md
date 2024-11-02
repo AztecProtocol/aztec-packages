@@ -84,9 +84,9 @@ kubectl config use-context <context-name>
 
 ### Connecting to Spartan using k8Lens
 
-A popular GUI than can be used to connect to the Spartan cluster is the free version of k8Lens. ([Download Link](https://k8slens.dev/))
+A popular GUI that can be used to connect to the Spartan cluster is the free version of k8Lens. ([Download Link](https://k8slens.dev/))
 
-As long as all CLI tools have been configured, k8Lens will automatically read your local `kubeconfig` file to provide cluster access. The Spartan cluster can then be located by navigating the k8Lens "catelog" as shown below.
+As long as all CLI tools have been configured, k8Lens will automatically read your local `kubeconfig` file to provide cluster access. The Spartan cluster can then be located by navigating the k8Lens "catalog" as shown below.
 
 ![k8Lens Cluster Connection](./img/k8lens_1.png)
 
