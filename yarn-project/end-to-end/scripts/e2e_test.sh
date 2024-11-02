@@ -8,6 +8,8 @@
 
 set -eu
 
+# go above this folder
+cd $(dirname "${BASH_SOURCE[0]}")/..
 # Main positional parameter
 export TEST="$1"
 shift
@@ -58,13 +60,7 @@ else
   custom_command=$(echo "$test_config" | yq e '.command // ""' -)
   env_args=$(echo "$test_config" | yq e '.env // {} | to_entries | .[] | "-e " + .key + "=" + .value' - | tr '\n' ' ')
   if [ -n "$custom_command" ]; then
-    # Run the docker command
-    docker run \
-      -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
-      -e FAKE_PROOFS="$FAKE_PROOFS" \
-      $env_args \
-      --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
-      /bin/bash -c "$custom_command" || [ "$ignore_failures" = "true" ]
+    /bin/bash -c "$custom_command" || [ "$ignore_failures" = "true" ]
   else
     # Run the default docker command
     docker run \
