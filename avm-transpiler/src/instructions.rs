@@ -18,7 +18,7 @@ pub struct AvmInstruction {
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
     pub indirect: Option<AvmOperand>,
 
-    /// Some instructions have a destination or input tag
+    /// Some instructions have a tag, its usage will depend on the instruction.
     /// Its usage will depend on the instruction.
     pub tag: Option<AvmTypeTag>,
 
