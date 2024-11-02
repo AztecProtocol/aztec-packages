@@ -1,7 +1,7 @@
 
 ## Aztec packages spot builder
 
-Remember to use npm run build before pushing!
+Remember to use `npm run build` before pushing!
 
 # EC2 Github Action Builder
 
@@ -16,10 +16,10 @@ It offers multiple spot instance provisioning modes:
 
 - **None:** (default) Strictly On-Demand instances only
 - **SpotOnly**: Strictly Spot instances only
-- **BestEffort**: Use a Spot instance of same class and size when price is <= On-Demand
-  - (Automatic fallback to On-Demand)
+- **BestEffort**: Use a Spot instance of the same class and size when the price is ≤ On-Demand
+(Automatic fallback to On-Demand)
 
-Supported operating system AMIs:
+**Supported operating system AMIs:**
 - Amazon Linux
 - Ubuntu
 - Debian
@@ -43,14 +43,13 @@ Sources:
 - [GH Action Runner Pricing](https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions#per-minute-rates)
 
 ### Customizable Machine Image
-Users can provide their own custom AMI image pre-loaded with all the necessary tooling of their choice saving time and cost.
-
+Users can provide their own custom AMI image pre-loaded with all the necessary tooling, saving time and cost.
 ### Enhance Security
 - EC2 instances run within your infrastructure
-- Easier to harden runner instances using custom AMIs, Security Groups etc
-- Easier monitoring and vulnerability scanning using existing tools (e.g CloudWatch, GuardDuty, AWS Inspector etc)
-- Secure networking setup by eliminating any need to expose ports to external service or using Bastion hosts!
-- Lower data transfer costs (e.g ECR images, S3 objects etc)
+- Easier to harden runner instances using custom AMIs, Security Groups, etc.
+- Easier monitoring and vulnerability scanning using existing tools (e.g., CloudWatch, GuardDuty, AWS Inspector, etc.)
+- Secure networking setup by eliminating the need to expose ports to external services or use Bastion hosts!
+- Lower data transfer costs (e.g., ECR images, S3 objects, etc.)
 
 ## Setup
 
@@ -170,29 +169,28 @@ jobs:
 ## How it all works under the hood
 
 ### General instance launch flow
-- Your GitHub personal token is used to obtain a Runner Registration token
-- If no explicit runner version has been provided, it will retrieve the latest version number
-- It then uses all the provided info to compile an EC2 user-data script which does the following:
-  - Set a max TTL on the EC2 instance on startup
-  - Create a shutdown script which is executed when jobs end
-  - Downloads GitHub Action Runner bundle
-  - Unpack Action Runner bundle
-  - Configure Runner agent as an **ephemeral** agent
-- EC2 instance is launched with the user-data script from previous step
-- Once EC2 boot has completed, user-data script is executed
-- Runner binary registers itself with GitHub API using the current job ID
-- Once the Runner is registered, control is transferred to the next job (this is your build job)
-- Upon a job completion (failure/success), Shutdown script is triggered to kill the instance with a 1 minute delay
-
+Your GitHub personal token is used to obtain a Runner Registration token. 
+If no explicit runner version has been provided, it retrieves the latest version number. 
+It then uses all the provided information to compile an EC2 user-data script that does the following:
+- Sets a max TTL on the EC2 instance at startup.
+- Creates a shutdown script that is executed when jobs end.
+- Downloads the GitHub Action Runner bundle.
+- Unpacks the Action Runner bundle.
+- Configures the Runner agent as an ephemeral agent.
+- Launches the EC2 instance with the user-data script from the previous step.
+- Once EC2 boot has completed, the user-data script is executed.
+- The Runner binary registers itself with the GitHub API using the current job ID.
+- Once the Runner is registered, control is transferred to the next job (your build job).
+- Upon job completion (failure/success), the shutdown script is triggered to kill the instance with a 1-minute delay.
 ### Spot instance provisioning
-- Script looks up On-Demand price for the supplied instance type
-- It will then look up EC2 Spot instance prices using AWS API
-- Depending on the mode
-  - SpotOnly: It will try to launch a spot instance with On-Demand price as the max price cut-off
-  - BestEffort: It will try to launch a spot instance but falls back to On-Demand if prices are too high!
+The script looks up the On-Demand price for the supplied instance type. 
+It will then look up EC2 Spot instance prices using the AWS API.
+Depending on the mode:
+- SpotOnly: It will try to launch a spot instance with the On-Demand price as the max price cut-off.
+- BestEffort: It will try to launch a spot instance but falls back to On-Demand if prices are too high!
 
 ## Other EC2 Considerations
 - Each instance is named as "{repo}-{jobID}"
 - Default EC2 TTL is 60 minutes
 - Other EC2 tags are `github_job_id` and `github_ref`
-- Spot instances might be taken away by AWS without any prior notice
+- Spot instances may be taken away by AWS without any prior notice.
