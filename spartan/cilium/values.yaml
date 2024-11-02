@@ -1,0 +1,33 @@
+# Cilium
+cilium:
+  enabled: true
+
+  hubble:
+    enabled: true
+    metrics:
+      enableOpenMetrics: true
+      enabled:
+        - dns
+        - drop
+        - tcp
+        - flow
+        - port-distribution
+        - icmp
+        - http
+    relay:
+      enabled: true
+    ui:
+      enabled: true
+
+  prometheus:
+    enabled: false  # Disable Cilium's prometheus since we're using yours
+    serviceMonitor:
+      enabled: true
+      namespace: metrics  # Your metrics namespace
+      labels:
+        # Match your prometheus operator's configuration
+        release: metrics
+
+  operator:
+    prometheus:
+      enabled: true

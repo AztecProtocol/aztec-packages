@@ -146,6 +146,16 @@ prometheus:
     global:
       evaluation_interval: 15s
       scrape_interval: 15s
+  prometheus:
+    prometheusSpec:
+      serviceMonitorSelector:
+        matchLabels:
+          release: metrics
+      serviceMonitorNamespaceSelector:
+        matchNames:
+          - metrics
+          # Enable scraping from Cilium
+          - kube-system
   serverFiles:
     prometheus.yml:
       scrape_configs:
@@ -155,6 +165,7 @@ prometheus:
         - job_name: aztec
           static_configs:
             - targets: ["metrics-opentelemetry-collector.metrics:8889"]
+
 
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana

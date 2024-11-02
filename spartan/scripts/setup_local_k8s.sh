@@ -56,7 +56,7 @@ else
   # Sometimes, kubectl does not have our kind context yet kind registers it as existing
   # Ensure our context exists in kubectl
   kind delete cluster || true
-  kind create cluster
+  kind create cluster --config="$SCRIPT_DIR"/../kind/config.yaml
 fi
 
 kubectl config use-context kind-kind || true
