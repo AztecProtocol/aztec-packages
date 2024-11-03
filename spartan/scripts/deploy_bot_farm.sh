@@ -4,10 +4,9 @@ set -o pipefail
 
 TAG=$1
 VALUES=$2
-JOB_SOURCE_URL=$3
+AZTEC_NODE_URL=$3
 NAMESPACE=${4:-spartan}
 PROD=${5:-true}
-NUM_AGENTS=${6:-1}
 PROD_ARGS=""
 if [ "$PROD" = "true" ] ; then
   PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
@@ -47,16 +46,14 @@ function upgrade() {
           --create-namespace \
           --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
           --set images.aztec.image="$IMAGE" \
-          --set proverAgent.jobSourceUrl=$JOB_SOURCE_URL \
-          --set proverAgent.replicas=$NUM_AGENTS
+          --set bot.nodeUrl=$AZTEC_NODE_URL
   else
     helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
           --create-namespace \
           --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
           --set images.aztec.image="$IMAGE" \
-          --set proverAgent.jobSourceUrl=$JOB_SOURCE_URL \
-          --set proverAgent.replicas=$NUM_AGENTS \
+          --set bot.nodeUrl=$AZTEC_NODE_URL \
           --wait \
           --wait-for-jobs=true \
           --timeout=30m 2>&1

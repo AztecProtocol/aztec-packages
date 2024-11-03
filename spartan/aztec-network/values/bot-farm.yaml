@@ -24,26 +24,22 @@ bootNode:
 proverNode:
   external: true
 
-
 proverAgent:
-  replicas: 1
-  realProofs: true
-  jobSourceUrl: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
-  bb:
-    hardwareConcurrency: 32
-  # nodeSelector:
-  #   cloud.google.com/compute-class: "Performance"
-  #   cloud.google.com/machine-family: "t2d-standard-32"
-  resources:
-    requests:
-      memory: "128Gi"
-      cpu: "32"
+  enabled: false
 
 pxe:
   external: true
 
 bot:
-  enabled: false
+  enabled: true
+  replicas: 2
+  pxeProverEnabled: true
+  proverRealProofs: true
+  txIntervalSeconds: 200
+  botPrivateKey: ""
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 1
+  nodeUrl: ""
 
 ethereum:
   external: true
