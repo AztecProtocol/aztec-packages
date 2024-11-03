@@ -17,6 +17,11 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
+      {{- if .Values.proverAgent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.proverAgent.nodeSelector | nindent 8 }}
+      {{- end }}
+
       initContainers:
         - name: wait-for-prover-node
           image: {{ .Values.images.curl.image }}
