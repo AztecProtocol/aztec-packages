@@ -57,37 +57,32 @@ function deploy_scenario() {
 }
 
 # Test different validators sets
-# +3 scenarios
 for i in 1 4 16 ; do
   # we rely on $i-validators.yaml existing
-  deploy_scenario validators-$i $i-validators &
+  deploy_scenario validators-$i $i-validators \ 
+    --set bot.privateTransfersPerTx=1 \
+    --set bot.publicTransfersPerTx=2 &
   sleep $((10 * 60))
 done
 
-# Test combinations of bots and txIntervalSeconds
-# +9 scenarios
-for bots in 4 8 16 ; do
-  for tx_interval in 5 10 20 ; do
-    deploy_scenario bots-$bots-tx-interval-$tx_interval 4-validators \
-      --set bot.replicas=$bots \
-      --set bot.txIntervalSeconds=$tx_interval \
-      --set bot.privateTransfersPerTx=1 \
-      --set bot.publicTransfersPerTx=2 &
-    sleep $((10 * 60))
-  done
+# Test txIntervalSeconds
+for tx_interval in 20 10 ; do
+  deploy_scenario tx-interval-$tx_interval 4-validators \
+    --set bot.replicas=2 \
+    --set bot.txIntervalSeconds=$tx_interval \
+    --set bot.privateTransfersPerTx=1 \
+    --set bot.publicTransfersPerTx=2 &
+  sleep $((10 * 60))
 done
 
-# Test combinations of bots and transaction load
-# +9 scenarios
-for bots in 4 8 16 ; do
-  for tx_load in 1 4 8 ; do
-    deploy_scenario bots-$bots-tx-load-$tx_load 4-validators \
-      --set bot.replicas=$bots \
-      --set bot.txIntervalSeconds=$tx_interval \
-      --set bot.privateTransfersPerTx=$tx_load \
-      --set bot.publicTransfersPerTx=$(($tx_load * 2)) &
-    sleep $((10 * 60))
-  done
+# Test transaction load
+for tx_load in 4 8 ; do
+  deploy_scenario tx-load-$tx_load 4-validators \
+    --set bot.replicas=2 \
+    --set bot.txIntervalSeconds=20 \
+    --set bot.privateTransfersPerTx=$tx_load \
+    --set bot.publicTransfersPerTx=$(($tx_load * 2)) &
+  sleep $((10 * 60))
 done
 
 wait
