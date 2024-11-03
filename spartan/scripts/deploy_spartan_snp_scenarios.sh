@@ -11,7 +11,7 @@ IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$
 $SCRIPT_DIR/setup_local_k8s.sh
 
 function show_get_pods_periodic() {
-  NAMESPACE=$1
+  local NAMESPACE=$1
   set +x
   sleep 15 # let helm upgrade start
   kubectl get pods -n $NAMESPACE
@@ -21,16 +21,17 @@ function show_get_pods_periodic() {
     sleep 60
   done
 }
-function run_scenario() {
+function deploy_scenario() {
   local NAMESPACE=$1
   local VALUES=$2
   # pull and resolve the image just to be absolutely sure k8s gets the latest image in the tag we want
-  mkdir $NAMESPACE
+  mkdir -p $NAMESPACE
   cd $NAMESPACE
   shift 2
+  echo "Deploying scenario $NAMESPACE"
   # select our values file and set variables on commandline
   BASE_ARGS="--values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml --set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
-  kubectl delete namespace $NAMESPACE
+  kubectl delete namespace $NAMESPACE --ignore-not-found
   helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
         --namespace $NAMESPACE \
         --create-namespace \
@@ -38,7 +39,7 @@ function run_scenario() {
         --set images.aztec.image="$IMAGE" > helm-rendered.yaml
   # Create disembodied stern logger to capture all logs redundantly (note, hacky: need to periodically pkill stern)
   nohup stern $NAMESPACE -n $NAMESPACE >log-stream.log &>log-stream.err &
-  show_get_pods_periodic &
+  show_get_pods_periodic $NAMESPACE &
   helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
         --namespace $NAMESPACE \
         --create-namespace \
@@ -47,20 +48,23 @@ function run_scenario() {
         --wait \
         --wait-for-jobs=true \
         --timeout=30m 2>&1
+  echo "Deployed scenario $NAMESPACE"
 }
 
 # Test different validators sets
 # +4 scenarios
 for i in 1 4 16 48 ; do
+  sleep 5
   # we rely on $i-validators.yaml existing
-  run_scenario validators-$i $i-validators &
+  deploy_scenario validators-$i $i-validators &
 done
 
 # Test combinations of bots and txIntervalSeconds
 # +9 scenarios
 for bots in 4 8 16 ; do
   for tx_interval in 5 10 20 ; do
-    run_scenario bots-$bots-tx-interval-$tx_interval 4-validators \
+    sleep 5
+    deploy_scenario bots-$bots-tx-interval-$tx_interval 4-validators \
       --set bot.replicas=$bots \
       --set bot.txIntervalSeconds=$tx_interval \
       --set bot.privateTransfersPerTx=1 \
@@ -72,7 +76,8 @@ done
 # +9 scenarios
 for bots in 4 8 16 ; do
   for tx_load in 1 4 8 ; do
-    run_scenario bots-$bots-tx-load-$tx_load 4-validators \
+    sleep 5
+    deploy_scenario bots-$bots-tx-load-$tx_load 4-validators \
       --set bot.replicas=$bots \
       --set bot.txIntervalSeconds=$tx_interval \
       --set bot.privateTransfersPerTx=1 \
