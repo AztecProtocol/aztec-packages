@@ -504,7 +504,7 @@ Subtraction (a - b)
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] - M[bOffset] mod 2^k`
-- **Details**: Wraps on undeflow
+- **Details**: Wraps on underflow
 - **Tag checks**: `T[aOffset] == T[bOffset] == inTag`
 - **Tag updates**: `T[dstOffset] = inTag`
 - **Bit-size**: 128
