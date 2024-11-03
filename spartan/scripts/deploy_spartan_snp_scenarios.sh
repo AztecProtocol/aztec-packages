@@ -9,6 +9,8 @@ docker pull aztecprotocol/aztec:$TAG
 IMAGE=aztecprotocol/aztec:scenario-$(git rev-parse HEAD)
 docker tag aztecprotocol/aztec:$TAG
 
+$SCRIPT_DIR/setup_local_k8s.sh
+
 function show_get_pods_periodic() {
   NAMESPACE=$1
   set +x
