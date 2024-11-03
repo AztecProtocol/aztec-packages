@@ -54,21 +54,21 @@ function deploy_scenario() {
 # Test different validators sets
 # +4 scenarios
 for i in 1 4 16 48 ; do
-  sleep 5
   # we rely on $i-validators.yaml existing
   deploy_scenario validators-$i $i-validators &
+  sleep 120
 done
 
 # Test combinations of bots and txIntervalSeconds
 # +9 scenarios
 for bots in 4 8 16 ; do
   for tx_interval in 5 10 20 ; do
-    sleep 5
     deploy_scenario bots-$bots-tx-interval-$tx_interval 4-validators \
       --set bot.replicas=$bots \
       --set bot.txIntervalSeconds=$tx_interval \
       --set bot.privateTransfersPerTx=1 \
       --set bot.publicTransfersPerTx=2 &
+    sleep 120
   done
 done
 
@@ -76,12 +76,12 @@ done
 # +9 scenarios
 for bots in 4 8 16 ; do
   for tx_load in 1 4 8 ; do
-    sleep 5
     deploy_scenario bots-$bots-tx-load-$tx_load 4-validators \
       --set bot.replicas=$bots \
       --set bot.txIntervalSeconds=$tx_interval \
-      --set bot.privateTransfersPerTx=1 \
-      --set bot.publicTransfersPerTx=2 &
+      --set bot.privateTransfersPerTx=$tx_load \
+      --set bot.publicTransfersPerTx=$(($tx_load * 2)) &
+    sleep 120
   done
 done
 
