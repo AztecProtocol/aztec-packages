@@ -45,7 +45,6 @@ Public state works similarly to other chains like Ethereum, behaving like a publ
 ![Public vs private state](../../static/img/public-and-private-state-diagram.png)
 
 Aztec [smart contract](./smart_contracts_overview.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
-
  
 ## Accounts and keys
 

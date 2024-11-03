@@ -6,12 +6,6 @@ const path = require("path");
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 export default {
   sidebar: [
-   
-    {
-      type: "doc",
-      id: "aztec/what_is_aztec",
-      label: "What is Aztec?",
-    },
     {
       type: "html",
       value: '<span class="sidebar-title">Concepts</span>',
