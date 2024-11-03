@@ -38,7 +38,7 @@ function deploy_scenario() {
         $BASE_ARGS "$@" \
         --set images.aztec.image="$IMAGE" > helm-rendered.yaml
   # Create disembodied stern logger to capture all logs redundantly (note, hacky: need to periodically pkill stern)
-  nohup stern $NAMESPACE -n $NAMESPACE >log-stream.log &>log-stream.err &
+  nohup stern $NAMESPACE -n $NAMESPACE >log-stream.log 2>log-stream.err &
   show_get_pods_periodic $NAMESPACE &
   helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
         --namespace $NAMESPACE \

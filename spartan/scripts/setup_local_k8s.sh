@@ -59,6 +59,8 @@ else
   kind create cluster
 fi
 
+  kind delete cluster || true
+  kind create cluster
 kubectl config use-context kind-kind || true
 
 pushd "$SCRIPT_DIR"/../chaos-mesh
