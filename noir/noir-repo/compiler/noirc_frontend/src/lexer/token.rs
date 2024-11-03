@@ -1,4 +1,4 @@
-use acvm::{acir::AcirField, FieldElement};
+use acvm::FieldElement;
 use noirc_errors::{Position, Span, Spanned};
 use std::fmt;
 
@@ -367,7 +367,7 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Token::Ident(ref s) => write!(f, "{s}"),
-            Token::Int(n) => write!(f, "{}", n.to_u128()),
+            Token::Int(n) => write!(f, "{}", n),
             Token::Bool(b) => write!(f, "{b}"),
             Token::Str(ref b) => write!(f, "{b:?}"),
             Token::FmtStr(ref b) => write!(f, "f{b:?}"),
@@ -793,7 +793,6 @@ impl Attribute {
                 Attribute::Function(FunctionAttribute::Oracle(name.to_string()))
             }
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
-            ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["fold"] => Attribute::Function(FunctionAttribute::Fold),
             ["no_predicates"] => Attribute::Function(FunctionAttribute::NoPredicates),
             ["inline_always"] => Attribute::Function(FunctionAttribute::InlineAlways),
@@ -854,7 +853,6 @@ pub enum FunctionAttribute {
     Builtin(String),
     Oracle(String),
     Test(TestScope),
-    Recursive,
     Fold,
     NoPredicates,
     InlineAlways,
@@ -918,7 +916,6 @@ impl FunctionAttribute {
             FunctionAttribute::Builtin(_) => "builtin",
             FunctionAttribute::Oracle(_) => "oracle",
             FunctionAttribute::Test(_) => "test",
-            FunctionAttribute::Recursive => "recursive",
             FunctionAttribute::Fold => "fold",
             FunctionAttribute::NoPredicates => "no_predicates",
             FunctionAttribute::InlineAlways => "inline_always",
@@ -933,7 +930,6 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Foreign(ref k) => write!(f, "#[foreign({k})]"),
             FunctionAttribute::Builtin(ref k) => write!(f, "#[builtin({k})]"),
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
-            FunctionAttribute::Recursive => write!(f, "#[recursive]"),
             FunctionAttribute::Fold => write!(f, "#[fold]"),
             FunctionAttribute::NoPredicates => write!(f, "#[no_predicates]"),
             FunctionAttribute::InlineAlways => write!(f, "#[inline_always]"),
@@ -1064,7 +1060,6 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Builtin(string) => string,
             FunctionAttribute::Oracle(string) => string,
             FunctionAttribute::Test { .. } => "",
-            FunctionAttribute::Recursive => "",
             FunctionAttribute::Fold => "",
             FunctionAttribute::NoPredicates => "",
             FunctionAttribute::InlineAlways => "",

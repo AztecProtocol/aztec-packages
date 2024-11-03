@@ -122,9 +122,185 @@ polynomials,
                            const FF& scaling_factor);
 };
 
+template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
+  public:
+    using FF = FF_;
+
+    // 1 + polynomial degree of this relation
+    static constexpr size_t RELATION_LENGTH = 3; // degree((some lagrange)(A)) = 2
+
+    static constexpr size_t ZK_RELATION_LENGTH = 5;
+    static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS{
+        3, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
+
+    };
+    /**
+     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
+     */
+    static constexpr std::array<size_t, 64> SUBRELATION_WITNESS_DEGREES{
+        2, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // p_x_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // p_x_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // p_x_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // p_x_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // p_x_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // p_x_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // p_x_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // p_y_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // p_y_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // p_y_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // p_y_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // p_y_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // p_y_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // p_y_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // p_y_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // p_y_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // p_y_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // z_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // z_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // z_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // z_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // z_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // z_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // z_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // z_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // z_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // z_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // accumulator_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // accumulator_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // accumulator_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // accumulator_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // accumulator_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // accumulator_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // accumulator_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // accumulator_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // accumulator_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // accumulator_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // quotient_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // quotient_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // quotient_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // quotient_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // quotient_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // quotient_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // quotient_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // quotient_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // quotient_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // quotient_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        2, // relation_wide_limbs_range_constraint_0 is zero outside of the minicircuit
+        2, // relation_wide_limbs_range_constraint_1 is zero outside of the minicircuit
+        2, // relation_wide_limbs_range_constraint_2 is zero outside of the minicircuit
+        2, // relation_wide_limbs_range_constraint_3 is zero outside of the minicircuit
+        2, // p_x_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // p_x_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // p_y_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // p_y_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // z_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // z_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // accumulator_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        2, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
+
+    };
+    /**
+     * @brief Might return true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        static constexpr auto minus_one = -FF(1);
+        return (in.lagrange_even_in_minicircuit + in.lagrange_second_to_last_in_minicircuit + minus_one).is_zero();
+    }
+    /**
+     * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit
+     * @details This relation ensures that while we are out of the minicircuit the range constraint polynomials are zero
+     *
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
+     * @param parameters contains beta, gamma, and public_input_delta, ....
+     * @param scaling_factor optional term to scale the evaluation before adding to evals.
+     */
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    static void accumulate(ContainerOverSubrelations& accumulators,
+                           const AllEntities& in,
+                           const Parameters& params,
+                           const FF& scaling_factor);
+};
+
 template <typename FF> using TranslatorOpcodeConstraintRelation = Relation<TranslatorOpcodeConstraintRelationImpl<FF>>;
 
 template <typename FF>
 using TranslatorAccumulatorTransferRelation = Relation<TranslatorAccumulatorTransferRelationImpl<FF>>;
+
+template <typename FF> using TranslatorZeroConstraintsRelation = Relation<TranslatorZeroConstraintsRelationImpl<FF>>;
 
 } // namespace bb

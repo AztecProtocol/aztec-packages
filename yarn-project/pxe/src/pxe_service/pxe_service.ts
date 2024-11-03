@@ -1,7 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
-  type EventMetadata,
+  EventMetadata,
   EventType,
   type ExtendedNote,
   type FunctionCall,
@@ -44,11 +44,13 @@ import {
   computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
+  computePoint,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type AbiDecoded,
+  type AbiType,
   type ContractArtifact,
   EventSelector,
   FunctionSelector,
@@ -124,19 +126,18 @@ export class PXEService implements PXE {
 
   private async restoreNoteProcessors() {
     const accounts = await this.keyStore.getAccounts();
-    const publicKeys = accounts.map(async account => await this.keyStore.getMasterIncomingViewingPublicKey(account));
-    const publicKeysSet = new Set(publicKeys.map(k => k.toString()));
+    const accountsSet = new Set(accounts.map(k => k.toString()));
 
     const registeredAddresses = await this.db.getCompleteAddresses();
 
     let count = 0;
-    for (const address of registeredAddresses) {
-      if (!publicKeysSet.has(address.publicKeys.masterIncomingViewingPublicKey.toString())) {
+    for (const completeAddress of registeredAddresses) {
+      if (!accountsSet.has(completeAddress.address.toString())) {
         continue;
       }
 
       count++;
-      this.synchronizer.addAccount(address, this.keyStore, this.config.l2StartingBlock);
+      this.synchronizer.addAccount(completeAddress, this.keyStore, this.config.l2StartingBlock);
     }
 
     if (count > 0) {
@@ -204,6 +205,42 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
+  public async registerContact(address: AztecAddress): Promise<AztecAddress> {
+    const accounts = await this.keyStore.getAccounts();
+    if (accounts.includes(address)) {
+      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      return address;
+    }
+
+    const wasAdded = await this.db.addContactAddress(address);
+
+    if (wasAdded) {
+      this.log.info(`Added contact:\n ${address.toString()}`);
+    } else {
+      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+    }
+
+    return address;
+  }
+
+  public getContacts(): Promise<AztecAddress[]> {
+    const contacts = this.db.getContactAddresses();
+
+    return Promise.resolve(contacts);
+  }
+
+  public async removeContact(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeContactAddress(address);
+
+    if (wasRemoved) {
+      this.log.info(`Removed contact:\n ${address.toString()}`);
+    } else {
+      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+    }
+
+    return Promise.resolve();
+  }
+
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
     const completeAddresses = await this.db.getCompleteAddresses();
@@ -218,33 +255,6 @@ export class PXEService implements PXE {
     const result = await this.getRegisteredAccounts();
     const account = result.find(r => r.address.equals(address));
     return Promise.resolve(account);
-  }
-
-  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
-    const wasAdded = await this.db.addCompleteAddress(recipient);
-
-    if (wasAdded) {
-      this.log.info(`Added recipient:\n ${recipient.toReadableString()}`);
-    } else {
-      this.log.info(`Recipient:\n "${recipient.toReadableString()}"\n already registered.`);
-    }
-  }
-
-  public async getRecipients(): Promise<CompleteAddress[]> {
-    // Get complete addresses of both the recipients and the accounts
-    const completeAddresses = await this.db.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const recipients = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
-    return recipients;
-  }
-
-  public async getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRecipients();
-    const recipient = result.find(r => r.address.equals(address));
-    return Promise.resolve(recipient);
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -306,11 +316,11 @@ export class PXEService implements PXE {
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.ivpkM),
+        const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
+          computePoint(completeAddress.address).equals(dao.addressPoint),
         );
         if (completeAddresses === undefined) {
-          throw new Error(`Cannot find complete address for IvpkM ${dao.ivpkM.toString()}`);
+          throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
         }
         owner = completeAddresses.address;
       }
@@ -405,7 +415,7 @@ export class PXEService implements PXE {
           noteHash,
           siloedNullifier,
           index,
-          owner.publicKeys.masterIncomingViewingPublicKey,
+          computePoint(owner.address),
         ),
         scope,
       );
@@ -413,11 +423,6 @@ export class PXEService implements PXE {
   }
 
   public async addNullifiedNote(note: ExtendedNote) {
-    const owner = await this.db.getCompleteAddress(note.owner);
-    if (!owner) {
-      throw new Error(`Unknown account: ${note.owner.toString()}`);
-    }
-
     const nonces = await this.#getNoteNonces(note);
     if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
@@ -453,7 +458,7 @@ export class PXEService implements PXE {
           noteHash,
           Fr.ZERO, // We are not able to derive
           index,
-          owner.publicKeys.masterIncomingViewingPublicKey,
+          computePoint(note.owner),
         ),
       );
     }
@@ -830,24 +835,25 @@ export class PXEService implements PXE {
 
   public getEvents<T>(
     type: EventType.Encrypted,
-    eventMetadata: EventMetadata<T>,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
     vpks: Point[],
   ): Promise<T[]>;
   public getEvents<T>(
     type: EventType.Unencrypted,
-    eventMetadata: EventMetadata<T>,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
   ): Promise<T[]>;
   public getEvents<T>(
     type: EventType,
-    eventMetadata: EventMetadata<T>,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
     from: number,
     limit: number,
     vpks: Point[] = [],
   ): Promise<T[]> {
+    const eventMetadata = new EventMetadata<T>(type, event);
     if (type.includes(EventType.Encrypted)) {
       return this.getEncryptedEvents(from, limit, eventMetadata, vpks);
     }

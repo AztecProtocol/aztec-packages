@@ -4,6 +4,7 @@ import {
   type ContractInstanceWithAddress,
   type Header,
   type PublicKey,
+  type TaggingSecret,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -146,6 +147,26 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   setHeader(header: Header): Promise<void>;
 
   /**
+   * Adds contact address to the database.
+   * @param address - The address to add to the address book.
+   * @returns A promise resolving to true if the address was added, false if it already exists.
+   */
+  addContactAddress(address: AztecAddress): Promise<boolean>;
+
+  /**
+   * Retrieves the list of contact addresses in the address book.
+   * @returns An array of Aztec addresses.
+   */
+  getContactAddresses(): AztecAddress[];
+
+  /**
+   * Removes a contact address from the database.
+   * @param address - The address to remove from the address book.
+   * @returns A promise resolving to true if the address was removed, false if it does not exist.
+   */
+  removeContactAddress(address: AztecAddress): Promise<boolean>;
+
+  /**
    * Adds complete address to the database.
    * @param address - The complete address to add.
    * @returns A promise resolving to true if the address was added, false if it already exists.
@@ -186,7 +207,20 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    */
   estimateSize(): Promise<number>;
 
-  getTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<number[]>;
+  /**
+   * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been seen.
+   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
+   * whether the index was used to tag a sent or received note.
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   * @returns The indexes for the provided secrets, 0 if they've never been seen.
+   */
+  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]>;
 
-  incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[]): Promise<void>;
+  /**
+   * Increments the index for the provided app siloed tagging secrets.
+   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
+   * whether the index was used to tag a sent or received note.
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   */
+  incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void>;
 }
