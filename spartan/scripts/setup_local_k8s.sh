@@ -61,5 +61,9 @@ fi
 
 kubectl config use-context kind-kind || true
 
-"$SCRIPT_DIR"/../chaos-mesh/install.sh
-"$SCRIPT_DIR"/../metrics/install.sh
+pushd "$SCRIPT_DIR"/../chaos-mesh
+./install.sh
+popd
+pushd "$SCRIPT_DIR"/../metrics
+./install.sh
+popd
