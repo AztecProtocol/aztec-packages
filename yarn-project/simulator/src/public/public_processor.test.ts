@@ -160,8 +160,8 @@ describe('public_processor', () => {
       db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
       db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
 
-      publicExecutor.simulate.mockImplementation((_stateManager, request) => {
-        const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build();
+      publicExecutor.simulate.mockImplementation((_stateManager, _request) => {
+        const result = PublicExecutionResultBuilder.empty().build();
         return Promise.resolve(result);
       });
 

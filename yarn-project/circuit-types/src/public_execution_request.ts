@@ -1,4 +1,4 @@
-import { CallContext, type PublicCallRequest, Vector } from '@aztec/circuits.js';
+import { CallContext, PublicCallRequest, Vector } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -54,6 +54,10 @@ export class PublicExecutionRequest {
     return (
       this.callContext.equals(callRequest.callContext) && computeVarArgsHash(this.args).equals(callRequest.argsHash)
     );
+  }
+
+  toCallRequest(counter: number = 0): PublicCallRequest {
+    return new PublicCallRequest(this.callContext, computeVarArgsHash(this.args), counter);
   }
 
   [inspect.custom]() {

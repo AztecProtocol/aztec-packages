@@ -13,7 +13,10 @@ import { AvmPersistableStateManager } from '../avm/journal/index.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { DualSideEffectTrace } from './dual_side_effect_trace.js';
 import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
-import { type PublicExecutionResult } from './execution.js';
+import {
+  type EnqueuedPublicCallExecutionResult,
+  type EnqueuedPublicCallExecutionResultWithSideEffects,
+} from './execution.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
@@ -31,12 +34,12 @@ export class PublicExecutor {
   static readonly log = createDebugLogger('aztec:simulator:public_executor');
 
   /**
-   * Executes a public execution request.
+   * Simulate a public execution request.
    * @param executionRequest - The execution to run.
    * @param globalVariables - The global variables to use.
    * @param allocatedGas - The gas available at the start of this enqueued call.
    * @param transactionFee - Fee offered for this TX.
-   * @returns The result of execution, including the results of all nested calls.
+   * @returns The result of execution.
    */
   public async simulate(
     stateManager: AvmPersistableStateManager,
@@ -44,7 +47,7 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
     allocatedGas: Gas,
     transactionFee: Fr = Fr.ZERO,
-  ): Promise<PublicExecutionResult> {
+  ): Promise<EnqueuedPublicCallExecutionResult> {
     const address = executionRequest.callContext.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
     // TODO(dbanks12): move function name debugging elsewhere? or add it to state manager?
@@ -60,12 +63,12 @@ export class PublicExecutor {
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
     const simulator = new AvmSimulator(avmContext);
-    const avmResult = await simulator.execute();
+    const avmCallResult = await simulator.execute();
     const bytecode = simulator.getBytecode()!;
 
     PublicExecutor.log.verbose(
-      `[AVM] ${fnName} returned, reverted: ${avmResult.reverted}${
-        avmResult.reverted ? ', reason: ' + avmResult.revertReason : ''
+      `[AVM] ${fnName} returned, reverted: ${avmCallResult.reverted}${
+        avmCallResult.reverted ? ', reason: ' + avmCallResult.revertReason : ''
       }.`,
       {
         eventName: 'avm-simulation',
@@ -75,23 +78,19 @@ export class PublicExecutor {
       } satisfies AvmSimulationStats,
     );
 
-    const publicExecutionResult = stateManager.trace.toPublicExecutionResult(
-      avmExecutionEnv,
-      /*startGasLeft=*/ allocatedGas,
+    const publicExecutionResult = stateManager.trace.toPublicEnqueuedCallExecutionResult(
       /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
-      bytecode,
-      avmResult,
-      fnName,
+      avmCallResult,
     );
 
-    if (avmResult.reverted) {
+    if (avmCallResult.reverted) {
       this.metrics.recordFunctionSimulationFailure();
     } else {
       this.metrics.recordFunctionSimulation(bytecode.length, timer.ms());
     }
 
     PublicExecutor.log.verbose(
-      `[AVM] ${fnName} simulation complete. Reverted=${avmResult.reverted}. Consumed ${
+      `[AVM] ${fnName} simulation complete. Reverted=${avmCallResult.reverted}. Consumed ${
         allocatedGas.l2Gas - avmContext.machineState.gasLeft.l2Gas
       } L2 gas, ending with ${avmContext.machineState.gasLeft.l2Gas} L2 gas left.`,
     );
@@ -99,25 +98,33 @@ export class PublicExecutor {
     return publicExecutionResult;
   }
 
-  // WARNING: do not call from enqueued call simulator!
-  public async simulateSimple(
-    executionRequest: PublicExecutionRequest, // TODO(dbanks12): CallRequest instead?
+  /**
+   * Simulate an enqueued call on its own, and include its side effects in its results.
+   * @param executionRequest - The execution to run.
+   * @param globalVariables - The global variables to use.
+   * @param allocatedGas - The gas available at the start of this enqueued call.
+   * @param transactionFee - Fee offered for this TX.
+   * @param startSideEffectCounter - The start counter to initialize the side effect trace with.
+   * @returns The result of execution including side effect vectors.
+   */
+  public async simulateIsolatedEnqueuedCall(
+    executionRequest: PublicExecutionRequest,
     globalVariables: GlobalVariables,
     allocatedGas: Gas,
-    transactionFee: Fr = Fr.ZERO,
-  ): Promise<PublicExecutionResult> {
-    const innerCallTrace = new PublicSideEffectTrace();
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace();
+    transactionFee: Fr = Fr.ONE,
+    startSideEffectCounter: number = 0,
+  ): Promise<EnqueuedPublicCallExecutionResultWithSideEffects> {
+    const innerCallTrace = new PublicSideEffectTrace(startSideEffectCounter);
+    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(startSideEffectCounter);
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
     const stateManager = new AvmPersistableStateManager(this.worldStateDB, trace);
-    return await this.simulate(stateManager, executionRequest, globalVariables, allocatedGas, transactionFee);
-  }
-
-  public getDefaultStateManager(): AvmPersistableStateManager {
-    const innerCallTrace = new PublicSideEffectTrace();
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace();
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
-    return new AvmPersistableStateManager(this.worldStateDB, trace);
+    return (await this.simulate(
+      stateManager,
+      executionRequest,
+      globalVariables,
+      allocatedGas,
+      transactionFee,
+    )) as EnqueuedPublicCallExecutionResultWithSideEffects;
   }
 }
 

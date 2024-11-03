@@ -30,6 +30,7 @@ import {
   PrivateContextInputs,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  type PublicDataUpdateRequest,
   TaggingSecret,
   computeContractClassId,
   computeTaggingSecret,
@@ -53,17 +54,13 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
-  AvmPersistableStateManager,
-  DualSideEffectTrace,
   ExecutionError,
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   type PackedValuesCache,
-  PublicEnqueuedCallSideEffectTrace,
   PublicExecutor,
-  PublicSideEffectTrace,
   type TypedOracle,
   acvm,
   createSimulationError,
@@ -76,6 +73,7 @@ import {
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
+import { type EnqueuedPublicCallExecutionResultWithSideEffects } from '../../../simulator/src/public/execution.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
@@ -221,11 +219,36 @@ export class TXE implements TypedOracle {
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 
-  async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
+  async addPublicDataWrites(writes: PublicDataUpdateRequest[]) {
     const db = await this.trees.getLatest();
-    const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier).toBuffer());
 
-    await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, siloedNullifiers, NULLIFIER_SUBTREE_HEIGHT);
+    // only insert the last write to a given slot
+    const uniqueWritesSet = new Map<bigint, PublicDataUpdateRequest>();
+    for (const write of writes) {
+      uniqueWritesSet.set(write.leafSlot.toBigInt(), write);
+    }
+    const uniqueWrites = Array.from(uniqueWritesSet.values());
+
+    await db.batchInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      uniqueWrites.map(w => new PublicDataTreeLeaf(w.leafSlot, w.newValue).toBuffer()),
+      0,
+    );
+  }
+
+  async addSiloedNullifiers(siloedNullifiers: Fr[]) {
+    const db = await this.trees.getLatest();
+
+    await db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      siloedNullifiers.map(n => n.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+  }
+
+  async addNullifiers(contractAddress: AztecAddress, nullifiers: Fr[]) {
+    const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier));
+    await this.addSiloedNullifiers(siloedNullifiers);
   }
 
   async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
@@ -626,7 +649,7 @@ export class TXE implements TypedOracle {
     return `${artifact.name}:${f.name}`;
   }
 
-  private async executePublicFunction(stateManager: AvmPersistableStateManager, args: Fr[], callContext: CallContext) {
+  private async executePublicFunction(args: Fr[], callContext: CallContext) {
     const execution = new PublicExecutionRequest(callContext, args);
 
     const db = await this.trees.getLatest();
@@ -656,12 +679,12 @@ export class TXE implements TypedOracle {
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
       new NoopTelemetryClient(),
     );
-    const executionResult = await simulator.simulate(
-      stateManager,
+    const executionResult = await simulator.simulateForTXE(
       execution,
       combinedConstantData.globalVariables,
       Gas.test(),
-      /* transactionFee */ Fr.ONE,
+      /*transactionFee=*/ Fr.ONE,
+      /*startSideEffectCounter=*/ this.sideEffectCounter,
     );
     return Promise.resolve(executionResult);
   }
@@ -691,14 +714,7 @@ export class TXE implements TypedOracle {
     const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
     const newArgsHash = this.packedValuesCache.pack(args);
 
-    const innerCallTrace = new PublicSideEffectTrace();
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace();
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
-    const stateManager = new AvmPersistableStateManager(
-      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
-      trace,
-    );
-    const executionResult = await this.executePublicFunction(stateManager, args, callContext);
+    const executionResult = await this.executePublicFunction(args, callContext);
 
     // Poor man's revert handling
     if (executionResult.reverted) {
@@ -716,16 +732,13 @@ export class TXE implements TypedOracle {
     }
 
     // Apply side effects
-    this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber() + 1;
-    const sideEffects = enqueuedCallTrace.getSideEffects();
+    this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber();
+    await this.addPublicDataWrites(executionResult.sideEffects.publicDataWrites);
     await this.addNoteHashes(
       targetContractAddress,
-      sideEffects.noteHashes.map(noteHash => noteHash.value),
+      executionResult.sideEffects.noteHashes.map(noteHash => noteHash.value),
     );
-    await this.addNullifiers(
-      targetContractAddress,
-      sideEffects.nullifiers.map(nullifier => nullifier.value),
-    );
+    await this.addSiloedNullifiers(executionResult.sideEffects.nullifiers.map(nullifier => nullifier.value));
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
@@ -812,7 +825,11 @@ export class TXE implements TypedOracle {
 
   // AVM oracles
 
-  async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean) {
+  async avmOpcodeCall(
+    targetContractAddress: AztecAddress,
+    args: Fr[],
+    isStaticCall: boolean,
+  ): Promise<EnqueuedPublicCallExecutionResultWithSideEffects> {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
     const currentMessageSender = AztecAddress.fromField(this.msgSender);
@@ -826,29 +843,19 @@ export class TXE implements TypedOracle {
       isStaticCall,
     );
 
-    const innerCallTrace = new PublicSideEffectTrace();
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace();
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
-    const stateManager = new AvmPersistableStateManager(
-      new TXEWorldStateDB(await this.trees.getLatest(), new TXEPublicContractDataSource(this)),
-      trace,
-    );
-    const executionResult = await this.executePublicFunction(stateManager, args, callContext);
+    const executionResult = await this.executePublicFunction(args, callContext);
     // Save return/revert data for later.
     this.nestedCallReturndata = executionResult.returnValues;
 
     // Apply side effects
     if (!executionResult.reverted) {
-      const sideEffects = enqueuedCallTrace.getSideEffects();
-      this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber() + 1;
+      this.sideEffectCounter = executionResult.endSideEffectCounter.toNumber();
+      await this.addPublicDataWrites(executionResult.sideEffects.publicDataWrites);
       await this.addNoteHashes(
         targetContractAddress,
-        sideEffects.noteHashes.map(noteHash => noteHash.value),
+        executionResult.sideEffects.noteHashes.map(noteHash => noteHash.value),
       );
-      await this.addNullifiers(
-        targetContractAddress,
-        sideEffects.nullifiers.map(nullifier => nullifier.value),
-      );
+      await this.addSiloedNullifiers(executionResult.sideEffects.nullifiers.map(nullifier => nullifier.value));
     }
 
     this.setContractAddress(currentContractAddress);

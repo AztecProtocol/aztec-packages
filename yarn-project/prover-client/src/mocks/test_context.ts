@@ -156,7 +156,7 @@ export class TestContext {
       execution: PublicExecutionRequest,
       _globalVariables: GlobalVariables,
       allocatedGas: Gas,
-      transactionFee?: Fr,
+      _transactionFee?: Fr,
     ) => {
       for (const tx of txs) {
         const allCalls = tx.publicTeardownFunctionCall.isEmpty()
@@ -164,10 +164,8 @@ export class TestContext {
           : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
         for (const request of allCalls) {
           if (execution.callContext.equals(request.callContext)) {
-            const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build({
-              startGasLeft: allocatedGas,
+            const result = PublicExecutionResultBuilder.empty().build({
               endGasLeft: allocatedGas,
-              transactionFee,
             });
             return Promise.resolve(result);
           }

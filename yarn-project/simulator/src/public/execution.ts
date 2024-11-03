@@ -14,17 +14,73 @@ import {
   type NoteHash,
   type Nullifier,
   PublicCallStackItemCompressed,
+  type PublicDataUpdateRequest,
   PublicInnerCallRequest,
   type ReadRequest,
   RevertCode,
+  type ScopedL2ToL1Message,
+  type ScopedLogHash,
+  type ScopedNoteHash,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
+export interface PublicSideEffects {
+  /** The contract storage update requests performed. */
+  publicDataWrites: PublicDataUpdateRequest[];
+  /** The new note hashes to be inserted into the note hashes tree. */
+  noteHashes: ScopedNoteHash[];
+  /** The new nullifiers to be inserted into the nullifier tree. */
+  nullifiers: Nullifier[];
+  /** The new l2 to l1 messages generated to be inserted into the messages tree. */
+  l2ToL1Messages: ScopedL2ToL1Message[];
+  /**
+   * The hashed logs with side effect counter.
+   * Note: required as we don't track the counter anywhere else.
+   */
+  unencryptedLogsHashes: ScopedLogHash[];
+  /**
+   * Unencrypted logs emitted during execution.
+   * Note: These are preimages to `unencryptedLogsHashes`.
+   */
+  unencryptedLogs: UnencryptedFunctionL2Logs;
+}
+
+export interface EnqueuedPublicCallExecutionResult {
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** The side effect counter after execution */
+  endSideEffectCounter: Fr;
+
+  /** The return values of the function. */
+  returnValues: Fr[];
+  /** Whether the execution reverted. */
+  reverted: boolean;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+}
+
+export interface EnqueuedPublicCallExecutionResultWithSideEffects {
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** The side effect counter after execution */
+  endSideEffectCounter: Fr;
+
+  /** The return values of the function. */
+  returnValues: Fr[];
+  /** Whether the execution reverted. */
+  reverted: boolean;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+
+  /** The public side effects of the function. */
+  sideEffects: PublicSideEffects;
+}
+
 /**
  * The public function execution result.
  */
-export interface PublicExecutionResult {
+export interface PublicFunctionCallResult {
   /** The execution request that triggered this result. */
   executionRequest: PublicExecutionRequest;
 
@@ -96,7 +152,7 @@ export interface PublicExecutionResult {
   functionName: string;
 }
 
-export function resultToPublicCallRequest(result: PublicExecutionResult) {
+export function resultToPublicCallRequest(result: PublicFunctionCallResult) {
   const request = result.executionRequest;
   const item = new PublicCallStackItemCompressed(
     request.callContext.contractAddress,

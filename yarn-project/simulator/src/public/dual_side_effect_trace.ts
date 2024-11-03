@@ -14,7 +14,7 @@ import { assert } from 'console';
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
-import { type PublicExecutionResult } from './execution.js';
+import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { type PublicSideEffectTrace } from './side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
@@ -24,10 +24,10 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     public readonly enqueuedCallTrace: PublicEnqueuedCallSideEffectTrace,
   ) {}
 
-  public fork(incrementSideEffectCounter: boolean = false) {
+  public fork(incrementSideEffectCounter: boolean = false, additionalPreviousNullifiers = 0) {
     return new DualSideEffectTrace(
-      this.innerCallTrace.fork(incrementSideEffectCounter),
-      this.enqueuedCallTrace.fork(incrementSideEffectCounter),
+      this.innerCallTrace.fork(incrementSideEffectCounter, additionalPreviousNullifiers),
+      this.enqueuedCallTrace.fork(incrementSideEffectCounter, additionalPreviousNullifiers),
     );
   }
 
@@ -160,7 +160,7 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     );
   }
 
-  public traceAppLogicPhase(
+  public traceExecutionPhase(
     /** The trace of the enqueued call. */
     appLogicTrace: this,
     /** The call request from private that enqueued this call. */
@@ -170,13 +170,24 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     /** Did the any enqueued call in app logic revert? */
     reverted: boolean,
   ) {
-    this.enqueuedCallTrace.traceAppLogicPhase(appLogicTrace.enqueuedCallTrace, publicCallRequests, calldatas, reverted);
+    this.enqueuedCallTrace.traceExecutionPhase(appLogicTrace.enqueuedCallTrace, publicCallRequests, calldatas, reverted);
   }
 
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
-  public toPublicExecutionResult(
+  public toPublicEnqueuedCallExecutionResult(
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
+  ): EnqueuedPublicCallExecutionResultWithSideEffects {
+    return this.enqueuedCallTrace.toPublicEnqueuedCallExecutionResult(endGasLeft, avmCallResults);
+  }
+  /**
+   * Convert this trace to a PublicExecutionResult for use externally to the simulator.
+   */
+  public toPublicFunctionCallResult(
     /** The execution environment of the nested call. */
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
@@ -189,8 +200,8 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
-  ): PublicExecutionResult {
-    return this.innerCallTrace.toPublicExecutionResult(
+  ): PublicFunctionCallResult {
+    return this.innerCallTrace.toPublicFunctionCallResult(
       avmEnvironment,
       startGasLeft,
       endGasLeft,
@@ -203,20 +214,23 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   public toVMCircuitPublicInputs(
     /** Constants */
     constants: CombinedConstantData,
-    /** The execution environment of the nested call. */
-    avmEnvironment: AvmExecutionEnvironment,
+    /** The call request that triggered public execution. */
+    callRequest: PublicCallRequest,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
     endGasLeft: Gas,
+    /** Transaction fee. */
+    transactionFee: Fr,
     /** The call's results */
     avmCallResults: AvmContractCallResult,
   ): VMCircuitPublicInputs {
     return this.enqueuedCallTrace.toVMCircuitPublicInputs(
       constants,
-      avmEnvironment,
+      callRequest,
       startGasLeft,
       endGasLeft,
+      transactionFee,
       avmCallResults,
     );
   }

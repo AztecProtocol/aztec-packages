@@ -1,7 +1,10 @@
 export * from './db_interfaces.js';
 export { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
 export * from './enqueued_calls_processor.js';
-export { type PublicExecutionResult } from './execution.js';
+export {
+  type EnqueuedPublicCallExecutionResult as PublicExecutionResult,
+  type PublicFunctionCallResult,
+} from './execution.js';
 export { PublicExecutor } from './executor.js';
 export * from './fee_payment.js';
 export { HintsBuilder } from './hints_builder.js';

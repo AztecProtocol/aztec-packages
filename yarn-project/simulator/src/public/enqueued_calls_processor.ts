@@ -59,6 +59,8 @@ type PublicPhaseResult = {
   gasUsed: Gas;
   /** Time spent for the execution this phase */
   durationMs: number;
+  /** Reverted */
+  reverted: boolean;
   /** Revert reason, if any */
   revertReason?: SimulationError;
 };
@@ -102,8 +104,16 @@ export class EnqueuedCallsProcessor {
     globalVariables: GlobalVariables,
     historicalHeader: Header,
     worldStateDB: WorldStateDB,
+    realAvmProvingRequests: boolean = true,
   ) {
-    const enqueuedCallSimulator = new EnqueuedCallSimulator(db, publicExecutor, globalVariables, historicalHeader);
+    const enqueuedCallSimulator = new EnqueuedCallSimulator(
+      db,
+      worldStateDB,
+      publicExecutor,
+      globalVariables,
+      historicalHeader,
+      realAvmProvingRequests,
+    );
 
     const publicKernelTailSimulator = PublicKernelTailSimulator.create(db, publicKernelSimulator);
 
@@ -163,58 +173,46 @@ export class EnqueuedCallsProcessor {
     let revertReason: SimulationError | undefined;
 
     // TODO(dbanks12): need to emit TX nullifier if there was no private execution?
-    // Dow we also need to check its existence?
-    const pendingNullifiers = [
-      ...publicKernelOutput.end.nullifiers,
-      ...publicKernelOutput.endNonRevertibleData.nullifiers,
-    ]
-      .filter(n => !n.isEmpty())
-      .map(n => n.value);
-    // TODO(dbanks12): cleanup
+    // Do we also need to check its existence?
+    const nonRevertibleNullifiersFromPrivate = publicKernelOutput.endNonRevertibleData.nullifiers.filter(n => !n.isEmpty()).map(n => n.value);
+    const _revertibleNullifiersFromPrivate = publicKernelOutput.end.nullifiers.filter(n => !n.isEmpty()).map(n => n.value);
+
+    // During SETUP, non revertible side effects from private are our "previous data"
     const prevAccumulatedData =
-      //phase === PublicKernelPhase.SETUP ?
       publicKernelOutput.endNonRevertibleData;
-    //: publicKernelOutput.end;
     const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
       publicKernelOutput.validationRequests,
     );
 
     const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
-    // TODO(dbanks12): if an enqueued call has startSideEffectCounter == endSideEffectCounter,
-    // then we need to make sure to increment on the next fork
-    const innerCallTrace = new PublicSideEffectTrace(1);
+    const innerCallTrace = new PublicSideEffectTrace();
     const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
-      /*startSideEffectCounter=*/ 1,
+      /*startSideEffectCounter=*/ 0,
       previousValidationRequestArrayLengths,
       previousAccumulatedDataArrayLengths,
     );
     const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
-    // TODO(dbanks12): do we need to pass pending note hashes, messages, logs here too?
-    //
-    // Right now we are creating one top level state manager,
-    // and then forking it per enqueued call.
-    //
-    // We want to store a checkpoint at the start of app logic that
-    // is rolled back to if any enqaueued call in app logic reverts.
+
+    // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
       this.worldStateDB,
       trace,
-      pendingNullifiers,
+      nonRevertibleNullifiersFromPrivate,
     );
+    // TODO(dbanks12): insert all non-revertible side effects from private here.
+
     for (let i = 0; i < phases.length; i++) {
-      // TODO(dbanks12): cleanup
       const phase = phases[i];
-      // If in app logic, fork the state so that if ANY app-logic enqueued call reverts,
-      // we can rollback to the start of app logic.
-      // This effectively snapshots the state at the end of setup (start of app-logic)
-      // so that we can rollback to it before teardown if app-logic reverts.
-      // NOTE: should actually be able to fork for entire revertible section (app + teardown), but
-      // then we need to call `processEntireAppLogicPhase` with all callRequests & executionRequests
-      // across both of those phases.
-      //const stateManagerForPhase = phase === PublicKernelPhase.SETUP ? txStateManager : txStateManager.fork();
-      // Teardown is revertible, but will run even if app logic reverts!
-      this.log.debug(`start of phase, end counter from previousKernel: ${publicKernelOutput.endSideEffectCounter}`);
-      const stateManagerForPhase = phase !== PublicKernelPhase.SETUP ? txStateManager.fork() : txStateManager;
+      let stateManagerForPhase: AvmPersistableStateManager;
+      if (phase === PublicKernelPhase.SETUP) {
+        // don't need to fork for setup since it's non-revertible
+        // (if setup fails, transaction is thrown out)
+        stateManagerForPhase = txStateManager;
+      } else {
+        // Fork the state manager so that we can rollback state if a revertible phase reverts.
+        stateManagerForPhase = txStateManager.fork();
+        // NOTE: Teardown is revertible, but will run even if app logic reverts!
+      }
       const callRequests = EnqueuedCallsProcessor.getCallRequestsByPhase(tx, phase);
       if (callRequests.length) {
         const executionRequests = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, phase);
@@ -243,8 +241,7 @@ export class EnqueuedCallsProcessor {
         }
 
         if (phase !== PublicKernelPhase.SETUP) {
-          // TODO(dbanks12): do we need to do this if we already did this for each enqueued call fork?
-          txStateManager.processEntireAppLogicPhase(
+          txStateManager.mergeStateForPhase(
             stateManagerForPhase,
             callRequests,
             executionRequests.map(req => req.args),
@@ -261,10 +258,6 @@ export class EnqueuedCallsProcessor {
         });
 
         revertReason ??= result.revertReason;
-      }
-      let j = 0;
-      for (const req of enqueuedCallTrace.getSideEffects().contractStorageUpdateRequests) {
-        this.log.debug(`Storage update request ${j++}: ${JSON.stringify(req)}`);
       }
     }
 
@@ -302,6 +295,7 @@ export class EnqueuedCallsProcessor {
     let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = previousPublicKernelOutput;
     let gasUsed = Gas.empty();
+    let reverted: boolean = false;
     let revertReason: SimulationError | undefined;
     for (let i = callRequests.length - 1; i >= 0 && !revertReason; i--) {
       const callRequest = callRequests[i];
@@ -336,7 +330,7 @@ export class EnqueuedCallsProcessor {
         );
         throw enqueuedCallResult.revertReason;
       }
-      await txStateManager.processEnqueuedCall(
+      await txStateManager.mergeStateForEnqueuedCall(
         enqueuedCallStateManager,
         callRequest,
         executionRequest.args,
@@ -346,6 +340,7 @@ export class EnqueuedCallsProcessor {
       avmProvingRequest = enqueuedCallResult.avmProvingRequest;
       returnValues.push(enqueuedCallResult.returnValues);
       gasUsed = gasUsed.add(enqueuedCallResult.gasUsed);
+      reverted = enqueuedCallResult.reverted;
       revertReason ??= enqueuedCallResult.revertReason;
 
       // Instead of operating on worldStateDB here, do we do AvmPersistableStateManager.revert() or return()?
@@ -385,6 +380,7 @@ export class EnqueuedCallsProcessor {
       durationMs: phaseTimer.ms(),
       gasUsed,
       returnValues: revertReason ? [] : returnValues,
+      reverted: reverted,
       revertReason,
     };
   }
@@ -437,8 +433,6 @@ export class EnqueuedCallsProcessor {
 
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
 
-    this.log.debug(`previousKernel end counter: ${previousKernel.publicInputs.endSideEffectCounter}`);
-    this.log.debug(`enqueued call start counter: ${enqueuedCallData.startSideEffectCounter}`);
     return await this.publicKernelSimulator.publicKernelCircuitMerge(inputs);
   }
 

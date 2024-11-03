@@ -656,6 +656,10 @@ export class AvmCircuitInputs {
     );
   }
 
+  static empty(): AvmCircuitInputs {
+    return new AvmCircuitInputs('', [], PublicCircuitPublicInputs.empty(), AvmExecutionHints.empty());
+  }
+
   /**
    * Creates a new instance from fields.
    * @param fields - Fields to create the instance from.

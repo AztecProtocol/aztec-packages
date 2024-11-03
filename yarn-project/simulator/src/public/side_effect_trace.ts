@@ -41,7 +41,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
+import {
+  type EnqueuedPublicCallExecutionResultWithSideEffects,
+  type PublicFunctionCallResult,
+  resultToPublicCallRequest,
+} from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
@@ -72,7 +76,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
   private publicCallRequests: PublicInnerCallRequest[] = [];
 
-  private nestedExecutions: PublicExecutionResult[] = [];
+  private nestedExecutions: PublicFunctionCallResult[] = [];
 
   private avmCircuitHints: AvmExecutionHints;
 
@@ -84,7 +88,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork(incrementSideEffectCounter: boolean = false) {
+  public fork(incrementSideEffectCounter: boolean = false, _additionalPreviousNullifiers = 0) {
     return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
   }
 
@@ -301,7 +305,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // one for max unique contract calls, and another based on max nullifier reads.
     // Since this trace function happens _after_ a nested call, such threshold limits must take
     // place in another trace function that occurs _before_ a nested call.
-    const result = nestedCallTrace.toPublicExecutionResult(
+    const result = nestedCallTrace.toPublicFunctionCallResult(
       nestedEnvironment,
       startGasLeft,
       endGasLeft,
@@ -347,7 +351,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     throw new Error('Not implemented');
   }
 
-  public traceAppLogicPhase(
+  public traceExecutionPhase(
     /** The trace of the enqueued call. */
     _appLogicTrace: this,
     /** The call request from private that enqueued this call. */
@@ -363,7 +367,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   /**
    * Convert this trace to a PublicExecutionResult for use externally to the simulator.
    */
-  public toPublicExecutionResult(
+  public toPublicFunctionCallResult(
     /** The execution environment of the nested call. */
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
@@ -376,7 +380,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
-  ): PublicExecutionResult {
+  ): PublicFunctionCallResult {
     return {
       executionRequest: createPublicExecutionRequest(avmEnvironment),
 
@@ -415,15 +419,26 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     };
   }
 
+  public toPublicEnqueuedCallExecutionResult(
+    /** How much gas was left after this public execution. */
+    _endGasLeft: Gas,
+    /** The call's results */
+    _avmCallResults: AvmContractCallResult,
+  ): EnqueuedPublicCallExecutionResultWithSideEffects {
+    throw new Error('Not implemented');
+  }
+
   public toVMCircuitPublicInputs(
     /** Constants. */
     _constants: CombinedConstantData,
-    /** The execution environment of the nested call. */
-    _avmEnvironment: AvmExecutionEnvironment,
+    /** The call request that triggered public execution. */
+    _callRequest: PublicCallRequest,
     /** How much gas was available for this public execution. */
     _startGasLeft: Gas,
     /** How much gas was left after this public execution. */
     _endGasLeft: Gas,
+    /** Transaction fee. */
+    _transactionFee: Fr,
     /** The call's results */
     _avmCallResults: AvmContractCallResult,
   ): VMCircuitPublicInputs {
