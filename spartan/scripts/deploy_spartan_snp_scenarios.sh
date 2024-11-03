@@ -82,4 +82,4 @@ for bots in 4 8 16 ; do
 done
 
 wait
-echo "All jobs started. Refer to their individual folders for debug logs, or forward grafana."
+echo "All jobs started. Refer to their individual folders for debug logs, or forward grafana with spartan/metrics/forward.sh."
