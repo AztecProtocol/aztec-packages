@@ -10,6 +10,11 @@ IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$
 
 $SCRIPT_DIR/setup_local_k8s.sh
 
+echo "WARNING: this script needs high file descriptor limits e.g.
+$ sudo sysctl -w fs.file-max=10000000000
+$ sysctl -w fs.inotify.max_user_instances=10240
+"
+
 function show_get_pods_periodic() {
   local NAMESPACE=$1
   set +x
@@ -47,7 +52,7 @@ function deploy_scenario() {
         --set images.aztec.image="$IMAGE" \
         --wait \
         --wait-for-jobs=true \
-        --timeout=120m 2>&1
+        --timeout=60m 2>&1
   echo "Deployed scenario $NAMESPACE"
 }
 
@@ -56,7 +61,7 @@ function deploy_scenario() {
 for i in 1 4 16 ; do
   # we rely on $i-validators.yaml existing
   deploy_scenario validators-$i $i-validators &
-  sleep $((30 * 60))
+  sleep $((10 * 60))
 done
 
 # Test combinations of bots and txIntervalSeconds
@@ -68,7 +73,7 @@ for bots in 4 8 16 ; do
       --set bot.txIntervalSeconds=$tx_interval \
       --set bot.privateTransfersPerTx=1 \
       --set bot.publicTransfersPerTx=2 &
-    sleep $((30 * 60))
+    sleep $((10 * 60))
   done
 done
 
@@ -81,7 +86,7 @@ for bots in 4 8 16 ; do
       --set bot.txIntervalSeconds=$tx_interval \
       --set bot.privateTransfersPerTx=$tx_load \
       --set bot.publicTransfersPerTx=$(($tx_load * 2)) &
-    sleep $((30 * 60))
+    sleep $((10 * 60))
   done
 done
 
