@@ -110,7 +110,7 @@ program
     // this is some bad code, but it's def fun
     // I'm matching all keys started with project and
     // then using using modulo to say "if one is defined, two must be defined"
-    const optsKeys = Object.keys(options).filter((e) => /project*/g.test(e));
+    const optsKeys = Object.keys(options).filter((e) => /project.*/g.test(e));
     if (optsKeys.length % 2) {
       throw Error("You must define both the project type and the project name");
     }
