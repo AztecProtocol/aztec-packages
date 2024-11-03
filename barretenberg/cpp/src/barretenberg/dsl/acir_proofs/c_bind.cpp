@@ -258,6 +258,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
                                                     bool* verified)
 {
     using Program = acir_format::AcirProgram;
+    info("about to read witnesses from buffer");
     std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
     info("read witnesses from buffer");
     std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);

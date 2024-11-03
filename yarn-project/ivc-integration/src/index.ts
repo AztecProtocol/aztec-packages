@@ -1,4 +1,8 @@
+import { createDebugLogger } from '@aztec/foundation/log';
+
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
+import { ungzip } from 'pako';
+import { type Page } from 'playwright';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' assert { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' assert { type: 'json' };
@@ -30,6 +34,7 @@ export {
   MockPrivateKernelResetCircuit,
   MockPrivateKernelTailCircuit,
   MockPublicKernelCircuit,
+  proveAndVerifyAztecClient,
 };
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
@@ -118,4 +123,51 @@ export async function witnessGenMockPublicKernelCircuit(
     witness,
     publicInputs: returnValue as u8,
   };
+}
+
+const logger = createDebugLogger('browser-ivc-test');
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  logger.debug('creating Uint8Array from string');
+  logger.debug('creating Uint8Array from string');
+  return new Uint8Array(Buffer.from(base64, 'base64'));
+}
+
+async function runTest(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
+  logger.debug(`trying to import backend`);
+  const { AztecClientBackend } = await import('@aztec/bb.js');
+  logger.debug(`creatingAztecClientBackend`);
+  const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
+  logger.debug(`created preparedBytecodes`);
+  const backend = new AztecClientBackend(preparedBytecodes, { threads });
+  logger.debug(`calling proveAndVerify on backend`);
+  const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+  logger.debug(`finished running proveAndVerify. result: ${verified}`);
+
+  await backend.destroy();
+  return verified;
+}
+
+async function proveAndVerifyAztecClient(
+  page: Page,
+  bytecodes: string[],
+  witnessStack: Uint8Array[],
+): Promise<boolean> {
+  logger.debug('calling proveAndVerifyAztecClient');
+  // const threads = Math.min(os.cpus().length, 16);
+  const threads = 8;
+
+  await page.exposeFunction('runTest', runTest);
+
+  const result: boolean = await page.evaluate(
+    ([acir, witness, numThreads]) => {
+      console.log('about to call runTest');
+      (window as any).runTest = runTest;
+      return (window as any).runTest(acir, witness, numThreads);
+    },
+    [bytecodes, witnessStack, threads],
+  );
+
+  logger.debug(`RESULT: ${result}`);
+  return result;
 }

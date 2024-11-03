@@ -42,6 +42,7 @@ export class BarretenbergWasm extends BarretenbergWasmMain {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(desiredThreads);
+    console.log("initializing wasm");
     await wasm.init(module, threads, proxy(debug));
     return { worker, wasm };
   }

@@ -107,6 +107,7 @@ export class GrumpkinCrs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
+    console.log("about to read grupmkin_g1 data");
     return readFileSync(this.path + '/grumpkin_g1.dat');
   }
 }

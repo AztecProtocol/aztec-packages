@@ -256,15 +256,20 @@ export class AztecClientBackend {
 
   /** @ignore */
   async instantiate(): Promise<void> {
+    console.log("entered instantiate()");
     if (!this.api) {
+      console.log("creating bb.js api object...");
       const api = await Barretenberg.new(this.options);
+      console.log("created bb.js api object");
       await api.initSRSClientIVC();
+      console.log("initialized SRS for CIVC");
       this.api = api;
     }
   }
 
   async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
+    console.log("instantiated backend");
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
   }
 

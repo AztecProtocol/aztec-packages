@@ -1,13 +1,12 @@
-import { BB_RESULT, executeBbClientIvcProveAndVerify } from '@aztec/bb-prover';
-import { ClientIvcProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-
 import { jest } from '@jest/globals';
-import { encode } from '@msgpack/msgpack';
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import chalk from 'chalk';
+import {
+  type Browser,
+  type Page,
+  chromium,
+  /* firefox, webkit */
+} from 'playwright';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -23,63 +22,60 @@ import {
   witnessGenMockPrivateKernelResetCircuit,
   witnessGenMockPrivateKernelTailCircuit,
   witnessGenReaderAppMockCircuit,
+  proveAndVerifyAztecClient
 } from './index.js';
 
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:clientivc-integration');
+const logger = createDebugLogger('aztec:browser-ivc-test');
 
 jest.setTimeout(120_000);
 
-describe('Client IVC Integration', () => {
-  let bbWorkingDirectory: string;
-  let bbBinaryPath: string;
-
-  beforeEach(async () => {
-    // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.homedir(), 'bb-tmp/', 'bb-client-ivc-integration-'));
-    bbBinaryPath = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '../../../barretenberg/ts/dest/node',
-      'main.js',
-    );
-    logger.debug(`bbBinaryPath is ${bbBinaryPath}`);
-  });
-
-  function uint8ArrayToBase64(uint8Array: Uint8Array): string {
-    // Convert each byte in the Uint8Array to a character, then join them into a binary string
-    const binaryString = Array.from(uint8Array)
-        .map(byte => String.fromCharCode(byte))
-        .join('');
-
-    // Encode the binary string to base64
-    return btoa(binaryString);
+function formatAndPrintLog(message: string): void {
+  const parts = message.split('%c');
+  if (parts.length === 1) {
+    logger.debug(parts[0]);
+    return;
   }
+  if (!parts[0]) {
+    parts.shift();
+  }
+  const colors = parts[parts.length - 1].split(' color: ');
+  parts[parts.length - 1] = colors.shift()!;
 
-  async function proveAndVerifyAztecClient(witnessStack: Uint8Array[], bytecodes: string[]): Promise<boolean> {
-    await fs.writeFile(
-      path.join(bbWorkingDirectory, 'acir.msgpack.b64'),
-      uint8ArrayToBase64(encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64')))),
-    );
-    logger.debug('wrote acir.msgpack.b64');
+  // logger.debug({ message, parts, colors });
 
-    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack.b64'), uint8ArrayToBase64(encode(witnessStack)));
-    logger.debug('wrote witnesses.msgpack.b64');
+  let formattedMessage = '';
+  for (let i = 0; i < parts.length; i++) {
+    const colorValue = colors[i];
 
-    const provingResult = await executeBbClientIvcProveAndVerify(
-      bbBinaryPath,
-      bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'acir.msgpack.b64'),
-      path.join(bbWorkingDirectory, 'witnesses.msgpack.b64'),
-      logger.info,
-    );
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      throw new Error(provingResult.reason);
+    if (colorValue === 'inherit' || !colorValue) {
+      formattedMessage += parts[i];
+    } else if (colorValue.startsWith('#')) {
+      formattedMessage += chalk.hex(colorValue)(parts[i]);
     } else {
-      return true
+      formattedMessage += parts[i];
     }
   }
+
+  logger.debug(formattedMessage);
+}
+
+describe('Client IVC Integration', () => {
+  let page: Page;
+  let browser: Browser;
+
+  beforeAll(async () => {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    page = await context.newPage();
+    page.on('console', msg => formatAndPrintLog(msg.text()));
+    await page.goto('http://localhost:8080');
+  });
+
+  afterAll(async () => {
+    await browser.close();
+  });
 
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
@@ -114,7 +110,7 @@ describe('Client IVC Integration', () => {
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
     logger.debug('built witness stack');
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
+    const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
     logger.debug(`generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);

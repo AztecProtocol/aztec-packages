@@ -19,3 +19,5 @@ mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
 cp ../cpp/build-wasm-threads-assert/bin/barretenberg.wasm ./dest/node/barretenberg_wasm/barretenberg-threads.wasm
 cp ../cpp/build-wasm-threads-assert/bin/barretenberg.wasm ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+# cp ../cpp/build-wasm-threads-assert/bin/barretenberg.wasm ./src/barretenberg_wasm/barretenberg-threads.wasm
+# cp ../cpp/build-wasm-threads-assert/bin/barretenberg.wasm ./src/barretenberg_wasm/barretenberg.wasm
