@@ -1,5 +1,6 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
+// todo change to typesense
 
 const { themes } = require("prism-react-renderer");
 const lightTheme = themes.github;
