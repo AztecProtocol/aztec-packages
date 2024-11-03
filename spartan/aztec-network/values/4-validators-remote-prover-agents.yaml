@@ -40,7 +40,7 @@ pxe:
   proverEnabled: true
 
 bot:
-  enabled: true
+  enabled: false
   pxeProverEnabled: true
   txIntervalSeconds: 1
 

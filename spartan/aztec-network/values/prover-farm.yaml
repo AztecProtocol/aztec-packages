@@ -24,6 +24,7 @@ bootNode:
 proverNode:
   external: true
 
+
 proverAgent:
   replicas: 6
   realProofs: false
