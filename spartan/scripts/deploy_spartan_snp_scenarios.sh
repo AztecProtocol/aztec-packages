@@ -6,8 +6,7 @@ TAG=$1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 docker pull aztecprotocol/aztec:$TAG
-IMAGE=aztecprotocol/aztec:scenario-$(git rev-parse HEAD)
-docker tag aztecprotocol/aztec:$TAG
+IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$TAG)
 
 $SCRIPT_DIR/setup_local_k8s.sh
 
