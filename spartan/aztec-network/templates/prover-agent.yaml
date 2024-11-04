@@ -1,0 +1,75 @@
+{{- if .Values.proverAgent.enabled }}
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-agent
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.proverAgent.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: prover-agent
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: prover-agent
+    spec:
+      initContainers:
+        - name: wait-for-prover-node
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -s -X POST "$PROVER_JOB_SOURCE_URL/status"; do
+                echo "Waiting for Prover node $PROVER_JOB_SOURCE_URL ..."
+                sleep 5
+              done
+              echo "Prover node is ready!"
+              {{- if .Values.telemetry.enabled }}
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
+              {{- end }}
+          env:
+            - name: PROVER_JOB_SOURCE_URL
+              value: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
+      containers:
+        - name: prover-agent
+          image: "{{ .Values.images.aztec.image }}"
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover"
+          env:
+            - name: LOG_LEVEL
+              value: "{{ .Values.proverAgent.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: DEBUG
+              value: "{{ .Values.proverAgent.debug }}"
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.proverAgent.realProofs }}"
+            - name: PROVER_JOB_SOURCE_URL
+              value: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
+            - name: PROVER_AGENT_ENABLED
+              value: "true"
+            - name: PROVER_AGENT_CONCURRENCY
+              value: {{ .Values.proverAgent.concurrency | quote }}
+            - name: HARDWARE_CONCURRENCY
+              value: {{ .Values.proverAgent.bb.hardwareConcurrency | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+{{- end }}

@@ -24,6 +24,11 @@ export type BackendOptions = {
   crsPath?: string;
 };
 
+export type CircuitOptions = {
+  /** @description Whether to produce SNARK friendly proofs */
+  recursive: boolean;
+};
+
 /**
  * The main class library consumers interact with.
  * It extends the generated api, and provides a static constructor "new" to compose components.
@@ -74,9 +79,9 @@ export class Barretenberg extends BarretenbergApi {
   }
 
 
-  async acirInitSRS(bytecode: Uint8Array, honkRecursion: boolean): Promise<void> {
+  async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, honkRecursion);
+    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
     return this.initSRSForCircuitSize(subgroupSize);
   }
 

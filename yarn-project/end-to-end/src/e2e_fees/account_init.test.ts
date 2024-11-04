@@ -125,7 +125,7 @@ describe('e2e_fees account_init', () => {
       // the new account should have paid the full fee to the FPC
       await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
 
-      // the FPC got paid through "unshield", so it's got a new public balance
+      // the FPC got paid through "transfer_to_public", so it's got a new public balance
       await expect(t.getBananaPublicBalanceFn(bananaFPC.address)).resolves.toEqual([
         fpcsInitialPublicBananas + actualFee,
       ]);
@@ -181,9 +181,6 @@ describe('e2e_fees account_init', () => {
       const bobsPublicKeys = deriveKeys(bobsSecretKey).publicKeys;
       const bobsSigningPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
       const bobsInstance = bobsAccountManager.getInstance();
-
-      // alice registers bobs keys in the pxe
-      await pxe.registerRecipient(bobsCompleteAddress);
 
       // and deploys bob's account, paying the fee from her balance
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);

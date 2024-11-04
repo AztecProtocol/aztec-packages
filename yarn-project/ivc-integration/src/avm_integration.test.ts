@@ -66,12 +66,13 @@ describe('AVM Integration', () => {
   async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
     const witnessFileName = path.join(bbWorkingDirectory, 'witnesses.gz');
     await fs.writeFile(witnessFileName, witness);
-
+    const recursive = false;
     const provingResult = await generateProof(
       bbBinaryPath,
       bbWorkingDirectory,
       'mock-public-kernel',
       Buffer.from(bytecode, 'base64'),
+      recursive,
       witnessFileName,
       'ultra_honk',
       logger.info,

@@ -369,9 +369,9 @@ export class CrossChainTestHarness {
     await this.l2Token.methods.redeem_shield(this.ownerAddress, shieldAmount, secret).send().wait();
   }
 
-  async unshieldTokensOnL2(unshieldAmount: bigint, nonce = Fr.ZERO) {
-    this.logger.info('Unshielding tokens');
-    await this.l2Token.methods.unshield(this.ownerAddress, this.ownerAddress, unshieldAmount, nonce).send().wait();
+  async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {
+    this.logger.info('Transferring tokens to public');
+    await this.l2Token.methods.transfer_to_public(this.ownerAddress, this.ownerAddress, amount, nonce).send().wait();
   }
 
   /**
