@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-import {Apella} from "@aztec/governance/Apella.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
 
 /**
@@ -23,11 +23,11 @@ contract NewGovernanceProposerPayload is IPayload {
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](1);
 
-    Apella apella = Apella(REGISTRY.getApella());
+    Governance governance = Governance(REGISTRY.getGovernance());
 
     res[0] = Action({
-      target: address(apella),
-      data: abi.encodeWithSelector(apella.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER)
+      target: address(governance),
+      data: abi.encodeWithSelector(governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER)
     });
 
     return res;

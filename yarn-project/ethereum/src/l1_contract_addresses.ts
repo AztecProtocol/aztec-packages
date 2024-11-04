@@ -16,7 +16,7 @@ export const l1ContractsNames = [
   'coinIssuerAddress',
   'rewardDistributorAddress',
   'governanceProposerAddress',
-  'apellaAddress',
+  'governanceAddress',
 ] as const;
 
 /**
@@ -74,9 +74,9 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
     description: 'The deployed L1 governanceProposer contract address',
     parseEnv,
   },
-  apellaAddress: {
-    env: 'APELLA_CONTRACT_ADDRESS',
-    description: 'The deployed L1 apella contract address',
+  governanceAddress: {
+    env: 'GOVERNANCE_CONTRACT_ADDRESS',
+    description: 'The deployed L1 governance contract address',
     parseEnv,
   },
 };

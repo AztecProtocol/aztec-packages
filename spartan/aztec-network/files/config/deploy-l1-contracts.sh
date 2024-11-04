@@ -24,7 +24,7 @@ fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: 
 coin_issuer_address=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F0-9]{40}')
 rewardDistributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
 governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
-apella_address=$(echo "$output" | grep -oP 'Apella Address: \K0x[a-fA-F0-9]{40}')
+governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 
 # Write the addresses to a file in the shared volume
 cat <<EOF > /shared/contracts.env
@@ -37,7 +37,7 @@ export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 export COIN_ISSUER_CONTRACT_ADDRESS=$coin_issuer_address
 export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$rewardDistributor_address
 export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$governance_proposer_address
-export APELLA_CONTRACT_ADDRESS=$apella_address
+export GOVERNANCE_CONTRACT_ADDRESS=$governance_address
 EOF
 
 cat /shared/contracts.env

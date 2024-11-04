@@ -18,7 +18,7 @@ export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log:
   log(` CoinIssuer Address: ${info.l1ContractAddresses.coinIssuerAddress.toString()}`);
   log(` RewardDistributor Address: ${info.l1ContractAddresses.rewardDistributorAddress.toString()}`);
   log(` GovernanceProposer Address: ${info.l1ContractAddresses.governanceProposerAddress.toString()}`);
-  log(` Apella Address: ${info.l1ContractAddresses.apellaAddress.toString()}`);
+  log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
 
   log(`L2 Contract Addresses:`);
   log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);

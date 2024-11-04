@@ -41,7 +41,7 @@ describe('Contract Class', () => {
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
-    apellaAddress: EthAddress.random(),
+    governanceAddress: EthAddress.random(),
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),

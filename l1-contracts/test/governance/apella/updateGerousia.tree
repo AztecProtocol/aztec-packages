@@ -1,6 +1,0 @@
-UpdateGovernanceProposerTest
-├── when caller is not apella
-│   └── it revert
-└── when caller is apella
-    ├── it updates the governanceProposer
-    └── it emit the {GovernanceProposerUpdated} event

@@ -13,37 +13,37 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
  * when there are multiple contracts that could have thrown the error.
  */
 library Errors {
-  error Apella__CallerNotGovernanceProposer(address caller, address governanceProposer);
-  error Apella__CallerNotSelf(address caller, address self);
-  error Apella__NoCheckpointsFound();
-  error Apella__InsufficientPower(address voter, uint256 have, uint256 required);
-  error Apella__InvalidConfiguration();
-  error Apella__WithdrawalAlreadyclaimed();
-  error Apella__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
-  error Apella__ProposalNotActive();
-  error Apella__ProposalNotExecutable();
-  error Apella__CannotCallAsset();
-  error Apella__CallFailed(address target);
-  error Apella__ProposalDoesNotExists(uint256 proposalId);
-  error Apella__ProposalAlreadyDropped();
-  error Apella__ProposalCannotBeDropped();
+  error Governance__CallerNotGovernanceProposer(address caller, address governanceProposer);
+  error Governance__CallerNotSelf(address caller, address self);
+  error Governance__NoCheckpointsFound();
+  error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
+  error Governance__InvalidConfiguration();
+  error Governance__WithdrawalAlreadyclaimed();
+  error Governance__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
+  error Governance__ProposalNotActive();
+  error Governance__ProposalNotExecutable();
+  error Governance__CannotCallAsset();
+  error Governance__CallFailed(address target);
+  error Governance__ProposalDoesNotExists(uint256 proposalId);
+  error Governance__ProposalAlreadyDropped();
+  error Governance__ProposalCannotBeDropped();
 
-  error Apella__UserLib__NotInPast();
+  error Governance__UserLib__NotInPast();
 
-  error Apella__ConfigurationLib__InvalidMinimumVotes();
-  error Apella__ConfigurationLib__LockAmountTooSmall();
-  error Apella__ConfigurationLib__QuorumTooSmall();
-  error Apella__ConfigurationLib__QuorumTooBig();
-  error Apella__ConfigurationLib__DifferentialTooSmall();
-  error Apella__ConfigurationLib__DifferentialTooBig();
-  error Apella__ConfigurationLib__TimeTooSmall(string name);
-  error Apella__ConfigurationLib__TimeTooBig(string name);
+  error Governance__ConfigurationLib__InvalidMinimumVotes();
+  error Governance__ConfigurationLib__LockAmountTooSmall();
+  error Governance__ConfigurationLib__QuorumTooSmall();
+  error Governance__ConfigurationLib__QuorumTooBig();
+  error Governance__ConfigurationLib__DifferentialTooSmall();
+  error Governance__ConfigurationLib__DifferentialTooBig();
+  error Governance__ConfigurationLib__TimeTooSmall(string name);
+  error Governance__ConfigurationLib__TimeTooBig(string name);
 
-  error Apella__ProposalLib__ZeroMinimum();
-  error Apella__ProposalLib__ZeroVotesNeeded();
-  error Apella__ProposalLib__MoreVoteThanExistNeeded();
-  error Apella__ProposalLib__ZeroYeaVotesNeeded();
-  error Apella__ProposalLib__MoreYeaVoteThanExistNeeded();
+  error Governance__ProposalLib__ZeroMinimum();
+  error Governance__ProposalLib__ZeroVotesNeeded();
+  error Governance__ProposalLib__MoreVoteThanExistNeeded();
+  error Governance__ProposalLib__ZeroYeaVotesNeeded();
+  error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
 
   error GovernanceProposer__CanOnlyPushProposalInPast(); // 0x49fdf611"
   error GovernanceProposer__FailedToPropose(IPayload proposal); // 0x6ca2a2ed

@@ -5,7 +5,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestBase} from "@test/base/Base.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {Apella} from "@aztec/governance/Apella.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
@@ -29,7 +29,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
 
   IMintableERC20 internal token;
   Registry internal registry;
-  Apella internal apella;
+  Governance internal governance;
   GovernanceProposer internal governanceProposer;
   Rollup internal rollup;
 
@@ -49,7 +49,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
     registry = new Registry(address(this));
     governanceProposer = new GovernanceProposer(registry, 7, 10);
 
-    apella = new Apella(token, address(governanceProposer));
+    governance = new Governance(token, address(governanceProposer));
 
     address[] memory initialValidators = new address[](VALIDATOR_COUNT);
     for (uint256 i = 1; i <= VALIDATOR_COUNT; i++) {
@@ -72,7 +72,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
 
     registry.upgrade(address(rollup));
 
-    registry.transferOwnership(address(apella));
+    registry.transferOwnership(address(governance));
   }
 
   function test_UpgradeIntoNewVersion() external {
@@ -87,45 +87,45 @@ contract UpgradeGovernanceProposerTest is TestBase {
     }
 
     governanceProposer.pushProposal(0);
-    proposal = apella.getProposal(0);
+    proposal = governance.getProposal(0);
     assertEq(address(proposal.payload), address(payload));
 
     token.mint(EMPEROR, 10000 ether);
 
     vm.startPrank(EMPEROR);
-    token.approve(address(apella), 10000 ether);
-    apella.deposit(EMPEROR, 10000 ether);
+    token.approve(address(governance), 10000 ether);
+    governance.deposit(EMPEROR, 10000 ether);
     vm.stopPrank();
 
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
-    assertTrue(apella.getProposalState(0) == DataStructures.ProposalState.Active);
+    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Active);
 
     vm.prank(EMPEROR);
-    apella.vote(0, 10000 ether, true);
+    governance.vote(0, 10000 ether, true);
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
-    assertTrue(apella.getProposalState(0) == DataStructures.ProposalState.Queued);
+    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Queued);
 
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
-    assertTrue(apella.getProposalState(0) == DataStructures.ProposalState.Executable);
-    assertEq(apella.governanceProposer(), address(governanceProposer));
+    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Executable);
+    assertEq(governance.governanceProposer(), address(governanceProposer));
 
-    apella.execute(0);
+    governance.execute(0);
 
-    assertNotEq(apella.governanceProposer(), address(governanceProposer));
+    assertNotEq(governance.governanceProposer(), address(governanceProposer));
     address newGovernanceProposer =
       address(NewGovernanceProposerPayload(address(payload)).NEW_GOVERNANCE_PROPOSER());
-    assertEq(apella.governanceProposer(), newGovernanceProposer);
+    assertEq(governance.governanceProposer(), newGovernanceProposer);
 
     // Ensure that we cannot push a proposal after the upgrade.
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Apella__CallerNotGovernanceProposer.selector,
+        Errors.Governance__CallerNotGovernanceProposer.selector,
         address(governanceProposer),
         newGovernanceProposer
       )
     );
     vm.prank(address(governanceProposer));
-    apella.propose(payload);
+    governance.propose(payload);
   }
 }

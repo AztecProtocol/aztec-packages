@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
 import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
-import {IApella} from "@aztec/governance/interfaces/IApella.sol";
+import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
@@ -117,7 +117,7 @@ contract GovernanceProposer is IGovernanceProposer {
 
     emit ProposalPushed(round.leader, _roundNumber);
 
-    require(getApella().propose(round.leader), Errors.GovernanceProposer__FailedToPropose(round.leader));
+    require(getGovernance().propose(round.leader), Errors.GovernanceProposer__FailedToPropose(round.leader));
     return true;
   }
 
@@ -150,7 +150,7 @@ contract GovernanceProposer is IGovernanceProposer {
     return _slot.unwrap() / M;
   }
 
-  function getApella() public view override(IGovernanceProposer) returns (IApella) {
-    return IApella(REGISTRY.getApella());
+  function getGovernance() public view override(IGovernanceProposer) returns (IGovernance) {
+    return IGovernance(REGISTRY.getGovernance());
   }
 }

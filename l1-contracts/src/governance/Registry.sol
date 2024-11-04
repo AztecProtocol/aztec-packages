@@ -85,10 +85,10 @@ contract Registry is IRegistry, Ownable {
   }
 
   /**
-   * @notice Returns the address of the apella
-   * @return The apella address
+   * @notice Returns the address of the governance
+   * @return The governance address
    */
-  function getApella() external view override(IRegistry) returns (address) {
+  function getGovernance() external view override(IRegistry) returns (address) {
     return owner();
   }
 

@@ -3,8 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import {
-  ApellaAbi,
-  ApellaBytecode,
+  GovernanceAbi,
+  GovernanceBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   GovernanceProposerAbi,
@@ -144,9 +144,9 @@ export interface L1ContractArtifactsForDeployment {
    */
   governanceProposer: ContractArtifacts;
   /**
-   * Apella contract artifacts.
+   * Governance contract artifacts.
    */
-  apella: ContractArtifacts;
+  governance: ContractArtifacts;
 }
 
 export const l1Artifacts: L1ContractArtifactsForDeployment = {
@@ -195,9 +195,9 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractAbi: GovernanceProposerAbi,
     contractBytecode: GovernanceProposerBytecode,
   },
-  apella: {
-    contractAbi: ApellaAbi,
-    contractBytecode: ApellaBytecode,
+  governance: {
+    contractAbi: GovernanceAbi,
+    contractBytecode: GovernanceBytecode,
   },
 };
 
@@ -326,23 +326,23 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
-  const apellaAddress = await govDeployer.deploy(l1Artifacts.apella, [
+  const governanceAddress = await govDeployer.deploy(l1Artifacts.governance, [
     feeJuiceAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
-  logger.info(`Deployed Apella at ${apellaAddress}`);
+  logger.info(`Deployed Governance at ${governanceAddress}`);
 
   const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
     feeJuiceAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
-    apellaAddress.toString(),
+    governanceAddress.toString(),
   ]);
   logger.info(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
     feeJuiceAddress.toString(),
     registryAddress.toString(),
-    apellaAddress.toString(),
+    governanceAddress.toString(),
   ]);
   logger.info(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
@@ -468,16 +468,16 @@ export const deployL1Contracts = async (
     logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
   }
 
-  // If the owner is not the Apella contract, transfer ownership to the Apella contract
-  if ((await registryContract.read.owner([])) !== getAddress(apellaAddress.toString())) {
+  // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  if ((await registryContract.read.owner([])) !== getAddress(governanceAddress.toString())) {
     const transferOwnershipTxHash = await registryContract.write.transferOwnership(
-      [getAddress(apellaAddress.toString())],
+      [getAddress(governanceAddress.toString())],
       {
         account,
       },
     );
     logger.verbose(
-      `Transferring the ownership of the registry contract at ${registryAddress} to the Apella ${apellaAddress} in tx ${transferOwnershipTxHash}`,
+      `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
   }
@@ -496,7 +496,7 @@ export const deployL1Contracts = async (
     coinIssuerAddress,
     rewardDistributorAddress,
     governanceProposerAddress,
-    apellaAddress,
+    governanceAddress,
   };
 
   return {

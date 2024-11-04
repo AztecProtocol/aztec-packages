@@ -1,7 +1,7 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { deployL1Contract, sleep } from '@aztec/aztec.js';
 import {
-  ApellaAbi,
+  GovernanceAbi,
   TestERC20Abi as FeeJuiceAbi,
   GovernanceProposerAbi,
   NewGovernanceProposerPayloadAbi,
@@ -60,9 +60,9 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
-    const apella = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.apellaAddress.toString()),
-      abi: ApellaAbi,
+    const governance = getContract({
+      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
+      abi: GovernanceAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
@@ -167,18 +167,18 @@ describe('e2e_p2p_governance_proposer', () => {
     });
 
     await token.write.mint([emperor.address, 10000n * 10n ** 18n], { account: emperor });
-    await token.write.approve([apella.address, 10000n * 10n ** 18n], { account: emperor });
-    const depositTx = await apella.write.deposit([emperor.address, 10000n * 10n ** 18n], { account: emperor });
+    await token.write.approve([governance.address, 10000n * 10n ** 18n], { account: emperor });
+    const depositTx = await governance.write.deposit([emperor.address, 10000n * 10n ** 18n], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: depositTx });
 
-    const proposal = await apella.read.getProposal([0n]);
+    const proposal = await governance.read.getProposal([0n]);
 
     const timeToActive = proposal.creation + proposal.config.votingDelay;
     await t.ctx.cheatCodes.eth.warp(Number(timeToActive + 1n));
 
     await waitL1Block();
 
-    const voteTx = await apella.write.vote([0n, 10000n * 10n ** 18n, true], { account: emperor });
+    const voteTx = await governance.write.vote([0n, 10000n * 10n ** 18n, true], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: voteTx });
 
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
@@ -186,18 +186,18 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await waitL1Block();
 
-    expect(await apella.read.governanceProposer()).toEqual(
+    expect(await governance.read.governanceProposer()).toEqual(
       getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
     );
 
-    const executeTx = await apella.write.execute([0n], { account: emperor });
+    const executeTx = await governance.write.execute([0n], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: executeTx });
 
-    const newGovernanceProposer = await apella.read.governanceProposer();
+    const newGovernanceProposer = await governance.read.governanceProposer();
     expect(newGovernanceProposer).not.toEqual(
       getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
     );
 
-    expect(await apella.read.getProposalState([0n])).toEqual(5);
+    expect(await governance.read.getProposalState([0n])).toEqual(5);
   }, 1_000_000);
 });
