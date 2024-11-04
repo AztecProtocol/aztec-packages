@@ -42,8 +42,8 @@ class ClientIVC {
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using UltraProver = UltraProver_<Flavor>;
-    using UltraVerifier = UltraVerifier_<Flavor>;
+    using MegaProver = UltraProver_<Flavor>;
+    using MegaVerifier = UltraVerifier_<Flavor>;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
@@ -57,7 +57,13 @@ class ClientIVC {
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
 
-    // A full proof for the IVC scheme
+    /**
+     * @brief A full  proof for the IVC scheme containing a Mega proof showing correctness of the stealth circuit (which
+     * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
+     * proof).
+     *
+     * @details This proof will be zero-knowledge.
+     */
     struct Proof {
         HonkProof mega_proof;
         GoblinProof goblin_proof;

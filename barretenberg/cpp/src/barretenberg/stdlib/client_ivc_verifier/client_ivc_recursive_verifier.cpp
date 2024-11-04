@@ -10,7 +10,7 @@ namespace bb::stdlib::recursion::honk {
  */
 void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
-    // Construct stdlib mega verification key
+    // Construct stdlib Mega verification key
     auto stdlib_mega_vk =
         std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.mega_verification_key);
 

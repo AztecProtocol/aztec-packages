@@ -431,7 +431,6 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
     const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
     translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    info("here");
     const bool verified = ClientIVC::verify(proof, final_vk, eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
@@ -526,7 +525,6 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     std::string eccVkPath = outputPath + "/ecc_vk";
 
     auto proof = ivc.prove();
-    info("client ivc proof length ", proof.size());
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
     vinfo("ensure valid proof: ", ivc.verify(proof));
@@ -546,7 +544,6 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
  */
 void prove_tube(const std::string& output_path)
 {
-    vinfo("PLEASE BE HERE");
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using StackHonkVK = typename MegaFlavor::VerificationKey;
     using ECCVMVk = ECCVMFlavor::VerificationKey;
@@ -567,8 +564,7 @@ void prove_tube(const std::string& output_path)
 
     // Read the proof  and verification data from given files
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
-    std::shared_ptr<StackHonkVK> final_stack_vk =
-        std::make_shared<StackHonkVK>(from_buffer<StackHonkVK>(read_file(vkPath)));
+    std::shared_ptr<StackHonkVK> mega_vk = std::make_shared<StackHonkVK>(from_buffer<StackHonkVK>(read_file(vkPath)));
     std::shared_ptr<TranslatorVk> translator_vk =
         std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
     std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
@@ -578,17 +574,16 @@ void prove_tube(const std::string& output_path)
     eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
 
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
-    VerifierInput input{ final_stack_vk, goblin_verifier_input };
+    VerifierInput input{ mega_vk, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
-    vinfo("here");
-    // Padding needed for sending the right number of public inputs
+
+    // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
+    // circuit
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
-    vinfo("Number of public inputs BEFORE subtracting stuff in mega proof: ", num_public_inputs);
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    // num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments?
-    vinfo("Number of public inputs after subtracting stuff in mega proof: ", num_public_inputs);
+
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
@@ -608,7 +603,6 @@ void prove_tube(const std::string& output_path)
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
-    info("tube proof length ", tube_proof.size());
     std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
 

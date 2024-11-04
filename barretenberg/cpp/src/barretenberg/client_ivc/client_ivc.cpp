@@ -18,7 +18,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
 {
     bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided && verification_queue.size() != input_keys.size()) {
-        // info("Warning: Incorrect number of verification keys provided in stdlib verification queue instantiation.");
+        info("Warning: Incorrect number of verification keys provided in stdlib verification queue instantiation.");
         ASSERT(false);
     }
 
@@ -159,7 +159,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk, bool mock_vk)
 {
     if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
-        info("we are never here I assume?");
         complete_kernel_circuit_logic(circuit);
     }
 
@@ -215,7 +214,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
 /**
  * @brief Construct the stealth circuit, which recursively verifies the last folding proof and decider proof, and
- * then produce a proof of its correctness with MegaHonk.
+ * then produce a proof of the circuit's correctness with MegaHonk.
  *
  * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
  * @return HonkProof - a Mega proof
@@ -276,7 +275,7 @@ HonkProof ClientIVC::construct_and_prove_stealth_circuit()
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
-    UltraProver prover(decider_pk);
+    MegaProver prover(decider_pk);
 
     HonkProof proof = prover.construct_proof();
 
@@ -302,9 +301,10 @@ bool ClientIVC::verify(const Proof& proof,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
 
-    UltraVerifier verifer{ ultra_vk };
+    // Verify the stealth circuit proof
+    MegaVerifier verifer{ ultra_vk };
     bool ultra_verified = verifer.verify_proof(proof.mega_proof);
-    vinfo("Ultra verified: ", ultra_verified);
+    vinfo("Mega verified: ", ultra_verified);
     // Goblin verification (final merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);

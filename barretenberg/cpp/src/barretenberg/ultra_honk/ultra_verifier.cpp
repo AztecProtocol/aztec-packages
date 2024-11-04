@@ -14,7 +14,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using FF = typename Flavor::FF;
 
     transcript = std::make_shared<Transcript>(proof);
-    info("am I here at all?");
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
 

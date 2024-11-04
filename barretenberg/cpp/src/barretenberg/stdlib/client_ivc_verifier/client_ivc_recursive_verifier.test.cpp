@@ -82,7 +82,6 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
-
     ClientIVCVerifier verifier{ builder, verifier_input };
 
     // Generate the recursive verification circuit
