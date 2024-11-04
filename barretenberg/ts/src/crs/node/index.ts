@@ -1,7 +1,6 @@
 import { NetCrs } from '../net_crs.js';
-import { GRUMPKIN_SRS_DEV_PATH, IgnitionFilesCrs } from './ignition_files_crs.js';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { readFile, stat } from 'fs/promises';
+import { stat } from 'fs/promises';
 import createDebug from 'debug';
 import { homedir } from 'os';
 
