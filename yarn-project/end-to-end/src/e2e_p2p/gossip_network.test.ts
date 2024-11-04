@@ -57,6 +57,7 @@ describe('e2e_p2p_network', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      METRICS_PORT,
     );
 
     // wait a bit for peers to discover each other

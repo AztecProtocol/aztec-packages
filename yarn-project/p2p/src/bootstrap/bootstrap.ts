@@ -45,7 +45,6 @@ export class BootstrapNode {
     enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
 
     this.logger.info(`Starting bootstrap node ${peerId}, listening on ${listenAddrUdp.toString()}`);
-
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
       enr,

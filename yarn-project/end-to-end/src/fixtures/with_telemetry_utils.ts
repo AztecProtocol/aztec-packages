@@ -16,9 +16,9 @@ export function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<Te
 export function getEndToEndTestTelemetryConfig(metricsPort?: number) {
   const telemetryConfig: TelemetryClientConfig = getTelemetryConfig();
   if (metricsPort) {
-    telemetryConfig.metricsCollectorUrl = new URL(`http://localhost:${metricsPort}/v1/metrics`);
-    telemetryConfig.tracesCollectorUrl = new URL(`http://localhost:${metricsPort}/v1/traces`);
-    telemetryConfig.logsCollectorUrl = new URL(`http://localhost:${metricsPort}/v1/logs`);
+    telemetryConfig.metricsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/metrics`);
+    telemetryConfig.tracesCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/traces`);
+    telemetryConfig.logsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/logs`);
   }
   return telemetryConfig;
 }

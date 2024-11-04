@@ -220,7 +220,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const datastore = new AztecDatastore(store);
 
-    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+    // const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
     const node = await createLibp2p({
       start: false,
@@ -249,11 +249,11 @@ export class LibP2PService extends WithTracer implements P2PService {
         minConnections: minPeerCount,
         maxConnections: maxPeerCount,
       },
-      metrics: prometheusMetrics({
-        registry: otelMetricsAdapter,
-        collectDefaultMetrics: false,
-        preserveExistingMetrics: true
-      }),
+      // metrics: prometheusMetrics({
+      //   registry: otelMetricsAdapter,
+      //   collectDefaultMetrics: false,
+      //   preserveExistingMetrics: true
+      // }),
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
@@ -266,8 +266,8 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
-          metricsRegister: otelMetricsAdapter,
-          metricsTopicStrToLabel: metricsTopicStrToLabels(),
+          // metricsRegister: otelMetricsAdapter,
+          // metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
