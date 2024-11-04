@@ -213,13 +213,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 }
 
 /**
- * @brief Construct the stealth circuit, which recursively verifies the last folding proof and decider proof, and
+ * @brief Construct the hiding circuit, which recursively verifies the last folding proof and decider proof, and
  * then produce a proof of the circuit's correctness with MegaHonk.
  *
  * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
  * @return HonkProof - a Mega proof
  */
-HonkProof ClientIVC::construct_and_prove_stealth_circuit()
+HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     max_block_size_tracker.print();               // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
@@ -232,7 +232,7 @@ HonkProof ClientIVC::construct_and_prove_stealth_circuit()
 
     ClientCircuit builder{ goblin.op_queue };
     // The last circuit being folded is a kernel circuit whose public inputs need to be passed to the base rollup
-    // circuit. So, these have to be preserved as public inputs to the stealth circuit (and, subsequently, as public
+    // circuit. So, these have to be preserved as public inputs to the hiding circuit (and, subsequently, as public
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[1]));
@@ -289,7 +289,7 @@ HonkProof ClientIVC::construct_and_prove_stealth_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    HonkProof mega_proof = construct_and_prove_stealth_circuit();
+    HonkProof mega_proof = construct_and_prove_hiding_circuit();
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     MergeProof& merge_proof = merge_verification_queue[0];
     return { mega_proof, goblin.prove(merge_proof) };
@@ -301,7 +301,7 @@ bool ClientIVC::verify(const Proof& proof,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
 
-    // Verify the stealth circuit proof
+    // Verify the hiding circuit proof
     MegaVerifier verifer{ ultra_vk };
     bool ultra_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", ultra_verified);

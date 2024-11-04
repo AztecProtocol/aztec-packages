@@ -58,7 +58,7 @@ class ClientIVC {
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
 
     /**
-     * @brief A full  proof for the IVC scheme containing a Mega proof showing correctness of the stealth circuit (which
+     * @brief A full  proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
      * proof).
      *
@@ -152,7 +152,7 @@ class ClientIVC {
 
     Proof prove();
 
-    HonkProof construct_and_prove_stealth_circuit();
+    HonkProof construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof,
                        const std::shared_ptr<VerificationKey>& ultra_vk,
