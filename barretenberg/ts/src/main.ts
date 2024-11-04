@@ -607,17 +607,6 @@ program
   });
 
 program
-  .command('client_ivc_prove')
-  .description('Generate a ClientIVC proof.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.msgpack')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack')
-  .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
-    handleGlobalOptions();
-    await proveAztecClient(bytecodePath, witnessPath, outputPath, crsPath);
-  });
-
-program
   .command('gates')
   .description('Print Ultra Builder gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')

@@ -249,8 +249,8 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         info("constructing circuit...");
-        auto circuit =
-            create_circuit<MegaCircuitBuilder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(
+            program.constraints, false, 0, program.witness, false, ivc.goblin.op_queue);
 
         // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
         if (!circuit.databus_propagation_data.is_kernel) {
@@ -273,11 +273,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     *verified = result;
 }
 
-WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out) WASM_EXPORT
-    void acir_prove_ultra_honk(uint8_t const* acir_vec,
-                               bool const* recursive,
-                               uint8_t const* witness_vec,
-                               uint8_t** out)
+void acir_prove_ultra_honk(uint8_t const* acir_vec, bool const* recursive, uint8_t const* witness_vec, uint8_t** out)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
