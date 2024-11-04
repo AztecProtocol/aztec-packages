@@ -498,8 +498,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         if constexpr (!Curve::is_stdlib_type) {
             Fr::batch_invert(denominators);
-            for (auto denom : denominators) {
-            }
         }
 
         Fr constant_term = 0;
