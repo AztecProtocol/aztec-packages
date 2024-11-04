@@ -273,7 +273,10 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     *verified = result;
 }
 
-void acir_prove_ultra_honk(uint8_t const* acir_vec, bool const* recursive, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
+                                       bool const* recursive,
+                                       uint8_t const* witness_vec,
+                                       uint8_t** out)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
@@ -285,13 +288,6 @@ void acir_prove_ultra_honk(uint8_t const* acir_vec, bool const* recursive, uint8
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
-}
-
-WASM_EXPORT void acir_verify_aztec_client_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
-{
-    (void)acir_composer_ptr;
-    (void)proof_buf;
-    *result = false; // WORKTODO: build verifier
 }
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)

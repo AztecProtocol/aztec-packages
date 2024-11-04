@@ -49,15 +49,9 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
                                                  uint8_t const* witness_buf,
                                                  bool* result);
 
-WASM_EXPORT void acir_prove_aztec_client(uint8_t const* constraint_system_buf,
-                                         uint8_t const* witness_buf,
-                                         uint8_t** out);
-
 WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* constraint_system_buf,
                                                     uint8_t const* witness_buf,
                                                     bool* result);
-
-WASM_EXPORT void acir_verify_aztec_client_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* constraint_system_buf,
                                                     bool const* recursive,
