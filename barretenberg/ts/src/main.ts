@@ -45,7 +45,7 @@ function base64ToUint8Array(base64: string) {
 }
 
 function readStack(bytecodePath: string, numToDrop=0) {
-  const encodedPackedZippedBytecodeArray= readFileSync(bytecodePath, 'utf-8');
+  const encodedPackedZippedBytecodeArray = readFileSync(bytecodePath, 'utf-8');
   const packedZippedBytecodeArray = base64ToUint8Array(encodedPackedZippedBytecodeArray);
   const zipped = decode(packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop)) as Uint8Array[];
   const bytecodeArray = zipped.map((arr: Uint8Array) => ungzip(arr));
