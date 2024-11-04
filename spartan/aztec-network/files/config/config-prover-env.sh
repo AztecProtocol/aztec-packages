@@ -17,7 +17,7 @@ outbox_address=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F
 fee_juice_address=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
 fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 coin_issuer_address=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F0-9]{40}')
-rewardDistributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
+reward_distributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
 governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 
@@ -31,7 +31,7 @@ export OUTBOX_CONTRACT_ADDRESS=$outbox_address
 export FEE_JUICE_CONTRACT_ADDRESS=$fee_juice_address
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 export COIN_ISSUER_CONTRACT_ADDRESS=$coin_issuer_address
-export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$rewardDistributor_address
+export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$reward_distributor_address
 export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$governance_proposer_address
 export GOVERNANCE_CONTRACT_ADDRESS=$governance_address
 EOF
