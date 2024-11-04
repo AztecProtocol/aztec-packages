@@ -379,19 +379,20 @@ namespace main(256);
     sel_op_jump * (pc' - ia) = 0;
 
     #[PC_JUMPI]
-    sel_op_jumpi * ((1 - id_zero) * (pc' - ia) + id_zero * (pc' - pc - 1)) = 0;
+    sel_op_jumpi * ((1 - id_zero) * (pc' - ia) + id_zero * (pc' - pc - 8)) = 0; // 8 = size of JUMPI_32 instruction
 
     // TODO: Consolidation with #[PC_JUMP] and sel_op_internal_call * (pc' - ia) = 0; sel_op_internal_return * (pc' - ia) = 0;
 
     //===== INTERNAL_CALL ======================================================
     // - The program counter in the next row should be equal to the value loaded from the ia register
-    // - We then write the return location (pc + 1) into the call stack (in memory)
+    // - We then write the return location (pc + 5) into the call stack (in memory), whereby the constant 5
+    // corresponds to the size of the internal_call instruction in bytes.
 
     #[RETURN_POINTER_INCREMENT]
     sel_op_internal_call * (internal_return_ptr' - (internal_return_ptr + 1)) = 0;
     sel_op_internal_call * (internal_return_ptr - mem_addr_b) = 0;
     sel_op_internal_call * (pc' - ia) = 0;
-    sel_op_internal_call * ((pc + 1) - ib) = 0;
+    sel_op_internal_call * ((pc + 5) - ib) = 0; // 5 = size in bytes of internal call instruction
 
     // TODO(md): Below relations may be removed through sub-op table lookup
     sel_op_internal_call * (rwb - 1) = 0;
@@ -434,8 +435,9 @@ namespace main(256);
 
     // When considering two adjacent main trace rows,
     // the program counter must increment if not jumping or returning.
-    #[PC_INCREMENT]
-    CUR_AND_NEXT_ARE_MAIN * (1 - SEL_ALL_CTRL_FLOW) * (pc' - (pc + 1)) = 0;
+    // TODO: Adapt PC increment to byte-based PC indexing
+    // #[PC_INCREMENT]
+    // CUR_AND_NEXT_ARE_MAIN * (1 - SEL_ALL_CTRL_FLOW) * (pc' - (pc + 1)) = 0;
 
     // When considering two adjacent main trace rows,
     // the internal return ptr must stay the same if not jumping or returning.

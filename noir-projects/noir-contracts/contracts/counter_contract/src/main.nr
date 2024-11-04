@@ -38,7 +38,7 @@ contract Counter {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, outgoing_viewer, context.msg_sender());
+        counters.at(owner).add(1, owner, outgoing_viewer, outgoing_viewer);
     }
     // docs:end:increment
     // docs:start:get_counter

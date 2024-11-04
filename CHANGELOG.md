@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.61.0...aztec-packages-v0.62.0) (2024-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **avm:** use 32 bit locations ([#9596](https://github.com/AztecProtocol/aztec-packages/issues/9596))
+* Unique L1 to L2 messages ([#9492](https://github.com/AztecProtocol/aztec-packages/issues/9492))
+
+### Features
+
+* Add increment secret oracles ([#9573](https://github.com/AztecProtocol/aztec-packages/issues/9573)) ([97a4c0c](https://github.com/AztecProtocol/aztec-packages/commit/97a4c0c4452f31e5c0dc776812242d2444348406))
+* **avm:** Use 32 bit locations ([#9596](https://github.com/AztecProtocol/aztec-packages/issues/9596)) ([5f38696](https://github.com/AztecProtocol/aztec-packages/commit/5f386963b06752087c2600949cbb4bb2910b25ef))
+* Barebones addressbook for tagging ([#9572](https://github.com/AztecProtocol/aztec-packages/issues/9572)) ([6526069](https://github.com/AztecProtocol/aztec-packages/commit/6526069b4faabf1a3b6834da9c290e077715a496))
+* Biggroup_goblin handles points at infinity + 1.8x reduction in ECCVM size ([#9366](https://github.com/AztecProtocol/aztec-packages/issues/9366)) ([9211d8a](https://github.com/AztecProtocol/aztec-packages/commit/9211d8afbd0fe31043ea593675ce5a72c1dc7e4e))
+* Faster square roots ([#2694](https://github.com/AztecProtocol/aztec-packages/issues/2694)) ([722ec5c](https://github.com/AztecProtocol/aztec-packages/commit/722ec5c3dfdc2a5e467528ed94a25677f8800087))
+* Fixed private log size ([#9585](https://github.com/AztecProtocol/aztec-packages/issues/9585)) ([755c70a](https://github.com/AztecProtocol/aztec-packages/commit/755c70ab55c768681349179e777bb0391c381420))
+* Removing register recipient in e2e tests as it is unnecessary now ! ([#9499](https://github.com/AztecProtocol/aztec-packages/issues/9499)) ([9f52cbb](https://github.com/AztecProtocol/aztec-packages/commit/9f52cbb5df8821f46d88116eedbe10a74f32e75e))
+* Reorg test ([#9607](https://github.com/AztecProtocol/aztec-packages/issues/9607)) ([54488b3](https://github.com/AztecProtocol/aztec-packages/commit/54488b33ea6ae0cb517639c60dbe7e7aeaf9b5dd))
+* Simulate validateEpochProofQuoteHeader in the future ([#9641](https://github.com/AztecProtocol/aztec-packages/issues/9641)) ([284c8f8](https://github.com/AztecProtocol/aztec-packages/commit/284c8f8e4504ff8e8d633dc291c20111a0406273))
+* Spartan proving ([#9584](https://github.com/AztecProtocol/aztec-packages/issues/9584)) ([392114a](https://github.com/AztecProtocol/aztec-packages/commit/392114a0a66bd580175ff7a07b0c6d899d69be8f))
+* Sync tagged logs ([#9595](https://github.com/AztecProtocol/aztec-packages/issues/9595)) ([0cc4a48](https://github.com/AztecProtocol/aztec-packages/commit/0cc4a4881ea3d61d4ab0bad7594da4f610746f4f))
+* Token private mint optimization ([#9606](https://github.com/AztecProtocol/aztec-packages/issues/9606)) ([e8fadc7](https://github.com/AztecProtocol/aztec-packages/commit/e8fadc799d015046016b16eeadbb55be929d20c2))
+* Unique L1 to L2 messages ([#9492](https://github.com/AztecProtocol/aztec-packages/issues/9492)) ([4e5ae95](https://github.com/AztecProtocol/aztec-packages/commit/4e5ae9538ebba834b3c4407cf0597c3a432a2d4e)), closes [#9450](https://github.com/AztecProtocol/aztec-packages/issues/9450)
+* Use address book in recipient tag calculation ([#9618](https://github.com/AztecProtocol/aztec-packages/issues/9618)) ([5e33ed8](https://github.com/AztecProtocol/aztec-packages/commit/5e33ed8cecb058db654fbcf448749d0fee7cbd5d))
+
+
+### Bug Fixes
+
+* E2e event logs test ([#9621](https://github.com/AztecProtocol/aztec-packages/issues/9621)) ([737c573](https://github.com/AztecProtocol/aztec-packages/commit/737c5732165b9fc339ab6a15838029481dcfdbf2))
+* E2e labels ([#9609](https://github.com/AztecProtocol/aztec-packages/issues/9609)) ([ed1deb9](https://github.com/AztecProtocol/aztec-packages/commit/ed1deb9afbc7746fe1668fe35978cb159a02dedf))
+* Ensuring translator range constraint polynomials are zeroes outside of minicircuit ([#9251](https://github.com/AztecProtocol/aztec-packages/issues/9251)) ([04dd2c4](https://github.com/AztecProtocol/aztec-packages/commit/04dd2c4c959d5d80e527be9c71504c051e3c5929))
+* EventMetadata class implementation for serialisation ([#9574](https://github.com/AztecProtocol/aztec-packages/issues/9574)) ([bdff73a](https://github.com/AztecProtocol/aztec-packages/commit/bdff73af3f8043f82ebc3bf7ed1f764a941091c4))
+* Force bb-sanitizers true ([#9614](https://github.com/AztecProtocol/aztec-packages/issues/9614)) ([39cda86](https://github.com/AztecProtocol/aztec-packages/commit/39cda86c3576c5cb94a7beb123b875a2ba37c26b))
+* **k8s:** Boot node long sync ([#9610](https://github.com/AztecProtocol/aztec-packages/issues/9610)) ([1b85840](https://github.com/AztecProtocol/aztec-packages/commit/1b85840cf52442e920f4c25bf67e6bd2066606bc))
+* Multi-node metrics working ([#9486](https://github.com/AztecProtocol/aztec-packages/issues/9486)) ([fd974e1](https://github.com/AztecProtocol/aztec-packages/commit/fd974e1ba91e01910751ed87da6dbeb068faba4f))
+* Remove all register recipient functionality in ts ([#9548](https://github.com/AztecProtocol/aztec-packages/issues/9548)) ([2f7127b](https://github.com/AztecProtocol/aztec-packages/commit/2f7127be39f97873d3b3bc55d1a20d6de82f583f))
+* Remove unnecessary ivpk references in ts ([#9463](https://github.com/AztecProtocol/aztec-packages/issues/9463)) ([0c5121f](https://github.com/AztecProtocol/aztec-packages/commit/0c5121ffc0f7b5073a57d04d38f304ef1b33fe7b))
+* Resolution of bugs from bigfield audits ([#9547](https://github.com/AztecProtocol/aztec-packages/issues/9547)) ([feace70](https://github.com/AztecProtocol/aztec-packages/commit/feace70727f9e5a971809955030a8ea88ce84f4a))
+* Stop bot in case of tx errors ([#9421](https://github.com/AztecProtocol/aztec-packages/issues/9421)) ([6650641](https://github.com/AztecProtocol/aztec-packages/commit/6650641e5711ed9746ccc846a0efc0c68aeafdc3))
+* Typing of artifacts ([#9581](https://github.com/AztecProtocol/aztec-packages/issues/9581)) ([c71645f](https://github.com/AztecProtocol/aztec-packages/commit/c71645f4cc9754d99eb3ac77ff8063495caa264d))
+
+
+### Miscellaneous
+
+* Add guides to get_e2e_jobs.sh ([#9624](https://github.com/AztecProtocol/aztec-packages/issues/9624)) ([8891ead](https://github.com/AztecProtocol/aztec-packages/commit/8891ead6c20da220316c6a6fea1e8f2f0bf954b5))
+* Add migration notes to recent address changes and npk_m comment fixes ([#9645](https://github.com/AztecProtocol/aztec-packages/issues/9645)) ([3499410](https://github.com/AztecProtocol/aztec-packages/commit/3499410f90327914d2d0be3afc40e676ba6a3fd6))
+* Add sender to encode and encrypt ([#9562](https://github.com/AztecProtocol/aztec-packages/issues/9562)) ([8ce6834](https://github.com/AztecProtocol/aztec-packages/commit/8ce6834ddcfe48aa672632012c48d5d679c8687c))
+* Add signed int deserialization to decoder ([#9557](https://github.com/AztecProtocol/aztec-packages/issues/9557)) ([0435d00](https://github.com/AztecProtocol/aztec-packages/commit/0435d00671d7f6b6960a685e3e5b76db574c56da))
+* Bb sanitizers on master ([#9564](https://github.com/AztecProtocol/aztec-packages/issues/9564)) ([747bff1](https://github.com/AztecProtocol/aztec-packages/commit/747bff1acbca3d263a765db82baa6ef9ca58c372))
+* Cleaning up token test utils ([#9633](https://github.com/AztecProtocol/aztec-packages/issues/9633)) ([325bdb0](https://github.com/AztecProtocol/aztec-packages/commit/325bdb021f05c82a3abfa1fa0acd8d24635cbd10))
+* Disable breaking e2e_event_logs test ([#9602](https://github.com/AztecProtocol/aztec-packages/issues/9602)) ([cf2ca2e](https://github.com/AztecProtocol/aztec-packages/commit/cf2ca2ed452a398e0bbfd7a4f079c35484f52884))
+* Dont generate vks for simulated circuits ([#9625](https://github.com/AztecProtocol/aztec-packages/issues/9625)) ([366eff3](https://github.com/AztecProtocol/aztec-packages/commit/366eff3bfa237fbe0e06bed39eeeefd36f8f95d6))
+* Fixing broken sample-dapp tests ([#9597](https://github.com/AztecProtocol/aztec-packages/issues/9597)) ([5e52900](https://github.com/AztecProtocol/aztec-packages/commit/5e52900b245a167a9e5697c7b6b25e1d8df42be9))
+* Migration notes for unique l1-to-l2 msgs ([#9649](https://github.com/AztecProtocol/aztec-packages/issues/9649)) ([cedb88e](https://github.com/AztecProtocol/aztec-packages/commit/cedb88e2bd05dc0edbf1b0bb4fcc969dbbd9e378))
+* Nuking `Token::privately_mint_private_note(...)` ([#9616](https://github.com/AztecProtocol/aztec-packages/issues/9616)) ([bf53f5e](https://github.com/AztecProtocol/aztec-packages/commit/bf53f5e0b792e00a45013a16adb72a952e527cb9))
+* Pass on docker_fast.sh ([#9615](https://github.com/AztecProtocol/aztec-packages/issues/9615)) ([1c53459](https://github.com/AztecProtocol/aztec-packages/commit/1c53459ff31b50ba808e204c532885c9b0f69e39))
+* Remove outgoing tagging field in logs ([#9502](https://github.com/AztecProtocol/aztec-packages/issues/9502)) ([c473380](https://github.com/AztecProtocol/aztec-packages/commit/c473380026e2a8eafff91c4f57e9c2ec8f2718f0))
+* Replace relative paths to noir-protocol-circuits ([332bb60](https://github.com/AztecProtocol/aztec-packages/commit/332bb609ee7f8f090a2b7350db9d0c61c8a3477c))
+* Replace relative paths to noir-protocol-circuits ([288099b](https://github.com/AztecProtocol/aztec-packages/commit/288099b89dea0911adb04dd48af531c7a56daf21))
+* Replacing unshield naming with transfer_to_public ([#9608](https://github.com/AztecProtocol/aztec-packages/issues/9608)) ([247e9eb](https://github.com/AztecProtocol/aztec-packages/commit/247e9eb28e931874e98781addebe9a343ba7afe1))
+* Token partial notes refactor pt. 1 ([#9490](https://github.com/AztecProtocol/aztec-packages/issues/9490)) ([3d631f5](https://github.com/AztecProtocol/aztec-packages/commit/3d631f5e98439554443483520011c1c21d18f993))
+
 ## [0.61.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.60.0...aztec-packages-v0.61.0) (2024-10-30)
 
 

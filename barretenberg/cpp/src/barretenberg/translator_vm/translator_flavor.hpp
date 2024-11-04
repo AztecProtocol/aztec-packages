@@ -90,7 +90,8 @@ class TranslatorFlavor {
                                   TranslatorOpcodeConstraintRelation<FF>,
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>>;
+                                  TranslatorNonNativeFieldRelation<FF>,
+                                  TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
