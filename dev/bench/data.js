@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730513547188,
+  "lastUpdate": 1730715471531,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8d75dd4a6730c1af27b23bc786ed9db8eb199e6f",
-          "message": "chore: Copying world state binary to yarn project is on generate (#9194)\n\nCopy native build artifacts in a separate \"generate\" step.\r\n\r\n---------\r\n\r\nCo-authored-by: Alex Gherghisan <alexghr@users.noreply.github.com>\r\nCo-authored-by: Alex Gherghisan <alexg@aztecprotocol.com>",
-          "timestamp": "2024-10-22T07:49:26+01:00",
-          "tree_id": "25941015c728282c475f49a7970ae30757d1e74b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8d75dd4a6730c1af27b23bc786ed9db8eb199e6f"
-        },
-        "date": 1729581245374,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29582.404536000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27901.889957000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5454.81932300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5112.049809 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87331.435856,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87331438000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15156.12526,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15156126000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2743106061,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2743106061 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130181963,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130181963 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 127477506,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127477506 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a41d42852ea2d7cdcb9f75387342783e1632b11",
+          "message": "feat: Encode static error strings in the ABI (#9552)\n\nAvoids embedding revert string in circuits. Instead, static string\r\nerrors get a specific selector, and they are encoded in the ABI. We use\r\nnoir_abi to resolve those messages in the error case.\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2024-11-04T10:51:26+01:00",
+          "tree_id": "b2a643b246444d2efd81eea9d8e149500e4cec7b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a41d42852ea2d7cdcb9f75387342783e1632b11"
+        },
+        "date": 1730715464314,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29042.35773900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27261.634533000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5338.293532000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4969.760267000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85756.479286,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85756482000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15192.176764,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15192176000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2489617799,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2489617799 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125309097,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125309097 ns\nthreads: 1"
           }
         ]
       }
