@@ -15,7 +15,7 @@ using NativeCurve = curve::Grumpkin;
 using Builder = UltraCircuitBuilder;
 using Curve = stdlib::grumpkin<Builder>;
 
-class IPATest : public CommitmentTest<NativeCurve> {
+class IPARecursiveTests : public CommitmentTest<NativeCurve> {
   public:
     using Fr = typename NativeCurve::ScalarField;
     using GroupElement = typename NativeCurve::Element;
@@ -127,7 +127,7 @@ class IPATest : public CommitmentTest<NativeCurve> {
  * @brief Tests IPA recursion with polynomial of length 4
  * @details More details in test_recursive_ipa
  */
-TEST_F(IPATest, RecursiveSmall)
+TEST_F(IPARecursiveTests, RecursiveSmall)
 {
     test_recursive_ipa(/*POLY_LENGTH=*/4);
 }
@@ -136,7 +136,7 @@ TEST_F(IPATest, RecursiveSmall)
  * @brief Tests IPA recursion with polynomial of length 1024
  * @details More details in test_recursive_ipa
  */
-TEST_F(IPATest, RecursiveMedium)
+TEST_F(IPARecursiveTests, RecursiveMedium)
 {
     test_recursive_ipa(/*POLY_LENGTH=*/1024);
 }
@@ -145,16 +145,16 @@ TEST_F(IPATest, RecursiveMedium)
  * @brief Test accumulation with polynomials of length 4
  * @details More details in test_accumulation
  */
-TEST_F(IPATest, AccumulateSmall)
+TEST_F(IPARecursiveTests, AccumulateSmall)
 {
     test_accumulation(/*POLY_LENGTH=*/4);
 }
 
 /**
- * @brief Test accumulation with polynomials of length 789
+ * @brief Test accumulation with polynomials of length 1024
  * @details More details in test_accumulation
  */
-TEST_F(IPATest, AccumulateMedium)
+TEST_F(IPARecursiveTests, AccumulateMedium)
 {
     test_accumulation(/*POLY_LENGTH=*/1024);
 }

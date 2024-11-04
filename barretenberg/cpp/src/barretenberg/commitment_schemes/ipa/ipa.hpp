@@ -371,7 +371,7 @@ template <typename Curve_> class IPA {
 
         // Step 7.
         // Construct vector s
-        Polynomial<Fr> s_poly(construct_poly_from_u_chals_inv(round_challenges_inv));
+        Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(round_challenges_inv));
 
         std::span<const Commitment> srs_elements = vk->get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
@@ -657,47 +657,47 @@ template <typename Curve_> class IPA {
     }
 
     /**
-     * @brief Evaluates the polynomial created from the challenge scalars u_chals_inv at a challenge r.
-     * @details This polynomial is defined as h(X) = ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}), 
+     * @brief Evaluates the polynomial created from the challenge scalars u_challenges_inv at a challenge r.
+     * @details This polynomial is defined as challenge_poly(X) = ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}), 
      * so the evaluation is just ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.r^{2^{i-1}}).
-     * @param u_chals_inv 
+     * @param u_challenges_inv 
      * @param r 
      * @return Fr 
      */
-    static Fr evaluate_h_poly(const std::vector<Fr>& u_chals_inv, Fr r) {
-        Fr h_eval = 1;
+    static Fr evaluate_challenge_poly(const std::vector<Fr>& u_challenges_inv, Fr r) {
+        Fr challenge_poly_eval = 1;
         Fr r_pow = r;
-        size_t len = u_chals_inv.size();
+        size_t len = u_challenges_inv.size();
         for (size_t i = 0; i < len; i++) {
-            h_eval *= (Fr(1) + u_chals_inv[len - 1 - i] * r_pow);
+            challenge_poly_eval *= (Fr(1) + u_challenges_inv[len - 1 - i] * r_pow);
             r_pow *= r_pow;
         }
-        return h_eval;
+        return challenge_poly_eval;
     }
 
     /**
-     * @brief Combines the h_poly evaluations using the challenge alpha.
+     * @brief Combines the challenge_poly evaluations using the challenge alpha.
      * 
-     * @param u_chals_inv_1 
-     * @param u_chals_inv_2 
+     * @param u_challenges_inv_1 
+     * @param u_challenges_inv_2 
      * @param r 
      * @param alpha 
      * @return Fr 
      */
-    static Fr evaluate_and_accumulate_h_polys(std::vector<Fr> u_chals_inv_1, std::vector<Fr> u_chals_inv_2, Fr r, Fr alpha) {
-        auto result = evaluate_h_poly(u_chals_inv_1, r) + alpha * evaluate_h_poly(u_chals_inv_2, r);
+    static Fr evaluate_and_accumulate_challenge_polys(std::vector<Fr> u_challenges_inv_1, std::vector<Fr> u_challenges_inv_2, Fr r, Fr alpha) {
+        auto result = evaluate_challenge_poly(u_challenges_inv_1, r) + alpha * evaluate_challenge_poly(u_challenges_inv_2, r);
         return result;
     }
 
     /**
-     * @brief Constructs h(X) = ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}).
+     * @brief Constructs challenge_poly(X) = ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}).
      * 
-     * @param u_chals_inv 
+     * @param u_challenges_inv 
      * @return Polynomial<bb::fq> 
      */
-    static Polynomial<bb::fq> construct_poly_from_u_chals_inv(const std::vector<bb::fq>& u_chals_inv) {
-        const size_t poly_length = (1 << u_chals_inv.size());
-        const size_t log_poly_length = u_chals_inv.size();
+    static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const std::vector<bb::fq>& u_challenges_inv) {
+        const size_t poly_length = (1 << u_challenges_inv.size());
+        const size_t log_poly_length = u_challenges_inv.size();
 
         // Construct vector s in linear time.
         std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
@@ -715,7 +715,7 @@ template <typename Curve_> class IPA {
         for (size_t i = 0; i < log_poly_length; ++i)
         {
             const size_t round_size = 1 << (i + 1);
-            const fq round_challenge = u_chals_inv[i];
+            const fq round_challenge = u_challenges_inv[i];
             parallel_for_heuristic(
                 round_size / 2,
                 [&](size_t j) {
@@ -728,23 +728,24 @@ template <typename Curve_> class IPA {
     }
 
     /**
-     * @brief Combines two h_polys using the challenge alpha.
+     * @brief Combines two challenge_polys using the challenge alpha.
      * 
-     * @param u_chals_inv_1 
-     * @param u_chals_inv_2 
+     * @param u_challenges_inv_1 
+     * @param u_challenges_inv_2 
      * @param alpha 
      * @return Polynomial<bb::fq> 
      */
-    static Polynomial<bb::fq> create_h_poly(const std::vector<bb::fq>& u_chals_inv_1, const std::vector<bb::fq>& u_chals_inv_2, bb::fq alpha) {
-        Polynomial h = construct_poly_from_u_chals_inv(u_chals_inv_1);
-        Polynomial h_2 = construct_poly_from_u_chals_inv(u_chals_inv_2);
-        h.add_scaled(h_2, alpha);
-        return h;
+    static Polynomial<bb::fq> create_challenge_poly(const std::vector<bb::fq>& u_challenges_inv_1, const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
+        Polynomial challenge_poly = construct_poly_from_u_challenges_inv(u_challenges_inv_1);
+        Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(u_challenges_inv_2);
+        challenge_poly.add_scaled(challenge_poly_2, alpha);
+        return challenge_poly;
     }
 
     /**
      * @brief Takes two IPA claims and accumulates them into 1 IPA claim.
-     * @details We create an IPA accumulator by running the IPA recursive verifier on each claim. Then, we generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated polynomial.
+     * @details We create an IPA accumulator by running the IPA recursive verifier on each claim. Then, we generate challenges, and use these challenges to compute the new accumulator. We also create the accumulated polynomial. 
+     * More details are described here: https://hackmd.io/IXoLIPhVT_ej8yhZ_Ehvuw?both.
      * 
      * @param verifier_ck 
      * @param transcript_1 
@@ -764,9 +765,9 @@ template <typename Curve_> class IPA {
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
         StdlibTranscript transcript;
-        transcript.send_to_verifier("u_chals_inv_1", pair_1.u_chals_inv);
+        transcript.send_to_verifier("u_challenges_inv_1", pair_1.u_challenges_inv);
         transcript.send_to_verifier("U_1", pair_1.comm);
-        transcript.send_to_verifier("u_chals_inv_2", pair_2.u_chals_inv);
+        transcript.send_to_verifier("u_challenges_inv_2", pair_2.u_challenges_inv);
         transcript.send_to_verifier("U_2", pair_2.comm);
         auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
@@ -774,19 +775,19 @@ template <typename Curve_> class IPA {
         OpeningClaim<Curve> output_claim;
         output_claim.commitment = pair_1.comm + pair_2.comm * alpha;
         output_claim.opening_pair.challenge = r;
-        // Evaluate the h polys at r and linearly combine them with alpha challenge
-        output_claim.opening_pair.evaluation = evaluate_and_accumulate_h_polys(pair_1.u_chals_inv, pair_2.u_chals_inv, r, alpha);
+        // Evaluate the challenge_poly polys at r and linearly combine them with alpha challenge
+        output_claim.opening_pair.evaluation = evaluate_and_accumulate_challenge_polys(pair_1.u_challenges_inv, pair_2.u_challenges_inv, r, alpha);
 
         // Step 4: Compute the new polynomial
-        std::vector<bb::fq> native_u_chals_inv_1;
-        std::vector<bb::fq> native_u_chals_inv_2;
-        for (Fr u_inv_i : pair_1.u_chals_inv) {
-            native_u_chals_inv_1.push_back(bb::fq(u_inv_i.get_value()));
+        std::vector<bb::fq> native_u_challenges_inv_1;
+        std::vector<bb::fq> native_u_challenges_inv_2;
+        for (Fr u_inv_i : pair_1.u_challenges_inv) {
+            native_u_challenges_inv_1.push_back(bb::fq(u_inv_i.get_value()));
         }
-        for (Fr u_inv_i : pair_2.u_chals_inv) {
-            native_u_chals_inv_2.push_back(bb::fq(u_inv_i.get_value()));
+        for (Fr u_inv_i : pair_2.u_challenges_inv) {
+            native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
-        return {output_claim, create_h_poly(native_u_chals_inv_1, native_u_chals_inv_2, fq(alpha.get_value()))};
+        return {output_claim, create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, fq(alpha.get_value()))};
     }
 };
 
