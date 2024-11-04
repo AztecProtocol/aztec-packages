@@ -115,7 +115,4 @@ export class NetGrumpkinCrs {
   getG1Data(): Uint8Array {
     return this.data;
   }
-
 }
-
-

@@ -66,7 +66,6 @@ export class Barretenberg extends BarretenbergApi {
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }
 
-
   async initSRSClientIVC(): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(2 ** 21 + 1, this.options.crsPath);
@@ -77,7 +76,6 @@ export class Barretenberg extends BarretenbergApi {
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
     await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
   }
-
 
   async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

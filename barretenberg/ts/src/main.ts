@@ -44,10 +44,12 @@ function base64ToUint8Array(base64: string) {
   return bytes;
 }
 
-function readStack(bytecodePath: string, numToDrop=0) {
+function readStack(bytecodePath: string, numToDrop = 0) {
   const encodedPackedZippedBytecodeArray = readFileSync(bytecodePath, 'utf-8');
   const packedZippedBytecodeArray = base64ToUint8Array(encodedPackedZippedBytecodeArray);
-  const zipped = decode(packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop)) as Uint8Array[];
+  const zipped = decode(
+    packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop),
+  ) as Uint8Array[];
   const bytecodeArray = zipped.map((arr: Uint8Array) => ungzip(arr));
   return bytecodeArray;
 }
@@ -531,7 +533,7 @@ program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
   // if (program.opts().verbose) {
-    createDebug.enable('bb.js*');
+  createDebug.enable('bb.js*');
   // }
 }
 
