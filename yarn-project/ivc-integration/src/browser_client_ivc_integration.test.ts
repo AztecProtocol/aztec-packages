@@ -1,7 +1,6 @@
-import createDebug from "debug";
-// import { createDebugLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 import chalk from 'chalk';
+import createDebug from 'debug';
 import {
   type Browser,
   type Page,
@@ -10,25 +9,15 @@ import {
 } from 'playwright';
 
 import {
-  MOCK_MAX_COMMITMENTS_PER_TX,
-  MockAppCreatorCircuit,
-  MockAppReaderCircuit,
-  MockPrivateKernelInitCircuit,
-  MockPrivateKernelInnerCircuit,
-  MockPrivateKernelResetCircuit,
-  MockPrivateKernelTailCircuit,
-  witnessGenCreatorAppMockCircuit,
-  witnessGenMockPrivateKernelInitCircuit,
-  witnessGenMockPrivateKernelInnerCircuit,
-  witnessGenMockPrivateKernelResetCircuit,
-  witnessGenMockPrivateKernelTailCircuit,
-  witnessGenReaderAppMockCircuit,
-  proveAndVerifyAztecClient
+  generate3FunctionTestingIVCStack,
+  generate6FunctionTestingIVCStack,
+  proveAndVerifyBrowser,
+  proveAndVerifyAztecClient,
 } from './index.js';
 
 /* eslint-disable camelcase */
 
-createDebug.enable("*");
+createDebug.enable('*');
 const logger = createDebug('aztec:browser-ivc-test');
 
 jest.setTimeout(120_000);
@@ -44,8 +33,6 @@ function formatAndPrintLog(message: string): void {
   }
   const colors = parts[parts.length - 1].split(' color: ');
   parts[parts.length - 1] = colors.shift()!;
-
-  // logger({ message, parts, colors });
 
   let formattedMessage = '';
   for (let i = 0; i < parts.length; i++) {
@@ -73,6 +60,7 @@ describe('Client IVC Integration', () => {
     page = await context.newPage();
     page.on('console', msg => formatAndPrintLog(msg.text()));
     await page.goto('about:blank');
+    await page.exposeFunction('proveAndVerifyBrowser', proveAndVerifyBrowser);
   });
 
   afterAll(async () => {
@@ -84,31 +72,24 @@ describe('Client IVC Integration', () => {
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
-    const tx = {
-      number_of_calls: '0x1',
-    };
-    // Witness gen app and kernels
-    const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    logger('generated app mock circuit witness');
+    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
-    const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
-      app_inputs: appWitnessGenResult.publicInputs,
-      tx,
-    });
-    logger('generated mock private kernel init witness');
+    logger(`calling prove and verify...`);
+    const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
+    logger(`generated and verified proof. result: ${verifyResult}`);
 
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    });
-    logger('generated mock private kernel tail witness');
+    expect(verifyResult).toEqual(true);
+  });
 
-    // Create client IVC proof
-    const bytecodes = [
-      MockAppCreatorCircuit.bytecode,
-      MockPrivateKernelInitCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
-    ];
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+  // This test will verify a client IVC proof of a more complex tx:
+  // 1. Run a mock app that creates two commitments
+  // 2. Run the init kernel to process the app run
+  // 3. Run a mock app that reads one of those commitments
+  // 4. Run the inner kernel to process the second app run
+  // 5. Run the reset kernel to process the read request emitted by the reader app
+  // 6. Run the tail kernel to finish the client IVC chain
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+    const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
     logger(`calling prove and verify...`);
     const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
