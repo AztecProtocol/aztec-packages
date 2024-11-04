@@ -24,6 +24,7 @@ class TranslatorVerifier {
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
+    std::vector<Commitment> libra_commitments;
 
     TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                        const std::shared_ptr<Transcript>& transcript);

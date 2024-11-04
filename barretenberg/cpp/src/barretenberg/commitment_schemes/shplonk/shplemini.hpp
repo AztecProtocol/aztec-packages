@@ -489,22 +489,16 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (size_t idx = 0; idx < num_libra_univariates; idx++) {
 
             if constexpr (Curve::is_stdlib_type) {
-                auto denom_reduced = shplonk_evaluation_challenge - multivariate_challenge[idx];
-                denom_reduced.self_reduce();
-                info("denom reduced non-native", idx, " ", denom_reduced);
                 denominators.push_back(Fr(1) /
                                        (shplonk_evaluation_challenge - multivariate_challenge[idx])); // very strange
-                info("denom inverted", Fr(1) / (shplonk_evaluation_challenge - multivariate_challenge[idx]));
             } else {
                 denominators.push_back(shplonk_evaluation_challenge - multivariate_challenge[idx]);
-                info("denom native", idx, " ", (shplonk_evaluation_challenge - multivariate_challenge[idx]));
             }
         };
 
         if constexpr (!Curve::is_stdlib_type) {
             Fr::batch_invert(denominators);
             for (auto denom : denominators) {
-                info("denom native inverted ", denom);
             }
         }
 

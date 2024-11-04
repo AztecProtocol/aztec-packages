@@ -102,6 +102,11 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
+    }
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
@@ -110,7 +115,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    const BatchOpeningClaim<Curve> opening_claim =
+    BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
                                                commitments.get_to_be_shifted(),
@@ -121,6 +126,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                transcript,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
+    Shplemini::add_zk_data(opening_claim, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

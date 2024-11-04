@@ -32,17 +32,12 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;
-    info("native gamma ", relation_parameters.gamma);
     relation_parameters.beta = beta;
-    info("native beta ", relation_parameters.beta);
     relation_parameters.beta_sqr = beta * beta;
-    info("native beta.sqr ", relation_parameters.beta_sqr);
     relation_parameters.beta_cube = beta_sqr * beta;
-    info("native beta cube ", relation_parameters.beta_cube);
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
-    info("set perm delta after inversion ", relation_parameters.eccvm_set_permutation_delta);
 
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =
@@ -53,7 +48,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    info("alpha native ", alpha);
 
     std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -86,8 +80,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript);
-    info("native point",
-         batch_mul_native(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars));
     Shplemini::add_zk_data(
         sumcheck_batch_opening_claims, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
     // for (auto scalar : sumcheck_batch_opening_claims.scalars) {
