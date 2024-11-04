@@ -1,4 +1,5 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import createDebug from "debug";
+// import { createDebugLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 import chalk from 'chalk';
 import {
@@ -27,14 +28,15 @@ import {
 
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:browser-ivc-test');
+createDebug.enable("*");
+const logger = createDebug('aztec:browser-ivc-test');
 
 jest.setTimeout(120_000);
 
 function formatAndPrintLog(message: string): void {
   const parts = message.split('%c');
   if (parts.length === 1) {
-    logger.debug(parts[0]);
+    logger(parts[0]);
     return;
   }
   if (!parts[0]) {
@@ -43,7 +45,7 @@ function formatAndPrintLog(message: string): void {
   const colors = parts[parts.length - 1].split(' color: ');
   parts[parts.length - 1] = colors.shift()!;
 
-  // logger.debug({ message, parts, colors });
+  // logger({ message, parts, colors });
 
   let formattedMessage = '';
   for (let i = 0; i < parts.length; i++) {
@@ -58,7 +60,7 @@ function formatAndPrintLog(message: string): void {
     }
   }
 
-  logger.debug(formattedMessage);
+  logger(formattedMessage);
 }
 
 describe('Client IVC Integration', () => {
@@ -70,7 +72,7 @@ describe('Client IVC Integration', () => {
     const context = await browser.newContext();
     page = await context.newPage();
     page.on('console', msg => formatAndPrintLog(msg.text()));
-    await page.goto('http://localhost:8080');
+    await page.goto('about:blank');
   });
 
   afterAll(async () => {
@@ -87,18 +89,18 @@ describe('Client IVC Integration', () => {
     };
     // Witness gen app and kernels
     const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    logger.debug('generated app mock circuit witness');
+    logger('generated app mock circuit witness');
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
     });
-    logger.debug('generated mock private kernel init witness');
+    logger('generated mock private kernel init witness');
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     });
-    logger.debug('generated mock private kernel tail witness');
+    logger('generated mock private kernel tail witness');
 
     // Create client IVC proof
     const bytecodes = [
@@ -106,12 +108,11 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
     ];
-    logger.debug('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
-    logger.debug('built witness stack');
 
+    logger(`calling prove and verify...`);
     const verifyResult = await proveAndVerifyAztecClient(page, bytecodes, witnessStack);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    logger(`generated and verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });

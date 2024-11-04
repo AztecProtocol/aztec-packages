@@ -189,7 +189,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
-        vinfo("not initialized; computing oink prover");
         OinkProver<Flavor> oink_prover{ proving_key };
         vinfo("computing oink proof...");
         oink_prover.prove();
@@ -199,7 +198,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
-        vinfo("initialized accumulator");
 
         // Add oink proof and corresponding verification key to the verification queue
         verification_queue.push_back(
@@ -292,7 +290,11 @@ HonkProof ClientIVC::decider_prove() const
  */
 bool ClientIVC::prove_and_verify()
 {
+    auto start = std::chrono::steady_clock::now();
     auto proof = prove();
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to call ClientIVC::prove: ", diff, " ms.");
 
     auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->verification_queue[0].honk_verification_key);
     return verify(proof, { this->verifier_accumulator, verifier_inst });

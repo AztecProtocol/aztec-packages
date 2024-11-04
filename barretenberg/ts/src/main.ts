@@ -566,7 +566,6 @@ program
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack.b64')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    debug("Calling proveAndVerifyAztecClient");
     const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });

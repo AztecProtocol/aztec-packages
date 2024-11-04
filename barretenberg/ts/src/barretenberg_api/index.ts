@@ -283,7 +283,6 @@ export class BarretenbergApi {
 
   async srsInitGrumpkinSrs(pointsBuf: Uint8Array, numPoints: number): Promise<void> {
     const inArgs = [pointsBuf, numPoints].map(serializeBufferable);
-    console.log("serialized pointsBuf and num_points");
     const outTypes: OutputType[] = [];
     const result = await this.wasm.callWasmExport(
       'srs_init_grumpkin_srs',
@@ -534,9 +533,7 @@ export class BarretenbergApi {
   }
 
   async acirProveAndVerifyAztecClient(acirVec: Uint8Array[], witnessVec: Uint8Array[]): Promise<boolean> {
-    console.log("about to serialize array of arrays to arrays...");
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
-    console.log("done");
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_and_verify_aztec_client',

@@ -29,11 +29,7 @@ WASM_EXPORT void srs_init_srs(uint8_t const* points_buf, uint32_t const* num_poi
  */
 WASM_EXPORT void srs_init_grumpkin_srs(uint8_t const* points_buf, uint32_t const* num_points)
 {
-    info("allocating vector of points...");
     auto points = std::vector<curve::Grumpkin::AffineElement>(ntohl(*num_points));
-    info("done. Reading affine elements from buffer...");
     srs::IO<curve::Grumpkin>::read_affine_elements_from_buffer(points.data(), (char*)points_buf, points.size() * 64);
-    info("done. Tnitializing grumpking crs factory...");
     bb::srs::init_grumpkin_crs_factory(points);
-    info("done.");
 }

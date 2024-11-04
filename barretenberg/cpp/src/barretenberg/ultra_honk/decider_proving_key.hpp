@@ -51,11 +51,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         : is_structured(trace_structure != TraceStructure::NONE)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
-        vinfo("DeciderProvingKey(Circuit&)");
+        vinfo("Constructing DeciderProvingKey");
+        auto start = std::chrono::steady_clock::now();
 
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
-
-        info("Finalized circuit size: ", circuit.num_gates);
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
@@ -66,7 +65,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         }
 
-        info("Log dyadic circuit size: ", numeric::get_msb(dyadic_circuit_size));
+        info("Finalized circuit size: ",
+             circuit.num_gates,
+             "\nLog dyadic circuit size: ",
+             numeric::get_msb(dyadic_circuit_size));
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);
@@ -81,7 +83,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         {
 
             PROFILE_THIS_NAME("constructing proving key");
-            vinfo("constructing proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             if (IsGoblinFlavor<Flavor> && !is_structured) {
@@ -223,10 +224,11 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("constructing z_perm");
-                    vinfo("constructing z_perm");
 
                     // Allocate the z_perm polynomial
+                    vinfo("constructing z_perm...");
                     proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
+                    vinfo("done constructing z_perm.");
                 }
 
                 {
@@ -243,11 +245,12 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
+        vinfo("populating trace...");
         Trace::populate(circuit, proving_key, is_structured);
+        vinfo("done populating trace.");
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
-            vinfo("constructing prover instance after trace populate");
 
             // If Goblin, construct the databus polynomials
             if constexpr (IsGoblinFlavor<Flavor>) {
@@ -289,6 +292,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
+        auto end = std::chrono::steady_clock::now();
+        auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        vinfo("time to construct proving key: ", diff, " ms.");
     }
 
     DeciderProvingKey_() = default;
