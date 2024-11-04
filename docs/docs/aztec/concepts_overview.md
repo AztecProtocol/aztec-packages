@@ -66,12 +66,16 @@ Each account in Aztec is backed by 3 key pairs:
 
 As Aztec has native account abstraction, accounts do not automatically have a signing key pair to authenticate transactions. This is up to the account contract developer to implement.
 
+## Noir
+
+Noir is a zero-knowledge domain specific language used for writing smart contracts for the Aztec network. It is also possible to write circuits with Noir that can be verified on or offchain. For more in-depth docs into the features of Noir, go to the [Noir documentation](https://noir-lang.org/).
+
 ## What's next?
 
 ### Start coding
 
 <div>
- <Card shadow='tl' link='/guides/developer_guides/getting_started'>
+ <Card shadow='tl' link='/guides/getting_started'>
     <CardHeader>
       <h3>Developer Getting Started Guide</h3>
     </CardHeader>
@@ -114,7 +118,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-   <Card shadow='tl' link='/aztec/concepts/state_model'>
+   <Card shadow='tl' link='/aztec/concepts/storage/state_model'>
     <CardHeader>
       <h3>State model</h3>
     </CardHeader>

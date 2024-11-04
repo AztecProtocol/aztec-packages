@@ -14,7 +14,7 @@ In this section you will find:
 ## Getting Started
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/guides/developer_guides/getting_started'>
+  <Card shadow='tl' link='/guides/getting_started'>
     <CardHeader>
       <h3>Getting Started</h3>
     </CardHeader>

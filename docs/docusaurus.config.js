@@ -337,7 +337,7 @@ const config = {
               },
               {
                 label: "Developer Getting Started Guide",
-                to: "/guides/developer_guides/getting_started",
+                to: "/guides/getting_started",
               },
               {
                 label: "Aztec.nr",

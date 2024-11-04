@@ -101,6 +101,6 @@ require(minters[msg.sender], "caller is not minter");
 
 ## Concepts mentioned
 
-- [State Model](../../../../aztec/concepts/state_model/index.md)
+- [State Model](../../../../aztec/concepts/storage/state_model/index.md)
 - [Public-private execution](../../../../aztec/smart_contracts/functions/public_private_calls.md)
 - [Function Contexts](../../../../aztec/smart_contracts/functions/context.md)

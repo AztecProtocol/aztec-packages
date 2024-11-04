@@ -5,7 +5,7 @@ tags: [sandbox]
 
 :::tip
 
-For a quick start, follow the [guide](../../../guides/developer_guides/getting_started) to install the sandbox.
+For a quick start, follow the [guide](../../../guides/getting_started) to install the sandbox.
 
 :::
 
