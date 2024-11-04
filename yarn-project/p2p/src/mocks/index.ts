@@ -35,6 +35,7 @@ import {
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -233,20 +234,20 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
   };
 }
 
-export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number): Promise<BootstrapNode> {
+export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number, telemetry: TelemetryClient = new NoopTelemetryClient()): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
-  return startBootstrapNode(config);
+  return startBootstrapNode(config, telemetry);
 }
 
-export async function createBootstrapNode(port: number): Promise<BootstrapNode> {
+export async function createBootstrapNode(port: number, telemetry: TelemetryClient = new NoopTelemetryClient()): Promise<BootstrapNode> {
   const peerId = await createLibP2PPeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
-  return startBootstrapNode(config);
+  return startBootstrapNode(config, telemetry);
 }
 
-async function startBootstrapNode(config: BootnodeConfig) {
-  const bootstrapNode = new BootstrapNode();
+async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
+  const bootstrapNode = new BootstrapNode(telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;
 }

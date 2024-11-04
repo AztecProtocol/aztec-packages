@@ -9,6 +9,7 @@ import type { BootnodeConfig } from '../config.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../service/discV5_service.js';
 import { createLibP2PPeerId } from '../service/index.js';
 import { convertToMultiaddr } from '../util.js';
+import { OtelMetricsAdapter, TelemetryClient } from '@aztec/telemetry-client';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -17,7 +18,10 @@ export class BootstrapNode {
   private node?: Discv5 = undefined;
   private peerId?: PeerId;
 
-  constructor(private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
+  constructor(
+    private telemetry: TelemetryClient,
+    private logger = createDebugLogger('aztec:p2p_bootstrap'),
+  ) {}
 
   /**
    * Starts the bootstrap node.
@@ -42,6 +46,7 @@ export class BootstrapNode {
 
     this.logger.info(`Starting bootstrap node ${peerId}, listening on ${listenAddrUdp.toString()}`);
 
+    const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
       enr,
       peerId,
@@ -50,6 +55,7 @@ export class BootstrapNode {
         lookupTimeout: 2000,
         allowUnverifiedSessions: true,
       },
+      metricsRegistry,
     });
 
     (this.node as Discv5EventEmitter).on('multiaddrUpdated', (addr: Multiaddr) => {

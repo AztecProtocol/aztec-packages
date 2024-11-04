@@ -30,7 +30,11 @@ describe('e2e_p2p_gerousia', () => {
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_network', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_gerousia',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+    });
     await t.applyBaseSnapshots();
     await t.setup();
   });

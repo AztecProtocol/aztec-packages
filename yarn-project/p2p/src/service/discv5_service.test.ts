@@ -8,6 +8,7 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
   const timeout = 7_000;
@@ -42,7 +43,8 @@ describe('Discv5Service', () => {
   };
 
   beforeEach(async () => {
-    bootNode = new BootstrapNode();
+    const telemetryClient = new NoopTelemetryClient();
+    bootNode = new BootstrapNode(telemetryClient);
     await bootNode.start(baseConfig);
     bootNodePeerId = bootNode.getPeerId();
   });

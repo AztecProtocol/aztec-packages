@@ -72,7 +72,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     }
 
     gauge<Labels extends LabelsGeneric = NoLabels>(config: GaugeConfig<Labels>): Gauge<Labels> {
-        const otelGauge = this.meter.createGauge(config.name, config.help);
+        const otelGauge = this.meter.createObservableUpDownCounter(config.name, config.help);
 
         return {
             inc: ((labels?: Labels, value = 1) => {

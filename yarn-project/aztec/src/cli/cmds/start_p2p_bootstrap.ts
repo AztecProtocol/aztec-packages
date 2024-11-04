@@ -8,6 +8,8 @@ import { extractRelevantOptions } from '../util.js';
 export const startP2PBootstrap = async (options: any, userLog: LogFn, debugLogger: DebugLogger) => {
   // Start a P2P bootstrap node.
   const config = extractRelevantOptions<BootnodeConfig>(options, bootnodeConfigMappings, 'p2p');
+
+  // TODO: fix up telemetry client config here
   await runBootstrapNode(config, debugLogger);
   userLog(`P2P bootstrap node started on ${config.udpListenAddress}`);
 };

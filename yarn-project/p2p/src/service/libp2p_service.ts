@@ -6,6 +6,7 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
+  metricsTopicStrToLabels,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
@@ -266,6 +267,7 @@ export class LibP2PService extends WithTracer implements P2PService {
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
           metricsRegister: otelMetricsAdapter,
+          metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
@@ -293,11 +295,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         }) as (components: GossipSubComponents) => GossipSub,
       },
     });
-
-    // Register libp2p gossipsub metrics to our telemetry client
-    node.services.pubsub.g
-
-
 
 
     // Create request response protocol handlers

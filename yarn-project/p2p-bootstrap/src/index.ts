@@ -3,6 +3,8 @@ import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 
 import Koa from 'koa';
 import Router from 'koa-router';
+import { TelemetryClient } from '../../telemetry-client/src/telemetry.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 const debugLogger = createDebugLogger('aztec:bootstrap_node');
 
@@ -12,7 +14,10 @@ const { HTTP_PORT } = process.env;
  * The application entry point.
  */
 async function main(config: BootnodeConfig, logger = debugLogger) {
-  const bootstrapNode = new BootstrapNode(logger);
+  // TODO: insert real telemetry client here
+  const telemetryClient = new NoopTelemetryClient();
+
+  const bootstrapNode = new BootstrapNode(telemetryClient, logger);
   await bootstrapNode.start(config);
   logger.info('DiscV5 Bootnode started');
 
