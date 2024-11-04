@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -12,6 +13,15 @@ import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
+/**
+ * @title Governance
+ * @author Aztec Labs
+ * @notice  A contract that implements the governance logic, including proposal creation, voting, and execution
+ *          A proposal is a payload which returns a list of actions to be executed by the governance, exluding
+ *          calls to the governance token itself.
+ *          The model is snapshot based and it is possible to make "partial" votes, using a fraction of one's power,
+ *          making it simpler to build "aggregated" voting, for example for privately voting from inside the rollup.
+ */
 contract Governance is IGovernance {
   using SafeERC20 for IERC20;
   using ProposalLib for DataStructures.Proposal;

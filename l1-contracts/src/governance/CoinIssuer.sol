@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {ICoinIssuer} from "@aztec/governance/interfaces/ICoinIssuer.sol";
@@ -8,6 +8,9 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
+ * @title CoinIssuer
+ * @author Aztec Labs
+ * @notice A contract that allow minting of coin at most at a fixed rate
  */
 contract CoinIssuer is ICoinIssuer, Ownable {
   IMintableERC20 public immutable ASSET;
