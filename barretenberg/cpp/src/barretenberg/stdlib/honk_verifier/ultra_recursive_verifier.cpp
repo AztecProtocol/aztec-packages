@@ -70,8 +70,8 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
                 bigfield_limbs[k] = verification_key->public_inputs[key->recursive_proof_public_input_indices[idx]];
                 idx++;
             }
-            base_field_vals[j] =
-                typename Curve::BaseField(bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
+            base_field_vals[j] = Curve::BaseField::construct_from_limbs(
+                bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
         }
         nested_pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
     }

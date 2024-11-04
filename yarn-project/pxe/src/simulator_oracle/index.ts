@@ -263,6 +263,27 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
+    const directionalSecret = await this.#calculateDirectionalSecret(contractAddress, sender, recipient);
+    const [index] = await this.db.getTaggingSecretsIndexes([directionalSecret]);
+    return IndexedTaggingSecret.fromTaggingSecret(directionalSecret, index);
+  }
+
+  /**
+   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
+   * @param contractAddress - The contract address to silo the secret for
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   */
+  public async incrementAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<void> {
+    const directionalSecret = await this.#calculateDirectionalSecret(contractAddress, sender, recipient);
+    await this.db.incrementTaggingSecretsIndexes([directionalSecret]);
+  }
+
+  async #calculateDirectionalSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     const sharedSecret = computeTaggingSecret(senderCompleteAddress, senderIvsk, recipient);
@@ -270,8 +291,7 @@ export class SimulatorOracle implements DBOracle {
     const siloedSecret = poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     // Get the index of the secret, ensuring the directionality (sender -> recipient)
     const directionalSecret = new TaggingSecret(siloedSecret, recipient);
-    const [index] = await this.db.getTaggingSecretsIndexes([directionalSecret]);
-    return new IndexedTaggingSecret(siloedSecret, recipient, index);
+    return directionalSecret;
   }
 
   /**
@@ -285,22 +305,19 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
-    const completeAddresses = await this.db.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const senders = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
-    const secrets = senders.map(({ address: sender }) => {
-      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
+
+    // We implicitly add the recipient as a contact, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
+    const contacts = [...this.db.getContactAddresses(), recipient];
+    const appTaggingSecrets = contacts.map(contact => {
+      const sharedSecret = computeTaggingSecret(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
     // Ensure the directionality (sender -> recipient)
-    const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
+    const directionalSecrets = appTaggingSecrets.map(secret => new TaggingSecret(secret, recipient));
     const indexes = await this.db.getTaggingSecretsIndexes(directionalSecrets);
-    return directionalSecrets.map(
-      ({ secret, recipient }, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]),
+    return directionalSecrets.map((directionalSecret, i) =>
+      IndexedTaggingSecret.fromTaggingSecret(directionalSecret, indexes[i]),
     );
   }
 
@@ -327,9 +344,7 @@ export class SimulatorOracle implements DBOracle {
     const logs: TxScopedEncryptedL2NoteLog[] = [];
     while (appTaggingSecrets.length > 0) {
       // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-      const currentTags = appTaggingSecrets.map(({ secret, recipient, index }) =>
-        poseidon2Hash([secret, recipient, index]),
-      );
+      const currentTags = appTaggingSecrets.map(taggingSecret => taggingSecret.computeTag());
       const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
       const newTaggingSecrets: IndexedTaggingSecret[] = [];
       logsByTags.forEach((logsByTag, index) => {

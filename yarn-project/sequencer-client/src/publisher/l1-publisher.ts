@@ -239,8 +239,11 @@ export class L1Publisher {
     // FIXME: This should not throw if unable to propose but return a falsey value, so
     // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
     // which may require a retry, vs actually not being the turn for proposing.
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
+    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
+      timeOfNextL1Slot,
+      `0x${archive.toString('hex')}`,
+    ]);
     return [slot, blockNumber];
   }
 
@@ -302,9 +305,10 @@ export class L1Publisher {
   }
 
   public async validateProofQuote(quote: EpochProofQuote): Promise<EpochProofQuote | undefined> {
-    const args = [quote.toViemArgs()] as const;
+    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const args = [timeOfNextL1Slot, quote.toViemArgs()] as const;
     try {
-      await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
+      await this.rollupContract.read.validateEpochProofRightClaimAtTime(args, { account: this.account });
     } catch (err) {
       const errorName = tryGetCustomErrorName(err);
       this.log.warn(`Proof quote validation failed: ${errorName}`);

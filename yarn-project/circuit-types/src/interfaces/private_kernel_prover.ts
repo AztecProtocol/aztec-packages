@@ -92,7 +92,6 @@ export interface PrivateKernelProver {
   /**
    * Creates a proof for an app circuit.
    *
-   * @param partialWitness - The witness produced via circuit simulation
    * @param bytecode - The circuit bytecode in gzipped bincode format
    * @param appCircuitName - Optionally specify the name of the app circuit
    * @returns A Promise resolving to a Proof object

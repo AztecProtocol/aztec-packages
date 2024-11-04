@@ -37,7 +37,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   constructor(
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
-    private attestationPoolingIntervalMs: number,
+    private attestationPollingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
     telemetry: TelemetryClient,
     private log = attachedFixedDataToLogger(createDebugLogger('aztec:validator'), {
@@ -63,7 +63,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const validator = new ValidatorClient(
       localKeyStore,
       p2pClient,
-      config.attestationPoolingIntervalMs,
+      config.attestationPollingIntervalMs,
       config.attestationWaitTimeoutMs,
       telemetry,
     );
@@ -172,9 +172,9 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
 
       this.log.verbose(
-        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPoolingIntervalMs}ms for more...`,
+        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPollingIntervalMs}ms for more...`,
       );
-      await sleep(this.attestationPoolingIntervalMs);
+      await sleep(this.attestationPollingIntervalMs);
     }
   }
 }

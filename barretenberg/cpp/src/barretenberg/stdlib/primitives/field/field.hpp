@@ -256,7 +256,7 @@ template <typename Builder> class field_t {
      * Constants do not need to be normalized, as there is no underlying 'witness'; a constant's value is
      * wholly tracked by `this.additive_constant`, so we definitely don't want to set that to 0!
      **/
-    field_t normalize() const;
+    [[nodiscard]] field_t normalize() const;
 
     bb::fr get_value() const;
 
@@ -313,7 +313,25 @@ template <typename Builder> class field_t {
         context->fix_witness(witness_index, get_value());
     }
 
+    /**
+     * @brief Get the witness index of the current field element.
+     *
+     * @warning Are you sure you don't want to use
+     * get_normalized_witness_index?
+     *
+     * @return uint32_t
+     */
     uint32_t get_witness_index() const { return witness_index; }
+
+    /**
+     * @brief  Get the index of a normalized version of this element
+     *
+     * @details Most of the time when using field elements in other parts of stdlib we want to use this API instead of
+     * get_witness index. The reason is it will prevent some soundess vulnerabilities
+     *
+     * @return uint32_t
+     */
+    uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
     std::vector<bool_t<Builder>> decompose_into_bits(
         size_t num_bits = 256,

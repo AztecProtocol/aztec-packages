@@ -19,7 +19,7 @@ A "smart contract" is defined as a set of public and private functions written a
 
 [Noir](https://noir-lang.org) is a programming language designed for converting high-level programs into ZK circuits. Based on Rust, the goal is to present an idiomatic way of writing private smart contracts that is familiar to Ethereum developers. Noir is under active development adding features such as contracts, functions and storage variables.
 
-The end goal is a language that is intuitive to use for developers with no cryptographic knowledge and empowers developers to easily write programable private smart contracts.
+The end goal is a language that is intuitive to use for developers with no cryptographic knowledge and empowers developers to easily write programmable private smart contracts.
 
 There are no plans for EVM compatibility or to support Solidity in Aztec. The privacy-first nature of Aztec is fundamentally incompatible with the EVM architecture and Solidity's semantics. In addition, the heavy use of client-side proof construction makes this impractical.
 

@@ -2,7 +2,10 @@ use crate::{
     context::PrivateContext, encrypted_logs::payload::compute_private_log_payload,
     event::event_interface::EventInterface, keys::getters::get_ovsk_app, oracle::random::random,
 };
-use dep::protocol_types::{address::AztecAddress, hash::sha256_to_field, public_keys::OvpkM};
+use dep::protocol_types::{
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_BYTES, hash::sha256_to_field,
+    public_keys::OvpkM,
+};
 
 /// Computes private event log payload and a log hash
 fn compute_payload_and_hash<Event, let N: u32>(
@@ -13,22 +16,20 @@ fn compute_payload_and_hash<Event, let N: u32>(
     ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
-) -> ([u8; 384 + N * 32], Field)
+) -> ([u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
 where
     Event: EventInterface<N>,
 {
     let contract_address: AztecAddress = context.this_address();
     let plaintext = event.private_to_be_bytes(randomness);
 
-    // For event logs we never include public values prefix as there are never any public values
-    let encrypted_log: [u8; 384 + N * 32] = compute_private_log_payload(
+    let encrypted_log = compute_private_log_payload(
         contract_address,
         ovsk_app,
         ovpk,
         recipient,
         sender,
         plaintext,
-        false,
     );
     let log_hash = sha256_to_field(encrypted_log);
     (encrypted_log, log_hash)
@@ -41,7 +42,7 @@ unconstrained fn compute_payload_and_hash_unconstrained<Event, let N: u32>(
     ovpk: OvpkM,
     recipient: AztecAddress,
     sender: AztecAddress,
-) -> ([u8; 384 + N * 32], Field)
+) -> ([u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
 where
     Event: EventInterface<N>,
 {

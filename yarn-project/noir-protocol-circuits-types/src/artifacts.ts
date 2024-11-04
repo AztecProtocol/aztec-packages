@@ -37,6 +37,7 @@ export const SimulatedPublicKernelInnerArtifact = PublicKernelInnerSimulatedJson
 export const SimulatedPublicKernelMergeArtifact = PublicKernelMergeSimulatedJson as NoirCompiledCircuit;
 export const SimulatedPublicKernelTailArtifact = PublicKernelTailSimulatedJson as NoirCompiledCircuit;
 
+// These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =
   | 'EmptyNestedArtifact'
   | 'PrivateKernelEmptyArtifact'

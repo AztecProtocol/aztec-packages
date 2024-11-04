@@ -1365,7 +1365,6 @@ struct Circuit {
     Program::PublicInputs public_parameters;
     Program::PublicInputs return_values;
     std::vector<std::tuple<Program::OpcodeLocation, Program::AssertionPayload>> assert_messages;
-    bool recursive;
 
     friend bool operator==(const Circuit&, const Circuit&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -6724,9 +6723,6 @@ inline bool operator==(const Circuit& lhs, const Circuit& rhs)
     if (!(lhs.assert_messages == rhs.assert_messages)) {
         return false;
     }
-    if (!(lhs.recursive == rhs.recursive)) {
-        return false;
-    }
     return true;
 }
 
@@ -6761,7 +6757,6 @@ void serde::Serializable<Program::Circuit>::serialize(const Program::Circuit& ob
     serde::Serializable<decltype(obj.public_parameters)>::serialize(obj.public_parameters, serializer);
     serde::Serializable<decltype(obj.return_values)>::serialize(obj.return_values, serializer);
     serde::Serializable<decltype(obj.assert_messages)>::serialize(obj.assert_messages, serializer);
-    serde::Serializable<decltype(obj.recursive)>::serialize(obj.recursive, serializer);
     serializer.decrease_container_depth();
 }
 
@@ -6778,7 +6773,6 @@ Program::Circuit serde::Deserializable<Program::Circuit>::deserialize(Deserializ
     obj.public_parameters = serde::Deserializable<decltype(obj.public_parameters)>::deserialize(deserializer);
     obj.return_values = serde::Deserializable<decltype(obj.return_values)>::deserialize(deserializer);
     obj.assert_messages = serde::Deserializable<decltype(obj.assert_messages)>::deserialize(deserializer);
-    obj.recursive = serde::Deserializable<decltype(obj.recursive)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
 }
