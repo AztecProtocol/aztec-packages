@@ -147,7 +147,7 @@ build:
   COPY +wasi-sdk/opt/wasi-sdk /opt/wasi-sdk
 
   # Install foundry.
-  COPY +foundry-build/opt/foundry /opt/foundry
+  COPY +foundry/opt/foundry /opt/foundry
   ENV PATH="/opt/foundry/bin:$PATH"
 
   # Install rust and cross-compilers. Noir specifically uses 1.74.1.
