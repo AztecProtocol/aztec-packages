@@ -75,7 +75,7 @@ describe('SafeJsonRpcServer', () => {
 
     it('fails if sends invalid JSON', async () => {
       const response = await send('{');
-      expectError(response, 400, 'Parse error: Unexpected end of JSON input');
+      expectError(response, 400, expect.stringContaining('Parse error'));
     });
 
     it('fails if calls non-existing method in handler', async () => {
