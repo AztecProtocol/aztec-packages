@@ -698,25 +698,29 @@ jobs:
         config:
           - test: transfer.test.ts
             values: 16-validators
+            runner_type: 16core-tester-x86
           - test: transfer.test.ts
             values: 48-validators
+            runner_type: 32core-tester-x86
           - test: reorg.test.ts
             values: 16-validators
+            runner_type: 16core-tester-x86
           - test: 4epochs.test.ts
             values: 16-validators
+            runner_type: 16core-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: kind-network-test-${{ matrix.test }}
+          concurrency_key: kind-network-${{ matrix.config.test }}
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
-          runner_type: 8core-tester-x86
+          runner_type: ${{ matrix.config.runner_type }}
           spot_strategy: None # use on-demand machines
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
