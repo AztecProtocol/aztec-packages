@@ -2,16 +2,15 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 contract FeeJuicePortal is IFeeJuicePortal {
@@ -104,7 +103,7 @@ contract FeeJuicePortal is IFeeJuicePortal {
     emit FeesDistributed(_to, _amount);
   }
 
-  function canonicalRollup() public view returns (address) {
+  function canonicalRollup() public view override(IFeeJuicePortal) returns (address) {
     return REGISTRY.getRollup();
   }
 }

@@ -84,7 +84,7 @@ export class StaticCallAlterationError extends InstructionExecutionError {
  * @param nestedError - the revert reason of the nested call
  */
 export class RethrownError extends AvmExecutionError {
-  constructor(message: string, public nestedError: AvmRevertReason) {
+  constructor(message: string, public nestedError: AvmRevertReason, public revertData: Fr[]) {
     super(message);
     this.name = 'RethrownError';
   }
@@ -139,6 +139,15 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
   // A RethrownError has a nested/child AvmRevertReason
   const nestedError = haltingError instanceof RethrownError ? haltingError.nestedError : undefined;
   return createRevertReason(haltingError.message, context, nestedError);
+}
+
+/**
+ * Extracts revert data from an exceptional halt. Currently this is only used to manually bubble up revertadata.
+ * @param haltingError - the lower-level error causing the exceptional halt
+ * @returns the revert data for the exceptional halt
+ */
+export function revertDataFromExceptionalHalt(haltingError: AvmExecutionError): Fr[] {
+  return haltingError instanceof RethrownError ? haltingError.revertData : [];
 }
 
 /**
