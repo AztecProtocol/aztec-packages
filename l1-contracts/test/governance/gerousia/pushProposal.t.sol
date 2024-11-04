@@ -2,8 +2,8 @@
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IGerousia} from "@aztec/governance/interfaces/IGerousia.sol";
-import {GerousiaBase} from "./Base.t.sol";
+import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
+import {GovernanceProposerBase} from "./Base.t.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -11,7 +11,7 @@ import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {FaultyApella} from "./mocks/FaultyApella.sol";
 import {FalsyApella} from "./mocks/FalsyApella.sol";
 
-contract PushProposalTest is GerousiaBase {
+contract PushProposalTest is GovernanceProposerBase {
   using SlotLib for Slot;
 
   Leonidas internal leonidas;
@@ -22,9 +22,9 @@ contract PushProposalTest is GerousiaBase {
   function test_GivenCanonicalInstanceHoldNoCode(uint256 _roundNumber) external {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Gerousia__InstanceHaveNoCode.selector, address(0xdead))
+      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead))
     );
-    gerousia.pushProposal(_roundNumber);
+    governanceProposer.pushProposal(_roundNumber);
   }
 
   modifier givenCanonicalInstanceHoldCode() {
@@ -39,12 +39,12 @@ contract PushProposalTest is GerousiaBase {
 
   function test_WhenRoundNotInPast() external givenCanonicalInstanceHoldCode {
     // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__CanOnlyPushProposalInPast.selector));
-    gerousia.pushProposal(0);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyPushProposalInPast.selector));
+    governanceProposer.pushProposal(0);
   }
 
   modifier whenRoundInPast() {
-    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(Slot.wrap(gerousia.M()))));
+    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(Slot.wrap(governanceProposer.M()))));
     _;
   }
 
@@ -57,7 +57,7 @@ contract PushProposalTest is GerousiaBase {
 
     uint256 lower = Timestamp.unwrap(
       leonidas.getTimestampForSlot(
-        leonidas.getCurrentSlot() + Slot.wrap(gerousia.M() * gerousia.LIFETIME_IN_ROUNDS() + 1)
+        leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1)
       )
     );
     uint256 upper =
@@ -68,12 +68,12 @@ contract PushProposalTest is GerousiaBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Gerousia__ProposalTooOld.selector,
+        Errors.GovernanceProposer__ProposalTooOld.selector,
         0,
-        gerousia.computeRound(leonidas.getCurrentSlot())
+        governanceProposer.computeRound(leonidas.getCurrentSlot())
       )
     );
-    gerousia.pushProposal(0);
+    governanceProposer.pushProposal(0);
   }
 
   modifier whenRoundInRecentPast() {
@@ -90,23 +90,23 @@ contract PushProposalTest is GerousiaBase {
 
     {
       // Need to execute a proposal first here.
-      for (uint256 i = 0; i < gerousia.N(); i++) {
+      for (uint256 i = 0; i < governanceProposer.N(); i++) {
         vm.prank(proposer);
-        assertTrue(gerousia.vote(proposal));
+        assertTrue(governanceProposer.vote(proposal));
         vm.warp(
           Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
         );
       }
       vm.warp(
         Timestamp.unwrap(
-          leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(gerousia.M()))
+          leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M()))
         )
       );
-      gerousia.pushProposal(1);
+      governanceProposer.pushProposal(1);
     }
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__ProposalAlreadyExecuted.selector, 1));
-    gerousia.pushProposal(1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__ProposalAlreadyExecuted.selector, 1));
+    governanceProposer.pushProposal(1);
   }
 
   modifier givenRoundNotExecutedBefore() {
@@ -123,20 +123,20 @@ contract PushProposalTest is GerousiaBase {
     // it revert
 
     // The first slot in the next round (round 1)
-    Slot lowerSlot = Slot.wrap(gerousia.M());
+    Slot lowerSlot = Slot.wrap(governanceProposer.M());
     uint256 lower = Timestamp.unwrap(leonidas.getTimestampForSlot(lowerSlot));
     // the last slot in the LIFETIME_IN_ROUNDS next round
     uint256 upper = Timestamp.unwrap(
       leonidas.getTimestampForSlot(
-        lowerSlot + Slot.wrap(gerousia.M() * (gerousia.LIFETIME_IN_ROUNDS() - 1))
+        lowerSlot + Slot.wrap(governanceProposer.M() * (governanceProposer.LIFETIME_IN_ROUNDS() - 1))
       )
     );
     uint256 time = bound(_slotsToJump, lower, upper);
 
     vm.warp(time);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__ProposalCannotBeAddressZero.selector));
-    gerousia.pushProposal(0);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector));
+    governanceProposer.pushProposal(0);
   }
 
   modifier givenLeaderIsNotAddress0() {
@@ -154,30 +154,30 @@ contract PushProposalTest is GerousiaBase {
     // it revert
 
     vm.prank(proposer);
-    gerousia.vote(proposal);
+    governanceProposer.vote(proposal);
 
     vm.warp(
       Timestamp.unwrap(
-        leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(gerousia.M()))
+        leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M()))
       )
     );
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__InsufficientVotes.selector));
-    gerousia.pushProposal(1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientVotes.selector));
+    governanceProposer.pushProposal(1);
   }
 
   modifier givenSufficientYea(uint256 _yeas) {
-    uint256 limit = bound(_yeas, gerousia.N(), gerousia.M());
+    uint256 limit = bound(_yeas, governanceProposer.N(), governanceProposer.M());
 
     for (uint256 i = 0; i < limit; i++) {
       vm.prank(proposer);
-      assertTrue(gerousia.vote(proposal));
+      assertTrue(governanceProposer.vote(proposal));
       vm.warp(
         Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
       );
     }
     vm.warp(
       Timestamp.unwrap(
-        leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(gerousia.M()))
+        leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(governanceProposer.M()))
       )
     );
 
@@ -195,30 +195,30 @@ contract PushProposalTest is GerousiaBase {
   {
     // it revert
 
-    // When using a new registry we change the gerousia's interpetation of time :O
+    // When using a new registry we change the governanceProposer's interpetation of time :O
     Leonidas freshInstance = new Leonidas(address(this));
     vm.prank(registry.getApella());
     registry.upgrade(address(freshInstance));
 
     // The old is still there, just not executable.
-    (, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), 1);
+    (, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), 1);
     assertFalse(executed);
     assertEq(address(leader), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__CanOnlyPushProposalInPast.selector));
-    gerousia.pushProposal(1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyPushProposalInPast.selector));
+    governanceProposer.pushProposal(1);
 
     // Jump 2 rounds, since we are currently in round 0
     vm.warp(
       Timestamp.unwrap(
         freshInstance.getTimestampForSlot(
-          freshInstance.getCurrentSlot() + Slot.wrap(2 * gerousia.M())
+          freshInstance.getCurrentSlot() + Slot.wrap(2 * governanceProposer.M())
         )
       )
     );
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__ProposalCannotBeAddressZero.selector));
-    gerousia.pushProposal(1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector));
+    governanceProposer.pushProposal(1);
   }
 
   function test_GivenApellaCallReturnFalse(uint256 _yeas)
@@ -234,8 +234,8 @@ contract PushProposalTest is GerousiaBase {
     FalsyApella falsy = new FalsyApella();
     vm.etch(address(apella), address(falsy).code);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Gerousia__FailedToPropose.selector, proposal));
-    gerousia.pushProposal(1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__FailedToPropose.selector, proposal));
+    governanceProposer.pushProposal(1);
   }
 
   function test_GivenApellaCallFails(uint256 _yeas)
@@ -252,7 +252,7 @@ contract PushProposalTest is GerousiaBase {
     vm.etch(address(apella), address(faulty).code);
 
     vm.expectRevert(abi.encodeWithSelector(FaultyApella.Faulty.selector));
-    gerousia.pushProposal(1);
+    governanceProposer.pushProposal(1);
   }
 
   function test_GivenApellaCallSucceeds(uint256 _yeas)
@@ -267,10 +267,10 @@ contract PushProposalTest is GerousiaBase {
     // it update executed to true
     // it emits {ProposalPushed} event
     // it return true
-    vm.expectEmit(true, true, true, true, address(gerousia));
-    emit IGerousia.ProposalPushed(proposal, 1);
-    assertTrue(gerousia.pushProposal(1));
-    (, IPayload leader, bool executed) = gerousia.rounds(address(leonidas), 1);
+    vm.expectEmit(true, true, true, true, address(governanceProposer));
+    emit IGovernanceProposer.ProposalPushed(proposal, 1);
+    assertTrue(governanceProposer.pushProposal(1));
+    (, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), 1);
     assertTrue(executed);
     assertEq(address(leader), address(proposal));
   }

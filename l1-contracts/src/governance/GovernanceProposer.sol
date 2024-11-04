@@ -4,19 +4,19 @@ pragma solidity >=0.8.27;
 import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
 import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-import {IGerousia} from "@aztec/governance/interfaces/IGerousia.sol";
+import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 /**
- * @notice  A Gerousia implementation following the empire model
+ * @notice  A GovernanceProposer implementation following the empire model
  *          Beware that while governance generally do not care about the implementation
  *          this implementation will since it is dependent on the sequencer selection.
  *          This also means that the implementation here will need to be "updated" if
  *          the interfaces of the sequencer selection changes, for exampel going optimistic.
  */
-contract Gerousia is IGerousia {
+contract GovernanceProposer is IGovernanceProposer {
   using SlotLib for Slot;
 
   struct RoundAccounting {
@@ -39,8 +39,8 @@ contract Gerousia is IGerousia {
     N = _n;
     M = _m;
 
-    require(N > M / 2, Errors.Gerousia__InvalidNAndMValues(N, M));
-    require(N <= M, Errors.Gerousia__NCannotBeLargerTHanM(N, M));
+    require(N > M / 2, Errors.GovernanceProposer__InvalidNAndMValues(N, M));
+    require(N <= M, Errors.GovernanceProposer__NCannotBeLargerTHanM(N, M));
   }
 
   // Note that this one is heavily realying on the fact that this contract
@@ -55,11 +55,11 @@ contract Gerousia is IGerousia {
    *
    * @return True if executed successfully, false otherwise
    */
-  function vote(IPayload _proposal) external override(IGerousia) returns (bool) {
-    require(address(_proposal).code.length > 0, Errors.Gerousia__ProposalHaveNoCode(_proposal));
+  function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
+    require(address(_proposal).code.length > 0, Errors.GovernanceProposer__ProposalHaveNoCode(_proposal));
 
     address instance = REGISTRY.getRollup();
-    require(instance.code.length > 0, Errors.Gerousia__InstanceHaveNoCode(instance));
+    require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
     ILeonidas selection = ILeonidas(instance);
     Slot currentSlot = selection.getCurrentSlot();
@@ -68,10 +68,10 @@ contract Gerousia is IGerousia {
 
     RoundAccounting storage round = rounds[instance][roundNumber];
 
-    require(currentSlot > round.lastVote, Errors.Gerousia__VoteAlreadyCastForSlot(currentSlot));
+    require(currentSlot > round.lastVote, Errors.GovernanceProposer__VoteAlreadyCastForSlot(currentSlot));
 
     address proposer = selection.getCurrentProposer();
-    require(msg.sender == proposer, Errors.Gerousia__OnlyProposerCanVote(msg.sender, proposer));
+    require(msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer));
 
     round.yeaCount[_proposal] += 1;
     round.lastVote = currentSlot;
@@ -93,31 +93,31 @@ contract Gerousia is IGerousia {
    *
    * @return True if executed successfully, false otherwise
    */
-  function pushProposal(uint256 _roundNumber) external override(IGerousia) returns (bool) {
+  function pushProposal(uint256 _roundNumber) external override(IGovernanceProposer) returns (bool) {
     // Need to ensure that the round is not active.
     address instance = REGISTRY.getRollup();
-    require(instance.code.length > 0, Errors.Gerousia__InstanceHaveNoCode(instance));
+    require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
     ILeonidas selection = ILeonidas(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
-    require(_roundNumber < currentRound, Errors.Gerousia__CanOnlyPushProposalInPast());
+    require(_roundNumber < currentRound, Errors.GovernanceProposer__CanOnlyPushProposalInPast());
     require(
       _roundNumber + LIFETIME_IN_ROUNDS >= currentRound,
-      Errors.Gerousia__ProposalTooOld(_roundNumber, currentRound)
+      Errors.GovernanceProposer__ProposalTooOld(_roundNumber, currentRound)
     );
 
     RoundAccounting storage round = rounds[instance][_roundNumber];
-    require(!round.executed, Errors.Gerousia__ProposalAlreadyExecuted(_roundNumber));
-    require(round.leader != IPayload(address(0)), Errors.Gerousia__ProposalCannotBeAddressZero());
-    require(round.yeaCount[round.leader] >= N, Errors.Gerousia__InsufficientVotes());
+    require(!round.executed, Errors.GovernanceProposer__ProposalAlreadyExecuted(_roundNumber));
+    require(round.leader != IPayload(address(0)), Errors.GovernanceProposer__ProposalCannotBeAddressZero());
+    require(round.yeaCount[round.leader] >= N, Errors.GovernanceProposer__InsufficientVotes());
 
     round.executed = true;
 
     emit ProposalPushed(round.leader, _roundNumber);
 
-    require(getApella().propose(round.leader), Errors.Gerousia__FailedToPropose(round.leader));
+    require(getApella().propose(round.leader), Errors.GovernanceProposer__FailedToPropose(round.leader));
     return true;
   }
 
@@ -133,7 +133,7 @@ contract Gerousia is IGerousia {
   function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view
-    override(IGerousia)
+    override(IGovernanceProposer)
     returns (uint256)
   {
     return rounds[_instance][_round].yeaCount[_proposal];
@@ -146,11 +146,11 @@ contract Gerousia is IGerousia {
    *
    * @return The round number
    */
-  function computeRound(Slot _slot) public view override(IGerousia) returns (uint256) {
+  function computeRound(Slot _slot) public view override(IGovernanceProposer) returns (uint256) {
     return _slot.unwrap() / M;
   }
 
-  function getApella() public view override(IGerousia) returns (IApella) {
+  function getApella() public view override(IGovernanceProposer) returns (IApella) {
     return IApella(REGISTRY.getApella());
   }
 }

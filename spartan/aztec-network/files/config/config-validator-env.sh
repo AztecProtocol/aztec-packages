@@ -18,7 +18,7 @@ fee_juice_address=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9
 fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 coin_issuer_address=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F0-9]{40}')
 rewardDistributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
-gerousia_address=$(echo "$output" | grep -oP 'Gerousia Address: \K0x[a-fA-F0-9]{40}')
+governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 apella_address=$(echo "$output" | grep -oP 'Apella Address: \K0x[a-fA-F0-9]{40}')
 # We assume that there is an env var set for validator keys from the config map
 # We get the index in the config map from the pod name, which will have the validator index within it
@@ -38,7 +38,7 @@ export FEE_JUICE_CONTRACT_ADDRESS=$fee_juice_address
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 export COIN_ISSUER_CONTRACT_ADDRESS=$coin_issuer_address
 export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$rewardDistributor_address
-export GEROUSIA_CONTRACT_ADDRESS=$gerousia_address
+export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$governance_proposer_address
 export APELLA_CONTRACT_ADDRESS=$apella_address
 export VALIDATOR_PRIVATE_KEY=$private_key
 export L1_PRIVATE_KEY=$private_key

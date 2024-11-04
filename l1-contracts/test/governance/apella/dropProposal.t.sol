@@ -10,9 +10,9 @@ contract DropProposalTest is ApellaBase {
     _;
   }
 
-  function test_GivenProposalIsDropped(address _gerousia) external givenProposalIsStable {
+  function test_GivenProposalIsDropped(address _governanceProposer) external givenProposalIsStable {
     // it revert
-    _stateDropped("empty", _gerousia);
+    _stateDropped("empty", _governanceProposer);
     assertEq(apella.getProposal(proposalId).state, DataStructures.ProposalState.Pending);
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
     assertTrue(apella.dropProposal(proposalId));
@@ -122,11 +122,11 @@ contract DropProposalTest is ApellaBase {
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Expired);
   }
 
-  function test_WhenGetProposalStateIsDropped(address _gerousia) external givenProposalIsUnstable {
+  function test_WhenGetProposalStateIsDropped(address _governanceProposer) external givenProposalIsUnstable {
     // it updates state to Dropped
     // it return true
 
-    _stateDropped("empty", _gerousia);
+    _stateDropped("empty", _governanceProposer);
     assertEq(apella.getProposal(proposalId).state, DataStructures.ProposalState.Pending);
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
     assertTrue(apella.dropProposal(proposalId));

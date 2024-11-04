@@ -3,9 +3,9 @@ import { deployL1Contract, sleep } from '@aztec/aztec.js';
 import {
   ApellaAbi,
   TestERC20Abi as FeeJuiceAbi,
-  GerousiaAbi,
-  NewGerousiaPayloadAbi,
-  NewGerousiaPayloadBytecode,
+  GovernanceProposerAbi,
+  NewGovernanceProposerPayloadAbi,
+  NewGovernanceProposerPayloadBytecode,
   RollupAbi,
 } from '@aztec/l1-artifacts';
 
@@ -22,10 +22,10 @@ const BOOT_NODE_UDP_PORT = 40600;
 const DATA_DIR = './data/gossip';
 
 /**
- * This tests emulate the same test as in l1-contracts/test/governance/scenario/UpgradeGerousiaTest.t.sol
+ * This tests emulate the same test as in l1-contracts/test/governance/scenario/UpgradeGovernanceProposerTest.t.sol
  * but it does so in an end-to-end manner with multiple "real" nodes.
  */
-describe('e2e_p2p_gerousia', () => {
+describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
@@ -48,15 +48,15 @@ describe('e2e_p2p_gerousia', () => {
    * For this reason we are not running it as part of the CI.
    * TODO(https://github.com/AztecProtocol/aztec-packages/issues/9164): Currently flakey
    */
-  it('Should cast votes to upgrade gerousia', async () => {
+  it('Should cast votes to upgrade governanceProposer', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const gerousia = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gerousiaAddress.toString()),
-      abi: GerousiaAbi,
+    const governanceProposer = getContract({
+      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
+      abi: GovernanceProposerAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
@@ -90,8 +90,8 @@ describe('e2e_p2p_gerousia', () => {
     const { address: newPayloadAddress } = await deployL1Contract(
       t.ctx.deployL1ContractsValues.walletClient,
       t.ctx.deployL1ContractsValues.publicClient,
-      NewGerousiaPayloadAbi,
-      NewGerousiaPayloadBytecode,
+      NewGovernanceProposerPayloadAbi,
+      NewGovernanceProposerPayloadBytecode,
       [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()],
     );
 
@@ -102,13 +102,13 @@ describe('e2e_p2p_gerousia', () => {
     const govInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
       const slot = await rollup.read.getCurrentSlot();
-      const round = await gerousia.read.computeRound([slot]);
+      const round = await governanceProposer.read.computeRound([slot]);
 
-      const info = await gerousia.read.rounds([
+      const info = await governanceProposer.read.rounds([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await gerousia.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.yeaCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
         info[1],
@@ -125,7 +125,7 @@ describe('e2e_p2p_gerousia', () => {
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      { ...t.ctx.aztecNodeConfig, gerousiaPayload: newPayloadAddress },
+      { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
       t.peerIdPrivateKeys,
       t.bootstrapNodeEnr,
       NUM_NODES,
@@ -136,8 +136,8 @@ describe('e2e_p2p_gerousia', () => {
     await sleep(4000);
 
     t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await gerousia.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await gerousia.read.M()}`);
+    const quorumSize = await governanceProposer.read.N();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
 
     let govData;
     while (true) {
@@ -157,7 +157,7 @@ describe('e2e_p2p_gerousia', () => {
 
     await waitL1Block();
 
-    const txHash = await gerousia.write.pushProposal([govData.round], { account: emperor, gas: 1_000_000n });
+    const txHash = await governanceProposer.write.pushProposal([govData.round], { account: emperor, gas: 1_000_000n });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
 
     const token = getContract({
@@ -186,16 +186,16 @@ describe('e2e_p2p_gerousia', () => {
 
     await waitL1Block();
 
-    expect(await apella.read.gerousia()).toEqual(
-      getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gerousiaAddress.toString()),
+    expect(await apella.read.governanceProposer()).toEqual(
+      getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
     );
 
     const executeTx = await apella.write.execute([0n], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: executeTx });
 
-    const newGerousia = await apella.read.gerousia();
-    expect(newGerousia).not.toEqual(
-      getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gerousiaAddress.toString()),
+    const newGovernanceProposer = await apella.read.governanceProposer();
+    expect(newGovernanceProposer).not.toEqual(
+      getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
     );
 
     expect(await apella.read.getProposalState([0n])).toEqual(5);

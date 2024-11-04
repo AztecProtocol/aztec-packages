@@ -9,17 +9,17 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 contract ProposeTest is ApellaBase {
-  function test_WhenCallerIsNotGerousia() external {
+  function test_WhenCallerIsNotGovernanceProposer() external {
     // it revert
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Apella__CallerNotGerousia.selector, address(this), address(gerousia)
+        Errors.Apella__CallerNotGovernanceProposer.selector, address(this), address(governanceProposer)
       )
     );
     apella.propose(IPayload(address(0)));
   }
 
-  function test_WhenCallerIsGerousia(address _proposal) external {
+  function test_WhenCallerIsGovernanceProposer(address _proposal) external {
     // it creates a new proposal with current config
     // it emits a {ProposalCreated} event
     // it returns true
@@ -31,7 +31,7 @@ contract ProposeTest is ApellaBase {
     vm.expectEmit(true, true, true, true, address(apella));
     emit IApella.Proposed(proposalId, _proposal);
 
-    vm.prank(address(gerousia));
+    vm.prank(address(governanceProposer));
     assertTrue(apella.propose(IPayload(_proposal)));
 
     DataStructures.Proposal memory proposal = apella.getProposal(proposalId);
@@ -43,7 +43,7 @@ contract ProposeTest is ApellaBase {
     assertEq(proposal.config.votingDelay, config.votingDelay);
     assertEq(proposal.config.votingDuration, config.votingDuration);
     assertEq(proposal.creation, Timestamp.wrap(block.timestamp));
-    assertEq(proposal.gerousia, address(gerousia));
+    assertEq(proposal.governanceProposer, address(governanceProposer));
     assertEq(proposal.summedBallot.nea, 0);
     assertEq(proposal.summedBallot.yea, 0);
     assertTrue(proposal.state == DataStructures.ProposalState.Pending);

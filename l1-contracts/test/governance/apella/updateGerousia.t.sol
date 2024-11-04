@@ -5,29 +5,29 @@ import {ApellaBase} from "./base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 
-contract UpdateGerousiaTest is ApellaBase {
-  function test_WhenCallerIsNotApella(address _caller, address _gerousia) external {
+contract UpdateGovernanceProposerTest is ApellaBase {
+  function test_WhenCallerIsNotApella(address _caller, address _governanceProposer) external {
     // it revert
     vm.assume(_caller != address(apella));
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Apella__CallerNotSelf.selector, _caller, address(apella))
     );
     vm.prank(_caller);
-    apella.updateGerousia(_gerousia);
+    apella.updateGovernanceProposer(_governanceProposer);
   }
 
-  function test_WhenCallerIsApella(address _gerousia) external {
-    // it updates the gerousia
-    // it emit the {GerousiaUpdated} event
+  function test_WhenCallerIsApella(address _governanceProposer) external {
+    // it updates the governanceProposer
+    // it emit the {GovernanceProposerUpdated} event
 
-    vm.assume(_gerousia != address(apella.gerousia()));
+    vm.assume(_governanceProposer != address(apella.governanceProposer()));
 
     vm.expectEmit(true, true, true, true, address(apella));
-    emit IApella.GerousiaUpdated(_gerousia);
+    emit IApella.GovernanceProposerUpdated(_governanceProposer);
 
     vm.prank(address(apella));
-    apella.updateGerousia(_gerousia);
+    apella.updateGovernanceProposer(_governanceProposer);
 
-    assertEq(_gerousia, apella.gerousia());
+    assertEq(_governanceProposer, apella.governanceProposer());
   }
 }

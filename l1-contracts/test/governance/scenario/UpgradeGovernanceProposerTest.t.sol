@@ -6,7 +6,7 @@ import {TestBase} from "@test/base/Base.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Apella} from "@aztec/governance/Apella.sol";
-import {Gerousia} from "@aztec/governance/Gerousia.sol";
+import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
@@ -16,21 +16,21 @@ import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {Slot} from "@aztec/core/libraries/TimeMath.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {NewGerousiaPayload} from "./NewGerousiaPayload.sol";
+import {NewGovernanceProposerPayload} from "./NewGovernanceProposerPayload.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-/**
- * @title UpgradeGerousiaTest
- * @author Aztec Labs
- * @notice A test that showcases an upgrade of the governance system, here the gerousia contract.
- */
 
-contract UpgradeGerousiaTest is TestBase {
+/**
+ * @title UpgradeGovernanceProposerTest
+ * @author Aztec Labs
+ * @notice A test that showcases an upgrade of the governance system, here the governanceProposer contract.
+ */
+contract UpgradeGovernanceProposerTest is TestBase {
   using ProposalLib for DataStructures.Proposal;
 
   IMintableERC20 internal token;
   Registry internal registry;
   Apella internal apella;
-  Gerousia internal gerousia;
+  GovernanceProposer internal governanceProposer;
   Rollup internal rollup;
 
   DataStructures.Proposal internal proposal;
@@ -47,9 +47,9 @@ contract UpgradeGerousiaTest is TestBase {
     token = IMintableERC20(address(new TestERC20()));
 
     registry = new Registry(address(this));
-    gerousia = new Gerousia(registry, 7, 10);
+    governanceProposer = new GovernanceProposer(registry, 7, 10);
 
-    apella = new Apella(token, address(gerousia));
+    apella = new Apella(token, address(governanceProposer));
 
     address[] memory initialValidators = new address[](VALIDATOR_COUNT);
     for (uint256 i = 1; i <= VALIDATOR_COUNT; i++) {
@@ -62,7 +62,12 @@ contract UpgradeGerousiaTest is TestBase {
 
     RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, bytes32(0), bytes32(0), address(this), initialValidators
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      initialValidators
     );
 
     registry.upgrade(address(rollup));
@@ -71,17 +76,17 @@ contract UpgradeGerousiaTest is TestBase {
   }
 
   function test_UpgradeIntoNewVersion() external {
-    payload = IPayload(address(new NewGerousiaPayload(registry)));
+    payload = IPayload(address(new NewGovernanceProposerPayload(registry)));
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
 
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
-      gerousia.vote(payload);
+      governanceProposer.vote(payload);
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
     }
 
-    gerousia.pushProposal(0);
+    governanceProposer.pushProposal(0);
     proposal = apella.getProposal(0);
     assertEq(address(proposal.payload), address(payload));
 
@@ -103,21 +108,24 @@ contract UpgradeGerousiaTest is TestBase {
 
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
     assertTrue(apella.getProposalState(0) == DataStructures.ProposalState.Executable);
-    assertEq(apella.gerousia(), address(gerousia));
+    assertEq(apella.governanceProposer(), address(governanceProposer));
 
     apella.execute(0);
 
-    assertNotEq(apella.gerousia(), address(gerousia));
-    address newGerousia = address(NewGerousiaPayload(address(payload)).NEW_GEROUSIA());
-    assertEq(apella.gerousia(), newGerousia);
+    assertNotEq(apella.governanceProposer(), address(governanceProposer));
+    address newGovernanceProposer =
+      address(NewGovernanceProposerPayload(address(payload)).NEW_GOVERNANCE_PROPOSER());
+    assertEq(apella.governanceProposer(), newGovernanceProposer);
 
     // Ensure that we cannot push a proposal after the upgrade.
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Apella__CallerNotGerousia.selector, address(gerousia), newGerousia
+        Errors.Apella__CallerNotGovernanceProposer.selector,
+        address(governanceProposer),
+        newGovernanceProposer
       )
     );
-    vm.prank(address(gerousia));
+    vm.prank(address(governanceProposer));
     apella.propose(payload);
   }
 }

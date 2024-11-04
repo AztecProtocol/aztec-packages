@@ -53,9 +53,9 @@ contract ExecuteTest is ApellaBase {
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
   }
 
-  function test_GivenStateIsDropped(address _gerousia) external givenStateIsNotExecutable {
+  function test_GivenStateIsDropped(address _governanceProposer) external givenStateIsNotExecutable {
     // it revert
-    _stateDropped("empty", _gerousia);
+    _stateDropped("empty", _governanceProposer);
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
   }
 

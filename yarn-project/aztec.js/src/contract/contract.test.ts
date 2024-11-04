@@ -44,7 +44,7 @@ describe('Contract Class', () => {
     apellaAddress: EthAddress.random(),
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
-    gerousiaAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',

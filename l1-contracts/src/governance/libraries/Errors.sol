@@ -13,7 +13,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
  * when there are multiple contracts that could have thrown the error.
  */
 library Errors {
-  error Apella__CallerNotGerousia(address caller, address gerousia);
+  error Apella__CallerNotGovernanceProposer(address caller, address governanceProposer);
   error Apella__CallerNotSelf(address caller, address self);
   error Apella__NoCheckpointsFound();
   error Apella__InsufficientPower(address voter, uint256 have, uint256 required);
@@ -45,18 +45,18 @@ library Errors {
   error Apella__ProposalLib__ZeroYeaVotesNeeded();
   error Apella__ProposalLib__MoreYeaVoteThanExistNeeded();
 
-  error Gerousia__CanOnlyPushProposalInPast(); // 0x49fdf611"
-  error Gerousia__FailedToPropose(IPayload proposal); // 0x6ca2a2ed
-  error Gerousia__InstanceHaveNoCode(address instance); // 0x20a3b441
-  error Gerousia__InsufficientVotes(); // 0xba1e05ef
-  error Gerousia__InvalidNAndMValues(uint256 n, uint256 m); // 0x520d9704
-  error Gerousia__NCannotBeLargerTHanM(uint256 n, uint256 m); // 0x2fdfc063
-  error Gerousia__OnlyProposerCanVote(address caller, address proposer); // 0xba27df38
-  error Gerousia__ProposalAlreadyExecuted(uint256 roundNumber); // 0x7aeacb17
-  error Gerousia__ProposalCannotBeAddressZero(); // 0xdb3e4b6e
-  error Gerousia__ProposalHaveNoCode(IPayload proposal); // 0xdce0615b
-  error Gerousia__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); //0x02283b1a
-  error Gerousia__VoteAlreadyCastForSlot(Slot slot); //0xc2201452
+  error GovernanceProposer__CanOnlyPushProposalInPast(); // 0x49fdf611"
+  error GovernanceProposer__FailedToPropose(IPayload proposal); // 0x6ca2a2ed
+  error GovernanceProposer__InstanceHaveNoCode(address instance); // 0x20a3b441
+  error GovernanceProposer__InsufficientVotes(); // 0xba1e05ef
+  error GovernanceProposer__InvalidNAndMValues(uint256 n, uint256 m); // 0x520d9704
+  error GovernanceProposer__NCannotBeLargerTHanM(uint256 n, uint256 m); // 0x2fdfc063
+  error GovernanceProposer__OnlyProposerCanVote(address caller, address proposer); // 0xba27df38
+  error GovernanceProposer__ProposalAlreadyExecuted(uint256 roundNumber); // 0x7aeacb17
+  error GovernanceProposer__ProposalCannotBeAddressZero(); // 0xdb3e4b6e
+  error GovernanceProposer__ProposalHaveNoCode(IPayload proposal); // 0xdce0615b
+  error GovernanceProposer__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); //0x02283b1a
+  error GovernanceProposer__VoteAlreadyCastForSlot(Slot slot); //0xc2201452
 
   error CoinIssuer__InssuficientMintAvailable(uint256 available, uint256 needed); // 0xf268b931
 

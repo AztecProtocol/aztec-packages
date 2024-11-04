@@ -41,7 +41,7 @@ export async function deployL1Contracts(
     log(`Fee Juice Portal Address: ${l1ContractAddresses.feeJuicePortalAddress.toString()}`);
     log(`CoinIssuer Address: ${l1ContractAddresses.coinIssuerAddress.toString()}`);
     log(`RewardDistributor Address: ${l1ContractAddresses.rewardDistributorAddress.toString()}`);
-    log(`Gerousia Address: ${l1ContractAddresses.gerousiaAddress.toString()}`);
+    log(`GovernanceProposer Address: ${l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(`Apella Address: ${l1ContractAddresses.apellaAddress.toString()}`);
   }
 }

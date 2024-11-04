@@ -4,17 +4,17 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Gerousia} from "@aztec/governance/Gerousia.sol";
+import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 contract FakeApella {
-  address immutable GEROUSIA;
+  address immutable GOVERNANCE_PROPOSER;
 
   mapping(IPayload => bool) public proposals;
 
-  constructor(address _gerousia) {
-    GEROUSIA = _gerousia;
+  constructor(address _governanceProposer) {
+    GOVERNANCE_PROPOSER = _governanceProposer;
   }
 
   function propose(IPayload _proposal) external returns (bool) {
@@ -23,16 +23,16 @@ contract FakeApella {
   }
 }
 
-contract GerousiaBase is Test {
+contract GovernanceProposerBase is Test {
   Registry internal registry;
   FakeApella internal apella;
-  Gerousia internal gerousia;
+  GovernanceProposer internal governanceProposer;
 
   function setUp() public virtual {
     registry = new Registry(address(this));
 
-    gerousia = new Gerousia(registry, 667, 1000);
-    apella = new FakeApella(address(gerousia));
+    governanceProposer = new GovernanceProposer(registry, 667, 1000);
+    apella = new FakeApella(address(governanceProposer));
 
     registry.transferOwnership(address(apella));
   }

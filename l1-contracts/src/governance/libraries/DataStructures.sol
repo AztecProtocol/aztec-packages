@@ -59,7 +59,7 @@ library DataStructures {
     Configuration config;
     ProposalState state;
     IPayload payload;
-    address gerousia;
+    address governanceProposer;
     Timestamp creation;
     Ballot summedBallot;
   }

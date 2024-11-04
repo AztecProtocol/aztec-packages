@@ -5,7 +5,7 @@ import {Slot} from "@aztec/core/libraries/TimeMath.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-interface IGerousia {
+interface IGovernanceProposer {
   event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
   event ProposalPushed(IPayload indexed proposal, uint256 indexed round);
 

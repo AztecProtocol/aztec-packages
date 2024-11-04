@@ -8,9 +8,9 @@ GetProposalStateTest
     │   └── given state is Dropped
     │       └── it return Dropped
     └── given state is unstable
-        ├── given gerousia have changed
+        ├── given governanceProposer have changed
         │   └── it return Dropped
-        └── given gerousia is unchanged
+        └── given governanceProposer is unchanged
             ├── when voting delay have not passed
             │   └── it return Pending
             └── when voting delay have passed

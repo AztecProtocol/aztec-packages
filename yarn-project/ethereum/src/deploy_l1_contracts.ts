@@ -7,8 +7,8 @@ import {
   ApellaBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
-  GerousiaAbi,
-  GerousiaBytecode,
+  GovernanceProposerAbi,
+  GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
   CoinIssuerAbi,
@@ -140,9 +140,9 @@ export interface L1ContractArtifactsForDeployment {
    */
   rewardDistributor: ContractArtifacts;
   /**
-   * Gerousia contract artifacts.
+   * GovernanceProposer contract artifacts.
    */
-  gerousia: ContractArtifacts;
+  governanceProposer: ContractArtifacts;
   /**
    * Apella contract artifacts.
    */
@@ -191,9 +191,9 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractAbi: CoinIssuerAbi,
     contractBytecode: CoinIssuerBytecode,
   },
-  gerousia: {
-    contractAbi: GerousiaAbi,
-    contractBytecode: GerousiaBytecode,
+  governanceProposer: {
+    contractAbi: GovernanceProposerAbi,
+    contractBytecode: GovernanceProposerBytecode,
   },
   apella: {
     contractAbi: ApellaAbi,
@@ -319,16 +319,16 @@ export const deployL1Contracts = async (
   // @note These numbers are just chosen to make testing simple.
   const quorumSize = 6n;
   const roundSize = 10n;
-  const gerousiaAddress = await govDeployer.deploy(l1Artifacts.gerousia, [
+  const governanceProposerAddress = await govDeployer.deploy(l1Artifacts.governanceProposer, [
     registryAddress.toString(),
     quorumSize,
     roundSize,
   ]);
-  logger.info(`Deployed Gerousia at ${gerousiaAddress}`);
+  logger.info(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
   const apellaAddress = await govDeployer.deploy(l1Artifacts.apella, [
     feeJuiceAddress.toString(),
-    gerousiaAddress.toString(),
+    governanceProposerAddress.toString(),
   ]);
   logger.info(`Deployed Apella at ${apellaAddress}`);
 
@@ -495,7 +495,7 @@ export const deployL1Contracts = async (
     feeJuicePortalAddress,
     coinIssuerAddress,
     rewardDistributorAddress,
-    gerousiaAddress,
+    governanceProposerAddress,
     apellaAddress,
   };
 

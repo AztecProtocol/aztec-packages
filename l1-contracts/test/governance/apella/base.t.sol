@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
 import {Apella} from "@aztec/governance/Apella.sol";
-import {Gerousia} from "@aztec/governance/Gerousia.sol";
+import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
@@ -27,7 +27,7 @@ contract ApellaBase is TestBase {
   IMintableERC20 internal token;
   Registry internal registry;
   Apella internal apella;
-  Gerousia internal gerousia;
+  GovernanceProposer internal governanceProposer;
 
   mapping(bytes32 => DataStructures.Proposal) internal proposals;
   mapping(bytes32 => uint256) internal proposalIds;
@@ -38,14 +38,14 @@ contract ApellaBase is TestBase {
     token = IMintableERC20(address(new TestERC20()));
 
     registry = new Registry(address(this));
-    gerousia = new Gerousia(registry, 677, 1000);
+    governanceProposer = new GovernanceProposer(registry, 677, 1000);
 
-    apella = new Apella(token, address(gerousia));
+    apella = new Apella(token, address(governanceProposer));
     registry.transferOwnership(address(apella));
 
     {
       CallAssetPayload payload = new CallAssetPayload(token, address(apella));
-      vm.prank(address(gerousia));
+      vm.prank(address(governanceProposer));
       assertTrue(apella.propose(payload));
 
       proposalIds["call_asset"] = apella.proposalCount() - 1;
@@ -54,7 +54,7 @@ contract ApellaBase is TestBase {
 
     {
       UpgradePayload payload = new UpgradePayload(registry);
-      vm.prank(address(gerousia));
+      vm.prank(address(governanceProposer));
       assertTrue(apella.propose(payload));
 
       proposalIds["upgrade"] = apella.proposalCount() - 1;
@@ -63,7 +63,7 @@ contract ApellaBase is TestBase {
 
     {
       CallRevertingPayload payload = new CallRevertingPayload();
-      vm.prank(address(gerousia));
+      vm.prank(address(governanceProposer));
       assertTrue(apella.propose(payload));
 
       proposalIds["revert"] = apella.proposalCount() - 1;
@@ -72,7 +72,7 @@ contract ApellaBase is TestBase {
 
     {
       EmptyPayload payload = new EmptyPayload();
-      vm.prank(address(gerousia));
+      vm.prank(address(governanceProposer));
       assertTrue(apella.propose(payload));
 
       proposalIds["empty"] = apella.proposalCount() - 1;
@@ -95,14 +95,14 @@ contract ApellaBase is TestBase {
     assertTrue(apella.getProposalState(proposalId) == DataStructures.ProposalState.Active);
   }
 
-  function _stateDropped(bytes32 _proposalName, address _gerousia) internal {
+  function _stateDropped(bytes32 _proposalName, address _governanceProposer) internal {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
-    vm.assume(_gerousia != proposal.gerousia);
+    vm.assume(_governanceProposer != proposal.governanceProposer);
 
     vm.prank(address(apella));
-    apella.updateGerousia(_gerousia);
+    apella.updateGovernanceProposer(_governanceProposer);
   }
 
   function _stateRejected(bytes32 _proposalName) internal {

@@ -47,7 +47,7 @@ contract ProposeWithLockTest is ApellaBase {
     assertEq(proposal.config.votingDelay, config.votingDelay);
     assertEq(proposal.config.votingDuration, config.votingDuration);
     assertEq(proposal.creation, Timestamp.wrap(block.timestamp));
-    assertEq(proposal.gerousia, address(gerousia));
+    assertEq(proposal.governanceProposer, address(governanceProposer));
     assertEq(proposal.summedBallot.nea, 0);
     assertEq(proposal.summedBallot.yea, 0);
     assertTrue(proposal.state == DataStructures.ProposalState.Pending);

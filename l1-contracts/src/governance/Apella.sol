@@ -20,7 +20,7 @@ contract Apella is IApella {
 
   IERC20 public immutable ASSET;
 
-  address public gerousia;
+  address public governanceProposer;
 
   mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
   mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
@@ -32,9 +32,9 @@ contract Apella is IApella {
   uint256 public proposalCount;
   uint256 public withdrawalCount;
 
-  constructor(IERC20 _asset, address _gerousia) {
+  constructor(IERC20 _asset, address _governanceProposer) {
     ASSET = _asset;
-    gerousia = _gerousia;
+    governanceProposer = _governanceProposer;
 
     configuration = DataStructures.Configuration({
       proposeConfig: DataStructures.ProposeConfiguration({
@@ -52,10 +52,10 @@ contract Apella is IApella {
     configuration.assertValid();
   }
 
-  function updateGerousia(address _gerousia) external override(IApella) {
+  function updateGovernanceProposer(address _governanceProposer) external override(IApella) {
     require(msg.sender == address(this), Errors.Apella__CallerNotSelf(msg.sender, address(this)));
-    gerousia = _gerousia;
-    emit GerousiaUpdated(_gerousia);
+    governanceProposer = _governanceProposer;
+    emit GovernanceProposerUpdated(_governanceProposer);
   }
 
   function updateConfiguration(DataStructures.Configuration memory _configuration)
@@ -103,19 +103,22 @@ contract Apella is IApella {
   }
 
   function propose(IPayload _proposal) external override(IApella) returns (bool) {
-    require(msg.sender == gerousia, Errors.Apella__CallerNotGerousia(msg.sender, gerousia));
+    require(
+      msg.sender == governanceProposer,
+      Errors.Apella__CallerNotGovernanceProposer(msg.sender, governanceProposer)
+    );
     return _propose(_proposal);
   }
 
   /**
    * @notice  Propose a new proposal by locking up a bunch of power
    *
-   *          Beware that if the gerousia changes these proposals will also be dropped
+   *          Beware that if the governanceProposer changes these proposals will also be dropped
    *          This is to ensure consistency around way proposals are made, and they should
-   *          really be using the proposal logic in Gerousia, which might have a similar
+   *          really be using the proposal logic in GovernanceProposer, which might have a similar
    *          mechanism in place as well.
    *          It is here for emergency purposes.
-   *          Using the lock should be a last resort if the Gerousia is broken.
+   *          Using the lock should be a last resort if the GovernanceProposer is broken.
    *
    * @param _proposal The proposal to propose
    * @param _to The address to send the lock to
@@ -269,8 +272,8 @@ contract Apella is IApella {
       return self.state;
     }
 
-    // If the gerousia have changed we mark is as dropped
-    if (gerousia != self.gerousia) {
+    // If the governanceProposer have changed we mark is as dropped
+    if (governanceProposer != self.governanceProposer) {
       return DataStructures.ProposalState.Dropped;
     }
 
@@ -329,7 +332,7 @@ contract Apella is IApella {
       config: configuration,
       state: DataStructures.ProposalState.Pending,
       payload: _proposal,
-      gerousia: gerousia,
+      governanceProposer: governanceProposer,
       creation: Timestamp.wrap(block.timestamp),
       summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
     });

@@ -76,10 +76,10 @@ contract VoteTest is ApellaBase {
     address _voter,
     uint256 _amount,
     bool _support,
-    address _gerousia
+    address _governanceProposer
   ) external givenStateIsNotActive(_voter, _amount, _support) {
     // it revert
-    _stateDropped("empty", _gerousia);
+    _stateDropped("empty", _governanceProposer);
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
   }
 
@@ -159,7 +159,7 @@ contract VoteTest is ApellaBase {
     assertEq(proposal.config.votingDelay, fresh.config.votingDelay, "votingDelay");
     assertEq(proposal.config.votingDuration, fresh.config.votingDuration, "votingDuration");
     assertEq(proposal.creation, fresh.creation, "creation");
-    assertEq(proposal.gerousia, fresh.gerousia, "gerousia");
+    assertEq(proposal.governanceProposer, fresh.governanceProposer, "governanceProposer");
     assertEq(proposal.summedBallot.nea + (_support ? 0 : power), fresh.summedBallot.nea, "nea");
     assertEq(proposal.summedBallot.yea + (_support ? power : 0), fresh.summedBallot.yea, "yea");
     // The "written" state is still the same.

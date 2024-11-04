@@ -42,13 +42,13 @@ contract GetProposalStateTest is ApellaBase {
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Executed);
   }
 
-  function test_GivenStateIsDropped(address _gerousia)
+  function test_GivenStateIsDropped(address _governanceProposer)
     external
     whenValidProposalId
     givenStateIsStable
   {
     // it return Dropped
-    _stateDropped("empty", _gerousia);
+    _stateDropped("empty", _governanceProposer);
 
     assertEq(proposal.state, DataStructures.ProposalState.Pending);
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
@@ -66,19 +66,19 @@ contract GetProposalStateTest is ApellaBase {
     assertEq(fresh.state, DataStructures.ProposalState.Pending);
   }
 
-  function test_GivenGerousiaHaveChanged(address _gerousia)
+  function test_GivenGovernanceProposerHaveChanged(address _governanceProposer)
     external
     whenValidProposalId
     givenStateIsUnstable
   {
     // it return Dropped
-    _stateDropped("empty", _gerousia);
+    _stateDropped("empty", _governanceProposer);
 
     assertEq(proposal.state, DataStructures.ProposalState.Pending);
     assertEq(apella.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
   }
 
-  modifier givenGerousiaIsUnchanged() {
+  modifier givenGovernanceProposerIsUnchanged() {
     _;
   }
 
@@ -86,7 +86,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
   {
     // it return Pending
     _statePending("empty");
@@ -105,7 +105,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
     whenVotingDelayHavePassed
   {
     // it return Active
@@ -125,7 +125,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
     whenVotingDelayHavePassed
     whenVotingDurationHavePassed
   {
@@ -147,7 +147,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
     whenVotingDelayHavePassed
     whenVotingDurationHavePassed
   {
@@ -188,7 +188,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
     whenVotingDelayHavePassed
     whenVotingDurationHavePassed
     givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
@@ -215,7 +215,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
     whenVotingDelayHavePassed
     whenVotingDurationHavePassed
     givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
@@ -237,7 +237,7 @@ contract GetProposalStateTest is ApellaBase {
     external
     whenValidProposalId
     givenStateIsUnstable
-    givenGerousiaIsUnchanged
+    givenGovernanceProposerIsUnchanged
     whenVotingDelayHavePassed
     whenVotingDurationHavePassed
     givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)

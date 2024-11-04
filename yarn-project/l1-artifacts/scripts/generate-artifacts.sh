@@ -25,9 +25,9 @@ CONTRACTS=(
   "l1-contracts:ProofCommitmentEscrow"
   "l1-contracts:CoinIssuer"
   "l1-contracts:RewardDistributor"
-  "l1-contracts:Gerousia"
+  "l1-contracts:GovernanceProposer"
   "l1-contracts:Apella"
-  "l1-contracts:NewGerousiaPayload"
+  "l1-contracts:NewGovernanceProposerPayload"
   "l1-contracts:TxsDecoder"
 )
 

@@ -4,20 +4,20 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Apella} from "@aztec/governance/Apella.sol";
-import {Gerousia} from "@aztec/governance/Gerousia.sol";
+import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
 
 /**
- * @title NewGerousiaPayload
+ * @title NewGovernanceProposerPayload
  * @author Aztec Labs
- * @notice A payload that upgrades the Gerousia contract to a new version.
+ * @notice A payload that upgrades the GovernanceProposer contract to a new version.
  */
-contract NewGerousiaPayload is IPayload {
+contract NewGovernanceProposerPayload is IPayload {
   IRegistry public immutable REGISTRY;
-  address public immutable NEW_GEROUSIA;
+  address public immutable NEW_GOVERNANCE_PROPOSER;
 
   constructor(IRegistry _registry) {
     REGISTRY = _registry;
-    NEW_GEROUSIA = address(new Gerousia(_registry, 667, 1000));
+    NEW_GOVERNANCE_PROPOSER = address(new GovernanceProposer(_registry, 667, 1000));
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
@@ -27,7 +27,7 @@ contract NewGerousiaPayload is IPayload {
 
     res[0] = Action({
       target: address(apella),
-      data: abi.encodeWithSelector(apella.updateGerousia.selector, NEW_GEROUSIA)
+      data: abi.encodeWithSelector(apella.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER)
     });
 
     return res;
