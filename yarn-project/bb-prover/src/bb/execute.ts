@@ -36,6 +36,8 @@ export type BBSuccess = {
   proofPath?: string;
   /** Full path of the contract. */
   contractPath?: string;
+  /** The number of gates in the circuit. */
+  circuitSize?: number;
 };
 
 export type BBFailure = {
@@ -870,6 +872,80 @@ export async function generateContractForCircuit(
     join(workingDirectory, 'contract', circuitName, contractName),
     log,
   );
+}
+
+/**
+ * Compute bb gate count for a given circuit
+ * @param pathToBB - The full path to the bb binary
+ * @param workingDirectory - A temporary directory for writing the bytecode
+ * @param circuitName - The name of the circuit
+ * @param bytecode - The bytecode of the circuit
+ * @param flavor - The flavor of the backend - mega_honk or ultra_honk variants
+ * @returns An object containing the status, gate count, and time taken
+ */
+export async function computeGateCountForCircuit(
+  pathToBB: string,
+  workingDirectory: string,
+  circuitName: string,
+  bytecode: Buffer,
+  flavor: UltraHonkFlavor | 'mega_honk',
+): Promise<BBFailure | BBSuccess> {
+  // Check that the working directory exists
+  try {
+    await fs.access(workingDirectory);
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
+
+  // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
+  const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+  }
+
+  // Accumulate the stdout from bb
+  let stdout = '';
+  const logHandler = (message: string) => {
+    stdout += message;
+  };
+
+  try {
+    // Write the bytecode to the working directory
+    await fs.writeFile(bytecodePath, bytecode);
+    const timer = new Timer();
+
+    const result = await executeBB(
+      pathToBB,
+      flavor === 'mega_honk' ? `gates_mega_honk` : `gates`,
+      ['-b', bytecodePath, '-v'],
+      logHandler,
+    );
+    const duration = timer.ms();
+
+    if (result.status == BB_RESULT.SUCCESS) {
+      // Look for "circuit_size" in the stdout and parse the number
+      const circuitSizeMatch = stdout.match(/circuit_size": (\d+)/);
+      if (!circuitSizeMatch) {
+        return { status: BB_RESULT.FAILURE, reason: 'Failed to parse circuit_size from bb gates stdout.' };
+      }
+      const circuitSize = parseInt(circuitSizeMatch[1]);
+
+      return {
+        status: BB_RESULT.SUCCESS,
+        durationMs: duration,
+        circuitSize: circuitSize,
+      };
+    }
+
+    return { status: BB_RESULT.FAILURE, reason: 'Failed getting the gate count.' };
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
 }
 
 const CACHE_FILENAME = '.cache';
