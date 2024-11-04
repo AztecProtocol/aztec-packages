@@ -84,6 +84,5 @@ template <typename Curve> struct BatchOpeningClaim {
     std::vector<typename Curve::AffineElement> commitments;
     std::vector<typename Curve::ScalarField> scalars;
     typename Curve::ScalarField evaluation_point;
-    typename Curve::ScalarField batching_challenge;
 };
 } // namespace bb

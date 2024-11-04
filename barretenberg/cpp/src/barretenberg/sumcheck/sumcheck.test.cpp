@@ -146,10 +146,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         if constexpr (Flavor::HasZK) {
             ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, transcript);
-            info("size lib univar ", zk_sumcheck_data.libra_univariates.size());
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
         } else {
-            info("here?");
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
         }
         FF u_0 = output.challenge[0];
@@ -223,7 +221,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         RelationSeparator prover_alpha;
         for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
             prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-            info("prover alpha ", prover_alpha[idx]);
         }
         std::vector<FF> prover_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
@@ -233,15 +230,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
-            info("size lib univar ", zk_sumcheck_data.libra_univariates.size());
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
-            for (auto eval : output.claimed_evaluations.get_all()) {
-                info("prover eval: ", eval);
-            };
-
         } else {
-            info("here?");
             output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
         }
 
@@ -252,7 +243,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-            info("alpha ", verifier_alpha[idx]);
         }
         std::vector<FF> verifier_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
@@ -260,10 +250,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
-
-        for (auto eval : verifier_output.claimed_evaluations.get_all()) {
-            info("verifier eval: ", eval);
-        }
 
         auto verified = verifier_output.verified.value();
 
@@ -332,11 +318,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
             ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
-            info("size lib univar ", zk_sumcheck_data.libra_univariates.size());
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
-            info("here?");
             output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
         }
 

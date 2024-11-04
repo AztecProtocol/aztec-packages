@@ -126,7 +126,7 @@ template <typename Flavor> struct ZKSumcheckData {
      * @param libra_full_polynomials
      * @return LibraUnivariates
      */
-    static LibraUnivariates transform_to_monomial(const LibraUnivariates& libra_full_polynomials)
+    static LibraUnivariates transform_to_monomial(LibraUnivariates& libra_full_polynomials)
     {
         std::array<FF, LIBRA_UNIVARIATES_LENGTH> interpolation_domain;
         LibraUnivariates libra_univariates_monomial;
@@ -139,8 +139,9 @@ template <typename Flavor> struct ZKSumcheckData {
         for (auto& libra_polynomial : libra_full_polynomials) {
 
             // Use the efficient Lagrange interpolation
-            Polynomial<FF> libra_polynomial_monomial(
-                std::span(interpolation_domain), std::span(libra_polynomial), LIBRA_UNIVARIATES_LENGTH);
+            Polynomial<FF> libra_polynomial_monomial(std::span<FF>(interpolation_domain),
+                                                     std::span<FF>(libra_polynomial.evaluations),
+                                                     LIBRA_UNIVARIATES_LENGTH);
 
             // To avoid storing Polynomials (coefficients are vectors), we define a univariate with the coefficients
             // interpolated above

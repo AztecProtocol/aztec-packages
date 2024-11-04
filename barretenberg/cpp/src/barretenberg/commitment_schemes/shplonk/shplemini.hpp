@@ -120,8 +120,6 @@ template <typename Curve> class ShpleminiVerifier_ {
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
 
-    const static Fr final_shplonk_power;
-
   public:
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
@@ -283,7 +281,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                         shplonk_evaluation_challenge);
         }
 
-        return { commitments, scalars, shplonk_evaluation_challenge, shplonk_batching_challenge };
+        return { commitments, scalars, shplonk_evaluation_challenge };
     };
     /**
      * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched

@@ -32,6 +32,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");
+
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                          proving_key->relation_parameters,
                                          proving_key->alphas,

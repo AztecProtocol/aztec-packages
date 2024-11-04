@@ -245,7 +245,6 @@ template <typename Flavor> class RelationUtils {
         std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
-
                 result += entry * tmp[idx];
                 idx++;
             }

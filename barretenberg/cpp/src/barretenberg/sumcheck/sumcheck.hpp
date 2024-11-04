@@ -156,8 +156,6 @@ template <typename Flavor> class SumcheckProver {
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
-    // Declare a container for ZK Sumcheck data
-    // ZKSumcheckData<Flavor> zk_sumcheck_data;
 
     /**
     *
@@ -240,7 +238,6 @@ template <typename Flavor> class SumcheckProver {
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
@@ -399,7 +396,7 @@ polynomials that are sent in clear.
      * @param libra_running_sum
      * @param libra_evaluations
      */
-    void update_libra_data(ZKSumcheckData<Flavor>& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
+    void update_zk_sumcheck_data(ZKSumcheckData<Flavor>& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
     {
         // when round_idx = d - 1, the update is not needed
         if (round_idx < zk_sumcheck_data.libra_univariates.size() - 1) {
@@ -430,11 +427,6 @@ polynomials that are sent in clear.
         };
     }
 
-    void update_zk_sumcheck_data(ZKSumcheckData<Flavor>& zk_sumcheck_data, FF round_challenge, size_t round_idx)
-    {
-        update_libra_data(zk_sumcheck_data, round_challenge, round_idx);
-        // update_masking_terms_evaluations(zk_sumcheck_data, round_challenge);
-    }
     /**
      * @brief By the design of ZK Sumcheck, instead of claimed evaluations of witness polynomials \f$ P_1, \ldots,
     P_{N_w} \f$, the prover sends the evaluations of the witness polynomials masked by the terms \f$ \rho_j
@@ -548,7 +540,6 @@ template <typename Flavor> class SumcheckVerifier {
         bool verified(true);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
-
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
@@ -588,7 +579,6 @@ template <typename Flavor> class SumcheckVerifier {
                 if (round_idx < multivariate_d) {
                     verified = verified && checked;
                 }
-
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
@@ -598,7 +588,6 @@ template <typename Flavor> class SumcheckVerifier {
                 if (round_idx < multivariate_d) {
                     bool checked = round.check_sum(round_univariate);
                     verified = verified && checked;
-
                     multivariate_challenge.emplace_back(round_challenge);
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     gate_separators.partially_evaluate(round_challenge);
@@ -625,12 +614,10 @@ template <typename Flavor> class SumcheckVerifier {
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
-
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alpha, full_libra_purported_value);
-
         bool final_check(false);
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
@@ -638,7 +625,6 @@ template <typename Flavor> class SumcheckVerifier {
         } else {
             final_check = (full_honk_purported_value == round.target_total_sum);
         }
-
         verified = final_check && verified;
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         if constexpr (!Flavor::HasZK) {

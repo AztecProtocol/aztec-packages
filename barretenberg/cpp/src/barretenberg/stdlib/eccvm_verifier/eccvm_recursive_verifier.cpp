@@ -46,17 +46,12 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto beta_sqr = beta * beta;
 
     relation_parameters.gamma = gamma;
-    info("rec gamma ", relation_parameters.gamma);
     relation_parameters.beta = beta;
-    info("rec beta ", relation_parameters.beta);
     relation_parameters.beta_sqr = beta * beta;
-    info("rec beta.sqr ", relation_parameters.beta_sqr);
     relation_parameters.beta_cube = beta_sqr * beta;
-    info("rec beta cube ", relation_parameters.beta_cube);
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
-    info("rec set perm delta after inversion ", relation_parameters.eccvm_set_permutation_delta);
 
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =
@@ -70,25 +65,20 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    info("alpha ", alpha);
     std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        // info(" gate challenge recrusive ", idx, "  ", gate_challenges[idx]);
     }
 
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         Commitment libra_commitment =
             transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
         libra_commitments.push_back(libra_commitment);
-        // info("libra comm V: ", libra_commitment);
     }
+
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // for (size_t idx = 0; idx < multivariate_challenge.size(); idx++) {
-    //     info("sumcheck recursive challenge u_", idx, "  = ", multivariate_challenge[idx]);
-    // }
     info("SUMCHECK verified", sumcheck_verified.value());
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector

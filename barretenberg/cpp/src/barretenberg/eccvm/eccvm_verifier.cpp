@@ -52,7 +52,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        // info(" gate challenge native ", idx, "  ", gate_challenges[idx]);
     }
 
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -62,9 +61,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     }
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    // for (size_t idx = 0; idx < multivariate_challenge.size(); idx++) {
-    //     info("sumcheck native challenge u_", idx, "  = ", multivariate_challenge[idx]);
-    // }
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;

@@ -58,7 +58,7 @@ TYPED_TEST(KZGTest, SingleInLagrangeBasis)
     // define the interpolation domain
     std::array<Fr, 4> eval_points = { Fr(0), Fr(1), Fr(2), Fr(3) };
     // compute the monomial coefficients
-    Polynomial<Fr> witness_polynomial(std::span(eval_points), std::span(witness), n);
+    Polynomial<Fr> witness_polynomial(std::span<Fr>(eval_points), std::span<Fr>(witness), n);
     // commit to the polynomial in the monomial form
     g1::element commitment = this->commit(witness_polynomial);
 
