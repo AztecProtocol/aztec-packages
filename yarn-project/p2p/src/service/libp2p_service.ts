@@ -18,7 +18,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -32,6 +32,7 @@ import { mplex } from '@libp2p/mplex';
 import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
+import { prometheusMetrics } from "@libp2p/prometheus-metrics";
 
 import { type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
@@ -218,6 +219,8 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const datastore = new AztecDatastore(store);
 
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -245,6 +248,11 @@ export class LibP2PService extends WithTracer implements P2PService {
         minConnections: minPeerCount,
         maxConnections: maxPeerCount,
       },
+      metrics: prometheusMetrics({
+        registry: otelMetricsAdapter,
+        collectDefaultMetrics: false,
+        preserveExistingMetrics: true
+      }),
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
@@ -257,6 +265,7 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          metricsRegister: otelMetricsAdapter,
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
@@ -284,6 +293,12 @@ export class LibP2PService extends WithTracer implements P2PService {
         }) as (components: GossipSubComponents) => GossipSub,
       },
     });
+
+    // Register libp2p gossipsub metrics to our telemetry client
+    node.services.pubsub.g
+
+
+
 
     // Create request response protocol handlers
     /**
@@ -315,6 +330,12 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       requestResponseHandlers,
     );
+  }
+
+  registerGossipSubMetrics() {
+    //
+
+
   }
 
   /**

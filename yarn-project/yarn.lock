@@ -868,6 +868,7 @@ __metadata:
     "@libp2p/peer-id": 4.0.7
     "@libp2p/peer-id-factory": 4.1.1
     "@libp2p/peer-store": 10.0.16
+    "@libp2p/prometheus-metrics": ^4.2.4
     "@libp2p/tcp": 9.0.24
     "@multiformats/multiaddr": 12.1.14
     "@types/jest": ^29.5.0
@@ -881,6 +882,7 @@ __metadata:
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
     libp2p: 1.5.0
+    prom-client: ^15.1.3
     semver: ^7.6.0
     sha3: ^2.1.4
     ts-node: ^10.9.1
@@ -2792,6 +2794,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@libp2p/interface@npm:^2.2.0":
+  version: 2.2.0
+  resolution: "@libp2p/interface@npm:2.2.0"
+  dependencies:
+    "@multiformats/multiaddr": ^12.2.3
+    it-pushable: ^3.2.3
+    it-stream-types: ^2.0.1
+    multiformats: ^13.1.0
+    progress-events: ^1.0.0
+    uint8arraylist: ^2.4.8
+  checksum: 277634721147384af134232fe68c6d904eb6794f48b29eb070a85f414a4a3d362151f0d7c1d76ad013f09f9efaf9010ca6d7fe4ab99b5f5c98dc1c22e184d40f
+  languageName: node
+  linkType: hard
+
 "@libp2p/kad-dht@npm:10.0.4":
   version: 10.0.4
   resolution: "@libp2p/kad-dht@npm:10.0.4"
@@ -3031,6 +3047,19 @@ __metadata:
     uint8arraylist: ^2.4.8
     uint8arrays: ^5.0.3
   checksum: fe7bc9a6bf76b8dbfb60530f02a598f922dbdd281c0f628529e914aefea89fdfc64ea7e1301f54856e675647c2238338dfea42c19c49402548785bf0e6898cf8
+  languageName: node
+  linkType: hard
+
+"@libp2p/prometheus-metrics@npm:^4.2.4":
+  version: 4.2.4
+  resolution: "@libp2p/prometheus-metrics@npm:4.2.4"
+  dependencies:
+    "@libp2p/interface": ^2.2.0
+    it-foreach: ^2.1.0
+    it-stream-types: ^2.0.1
+    prom-client: ^15.1.2
+    uint8arraylist: ^2.4.8
+  checksum: f5aef58ede8371e7f6d451b3d3cc1e3136fd26acc12609030dc03218fdaeada0a03c5a2ee404c16e15f9b0191f0017a31d8b909012f9094c4c95b12cf6b978ee
   languageName: node
   linkType: hard
 
@@ -3299,6 +3328,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@multiformats/multiaddr@npm:^12.2.3":
+  version: 12.3.1
+  resolution: "@multiformats/multiaddr@npm:12.3.1"
+  dependencies:
+    "@chainsafe/is-ip": ^2.0.1
+    "@chainsafe/netmask": ^2.0.0
+    "@multiformats/dns": ^1.0.3
+    multiformats: ^13.0.0
+    uint8-varint: ^2.0.1
+    uint8arrays: ^5.0.0
+  checksum: 086a71f86caeb441ea8895e497d7ce1e46d8bda881bc275812054b02a94d08323f100ca78d1ff9979347488145563b492d1d4ffc8d800baf5ce5c726d02af451
+  languageName: node
+  linkType: hard
+
 "@noble/ciphers@npm:^0.4.0":
   version: 0.4.1
   resolution: "@noble/ciphers@npm:0.4.1"
@@ -3391,7 +3434,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.36.0
+    "@noir-lang/types": 0.24.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -3400,13 +3443,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.36.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=b897b0&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.24.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=ea1618&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.52.0
-    "@noir-lang/noirc_abi": 0.36.0
-    "@noir-lang/types": 0.36.0
-  checksum: 80eab489930f98827554644d8031a4b884042e24a0786bea001cd8ad4aca7b15b95bc97efa00dcd2301f7efd10dcc35ce8cb9dce0c4e492127701dbafaca34db
+    "@noir-lang/acvm_js": 0.40.0
+    "@noir-lang/noirc_abi": 0.24.0
+    "@noir-lang/types": 0.24.0
+  checksum: e3fa36670395c98bd7778e0f03aec0f4d90f01dfd71ecac0ea8be6ec0c1dbd2d105e3603f1b3fe39e36089a92a5ff13c5ace77c8c6c4149fe275a856e666a73a
   languageName: node
   linkType: hard
 
@@ -3414,7 +3457,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.36.0
+    "@noir-lang/types": 0.24.0
   languageName: node
   linkType: soft
 
@@ -3464,7 +3507,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/api@npm:^1.0.0, @opentelemetry/api@npm:^1.3.0, @opentelemetry/api@npm:^1.9.0":
+"@opentelemetry/api@npm:^1.0.0, @opentelemetry/api@npm:^1.3.0, @opentelemetry/api@npm:^1.4.0, @opentelemetry/api@npm:^1.9.0":
   version: 1.9.0
   resolution: "@opentelemetry/api@npm:1.9.0"
   checksum: 9e88e59d53ced668f3daaecfd721071c5b85a67dd386f1c6f051d1be54375d850016c881f656ffbe9a03bedae85f7e89c2f2b635313f9c9b195ad033cdc31020
@@ -6127,6 +6170,13 @@ __metadata:
   dependencies:
     file-uri-to-path: 1.0.0
   checksum: 65b6b48095717c2e6105a021a7da4ea435aa8d3d3cd085cb9e85bcb6e5773cf318c4745c3f7c504412855940b585bdf9b918236612a1c7a7942491de176f1ae7
+  languageName: node
+  linkType: hard
+
+"bintrees@npm:1.0.2":
+  version: 1.0.2
+  resolution: "bintrees@npm:1.0.2"
+  checksum: 56a52b7d3634e30002b1eda740d2517a22fa8e9e2eb088e919f37c030a0ed86e364ab59e472fc770fc8751308054bb1c892979d150e11d9e11ac33bcc1b5d16e
   languageName: node
   linkType: hard
 
@@ -10603,6 +10653,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"it-foreach@npm:^2.1.0":
+  version: 2.1.1
+  resolution: "it-foreach@npm:2.1.1"
+  dependencies:
+    it-peekable: ^3.0.0
+  checksum: 17cb7917fdecd7a8e2106a26be13d7edea5f02ce1163f866afd9bb3dab2acf3b919064bd383c89fcb2843073474257ecf21dc3d086f695ed3e2d45bae6e03f0c
+  languageName: node
+  linkType: hard
+
 "it-length-prefixed-stream@npm:^1.0.0, it-length-prefixed-stream@npm:^1.1.6":
   version: 1.1.7
   resolution: "it-length-prefixed-stream@npm:1.1.7"
@@ -13648,6 +13707,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"prom-client@npm:^15.1.2, prom-client@npm:^15.1.3":
+  version: 15.1.3
+  resolution: "prom-client@npm:15.1.3"
+  dependencies:
+    "@opentelemetry/api": ^1.4.0
+    tdigest: ^0.1.1
+  checksum: 9a57f3c16f39aa9a03da021883a4231c0bb56fc9d02f6ef9c28f913379f275640a5a33b98d9946ebf53c71011a29b580e9d2d6e3806cb1c229a3f59c65993968
+  languageName: node
+  linkType: hard
+
 "promise-retry@npm:^2.0.1":
   version: 2.0.1
   resolution: "promise-retry@npm:2.0.1"
@@ -15336,6 +15405,15 @@ __metadata:
     mkdirp: ^1.0.3
     yallist: ^4.0.0
   checksum: f1322768c9741a25356c11373bce918483f40fa9a25c69c59410c8a1247632487edef5fe76c5f12ac51a6356d2f1829e96d2bc34098668a2fc34d76050ac2b6c
+  languageName: node
+  linkType: hard
+
+"tdigest@npm:^0.1.1":
+  version: 0.1.2
+  resolution: "tdigest@npm:0.1.2"
+  dependencies:
+    bintrees: 1.0.2
+  checksum: 44de8246752b6f8c2924685f969fd3d94c36949f22b0907e99bef2b2220726dd8467f4730ea96b06040b9aa2587c0866049640039d1b956952dfa962bc2075a3
   languageName: node
   linkType: hard
 
