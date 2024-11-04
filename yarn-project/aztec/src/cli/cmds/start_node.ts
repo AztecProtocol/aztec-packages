@@ -18,8 +18,7 @@ export const startNode = async (
   options: any,
   signalHandlers: (() => Promise<void>)[],
   userLog: LogFn,
-  // ): Promise<ServerList> => {
-) => {
+): Promise<ServerList> => {
   // Services that will be started in a single multi-rpc server
   const services: ServerList = [];
 

@@ -4,6 +4,7 @@ mod check_max_stack_depth;
 mod mem_copy;
 mod prepare_vector_insert;
 mod prepare_vector_push;
+mod revert_with_string;
 mod vector_copy;
 mod vector_pop_back;
 mod vector_pop_front;
@@ -16,7 +17,7 @@ use mem_copy::compile_mem_copy_procedure;
 use noirc_errors::debug_info::ProcedureDebugId;
 use prepare_vector_insert::compile_prepare_vector_insert_procedure;
 use prepare_vector_push::compile_prepare_vector_push_procedure;
-use serde::{Deserialize, Serialize};
+use revert_with_string::compile_revert_with_string_procedure;
 use vector_copy::compile_vector_copy_procedure;
 use vector_pop_back::compile_vector_pop_back_procedure;
 use vector_pop_front::compile_vector_pop_front_procedure;
@@ -45,6 +46,7 @@ pub enum ProcedureId {
     PrepareVectorInsert,
     VectorRemove,
     CheckMaxStackDepth,
+    RevertWithString(String),
 }
 
 impl ProcedureId {
@@ -126,6 +128,9 @@ pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
         ProcedureId::VectorRemove => compile_vector_remove_procedure(&mut brillig_context),
         ProcedureId::CheckMaxStackDepth => {
             compile_check_max_stack_depth_procedure(&mut brillig_context);
+        }
+        ProcedureId::RevertWithString(revert_string) => {
+            compile_revert_with_string_procedure(&mut brillig_context, revert_string);
         }
     };
 

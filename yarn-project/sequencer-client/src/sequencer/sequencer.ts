@@ -414,7 +414,11 @@ export class Sequencer {
     this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
-    this.log.info(`Building block ${newGlobalVariables.blockNumber.toNumber()} with ${validTxs.length} transactions`);
+    this.log.info(
+      `Building blockNumber=${newGlobalVariables.blockNumber.toNumber()} txCount=${
+        validTxs.length
+      } slotNumber=${newGlobalVariables.slotNumber.toNumber()}`,
+    );
 
     // Get l1 to l2 messages from the contract
     this.log.debug('Requesting L1 to L2 messages from contract');

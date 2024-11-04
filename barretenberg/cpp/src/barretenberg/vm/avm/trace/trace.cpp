@@ -1695,7 +1695,7 @@ void AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
 
     // Constrain gas cost
     if (!skip_gas) {
-        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_16);
+        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_32);
     }
 
     main_trace.push_back(Row{
@@ -1739,7 +1739,7 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
     uint32_t next_pc = !id_zero ? jmp_dest : pc + 1;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_16);
+    gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
 
     main_trace.push_back(Row{
         .main_clk = clk,

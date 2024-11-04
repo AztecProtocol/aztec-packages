@@ -137,7 +137,8 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
         typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
-        const BF reconstructed = BF(arr[0], arr[1], arr[2], arr[3]);
+        const BF reconstructed = BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
+
         return reconstructed;
     };
 

@@ -9,7 +9,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
  */
 export class DeferredNoteDao {
   constructor(
-    /** IvpkM or OvpkM (depending on if incoming or outgoing) the note was encrypted with. */
+    /** Address Point or OvpkM (depending on if incoming or outgoing) the note was encrypted with. */
     public publicKey: PublicKey,
     /** The note payload delivered via L1. */
     public payload: L1NotePayload,

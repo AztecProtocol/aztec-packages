@@ -118,6 +118,7 @@ impl Deck<&mut PrivateContext> {
                 self.set.context,
                 msg_sender_ovpk_m,
                 owner,
+                self.set.context.msg_sender(),
             ));
             inserted_cards = inserted_cards.push_back(card_note);
         }

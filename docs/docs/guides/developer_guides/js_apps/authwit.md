@@ -85,7 +85,7 @@ Create a private authwit like this:
 In this example,
 
 - `wallets[0]` is the authwit giver
-- `wallets[1]` is the authwit reciever and caller of the function
+- `wallets[1]` is the authwit receiver and caller of the function
 - `action` was [defined previously](#define-the-action)
 
 If you created an arbitrary message, you can create the authwit by replacing these params with the outer hash:
