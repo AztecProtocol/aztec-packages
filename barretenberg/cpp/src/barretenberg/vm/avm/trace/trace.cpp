@@ -1803,8 +1803,7 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 
     const bool id_zero = read_d.val == 0;
     FF const inv = !id_zero ? read_d.val.invert() : 1;
-    uint32_t next_pc =
-        !id_zero ? jmp_dest : pc + static_cast<uint32_t>(Deserialization::get_pc_increment(OpCode::JUMPI_32));
+    uint32_t next_pc = !id_zero ? jmp_dest : pc + Deserialization::get_pc_increment(OpCode::JUMPI_32);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);

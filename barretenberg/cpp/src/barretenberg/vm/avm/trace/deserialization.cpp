@@ -187,7 +187,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT8 } },
 };
 
-const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
+const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE = {
     { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
     { OperandType::UINT8, 1 },     { OperandType::UINT16, 2 },     { OperandType::UINT32, 4 },
     { OperandType::UINT64, 8 },    { OperandType::UINT128, 16 },   { OperandType::FF, 32 }
@@ -196,7 +196,7 @@ const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
 } // Anonymous namespace
 
 // TODO: once opcodes are frozen, this function can be replaced by a table/map of constants
-size_t Deserialization::get_pc_increment(OpCode opcode)
+uint32_t Deserialization::get_pc_increment(OpCode opcode)
 {
     const auto iter = OPCODE_WIRE_FORMAT.find(opcode);
 
@@ -205,7 +205,7 @@ size_t Deserialization::get_pc_increment(OpCode opcode)
     }
 
     // OPCODE_WIRE_FORMAT does not contain the opcode itself which accounts for 1 byte
-    size_t increment = 1;
+    uint32_t increment = 1;
 
     const std::vector<OperandType>& inst_format = iter->second;
     for (const auto& op_type : inst_format) {

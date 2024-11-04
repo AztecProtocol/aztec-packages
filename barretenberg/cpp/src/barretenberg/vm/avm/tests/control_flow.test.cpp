@@ -130,7 +130,7 @@ TEST_F(AvmControlFlowTests, simpleJump)
 TEST_F(AvmControlFlowTests, simpleCallAndReturn)
 {
     uint32_t const CALL_PC = 20;
-    uint32_t const RETURN_PC = static_cast<uint32_t>(Deserialization::get_pc_increment(OpCode::INTERNALCALL));
+    uint32_t const RETURN_PC = Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     // trace_builder for the following operation
     // pc   opcode
     // 0    INTERNAL_CALL(pc=20)
@@ -183,7 +183,7 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
 
     const uint32_t JUMP_PC_1 = 22;
 
-    const uint32_t INTERNALCALL_SIZE = static_cast<uint32_t>(Deserialization::get_pc_increment(OpCode::INTERNALCALL));
+    const uint32_t INTERNALCALL_SIZE = Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     const uint32_t NEXT_PC_1 = INTERNALCALL_SIZE;
     const uint32_t NEXT_PC_2 = CALL_PC_1 + INTERNALCALL_SIZE;
     const uint32_t NEXT_PC_3 = CALL_PC_2 + INTERNALCALL_SIZE;

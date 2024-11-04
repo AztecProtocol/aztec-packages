@@ -20,7 +20,7 @@ class Deserialization {
 
     static Instruction parse(const std::vector<uint8_t>& bytecode, size_t pos);
     static std::vector<Instruction> parse_bytecode_statically(const std::vector<uint8_t>& bytecode);
-    static size_t get_pc_increment(OpCode opcode);
+    static uint32_t get_pc_increment(OpCode opcode);
 };
 
 } // namespace bb::avm_trace
