@@ -42,6 +42,10 @@ allow_list=(
   "guides_sample_dapp_ci"
   "guides_up_quick_start"
   "guides_writing_an_account_contract"
+  "e2e_crowdfunding_and_claim"
+  "e2e_fees_failures"
+  "e2e_fees_private_refunds"
+  "e2e_pending_note_hashes_contract"
 )
 
 # Add labels from input to the allow_list
