@@ -280,7 +280,7 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
 
     // We should use the public input address, but for now we just take the first element in the list
-    std::vector<uint8_t> bytecode = execution_hints.all_contract_bytecode.at(0).bytecode;
+    const std::vector<uint8_t>& bytecode = execution_hints.all_contract_bytecode.at(0).bytecode;
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution

@@ -18,8 +18,8 @@ class Deserialization {
   public:
     Deserialization() = default;
 
-    static Instruction parse(std::vector<uint8_t> const& bytecode, size_t pos);
-    static std::vector<Instruction> parse_bytecode_statically(std::vector<uint8_t> const& bytecode);
+    static Instruction parse(const std::vector<uint8_t>& bytecode, size_t pos);
+    static std::vector<Instruction> parse_bytecode_statically(const std::vector<uint8_t>& bytecode);
     static size_t get_pc_increment(OpCode opcode);
 };
 

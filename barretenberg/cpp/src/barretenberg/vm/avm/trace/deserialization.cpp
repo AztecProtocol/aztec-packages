@@ -198,7 +198,7 @@ const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
 // TODO: once opcodes are frozen, this function can be replaced by a table/map of constants
 size_t Deserialization::get_pc_increment(OpCode opcode)
 {
-    auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
+    const auto iter = OPCODE_WIRE_FORMAT.find(opcode);
 
     if (iter == OPCODE_WIRE_FORMAT.end()) {
         return 0;
@@ -207,7 +207,7 @@ size_t Deserialization::get_pc_increment(OpCode opcode)
     // OPCODE_WIRE_FORMAT does not contain the opcode itself which accounts for 1 byte
     size_t increment = 1;
 
-    std::vector<OperandType> inst_format = iter->second;
+    const std::vector<OperandType>& inst_format = iter->second;
     for (const auto& op_type : inst_format) {
         increment += OPERAND_TYPE_SIZE.at(op_type);
     }
@@ -225,7 +225,7 @@ size_t Deserialization::get_pc_increment(OpCode opcode)
  * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
  * @return The instruction
  */
-Instruction Deserialization::parse(std::vector<uint8_t> const& bytecode, size_t pos)
+Instruction Deserialization::parse(const std::vector<uint8_t>& bytecode, size_t pos)
 {
     const auto length = bytecode.size();
 
@@ -241,12 +241,12 @@ Instruction Deserialization::parse(std::vector<uint8_t> const& bytecode, size_t 
     }
     pos++;
 
-    auto const opcode = static_cast<OpCode>(opcode_byte);
-    auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
+    const auto opcode = static_cast<OpCode>(opcode_byte);
+    const auto iter = OPCODE_WIRE_FORMAT.find(opcode);
     if (iter == OPCODE_WIRE_FORMAT.end()) {
         throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " + to_string(opcode));
     }
-    std::vector<OperandType> inst_format = iter->second;
+    const std::vector<OperandType>& inst_format = iter->second;
 
     std::vector<Operand> operands;
     for (OperandType const& op_type : inst_format) {
@@ -323,7 +323,7 @@ Instruction Deserialization::parse(std::vector<uint8_t> const& bytecode, size_t 
  * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
  * @return The list of instructions as a vector
  */
-std::vector<Instruction> Deserialization::parse_bytecode_statically(std::vector<uint8_t> const& bytecode)
+std::vector<Instruction> Deserialization::parse_bytecode_statically(const std::vector<uint8_t>& bytecode)
 {
     uint32_t pc = 0;
     std::vector<Instruction> instructions;

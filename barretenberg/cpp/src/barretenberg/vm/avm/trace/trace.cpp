@@ -1681,7 +1681,8 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
 
-    // Crucial to perform this operation after having incremented pc
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
 }
 
@@ -2619,6 +2620,8 @@ void AvmTraceBuilder::op_get_contract_instance(
 
         pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
 
+        // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+        // is implemented with opcodes (SET and JUMP).
         // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
         // writes
         write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
@@ -2804,6 +2807,8 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     pc += Deserialization::get_pc_increment(opcode);
 
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write the success flag to memory
     write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
     external_call_counter++;
@@ -3193,7 +3198,8 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::SHA256COMPRESSION);
 
-    // Crucial to perform this operation after having incremented pc
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
 }
 
@@ -3251,7 +3257,8 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, u
 
     pc += Deserialization::get_pc_increment(OpCode::KECCAKF1600);
 
-    // Crucial to perform this operation after having incremented pc
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 }
 
@@ -3311,6 +3318,8 @@ void AvmTraceBuilder::op_ec_add(uint16_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::ECADD);
 
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write point coordinates
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
@@ -3396,6 +3405,8 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::MSM);
 
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
@@ -3490,7 +3501,8 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::TORADIXBE);
 
-    // Crucial to perform this operation after having incremented pc
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
 }
 
