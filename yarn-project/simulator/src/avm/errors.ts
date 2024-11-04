@@ -113,7 +113,8 @@ function createRevertReason(message: string, context: AvmContext, nestedError?: 
   // If the function selector is the public dispatch selector, we need to extract the actual function selector from the calldata.
   // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
   let functionSelector = context.environment.functionSelector;
-  const internalCallStack = context.machineState.internalCallStack;
+  // We drop the returnPc information.
+  const internalCallStack = context.machineState.internalCallStack.map(entry => entry.callPc);
   if (functionSelector.toField().equals(new Fr(PUBLIC_DISPATCH_SELECTOR)) && context.environment.calldata.length > 0) {
     functionSelector = FunctionSelector.fromField(context.environment.calldata[0]);
   }

@@ -1528,18 +1528,6 @@ pub fn patch_debug_info_pcs(
     debug_infos
 }
 
-/// Patch the assert messages with updated PCs since transpilation injects extra
-/// opcodes into the bytecode.
-pub fn patch_assert_message_pcs(
-    assert_messages: HashMap<usize, String>,
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> HashMap<usize, String> {
-    assert_messages
-        .into_iter()
-        .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
-        .collect()
-}
-
 fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     match bit_size {
         BitSize::Integer(IntegerBitSize::U1) => AvmTypeTag::UINT1,

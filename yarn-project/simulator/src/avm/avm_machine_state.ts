@@ -12,6 +12,11 @@ export type InitialAvmMachineState = {
   daGasLeft: number;
 };
 
+type CallStackEntry = {
+  callPc: number;
+  returnPc: number;
+};
+
 /**
  * Avm state modified on an instruction-per-instruction basis.
  */
@@ -27,10 +32,10 @@ export class AvmMachineState {
   public nestedReturndata: Fr[] = [];
 
   /**
-   * On INTERNALCALL, internal call stack is pushed to with the current pc + 1
-   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the pc.
+   * On INTERNALCALL, internal call stack is pushed to with the current pc and the return pc.
+   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the return pc.
    */
-  public internalCallStack: number[] = [];
+  public internalCallStack: CallStackEntry[] = [];
 
   /** Memory accessible to user code */
   public readonly memory: TaggedMemory = new TaggedMemory();

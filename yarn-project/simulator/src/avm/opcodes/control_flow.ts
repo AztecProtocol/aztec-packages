@@ -80,7 +80,10 @@ export class InternalCall extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    context.machineState.internalCallStack.push(context.machineState.pc);
+    context.machineState.internalCallStack.push({
+      callPc: context.machineState.pc,
+      returnPc: context.machineState.nextPc,
+    });
     context.machineState.pc = this.loc;
 
     context.machineState.memory.assert({});
@@ -104,11 +107,11 @@ export class InternalReturn extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    const jumpOffset = context.machineState.internalCallStack.pop();
-    if (jumpOffset === undefined) {
+    const stackEntry = context.machineState.internalCallStack.pop();
+    if (stackEntry === undefined) {
       throw new InstructionExecutionError('Internal call stack empty!');
     }
-    context.machineState.pc = jumpOffset + 1;
+    context.machineState.pc = stackEntry.returnPc;
 
     context.machineState.memory.assert({});
   }
