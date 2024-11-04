@@ -601,7 +601,7 @@ impl<F: AcirField> GeneratedAcir<F> {
             self.brillig_procedure_locs
                 .entry(brillig_function_index)
                 .or_default()
-                .insert(procedure_id.clone().to_debug_id(), (*start_index, *end_index));
+                .insert(procedure_id.to_debug_id(), (*start_index, *end_index));
         }
 
         for (brillig_index, call_stack) in generated_brillig.locations.iter() {

@@ -50,7 +50,7 @@ pub enum ProcedureId {
 }
 
 impl ProcedureId {
-    pub(crate) fn to_debug_id(self) -> ProcedureDebugId {
+    pub(crate) fn to_debug_id(&self) -> ProcedureDebugId {
         ProcedureDebugId(match self {
             ProcedureId::ArrayCopy => 0,
             ProcedureId::ArrayReverse => 1,
