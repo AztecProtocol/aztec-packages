@@ -117,13 +117,13 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system;
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = false;
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
+        auto outer_circuit =
+            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
         return outer_circuit;
     }
 };

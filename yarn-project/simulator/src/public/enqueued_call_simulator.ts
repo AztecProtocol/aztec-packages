@@ -218,7 +218,9 @@ export class EnqueuedCallSimulator {
           avmProvingRequest,
           kernelOutput,
           newUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
-          returnValues: NestedProcessReturnValues.empty(),
+          // TODO: Following the above comment, we should continue when a frame reverts and collect all the return/revert data of all frames.
+          // For now, since we stop at the first revert, we can only return the revert reason of the first frame that reverts.
+          returnValues: new NestedProcessReturnValues(result.returnValues),
           gasUsed,
           revertReason: result.revertReason,
         };
