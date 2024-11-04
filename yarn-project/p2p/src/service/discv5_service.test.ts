@@ -140,6 +140,6 @@ describe('Discv5Service', () => {
       keepProvenTxsInPoolFor: 0,
       l1ChainId: 31337,
     };
-    return new DiscV5Service(peerId, config);
+    return new DiscV5Service(peerId, config, new NoopTelemetryClient());
   };
 });

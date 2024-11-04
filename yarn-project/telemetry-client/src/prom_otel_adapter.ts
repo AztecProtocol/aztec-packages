@@ -75,8 +75,6 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements Gauge<Labels
     help: string,
     attributes: Array<keyof Labels> = []
   ) {
-    console.log("registering gauge", name);
-
     this.gauge = meter.createObservableGauge(name as Metrics, {
       description: help
     });

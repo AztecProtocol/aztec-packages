@@ -115,7 +115,7 @@ export async function createTestLibP2PService(
     p2pEnabled: true,
     peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
   } as P2PConfig & DataStoreConfig;
-  const discoveryService = new DiscV5Service(peerId, config);
+  const discoveryService = new DiscV5Service(peerId, config, telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
 
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
