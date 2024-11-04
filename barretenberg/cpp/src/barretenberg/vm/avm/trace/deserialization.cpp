@@ -229,9 +229,6 @@ Instruction Deserialization::parse(std::vector<uint8_t> const& bytecode, size_t 
 {
     const auto length = bytecode.size();
 
-    debug("------- PARSING BYTECODE -------");
-    debug("Parse bytecode of length: " + std::to_string(length), " at position: ", pos);
-
     if (pos >= length) {
         throw_or_abort("Position is out of range. Position: " + std::to_string(pos) +
                        " Bytecode length: " + std::to_string(length));
@@ -314,7 +311,6 @@ Instruction Deserialization::parse(std::vector<uint8_t> const& bytecode, size_t 
     }
 
     auto instruction = Instruction(opcode, operands);
-    debug(instruction.to_string());
     return instruction;
 };
 
