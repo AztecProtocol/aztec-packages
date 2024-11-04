@@ -202,7 +202,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_uint32);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
             round++;
             std::string idx = std::to_string(log_n - i - 1);
             manifest_expected.add_entry(round, "IPA:L_" + idx, frs_per_G);
