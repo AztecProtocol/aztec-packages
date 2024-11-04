@@ -2,7 +2,7 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
+import { type SentTx, createDebugLogger, sleep } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -42,7 +42,7 @@ export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   return peerIdPrivateKeys;
 }
 
-export function createNodes(
+export async function createNodes(
   config: AztecNodeConfig,
   peerIdPrivateKeys: string[],
   bootstrapNodeEnr: string,
@@ -58,6 +58,8 @@ export function createNodes(
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
     const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir, metricsPort);
+    // toO:D remove
+    await sleep(3000);
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);

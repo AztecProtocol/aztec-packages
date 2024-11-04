@@ -3,6 +3,7 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import {
   DiagConsoleLogger,
   DiagLogLevel,
+  DiagLogger,
   type Meter,
   type Tracer,
   type TracerProvider,
@@ -28,6 +29,7 @@ import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentele
 import { aztecDetector } from './aztec_resource_detector.js';
 import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
+import { toFriendlyJSON } from '@aztec/foundation/serialize';
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
@@ -51,7 +53,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
   public start() {
     this.log.info('Starting OpenTelemetry client');
-    diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+    diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
 
     this.hostMetrics = new HostMetrics({
       name: this.resource.attributes[SEMRESATTRS_SERVICE_NAME] as string,
@@ -117,6 +119,9 @@ export class OpenTelemetryClient implements TelemetryClient {
           exporter: new OTLPMetricExporter({
             url: metricsCollector.href,
           }),
+          // TODO: make this configurable for debug builds
+          exportIntervalMillis: 5000,
+          exportTimeoutMillis: 2500
         }),
       ],
     });

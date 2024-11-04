@@ -1,6 +1,6 @@
 import { Meter, Metrics, TelemetryClient, ObservableGauge, Attributes, Gauge } from "./telemetry.js";
 
-import { Registry, Counter as PromCounter, Gauge as PromGauge, Histogram as PromHistogram } from 'prom-client';
+import { Registry, Gauge as PromGauge, Histogram as PromHistogram } from 'prom-client';
 
 type TopicStr = string;
 export type TopicLabel = string
@@ -213,40 +213,23 @@ private parseLabelsSafely(labelStr: string): Labels | null {
 }
 
 
-class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
-  private histogram;
+class MockOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
 
   constructor(
-    meter: Meter,
-    name: Metrics, // Metrics must be registered in the aztec labels registry
-    help: string,
-    private buckets: number[] = [],
-    labelNames: Array<keyof Labels> = []
-  ) {
-    // TODO: deal with buckets
-    this.histogram = meter.createHistogram(name, {
-      description: help,
-    });
-  }
+    _meter: Meter,
+    _name: string, // Metrics must be registered in the aztec labels registry
+    _help: string,
+    _buckets: number[] = [],
+    _labelNames: Array<keyof Labels> = []
+  ) {}
 
   // Overload signatures
-  observe(value: number): void;
-  observe(labels: Labels, value: number): void;
-  // Implementation
-  observe(valueOrLabels: number | Labels, value?: number): void {
-    const { labels, value: actualValue } = getLabelAndValue(valueOrLabels, value);
-    const typedValue = actualValue as number;
+  observe(_value: number): void;
+  observe(_labels: Labels, _value: number): void;
+  observe(_valueOrLabels: number | Labels, _value?: number): void {}
 
-    this.histogram.record(typedValue, labels);
-  }
-
-  startTimer(labels?: Labels): (labels?: Labels) => number {
-    const start = performance.now();
-    return (endLabels?: Labels) => {
-      const duration = performance.now() - start;
-      this.observe(endLabels || labels || {} as Labels, duration);
-      return duration;
-    };
+  startTimer(_labels?: Labels): (_labels?: Labels) => number {
+    return () => 0;
   }
 
   reset(): void {
@@ -255,102 +238,45 @@ class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogr
   }
 }
 
-
-class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
-  private minGauge;
-  private maxGauge;
-  private avgGauge;
-  private count: number = 0;
-  private sum: number = 0;
-  private min: number = Infinity;
-  private max: number = -Infinity;
-
+class MockOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
   constructor(
     meter: Meter,
-    // TODO: be more strict on metrics name types
-    name: string, // Metrics must be registered in the aztec labels registry
-    help: string,
-    labelNames: Array<keyof Labels> = []
-  ) {
-    this.minGauge = meter.createObservableGauge(`${name}_min` as Metrics, {
-      description: `${help} (minimum)`,
-    });
+    _name: string, // Metrics must be registered in the aztec labels registry
+    _help: string,
+    _labelNames: Array<keyof Labels> = []
+  ) {}
 
-    this.maxGauge = meter.createObservableGauge(`${name}_max` as Metrics, {
-      description: `${help} (maximum)`,
-    });
+  set(_values: number[]): void;
+  set(_labels: Labels, _values: number[]): void;
+  set(_valueOrLabels: number[] | Labels, _values?: number[]): void {}
 
-    this.avgGauge = meter.createObservableGauge(`${name}_avg` as Metrics, {
-      description: `${help} (average)`,
-    });
-
-    this.setupCallbacks();
-  }
-
-  private setupCallbacks(): void {
-    this.minGauge.addCallback((result) => {
-      result.observe(this.min, {});
-    });
-
-    this.maxGauge.addCallback((result) => {
-      result.observe(this.max, {});
-    });
-
-    this.avgGauge.addCallback((result) => {
-      const avg = this.getAverage();
-      if (avg !== undefined) {
-        result.observe(avg, {});
-      }
-    });
-  }
-
-  private getLabelKey(labels?: Labels): string {
-    return JSON.stringify(labels || {});
-  }
-
-  private getAverage(): number | undefined {
-    if (this.count > 0) {
-      return this.sum / this.count;
-    }
-    return undefined;
-  }
-
-  // TODO(md): just set up two different classes, one with labels and one without that can inherit from each other
-
-
-  set(values: number[]): void;
-  set(labels: Labels, values: number[]): void;
-  set(valueOrLabels: number[] | Labels, values?: number[]): void {
-    const { labels, value: actualValue } = getLabelAndValue(valueOrLabels, values);
-    const actualValues = actualValue as number[];
-
-    this.count += actualValues.length;
-
-    const sorted = actualValues.sort((a, b) => a - b);
-    this.sum += sorted.reduce((acc, curr) => acc + curr, 0);
-    this.min = sorted[0];
-    this.max = sorted[sorted.length - 1];
-  }
-
-  reset(): void {
-    this.count = 0;
-    this.sum = 0;
-    this.min = Infinity;
-    this.max = -Infinity;
-  }
+  reset(): void {}
 }
 
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
+
+  // Check if any labels we receive are the same as any we've already seen
+  private trackNames: Map<string, number> = new Map();
 
   constructor(telemetryClient: TelemetryClient) {
     super();
     this.meter = telemetryClient.getMeter('metrics-adapter');
   }
 
+  outputNames(): [string, number][] {
+    return Array.from(this.trackNames.entries());
+  }
+
+  private trackName(name: string) {
+    const labelKey = this.trackNames.get(name) ?? 0;
+    this.trackNames.set(name, labelKey + 1);
+  }
+
   gauge<Labels extends LabelsGeneric = NoLabels>(
     configuration: GaugeConfig<Labels>
   ): IGauge<Labels> {
+    this.trackName(configuration.name);
     return new OtelGauge<Labels>(
       this.meter,
       configuration.name as Metrics,
@@ -362,7 +288,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   histogram<Labels extends LabelsGeneric = NoLabels>(
     configuration: HistogramConfig<Labels>
   ): IHistogram<Labels> {
-    return new OtelHistogram<Labels>(
+    return new MockOtelHistogram<Labels>(
       this.meter,
       configuration.name as Metrics,
       configuration.help,
@@ -374,7 +300,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   avgMinMax<Labels extends LabelsGeneric = NoLabels>(
     configuration: AvgMinMaxConfig<Labels>
   ): IAvgMinMax<Labels> {
-    return new OtelAvgMinMax<Labels>(
+    return new MockOtelAvgMinMax<Labels>(
       this.meter,
       configuration.name as Metrics,
       configuration.help,
@@ -429,29 +355,3 @@ function getLabelAndValue<Labels extends LabelsGeneric>(
     value: value ?? 1
   };
 }
-
-// class OtelCounter<Labels extends LabelsGeneric = NoLabels> implements Counter<Labels> {
-//   private counter;
-
-//   constructor(
-//     meter: Meter,
-//     name: string, // Metrics must be registered in the aztec labels registry
-//     help: string,
-//     labelNames: Array<keyof Labels> = []
-//   ) {
-//     // TODO: be more strict on metrics name types
-//     this.counter = meter.createUpDownCounter(name as Metrics, {
-//       description: help,
-//       unit: '1',
-//     });
-//   }
-
-//   inc(labels?: Labels, value: number = 1): void {
-//     this.counter.add(value, labels);
-//   }
-
-//   reset(): void {
-//     // OpenTelemetry counters cannot be reset, but we implement the interface
-//     console.warn('OpenTelemetry counters cannot be reset');
-//   }
-// }

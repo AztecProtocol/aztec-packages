@@ -105,6 +105,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
+
+    // Temp
+    private metricsAdapter: OtelMetricsAdapter,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     // Instatntiate tracer
@@ -220,7 +223,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const datastore = new AztecDatastore(store);
 
-    // const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
     const node = await createLibp2p({
       start: false,
@@ -249,11 +252,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         minConnections: minPeerCount,
         maxConnections: maxPeerCount,
       },
-      // metrics: prometheusMetrics({
-      //   registry: otelMetricsAdapter,
-      //   collectDefaultMetrics: false,
-      //   preserveExistingMetrics: true
-      // }),
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
@@ -266,8 +264,8 @@ export class LibP2PService extends WithTracer implements P2PService {
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
-          // metricsRegister: otelMetricsAdapter,
-          // metricsTopicStrToLabel: metricsTopicStrToLabels(),
+          metricsRegister: otelMetricsAdapter,
+          metricsTopicStrToLabel: metricsTopicStrToLabels(),
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
@@ -326,13 +324,8 @@ export class LibP2PService extends WithTracer implements P2PService {
       worldStateSynchronizer,
       telemetry,
       requestResponseHandlers,
+      otelMetricsAdapter,
     );
-  }
-
-  registerGossipSubMetrics() {
-    //
-
-
   }
 
   /**
@@ -617,6 +610,8 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.
   private async stopLibP2P() {
+    console.log(this.metricsAdapter.outputNames());
+
     const TIMEOUT_MS = 5000; // 5 seconds timeout
     const timeout = new Promise((resolve, reject) => {
       setTimeout(() => reject(new Error('Timeout during libp2p.stop()')), TIMEOUT_MS);
