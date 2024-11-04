@@ -1,5 +1,6 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
+import { IndexedTreeId, MerkleTreeId } from '@aztec/circuit-types';
 import { MerkleTreeReadOperations } from '@aztec/circuit-types';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -56,6 +57,150 @@ const Empty = (): Empty => ({
   tag: TreeType.EMPTY,
 });
 
+export class EphemeralTreeContainer {
+  public nullifierUpdates: Map<bigint, NullifierLeafPreimage> = new Map(); // This is a sorted map
+  public minNullifier: NullifierLeafPreimage | undefined = undefined;
+  public minNullifierIndex: bigint | undefined = undefined;
+  public publicDataUpdates: Map<bigint, PublicDataTreeLeafPreimage> = new Map();
+
+  constructor(
+    private treeDb: MerkleTreeReadOperations,
+    public nullifierTree: EphemeralAvmTree,
+    public noteHashTree: EphemeralAvmTree,
+    public publicDataTree: EphemeralAvmTree,
+  ) {}
+
+  static async create(treeDb: MerkleTreeReadOperations): Promise<EphemeralTreeContainer> {
+    const nullifierTreeInfo = await treeDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+    const nullifierTree = await EphemeralAvmTree.create(
+      nullifierTreeInfo.size,
+      nullifierTreeInfo.depth,
+      treeDb,
+      MerkleTreeId.NULLIFIER_TREE,
+    );
+    const noteHashInfo = await treeDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+    const noteHashTree = await EphemeralAvmTree.create(
+      noteHashInfo.size,
+      noteHashInfo.depth,
+      treeDb,
+      MerkleTreeId.NOTE_HASH_TREE,
+    );
+    const publicDataTreeInfo = await treeDb.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
+    const publicDataTree = await EphemeralAvmTree.create(
+      publicDataTreeInfo.size,
+      publicDataTreeInfo.depth,
+      treeDb,
+      MerkleTreeId.PUBLIC_DATA_TREE,
+    );
+    return new EphemeralTreeContainer(treeDb, nullifierTree, noteHashTree, publicDataTree);
+  }
+
+  async appendLeaf(treeId: MerkleTreeId, value: Fr): Promise<void> {
+    switch (treeId) {
+      case MerkleTreeId.NULLIFIER_TREE:
+        {
+          const { preimage, index } = await this.getLowNullifier(MerkleTreeId.NULLIFIER_TREE, value);
+          const newNullifier = new NullifierLeafPreimage(value, preimage.nextNullifier, preimage.nextIndex);
+          const lowNullifier = new NullifierLeafPreimage(preimage.nullifier, value, this.nullifierTree.leafCount);
+          const lowNulliferLeafHash = poseidon2Hash([
+            lowNullifier.nullifier,
+            lowNullifier.nextNullifier,
+            lowNullifier.nextIndex,
+          ]);
+          this.nullifierTree.updateLeaf(lowNulliferLeafHash, index);
+          const newNullifierLeafHash = poseidon2Hash([
+            newNullifier.nullifier,
+            newNullifier.nextNullifier,
+            newNullifier.nextIndex,
+          ]);
+          this.nullifierUpdates.set(this.nullifierTree.leafCount, newNullifier);
+          this.nullifierUpdates.set(index, lowNullifier);
+          this.nullifierTree.appendLeaf(newNullifierLeafHash);
+          // Check if the min nullifier has changed
+          if (this.minNullifier === undefined) {
+            this.minNullifier = newNullifier;
+            this.minNullifierIndex = this.nullifierTree.leafCount;
+          }
+          if (newNullifier.nullifier <= this.minNullifier.nullifier) {
+            this.minNullifier = newNullifier;
+            this.minNullifierIndex = this.nullifierTree.leafCount;
+          }
+          if (lowNullifier.nullifier <= this.minNullifier.nullifier) {
+            this.minNullifier = lowNullifier;
+            this.minNullifierIndex = index;
+          }
+        }
+        break;
+      case MerkleTreeId.NOTE_HASH_TREE:
+        this.noteHashTree.appendLeaf(value);
+        break;
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        this.publicDataTree.appendLeaf(value);
+        break;
+      default:
+        throw new Error(`Tree ID ${treeId} isn't supposed to be appended to`);
+    }
+  }
+
+  // Check this also works for min and max values
+  async getLowNullifier<ID extends IndexedTreeId>(
+    treeId: ID,
+    value: Fr,
+  ): Promise<{ preimage: NullifierLeafPreimage; index: bigint }> {
+    const start = this.minNullifier;
+    // If the first element we have is already greater than the value, we need to do an external lookup
+    if ((start?.nullifier ?? 0) >= value || start === undefined) {
+      // The low nullifier is in the previous tree
+      const { index: lowNullifierIndex } = (await this.treeDb.getPreviousValueIndex(treeId, value.toBigInt()))!;
+      const preimage = await this.treeDb.getLeafPreimage(treeId, lowNullifierIndex);
+
+      if (preimage === undefined) {
+        throw new Error('No previous value found');
+      }
+
+      const lowNullifier = NullifierLeafPreimage.fromBuffer(preimage.toBuffer());
+      return { preimage: lowNullifier, index: lowNullifierIndex };
+    }
+    // We look for the element that is just less than the value and whose next element is greater than the value
+    let found = false;
+    let curr = start;
+    let result = undefined;
+    const LIMIT = 10; // Temp to avoid infinite loops
+    let counter = 0;
+    let lowNullifierIndex = this.minNullifierIndex!;
+    while (!found && counter < LIMIT) {
+      // We found it via an exact match
+      if (curr.nextNullifier.equals(value)) {
+        found = true;
+        result = { preimage: curr, index: lowNullifierIndex };
+      } else if (curr.nextNullifier > value && curr.nullifier < value) {
+        // We found it via sandwich
+        found = true;
+        result = { preimage: curr, index: lowNullifierIndex };
+      }
+      // We found it via the max condition
+      else if (curr.nextIndex === 0n && curr.nullifier < value) {
+        found = true;
+        result = { preimage: curr, index: lowNullifierIndex };
+      }
+      // Update the the values for the next iteration
+      else {
+        lowNullifierIndex = curr.nextIndex;
+        if (this.nullifierUpdates.has(lowNullifierIndex)) {
+          curr = this.nullifierUpdates.get(lowNullifierIndex)!;
+        } else {
+          const preimage = (await this.treeDb.getLeafPreimage(treeId, lowNullifierIndex))!;
+          curr = NullifierLeafPreimage.fromBuffer(preimage.toBuffer());
+        }
+      }
+      counter++;
+    }
+    // We did not find it - this is unexpected
+    if (result === undefined) throw new Error('No previous value found');
+    return result;
+  }
+}
+
 /****************************************************/
 /****** The EphemeralAvmTree Class *****************/
 /****************************************************/
@@ -82,9 +227,10 @@ export class EphemeralAvmTree {
     forkedLeafCount: bigint,
     depth: number,
     treeDb: MerkleTreeReadOperations,
+    merkleId: MerkleTreeId,
   ): Promise<EphemeralAvmTree> {
     const tree = new EphemeralAvmTree(forkedLeafCount, depth);
-    await tree.initializeFrontier(treeDb);
+    await tree.initializeFrontier(treeDb, merkleId);
     return tree;
   }
 
@@ -132,7 +278,7 @@ export class EphemeralAvmTree {
     return frontierIndices;
   }
 
-  async initializeFrontier(treeDb: MerkleTreeReadOperations): Promise<void> {
+  async initializeFrontier(treeDb: MerkleTreeReadOperations, merkleId: MerkleTreeId): Promise<void> {
     // The frontier indices are sorted from the leaf to root
     const frontierIndices = EphemeralAvmTree.computeFrontierLeafSlots(Number(this.leafCount));
     // The frontier indices are level-based - i.e. index N at level L.
@@ -147,7 +293,7 @@ export class EphemeralAvmTree {
     for (let i = 0; i < frontierIndices.length; i++) {
       // The path we need has the frontier node as a sibling
       const index = BigInt(frontierIndices[i] ^ 1) << BigInt(i);
-      const path = await treeDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, index);
+      const path = await treeDb.getSiblingPath(merkleId, index);
 
       const frontierPath = this._derivePathLE(BigInt(frontierIndices[i]), this.depth - i);
       siblingValue.push(path.toFields()[i]);
