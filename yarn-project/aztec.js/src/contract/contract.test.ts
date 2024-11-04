@@ -42,7 +42,7 @@ describe('Contract Class', () => {
     feeJuiceAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
     apellaAddress: EthAddress.random(),
-    nomismatokopioAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     gerousiaAddress: EthAddress.random(),
   };

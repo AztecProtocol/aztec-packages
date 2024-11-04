@@ -58,7 +58,7 @@ library Errors {
   error Gerousia__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); //0x02283b1a
   error Gerousia__VoteAlreadyCastForSlot(Slot slot); //0xc2201452
 
-  error Nomismatokopio__InssuficientMintAvailable(uint256 available, uint256 needed); // 0xf268b931
+  error CoinIssuer__InssuficientMintAvailable(uint256 available, uint256 needed); // 0xf268b931
 
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
   error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf

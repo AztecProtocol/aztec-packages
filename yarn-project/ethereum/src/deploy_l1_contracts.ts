@@ -11,8 +11,8 @@ import {
   GerousiaBytecode,
   InboxAbi,
   InboxBytecode,
-  NomismatokopioAbi,
-  NomismatokopioBytecode,
+  CoinIssuerAbi,
+  CoinIssuerBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
@@ -132,9 +132,9 @@ export interface L1ContractArtifactsForDeployment {
    */
   feeJuicePortal: ContractArtifacts;
   /**
-   * Nomismatokopio contract artifacts.
+   * CoinIssuer contract artifacts.
    */
-  nomismatokopio: ContractArtifacts;
+  coinIssuer: ContractArtifacts;
   /**
    * RewardDistributor contract artifacts.
    */
@@ -187,9 +187,9 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractAbi: RewardDistributorAbi,
     contractBytecode: RewardDistributorBytecode,
   },
-  nomismatokopio: {
-    contractAbi: NomismatokopioAbi,
-    contractBytecode: NomismatokopioBytecode,
+  coinIssuer: {
+    contractAbi: CoinIssuerAbi,
+    contractBytecode: CoinIssuerBytecode,
   },
   gerousia: {
     contractAbi: GerousiaAbi,
@@ -332,12 +332,12 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Apella at ${apellaAddress}`);
 
-  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
+  const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
     feeJuiceAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
     apellaAddress.toString(),
   ]);
-  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
+  logger.info(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
     feeJuiceAddress.toString(),
@@ -493,7 +493,7 @@ export const deployL1Contracts = async (
     outboxAddress,
     feeJuiceAddress,
     feeJuicePortalAddress,
-    nomismatokopioAddress,
+    coinIssuerAddress,
     rewardDistributorAddress,
     gerousiaAddress,
     apellaAddress,

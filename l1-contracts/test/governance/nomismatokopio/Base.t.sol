@@ -6,15 +6,15 @@ import {Test} from "forge-std/Test.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {Nomismatokopio} from "@aztec/governance/Nomismatokopio.sol";
+import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 
-contract NomismatokopioBase is Test {
+contract CoinIssuerBase is Test {
   IMintableERC20 internal token;
 
-  Nomismatokopio internal nom;
+  CoinIssuer internal nom;
 
   function _deploy(uint256 _rate) internal {
     token = IMintableERC20(address(new TestERC20()));
-    nom = new Nomismatokopio(token, _rate, address(this));
+    nom = new CoinIssuer(token, _rate, address(this));
   }
 }

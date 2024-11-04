@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {NomismatokopioBase} from "./Base.t.sol";
+import {CoinIssuerBase} from "./Base.t.sol";
 
-contract MintAvailableTest is NomismatokopioBase {
+contract MintAvailableTest is CoinIssuerBase {
   function test_GivenRateIs0(uint256 _time) external {
     // it returns 0
     _deploy(0);

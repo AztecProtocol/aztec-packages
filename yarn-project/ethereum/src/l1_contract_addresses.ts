@@ -13,7 +13,7 @@ export const l1ContractsNames = [
   'outboxAddress',
   'feeJuiceAddress',
   'feeJuicePortalAddress',
-  'nomismatokopioAddress',
+  'coinIssuerAddress',
   'rewardDistributorAddress',
   'gerousiaAddress',
   'apellaAddress',
@@ -59,9 +59,9 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
     description: 'The deployed L1 Fee Juice portal contract address.',
     parseEnv,
   },
-  nomismatokopioAddress: {
-    env: 'NOMISMATOKOPIO_CONTRACT_ADDRESS',
-    description: 'The deployed L1 nomismatokopio contract address',
+  coinIssuerAddress: {
+    env: 'COIN_ISSUER_CONTRACT_ADDRESS',
+    description: 'The deployed L1 coinIssuer contract address',
     parseEnv,
   },
   rewardDistributorAddress: {

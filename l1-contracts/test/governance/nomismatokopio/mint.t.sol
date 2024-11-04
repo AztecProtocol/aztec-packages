@@ -4,9 +4,9 @@ pragma solidity >=0.8.27;
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {NomismatokopioBase} from "./Base.t.sol";
+import {CoinIssuerBase} from "./Base.t.sol";
 
-contract MintTest is NomismatokopioBase {
+contract MintTest is CoinIssuerBase {
   uint256 internal constant RATE = 1e18;
   uint256 internal maxMint;
 
@@ -36,7 +36,7 @@ contract MintTest is NomismatokopioBase {
     uint256 amount = bound(_amount, maxMint + 1, type(uint256).max);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Nomismatokopio__InssuficientMintAvailable.selector, maxMint, amount
+        Errors.CoinIssuer__InssuficientMintAvailable.selector, maxMint, amount
       )
     );
     nom.mint(address(0xdead), amount);
