@@ -12,7 +12,7 @@ telemetry:
 images:
   aztec:
     image: aztecprotocol/aztec
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
@@ -30,7 +30,7 @@ bootNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*,discv5:*"
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
@@ -72,10 +72,11 @@ validator:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*,discv5:*"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+    maxTxsPerBlock: 4
   validator:
     disabled: false
   p2p:
@@ -142,7 +143,7 @@ bot:
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1
   # Do not wait for transactions
-  followChain: "NONE"
+  followChain: "PENDING"
   botNoStart: false
   pxeProverEnabled: false
   proverRealProofs: false
