@@ -8,4 +8,5 @@ template class TranslatorZeroConstraintsRelationImpl<fr>;
 
 DEFINE_SUMCHECK_RELATION_CLASS(TranslatorOpcodeConstraintRelationImpl, TranslatorFlavor);
 DEFINE_SUMCHECK_RELATION_CLASS(TranslatorAccumulatorTransferRelationImpl, TranslatorFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(TranslatorZeroConstraintsRelationImpl, TranslatorFlavor);
 } // namespace bb
