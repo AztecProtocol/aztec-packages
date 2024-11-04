@@ -205,6 +205,42 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
+  public async registerContact(address: AztecAddress): Promise<AztecAddress> {
+    const accounts = await this.keyStore.getAccounts();
+    if (accounts.includes(address)) {
+      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      return address;
+    }
+
+    const wasAdded = await this.db.addContactAddress(address);
+
+    if (wasAdded) {
+      this.log.info(`Added contact:\n ${address.toString()}`);
+    } else {
+      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+    }
+
+    return address;
+  }
+
+  public getContacts(): Promise<AztecAddress[]> {
+    const contacts = this.db.getContactAddresses();
+
+    return Promise.resolve(contacts);
+  }
+
+  public async removeContact(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeContactAddress(address);
+
+    if (wasRemoved) {
+      this.log.info(`Removed contact:\n ${address.toString()}`);
+    } else {
+      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+    }
+
+    return Promise.resolve();
+  }
+
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
     const completeAddresses = await this.db.getCompleteAddresses();
@@ -219,33 +255,6 @@ export class PXEService implements PXE {
     const result = await this.getRegisteredAccounts();
     const account = result.find(r => r.address.equals(address));
     return Promise.resolve(account);
-  }
-
-  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
-    const wasAdded = await this.db.addCompleteAddress(recipient);
-
-    if (wasAdded) {
-      this.log.info(`Added recipient:\n ${recipient.toReadableString()}`);
-    } else {
-      this.log.info(`Recipient:\n "${recipient.toReadableString()}"\n already registered.`);
-    }
-  }
-
-  public async getRecipients(): Promise<CompleteAddress[]> {
-    // Get complete addresses of both the recipients and the accounts
-    const completeAddresses = await this.db.getCompleteAddresses();
-    // Filter out the addresses corresponding to accounts
-    const accounts = await this.keyStore.getAccounts();
-    const recipients = completeAddresses.filter(
-      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
-    );
-    return recipients;
-  }
-
-  public async getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRecipients();
-    const recipient = result.find(r => r.address.equals(address));
-    return Promise.resolve(recipient);
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -525,11 +534,24 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
-      const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+
+      let publicInputs: PrivateKernelTailCircuitPublicInputs;
+      let profileResult;
+      if (profile) {
+        ({ publicInputs, profileResult } = await this.#profileKernelProver(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+        ));
+      } else {
+        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+      }
+
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
@@ -550,7 +572,11 @@ export class PXEService implements PXE {
       if (!msgSender) {
         this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
       }
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
+      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+        privateSimulationResult,
+        publicOutput,
+        profileResult,
+      );
     });
   }
 
@@ -755,16 +781,32 @@ export class PXEService implements PXE {
    * @param tx - The transaction to be simulated.
    */
   async #simulatePublicCalls(tx: Tx) {
-    try {
-      return await this.node.simulatePublicCalls(tx);
-    } catch (err) {
-      // Try to fill in the noir call stack since the PXE may have access to the debug metadata
-      if (err instanceof SimulationError) {
-        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
-      }
-
-      throw err;
+    const result = await this.node.simulatePublicCalls(tx);
+    if (result.revertReason) {
+      await enrichPublicSimulationError(
+        result.revertReason,
+        result.publicReturnValues[0].values || [],
+        this.contractDataOracle,
+        this.db,
+        this.log,
+      );
+      throw result.revertReason;
     }
+    return result;
+  }
+
+  async #profileKernelProver(
+    txExecutionRequest: TxExecutionRequest,
+    proofCreator: PrivateKernelProver,
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator);
+
+    // Dry run the prover with profiler enabled
+    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
+    return result;
   }
 
   /**

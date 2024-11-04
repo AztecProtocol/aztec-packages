@@ -99,7 +99,7 @@ describe('e2e_fees dapp_subscription', () => {
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**
     PRIVATE SETUP
-    we first unshield `MAX_FEE` BC from alice's private balance to the FPC's public balance
+    we first transfer `MAX_FEE` BC from alice's private balance to the FPC's public balance
 
     PUBLIC APP LOGIC
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract

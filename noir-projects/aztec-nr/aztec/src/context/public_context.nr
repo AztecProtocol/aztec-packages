@@ -295,7 +295,7 @@ unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
 // to do rethrows, where the revert data is the same as the original revert data.
 // For normal reverts, use Noir's `assert` which, on top of reverting, will also add
 // an error selector to the revert data.
-unconstrained fn avm_revert<let N: u32>(revertdata: [Field]) {
+unconstrained fn avm_revert(revertdata: [Field]) {
     revert_opcode(revertdata)
 }
 

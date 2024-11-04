@@ -31,7 +31,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
     await asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).send().wait();
 
-    tokenSim.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount);
+    tokenSim.transferToPublic(wallets[0].getAddress(), wallets[0].getAddress(), amount);
   });
 
   it('on behalf of other', async () => {
@@ -54,7 +54,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
 
     await action.send().wait();
-    tokenSim.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount);
+    tokenSim.transferToPublic(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset

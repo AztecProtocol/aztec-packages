@@ -1,5 +1,5 @@
 <div align="center">
-  <img height="210x" src="./assets/Aztec_banner.png" />
+  <img height="210" src="./assets/Aztec_banner.png" />
 
   <h1>Aztec.nr</h1>
 

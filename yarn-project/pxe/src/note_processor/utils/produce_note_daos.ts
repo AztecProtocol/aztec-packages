@@ -17,7 +17,7 @@ import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
  *
  * @param simulator - An instance of AcirSimulator.
  * @param db - An instance of PxeDatabase.
- * @param addressPoint - The public counterpart to the secret key to be used in the decryption of incoming note logs.
+ * @param addressPoint - The public counterpart to the address secret, which is used in the decryption of incoming note logs.
  * @param ovpkM - The public counterpart to the secret key to be used in the decryption of outgoing note logs.
  * @param payload - An instance of l1NotePayload.
  * @param txHash - The hash of the transaction that created the note. Equivalent to the first nullifier of the transaction.

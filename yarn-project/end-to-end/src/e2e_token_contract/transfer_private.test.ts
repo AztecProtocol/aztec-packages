@@ -61,7 +61,6 @@ describe('e2e_token_contract transfer private', () => {
     expect(amount).toBeGreaterThan(0n);
 
     const nonDeployed = CompleteAddress.random();
-    await wallets[0].registerRecipient(nonDeployed);
 
     await asset.methods.transfer(nonDeployed.address, amount).send().wait();
 

@@ -81,20 +81,20 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
-  registerRecipient(account: CompleteAddress): Promise<void> {
-    return this.pxe.registerRecipient(account);
-  }
   getRegisteredAccounts(): Promise<CompleteAddress[]> {
     return this.pxe.getRegisteredAccounts();
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
   }
-  getRecipients(): Promise<CompleteAddress[]> {
-    return this.pxe.getRecipients();
+  registerContact(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerContact(address);
   }
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.pxe.getRecipient(address);
+  getContacts(): Promise<AztecAddress[]> {
+    return this.pxe.getContacts();
+  }
+  async removeContact(address: AztecAddress): Promise<void> {
+    await this.pxe.removeContact(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -116,8 +116,9 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, profile, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);

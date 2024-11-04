@@ -25,8 +25,8 @@ export class JsonProxy {
   classConverter: ClassConverter;
   constructor(
     private handler: object,
-    private stringClassMap: StringClassConverterInput,
-    private objectClassMap: JsonClassConverterInput,
+    stringClassMap: StringClassConverterInput,
+    objectClassMap: JsonClassConverterInput,
   ) {
     this.classConverter = new ClassConverter(stringClassMap, objectClassMap);
   }
@@ -56,5 +56,13 @@ export class JsonProxy {
     }
     log.debug(format('JsonProxy:call', methodName, '->', ret));
     return ret;
+  }
+
+  public hasMethod(methodName: string): boolean {
+    return hasOwnProperty(Object.getPrototypeOf(this.handler), methodName);
+  }
+
+  public getMethods() {
+    return Object.getOwnPropertyNames(Object.getPrototypeOf(this.handler));
   }
 }

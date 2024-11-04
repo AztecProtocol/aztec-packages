@@ -1,11 +1,9 @@
-use fxhash::FxHashMap as HashMap;
-
 use acvm::acir::circuit::brillig::BrilligFunctionId;
 use acvm::{AcirField, FieldElement};
 use log::{debug, info, trace};
 
 use acvm::acir::brillig::Opcode as BrilligOpcode;
-use acvm::acir::circuit::{AssertionPayload, Opcode, Program};
+use acvm::acir::circuit::{Opcode, Program};
 
 use crate::instructions::{AvmInstruction, AvmOperand};
 use crate::opcodes::AvmOpcode;
@@ -39,33 +37,6 @@ pub fn extract_brillig_from_acir_program(
     &program.unconstrained_functions[0].bytecode
 }
 
-/// Assertion messages that are static strings are stored in the assert_messages map of the ACIR program.
-pub fn extract_static_assert_messages(program: &Program<FieldElement>) -> HashMap<usize, String> {
-    assert_eq!(
-        program.functions.len(),
-        1,
-        "An AVM program should have only a single ACIR function with a 'BrilligCall'"
-    );
-    let main_function = &program.functions[0];
-    main_function
-        .assert_messages
-        .iter()
-        .filter_map(|(location, payload)| {
-            if let AssertionPayload::StaticString(static_string) = payload {
-                Some((
-                    location
-                        .to_brillig_location()
-                        .expect("Assert message is not for the brillig function")
-                        .0,
-                    static_string.clone(),
-                ))
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
 /// Print inputs, outputs, and instructions in a Brillig program
 pub fn dbg_print_brillig_program(brillig_bytecode: &[BrilligOpcode<FieldElement>]) {
     trace!("Printing Brillig program...");
@@ -79,9 +50,11 @@ pub fn dbg_print_avm_program(avm_program: &[AvmInstruction]) {
     info!("Transpiled AVM program has {} instructions", avm_program.len());
     trace!("Printing AVM program...");
     let mut counts = std::collections::HashMap::<AvmOpcode, usize>::new();
+    let mut avm_pc = 0;
     for (i, instruction) in avm_program.iter().enumerate() {
-        trace!("\tPC:{0}: {1}", i, &instruction.to_string());
+        trace!("\tIDX:{0} AVMPC:{1} - {2}", i, avm_pc, &instruction.to_string());
         *counts.entry(instruction.opcode).or_insert(0) += 1;
+        avm_pc += instruction.size();
     }
     debug!("AVM opcode counts:");
     let mut sorted_counts: Vec<_> = counts.into_iter().collect();
