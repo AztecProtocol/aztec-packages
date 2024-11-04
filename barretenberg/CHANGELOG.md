@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.61.0...barretenberg-v0.62.0) (2024-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **avm:** use 32 bit locations ([#9596](https://github.com/AztecProtocol/aztec-packages/issues/9596))
+
+### Features
+
+* **avm:** Use 32 bit locations ([#9596](https://github.com/AztecProtocol/aztec-packages/issues/9596)) ([5f38696](https://github.com/AztecProtocol/aztec-packages/commit/5f386963b06752087c2600949cbb4bb2910b25ef))
+* Biggroup_goblin handles points at infinity + 1.8x reduction in ECCVM size ([#9366](https://github.com/AztecProtocol/aztec-packages/issues/9366)) ([9211d8a](https://github.com/AztecProtocol/aztec-packages/commit/9211d8afbd0fe31043ea593675ce5a72c1dc7e4e))
+* Faster square roots ([#2694](https://github.com/AztecProtocol/aztec-packages/issues/2694)) ([722ec5c](https://github.com/AztecProtocol/aztec-packages/commit/722ec5c3dfdc2a5e467528ed94a25677f8800087))
+* Spartan proving ([#9584](https://github.com/AztecProtocol/aztec-packages/issues/9584)) ([392114a](https://github.com/AztecProtocol/aztec-packages/commit/392114a0a66bd580175ff7a07b0c6d899d69be8f))
+
+
+### Bug Fixes
+
+* Ensuring translator range constraint polynomials are zeroes outside of minicircuit ([#9251](https://github.com/AztecProtocol/aztec-packages/issues/9251)) ([04dd2c4](https://github.com/AztecProtocol/aztec-packages/commit/04dd2c4c959d5d80e527be9c71504c051e3c5929))
+* Resolution of bugs from bigfield audits ([#9547](https://github.com/AztecProtocol/aztec-packages/issues/9547)) ([feace70](https://github.com/AztecProtocol/aztec-packages/commit/feace70727f9e5a971809955030a8ea88ce84f4a))
+
+
+### Miscellaneous
+
+* Bb sanitizers on master ([#9564](https://github.com/AztecProtocol/aztec-packages/issues/9564)) ([747bff1](https://github.com/AztecProtocol/aztec-packages/commit/747bff1acbca3d263a765db82baa6ef9ca58c372))
+* Pass on docker_fast.sh ([#9615](https://github.com/AztecProtocol/aztec-packages/issues/9615)) ([1c53459](https://github.com/AztecProtocol/aztec-packages/commit/1c53459ff31b50ba808e204c532885c9b0f69e39))
+
 ## [0.61.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.60.0...barretenberg-v0.61.0) (2024-10-30)
 
 

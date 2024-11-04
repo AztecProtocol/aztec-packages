@@ -58,6 +58,8 @@ else
   echo "Generating VKs sequentially..."
 
   for pathname in "./target"/*.json; do
+    if [[ $pathname != *"_simulated"* ]]; then
       BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys"
+    fi
   done
 fi

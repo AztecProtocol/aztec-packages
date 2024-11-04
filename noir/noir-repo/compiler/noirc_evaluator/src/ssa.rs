@@ -223,7 +223,6 @@ pub fn create_program(
 
     let func_sigs = program.function_signatures.clone();
 
-    let recursive = program.recursive;
     let ArtifactsAndWarnings(
         (generated_acirs, generated_brillig, brillig_function_names, error_types),
         ssa_level_warnings,
@@ -257,7 +256,6 @@ pub fn create_program(
         let circuit_artifact = convert_generated_acir_into_circuit(
             acir,
             func_sig,
-            recursive,
             // TODO: get rid of these clones
             debug_variables.clone(),
             debug_functions.clone(),
@@ -284,7 +282,6 @@ pub struct SsaCircuitArtifact {
 fn convert_generated_acir_into_circuit(
     mut generated_acir: GeneratedAcir<FieldElement>,
     func_sig: FunctionSignature,
-    recursive: bool,
     debug_variables: DebugVariables,
     debug_functions: DebugFunctions,
     debug_types: DebugTypes,
@@ -316,7 +313,6 @@ fn convert_generated_acir_into_circuit(
         public_parameters,
         return_values,
         assert_messages: assert_messages.into_iter().collect(),
-        recursive,
     };
 
     // This converts each im::Vector in the BTreeMap to a Vec
