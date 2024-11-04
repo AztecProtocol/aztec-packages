@@ -583,17 +583,15 @@ void prove_tube(const std::string& output_path)
     vinfo("here");
     // Padding needed for sending the right number of public inputs
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
-    // these public inputs by turning proof into witnesses and call
-    //  set_public on each witness
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.ultra_proof[1]));
+    // these public inputs by turning proof into witnesses and calling set_public on each witness
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
+    vinfo("Number of public inputs BEFORE subtracting stuff in mega proof: ", num_public_inputs);
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    // num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
-    vinfo("Number of public inputs after subtracting stuff in mega proof: ",
-          num_public_inputs); // I think the problem here is that thereareno   public inputs
-    // info(num_public_inputs);
+    // num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments?
+    vinfo("Number of public inputs after subtracting stuff in mega proof: ", num_public_inputs);
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
-        builder->add_public_variable(proof.ultra_proof[i + offset]);
+        builder->add_public_variable(proof.mega_proof[i + offset]);
     }
     ClientIVC verifier{ builder, input };
 
@@ -602,9 +600,9 @@ void prove_tube(const std::string& output_path)
     AggregationObjectIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
 
-    builder->add_recursive_proof(current_aggregation_object);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
+    builder->add_recursive_proof(current_aggregation_object);
 
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;

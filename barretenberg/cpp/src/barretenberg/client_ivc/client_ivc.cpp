@@ -213,31 +213,43 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     max_block_size_tracker.update(circuit);
 }
 
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+/**
+ * @brief Construct the stealth circuit, which recursively verifies the last folding proof and decider proof, and
+ * then produce a proof of its correctness with MegaHonk.
+ *
+ * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
+ * @return HonkProof - a Mega proof
+ */
+HonkProof ClientIVC::construct_and_prove_stealth_circuit()
 {
-    // max_block_size_tracker.print();               // print minimum structured sizes for each block
+    max_block_size_tracker.print();               // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
-    info("Am I ever heere?");
+
     FoldProof& fold_proof = verification_queue[0].proof;
     HonkProof decider_proof = decider_prove();
-    // Free the accumulator to save memory
+
     fold_output.accumulator = nullptr;
 
+    ClientCircuit builder{ goblin.op_queue };
+    // The last circuit being folded is a kernel circuit whose public inputs need to be passed to the base rollup
+    // circuit. So, these have to be preserved as public inputs to the stealth circuit (and, subsequently, as public
+    // inputs to the tube circuit) which are intermediate stages.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[1]));
-    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // don't add the agg object
+    vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION", num_public_inputs);
+    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     vinfo("num_public_inputs of the last folding proof ", num_public_inputs);
-    ClientCircuit builder{ goblin.op_queue };
-    goblin.verify_merge(builder, merge_verification_queue[0]);
-    merge_verification_queue.clear();
-
     for (size_t i = 0; i < num_public_inputs; i++) {
         size_t offset = 3;
         builder.add_public_variable(fold_proof[i + offset]);
     }
 
-    // Construct stdlib accumulator, vkey and proof
+    goblin.verify_merge(builder, merge_verification_queue[0]);
+    merge_verification_queue.clear();
+
+    // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
 
@@ -246,29 +258,27 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     auto stdlib_proof = bb::convert_proof_to_witness(&builder, fold_proof);
 
-    // Perform recursive folding verification
+    // Perform recursive folding verification oft he la
     FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     auto native_verifier_acc = std::make_shared<DeciderVerificationKey>(recursive_verifier_accumulator->get_value());
     verification_queue.clear();
+
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, native_verifier_acc };
     decider.verify_proof(decider_proof);
 
-    // TODO: proper aggregation
     builder.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
 
+    // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);
     merge_verification_queue.emplace_back(merge_proof);
 
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder); // finalises here
+    auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
     honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
     UltraProver prover(decider_pk);
-    // info("circuit size of proving key: ", decider_pk->proving_key.circuit_size);
-    // info("circuit size of vk: ", honk_vk->circuit_size);
-    // Add assert equal here?
+
     HonkProof proof = prover.construct_proof();
-    // Construct merge proof for the present circuit and add to merge verification queue
 
     return proof;
 }
@@ -280,11 +290,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    HonkProof ultra_proof = construct_and_prove_hiding_circuit();
+    HonkProof mega_proof = construct_and_prove_stealth_circuit();
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     MergeProof& merge_proof = merge_verification_queue[0];
-    // merge here
-    return { ultra_proof, goblin.prove(merge_proof) };
+    return { mega_proof, goblin.prove(merge_proof) };
 };
 
 bool ClientIVC::verify(const Proof& proof,
@@ -294,9 +303,9 @@ bool ClientIVC::verify(const Proof& proof,
 {
 
     UltraVerifier verifer{ ultra_vk };
-    bool ultra_verified = verifer.verify_proof(proof.ultra_proof);
+    bool ultra_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Ultra verified: ", ultra_verified);
-    // Goblin verification (merge, eccvm, translator)
+    // Goblin verification (final merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);

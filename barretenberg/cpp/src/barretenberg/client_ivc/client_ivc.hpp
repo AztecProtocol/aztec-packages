@@ -59,12 +59,12 @@ class ClientIVC {
 
     // A full proof for the IVC scheme
     struct Proof {
-        HonkProof ultra_proof;
+        HonkProof mega_proof;
         GoblinProof goblin_proof;
 
-        size_t size() const { return ultra_proof.size() + goblin_proof.size(); }
+        size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
-        MSGPACK_FIELDS(ultra_proof, goblin_proof);
+        MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
@@ -146,9 +146,8 @@ class ClientIVC {
 
     Proof prove();
 
-    HonkProof construct_and_prove_hiding_circuit();
+    HonkProof construct_and_prove_stealth_circuit();
 
-    // why do we want this static member function?
     static bool verify(const Proof& proof,
                        const std::shared_ptr<VerificationKey>& ultra_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,

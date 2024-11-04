@@ -905,7 +905,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       fs.readFile(proofFilename),
       fs.readFile(proofFieldsFilename, { encoding: 'utf-8' }),
     ]);
-    logger.debug('HERE');
 
     const json = JSON.parse(proofString);
 

@@ -65,12 +65,6 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
     ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
-    // Construct the set of native decider vks to be processed by the folding verifier
-    // std::vector<std::shared_ptr<DeciderVerificationKey>> keys{ verifier_input.fold_input.accumulator };
-    // for (auto vk : verifier_input.fold_input.decider_vks) {
-    //     keys.emplace_back(std::make_shared<DeciderVerificationKey>(vk));
-    // }
-
     // Confirm that the IVC proof can be natively verified
     EXPECT_TRUE(ivc.verify(proof));
 }
@@ -88,7 +82,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
-    // builder->add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder));
+
     ClientIVCVerifier verifier{ builder, verifier_input };
 
     // Generate the recursive verification circuit

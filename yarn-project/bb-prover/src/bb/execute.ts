@@ -740,7 +740,7 @@ export async function writeVkAsFields(
  * @param pathToBB - The full path to the bb binary
  * @param proofPath - The directory containing the binary proof
  * @param proofFileName - The filename of the proof
- * @param vkFileName - The filename oFailed to verify proof from key!f the verification key
+ * @param vkFileName - The filename of the verification key
  * @param log - A logging function
  * @returns An object containing a result indication and duration taken
  */
