@@ -45,11 +45,8 @@ log_stern &
 
 function upgrade() {
   # Load the Docker images into kind
-  kind load docker-image aztecprotocol/aztec:$TAG
-  # pull and resolve the image just to be absolutely sure k8s gets the latest image in the tag we want
-  #docker pull --platform linux/amd64 aztecprotocol/aztec:$TAG
-  #IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$TAG)
-  IMAGE=aztecprotocol/aztec:$TAG
+  kind load docker-image philwindle/aztec:$TAG
+  IMAGE=philwindle/aztec:$TAG
   if ! [ -z "${PRINT_ONLY:-}" ] ; then
     helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \

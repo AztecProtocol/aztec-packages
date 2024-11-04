@@ -26,18 +26,18 @@ proverNode:
 
 
 proverAgent:
-  replicas: 1
+  replicas: 20
   realProofs: true
   jobSourceUrl: http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
   bb:
-    hardwareConcurrency: 32
-  # nodeSelector:
-  #   cloud.google.com/compute-class: "Performance"
-  #   cloud.google.com/machine-family: "t2d-standard-32"
+    hardwareConcurrency: 30
+  nodeSelector:
+    cloud.google.com/compute-class: "Performance"
+    cloud.google.com/machine-family: "t2d"
   resources:
     requests:
-      memory: "128Gi"
-      cpu: "32"
+      memory: "116Gi"
+      cpu: "31"
 
 pxe:
   external: true
