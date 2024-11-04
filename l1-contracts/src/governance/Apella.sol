@@ -85,7 +85,7 @@ contract Apella is IApella {
     override(IApella)
     returns (uint256)
   {
-    return _initiateWithdraw(_to, _amount, configuration.lockDelay());
+    return _initiateWithdraw(_to, _amount, configuration.withdrawalDelay());
   }
 
   function finaliseWithdraw(uint256 _withdrawalId) external override(IApella) {

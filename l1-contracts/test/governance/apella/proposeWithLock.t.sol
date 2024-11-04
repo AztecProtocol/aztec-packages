@@ -9,7 +9,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 contract ProposeWithLockTest is ApellaBase {
-  function test_WhenCallerHaveInsufficientPower() external {
+  function test_WhenCallerHasInsufficientPower() external {
     // it revert
     DataStructures.Configuration memory config = apella.getConfiguration();
     vm.expectRevert(
@@ -20,7 +20,7 @@ contract ProposeWithLockTest is ApellaBase {
     apella.proposeWithLock(IPayload(address(0)), address(this));
   }
 
-  function test_WhenCallerHaveSufficientPower(address _proposal) external {
+  function test_WhenCallerHasSufficientPower(address _proposal) external {
     // it creates a withdrawal with the lock amount and delay
     // it creates a new proposal with current config
     // it emits a {ProposalCreated} event

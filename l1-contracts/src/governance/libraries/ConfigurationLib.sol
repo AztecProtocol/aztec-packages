@@ -18,7 +18,11 @@ library ConfigurationLib {
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(3600);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
-  function lockDelay(DataStructures.Configuration storage _self) internal view returns (Timestamp) {
+  function withdrawalDelay(DataStructures.Configuration storage _self)
+    internal
+    view
+    returns (Timestamp)
+  {
     return Timestamp.wrap(Timestamp.unwrap(_self.votingDelay) / 5) + _self.votingDuration
       + _self.executionDelay;
   }
@@ -45,6 +49,9 @@ library ConfigurationLib {
       Errors.Apella__ConfigurationLib__LockAmountTooSmall()
     );
 
+    // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal delay
+    // this, can be useful if one want to ensure that the "locker" cannot himself vote in the proposal, but as it is unclear
+    // if this is a useful property, it is not enforced.
     require(
       _self.proposeConfig.lockDelay >= TIME_LOWER,
       Errors.Apella__ConfigurationLib__TimeTooSmall("LockDelay")

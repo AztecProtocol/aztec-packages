@@ -255,9 +255,9 @@ contract UpdateConfigurationTest is ApellaBase {
     assertEq(config.votingDelay, fresh.votingDelay);
     assertEq(config.votingDuration, fresh.votingDuration);
 
-    assertEq(config.lockDelay(), fresh.lockDelay());
+    assertEq(config.withdrawalDelay(), fresh.withdrawalDelay());
     assertEq(
-      config.lockDelay(),
+      config.withdrawalDelay(),
       Timestamp.wrap(Timestamp.unwrap(fresh.votingDelay) / 5) + fresh.votingDuration
         + fresh.executionDelay
     );
