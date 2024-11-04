@@ -543,7 +543,7 @@ export class PXEService implements PXE {
       let publicInputs: PrivateKernelTailCircuitPublicInputs;
       let profileResult;
       if (profile) {
-        ({ publicInputs, profileResult } = await this.#profileKernalProver(
+        ({ publicInputs, profileResult } = await this.#profileKernelProver(
           txRequest,
           this.proofCreator,
           privateExecutionResult,
@@ -793,7 +793,7 @@ export class PXEService implements PXE {
     }
   }
 
-  async #profileKernalProver(
+  async #profileKernelProver(
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
