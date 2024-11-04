@@ -5,7 +5,7 @@ The aim is to verify acir tests verify through a given backend binary. "Backend 
 - bb (native CLI)
 - bb.js (typescript CLI)
 - bb.js-dev (symlink in your PATH that runs the typescript CLI via ts-node)
-- bb.js.browser (script in `headless-test` that runs a a test through bb.js in a browser instance via playwright)
+- bb.js.browser (script in `headless-test` that runs a test through bb.js in a browser instance via playwright)
 
 To run:
 
@@ -34,7 +34,7 @@ $ BIN=../ts/bb.js-dev VERBOSE=1 ./run_acir_tests.sh 1_mul
 $ BIN=./headless-test/bb.js.browser VERBOSE=1 ./run_acir_tests.sh 1_mul
 ```
 
-You can specify a different testing "flow" with with `FLOW` environment variable. Flows are in the `flows` dir.
+You can specify a different testing "flow" with `FLOW` environment variable. Flows are in the `flows` dir.
 The default flow is `prove_and_verify`, which is the quickest way to... prove and verify. It's used to test the acir
 test vectors actually all pass in whichever version of the backend is being run.
 The `all_cmds` flow tests all the supported commands on the binary. Slower, but is there to test the cli.
@@ -59,4 +59,4 @@ To generate a new input you can run the script again. To generate a new file und
 
 You can then copy these inputs over to your working branch in Noir and regenerate the witness for `double_verify_proof`. You can then change the branch in `run_acir_tests.sh` to this Noir working branch as well and `double_verify_proof` should pass.
 
-The same process should then be repeated, but now `double_verify_proof_recursive` will be the circuit for which we will be generating recursive inputs using `gen_inner_proof_inputs.sh`. The recursive artifacts should then supplied as inputs to `double_verify_nested_proof`.
+The same process should then be repeated, but now `double_verify_proof_recursive` will be the circuit for which we will be generating recursive inputs using `gen_inner_proof_inputs.sh`. The recursive artifacts should then be supplied as inputs to `double_verify_nested_proof`.

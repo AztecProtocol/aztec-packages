@@ -287,9 +287,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
-      expect(resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!)).toMatch(
-        'attempt to add with overflow',
-      );
+      expect(
+        resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
+      ).toMatch('attempt to add with overflow');
     });
 
     it('Expect failure on U128::from_integer() overflow', async () => {
@@ -297,9 +297,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
-      expect(resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!)).toMatch(
-        'call to assert_max_bit_size',
-      );
+      expect(
+        resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!, results.output),
+      ).toMatch('call to assert_max_bit_size');
     });
   });
 
@@ -321,10 +321,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!)).toMatch(
-      "Nullifier doesn't exist!",
-    );
-    expect(results.output).toEqual([]);
+    expect(
+      resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
+    ).toMatch("Nullifier doesn't exist!");
+    expect(results.output).toHaveLength(1); // Error selector for static string error
   });
 
   describe.each([
@@ -425,10 +425,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    const expectedResults = Buffer.concat('0010101011'.split('').map(c => new Fr(Number(c)).toBuffer()));
-    const resultBuffer = Buffer.concat(results.output.map(f => f.toBuffer()));
-
-    expect(resultBuffer.equals(expectedResults)).toBe(true);
+    expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
   });
 
   describe('Side effects, world state, nested calls', () => {
@@ -1011,9 +1008,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
         expect(results.revertReason).toBeDefined();
-        expect(resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!)).toMatch(
-          'Values are not equal',
-        );
+        expect(
+          resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!, results.output),
+        ).toMatch('Values are not equal');
       });
 
       it('Should handle returndatacopy oracle', async () => {
@@ -1084,7 +1081,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           // infinitely loop back to the tested instruction
           // infinite loop should break on side effect overrun error,
           // but otherwise will run out of gas
-          new Jump(/*jumpOffset*/ 2),
+          // Note: 15 is the byte index, calculated as 3*size(Set.wireFormat8)
+          new Jump(/*jumpOffset*/ 15),
         ]);
         const context = initContext({ persistableState });
         const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
