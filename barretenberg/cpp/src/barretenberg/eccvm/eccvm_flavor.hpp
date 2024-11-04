@@ -1328,8 +1328,7 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(shplonk_q2_comm, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
-            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
-            for (size_t i = 0; i < log_poly_degree; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
                 NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
