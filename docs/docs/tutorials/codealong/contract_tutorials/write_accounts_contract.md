@@ -51,7 +51,7 @@ For our account contract, we will take the hash of the action to authorize, requ
 
 :::info
 
-Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. For example, a user will need to authorize an action, even if it is only a simulated operation from a contract. Simulating a `transfer_from` call will require a signature in a Schnorr account or will require 2FA authorization in the case of 2FA account.
+Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. Without simulating simulations, the PXE can't anticipate what authwits a transaction may need, so developers will need to manually request these authwits from users. In the future, transactions requiring authwits will be smart enough to ask the user for the correct authwits automatically.
 
 :::
 
