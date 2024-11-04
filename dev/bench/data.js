@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730754631200,
+  "lastUpdate": 1730757651695,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d4dea162322eab233ed733aa318040e681cf5c70",
-          "message": "feat: Handle reorgs on sequencer (#9201)\n\nTweaks the archiver so it can detect when a prune _will_ happen and can\r\nstart unwinding blocks then. This is then leveraged by the sequencer, so\r\nit builds the next block accounting for a reorg to happen. This also\r\nrequired tweaks on the L1 rollup contract so validations and checks\r\naccount for pruning.\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
-          "timestamp": "2024-10-21T21:03:34+01:00",
-          "tree_id": "af7f04d456631f296d89be53da8559fec4bb3cd3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d4dea162322eab233ed733aa318040e681cf5c70"
-        },
-        "date": 1729621665166,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29427.816224,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27878.38883 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5323.348326000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4986.687327000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87900.35084099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87900353000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15168.970961,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15168971000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2714667506,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2714667506 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128287349,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128287349 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 129457965,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129457965 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a935d091cfad0e4861ec840a59372fdf177518d",
+          "message": "feat: IPA Accumulation implementation (#9494)\n\nAdds new functions to the IPA class that accumulate two IPA claims in\r\ncircuit, and does prover work to prove new accumulated IPA claim.\r\n\r\nAlso adds new tests for IPA recursion. The new RecursiveSmall test\r\nallowed us to find a subtle bug in IPA where one value was not being\r\nnegated, leading to an incorrect identity. This was not caught\r\npreviously because this value, the evaluation, was always 0 in the\r\nexisting tests, as Shplonk always sets it to 0.",
+          "timestamp": "2024-11-04T21:21:42Z",
+          "tree_id": "f937b36073a84d8645cdf4f4df3b0a7ec0843ce6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a935d091cfad0e4861ec840a59372fdf177518d"
+        },
+        "date": 1730757644650,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28611.32545799998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27217.204361 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5346.0542790000145,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5044.609014 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83664.27564600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83664278000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15115.154873,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15115154000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2481250970,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2481250970 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127502136,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127502136 ns\nthreads: 1"
           }
         ]
       }
