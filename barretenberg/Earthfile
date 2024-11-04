@@ -50,6 +50,7 @@ barretenberg-acir-tests-bb-ultra-plonk:
     # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
     # This ensures we test independent pk construction through real/garbage witness data paths.
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
+    RUN FLOW=prove_then_verify RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_proof
 
 barretenberg-acir-tests-bb-ultra-honk:
     FROM ../build-images/+from-registry
@@ -67,6 +68,7 @@ barretenberg-acir-tests-bb-ultra-honk:
     # Run the acir test through native bb build prove_then_verify_ultra_honk flow
     # Note that the script will skip the Plonk related tests
     RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
+    RUN FLOW=prove_then_verify_ultra_honk HONK=true RECURSIVE=true ./run_acir_tests.sh assert_statement double_verify_honk_proof
 
     # Construct and verify a UltraHonk proof for a single program
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh pedersen_hash

@@ -8,7 +8,7 @@ use crate::opcodes::AvmOpcode;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
-/// Note: this does structure not impose rules like "ADD instruction must have 3 operands"
+/// Note: this structure does not impose rules like "ADD instruction must have 3 operands"
 /// That job is left to the instruction decoder, not this thin transpiler.
 pub struct AvmInstruction {
     pub opcode: AvmOpcode,
@@ -18,7 +18,7 @@ pub struct AvmInstruction {
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
     pub indirect: Option<AvmOperand>,
 
-    /// Some instructions have a destination xor input tag
+    /// Some instructions have a tag, its usage will depend on the instruction.
     /// Its usage will depend on the instruction.
     pub tag: Option<AvmTypeTag>,
 
