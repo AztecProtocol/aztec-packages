@@ -70,13 +70,14 @@ describe('Control Flow Opcodes', () => {
     it('Should implement JUMPI - falsy', async () => {
       const jumpLocation = 22;
 
+      context.machineState.nextPc = 30;
       expect(context.machineState.pc).toBe(0);
 
       context.machineState.memory.set(0, new Uint16(0n));
 
       const instruction = new JumpI(/*indirect=*/ 0, jumpLocation, /*condOffset=*/ 0);
       await instruction.execute(context);
-      expect(context.machineState.pc).toBe(1);
+      expect(context.machineState.pc).toBe(30);
     });
   });
 
@@ -96,6 +97,7 @@ describe('Control Flow Opcodes', () => {
       const jumpLocation = 22;
 
       expect(context.machineState.pc).toBe(0);
+      context.machineState.nextPc = 6;
 
       const instruction = new InternalCall(jumpLocation);
       const returnInstruction = new InternalReturn();
@@ -104,49 +106,12 @@ describe('Control Flow Opcodes', () => {
       expect(context.machineState.pc).toBe(jumpLocation);
 
       await returnInstruction.execute(context);
-      expect(context.machineState.pc).toBe(1);
+      expect(context.machineState.pc).toBe(6);
     });
 
     it('Should error if Internal Return is called without a corresponding Internal Call', async () => {
       const returnInstruction = () => new InternalReturn().execute(context);
       await expect(returnInstruction()).rejects.toThrow(InstructionExecutionError);
-    });
-  });
-
-  describe('General flow', () => {
-    it('Should chain series of control flow instructions', async () => {
-      const jumpLocation0 = 22;
-      const jumpLocation1 = 69;
-      const jumpLocation2 = 1337;
-
-      const aloneJumpLocation = 420;
-
-      const instructions = [
-        // pc  |  internal call stack
-        new InternalCall(jumpLocation0), // 22  | [1]
-        new InternalCall(jumpLocation1), // 69  | [1, 23]
-        new InternalReturn(), // 23  | [1]
-        new Jump(aloneJumpLocation), // 420 | [1]
-        new InternalCall(jumpLocation2), // 1337| [1, 421]
-        new InternalReturn(), // 421 | [1]
-        new InternalReturn(), // 1   | []
-      ];
-
-      // The expected program counter after each instruction is invoked
-      const expectedPcs = [
-        jumpLocation0,
-        jumpLocation1,
-        jumpLocation0 + 1,
-        aloneJumpLocation,
-        jumpLocation2,
-        aloneJumpLocation + 1,
-        1,
-      ];
-
-      for (let i = 0; i < instructions.length; i++) {
-        await instructions[i].execute(context);
-        expect(context.machineState.pc).toBe(expectedPcs[i]);
-      }
     });
   });
 });

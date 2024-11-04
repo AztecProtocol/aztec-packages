@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use acvm::acir::circuit::Program;
 use noirc_errors::debug_info::ProgramDebugInfo;
 
-use crate::transpile::{brillig_to_avm, map_brillig_pcs_to_avm_pcs, patch_debug_info_pcs};
+use crate::transpile::{brillig_to_avm, patch_debug_info_pcs};
 use crate::utils::extract_brillig_from_acir_program;
 
 /// Representation of a contract with some transpiled functions
@@ -88,17 +88,15 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
 
         for function in contract.functions {
             if function.custom_attributes.contains(&"public".to_string()) {
+                // if function.name == "public_dispatch" {
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
                 let brillig_bytecode = extract_brillig_from_acir_program(&acir_program);
                 info!("Extracted Brillig program has {} instructions", brillig_bytecode.len());
 
-                // Map Brillig pcs to AVM pcs (index is Brillig PC, value is AVM PC)
-                let brillig_pcs_to_avm_pcs = map_brillig_pcs_to_avm_pcs(brillig_bytecode);
-
                 // Transpile to AVM
-                let avm_bytecode = brillig_to_avm(brillig_bytecode, &brillig_pcs_to_avm_pcs);
+                let (avm_bytecode, brillig_pcs_to_avm_pcs) = brillig_to_avm(brillig_bytecode);
 
                 log::info!(
                     "{}::{}: bytecode is {} bytes",
