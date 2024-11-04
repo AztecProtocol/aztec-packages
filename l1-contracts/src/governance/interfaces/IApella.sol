@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
 interface IApella {
   event Proposed(uint256 indexed proposalId, address indexed proposal);
@@ -24,10 +24,18 @@ interface IApella {
   function propose(IPayload _proposal) external returns (bool);
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);
   function execute(uint256 _proposalId) external returns (bool);
+  function dropProposal(uint256 _proposalId) external returns (bool);
+
   function powerAt(address _owner, Timestamp _ts) external view returns (uint256);
   function totalPowerAt(Timestamp _ts) external view returns (uint256);
   function getProposalState(uint256 _proposalId)
     external
     view
     returns (DataStructures.ProposalState);
+  function getConfiguration() external view returns (DataStructures.Configuration memory);
+  function getProposal(uint256 _proposalId) external view returns (DataStructures.Proposal memory);
+  function getWithdrawal(uint256 _withdrawalId)
+    external
+    view
+    returns (DataStructures.Withdrawal memory);
 }

@@ -45,7 +45,7 @@ You can install any specific version of `bb` with the `-v` flag. Example:
 bbup -v 0.56.0
 ```
 
-You can also can pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
+You can also pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
 
 ```bash
 bbup # installs the barretenberg version matching your current nargo version

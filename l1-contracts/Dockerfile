@@ -21,8 +21,10 @@ RUN rm -rf terraform scripts
 #RUN git init
 RUN forge clean && forge fmt --check && forge build && forge test --no-match-contract UniswapPortalTest
 
-RUN npm install --global solhint
-RUN solhint --config ./.solhint.json --fix "src/**/*.sol"
+# Install husky and solhint, using our own fork of solhint with a few extra rules.
+RUN npm install --global husky
+RUN npm install --global LHerskind/solhint#master
+RUN solhint --config ./.solhint.json "src/**/*.sol"
 
 # RUN git add . && yarn slither && yarn slither-has-diff
 RUN forge build

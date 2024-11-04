@@ -136,7 +136,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
-        program.constraints.recursive = false;
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(ivc_recursion_constraints.size());
         program.constraints.poly_triple_constraints = { pub_input_constraint };
         program.constraints.ivc_recursion_constraints = ivc_recursion_constraints;
