@@ -56,6 +56,5 @@ export class DebugLog extends Instruction {
     DebugLog.logger.verbose(formattedStr);
 
     memory.assert({ reads: 1 + fieldsSize + this.messageSize, addressing });
-    context.machineState.incrementPc();
   }
 }

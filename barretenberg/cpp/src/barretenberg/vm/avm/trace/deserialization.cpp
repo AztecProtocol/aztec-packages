@@ -2,6 +2,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/instructions.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 
 #include <cassert>
@@ -186,7 +187,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT8 } },
 };
 
-const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
+const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE = {
     { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
     { OperandType::UINT8, 1 },     { OperandType::UINT16, 2 },     { OperandType::UINT32, 4 },
     { OperandType::UINT64, 8 },    { OperandType::UINT128, 16 },   { OperandType::FF, 32 }
@@ -194,104 +195,144 @@ const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
 
 } // Anonymous namespace
 
+// TODO: once opcodes are frozen, this function can be replaced by a table/map of constants
+uint32_t Deserialization::get_pc_increment(OpCode opcode)
+{
+    const auto iter = OPCODE_WIRE_FORMAT.find(opcode);
+
+    if (iter == OPCODE_WIRE_FORMAT.end()) {
+        return 0;
+    }
+
+    // OPCODE_WIRE_FORMAT does not contain the opcode itself which accounts for 1 byte
+    uint32_t increment = 1;
+
+    const std::vector<OperandType>& inst_format = iter->second;
+    for (const auto& op_type : inst_format) {
+        increment += OPERAND_TYPE_SIZE.at(op_type);
+    }
+
+    return increment;
+}
+
 /**
- * @brief Parsing of the supplied bytecode into a vector of instructions. It essentially
- *        checks that each opcode value is in the defined range and extracts the operands
+ * @brief Parsing of an instruction in the supplied bytecode at byte position pos. This
+ *        checks that the opcode value is in the defined range and extracts the operands
  *        for each opcode based on the specification from OPCODE_WIRE_FORMAT.
  *
  * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
- * @throws runtime_error exception when the bytecode is invalid.
- * @return Vector of instructions
+ * @param pos Bytecode position
+ * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
+ * @return The instruction
  */
-std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& bytecode)
+Instruction Deserialization::parse(const std::vector<uint8_t>& bytecode, size_t pos)
 {
-    std::vector<Instruction> instructions;
-    size_t pos = 0;
     const auto length = bytecode.size();
 
-    debug("------- PARSING BYTECODE -------");
-    debug("Parsing bytecode of length: " + std::to_string(length));
-    while (pos < length) {
-        const uint8_t opcode_byte = bytecode.at(pos);
+    if (pos >= length) {
+        throw_or_abort("Position is out of range. Position: " + std::to_string(pos) +
+                       " Bytecode length: " + std::to_string(length));
+    }
 
-        if (!Bytecode::is_valid(opcode_byte)) {
-            throw_or_abort("Invalid opcode byte: " + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
+    const uint8_t opcode_byte = bytecode.at(pos);
+
+    if (!Bytecode::is_valid(opcode_byte)) {
+        throw_or_abort("Invalid opcode byte: " + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
+    }
+    pos++;
+
+    const auto opcode = static_cast<OpCode>(opcode_byte);
+    const auto iter = OPCODE_WIRE_FORMAT.find(opcode);
+    if (iter == OPCODE_WIRE_FORMAT.end()) {
+        throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " + to_string(opcode));
+    }
+    const std::vector<OperandType>& inst_format = iter->second;
+
+    std::vector<Operand> operands;
+    for (OperandType const& op_type : inst_format) {
+        // No underflow as above condition guarantees pos <= length (after pos++)
+        const auto operand_size = OPERAND_TYPE_SIZE.at(op_type);
+        if (length - pos < operand_size) {
+            throw_or_abort("Operand is missing at position " + std::to_string(pos) + " for opcode " + to_hex(opcode) +
+                           " not enough bytes for operand type " + std::to_string(static_cast<int>(op_type)));
         }
-        pos++;
 
-        auto const opcode = static_cast<OpCode>(opcode_byte);
-        auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
-        if (iter == OPCODE_WIRE_FORMAT.end()) {
-            throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " + to_string(opcode));
+        switch (op_type) {
+        case OperandType::TAG: {
+            uint8_t tag_u8 = bytecode.at(pos);
+            if (tag_u8 > MAX_MEM_TAG) {
+                throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
+                               " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
+            }
+            operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
+            break;
         }
-        std::vector<OperandType> inst_format = iter->second;
-
-        std::vector<Operand> operands;
-        for (OperandType const& opType : inst_format) {
-            // No underflow as while condition guarantees pos <= length (after pos++)
-            if (length - pos < OPERAND_TYPE_SIZE.at(opType)) {
-                throw_or_abort("Operand is missing at position " + std::to_string(pos) + " for opcode " +
-                               to_hex(opcode) + " not enough bytes for operand type " +
-                               std::to_string(static_cast<int>(opType)));
-            }
-
-            switch (opType) {
-            case OperandType::TAG: {
-                uint8_t tag_u8 = bytecode.at(pos);
-                if (tag_u8 > MAX_MEM_TAG) {
-                    throw_or_abort("Instruction tag is invalid at position " + std::to_string(pos) +
-                                   " value: " + std::to_string(tag_u8) + " for opcode: " + to_string(opcode));
-                }
-                operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
-                break;
-            }
-            case OperandType::INDIRECT8:
-            case OperandType::UINT8:
-                operands.emplace_back(bytecode.at(pos));
-                break;
-            case OperandType::INDIRECT16:
-            case OperandType::UINT16: {
-                uint16_t operand_u16 = 0;
-                uint8_t const* pos_ptr = &bytecode.at(pos);
-                serialize::read(pos_ptr, operand_u16);
-                operands.emplace_back(operand_u16);
-                break;
-            }
-            case OperandType::UINT32: {
-                uint32_t operand_u32 = 0;
-                uint8_t const* pos_ptr = &bytecode.at(pos);
-                serialize::read(pos_ptr, operand_u32);
-                operands.emplace_back(operand_u32);
-                break;
-            }
-            case OperandType::UINT64: {
-                uint64_t operand_u64 = 0;
-                uint8_t const* pos_ptr = &bytecode.at(pos);
-                serialize::read(pos_ptr, operand_u64);
-                operands.emplace_back(operand_u64);
-                break;
-            }
-            case OperandType::UINT128: {
-                uint128_t operand_u128 = 0;
-                uint8_t const* pos_ptr = &bytecode.at(pos);
-                serialize::read(pos_ptr, operand_u128);
-                operands.emplace_back(operand_u128);
-                break;
-            }
-            case OperandType::FF: {
-                FF operand_ff;
-                uint8_t const* pos_ptr = &bytecode.at(pos);
-                read(pos_ptr, operand_ff);
-                operands.emplace_back(operand_ff);
-            }
-            }
-            pos += OPERAND_TYPE_SIZE.at(opType);
+        case OperandType::INDIRECT8:
+        case OperandType::UINT8:
+            operands.emplace_back(bytecode.at(pos));
+            break;
+        case OperandType::INDIRECT16:
+        case OperandType::UINT16: {
+            uint16_t operand_u16 = 0;
+            uint8_t const* pos_ptr = &bytecode.at(pos);
+            serialize::read(pos_ptr, operand_u16);
+            operands.emplace_back(operand_u16);
+            break;
         }
-        auto instruction = Instruction(opcode, operands);
-        debug(instruction.to_string());
-        instructions.emplace_back(std::move(instruction));
+        case OperandType::UINT32: {
+            uint32_t operand_u32 = 0;
+            uint8_t const* pos_ptr = &bytecode.at(pos);
+            serialize::read(pos_ptr, operand_u32);
+            operands.emplace_back(operand_u32);
+            break;
+        }
+        case OperandType::UINT64: {
+            uint64_t operand_u64 = 0;
+            uint8_t const* pos_ptr = &bytecode.at(pos);
+            serialize::read(pos_ptr, operand_u64);
+            operands.emplace_back(operand_u64);
+            break;
+        }
+        case OperandType::UINT128: {
+            uint128_t operand_u128 = 0;
+            uint8_t const* pos_ptr = &bytecode.at(pos);
+            serialize::read(pos_ptr, operand_u128);
+            operands.emplace_back(operand_u128);
+            break;
+        }
+        case OperandType::FF: {
+            FF operand_ff;
+            uint8_t const* pos_ptr = &bytecode.at(pos);
+            read(pos_ptr, operand_ff);
+            operands.emplace_back(operand_ff);
+        }
+        }
+        pos += operand_size;
+    }
+
+    auto instruction = Instruction(opcode, operands);
+    return instruction;
+};
+
+/**
+ * @brief Parse supplied bytecode in a static manner, i.e., parsing instruction by instruction
+ *        without any control flow resolution. In other words, pc is incremented by the size
+ *        of the current parsed instruction.
+ *
+ * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
+ * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
+ * @return The list of instructions as a vector
+ */
+std::vector<Instruction> Deserialization::parse_bytecode_statically(const std::vector<uint8_t>& bytecode)
+{
+    uint32_t pc = 0;
+    std::vector<Instruction> instructions;
+    while (pc < bytecode.size()) {
+        const auto instruction = parse(bytecode, pc);
+        instructions.emplace_back(instruction);
+        pc += get_pc_increment(instruction.op_code);
     }
     return instructions;
-};
+}
 
 } // namespace bb::avm_trace
