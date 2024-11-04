@@ -1,5 +1,5 @@
 import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
-import { RollupAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';

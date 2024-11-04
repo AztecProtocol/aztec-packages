@@ -405,7 +405,10 @@ export class L1Publisher {
       return false;
     }
 
-    const [slotForLastVote] = await this.governanceProposerContract.read.rounds([this.rollupContract.address, roundNumber]);
+    const [slotForLastVote] = await this.governanceProposerContract.read.rounds([
+      this.rollupContract.address,
+      roundNumber,
+    ]);
 
     if (slotForLastVote >= slotNumber) {
       return false;
