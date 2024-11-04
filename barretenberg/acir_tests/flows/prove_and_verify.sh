@@ -1,6 +1,6 @@
 #!/bin/sh
-set -eux
-echo "in prove_and_verify.sh"
+set -eu
+
 VFLAG=${VERBOSE:+-v}
 FLAGS="-c $CRS_PATH $VFLAG"
 if [ "${RECURSIVE}" = "true" ]; then
