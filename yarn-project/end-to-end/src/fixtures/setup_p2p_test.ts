@@ -82,7 +82,7 @@ export async function createNode(
     dataDirectory,
   );
 
-  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort);
+  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort, /*serviceName*/ `node:${tcpPort}`);
 
   return await AztecNodeService.createAndSync(
     validatorConfig,

@@ -1,4 +1,4 @@
-import { Meter, Metrics, TelemetryClient, ObservableGauge, Attributes } from "./telemetry.js";
+import { Meter, Metrics, TelemetryClient, ObservableGauge, Attributes, Gauge } from "./telemetry.js";
 
 import { Registry, Counter as PromCounter, Gauge as PromGauge, Histogram as PromHistogram } from 'prom-client';
 
@@ -14,9 +14,9 @@ export enum MessageSource {
 type NoLabels = Record<string, never>
 type LabelsGeneric = Record<string, string | number>
 type LabelKeys<Labels extends LabelsGeneric> = Extract<keyof Labels, string>
-interface CollectFn<Labels extends LabelsGeneric> { (metric: Gauge<Labels>): void }
+interface CollectFn<Labels extends LabelsGeneric> { (metric: IGauge<Labels>): void }
 
-interface Gauge<Labels extends LabelsGeneric = NoLabels> {
+interface IGauge<Labels extends LabelsGeneric = NoLabels> {
   inc: NoLabels extends Labels ? (value?: number) => void : (labels: Labels, value?: number) => void
   set: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void
 
@@ -24,7 +24,7 @@ interface Gauge<Labels extends LabelsGeneric = NoLabels> {
   addCollect(collectFn: CollectFn<Labels>): void
 }
 
-interface Histogram<Labels extends LabelsGeneric = NoLabels> {
+interface IHistogram<Labels extends LabelsGeneric = NoLabels> {
   startTimer(): () => void
 
   observe: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void
@@ -32,7 +32,7 @@ interface Histogram<Labels extends LabelsGeneric = NoLabels> {
   reset(): void
 }
 
-interface AvgMinMax<Labels extends LabelsGeneric = NoLabels> {
+interface IAvgMinMax<Labels extends LabelsGeneric = NoLabels> {
   set: NoLabels extends Labels ? (values: number[]) => void : (labels: Labels, values: number[]) => void
 }
 
@@ -48,9 +48,9 @@ export type HistogramConfig<Labels extends LabelsGeneric> = GaugeConfig<Labels> 
 export type AvgMinMaxConfig<Labels extends LabelsGeneric> = GaugeConfig<Labels>
 
 export interface MetricsRegister {
-  gauge<Labels extends LabelsGeneric = NoLabels>(config: GaugeConfig<Labels>): Gauge<Labels>
-  histogram<Labels extends LabelsGeneric = NoLabels>(config: HistogramConfig<Labels>): Histogram<Labels>
-  avgMinMax<Labels extends LabelsGeneric = NoLabels>(config: AvgMinMaxConfig<Labels>): AvgMinMax<Labels>
+  gauge<Labels extends LabelsGeneric = NoLabels>(config: GaugeConfig<Labels>): IGauge<Labels>
+  histogram<Labels extends LabelsGeneric = NoLabels>(config: HistogramConfig<Labels>): IHistogram<Labels>
+  avgMinMax<Labels extends LabelsGeneric = NoLabels>(config: AvgMinMaxConfig<Labels>): IAvgMinMax<Labels>
 }
 
 /**Otel Metrics Adapter
@@ -63,88 +63,157 @@ export interface MetricsRegister {
  * - libp2p
  */
 
-class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements Gauge<Labels> {
+class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Labels> {
   private gauge: ObservableGauge;
   private currentValue: number = 0;
-  private collectCallback?: () => void;
+  private labeledValues: Map<string, number> = new Map();
+  private collectFns: CollectFn<Labels>[] = [];
+
+  private _collect: () => void = () => {};
+  get collect(): () => void {
+    return this._collect;
+  }
+  set collect(fn: () => void) {
+    this._collect = fn;
+  }
 
   constructor(
     meter: Meter,
-    // TODO: be more strict on metrics name types
     name: string,
     help: string,
-    attributes: Array<keyof Labels> = []
+    private labelNames: Array<keyof Labels> = []
   ) {
     this.gauge = meter.createObservableGauge(name as Metrics, {
       description: help
     });
 
-    // Register callback for the observable gauge
+    // Only observe in the callback when collect() is called
     this.gauge.addCallback((result) => {
-      if (this.collectCallback) {
-        this.collectCallback();
+      // Execute the main collect function if assigned
+      this._collect();
+
+      // Execute any additional collect callbacks
+      // this.collectFns.forEach(fn => fn());
+
+      // Report the current values
+      if (this.labelNames.length === 0) {
+        result.observe(this.currentValue);
+        return;
       }
-      // TODO: fix labels
-      result.observe(this.currentValue);
+
+      for (const [labelStr, value] of this.labeledValues.entries()) {
+        const labels = this.parseLabelsSafely(labelStr);
+        if (labels) {
+          result.observe(value, labels);
+        }
+      }
     });
   }
 
+  addCollect(collectFn: CollectFn<Labels>): void {
+    this.collectFns.push(collectFn);
+  }
+
+/**
+   * Increments the gauge value
+   * @param labelsOrValue - Labels object or numeric value
+   * @param value - Value to increment by (defaults to 1)
+   */
   inc(value?: number): void;
   inc(labels: Labels, value?: number): void;
   inc(labelsOrValue?: Labels | number, value?: number): void {
-    const { labels, value: actualValue } = getLabelAndValue(labelsOrValue, value);
-    const typedValue = actualValue as number;
-
-    this.currentValue += typedValue;
+  if (typeof labelsOrValue === 'number') {
+    this.currentValue += labelsOrValue;
+    return;
   }
 
-  dec(labels?: Labels): void {
-    this.currentValue -= 1;
+  if (labelsOrValue) {
+    this.validateLabels(labelsOrValue);
+    const labelKey = JSON.stringify(labelsOrValue);
+    const currentValue = this.labeledValues.get(labelKey) ?? 0;
+    this.labeledValues.set(labelKey, currentValue + (value ?? 1));
+    return;
   }
 
-  // In prom, set is for an observable value??
-  set(value: number): void;
-  set(labels: Labels, value: number): void;
-  // Implementation
-  set(labelsOrValue: Labels | number, value?: number): void {
-    if (typeof labelsOrValue === 'number') {
-      // Case: set(value)
-      this.currentValue = labelsOrValue;
-    } else {
-      // Case: set(labels, value)
-      if (value === undefined) {
-        throw new Error('Value must be provided when using labels');
-      }
-      this.currentValue = value;
+  this.currentValue += value ?? 1;
+}
+
+/**
+ * Sets the gauge value
+ * @param labelsOrValue - Labels object or numeric value
+ * @param value - Value to set
+ */
+set(value: number): void;
+set(labels: Labels, value: number): void;
+set(labelsOrValue: Labels | number, value?: number): void {
+  if (typeof labelsOrValue === 'number') {
+    this.currentValue = labelsOrValue;
+    return;
+  }
+
+  this.validateLabels(labelsOrValue);
+  const labelKey = JSON.stringify(labelsOrValue);
+  this.labeledValues.set(labelKey, value!);
+}
+
+/**
+ * Decrements the gauge value
+ * @param labels - Optional labels object
+ */
+dec(labels?: Labels): void {
+  if (labels) {
+    this.validateLabels(labels);
+    const labelKey = JSON.stringify(labels);
+    const currentValue = this.labeledValues.get(labelKey) ?? 0;
+    this.labeledValues.set(labelKey, currentValue - 1);
+    return;
+  }
+
+  this.currentValue -= 1;
+}
+
+/**
+ * Resets the gauge to initial state
+ */
+reset(): void {
+  this.currentValue = 0;
+  this.labeledValues.clear();
+}
+
+/**
+ * Validates that provided labels match the expected schema
+ * @param labels - Labels object to validate
+ * @throws Error if invalid labels are provided
+ */
+private validateLabels(labels: Labels): void {
+  if (this.labelNames.length === 0) {
+    throw new Error('Gauge was initialized without labels support');
+  }
+
+  for (const key of Object.keys(labels)) {
+    if (!this.labelNames.includes(key as keyof Labels)) {
+      throw new Error(`Invalid label key: ${key}`);
     }
   }
+}
 
-  setToCurrentTime(labels?: Labels): void {
-    this.set(labels || {} as Labels, Date.now());
+/**
+ * Safely parses label string back to object
+ * @param labelStr - Stringified labels object
+ * @returns Labels object or null if parsing fails
+ */
+private parseLabelsSafely(labelStr: string): Labels | null {
+  try {
+    return JSON.parse(labelStr) as Labels;
+  } catch {
+    console.error(`Failed to parse label string: ${labelStr}`);
+    return null;
   }
-
-  startTimer(labels?: Labels): (labels?: Labels) => void {
-    const start = Date.now();
-    return (endLabels?: Labels) => {
-      const duration = Date.now() - start;
-      this.set(endLabels || labels || {} as Labels, duration);
-    };
-  }
-
-  reset(): void {
-    this.currentValue = 0;
-  }
-
-  set collect(callback: () => void) {
-    this.collectCallback = callback;
-  }
-
-  // TODO: implement
-  addCollect(): void {}
+}
 }
 
 
-class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements Histogram<Labels> {
+class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
   private histogram;
 
   constructor(
@@ -187,7 +256,7 @@ class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements Histogra
 }
 
 
-class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements AvgMinMax<Labels> {
+class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
   private minGauge;
   private maxGauge;
   private avgGauge;
@@ -281,7 +350,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
 
   gauge<Labels extends LabelsGeneric = NoLabels>(
     configuration: GaugeConfig<Labels>
-  ): Gauge<Labels> {
+  ): IGauge<Labels> {
     return new OtelGauge<Labels>(
       this.meter,
       configuration.name as Metrics,
@@ -292,7 +361,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
 
   histogram<Labels extends LabelsGeneric = NoLabels>(
     configuration: HistogramConfig<Labels>
-  ): Histogram<Labels> {
+  ): IHistogram<Labels> {
     return new OtelHistogram<Labels>(
       this.meter,
       configuration.name as Metrics,
@@ -304,7 +373,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
 
   avgMinMax<Labels extends LabelsGeneric = NoLabels>(
     configuration: AvgMinMaxConfig<Labels>
-  ): AvgMinMax<Labels> {
+  ): IAvgMinMax<Labels> {
     return new OtelAvgMinMax<Labels>(
       this.meter,
       configuration.name as Metrics,
@@ -340,21 +409,25 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   // }
 }
 
-function getLabelAndValue<Labels extends LabelsGeneric>(valueOrLabels?: number | number[]| Labels, value?: number | number[]): { labels: Labels | undefined, value: number | number[] } {
-  let labels: Labels | undefined;
-  let actualValue: number | number[];
+function getLabelAndValue<Labels extends LabelsGeneric>(
+  valueOrLabels?: number | number[] | Labels,
+  value?: number | number[]
+): { labels: Labels | undefined, value: number | number[] } {
+  // If it's a number, it's a direct value
   if (typeof valueOrLabels === 'number') {
-    actualValue = valueOrLabels;
-    // it is an array
-  } else if (typeof valueOrLabels === 'object') {
-    actualValue = valueOrLabels as number[];
-  } else if (valueOrLabels !== undefined) {
-    labels = valueOrLabels;
-    actualValue = value ?? 1;
-  } else {
-    actualValue = 1;
+    return { labels: undefined, value: valueOrLabels };
   }
-  return { labels, value: actualValue };
+
+  // If it's an array, it's a value array
+  if (Array.isArray(valueOrLabels)) {
+    return { labels: undefined, value: valueOrLabels };
+  }
+
+  // Otherwise it's a labels object
+  return {
+    labels: valueOrLabels as Labels,
+    value: value ?? 1
+  };
 }
 
 // class OtelCounter<Labels extends LabelsGeneric = NoLabels> implements Counter<Labels> {

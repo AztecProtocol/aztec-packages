@@ -388,7 +388,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
+  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort, /*serviceName*/ 'basenode');
 
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);

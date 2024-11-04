@@ -2,10 +2,10 @@ import { TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { TelemetryClientConfig, getConfigEnvVars as getTelemetryConfig, createAndStartTelemetryClient } from '@aztec/telemetry-client/start';
 
-export function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<TelemetryClient> {
+export function getEndToEndTestTelemetryClient(metricsPort?: number, serviceName?: string): Promise<TelemetryClient> {
   return !metricsPort
     ? Promise.resolve(new NoopTelemetryClient())
-    : createAndStartTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort));
+    : createAndStartTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort, serviceName));
 }
 
 /**
@@ -13,12 +13,15 @@ export function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<Te
  *
  * Read from env vars, override if metricsPort is set
  */
-export function getEndToEndTestTelemetryConfig(metricsPort?: number) {
+export function getEndToEndTestTelemetryConfig(metricsPort?: number, serviceName?: string) {
   const telemetryConfig: TelemetryClientConfig = getTelemetryConfig();
   if (metricsPort) {
     telemetryConfig.metricsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/metrics`);
     telemetryConfig.tracesCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/traces`);
     telemetryConfig.logsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/logs`);
+  }
+  if (serviceName) {
+    telemetryConfig.serviceName = serviceName;
   }
   return telemetryConfig;
 }
