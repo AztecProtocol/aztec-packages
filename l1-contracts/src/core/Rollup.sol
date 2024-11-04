@@ -2,36 +2,32 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {IRollup, ITestRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
-import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {EpochProofQuoteLib} from "@aztec/core/libraries/EpochProofQuoteLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
-import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
-import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {Math} from "@oz/utils/math/Math.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
-import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
-import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
+import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @title Rollup
@@ -133,15 +129,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   /**
    * Sets the assumeProvenThroughBlockNumber. Only the contract deployer can set it.
-   * @param blockNumber - New value.
+   * @param _blockNumber - New value.
    */
-  function setAssumeProvenThroughBlockNumber(uint256 blockNumber)
+  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber)
     external
     override(ITestRollup)
     onlyOwner
   {
-    fakeBlockNumberAsProven(blockNumber);
-    assumeProvenThroughBlockNumber = blockNumber;
+    _fakeBlockNumberAsProven(_blockNumber);
+    assumeProvenThroughBlockNumber = _blockNumber;
   }
 
   /**
@@ -298,7 +294,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     emit L2ProofVerified(endBlockNumber, _args[6]);
   }
 
-  function status(uint256 myHeaderBlockNumber)
+  function status(uint256 _myHeaderBlockNumber)
     external
     view
     override(IRollup)
@@ -316,7 +312,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       blocks[tips.provenBlockNumber].archive,
       tips.pendingBlockNumber,
       blocks[tips.pendingBlockNumber].archive,
-      archiveAt(myHeaderBlockNumber),
+      archiveAt(_myHeaderBlockNumber),
       getEpochForBlock(tips.provenBlockNumber)
     );
   }
@@ -499,7 +495,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
-      fakeBlockNumberAsProven(blockNumber);
+      _fakeBlockNumberAsProven(blockNumber);
 
       bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
       bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
@@ -518,13 +514,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
   }
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
     public
     view
     override(IRollup)
     returns (bytes32)
   {
-    return _hashTypedDataV4(EpochProofQuoteLib.hash(quote));
+    return _hashTypedDataV4(EpochProofQuoteLib.hash(_quote));
   }
 
   /**
@@ -739,12 +735,12 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return tips.pendingBlockNumber;
   }
 
-  function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (Epoch) {
+  function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
     require(
-      blockNumber <= tips.pendingBlockNumber,
-      Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, blockNumber)
+      _blockNumber <= tips.pendingBlockNumber,
+      Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, _blockNumber)
     );
-    return getEpochAt(getTimestampForSlot(blocks[blockNumber].slotNumber));
+    return getEpochAt(getTimestampForSlot(blocks[_blockNumber].slotNumber));
   }
 
   /**
@@ -968,13 +964,13 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     }
   }
 
-  function fakeBlockNumberAsProven(uint256 blockNumber) private {
-    if (blockNumber > tips.provenBlockNumber && blockNumber <= tips.pendingBlockNumber) {
-      tips.provenBlockNumber = blockNumber;
+  function _fakeBlockNumberAsProven(uint256 _blockNumber) private {
+    if (_blockNumber > tips.provenBlockNumber && _blockNumber <= tips.pendingBlockNumber) {
+      tips.provenBlockNumber = _blockNumber;
 
       // If this results on a new epoch, create a fake claim for it
       // Otherwise nextEpochToProve will report an old epoch
-      Epoch epoch = getEpochForBlock(blockNumber);
+      Epoch epoch = getEpochForBlock(_blockNumber);
       if (Epoch.unwrap(epoch) == 0 || Epoch.unwrap(epoch) > Epoch.unwrap(proofClaim.epochToProve)) {
         proofClaim = DataStructures.EpochProofClaim({
           epochToProve: epoch,
