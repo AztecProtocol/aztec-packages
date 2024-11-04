@@ -101,6 +101,8 @@ foundry:
       && rm -rf $FOUNDRY_BIN_DIR
 
   SAVE ARTIFACT /opt/foundry /opt/foundry
+  ENV PATH="/opt/foundry/bin:$PATH"
+
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/foundry:$FOUNDRY_TAG-$TARGETARCH
 
