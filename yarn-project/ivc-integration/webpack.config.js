@@ -9,7 +9,7 @@ export default {
   target: "web",
   mode: "production",
   entry: {
-    index: "./src/index.ts",
+    index: "./src/serve.ts",
   },
   module: {
     rules: [

@@ -1,7 +1,5 @@
-import { BB_RESULT } from '@aztec/bb-prover';
-
-import createDebug from "debug";
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
+import createDebug from 'debug';
 import { ungzip } from 'pako';
 import { type Page } from 'playwright';
 
@@ -34,10 +32,10 @@ export {
   MockPrivateKernelInnerCircuit,
   MockPrivateKernelResetCircuit,
   MockPrivateKernelTailCircuit,
-  MockPublicKernelCircuit
+  MockPublicKernelCircuit,
 };
 
-createDebug.enable("*");
+createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
 /* eslint-disable camelcase */
@@ -213,11 +211,10 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
   return [bytecodes, witnessStack];
 }
 
-
-
 function base64ToUint8Array(base64: string): Uint8Array {
-  return new Uint8Array(Buffer.from(base64, 'base64'));
+  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
+
 
 export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
   const { AztecClientBackend } = await import('@aztec/bb.js');
