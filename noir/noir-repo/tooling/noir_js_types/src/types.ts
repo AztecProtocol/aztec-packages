@@ -20,6 +20,7 @@ export type AbiParameter = {
 };
 
 export type AbiErrorType =
+  | { error_kind: 'string'; string: string }
   | {
       error_kind: 'fmtstring';
       length: number;
