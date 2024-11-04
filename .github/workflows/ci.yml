@@ -695,7 +695,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [transfer.test.ts, reorg.test.ts, 4epochs.test.ts]
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+          - test: transfer.test.ts
+            values: 48-validators
+          - test: reorg.test.ts
+            values: 16-validators
+          - test: 4epochs.test.ts
+            values: 16-validators
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
