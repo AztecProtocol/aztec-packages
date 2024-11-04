@@ -209,3 +209,25 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         EXPECT_EQ(result, expected);
     }
 }
+
+/**
+ * @brief Test proof construction/verification for a structured execution trace
+ *
+ */
+TEST_F(MegaHonkTests, MiscellaneousBlock)
+{
+    MegaCircuitBuilder builder;
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct and verify Honk proof using a structured trace
+    TraceStructure trace_structure = TraceStructure::TINY_TEST;
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    // builder.blocks.summarize();
+    MegaProver prover(proving_key);
+    // builder.blocks.summarize();
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+    MegaVerifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(verifier.verify_proof(proof));
+}

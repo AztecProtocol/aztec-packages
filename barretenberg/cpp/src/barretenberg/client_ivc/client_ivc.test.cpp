@@ -387,3 +387,27 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
     };
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
+
+// /**
+//  * @brief Test use of miscellaneous block
+//  *
+//  */
+// TEST_F(ClientIVCTests, MiscellaneousBlock)
+// {
+//     ClientIVC ivc;
+//     ivc.trace_structure = TraceStructure::TINY_TEST;
+
+//     MockCircuitProducer circuit_producer;
+
+//     size_t NUM_CIRCUITS = 2;
+
+//     // Construct and accumulate some circuits of varying size
+//     size_t log2_num_gates = 5;
+//     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+//         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+//         ivc.accumulate(circuit);
+//         log2_num_gates += 2;
+//     }
+
+//     EXPECT_TRUE(ivc.prove_and_verify());
+// };

@@ -31,13 +31,14 @@ template <typename FF_> class MegaArith {
         T poseidon2_external;
         T poseidon2_internal;
         T lookup;
+        T miscellaneous;
 
         auto get()
         {
             return RefArray{ ecc_op,     pub_inputs,         busread,
                              arithmetic, delta_range,        elliptic,
                              aux,        poseidon2_external, poseidon2_internal,
-                             lookup };
+                             lookup,     miscellaneous };
         }
 
         auto get_gate_blocks()
@@ -50,6 +51,47 @@ template <typename FF_> class MegaArith {
     };
 
   private:
+    // A tiny structuring (for testing without recursive verifications only)
+    struct TinyTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        TinyTestStructuredBlockSizes()
+        {
+            // const uint32_t FIXED_SIZE = 1 << 14;
+            // this->ecc_op = FIXED_SIZE;
+            // this->pub_inputs = FIXED_SIZE;
+            // this->busread = FIXED_SIZE;
+            // this->arithmetic = 1 << 15;
+            // this->delta_range = FIXED_SIZE;
+            // this->elliptic = FIXED_SIZE;
+            // this->aux = FIXED_SIZE;
+            // this->poseidon2_external = FIXED_SIZE;
+            // this->poseidon2_internal = 1 << 15;
+            // this->lookup = FIXED_SIZE;
+            // this->miscellaneous = 0;
+
+            // this->ecc_op = 50;
+            // this->pub_inputs = 33;
+            // this->busread = 3;
+            // this->arithmetic = 3417; // 3418
+            // this->delta_range = 2002;
+            // this->elliptic = 2;
+            // this->aux = 26;
+            // this->poseidon2_external = 812;
+            // this->poseidon2_internal = 4619;
+            // this->lookup = 2;
+
+            this->ecc_op = 18;
+            this->pub_inputs = 1;
+            this->busread = 3;
+            this->arithmetic = 7; // 8
+            this->delta_range = 2;
+            this->elliptic = 2;
+            this->aux = 2;
+            this->poseidon2_external = 2;
+            this->poseidon2_internal = 2;
+            this->lookup = 2;
+            this->miscellaneous = 0;
+        }
+    };
     // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
     struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
@@ -65,6 +107,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = 1 << 15;
             this->lookup = FIXED_SIZE;
+            this->miscellaneous = 0;
         }
     };
 
@@ -82,6 +125,7 @@ template <typename FF_> class MegaArith {
             this->busread = 1 << 7;
             this->poseidon2_external = 2500;
             this->poseidon2_internal = 14000;
+            this->miscellaneous = 0;
         }
     };
 
@@ -99,6 +143,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 30128;
             this->poseidon2_internal = 172000;
             this->lookup = 200000;
+            this->miscellaneous = 0;
         }
     };
 
@@ -161,6 +206,8 @@ template <typename FF_> class MegaArith {
 
     struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
 
+        bool has_overflow = false;
+
         TraceBlocks()
         {
             this->aux.has_ram_rom = true;
@@ -174,6 +221,9 @@ template <typename FF_> class MegaArith {
 
             switch (setting) {
             case TraceStructure::NONE:
+                break;
+            case TraceStructure::TINY_TEST:
+                fixed_block_sizes = TinyTestStructuredBlockSizes();
                 break;
             case TraceStructure::SMALL_TEST:
                 fixed_block_sizes = SmallTestStructuredBlockSizes();
@@ -212,6 +262,7 @@ template <typename FF_> class MegaArith {
             info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
             info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
             info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
+            info("miscellaneous :\t", this->miscellaneous.size(), "/", this->miscellaneous.get_fixed_size());
             info("");
         }
 
@@ -226,15 +277,51 @@ template <typename FF_> class MegaArith {
 
         void check_within_fixed_sizes()
         {
-            for (auto block : this->get()) {
-                if (block.size() > block.get_fixed_size()) {
+            using SelectorType = SlabVector<FF>;
+            using WireType = SlabVector<uint32_t>;
+
+            for (auto& block : this->get()) {
+                size_t block_size = block.size();
+                size_t fixed_block_size = block.get_fixed_size();
+                if (block_size > block.get_fixed_size() && block != this->miscellaneous) {
+                    // Set flag indicating that at least one block exceeds capacity and the misc block is in use
+                    this->has_overflow = true;
+
+                    // move the excess wire and selector data from the offending block to the miscellaneous block
+                    for (auto [wire, misc_wire] : zip_view(block.wires, this->miscellaneous.wires)) {
+                        WireType overflow(wire.begin() + static_cast<std::ptrdiff_t>(fixed_block_size), wire.end());
+                        // misc_wire.push_back(overflow);
+                        for (const auto& val : overflow) {
+                            misc_wire.emplace_back(val);
+                        }
+                        wire.resize(fixed_block_size);
+                    }
+                    for (auto [selector, misc_selector] : zip_view(block.selectors, this->miscellaneous.selectors)) {
+                        SelectorType overflow(selector.begin() + static_cast<std::ptrdiff_t>(fixed_block_size),
+                                              selector.end());
+                        // misc_selector.push_back(std::move(overflow));
+                        for (const auto& val : overflow) {
+                            misc_selector.emplace_back(val);
+                        }
+                        selector.resize(fixed_block_size);
+                    }
+
+                    this->miscellaneous.has_ram_rom = block.has_ram_rom;
+                    this->miscellaneous.is_pub_inputs = block.is_pub_inputs;
+                    this->summarize();
+                    info(block.size());
 
                     info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
                          "not be constructed correctly!");
                     summarize();
-                    ASSERT(false);
+                    // ASSERT(false);
                 }
             }
+            // WORKTODO: for now we dont handle this
+            ASSERT(!this->miscellaneous.has_ram_rom);
+            ASSERT(!this->miscellaneous.is_pub_inputs);
+            // Set the fixed size of the miscellaneous block to its current size
+            this->miscellaneous.set_fixed_size(static_cast<uint32_t>(this->miscellaneous.size()));
         }
 
         bool operator==(const TraceBlocks& other) const = default;

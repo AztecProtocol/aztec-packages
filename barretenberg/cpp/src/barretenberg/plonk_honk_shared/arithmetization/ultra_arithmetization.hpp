@@ -95,6 +95,8 @@ template <typename FF_> class UltraArith {
 
     struct TraceBlocks : public UltraTraceBlocks<UltraTraceBlock> {
 
+        bool has_overflow = false;
+
         TraceBlocks()
         {
             this->aux.has_ram_rom = true;
@@ -110,6 +112,7 @@ template <typename FF_> class UltraArith {
             case TraceStructure::NONE:
                 break;
             // We don't use Ultra in ClientIvc so no need for anything other than sizing for simple unit tests
+            case TraceStructure::TINY_TEST:
             case TraceStructure::SMALL_TEST:
             case TraceStructure::CLIENT_IVC_BENCH:
             case TraceStructure::E2E_FULL_TEST:
