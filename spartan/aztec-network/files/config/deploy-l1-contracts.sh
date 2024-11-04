@@ -22,7 +22,7 @@ outbox_address=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F
 fee_juice_address=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
 fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 nomismatokopio_address=$(echo "$output" | grep -oP 'Nomismatokopio Address: \K0x[a-fA-F0-9]{40}')
-sysstia_address=$(echo "$output" | grep -oP 'Sysstia Address: \K0x[a-fA-F0-9]{40}')
+rewardDistributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
 gerousia_address=$(echo "$output" | grep -oP 'Gerousia Address: \K0x[a-fA-F0-9]{40}')
 apella_address=$(echo "$output" | grep -oP 'Apella Address: \K0x[a-fA-F0-9]{40}')
 
@@ -35,7 +35,7 @@ export OUTBOX_CONTRACT_ADDRESS=$outbox_address
 export FEE_JUICE_CONTRACT_ADDRESS=$fee_juice_address
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 export NOMISMATOKOPIO_CONTRACT_ADDRESS=$nomismatokopio_address
-export SYSSTIA_CONTRACT_ADDRESS=$sysstia_address
+export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$rewardDistributor_address
 export GEROUSIA_CONTRACT_ADDRESS=$gerousia_address
 export APELLA_CONTRACT_ADDRESS=$apella_address
 EOF

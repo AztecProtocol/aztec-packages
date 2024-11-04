@@ -17,7 +17,7 @@ import {Slot} from "@aztec/core/libraries/TimeMath.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {NewGerousiaPayload} from "./NewGerousiaPayload.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 /**
  * @title UpgradeGerousiaTest
  * @author Aztec Labs
@@ -60,9 +60,9 @@ contract UpgradeGerousiaTest is TestBase {
       initialValidators[i - 1] = validator;
     }
 
-    Sysstia sysstia = new Sysstia(token, registry, address(this));
+    RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), initialValidators
+      new MockFeeJuicePortal(), rewardDistributor, bytes32(0), bytes32(0), address(this), initialValidators
     );
 
     registry.upgrade(address(rollup));

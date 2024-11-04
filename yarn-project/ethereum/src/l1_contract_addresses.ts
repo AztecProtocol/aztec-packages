@@ -14,7 +14,7 @@ export const l1ContractsNames = [
   'feeJuiceAddress',
   'feeJuicePortalAddress',
   'nomismatokopioAddress',
-  'sysstiaAddress',
+  'rewardDistributorAddress',
   'gerousiaAddress',
   'apellaAddress',
 ] as const;
@@ -64,9 +64,9 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
     description: 'The deployed L1 nomismatokopio contract address',
     parseEnv,
   },
-  sysstiaAddress: {
-    env: 'SYSSTIA_CONTRACT_ADDRESS',
-    description: 'The deployed L1 sysstia contract address',
+  rewardDistributorAddress: {
+    env: 'REWARD_DISTRIBUTOR_CONTRACT_ADDRESS',
+    description: 'The deployed L1 rewardDistributor contract address',
     parseEnv,
   },
   gerousiaAddress: {

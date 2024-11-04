@@ -7,6 +7,8 @@ import {INomismatokopio} from "@aztec/governance/interfaces/INomismatokopio.sol"
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
+/**
+ */
 contract Nomismatokopio is INomismatokopio, Ownable {
   IMintableERC20 public immutable ASSET;
   uint256 public immutable RATE;

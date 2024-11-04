@@ -6,18 +6,18 @@ import {Test} from "forge-std/Test.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
-contract SysstiaBase is Test {
+contract RewardDistributorBase is Test {
   IMintableERC20 internal token;
   Registry internal registry;
-  Sysstia internal sysstia;
+  RewardDistributor internal rewardDistributor;
 
   function setUp() public {
     token = IMintableERC20(address(new TestERC20()));
     registry = new Registry(address(this));
-    sysstia = new Sysstia(token, registry, address(this));
+    rewardDistributor = new RewardDistributor(token, registry, address(this));
   }
 }

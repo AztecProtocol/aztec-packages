@@ -63,5 +63,5 @@ library Errors {
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
   error Registry__RollupNotRegistered(address rollup); // 0xa1fee4cf
 
-  error Sysstia__InvalidCaller(address caller, address canonical); // 0xb95e39f6
+  error RewardDistributor__InvalidCaller(address caller, address canonical); // 0xb95e39f6
 }

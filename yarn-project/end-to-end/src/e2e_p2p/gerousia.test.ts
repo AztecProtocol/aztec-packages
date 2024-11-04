@@ -22,7 +22,7 @@ const BOOT_NODE_UDP_PORT = 40600;
 const DATA_DIR = './data/gossip';
 
 /**
- * This tests emulate the same test as in l1-contracts/test/governance/scenario/full.t.sol
+ * This tests emulate the same test as in l1-contracts/test/governance/scenario/UpgradeGerousiaTest.t.sol
  * but it does so in an end-to-end manner with multiple "real" nodes.
  */
 describe('e2e_p2p_gerousia', () => {

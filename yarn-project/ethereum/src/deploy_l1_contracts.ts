@@ -20,8 +20,8 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
-  SysstiaAbi,
-  SysstiaBytecode,
+  RewardDistributorAbi,
+  RewardDistributorBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   TxsDecoderAbi,
@@ -136,9 +136,9 @@ export interface L1ContractArtifactsForDeployment {
    */
   nomismatokopio: ContractArtifacts;
   /**
-   * Sysstia contract artifacts.
+   * RewardDistributor contract artifacts.
    */
-  sysstia: ContractArtifacts;
+  rewardDistributor: ContractArtifacts;
   /**
    * Gerousia contract artifacts.
    */
@@ -183,9 +183,9 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractAbi: FeeJuicePortalAbi,
     contractBytecode: FeeJuicePortalBytecode,
   },
-  sysstia: {
-    contractAbi: SysstiaAbi,
-    contractBytecode: SysstiaBytecode,
+  rewardDistributor: {
+    contractAbi: RewardDistributorAbi,
+    contractBytecode: RewardDistributorBytecode,
   },
   nomismatokopio: {
     contractAbi: NomismatokopioAbi,
@@ -339,12 +339,12 @@ export const deployL1Contracts = async (
   ]);
   logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
 
-  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
+  const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
     feeJuiceAddress.toString(),
     registryAddress.toString(),
     apellaAddress.toString(),
   ]);
-  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
+  logger.info(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
   await govDeployer.waitForDeployments();
   logger.info(`All governance contracts deployed`);
@@ -360,7 +360,7 @@ export const deployL1Contracts = async (
 
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
-    sysstiaAddress.toString(),
+    rewardDistributorAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
@@ -494,7 +494,7 @@ export const deployL1Contracts = async (
     feeJuiceAddress,
     feeJuicePortalAddress,
     nomismatokopioAddress,
-    sysstiaAddress,
+    rewardDistributorAddress,
     gerousiaAddress,
     apellaAddress,
   };

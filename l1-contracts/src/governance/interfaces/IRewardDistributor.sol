@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {IRegistry} from "./IRegistry.sol";
 
-interface ISysstia {
+interface IRewardDistributor {
   event RegistryUpdated(IRegistry indexed registry);
 
   function updateRegistry(IRegistry _registry) external;

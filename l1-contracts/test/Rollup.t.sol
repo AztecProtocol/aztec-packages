@@ -22,7 +22,7 @@ import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 
@@ -47,7 +47,7 @@ contract RollupTest is DecoderBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   IProofCommitmentEscrow internal proofCommitmentEscrow;
-  Sysstia internal sysstia;
+  RewardDistributor internal rewardDistributor;
   SignatureLib.Signature[] internal signatures;
 
   EpochProofQuoteLib.EpochProofQuote internal quote;
@@ -76,11 +76,11 @@ contract RollupTest is DecoderBase {
     );
     testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
-    sysstia = new Sysstia(testERC20, registry, address(this));
-    testERC20.mint(address(sysstia), 1e6 ether);
+    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup =
-      new Rollup(feeJuicePortal, sysstia, bytes32(0), bytes32(0), address(this), new address[](0));
+      new Rollup(feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
     proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
@@ -644,7 +644,7 @@ contract RollupTest is DecoderBase {
         feeAmount
       );
 
-      uint256 expectedReward = sysstia.BLOCK_REWARD() + feeAmount;
+      uint256 expectedReward = rewardDistributor.BLOCK_REWARD() + feeAmount;
       uint256 expectedProverReward = Math.mulDiv(expectedReward, quote.basisPointFee, 10_000);
       uint256 expectedSequencerReward = expectedReward - expectedProverReward;
 
