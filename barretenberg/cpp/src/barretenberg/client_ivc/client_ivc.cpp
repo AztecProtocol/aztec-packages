@@ -252,7 +252,7 @@ bool ClientIVC::verify(const Proof& proof,
 
     ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
-    info("decider verified?: ", decision);
+    vinfo("decider verified?: ", decision);
     return goblin_verified && decision;
 }
 
@@ -276,10 +276,10 @@ bool ClientIVC::verify(const Proof& proof, const std::vector<std::shared_ptr<Dec
  */
 HonkProof ClientIVC::decider_prove() const
 {
-    info("prove decider...");
+    vinfo("prove decider...");
     MegaDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
-    info("finished decider proving.");
+    vinfo("finished decider proving.");
 }
 
 /**

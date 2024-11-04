@@ -248,7 +248,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     auto start = std::chrono::steady_clock::now();
     for (Program& program : folding_stack) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        info("constructing circuit...");
+        vinfo("constructing circuit...");
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(
             program.constraints, false, 0, program.witness, false, ivc.goblin.op_queue);
 
@@ -258,15 +258,15 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
         }
         is_kernel = !is_kernel;
 
-        info("done constructing circuit. calling ivc.accumulate...");
+        vinfo("done constructing circuit. calling ivc.accumulate...");
         ivc.accumulate(circuit);
-        info("done accumulating.");
+        vinfo("done accumulating.");
     }
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time to construct and accumulate all circuits: ", diff);
+    vinfo("time to construct and accumulate all circuits: ", diff);
 
-    info("calling ivc.prove_and_verify...");
+    vinfo("calling ivc.prove_and_verify...");
     bool result = ivc.prove_and_verify();
     info("verified?: ", result);
 

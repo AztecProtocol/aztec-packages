@@ -4468,7 +4468,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/eslint-scope@npm:^3.7.3":
+"@types/eslint-scope@npm:^3.7.3, @types/eslint-scope@npm:^3.7.7":
   version: 3.7.7
   resolution: "@types/eslint-scope@npm:3.7.7"
   dependencies:
@@ -4492,6 +4492,13 @@ __metadata:
   version: 1.0.5
   resolution: "@types/estree@npm:1.0.5"
   checksum: dd8b5bed28e6213b7acd0fb665a84e693554d850b0df423ac8076cc3ad5823a6bc26b0251d080bdc545af83179ede51dd3f6fa78cad2c46ed1f29624ddf3e41a
+  languageName: node
+  linkType: hard
+
+"@types/estree@npm:^1.0.6":
+  version: 1.0.6
+  resolution: "@types/estree@npm:1.0.6"
+  checksum: 8825d6e729e16445d9a1dd2fb1db2edc5ed400799064cd4d028150701031af012ba30d6d03fe9df40f4d7a437d0de6d2b256020152b7b09bde9f2e420afdffd9
   languageName: node
   linkType: hard
 
@@ -4968,11 +4975,11 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:^22.8.1":
-  version: 22.8.6
-  resolution: "@types/node@npm:22.8.6"
+  version: 22.8.7
+  resolution: "@types/node@npm:22.8.7"
   dependencies:
     undici-types: ~6.19.8
-  checksum: 3699b6582c433323ed0d6c2f3e9245f0848946e0b4b3b26b11a069ab2ac2c02d3300d544a17dbf4e28899c41afe89811843e41ef5945c98d28561e8abfeb40b1
+  checksum: c7b200d06da97a4d4f46528ae962c028bb06b6ef9ab7f7949639420f3b3d236f041756ca1945dcaec0fcefbafd07b8ca47bbc1b47b77d33a4173211425641426
   languageName: node
   linkType: hard
 
@@ -5142,11 +5149,11 @@ __metadata:
   linkType: hard
 
 "@types/ws@npm:^8.5.10":
-  version: 8.5.12
-  resolution: "@types/ws@npm:8.5.12"
+  version: 8.5.13
+  resolution: "@types/ws@npm:8.5.13"
   dependencies:
     "@types/node": "*"
-  checksum: ddefb6ad1671f70ce73b38a5f47f471d4d493864fca7c51f002a86e5993d031294201c5dced6d5018fb8905ad46888d65c7f20dd54fc165910b69f42fba9a6d0
+  checksum: f17023ce7b89c6124249c90211803a4aaa02886e12bc2d0d2cd47fa665eeb058db4d871ce4397d8e423f6beea97dd56835dd3fdbb921030fe4d887601e37d609
   languageName: node
   linkType: hard
 
@@ -5700,15 +5707,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"acorn-import-attributes@npm:^1.9.5":
-  version: 1.9.5
-  resolution: "acorn-import-attributes@npm:1.9.5"
-  peerDependencies:
-    acorn: ^8
-  checksum: 1c0c49b6a244503964ae46ae850baccf306e84caf99bc2010ed6103c69a423987b07b520a6c619f075d215388bd4923eccac995886a54309eda049ab78a4be95
-  languageName: node
-  linkType: hard
-
 "acorn-jsx@npm:^5.3.2":
   version: 5.3.2
   resolution: "acorn-jsx@npm:5.3.2"
@@ -5749,6 +5747,15 @@ __metadata:
   bin:
     acorn: bin/acorn
   checksum: 1860f23c2107c910c6177b7b7be71be350db9e1080d814493fae143ae37605189504152d1ba8743ba3178d0b37269ce1ffc42b101547fdc1827078f82671e407
+  languageName: node
+  linkType: hard
+
+"acorn@npm:^8.14.0":
+  version: 8.14.0
+  resolution: "acorn@npm:8.14.0"
+  bin:
+    acorn: bin/acorn
+  checksum: 8755074ba55fff94e84e81c72f1013c2d9c78e973c31231c8ae505a5f966859baf654bddd75046bffd73ce816b149298977fff5077a3033dedba0ae2aad152d4
   languageName: node
   linkType: hard
 
@@ -6719,6 +6726,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"browserslist@npm:^4.24.0":
+  version: 4.24.2
+  resolution: "browserslist@npm:4.24.2"
+  dependencies:
+    caniuse-lite: ^1.0.30001669
+    electron-to-chromium: ^1.5.41
+    node-releases: ^2.0.18
+    update-browserslist-db: ^1.1.1
+  bin:
+    browserslist: cli.js
+  checksum: cf64085f12132d38638f38937a255edb82c7551b164a98577b055dd79719187a816112f7b97b9739e400c4954cd66479c0d7a843cb816e346f4795dc24fd5d97
+  languageName: node
+  linkType: hard
+
 "bs-logger@npm:0.x":
   version: 0.2.6
   resolution: "bs-logger@npm:0.2.6"
@@ -6938,6 +6959,13 @@ __metadata:
   version: 1.0.30001617
   resolution: "caniuse-lite@npm:1.0.30001617"
   checksum: a03bfd6ed474d14378f1b93bf90e9b0031e56a813cf42b364e5a86881ecdcdfdd58bf94c56febb0e4128c5ab57cc0a760ab7f3ef7ce0c1ead1af78a8e806375e
+  languageName: node
+  linkType: hard
+
+"caniuse-lite@npm:^1.0.30001669":
+  version: 1.0.30001677
+  resolution: "caniuse-lite@npm:1.0.30001677"
+  checksum: 34099726620baf4f14fbbe88fec38517208cbe9a47009350b59c7cbbbbd45fcf355afe25d5fa277179660eb0f35f103e68806a07bb33d38bbddb7fde0a4302e4
   languageName: node
   linkType: hard
 
@@ -8764,6 +8792,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-to-chromium@npm:^1.5.41":
+  version: 1.5.51
+  resolution: "electron-to-chromium@npm:1.5.51"
+  checksum: 51ec624a59f1eda30e2a32c295c8066acdb840c686ed51d3ae0181845fce91b009e2fc3e658578426b65a0eb6a0cd61b071b3c1c974bff684781ae7790b1ed8d
+  languageName: node
+  linkType: hard
+
 "elliptic@npm:^6.5.3, elliptic@npm:^6.5.4, elliptic@npm:^6.5.5":
   version: 6.5.5
   resolution: "elliptic@npm:6.5.5"
@@ -9110,6 +9145,13 @@ __metadata:
   version: 3.1.2
   resolution: "escalade@npm:3.1.2"
   checksum: 1ec0977aa2772075493002bdbd549d595ff6e9393b1cb0d7d6fcaf78c750da0c158f180938365486f75cb69fba20294351caddfce1b46552a7b6c3cde52eaa02
+  languageName: node
+  linkType: hard
+
+"escalade@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "escalade@npm:3.2.0"
+  checksum: 47b029c83de01b0d17ad99ed766347b974b0d628e848de404018f3abee728e987da0d2d370ad4574aa3d5b5bfc368754fd085d69a30f8e75903486ec4b5b709e
   languageName: node
   linkType: hard
 
@@ -13973,6 +14015,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-releases@npm:^2.0.18":
+  version: 2.0.18
+  resolution: "node-releases@npm:2.0.18"
+  checksum: ef55a3d853e1269a6d6279b7692cd6ff3e40bc74947945101138745bfdc9a5edabfe72cb19a31a8e45752e1910c4c65c77d931866af6357f242b172b7283f5b3
+  languageName: node
+  linkType: hard
+
 "node-source-walk@npm:^4.0.0, node-source-walk@npm:^4.2.0, node-source-walk@npm:^4.2.2":
   version: 4.3.0
   resolution: "node-source-walk@npm:4.3.0"
@@ -14647,6 +14696,13 @@ __metadata:
   version: 1.0.0
   resolution: "picocolors@npm:1.0.0"
   checksum: a2e8092dd86c8396bdba9f2b5481032848525b3dc295ce9b57896f931e63fc16f79805144321f72976383fc249584672a75cc18d6777c6b757603f372f745981
+  languageName: node
+  linkType: hard
+
+"picocolors@npm:^1.1.0":
+  version: 1.1.1
+  resolution: "picocolors@npm:1.1.1"
+  checksum: e1cf46bf84886c79055fdfa9dcb3e4711ad259949e3565154b004b260cd356c5d54b31a1437ce9782624bf766272fe6b0154f5f0c744fb7af5d454d2b60db045
   languageName: node
   linkType: hard
 
@@ -16189,8 +16245,8 @@ __metadata:
   linkType: hard
 
 "solc@npm:^0.8.27":
-  version: 0.8.27
-  resolution: "solc@npm:0.8.27"
+  version: 0.8.28
+  resolution: "solc@npm:0.8.28"
   dependencies:
     command-exists: ^1.2.8
     commander: ^8.1.0
@@ -16201,7 +16257,7 @@ __metadata:
     tmp: 0.0.33
   bin:
     solcjs: solc.js
-  checksum: 33a81256445b7999672db8b03f94a7a767c28b9be88f60030fbc1b43b5ef9c3fa44591193abe8dda166df333c5fa4370bfcfb67acf01f8ca828ad7fb2f8ce54e
+  checksum: c22ec95c23505409e83fd7e2c1af47a2b2092d1886c1cf2256b9bc28958963d5bfc9944dc34d0d2e0cbc00975878068b8d87ab7407cec0f9ca5ac57951ee789a
   languageName: node
   linkType: hard
 
@@ -17295,9 +17351,9 @@ __metadata:
   linkType: hard
 
 "tslib@npm:^2.0.0, tslib@npm:^2.0.3":
-  version: 2.8.0
-  resolution: "tslib@npm:2.8.0"
-  checksum: de852ecd81adfdb4870927e250763345f07dc13fe7f395ce261424966bb122a0992ad844c3ec875c9e63e72afe2220a150712984e44dfd1a8a7e538a064e3d46
+  version: 2.8.1
+  resolution: "tslib@npm:2.8.1"
+  checksum: e4aba30e632b8c8902b47587fd13345e2827fa639e7c3121074d5ee0880723282411a8838f830b55100cbe4517672f84a2472667d355b81e8af165a55dc6203a
   languageName: node
   linkType: hard
 
@@ -17748,6 +17804,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"update-browserslist-db@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "update-browserslist-db@npm:1.1.1"
+  dependencies:
+    escalade: ^3.2.0
+    picocolors: ^1.1.0
+  peerDependencies:
+    browserslist: ">= 4.21.0"
+  bin:
+    update-browserslist-db: cli.js
+  checksum: 2ea11bd2562122162c3e438d83a1f9125238c0844b6d16d366e3276d0c0acac6036822dc7df65fc5a89c699cdf9f174acf439c39bedf3f9a2f3983976e4b4c3e
+  languageName: node
+  linkType: hard
+
 "update-check@npm:1.5.4":
   version: 1.5.4
   resolution: "update-check@npm:1.5.4"
@@ -18170,16 +18240,16 @@ __metadata:
   linkType: hard
 
 "webpack@npm:^5.90.3":
-  version: 5.95.0
-  resolution: "webpack@npm:5.95.0"
+  version: 5.96.1
+  resolution: "webpack@npm:5.96.1"
   dependencies:
-    "@types/estree": ^1.0.5
+    "@types/eslint-scope": ^3.7.7
+    "@types/estree": ^1.0.6
     "@webassemblyjs/ast": ^1.12.1
     "@webassemblyjs/wasm-edit": ^1.12.1
     "@webassemblyjs/wasm-parser": ^1.12.1
-    acorn: ^8.7.1
-    acorn-import-attributes: ^1.9.5
-    browserslist: ^4.21.10
+    acorn: ^8.14.0
+    browserslist: ^4.24.0
     chrome-trace-event: ^1.0.2
     enhanced-resolve: ^5.17.1
     es-module-lexer: ^1.2.1
@@ -18201,7 +18271,7 @@ __metadata:
       optional: true
   bin:
     webpack: bin/webpack.js
-  checksum: 0c3dfe288de4d62f8f3dc25478a618894883cab739121330763b7847e43304630ea2815ae2351a5f8ff6ab7c9642caf530d503d89bda261fe2cd220e524dd5d1
+  checksum: ec3662f64895fae408440a997f87299e374c9d9f911f77b880bab46402f52221c7836bdf101fc2556338d07fc7cb86da50661f944eb1d1041a8361a5b9247876
   languageName: node
   linkType: hard
 

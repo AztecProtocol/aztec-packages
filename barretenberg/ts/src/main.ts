@@ -128,7 +128,7 @@ async function initClientIVC(crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
   debug('loading BN254 and Grumpkin crs...');
-  const crs = await Crs.new(2 ** 21 + 1, crsPath); // WORKTODO: size?
+  const crs = await Crs.new(2 ** 21 + 1, crsPath);
   const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
@@ -526,7 +526,7 @@ export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string
 
 const program = new Command('bb');
 
-program.option('-v, --verbose', 'enable verbose logging', true);
+program.option('-v, --verbose', 'enable verbose logging', false);
 program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
