@@ -79,6 +79,7 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 const logger = createDebugLogger('aztec:integration_l1_publisher');
 
 const config = getConfigEnvVars();
+config.l1RpcUrl = config.l1RpcUrl || 'http://localhost:8545';
 
 const numberOfConsecutiveBlocks = 2;
 

@@ -191,6 +191,7 @@ export class AccountWallet extends BaseWallet {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
   }
 
@@ -203,6 +204,7 @@ export class AccountWallet extends BaseWallet {
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 
@@ -226,6 +228,7 @@ export class AccountWallet extends BaseWallet {
         { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 }

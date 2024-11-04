@@ -1,13 +1,16 @@
 import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
-import type { BrilligFunctionId, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
+import { type Fr } from '@aztec/circuits.js';
+import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
   type ExecutionError,
   type ForeignCallInput,
   type ForeignCallOutput,
+  type RawAssertionPayload,
   executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
+import { abiDecodeError } from '@noir-lang/noirc_abi';
 
 import { traverseCauseChain } from '../common/errors.js';
 import { type ACVMWitness } from './acvm_types.js';
@@ -103,26 +106,41 @@ export function resolveOpcodeLocations(
   );
 }
 
-/**
- * Extracts the source code locations for an array of opcode locations
- * @param opcodeLocations - The opcode locations that caused the error.
- * @param debug - The debug metadata of the function.
- * @returns The source code locations.
- */
-export function resolveAssertionMessage(
-  opcodeLocations: OpcodeLocation[],
-  debug: FunctionDebugMetadata,
-): string | undefined {
-  if (opcodeLocations.length === 0) {
+export function resolveAssertionMessage(errorPayload: RawAssertionPayload, abi: FunctionAbi): string | undefined {
+  const decoded = abiDecodeError(
+    { parameters: [], error_types: abi.errorTypes, return_type: null }, // eslint-disable-line camelcase
+    errorPayload,
+  );
+
+  if (typeof decoded === 'string') {
+    return decoded;
+  } else {
+    return JSON.stringify(decoded);
+  }
+}
+
+export function resolveAssertionMessageFromRevertData(revertData: Fr[], abi: FunctionAbi): string | undefined {
+  if (revertData.length == 0) {
     return undefined;
   }
 
-  const lastLocation = extractBrilligLocation(opcodeLocations[opcodeLocations.length - 1]);
-  if (!lastLocation) {
-    return undefined;
-  }
+  const [errorSelector, ...errorData] = revertData;
 
-  return debug.assertMessages?.[parseInt(lastLocation, 10)];
+  return resolveAssertionMessage(
+    {
+      selector: errorSelector.toBigInt().toString(),
+      data: errorData.map(f => f.toString()),
+    },
+    abi,
+  );
+}
+
+export function resolveAssertionMessageFromError(err: Error, abi: FunctionAbi): string {
+  if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err && err.rawAssertionPayload) {
+    return `Assertion failed: ${resolveAssertionMessage(err.rawAssertionPayload as RawAssertionPayload, abi)}`;
+  } else {
+    return err.message;
+  }
 }
 
 /**

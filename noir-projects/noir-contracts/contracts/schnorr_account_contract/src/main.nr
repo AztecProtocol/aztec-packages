@@ -44,6 +44,7 @@ contract SchnorrAccount {
             &mut context,
             this_ovpk_m,
             this,
+            this,
         ));
     }
 

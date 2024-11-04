@@ -77,7 +77,7 @@ This function takes the application context, and converts it into the `PrivateCi
 
 ## Unconstrained functions
 
-Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as un-trusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
+Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as untrusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
 
 Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../concepts/pxe/index.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/index.md).
 

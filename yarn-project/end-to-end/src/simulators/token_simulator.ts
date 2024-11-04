@@ -65,7 +65,7 @@ export class TokenSimulator {
     this.balancesPrivate.set(to.toString(), toBalance + amount);
   }
 
-  public unshield(from: AztecAddress, to: AztecAddress, amount: bigint) {
+  public transferToPublic(from: AztecAddress, to: AztecAddress, amount: bigint) {
     const fromBalance = this.balancesPrivate.get(from.toString()) || 0n;
     const toBalance = this.balancePublic.get(to.toString()) || 0n;
     expect(fromBalance).toBeGreaterThanOrEqual(amount);

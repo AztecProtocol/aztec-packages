@@ -5,6 +5,7 @@ import {
   EncryptedL2Log,
   EncryptedL2NoteLog,
   EncryptedNoteL2BlockL2Logs,
+  EventMetadata,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
   L2Block,
@@ -36,7 +37,7 @@ import {
   PrivateCircuitPublicInputs,
   PublicKeys,
 } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
+import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
@@ -55,6 +56,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       CompleteAddress,
       FunctionSelector,
       EthAddress,
+      EventSelector,
       ExtendedNote,
       UniqueNote,
       ExtendedUnencryptedL2Log,
@@ -75,6 +77,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       EncryptedNoteL2BlockL2Logs,
       EncryptedL2NoteLog,
       EncryptedL2Log,
+      EventMetadata,
       UnencryptedL2Log,
       NoteSelector,
       NullifierMembershipWitness,

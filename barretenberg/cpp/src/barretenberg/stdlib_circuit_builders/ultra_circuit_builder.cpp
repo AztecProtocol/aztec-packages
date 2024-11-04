@@ -1669,7 +1669,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_nat
  **/
 template <typename Arithmetization>
 std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder)
+    const non_native_field_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{
@@ -1697,8 +1697,6 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         this->get_variable(input.r[3]),
     };
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    constexpr FF LIMB_SHIFT_2 = uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
-    constexpr FF LIMB_SHIFT_3 = uint256_t(1) << (3 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT = FF(1) / FF(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT_2 = FF(1) / FF(uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
 
@@ -1721,35 +1719,6 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     const uint32_t hi_1_idx = this->add_variable(hi_1);
     const uint32_t hi_2_idx = this->add_variable(hi_2);
     const uint32_t hi_3_idx = this->add_variable(hi_3);
-
-    // Sometimes we have already applied range constraints on the quotient and remainder
-    if (range_constrain_quotient_and_remainder) {
-        // /**
-        //  * r_prime - r_0 - r_1 * 2^b - r_2 * 2^2b - r_3 * 2^3b = 0
-        //  *
-        //  * w_4_omega - w_4 + w_1(2^b) + w_2(2^2b) + w_3(2^3b)  = 0
-        //  *
-        //  **/
-        create_big_add_gate(
-            { input.r[1], input.r[2], input.r[3], input.r[4], LIMB_SHIFT, LIMB_SHIFT_2, LIMB_SHIFT_3, -1, 0 }, true);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
-        create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, input.r[0]);
-        range_constrain_two_limbs(input.r[0], input.r[1]);
-        range_constrain_two_limbs(input.r[2], input.r[3]);
-
-        // /**
-        //  * q_prime - q_0 - q_1 * 2^b - q_2 * 2^2b - q_3 * 2^3b = 0
-        //  *
-        //  * w_4_omega - w_4 + w_1(2^b) + w_2(2^2b) + w_3(2^3b)  = 0
-        //  *
-        //  **/
-        create_big_add_gate(
-            { input.q[1], input.q[2], input.q[3], input.q[4], LIMB_SHIFT, LIMB_SHIFT_2, LIMB_SHIFT_3, -1, 0 }, true);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
-        create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, input.q[0]);
-        range_constrain_two_limbs(input.q[0], input.q[1]);
-        range_constrain_two_limbs(input.q[2], input.q[3]);
-    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
     // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an aux gate that
@@ -1834,12 +1803,12 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
 {
     for (size_t i = 0; i < cached_partial_non_native_field_multiplications.size(); ++i) {
         auto& c = cached_partial_non_native_field_multiplications[i];
-        for (size_t j = 0; j < 5; ++j) {
+        for (size_t j = 0; j < c.a.size(); ++j) {
             c.a[j] = this->real_variable_index[c.a[j]];
             c.b[j] = this->real_variable_index[c.b[j]];
         }
     }
-    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications);
+    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications, this);
 
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {

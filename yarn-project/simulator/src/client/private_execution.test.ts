@@ -19,6 +19,7 @@ import {
   GeneratorIndex,
   type GrumpkinScalar,
   Header,
+  IndexedTaggingSecret,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -26,6 +27,7 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
+  TaggingSecret,
   TxContext,
   computeAppNullifierSecretKey,
   computeOvskApp,
@@ -256,6 +258,13 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
+
+    oracle.getAppTaggingSecret.mockImplementation(
+      (_contractAddress: AztecAddress, _sender: AztecAddress, recipient: AztecAddress) => {
+        const directionalSecret = new TaggingSecret(Fr.random(), recipient);
+        return Promise.resolve(IndexedTaggingSecret.fromTaggingSecret(directionalSecret, 0));
+      },
+    );
 
     node = mock<AztecNode>();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -596,6 +605,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
       let bridgedAmount = 100n;
 
+      const l1ToL2MessageIndex = 0;
       const secretHashForRedeemingNotes = new Fr(2n);
       let secretForL1ToL2MessageConsumption = new Fr(1n);
 
@@ -620,6 +630,7 @@ describe('Private Execution test suite', () => {
           [secretHashForRedeemingNotes, new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
+          l1ToL2MessageIndex,
         );
 
       const computeArgs = () =>
@@ -628,6 +639,7 @@ describe('Private Execution test suite', () => {
           bridgedAmount,
           secretForL1ToL2MessageConsumption,
           crossChainMsgSender ?? preimage.sender.sender,
+          l1ToL2MessageIndex,
         ]);
 
       const mockOracles = async (updateHeader = true) => {
