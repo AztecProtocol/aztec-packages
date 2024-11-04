@@ -221,25 +221,6 @@ contract Token {
         // docs:end:insert_from_public
     }
     // docs:end:mint_private
-    // TODO: Nuke this - test functions do not belong to token contract!
-    #[private]
-    fn privately_mint_private_note(amount: Field) {
-        let caller = context.msg_sender();
-        let caller_ovpk_m = get_public_keys(caller).ovpk_m;
-        storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, caller_ovpk_m, caller, caller),
-        );
-        Token::at(context.this_address())
-            .assert_minter_and_mint(context.msg_sender(), amount)
-            .enqueue(&mut context);
-    }
-    #[public]
-    #[internal]
-    fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
-        assert(storage.minters.at(minter).read(), "caller is not minter");
-        let supply = storage.total_supply.read() + U128::from_integer(amount);
-        storage.total_supply.write(supply);
-    }
     // docs:start:shield
     #[public]
     fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {

@@ -196,7 +196,7 @@ describe('e2e_fees private_payment', () => {
      */
     const newlyMintedBananas = 10n;
     const tx = await bananaCoin.methods
-      .privately_mint_private_note(newlyMintedBananas)
+      .mint_to_private(aliceAddress, newlyMintedBananas)
       .send({
         fee: {
           gasSettings,
@@ -373,7 +373,7 @@ describe('e2e_fees private_payment', () => {
 
     await expect(
       bananaCoin.methods
-        .privately_mint_private_note(10)
+        .mint_to_private(aliceAddress, 10)
         .send({
           // we need to skip public simulation otherwise the PXE refuses to accept the TX
           skipPublicSimulation: true,

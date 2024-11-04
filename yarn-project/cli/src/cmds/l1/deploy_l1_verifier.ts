@@ -5,9 +5,10 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { InvalidOptionArgumentError } from 'commander';
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 import solc from 'solc';
-import { getContract } from 'viem';
+import { type Hex, getContract } from 'viem';
 
 export async function deployUltraHonkVerifier(
+  rollupAddress: Hex | undefined,
   ethRpcUrl: string,
   l1ChainId: string,
   privateKey: string | undefined,
@@ -32,14 +33,21 @@ export async function deployUltraHonkVerifier(
     createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
   );
 
-  const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
-  const { l1ContractAddresses } = await pxe.getNodeInfo();
+  if (!rollupAddress && pxeRpcUrl) {
+    const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
+    const { l1ContractAddresses } = await pxe.getNodeInfo();
+    rollupAddress = l1ContractAddresses.rollupAddress.toString();
+  }
+
+  if (!rollupAddress) {
+    throw new InvalidOptionArgumentError('Missing rollup address');
+  }
 
   const { RollupAbi } = await import('@aztec/l1-artifacts');
 
   const rollup = getContract({
     abi: RollupAbi,
-    address: l1ContractAddresses.rollupAddress.toString(),
+    address: rollupAddress,
     client: walletClient,
   });
 
@@ -64,6 +72,7 @@ export async function deployUltraHonkVerifier(
 }
 
 export async function deployMockVerifier(
+  rollupAddress: Hex | undefined,
   ethRpcUrl: string,
   l1ChainId: string,
   privateKey: string | undefined,
@@ -87,12 +96,19 @@ export async function deployMockVerifier(
   );
   log(`Deployed MockVerifier at ${mockVerifierAddress.toString()}`);
 
-  const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
-  const { l1ContractAddresses } = await pxe.getNodeInfo();
+  if (!rollupAddress && pxeRpcUrl) {
+    const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
+    const { l1ContractAddresses } = await pxe.getNodeInfo();
+    rollupAddress = l1ContractAddresses.rollupAddress.toString();
+  }
+
+  if (!rollupAddress) {
+    throw new InvalidOptionArgumentError('Missing rollup address');
+  }
 
   const rollup = getContract({
     abi: RollupAbi,
-    address: l1ContractAddresses.rollupAddress.toString(),
+    address: rollupAddress,
     client: walletClient,
   });
 

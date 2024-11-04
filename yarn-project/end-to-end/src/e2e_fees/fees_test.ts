@@ -116,7 +116,7 @@ export class FeesTest {
   /** Alice mints Token  */
   async mintToken(amount: bigint) {
     const balanceBefore = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
-    await this.token.methods.privately_mint_private_note(amount).send().wait();
+    await this.token.methods.mint_to_private(this.aliceAddress, amount).send().wait();
     const balanceAfter = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }

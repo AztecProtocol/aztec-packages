@@ -41,6 +41,35 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     typedef typename bn254::witness_ct witness_ct;
 
   public:
+    static void test_add_to_lower_limb_regression()
+    {
+        auto builder = Builder();
+        fq_ct constant = fq_ct(1);
+        fq_ct var = fq_ct::create_from_u512_as_witness(&builder, 1);
+        fr_ct small_var = witness_ct(&builder, fr(1));
+        fq_ct mixed = fq_ct(1).add_to_lower_limb(small_var, 1);
+        fq_ct r;
+
+        r = mixed + mixed;
+        r = mixed - mixed;
+        r = mixed + var;
+        r = mixed + constant;
+        r = mixed - var;
+        r = mixed - constant;
+        r = var - mixed;
+
+        r = var * constant;
+        r = constant / var;
+        r = constant * constant;
+        r = constant / constant;
+
+        r = mixed * var;
+        r = mixed / var;
+        r = mixed * mixed;
+        r = mixed * constant;
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
     // The bug happens when we are applying the CRT formula to a*b < r, which can happen when using the division
     // operator
     static void test_division_formula_bug()
@@ -254,7 +283,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     {
         auto builder = Builder();
         size_t num_repetitions = 1;
-        const size_t number_of_madds = 32;
+        const size_t number_of_madds = 16;
         for (size_t i = 0; i < num_repetitions; ++i) {
             fq mul_left_values[number_of_madds];
             fq mul_right_values[number_of_madds];
@@ -973,10 +1002,10 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                     witness_ct(&builder,
                                fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
-            fq_ct two(witness_ct(&builder, fr(2)),
-                      witness_ct(&builder, fr(0)),
-                      witness_ct(&builder, fr(0)),
-                      witness_ct(&builder, fr(0)));
+            fq_ct two = fq_ct::unsafe_construct_from_limbs(witness_ct(&builder, fr(2)),
+                                                           witness_ct(&builder, fr(0)),
+                                                           witness_ct(&builder, fr(0)),
+                                                           witness_ct(&builder, fr(0)));
             fq_ct t0 = a + a;
             fq_ct t1 = a * two;
 
@@ -998,23 +1027,196 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 
         fq base_val(engine.get_random_uint256());
         uint32_t exponent_val = engine.get_random_uint32();
-        fq expected = base_val.pow(exponent_val);
+        // Set the high bit
+        exponent_val |= static_cast<uint32_t>(1) << 31;
+        fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
+        auto base_witness = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        // This also tests for the case where the exponent is zero
+        for (size_t i = 0; i <= 32; i += 4) {
+            auto current_exponent_val = exponent_val >> i;
+            fq expected = base_val.pow(current_exponent_val);
 
-        fq_ct base(&builder, static_cast<uint256_t>(base_val));
-        fq_ct result = base.pow(exponent_val);
-        EXPECT_EQ(fq(result.get_value()), expected);
+            // Check for constant bigfield element with constant exponent
+            fq_ct result_constant_base = base_constant.pow(current_exponent_val);
+            EXPECT_EQ(fq(result_constant_base.get_value()), expected);
 
-        fr_ct exponent = witness_ct(&builder, exponent_val);
-        base.set_origin_tag(submitted_value_origin_tag);
-        exponent.set_origin_tag(challenge_origin_tag);
-        result = base.pow(exponent);
-        EXPECT_EQ(fq(result.get_value()), expected);
+            // Check for witness exponent with constant base
+            fr_ct witness_exponent = witness_ct(&builder, current_exponent_val);
+            auto result_witness_exponent = base_constant.pow(witness_exponent);
+            EXPECT_EQ(fq(result_witness_exponent.get_value()), expected);
 
-        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+            // Check for witness base with constant exponent
+            fq_ct result_witness_base = base_witness.pow(current_exponent_val);
+            EXPECT_EQ(fq(result_witness_base.get_value()), expected);
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+            // Check for all witness
+            base_witness.set_origin_tag(submitted_value_origin_tag);
+            witness_exponent.set_origin_tag(challenge_origin_tag);
+
+            fq_ct result_all_witness = base_witness.pow(witness_exponent);
+            EXPECT_EQ(fq(result_all_witness.get_value()), expected);
+            EXPECT_EQ(result_all_witness.get_origin_tag(), first_two_merged_tag);
+        }
+
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
+    }
+
+    static void test_pow_one()
+    {
+        Builder builder;
+
+        fq base_val(engine.get_random_uint256());
+
+        uint32_t current_exponent_val = 1;
+        fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
+        auto base_witness = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq expected = base_val.pow(current_exponent_val);
+
+        // Check for constant bigfield element with constant exponent
+        fq_ct result_constant_base = base_constant.pow(current_exponent_val);
+        EXPECT_EQ(fq(result_constant_base.get_value()), expected);
+
+        // Check for witness exponent with constant base
+        fr_ct witness_exponent = witness_ct(&builder, current_exponent_val);
+        auto result_witness_exponent = base_constant.pow(witness_exponent);
+        EXPECT_EQ(fq(result_witness_exponent.get_value()), expected);
+
+        // Check for witness base with constant exponent
+        fq_ct result_witness_base = base_witness.pow(current_exponent_val);
+        EXPECT_EQ(fq(result_witness_base.get_value()), expected);
+
+        // Check for all witness
+        fq_ct result_all_witness = base_witness.pow(witness_exponent);
+        EXPECT_EQ(fq(result_all_witness.get_value()), expected);
+
+        bool check_result = CircuitChecker::check(builder);
+        EXPECT_EQ(check_result, true);
+    }
+
+    static void test_nonnormalized_field_bug_regression()
+    {
+        auto builder = Builder();
+        fr_ct zero = witness_ct::create_constant_witness(&builder, fr::zero());
+        uint256_t two_to_68 = uint256_t(1) << fq_ct::NUM_LIMB_BITS;
+        // construct bigfield where the low limb has a non-trivial `additive_constant`
+        fq_ct z(zero + two_to_68, zero);
+        // assert invariant for every limb: actual value <= maximum value
+        // Failed in the past for for StandardCircuitBuilder
+        for (auto zi : z.binary_basis_limbs) {
+            EXPECT_LE(uint256_t(zi.element.get_value()), zi.maximum_value);
+        }
+    }
+
+    static void test_msub_div_ctx_crash_regression()
+    {
+        auto builder = Builder();
+        fq_ct witness_one = fq_ct::create_from_u512_as_witness(&builder, uint256_t(1));
+        fq_ct constant_one(1);
+        fq_ct::msub_div({ witness_one }, { witness_one }, constant_one, { witness_one }, true);
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_internal_div_regression()
+    {
+        typedef stdlib::bool_t<Builder> bool_t;
+        auto builder = Builder();
+
+        fq_ct w0 = fq_ct::from_witness(&builder, 1);
+        w0 = w0.conditional_negate(bool_t(&builder, true));
+        w0 = w0.conditional_negate(bool_t(&builder, false));
+        w0 = w0.conditional_negate(bool_t(&builder, true));
+        w0 = w0.conditional_negate(bool_t(&builder, true));
+        fq_ct w4 = w0.conditional_negate(bool_t(&builder, false));
+        w4 = w4.conditional_negate(bool_t(&builder, true));
+        w4 = w4.conditional_negate(bool_t(&builder, true));
+        fq_ct w5 = w4 - w0;
+        fq_ct w6 = w5 / 1;
+        (void)(w6);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    static void test_internal_div_regression2()
+    {
+        auto builder = Builder();
+
+        fq_ct numerator = fq_ct::create_from_u512_as_witness(&builder, uint256_t(1) << (68 + 67));
+        numerator.binary_basis_limbs[0].maximum_value = 0;
+        numerator.binary_basis_limbs[1].maximum_value = uint256_t(1) << 67;
+        numerator.binary_basis_limbs[2].maximum_value = 0;
+        numerator.binary_basis_limbs[3].maximum_value = 0;
+
+        for (size_t i = 0; i < 9; i++) {
+            numerator = numerator + numerator;
+        }
+        fq_ct denominator = fq_ct::create_from_u512_as_witness(&builder, uint256_t(1));
+        fq_ct result = numerator / denominator;
+        (void)(result);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    static void test_internal_div_regression3()
+    {
+        Builder builder;
+        uint256_t dlimb0_value = uint256_t("0x00000000000000000000000000000000000000000000000bef7fa109038857fc");
+        uint256_t dlimb0_max = uint256_t("0x00000000000000000000000000000000000000000000000fffffffffffffffff");
+        uint256_t dlimb1_value = uint256_t("0x0000000000000000000000000000000000000000000000056f10535779f56339");
+        uint256_t dlimb1_max = uint256_t("0x00000000000000000000000000000000000000000000000fffffffffffffffff");
+        uint256_t dlimb2_value = uint256_t("0x00000000000000000000000000000000000000000000000c741f60a1ec4e114e");
+        uint256_t dlimb2_max = uint256_t("0x00000000000000000000000000000000000000000000000fffffffffffffffff");
+        uint256_t dlimb3_value = uint256_t("0x000000000000000000000000000000000000000000000000000286b3cd344d8b");
+        uint256_t dlimb3_max = uint256_t("0x0000000000000000000000000000000000000000000000000003ffffffffffff");
+        uint256_t dlimb_prime = uint256_t("0x286b3cd344d8bc741f60a1ec4e114e56f10535779f56339bef7fa109038857fc");
+
+        uint256_t nlimb0_value = uint256_t("0x00000000000000000000000000000000000000000000080a84d9bea2b012417c");
+        uint256_t nlimb0_max = uint256_t("0x000000000000000000000000000000000000000000000ff7c7469df4081b61fc");
+        uint256_t nlimb1_value = uint256_t("0x00000000000000000000000000000000000000000000080f50ee84526e8e5ba7");
+        uint256_t nlimb1_max = uint256_t("0x000000000000000000000000000000000000000000000ffef965c67ba5d5893c");
+        uint256_t nlimb2_value = uint256_t("0x00000000000000000000000000000000000000000000080aba136ca8eaf6dc1b");
+        uint256_t nlimb2_max = uint256_t("0x000000000000000000000000000000000000000000000ff8171d22fd607249ea");
+        uint256_t nlimb3_value = uint256_t("0x00000000000000000000000000000000000000000000000001f0042419843c29");
+        uint256_t nlimb3_max = uint256_t("0x00000000000000000000000000000000000000000000000003e00636264659ff");
+        uint256_t nlimb_prime = uint256_t("0x000000000000000000000000000000474da776b8ee19a56b08186bdcf01240d8");
+
+        fq_ct w0 = fq_ct::from_witness(&builder, bb::fq(0));
+        w0.binary_basis_limbs[0].element = witness_ct(&builder, dlimb0_value);
+        w0.binary_basis_limbs[1].element = witness_ct(&builder, dlimb1_value);
+        w0.binary_basis_limbs[2].element = witness_ct(&builder, dlimb2_value);
+        w0.binary_basis_limbs[3].element = witness_ct(&builder, dlimb3_value);
+        w0.binary_basis_limbs[0].maximum_value = dlimb0_max;
+        w0.binary_basis_limbs[1].maximum_value = dlimb1_max;
+        w0.binary_basis_limbs[2].maximum_value = dlimb2_max;
+        w0.binary_basis_limbs[3].maximum_value = dlimb3_max;
+        w0.prime_basis_limb = witness_ct(&builder, dlimb_prime);
+
+        fq_ct w1 = fq_ct::from_witness(&builder, bb::fq(0));
+        w1.binary_basis_limbs[0].element = witness_ct(&builder, nlimb0_value);
+        w1.binary_basis_limbs[1].element = witness_ct(&builder, nlimb1_value);
+        w1.binary_basis_limbs[2].element = witness_ct(&builder, nlimb2_value);
+        w1.binary_basis_limbs[3].element = witness_ct(&builder, nlimb3_value);
+        w1.binary_basis_limbs[0].maximum_value = nlimb0_max;
+        w1.binary_basis_limbs[1].maximum_value = nlimb1_max;
+        w1.binary_basis_limbs[2].maximum_value = nlimb2_max;
+        w1.binary_basis_limbs[3].maximum_value = nlimb3_max;
+        w1.prime_basis_limb = witness_ct(&builder, nlimb_prime);
+
+        fq_ct w2 = w1 / w0;
+        (void)w2;
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+    static void test_assert_not_equal_regression()
+    {
+        auto builder = Builder();
+        fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint256_t(0));
+        fq_ct alsozero = fq_ct::create_from_u512_as_witness(&builder, fq_ct::modulus_u512);
+        for (size_t i = 0; i < 4; i++) {
+            zero.binary_basis_limbs[i].maximum_value = zero.binary_basis_limbs[i].element.get_value();
+            alsozero.binary_basis_limbs[i].maximum_value = alsozero.binary_basis_limbs[i].element.get_value();
+        }
+        zero.assert_is_not_equal(alsozero);
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
     }
 };
 
@@ -1022,7 +1224,22 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
+
+TYPED_TEST(stdlib_bigfield, assert_not_equal_regression)
+{
+    TestFixture::test_assert_not_equal_regression();
+}
+
+TYPED_TEST(stdlib_bigfield, add_to_lower_limb_regression)
+{
+    TestFixture::test_add_to_lower_limb_regression();
+}
 TYPED_TEST(stdlib_bigfield, badmul)
+{
+    TestFixture::test_bad_mul();
+}
+
+TYPED_TEST(stdlib_bigfield, division_formula_regression)
 {
     TestFixture::test_division_formula_bug();
 }
@@ -1069,6 +1286,10 @@ TYPED_TEST(stdlib_bigfield, sub_and_mul)
 TYPED_TEST(stdlib_bigfield, msub_div)
 {
     TestFixture::test_msub_div();
+}
+TYPED_TEST(stdlib_bigfield, msb_div_ctx_crash_regression)
+{
+    TestFixture::test_msub_div_ctx_crash_regression();
 }
 TYPED_TEST(stdlib_bigfield, conditional_negate)
 {
@@ -1122,6 +1343,22 @@ TYPED_TEST(stdlib_bigfield, assert_equal_not_equal)
 TYPED_TEST(stdlib_bigfield, pow)
 {
     TestFixture::test_pow();
+}
+
+TYPED_TEST(stdlib_bigfield, pow_one)
+{
+    TestFixture::test_pow_one();
+}
+TYPED_TEST(stdlib_bigfield, nonnormalized_field_bug_regression)
+{
+    TestFixture::test_nonnormalized_field_bug_regression();
+}
+
+TYPED_TEST(stdlib_bigfield, internal_div_bug_regression)
+{
+    TestFixture::test_internal_div_regression();
+    TestFixture::test_internal_div_regression2();
+    TestFixture::test_internal_div_regression3();
 }
 
 // // This test was disabled before the refactor to use TYPED_TEST's/

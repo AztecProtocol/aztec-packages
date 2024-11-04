@@ -1,7 +1,7 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { type Fr } from '../fields/index.js';
 import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
-import { isAztecAddressStruct } from './utils.js';
+import { isAztecAddressStruct, parseSignedInt } from './utils.js';
 
 /**
  * The type of our decoded ABI.
@@ -10,7 +10,6 @@ export type AbiDecoded = bigint | boolean | AztecAddress | AbiDecoded[] | { [key
 
 /**
  * Decodes values using a provided ABI.
- * Missing support for signed integer.
  */
 class AbiDecoder {
   constructor(private types: AbiType[], private flattened: Fr[]) {}
@@ -24,11 +23,16 @@ class AbiDecoder {
     switch (abiType.kind) {
       case 'field':
         return this.getNextField().toBigInt();
-      case 'integer':
+      case 'integer': {
+        const nextField = this.getNextField();
+
         if (abiType.sign === 'signed') {
-          throw new Error('Unsupported type: signed integer');
+          // We parse the buffer using 2's complement
+          return parseSignedInt(nextField.toBuffer(), abiType.width);
         }
-        return this.getNextField().toBigInt();
+
+        return nextField.toBigInt();
+      }
       case 'boolean':
         return !this.getNextField().isZero();
       case 'array': {
