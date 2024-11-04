@@ -204,7 +204,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
             round++;
-            std::string idx = std::to_string(log_n - i - 1);
+            std::string idx = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             manifest_expected.add_entry(round, "IPA:L_" + idx, frs_per_G);
             manifest_expected.add_entry(round, "IPA:R_" + idx, frs_per_G);
             std::string label = "IPA:round_challenge_" + idx;

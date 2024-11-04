@@ -235,7 +235,7 @@ template <typename Curve_> class IPA {
 
             // Step 6.c
             // Send commitments to the verifier
-            std::string index = std::to_string(log_poly_length - i - 1);
+            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
@@ -269,6 +269,14 @@ template <typename Curve_> class IPA {
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+        }
+
+        // For dummy rounds, send commitments of zero()
+        for (size_t i = log_poly_length; i < CONST_ECCVM_LOG_N; i++) {
+            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
+            transcript->send_to_verifier("IPA:L_" + index, Commitment::one());
+            transcript->send_to_verifier("IPA:R_" + index, Commitment::one());
+            transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
         }
 
         // Step 7
@@ -336,21 +344,24 @@ template <typename Curve_> class IPA {
 
         // Step 4.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < log_poly_length; i++) {
-            std::string index = std::to_string(log_poly_length - i - 1);
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            if (round_challenges[i].is_zero()) {
-                throw_or_abort("Round challenges can't be zero");
-            }
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
-            round_challenges_inv[i] = round_challenges[i].invert();
+            auto round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (i < log_poly_length) {
+                round_challenges[i] = round_challenge;
+                if (round_challenges[i].is_zero()) {
+                    throw_or_abort("Round challenges can't be zero");
+                }
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
+                round_challenges_inv[i] = round_challenges[i].invert();
 
-            msm_elements[2 * i] = element_L;
-            msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = round_challenges_inv[i];
-            msm_scalars[2 * i + 1] = round_challenges[i];
+                msm_elements[2 * i] = element_L;
+                msm_elements[2 * i + 1] = element_R;
+                msm_scalars[2 * i] = round_challenges_inv[i];
+                msm_scalars[2 * i + 1] = round_challenges[i];
+            }
         }
 
         // Step 5.
@@ -440,20 +451,22 @@ template <typename Curve_> class IPA {
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
-        auto builder = generator_challenge.get_context();
+        typename Curve::Builder* builder = generator_challenge.get_context();
 
         const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        auto pippenger_size = 2 * log_poly_length;
-        std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Fr> round_challenges_inv(log_poly_length);
+        auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
+        std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
+        std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
 
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < log_poly_length; i++) {
-            std::string index = std::to_string(log_poly_length - i - 1);
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
+
+            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -461,8 +474,8 @@ template <typename Curve_> class IPA {
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = round_challenges_inv[i];
-            msm_scalars[2 * i + 1] = round_challenges[i];
+            msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
+            msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
         }
 
         //  Step 4.
@@ -472,9 +485,12 @@ template <typename Curve_> class IPA {
 
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
-        for (size_t i = 0; i < log_poly_length; i++) {
-            b_zero *= Fr(1) + (round_challenges_inv[log_poly_length - 1 - i] * challenge);
-            if (i != log_poly_length - 1)
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
+
+            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
+            b_zero *= Fr(1) + monomial;
+            if (i != CONST_ECCVM_LOG_N - 1) // this if is fine because the number of iterations is constant
             {
                 challenge = challenge * challenge;
             }
