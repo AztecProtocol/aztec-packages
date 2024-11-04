@@ -79,16 +79,11 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                claimed_evaluations.get_shifted(),
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
-                                               transcript);
-    Shplemini::add_zk_data(
-        sumcheck_batch_opening_claims, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
-    // for (auto scalar : sumcheck_batch_opening_claims.scalars) {
-    //     info("native batching scalar", scalar);
-    // }
-
-    info("native point after zk data ",
-         batch_mul_native(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars));
-    info("scalars native size", sumcheck_batch_opening_claims.scalars.size());
+                                               transcript,
+                                               {},
+                                               {},
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

@@ -251,24 +251,23 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
 
     std::vector<bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH>> libra_univariates;
     std::vector<Commitment> libra_commitments;
-    std::vector<Polynomial> libra_univariate_monomial;
     std::vector<Fr> libra_evaluations;
     for (size_t idx = 0; idx < log_n; idx++) {
-        // generate random univariate
-        auto libra_polynomial = bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH>::get_random();
-        // populate the vector of libra evaluations
-        libra_evaluations.push_back(libra_polynomial.evaluate(mle_opening_point[idx]));
+        // generate random polynomial
+        Polynomial libra_polynomial = Polynomial::random(LIBRA_UNIVARIATE_LENGTH);
+        // create a univariate with the same coefficients (to store an array intead of a vector)
+        bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH> libra_univariate;
+        for (size_t i = 0; i < LIBRA_UNIVARIATE_LENGTH; i++) {
+            libra_univariate.value_at(i) = libra_polynomial[i];
+        }
+        libra_univariates.push_back(libra_univariate);
 
-        // libra_univariates.push_back(libra_polynomial);
-        // interpolate polynomial from evals
-        Polynomial libra_monomial =
-            Polynomial(std::span(interpolation_domain), std::span(libra_polynomial), LIBRA_UNIVARIATE_LENGTH);
-
-        ASSERT_EQ(libra_polynomial.evaluate(mle_opening_point[idx]), libra_monomial.evaluate(mle_opening_point[idx]));
-        libra_univariate_monomial.push_back(libra_monomial);
-        // commit and populate the vector of libra commitments
-        Commitment libra_commitment = this->commit(libra_monomial);
+        // commit to libra polynomial and populate the vector of libra commitments
+        Commitment libra_commitment = this->commit(libra_polynomial);
         libra_commitments.push_back(libra_commitment);
+
+        // evaluate current libra univariate at the corresponding challenge and store the value in libra evaluations
+        libra_evaluations.push_back(libra_polynomial.evaluate(mle_opening_point[idx]));
     }
 
     Commitment commitment1 = this->commit(poly1);
@@ -298,7 +297,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
                                                 prover_transcript,
                                                 {},
                                                 {},
-                                                RefVector(libra_univariate_monomial),
+                                                libra_univariates,
                                                 libra_evaluations);
     if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
         IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
@@ -319,10 +318,12 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
                                                                               RefArray{ eval2_shift, eval3_shift },
                                                                               mle_opening_point,
                                                                               this->vk()->get_g1_identity(),
-                                                                              verifier_transcript);
+                                                                              verifier_transcript,
+                                                                              {},
+                                                                              {},
+                                                                              RefVector(libra_commitments),
+                                                                              libra_evaluations);
 
-    ShpleminiVerifier::add_zk_data(
-        batch_opening_claim, RefVector(libra_commitments), libra_evaluations, mle_opening_point);
     if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
         auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
         EXPECT_EQ(result, true);

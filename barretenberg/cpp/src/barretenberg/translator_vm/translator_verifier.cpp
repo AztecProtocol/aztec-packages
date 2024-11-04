@@ -115,7 +115,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    BatchOpeningClaim<Curve> opening_claim =
+    const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
                                                commitments.get_to_be_shifted(),
@@ -125,8 +125,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                Commitment::one(),
                                                transcript,
                                                commitments.get_groups_to_be_concatenated(),
-                                               claimed_evaluations.get_concatenated());
-    Shplemini::add_zk_data(opening_claim, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
+                                               claimed_evaluations.get_concatenated(),
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

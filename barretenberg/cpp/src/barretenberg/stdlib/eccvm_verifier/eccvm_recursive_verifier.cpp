@@ -101,15 +101,11 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                claimed_evaluations.get_shifted(),
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
-                                               transcript);
-    info("non-native point",
-         Commitment::batch_mul(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars));
-    Shplemini::add_zk_data(
-        sumcheck_batch_opening_claims, RefVector(libra_commitments), libra_evaluations, multivariate_challenge);
-
-    info("non-native point after zk data",
-         Commitment::batch_mul(sumcheck_batch_opening_claims.commitments, sumcheck_batch_opening_claims.scalars, true));
-    info("scalars recursive size", sumcheck_batch_opening_claims.scalars.size());
+                                               transcript,
+                                               {},
+                                               {},
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
