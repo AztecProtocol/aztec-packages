@@ -19,6 +19,7 @@ import {
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
+import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Blob } from '@aztec/foundation/blob';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -319,12 +320,7 @@ export class L1Publisher {
     } catch (err) {
       let errorName = tryGetCustomErrorName(err);
       if (!errorName) {
-        errorName = this.tryGetErrorFromRevertedTx(err, {
-          args: [],
-          functionName: 'validateEpochProofRightClaim',
-          abi: this.rollupContract.abi,
-          address: this.rollupContract.address,
-        });
+        errorName = tryGetCustomErrorNameContractFunction(err as ContractFunctionExecutionError);
       }
       this.log.warn(`Proof quote validation failed: ${errorName}`);
       return undefined;
@@ -513,10 +509,10 @@ export class L1Publisher {
       return false;
     }
 
-    const { hash: txHash, args, functionName } = tx;
+    const { hash: txHash, args, functionName, err } = tx;
 
-    if (txHash instanceof BaseError) {
-      const errorMsg = this.tryGetErrorFromRevertedTx(txHash, {
+    if (err instanceof BaseError) {
+      const errorMsg = await this.tryGetErrorFromRevertedTx(txHash, {
         args,
         functionName,
         abi: RollupAbi,
@@ -554,7 +550,7 @@ export class L1Publisher {
     return false;
   }
 
-  private tryGetErrorFromRevertedTx(
+  private async tryGetErrorFromRevertedTx(
     err: any,
     args: {
       args: any[];
@@ -563,25 +559,43 @@ export class L1Publisher {
       address: Hex;
     },
   ) {
-    // We can no longer simulate contract calls with blobs, as there is no way to mock the blob hash checked in the contract
-    // The simulation will fail with 'incorrect blob hash' regardless of the real reason
-    // Instead, we pass the sendTransaction error here, and use viem to convert it to a ContractFunctionExecutionError
-    // (The actual error is a TransactionExecutionError, which does not display our custom errors)
-    const contractErr =
-      err.name === 'ContractFunctionExecutionError'
-        ? err
-        : getContractError(err as BaseError, {
-            ...args,
-            sender: this.account.address,
-            docsPath: '/docs/contract/simulateContract',
-          });
-    if (contractErr.name === 'ContractFunctionExecutionError') {
-      const execErr = contractErr as ContractFunctionExecutionError;
-      return compactArray([execErr.shortMessage, ...(execErr.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(
-        ' ',
-      );
+    // We keep the input err since the below is not able to catch blob errors
+    try {
+      // NB: If this fn starts unexpectedly giving incorrect blob hash errors, it may be because the checkBlob
+      // bool is no longer at the slot below. To find the slot, run: forge inspect src/core/Rollup.sol:Rollup storage
+      const checkBlobSlot = 7n;
+      await this.publicClient.simulateContract({
+        ...args,
+        account: this.walletClient.account,
+        stateOverride: [
+          {
+            address: args.address,
+            stateDiff: [
+              {
+                slot: toHex(checkBlobSlot, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+      });
+      // If the above passes, then the original error was due to blobs, and we throw it here:
+      throw err;
+    } catch (simulationErr: any) {
+      const contractErr =
+        simulationErr.name === 'ContractFunctionExecutionError'
+          ? simulationErr
+          : getContractError(simulationErr as BaseError, {
+              ...args,
+              sender: this.account.address,
+              docsPath: '/docs/contract/simulateContract',
+            });
+      if (contractErr.name === 'ContractFunctionExecutionError') {
+        const execErr = contractErr as ContractFunctionExecutionError;
+        return tryGetCustomErrorNameContractFunction(execErr);
+      }
+      this.log.error(`Error getting error from viem`, err);
     }
-    this.log.error(`Error getting error from viem`, err);
   }
 
   public async submitEpochProof(args: {
@@ -724,7 +738,7 @@ export class L1Publisher {
 
   private prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
     // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-    // TODO(Miranda): No clear way to estimate gas for a blob tx, since the publicClient fails
+    // NB: Viem does not allow state overrides or blobs in estimate gas calls, so any est gas call will fail
     const proposeGas = 300000n;
 
     // @note  We perform this guesstimate instead of the usual `gasEstimate` since
@@ -779,7 +793,7 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ hash: string | any; args: any; functionName: string } | undefined> {
+  ): Promise<{ hash: string; args: any; functionName: string; err: any | undefined } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -807,13 +821,14 @@ export class L1Publisher {
         }),
         args,
         functionName: 'propose',
+        err: undefined,
       };
     } catch (err: any) {
-      // TODO(Miranda): bubble up the error more cleanly (as opposed to storing in hash)
       return {
-        hash: err,
+        hash: `0x00`,
         args,
         functionName: 'propose',
+        err,
       };
     }
   }
@@ -821,7 +836,7 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ hash: string | any; args: any; functionName: string } | undefined> {
+  ): Promise<{ hash: string; args: any; functionName: string; err: any | undefined } | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -852,13 +867,14 @@ export class L1Publisher {
         }),
         args: [...args, quote.toViemArgs()],
         functionName: 'proposeAndClaim',
+        err: undefined,
       };
     } catch (err) {
-      // TODO(Miranda): bubble up the error more cleanly (as opposed to storing in hash)
       return {
-        hash: err,
+        hash: `0x00`,
         args,
         functionName: 'proposeAndClaim',
+        err,
       };
     }
   }
@@ -911,6 +927,10 @@ export class L1Publisher {
  */
 function getCalldataGasUsage(data: Uint8Array) {
   return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
+}
+
+function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {
+  return compactArray([err.shortMessage, ...(err.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(' ');
 }
 
 function tryGetCustomErrorName(err: any) {

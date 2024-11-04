@@ -63,6 +63,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   uint256 public constant CLAIM_DURATION_IN_L2_SLOTS =
     Constants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS;
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
+  // Always true, exists to override to false for testing only
+  bool public checkBlob = true;
 
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IInbox public immutable INBOX;
@@ -1029,6 +1031,9 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param blobInput - The above bytes to verify a blob
    */
   function _validateBlob(bytes calldata blobInput) internal view returns (bytes32 blobHash) {
+    if (!checkBlob) {
+      return bytes32(blobInput[0:32]);
+    }
     assembly {
       blobHash := blobhash(0)
     }
