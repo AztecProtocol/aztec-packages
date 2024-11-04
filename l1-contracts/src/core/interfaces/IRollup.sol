@@ -81,8 +81,6 @@ interface IRollup {
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
-  function canPrune() external view returns (bool);
-
   function status(uint256 _myHeaderBlockNumber)
     external
     view
