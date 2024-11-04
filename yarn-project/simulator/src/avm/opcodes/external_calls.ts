@@ -111,7 +111,6 @@ abstract class ExternalCall extends Instruction {
     );
 
     memory.assert({ reads: calldataSize + 4, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 
   public abstract override get type(): 'CALL' | 'STATICCALL';
@@ -163,6 +162,10 @@ export class Return extends Instruction {
     context.machineState.return(output);
     memory.assert({ reads: this.copySize, addressing });
   }
+
+  public override handlesPC(): boolean {
+    return true;
+  }
 }
 
 export class Revert extends Instruction {
@@ -200,6 +203,12 @@ export class Revert extends Instruction {
 
     context.machineState.revert(output);
     memory.assert({ reads: retSize + 1, addressing });
+  }
+
+  // We don't want to increase the PC after reverting because it breaks messages.
+  // Maybe we can remove this once messages don't depend on PCs.
+  public override handlesPC(): boolean {
+    return true;
   }
 }
 
