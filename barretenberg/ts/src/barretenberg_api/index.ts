@@ -11,7 +11,6 @@ import {
   OutputType,
 } from '../serialize/index.js';
 import { Fr, Fq, Point, Buffer32, Buffer128, Ptr } from '../types/index.js';
-import { encode, decode } from '@msgpack/msgpack';
 
 export class BarretenbergApi {
   constructor(protected wasm: BarretenbergWasmWorker) {}
