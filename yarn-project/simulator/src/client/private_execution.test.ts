@@ -19,6 +19,7 @@ import {
   GeneratorIndex,
   type GrumpkinScalar,
   Header,
+  IndexedTaggingSecret,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -26,6 +27,7 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
+  TaggingSecret,
   TxContext,
   computeAppNullifierSecretKey,
   computeOvskApp,
@@ -256,6 +258,13 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
+
+    oracle.getAppTaggingSecret.mockImplementation(
+      (_contractAddress: AztecAddress, _sender: AztecAddress, recipient: AztecAddress) => {
+        const directionalSecret = new TaggingSecret(Fr.random(), recipient);
+        return Promise.resolve(IndexedTaggingSecret.fromTaggingSecret(directionalSecret, 0));
+      },
+    );
 
     node = mock<AztecNode>();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

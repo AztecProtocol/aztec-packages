@@ -12,7 +12,8 @@ export type LogLevel = (typeof LogLevels)[number];
 
 function getLogLevel() {
   const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-  const defaultNonTestLogLevel = process.env.DEBUG === undefined ? ('info' as const) : ('debug' as const);
+  const defaultNonTestLogLevel =
+    process.env.DEBUG === undefined || process.env.DEBUG === '' ? ('info' as const) : ('debug' as const);
   const defaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : defaultNonTestLogLevel;
   return LogLevels.includes(envLogLevel) ? envLogLevel : defaultLogLevel;
 }

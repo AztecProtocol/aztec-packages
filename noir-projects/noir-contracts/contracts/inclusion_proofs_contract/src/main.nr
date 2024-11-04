@@ -40,6 +40,7 @@ contract InclusionProofs {
             &mut context,
             msg_sender_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
     }
     // docs:end:create_note
