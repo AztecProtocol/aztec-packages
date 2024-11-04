@@ -39,7 +39,10 @@ contract InitiateWithdrawTest is GovernanceBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, address(this), depositAmount, withdrawalAmount
+        Errors.Governance__InsufficientPower.selector,
+        address(this),
+        depositAmount,
+        withdrawalAmount
       )
     );
     governance.initiateWithdraw(address(this), withdrawalAmount);

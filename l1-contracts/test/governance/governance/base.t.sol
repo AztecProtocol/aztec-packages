@@ -171,7 +171,9 @@ contract GovernanceBase is TestBase {
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
 
     assertEq(
-      governance.getProposalState(proposalId), DataStructures.ProposalState.Executable, "invalid state"
+      governance.getProposalState(proposalId),
+      DataStructures.ProposalState.Executable,
+      "invalid state"
     );
   }
 

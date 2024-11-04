@@ -64,7 +64,12 @@ contract TokenPortalTest is Test {
     testERC20 = new TestERC20();
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      new address[](0)
     );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();

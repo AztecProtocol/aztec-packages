@@ -16,7 +16,9 @@ contract GetProposalStateTest is GovernanceBase {
   function test_WhenProposalIsOutOfBounds(uint256 _index) external {
     // it revert
     uint256 index = bound(_index, governance.proposalCount(), type(uint256).max);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalDoesNotExists.selector, index));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Governance__ProposalDoesNotExists.selector, index)
+    );
     governance.getProposalState(index);
   }
 

@@ -78,7 +78,12 @@ contract SpartaTest is DecoderBase {
     Registry registry = new Registry(address(this));
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, bytes32(0), bytes32(0), address(this), initialValidators
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      initialValidators
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));

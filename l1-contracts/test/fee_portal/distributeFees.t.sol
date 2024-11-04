@@ -33,8 +33,9 @@ contract DistributeFees is Test {
     feeJuicePortal.initialize();
 
     rewardDistributor = new RewardDistributor(token, registry, address(this));
-    rollup =
-      new Rollup(feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(
+      feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+    );
 
     vm.prank(OWNER);
     registry.upgrade(address(rollup));
@@ -73,8 +74,9 @@ contract DistributeFees is Test {
 
     uint256 numberOfRollups = bound(_numberOfRollups, 1, 5);
     for (uint256 i = 0; i < numberOfRollups; i++) {
-      Rollup freshRollup =
-        new Rollup(feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0));
+      Rollup freshRollup = new Rollup(
+        feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+      );
       vm.prank(OWNER);
       registry.upgrade(address(freshRollup));
     }

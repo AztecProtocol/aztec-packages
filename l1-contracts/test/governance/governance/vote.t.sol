@@ -125,7 +125,9 @@ contract VoteTest is GovernanceBase {
     uint256 power = bound(_votePower, depositPower + 1, type(uint256).max);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__InsufficientPower.selector, _voter, depositPower, power)
+      abi.encodeWithSelector(
+        Errors.Governance__InsufficientPower.selector, _voter, depositPower, power
+      )
     );
     vm.prank(_voter);
     governance.vote(proposalId, power, _support);

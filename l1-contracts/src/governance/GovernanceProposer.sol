@@ -56,7 +56,9 @@ contract GovernanceProposer is IGovernanceProposer {
    * @return True if executed successfully, false otherwise
    */
   function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
-    require(address(_proposal).code.length > 0, Errors.GovernanceProposer__ProposalHaveNoCode(_proposal));
+    require(
+      address(_proposal).code.length > 0, Errors.GovernanceProposer__ProposalHaveNoCode(_proposal)
+    );
 
     address instance = REGISTRY.getRollup();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
@@ -68,10 +70,14 @@ contract GovernanceProposer is IGovernanceProposer {
 
     RoundAccounting storage round = rounds[instance][roundNumber];
 
-    require(currentSlot > round.lastVote, Errors.GovernanceProposer__VoteAlreadyCastForSlot(currentSlot));
+    require(
+      currentSlot > round.lastVote, Errors.GovernanceProposer__VoteAlreadyCastForSlot(currentSlot)
+    );
 
     address proposer = selection.getCurrentProposer();
-    require(msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer));
+    require(
+      msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
+    );
 
     round.yeaCount[_proposal] += 1;
     round.lastVote = currentSlot;
@@ -110,14 +116,19 @@ contract GovernanceProposer is IGovernanceProposer {
 
     RoundAccounting storage round = rounds[instance][_roundNumber];
     require(!round.executed, Errors.GovernanceProposer__ProposalAlreadyExecuted(_roundNumber));
-    require(round.leader != IPayload(address(0)), Errors.GovernanceProposer__ProposalCannotBeAddressZero());
+    require(
+      round.leader != IPayload(address(0)), Errors.GovernanceProposer__ProposalCannotBeAddressZero()
+    );
     require(round.yeaCount[round.leader] >= N, Errors.GovernanceProposer__InsufficientVotes());
 
     round.executed = true;
 
     emit ProposalPushed(round.leader, _roundNumber);
 
-    require(getGovernance().propose(round.leader), Errors.GovernanceProposer__FailedToPropose(round.leader));
+    require(
+      getGovernance().propose(round.leader),
+      Errors.GovernanceProposer__FailedToPropose(round.leader)
+    );
     return true;
   }
 

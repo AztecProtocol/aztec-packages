@@ -13,7 +13,9 @@ contract ClaimTest is RewardDistributorBase {
     vm.assume(_caller != address(0xdead));
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.RewardDistributor__InvalidCaller.selector, _caller, address(0xdead))
+      abi.encodeWithSelector(
+        Errors.RewardDistributor__InvalidCaller.selector, _caller, address(0xdead)
+      )
     );
     vm.prank(_caller);
     rewardDistributor.claim(_caller);
@@ -40,7 +42,8 @@ contract ClaimTest is RewardDistributorBase {
     uint256 balance = bound(_balance, 1, type(uint256).max);
     token.mint(address(rewardDistributor), balance);
 
-    uint256 reward = balance > rewardDistributor.BLOCK_REWARD() ? rewardDistributor.BLOCK_REWARD() : balance;
+    uint256 reward =
+      balance > rewardDistributor.BLOCK_REWARD() ? rewardDistributor.BLOCK_REWARD() : balance;
 
     uint256 callerBalance = token.balanceOf(caller);
     vm.prank(caller);

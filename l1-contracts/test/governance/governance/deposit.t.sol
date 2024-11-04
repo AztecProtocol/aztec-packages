@@ -74,7 +74,8 @@ contract DepositTest is GovernanceBase {
       governance.deposit(onBehalfOf, amount);
 
       assertEq(
-        governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp - 1)), sums[onBehalfOf] - amount
+        governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp - 1)),
+        sums[onBehalfOf] - amount
       );
       assertEq(governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp)), sums[onBehalfOf]);
       assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp - 1)), sum - amount);

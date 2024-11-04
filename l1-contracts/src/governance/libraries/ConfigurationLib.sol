@@ -62,10 +62,12 @@ library ConfigurationLib {
     );
 
     require(
-      _self.votingDelay >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay")
+      _self.votingDelay >= TIME_LOWER,
+      Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay")
     );
     require(
-      _self.votingDelay <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("VotingDelay")
+      _self.votingDelay <= TIME_UPPER,
+      Errors.Governance__ConfigurationLib__TimeTooBig("VotingDelay")
     );
 
     require(
@@ -87,10 +89,12 @@ library ConfigurationLib {
     );
 
     require(
-      _self.gracePeriod >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod")
+      _self.gracePeriod >= TIME_LOWER,
+      Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod")
     );
     require(
-      _self.gracePeriod <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod")
+      _self.gracePeriod <= TIME_UPPER,
+      Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod")
     );
 
     return true;

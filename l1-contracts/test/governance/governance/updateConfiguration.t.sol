@@ -25,7 +25,9 @@ contract UpdateConfigurationTest is GovernanceBase {
   function test_WhenCallerIsNotSelf() external {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__CallerNotSelf.selector, address(this), address(governance))
+      abi.encodeWithSelector(
+        Errors.Governance__CallerNotSelf.selector, address(this), address(governance)
+      )
     );
     governance.updateConfiguration(config);
   }
@@ -53,7 +55,9 @@ contract UpdateConfigurationTest is GovernanceBase {
     governance.updateConfiguration(config);
 
     config.quorum = bound(_val, ConfigurationLib.QUORUM_UPPER + 1, type(uint256).max);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__QuorumTooBig.selector));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__QuorumTooBig.selector)
+    );
 
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -114,7 +118,9 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.proposeConfig.lockDelay =
       Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "LockDelay")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "LockDelay"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -139,7 +145,9 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.votingDelay =
       Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDelay")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDelay"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -148,7 +156,9 @@ contract UpdateConfigurationTest is GovernanceBase {
       bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
     );
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDelay")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDelay"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -175,7 +185,9 @@ contract UpdateConfigurationTest is GovernanceBase {
       bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
     );
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDuration")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDuration"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -202,7 +214,9 @@ contract UpdateConfigurationTest is GovernanceBase {
       bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
     );
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "ExecutionDelay")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "ExecutionDelay"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -218,7 +232,9 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.gracePeriod =
       Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "GracePeriod")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "GracePeriod"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -227,7 +243,9 @@ contract UpdateConfigurationTest is GovernanceBase {
       bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
     );
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "GracePeriod")
+      abi.encodeWithSelector(
+        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "GracePeriod"
+      )
     );
     vm.prank(address(governance));
     governance.updateConfiguration(config);

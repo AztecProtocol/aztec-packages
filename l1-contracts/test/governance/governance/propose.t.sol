@@ -13,7 +13,9 @@ contract ProposeTest is GovernanceBase {
     // it revert
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__CallerNotGovernanceProposer.selector, address(this), address(governanceProposer)
+        Errors.Governance__CallerNotGovernanceProposer.selector,
+        address(this),
+        address(governanceProposer)
       )
     );
     governance.propose(IPayload(address(0)));

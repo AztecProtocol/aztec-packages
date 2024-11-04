@@ -122,7 +122,10 @@ contract DropProposalTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Expired);
   }
 
-  function test_WhenGetProposalStateIsDropped(address _governanceProposer) external givenProposalIsUnstable {
+  function test_WhenGetProposalStateIsDropped(address _governanceProposer)
+    external
+    givenProposalIsUnstable
+  {
     // it updates state to Dropped
     // it return true
 

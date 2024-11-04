@@ -10,7 +10,9 @@ contract UpdateGovernanceProposerTest is GovernanceBase {
     // it revert
     vm.assume(_caller != address(governance));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__CallerNotSelf.selector, _caller, address(governance))
+      abi.encodeWithSelector(
+        Errors.Governance__CallerNotSelf.selector, _caller, address(governance)
+      )
     );
     vm.prank(_caller);
     governance.updateGovernanceProposer(_governanceProposer);

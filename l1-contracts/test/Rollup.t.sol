@@ -79,8 +79,9 @@ contract RollupTest is DecoderBase {
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
-    rollup =
-      new Rollup(feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(
+      feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
     proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));

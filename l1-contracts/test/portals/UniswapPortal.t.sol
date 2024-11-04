@@ -56,7 +56,12 @@ contract UniswapPortalTest is Test {
     registry = new Registry(address(this));
     RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      new address[](0)
     );
     registry.upgrade(address(rollup));
 

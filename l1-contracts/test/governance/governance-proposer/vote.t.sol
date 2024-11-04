@@ -17,7 +17,9 @@ contract VoteTest is GovernanceProposerBase {
 
   function test_WhenProposalHoldNoCode() external {
     // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__ProposalHaveNoCode.selector, proposal));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.GovernanceProposer__ProposalHaveNoCode.selector, proposal)
+    );
     governanceProposer.vote(proposal);
   }
 
@@ -29,7 +31,9 @@ contract VoteTest is GovernanceProposerBase {
   function test_GivenCanonicalRollupHoldNoCode() external whenProposalHoldCode {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead))
+      abi.encodeWithSelector(
+        Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead)
+      )
     );
     governanceProposer.vote(proposal);
   }
@@ -57,7 +61,9 @@ contract VoteTest is GovernanceProposerBase {
     governanceProposer.vote(proposal);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__VoteAlreadyCastForSlot.selector, currentSlot)
+      abi.encodeWithSelector(
+        Errors.GovernanceProposer__VoteAlreadyCastForSlot.selector, currentSlot
+      )
     );
     governanceProposer.vote(proposal);
   }
@@ -76,7 +82,9 @@ contract VoteTest is GovernanceProposerBase {
     vm.assume(_proposer != proposer);
     vm.prank(_proposer);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__OnlyProposerCanVote.selector, _proposer, proposer)
+      abi.encodeWithSelector(
+        Errors.GovernanceProposer__OnlyProposerCanVote.selector, _proposer, proposer
+      )
     );
     governanceProposer.vote(proposal);
   }
@@ -95,7 +103,8 @@ contract VoteTest is GovernanceProposerBase {
 
     Slot currentSlot = leonidas.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
-    (Slot lastVote, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), round);
+    (Slot lastVote, IPayload leader, bool executed) =
+      governanceProposer.rounds(address(leonidas), round);
     assertEq(
       governanceProposer.yeaCount(address(leonidas), round, leader),
       votesOnProposal,
@@ -148,7 +157,9 @@ contract VoteTest is GovernanceProposerBase {
       (Slot lastVote, IPayload leader, bool executed) =
         governanceProposer.rounds(address(freshInstance), freshRound);
       assertEq(
-        governanceProposer.yeaCount(address(freshInstance), freshRound, leader), 1, "invalid number of votes"
+        governanceProposer.yeaCount(address(freshInstance), freshRound, leader),
+        1,
+        "invalid number of votes"
       );
       assertFalse(executed);
       assertEq(address(leader), address(proposal));
@@ -210,9 +221,12 @@ contract VoteTest is GovernanceProposerBase {
     emit IGovernanceProposer.VoteCast(proposal, round, proposer);
     assertTrue(governanceProposer.vote(proposal));
 
-    (Slot lastVote, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), round);
+    (Slot lastVote, IPayload leader, bool executed) =
+      governanceProposer.rounds(address(leonidas), round);
     assertEq(
-      governanceProposer.yeaCount(address(leonidas), round, leader), yeaBefore + 1, "invalid number of votes"
+      governanceProposer.yeaCount(address(leonidas), round, leader),
+      yeaBefore + 1,
+      "invalid number of votes"
     );
     assertFalse(executed);
     assertEq(address(leader), address(proposal));
@@ -241,7 +255,8 @@ contract VoteTest is GovernanceProposerBase {
     emit IGovernanceProposer.VoteCast(IPayload(address(leonidas)), round, proposer);
     assertTrue(governanceProposer.vote(IPayload(address(leonidas))));
 
-    (Slot lastVote, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), round);
+    (Slot lastVote, IPayload leader, bool executed) =
+      governanceProposer.rounds(address(leonidas), round);
     assertEq(
       governanceProposer.yeaCount(address(leonidas), round, leader),
       leaderYeaBefore,
@@ -287,7 +302,8 @@ contract VoteTest is GovernanceProposerBase {
     }
 
     {
-      (Slot lastVote, IPayload leader, bool executed) = governanceProposer.rounds(address(leonidas), round);
+      (Slot lastVote, IPayload leader, bool executed) =
+        governanceProposer.rounds(address(leonidas), round);
       assertEq(
         governanceProposer.yeaCount(address(leonidas), round, IPayload(address(leonidas))),
         leaderYeaBefore + 1,
