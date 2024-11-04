@@ -56,6 +56,12 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
+    ExecutionTraceUsageTracker trace_usage_tracker;
+
+    ProtogalaxyProverInternal(ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
+        : trace_usage_tracker(std::move(trace_usage_tracker))
+    {}
+
     /**
      * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
      * evaluation(s).
@@ -105,11 +111,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    static std::vector<FF> compute_row_evaluations(
-        const ProverPolynomials& polynomials,
-        const RelationSeparator& alphas_,
-        const RelationParameters<FF>& relation_parameters,
-        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
+    std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
+                                            const RelationSeparator& alphas_,
+                                            const RelationParameters<FF>& relation_parameters)
 
     {
 
@@ -130,7 +134,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
-        // Distrivute the execution trace rows across threads so that each handles an equal number of active rows
+        // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
@@ -218,16 +222,12 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     /**
      * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
      */
-    static Polynomial<FF> compute_perturbator(
-        const std::shared_ptr<const DeciderPK>& accumulator,
-        const std::vector<FF>& deltas,
-        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
+    Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
+                                       const std::vector<FF>& deltas)
     {
         PROFILE_THIS();
-        auto full_honk_evaluations = compute_row_evaluations(accumulator->proving_key.polynomials,
-                                                             accumulator->alphas,
-                                                             accumulator->relation_parameters,
-                                                             trace_usage_tracker);
+        auto full_honk_evaluations = compute_row_evaluations(
+            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
@@ -331,13 +331,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @return ExtendedUnivariateWithRandomization
      */
     template <typename Parameters, typename TupleOfTuples>
-    static ExtendedUnivariateWithRandomization compute_combiner(
-        const DeciderPKs& keys,
-        const GateSeparatorPolynomial<FF>& gate_separators,
-        const Parameters& relation_parameters,
-        const UnivariateRelationSeparator& alphas,
-        TupleOfTuples& univariate_accumulators,
-        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker())
+    ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
+                                                         const GateSeparatorPolynomial<FF>& gate_separators,
+                                                         const Parameters& relation_parameters,
+                                                         const UnivariateRelationSeparator& alphas,
+                                                         TupleOfTuples& univariate_accumulators)
     {
         PROFILE_THIS();
 
@@ -410,7 +408,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @brief Compute combiner using univariates that do not avoid zero computation in case of valid incoming indices.
      * @details This is only used for testing the combiner calculation.
      */
-    static ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
+    ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
         const DeciderPKs& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
@@ -420,10 +418,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
     }
 
-    static ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
-                                                                const GateSeparatorPolynomial<FF>& gate_separators,
-                                                                const UnivariateRelationParameters& relation_parameters,
-                                                                const UnivariateRelationSeparator& alphas)
+    ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
+                                                         const GateSeparatorPolynomial<FF>& gate_separators,
+                                                         const UnivariateRelationParameters& relation_parameters,
+                                                         const UnivariateRelationSeparator& alphas)
     {
         TupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);

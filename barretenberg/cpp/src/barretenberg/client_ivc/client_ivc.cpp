@@ -205,8 +205,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key });
-        folding_prover.trace_usage_tracker = trace_usage_tracker;
+        FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
         fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
