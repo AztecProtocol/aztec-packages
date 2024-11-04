@@ -11,8 +11,8 @@ In short, there is a **nullifier key** (to spend your notes), an **incoming view
 Each account in Aztec is backed by 4 key pairs:
 
 - A **nullifier key pair** used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
-- A **incoming viewing key pair** used to encrypt a note for the recipient, consisting of the master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
-- A **outgoing viewing key pair** used to encrypt a note for the sender, includes the master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
+- An **incoming viewing key pair** used to encrypt a note for the recipient, consisting of the master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
+- An **outgoing viewing key pair** used to encrypt a note for the sender, includes the master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
 - A **tagging key pair** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery.md#note-tagging), comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
 
 :::info
@@ -124,7 +124,7 @@ A compromise between the two solutions above is to use shared state. This would 
 #### Reusing some of the in-protocol keys
 
 It is possible to use some of the key pairs defined in protocol (e.g. incoming viewing keys) as the signing key.
-Since this key is part of the address preimage (more on this on the privacy master key section), you it can be validated against the account contract address rather than having to store it.
+Since this key is part of the address preimage (more on this on the privacy master key section), it can be validated against the account contract address rather than having to store it.
 However, this approach is not recommended since it reduces the security of the user's account.
 
 #### Using a separate keystore

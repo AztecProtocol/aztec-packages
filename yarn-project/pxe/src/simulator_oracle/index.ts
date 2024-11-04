@@ -333,9 +333,7 @@ export class SimulatorOracle implements DBOracle {
     const logs: EncryptedL2NoteLog[] = [];
     while (appTaggingSecrets.length > 0) {
       // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
-      const currentTags = appTaggingSecrets.map(({ secret, recipient, index }) =>
-        poseidon2Hash([secret, recipient, index]),
-      );
+      const currentTags = appTaggingSecrets.map(taggingSecret => taggingSecret.computeTag());
       const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
       const newTaggingSecrets: IndexedTaggingSecret[] = [];
       logsByTags.forEach((logsByTag, index) => {

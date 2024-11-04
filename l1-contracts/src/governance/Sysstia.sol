@@ -2,14 +2,12 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
-
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 contract Sysstia is ISysstia, Ownable {
   using SafeERC20 for IERC20;
@@ -25,7 +23,7 @@ contract Sysstia is ISysstia, Ownable {
     registry = _registry;
   }
 
-  function updateRegistry(IRegistry _registry) external onlyOwner {
+  function updateRegistry(IRegistry _registry) external override(ISysstia) onlyOwner {
     registry = _registry;
     emit RegistryUpdated(_registry);
   }
@@ -53,7 +51,7 @@ contract Sysstia is ISysstia, Ownable {
     return reward;
   }
 
-  function canonicalRollup() public view returns (address) {
+  function canonicalRollup() public view override(ISysstia) returns (address) {
     return registry.getRollup();
   }
 }

@@ -23,6 +23,7 @@
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
 #include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/vm/avm/trace/fixed_bytes.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm/trace/fixed_powers.hpp"
@@ -210,9 +211,9 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
 void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
 {
     // op_set increments the pc, so we need to store the current pc and then jump back to it
-    // to legaly reset the pc.
+    // to legally reset the pc.
     auto current_pc = pc;
-    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, true);
+    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, OpCode::SET_FF, true);
     op_jump(current_pc, true);
 }
 
@@ -288,7 +289,8 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
  * @param dst_offset An index in memory pointing to the output of the addition.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_add(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -333,7 +335,7 @@ void AvmTraceBuilder::op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -346,6 +348,9 @@ void AvmTraceBuilder::op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::ADD_8 || op_code == OpCode::ADD_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -357,7 +362,8 @@ void AvmTraceBuilder::op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_off
  * @param dst_offset An index in memory pointing to the output of the subtraction.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_sub(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -402,7 +408,7 @@ void AvmTraceBuilder::op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -415,6 +421,9 @@ void AvmTraceBuilder::op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::SUB_8 || op_code == OpCode::SUB_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -426,7 +435,8 @@ void AvmTraceBuilder::op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_off
  * @param dst_offset An index in memory pointing to the output of the multiplication.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_mul(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -471,7 +481,7 @@ void AvmTraceBuilder::op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -484,6 +494,9 @@ void AvmTraceBuilder::op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::MUL_8 || op_code == OpCode::MUL_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -495,7 +508,8 @@ void AvmTraceBuilder::op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_off
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_div(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -553,7 +567,7 @@ void AvmTraceBuilder::op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_dst.direct_address),
         .main_op_err = tag_match ? error : FF(1),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -566,6 +580,9 @@ void AvmTraceBuilder::op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::DIV_8 || op_code == OpCode::DIV_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -577,7 +594,8 @@ void AvmTraceBuilder::op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_off
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_fdiv(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -632,7 +650,7 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
         .main_op_err = tag_match ? error : FF(1),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -645,6 +663,9 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
     });
+
+    ASSERT(op_code == OpCode::FDIV_8 || op_code == OpCode::FDIV_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -660,7 +681,7 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
  * @param dst_offset An index in memory pointing to the output of the equality.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -703,7 +724,7 @@ void AvmTraceBuilder::op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -716,9 +737,12 @@ void AvmTraceBuilder::op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U1)),
     });
+
+    ASSERT(op_code == OpCode::EQ_8 || op_code == OpCode::EQ_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -757,7 +781,7 @@ void AvmTraceBuilder::op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -770,9 +794,13 @@ void AvmTraceBuilder::op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U1)),
     });
+
+    ASSERT(op_code == OpCode::LT_8 || op_code == OpCode::LT_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_lte(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -812,7 +840,7 @@ void AvmTraceBuilder::op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -825,13 +853,17 @@ void AvmTraceBuilder::op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U1)),
     });
+
+    ASSERT(op_code == OpCode::LTE_8 || op_code == OpCode::LTE_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
  *                            COMPUTE - BITWISE
  **************************************************************************************************/
 
-void AvmTraceBuilder::op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_and(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -870,7 +902,7 @@ void AvmTraceBuilder::op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_bin = FF(1),
@@ -884,9 +916,12 @@ void AvmTraceBuilder::op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::AND_8 || op_code == OpCode::AND_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto [resolved_a, resolved_b, resolved_c] =
@@ -924,7 +959,7 @@ void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_bin = FF(1),
@@ -938,9 +973,13 @@ void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::OR_8 || op_code == OpCode::OR_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_xor(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -979,7 +1018,7 @@ void AvmTraceBuilder::op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_bin = FF(1),
@@ -993,6 +1032,9 @@ void AvmTraceBuilder::op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::XOR_8 || op_code == OpCode::XOR_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -1002,7 +1044,7 @@ void AvmTraceBuilder::op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_off
  * @param a_offset An index in memory pointing to the only operand of Not.
  * @param dst_offset An index in memory pointing to the output of Not.
  */
-void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -1041,7 +1083,7 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -1052,9 +1094,13 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::NOT_8 || op_code == OpCode::NOT_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_shl(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -1096,7 +1142,7 @@ void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_mem_addr_a = FF(read_a.direct_address),
         //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -1109,9 +1155,13 @@ void AvmTraceBuilder::op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::SHL_8 || op_code == OpCode::SHL_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_shr(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -1155,7 +1205,7 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         // TODO(8603): uncomment
         //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -1170,6 +1220,9 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::SHR_8 || op_code == OpCode::SHR_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -1185,7 +1238,8 @@ void AvmTraceBuilder::op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_off
  * @param dst_offset Offset of destination memory cell.
  * @param dst_tag Destination tag specifying the type the source value must be casted to.
  */
-void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag)
+void AvmTraceBuilder::op_cast(
+    uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag, OpCode op_code)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     bool tag_match = true;
@@ -1217,7 +1271,7 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(resolved_a),
         .main_mem_addr_c = FF(resolved_c),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(memEntry.tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -1226,6 +1280,9 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(dst_tag)),
     });
+
+    ASSERT(op_code == OpCode::CAST_8 || op_code == OpCode::CAST_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -1262,7 +1319,7 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
         .main_ind_addr_a = FF(write_dst.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(write_dst.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_rwa = 1,
         .main_sel_mem_op_a = 1,
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_dst.is_indirect)),
@@ -1338,6 +1395,7 @@ void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t
             break;
         }
     }
+    pc += Deserialization::get_pc_increment(OpCode::GETENVVAR_16);
 }
 
 void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
@@ -1547,13 +1605,15 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
         .main_ib = copy_size,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = dst_offset_resolved,
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_calldata_copy = 1,
         .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
+
+    pc += Deserialization::get_pc_increment(OpCode::CALLDATACOPY);
 }
 
 void AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offset)
@@ -1575,11 +1635,13 @@ void AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offset)
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_returndata_size = FF(1),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
     });
+
+    pc += Deserialization::get_pc_increment(OpCode::RETURNDATASIZE);
 }
 
 void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
@@ -1607,7 +1669,7 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_returndata_copy = FF(1),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
@@ -1616,6 +1678,11 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     // TODO: validate bounds
     auto returndata_slice =
         std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
+
+    pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
 }
 
@@ -1655,7 +1722,7 @@ void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect,
         .main_ind_addr_a = FF(write_dst.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(write_dst.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_rwa = FF(1),
         .main_sel_mem_op_a = FF(1),
         .main_sel_op_dagasleft = (var == EnvironmentVariable::DAGASLEFT) ? FF(1) : FF(0),
@@ -1736,7 +1803,7 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 
     const bool id_zero = read_d.val == 0;
     FF const inv = !id_zero ? read_d.val.invert() : 1;
-    uint32_t next_pc = !id_zero ? jmp_dest : pc + 1;
+    uint32_t next_pc = !id_zero ? jmp_dest : pc + Deserialization::get_pc_increment(OpCode::JUMPI_32);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
@@ -1778,13 +1845,13 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 void AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
+    const auto next_pc = pc + Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     // We store the next instruction as the return location
     mem_trace_builder.write_into_memory(INTERNAL_CALL_SPACE_ID,
                                         clk,
                                         IntermRegister::IB,
                                         internal_return_ptr,
-                                        FF(pc + 1),
+                                        FF(next_pc),
                                         AvmMemoryTag::FF,
                                         AvmMemoryTag::U32);
 
@@ -1795,7 +1862,7 @@ void AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_ia = FF(jmp_dest),
-        .main_ib = FF(pc + 1),
+        .main_ib = FF(next_pc),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_b = FF(internal_return_ptr),
         .main_pc = FF(pc),
@@ -1869,7 +1936,8 @@ void AvmTraceBuilder::op_internal_return()
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas)
+void AvmTraceBuilder::op_set(
+    uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, OpCode op_code, bool skip_gas)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto [resolved_dst_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
@@ -1890,7 +1958,7 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_rwc = 1,
         .main_sel_mem_op_c = 1,
         .main_sel_op_set = 1,
@@ -1898,6 +1966,11 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
         .main_tag_err = static_cast<uint32_t>(!write_c.tag_match),
         .main_w_in_tag = static_cast<uint32_t>(in_tag),
     });
+
+    const std::set<OpCode> set_family{ OpCode::SET_8,  OpCode::SET_16,  OpCode::SET_32,
+                                       OpCode::SET_64, OpCode::SET_128, OpCode::SET_FF };
+    ASSERT(set_family.contains(op_code));
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -1908,7 +1981,7 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
  * @param src_offset Offset of source memory cell
  * @param dst_offset Offset of destination memory cell
  */
-void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -1936,7 +2009,7 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = resolved_src_offset,
         .main_mem_addr_c = resolved_dst_offset,
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(tag),
         .main_rwc = 1,
         .main_sel_mem_op_a = 1,
@@ -1946,6 +2019,9 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(tag),
     });
+
+    ASSERT(op_code == OpCode::MOV_8 || op_code == OpCode::MOV_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -1976,7 +2052,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint32_t clk,
         .main_ind_addr_a = FF(read_a.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_rwa = 0,
         .main_sel_mem_op_a = 1,
@@ -2023,7 +2099,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(data_r_tag),
         .main_rwa = 0,
         .main_rwb = 0,
@@ -2073,7 +2149,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_rwa = 0,
         .main_rwb = 1,
@@ -2112,7 +2188,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(uint32_t clk,
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_rwa = 0,
         .main_rwb = 1,
@@ -2214,7 +2290,6 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
     // clk++;
 
     AddressWithMode write_dst = resolved_dest;
-    auto old_pc = pc;
     // Loop over the size and write the hints to memory
     for (uint32_t i = 0; i < size; i++) {
         FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
@@ -2222,6 +2297,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         auto write_a = constrained_write_to_memory(
             call_ptr, clk, write_dst, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
+        // TODO(8945): remove fake rows
         auto row = Row{
             .main_clk = clk,
             .main_ia = value,
@@ -2229,9 +2305,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
             .main_ind_addr_a = write_a.indirect_address,
             .main_internal_return_ptr = internal_return_ptr,
             .main_mem_addr_a = write_a.direct_address, // direct address incremented at end of the loop
-            // FIXME: We are forced to increment the pc since this is in the main trace,
-            // but this will have to be fixed before bytecode decomposition.
-            .main_pc = pc++,
+            .main_pc = pc,
             .main_rwa = 1,
             .main_sel_mem_op_a = 1,
             .main_sel_op_sload = FF(1),
@@ -2258,8 +2332,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         // After the first loop, all future write destinations are direct, increment the direct address
         write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
     }
-    // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1, true); // TODO(8945)
+    pc += Deserialization::get_pc_increment(OpCode::SLOAD);
 }
 
 void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
@@ -2297,11 +2370,11 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
 
     // This loop reads a _size_ number of elements from memory and places them into a tuple of (ele, slot)
     // in the kernel lookup.
-    auto old_pc = pc;
     for (uint32_t i = 0; i < size; i++) {
         auto read_a = constrained_read_from_memory(
             call_ptr, clk, read_src, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
+        // TODO(8945): remove fake rows
         Row row = Row{
             .main_clk = clk,
             .main_ia = read_a.val,
@@ -2309,9 +2382,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
             .main_ind_addr_a = read_a.indirect_address,
             .main_internal_return_ptr = internal_return_ptr,
             .main_mem_addr_a = read_a.direct_address, // direct address incremented at end of the loop
-            // FIXME: We are forced to increment the pc since this is in the main trace,
-            // but this will have to be fixed before bytecode decomposition.
-            .main_pc = pc++,
+            .main_pc = pc,
             .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
             .main_sel_mem_op_a = 1,
             .main_sel_q_kernel_output_lookup = 1,
@@ -2334,8 +2405,8 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         // All future reads are direct, increment the direct address
         read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
     }
-    // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1, true); // TODO(8945)
+
+    pc += Deserialization::get_pc_increment(OpCode::SSTORE);
 }
 
 void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
@@ -2366,6 +2437,7 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     main_trace.push_back(row);
 
     debug("note_hash_exists side-effect cnt: ", side_effect_counter);
+    pc += Deserialization::get_pc_increment(OpCode::NOTEHASHEXISTS);
 }
 
 void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
@@ -2383,6 +2455,8 @@ void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_off
 
     debug("emit_note_hash side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::EMITNOTEHASH);
 }
 
 void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
@@ -2405,6 +2479,8 @@ void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
 
     debug("nullifier_exists side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::NULLIFIEREXISTS);
 }
 
 void AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset)
@@ -2422,6 +2498,8 @@ void AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_off
 
     debug("emit_nullifier side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::EMITNULLIFIER);
 }
 
 void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
@@ -2451,6 +2529,8 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     main_trace.push_back(row);
 
     debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
+
+    pc += Deserialization::get_pc_increment(OpCode::L1TOL2MSGEXISTS);
 }
 
 void AvmTraceBuilder::op_get_contract_instance(
@@ -2468,11 +2548,11 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(1),
-            .main_pc = pc++,
+            .main_pc = pc,
             .main_sel_op_get_contract_instance = FF(1),
         };
         main_trace.push_back(row);
-
+        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
     } else {
 
         ContractInstanceMember chosen_member = static_cast<ContractInstanceMember>(member_enum);
@@ -2525,7 +2605,7 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_mem_addr_a = FF(read_address.direct_address),
             //.main_mem_addr_c = FF(write_dst.direct_address),
             //.main_mem_addr_d = FF(write_exists.direct_address),
-            .main_pc = FF(pc++),
+            .main_pc = FF(pc),
             .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
             .main_sel_mem_op_a = FF(1),
             //.main_sel_mem_op_c = FF(1),
@@ -2537,6 +2617,10 @@ void AvmTraceBuilder::op_get_contract_instance(
             .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         });
 
+        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
+
+        // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+        // is implemented with opcodes (SET and JUMP).
         // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
         // writes
         write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
@@ -2611,7 +2695,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
         .main_ia = trunc_hash,
         .main_ib = metadata_log_length,
         .main_internal_return_ptr = internal_return_ptr,
-        .main_pc = pc++,
+        .main_pc = pc,
     };
     kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
     row.main_sel_op_emit_unencrypted_log = FF(1);
@@ -2623,6 +2707,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
 
     debug("emit_unencrypted_log side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+    pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
 }
 
 void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset)
@@ -2642,6 +2727,8 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
 
     debug("emit_l2_to_l1_msg side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::SENDL2TOL1MSG);
 }
 
 /**************************************************************************************************
@@ -2703,7 +2790,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_mem_addr_b = FF(read_gas_l2.direct_address + 1),
         .main_mem_addr_c = FF(read_addr.direct_address),
         .main_mem_addr_d = FF(read_args.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
@@ -2717,6 +2804,10 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
+    pc += Deserialization::get_pc_increment(opcode);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write the success flag to memory
     write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
     external_call_counter++;
@@ -2933,7 +3024,7 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = resolved_input_offset,
         .main_mem_addr_b = resolved_output_offset,
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_poseidon2 = FF(1),
     });
 
@@ -3013,6 +3104,8 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                 AvmMemoryTag::FF,
                                 IntermRegister::ID,
                                 AvmMemTraceBuilder::POSEIDON2);
+
+    pc += Deserialization::get_pc_increment(OpCode::POSEIDON2PERM);
 }
 
 /**
@@ -3066,7 +3159,7 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
@@ -3102,7 +3195,10 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         ff_result.emplace_back(result[i]);
     }
 
-    // Write the result to memory after
+    pc += Deserialization::get_pc_increment(OpCode::SHA256COMPRESSION);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
 }
 
@@ -3137,7 +3233,7 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, u
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(input_read.direct_address),
         .main_mem_addr_c = FF(output_read.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -3157,7 +3253,11 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, u
     // Note: We use the keccak_op_clk to ensure that the keccakf1600 operation is performed at the same clock cycle
     // as the main trace that has the selector
     std::array<uint64_t, KECCAKF1600_INPUT_SIZE> result = keccak_trace_builder.keccakf1600(clk, input);
-    // Write the result to memory after
+
+    pc += Deserialization::get_pc_increment(OpCode::KECCAKF1600);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 }
 
@@ -3208,13 +3308,17 @@ void AvmTraceBuilder::op_ec_add(uint16_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_ecadd = 1,
         .main_tag_err = FF(0),
     });
 
     gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
 
+    pc += Deserialization::get_pc_increment(OpCode::ECADD);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write point coordinates
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
@@ -3289,7 +3393,7 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_msm = 1,
         .main_tag_err = FF(0),
     });
@@ -3298,6 +3402,10 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     // run out of gas. Casting/truncating here is not secure.
     gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
+    pc += Deserialization::get_pc_increment(OpCode::MSM);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
@@ -3378,7 +3486,7 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
         // TODO(8603): uncomment
         //.main_mem_addr_b = read_radix.direct_address,
         .main_op_err = error ? FF(1) : FF(0),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
         // TODO(8603): uncomment
@@ -3390,6 +3498,10 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
         .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
     });
 
+    pc += Deserialization::get_pc_increment(OpCode::TORADIXBE);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
 }
 

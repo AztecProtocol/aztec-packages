@@ -58,7 +58,7 @@ Here is an explanation of what it is doing:
      - We use our utility method that creates a sha256 hash but truncates it to fit into a field
    - Since we want to mint tokens on Aztec publicly, the content here is the amount to mint and the address on Aztec who will receive the tokens.
    - We encode this message as a mint_public function call, to specify the exact intentions and parameters we want to execute on L2.
-     - In reality the content can be constructed in any manner as long as the sister contract on L2 can also create it. But for clarity, we are constructing the content like a abi encoded function call.
+     - In reality the content can be constructed in any manner as long as the sister contract on L2 can also create it. But for clarity, we are constructing the content like an ABI encoded function call.
      - It is good practice to include all parameters used by L2 into this content (like the amount and to) so that a malicious actor can’t change the to to themselves when consuming the message.
 3. The tokens are transferred from the user to the portal using `underlying.safeTransferFrom()`. This puts the funds under the portal's control.
 4. Next we send the message to the inbox contract. The inbox expects the following parameters:

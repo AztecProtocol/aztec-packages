@@ -63,7 +63,7 @@ contract Child {
             &mut context,
             owner_ovpk_m,
             owner,
-            context.msg_sender(),
+            owner,
         ));
         new_value
     }
