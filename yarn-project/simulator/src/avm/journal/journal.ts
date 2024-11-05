@@ -37,8 +37,7 @@ export class AvmPersistableStateManager {
     // TODO(5818): make private once no longer accessed in executor
     public readonly trace: PublicSideEffectTraceInterface,
     /** Public storage, including cached writes */
-    // TODO(5818): make private once no longer accessed in executor
-    public readonly publicStorage: PublicStorage = new PublicStorage(worldStateDB),
+    private readonly publicStorage: PublicStorage = new PublicStorage(worldStateDB),
     /** Nullifier set, including cached/recently-emitted nullifiers */
     private readonly nullifiers: NullifierManager = new NullifierManager(worldStateDB),
   ) {}
@@ -69,20 +68,6 @@ export class AvmPersistableStateManager {
       this.trace.fork(incrementSideEffectCounter),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
-    );
-  }
-
-  public forkWithPendingSiloedNullifiers(incrementSideEffectCounter: boolean, pendingSiloedNullifiers: Fr[]) {
-    const prePhaseNullifiers = NullifierManager.newWithPendingSiloedNullifiers(
-      this.worldStateDB,
-      pendingSiloedNullifiers,
-      this.nullifiers,
-    );
-    return new AvmPersistableStateManager(
-      this.worldStateDB,
-      this.trace.fork(incrementSideEffectCounter),
-      this.publicStorage.fork(),
-      prePhaseNullifiers, // TODO(dbanks12): need a fork()?
     );
   }
 
@@ -257,9 +242,9 @@ export class AvmPersistableStateManager {
   /**
    * Accept nested world state modifications
    */
-  public acceptNestedCallState(nestedState: AvmPersistableStateManager) {
-    this.publicStorage.acceptAndMerge(nestedState.publicStorage);
-    this.nullifiers.acceptAndMerge(nestedState.nullifiers);
+  public acceptForkedState(forkedState: AvmPersistableStateManager) {
+    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
+    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
   }
 
   /**
@@ -301,12 +286,11 @@ export class AvmPersistableStateManager {
       return undefined;
     }
   }
-
   /**
    * Accept the nested call's state and trace the nested call
    */
   public async processNestedCall(
-    nestedState: AvmPersistableStateManager,
+    forkedState: AvmPersistableStateManager,
     nestedEnvironment: AvmExecutionEnvironment,
     startGasLeft: Gas,
     endGasLeft: Gas,
@@ -314,7 +298,7 @@ export class AvmPersistableStateManager {
     avmCallResults: AvmContractCallResult,
   ) {
     if (!avmCallResults.reverted) {
-      this.acceptNestedCallState(nestedState);
+      this.acceptForkedState(forkedState);
     }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
@@ -326,7 +310,7 @@ export class AvmPersistableStateManager {
     this.log.verbose(`[AVM] Calling nested function ${functionName}`);
 
     this.trace.traceNestedCall(
-      nestedState.trace,
+      forkedState.trace,
       nestedEnvironment,
       startGasLeft,
       endGasLeft,
@@ -336,8 +320,8 @@ export class AvmPersistableStateManager {
     );
   }
 
-  public async processEnqueuedCall(
-    nestedState: AvmPersistableStateManager,
+  public async mergeStateForEnqueuedCall(
+    forkedState: AvmPersistableStateManager,
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,
     /** The call's calldata */
@@ -346,7 +330,7 @@ export class AvmPersistableStateManager {
     reverted: boolean,
   ) {
     if (!reverted) {
-      this.acceptNestedCallState(nestedState);
+      this.acceptForkedState(forkedState);
     }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
@@ -357,12 +341,12 @@ export class AvmPersistableStateManager {
 
     this.log.verbose(`[AVM] Encountered enqueued public call starting with function ${functionName}`);
 
-    this.trace.traceEnqueuedCall(nestedState.trace, publicCallRequest, calldata, reverted);
+    this.trace.traceEnqueuedCall(forkedState.trace, publicCallRequest, calldata, reverted);
   }
 
-  public processEntireAppLogicPhase(
+  public mergeStateForPhase(
     /** The forked state manager used by app logic */
-    nestedState: AvmPersistableStateManager,
+    forkedState: AvmPersistableStateManager,
     /** The call requests for each enqueued call in app logic. */
     publicCallRequests: PublicCallRequest[],
     /** The calldatas for each enqueued call in app logic */
@@ -371,11 +355,11 @@ export class AvmPersistableStateManager {
     reverted: boolean,
   ) {
     if (!reverted) {
-      this.acceptNestedCallState(nestedState);
+      this.acceptForkedState(forkedState);
     }
 
     this.log.verbose(`[AVM] Encountered app logic phase`);
 
-    this.trace.traceAppLogicPhase(nestedState.trace, publicCallRequests, calldatas, reverted);
+    this.trace.traceExecutionPhase(forkedState.trace, publicCallRequests, calldatas, reverted);
   }
 }

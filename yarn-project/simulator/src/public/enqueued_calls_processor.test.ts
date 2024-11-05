@@ -30,7 +30,7 @@ import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { PublicExecutionResultBuilder } from '../mocks/fixtures.js';
 import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
-import { type PublicExecutionResult } from './execution.js';
+import { type EnqueuedPublicCallExecutionResult } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
@@ -89,6 +89,7 @@ describe('enqueued_calls_processor', () => {
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees: GasFees.default() }),
       Header.empty(),
       worldStateDB,
+      /*realAvmProvingRequest=*/ false,
     );
   });
 
@@ -99,8 +100,8 @@ describe('enqueued_calls_processor', () => {
       hasLogs: true,
     });
 
-    publicExecutor.simulate.mockImplementation((_stateManager, request) => {
-      const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build();
+    publicExecutor.simulate.mockImplementation(_stateManager => {
+      const result = PublicExecutionResultBuilder.empty().build();
       return Promise.resolve(result);
     });
 
@@ -133,10 +134,8 @@ describe('enqueued_calls_processor', () => {
 
     const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
     const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
-    const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
     const teardownGas = tx.data.constants.txContext.gasSettings.getTeardownLimits();
-    const teardownResultSettings = { startGasLeft: teardownGas, endGasLeft: teardownGas };
 
     const nestedContractAddress = AztecAddress.fromBigInt(112233n);
     const contractSlotA = fr(0x100);
@@ -144,23 +143,13 @@ describe('enqueued_calls_processor', () => {
     const contractSlotC = fr(0x200);
 
     const teardownFailure = new SimulationError('Simulation Failed in teardown', []);
-    const simulatorResults: PublicExecutionResult[] = [
+    const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Setup
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: nonRevertibleRequests[0],
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().build(),
       // App Logic
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: revertibleRequests[0],
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().build(),
       // Teardown
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: teardownRequest,
-        // revert at top-level of teardown enqueued call
-        revertReason: teardownFailure,
-      }).build(teardownResultSettings),
+      PublicExecutionResultBuilder.empty().withReverted(teardownFailure).build({ endGasLeft: teardownGas }),
     ];
     const mockedSimulatorExecutions = [
       // SETUP
@@ -188,7 +177,7 @@ describe('enqueued_calls_processor', () => {
 
     for (const executeSimulator of mockedSimulatorExecutions) {
       publicExecutor.simulate.mockImplementationOnce(
-        (stateManager: AvmPersistableStateManager): Promise<PublicExecutionResult> => {
+        (stateManager: AvmPersistableStateManager): Promise<EnqueuedPublicCallExecutionResult> => {
           return executeSimulator(stateManager);
         },
       );
@@ -240,8 +229,6 @@ describe('enqueued_calls_processor', () => {
     });
 
     const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
-    const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
-    const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
     const nestedContractAddress = AztecAddress.fromBigInt(112233n);
     const contractSlotA = fr(0x100);
@@ -250,22 +237,13 @@ describe('enqueued_calls_processor', () => {
 
     const setupFailureMsg = 'Simulation Failed in setup';
     const setupFailure = new SimulationError(setupFailureMsg, []);
-    const simulatorResults: PublicExecutionResult[] = [
+    const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Setup
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: nonRevertibleRequests[0],
-        revertReason: setupFailure,
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().withReverted(setupFailure).build(),
       // App Logic
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: revertibleRequests[0],
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().build(),
       // Teardown
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: teardownRequest,
-      }).build(),
+      PublicExecutionResultBuilder.empty().build(),
     ];
     const mockedSimulatorExecutions = [
       // SETUP
@@ -290,7 +268,7 @@ describe('enqueued_calls_processor', () => {
 
     for (const executeSimulator of mockedSimulatorExecutions) {
       publicExecutor.simulate.mockImplementationOnce(
-        (stateManager: AvmPersistableStateManager): Promise<PublicExecutionResult> => {
+        (stateManager: AvmPersistableStateManager): Promise<EnqueuedPublicCallExecutionResult> => {
           return executeSimulator(stateManager);
         },
       );
@@ -312,11 +290,8 @@ describe('enqueued_calls_processor', () => {
     });
 
     const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
-    const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
-    const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
     const teardownGas = tx.data.constants.txContext.gasSettings.getTeardownLimits();
-    const teardownResultSettings = { startGasLeft: teardownGas, endGasLeft: teardownGas };
 
     const nestedContractAddress = AztecAddress.fromBigInt(112233n);
     const contractSlotA = fr(0x100);
@@ -327,22 +302,13 @@ describe('enqueued_calls_processor', () => {
     const contractSlotF = fr(0x350);
 
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
-    const simulatorResults: PublicExecutionResult[] = [
+    const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Setup
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: nonRevertibleRequests[0],
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().build(),
       // App Logic
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: revertibleRequests[0],
-        revertReason: appLogicFailure,
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().withReverted(appLogicFailure).build(),
       // Teardown
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: teardownRequest,
-      }).build(teardownResultSettings),
+      PublicExecutionResultBuilder.empty().build({ endGasLeft: teardownGas }),
     ];
 
     const mockedSimulatorExecutions = [
@@ -372,7 +338,7 @@ describe('enqueued_calls_processor', () => {
 
     for (const executeSimulator of mockedSimulatorExecutions) {
       publicExecutor.simulate.mockImplementationOnce(
-        (stateManager: AvmPersistableStateManager): Promise<PublicExecutionResult> => {
+        (stateManager: AvmPersistableStateManager): Promise<EnqueuedPublicCallExecutionResult> => {
           return executeSimulator(stateManager);
         },
       );
@@ -437,10 +403,8 @@ describe('enqueued_calls_processor', () => {
 
     const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
     const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
-    const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
     const teardownGas = tx.data.constants.txContext.gasSettings.getTeardownLimits();
-    const teardownResultSettings = { startGasLeft: teardownGas, endGasLeft: teardownGas };
 
     const nestedContractAddress = AztecAddress.fromBigInt(112233n);
     const contractSlotA = fr(0x100);
@@ -449,25 +413,13 @@ describe('enqueued_calls_processor', () => {
 
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
     const teardownFailure = new SimulationError('Simulation Failed in teardown', []);
-    const simulatorResults: PublicExecutionResult[] = [
+    const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Setup
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: nonRevertibleRequests[0],
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().build(),
       // App Logic
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: revertibleRequests[0],
-        // revert at top-level of enqueued call
-        revertReason: appLogicFailure,
-      }).build(),
-
+      PublicExecutionResultBuilder.empty().withReverted(appLogicFailure).build(),
       // Teardown
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: teardownRequest,
-        // revert at top-level of enqueued call
-        revertReason: teardownFailure,
-      }).build(teardownResultSettings),
+      PublicExecutionResultBuilder.empty().withReverted(teardownFailure).build({ endGasLeft: teardownGas }),
     ];
 
     const mockedSimulatorExecutions = [
@@ -496,7 +448,7 @@ describe('enqueued_calls_processor', () => {
 
     for (const executeSimulator of mockedSimulatorExecutions) {
       publicExecutor.simulate.mockImplementationOnce(
-        (stateManager: AvmPersistableStateManager): Promise<PublicExecutionResult> => {
+        (stateManager: AvmPersistableStateManager): Promise<EnqueuedPublicCallExecutionResult> => {
           return executeSimulator(stateManager);
         },
       );
@@ -549,9 +501,7 @@ describe('enqueued_calls_processor', () => {
       hasPublicTeardownCallRequest: true,
     });
 
-    const nonRevertibleRequests = tx.getNonRevertiblePublicExecutionRequests();
     const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
-    const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
     // Keep gas numbers MAX_L2_GAS_PER_ENQUEUED_CALL or the logic below has to get weird
     const gasLimits = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
@@ -599,30 +549,24 @@ describe('enqueued_calls_processor', () => {
       tx.data.constants.txContext.gasSettings.inclusionFee.toNumber() +
       expectedTotalGasUsed.l2Gas * 1 +
       expectedTotalGasUsed.daGas * 1;
-    const transactionFee = new Fr(expectedTxFee);
 
-    const simulatorResults: PublicExecutionResult[] = [
+    const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Setup
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({ request: nonRevertibleRequests[0] }).build({
-        startGasLeft: initialGas,
+      PublicExecutionResultBuilder.empty().build({
+        // starts with initialGas, ends with
         endGasLeft: afterSetupGas,
       }),
 
       // App Logic
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: revertibleRequests[0],
-      }).build({
-        startGasLeft: afterSetupGas,
+      PublicExecutionResultBuilder.empty().build({
+        // starts with afterSetupGas, ends with
         endGasLeft: afterAppGas,
       }),
 
       // Teardown
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: teardownRequest,
-      }).build({
-        startGasLeft: teardownGas,
+      PublicExecutionResultBuilder.empty().build({
+        // starts with tearDownGas, ends with
         endGasLeft: afterTeardownGas,
-        transactionFee,
       }),
     ];
 
@@ -635,9 +579,9 @@ describe('enqueued_calls_processor', () => {
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
         // mock storage writes on the state manager
-        stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotA, fr(0x101));
-        stateManager.writeStorage(revertibleRequests[0].callContext.contractAddress, contractSlotB, fr(0x151));
-        await stateManager.readStorage(revertibleRequests[0].callContext.contractAddress, contractSlotA);
+        stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
+        stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
+        await stateManager.readStorage(contractAddress, contractSlotA);
         return Promise.resolve(simulatorResults[1]);
       },
       async (stateManager: AvmPersistableStateManager) => {
@@ -654,7 +598,7 @@ describe('enqueued_calls_processor', () => {
 
     for (const executeSimulator of mockedSimulatorExecutions) {
       publicExecutor.simulate.mockImplementationOnce(
-        (stateManager: AvmPersistableStateManager): Promise<PublicExecutionResult> => {
+        (stateManager: AvmPersistableStateManager): Promise<EnqueuedPublicCallExecutionResult> => {
           return executeSimulator(stateManager);
         },
       );
@@ -675,11 +619,9 @@ describe('enqueued_calls_processor', () => {
 
     const expectedSimulateCall = (availableGas: Partial<FieldsOf<Gas>>, txFee: number) => [
       expect.anything(), // AvmPersistableStateManager
-      expect.anything(), // PublicExecution
+      expect.anything(), // PublicExecutionRequest
       expect.anything(), // GlobalVariables
       Gas.from(availableGas),
-      expect.anything(), // TxContext
-      expect.anything(), // pendingNullifiers
       new Fr(txFee),
     ];
 
@@ -726,8 +668,6 @@ describe('enqueued_calls_processor', () => {
       hasPublicTeardownCallRequest: true,
     });
 
-    const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
-
     const gasLimits = Gas.from({ l2Gas: 1e9, daGas: 1e9 });
     const teardownGas = Gas.from({ l2Gas: 1e7, daGas: 1e7 });
     tx.data.constants.txContext.gasSettings = GasSettings.from({
@@ -747,19 +687,13 @@ describe('enqueued_calls_processor', () => {
       .withGasUsed(Gas.empty())
       .build();
 
-    const txOverhead = 1e4;
-    const expectedTxFee = txOverhead + teardownGas.l2Gas * 1 + teardownGas.daGas * 1;
-    const transactionFee = new Fr(expectedTxFee);
     const teardownGasUsed = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
 
-    const simulatorResults: PublicExecutionResult[] = [
+    const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Teardown
-      PublicExecutionResultBuilder.fromPublicExecutionRequest({
-        request: teardownRequest,
-      }).build({
-        startGasLeft: teardownGas,
+      PublicExecutionResultBuilder.empty().build({
+        // starts with tearDownGas, ends with
         endGasLeft: teardownGas.sub(teardownGasUsed),
-        transactionFee,
       }),
     ];
 

@@ -11,7 +11,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type PublicExecutionResult } from './execution.js';
+import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
   fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
@@ -40,10 +40,8 @@ export interface PublicSideEffectTraceInterface {
     /** The execution environment of the nested call. */
     nestedEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
-    // TODO(dbanks12): consider moving to AvmExecutionEnvironment
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
-    // TODO(dbanks12): consider moving to AvmContractCallResults
     endGasLeft: Gas,
     /** Bytecode used for this execution. */
     bytecode: Buffer,
@@ -62,7 +60,7 @@ export interface PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ): void;
-  traceAppLogicPhase(
+  traceExecutionPhase(
     /** The trace of the enqueued call. */
     appLogicTrace: this,
     /** The call request from private that enqueued this call. */
@@ -72,7 +70,13 @@ export interface PublicSideEffectTraceInterface {
     /** Did the any enqueued call in app logic revert? */
     reverted: boolean,
   ): void;
-  toPublicExecutionResult(
+  toPublicEnqueuedCallExecutionResult(
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
+  ): EnqueuedPublicCallExecutionResultWithSideEffects;
+  toPublicFunctionCallResult(
     /** The execution environment of the nested call. */
     avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
@@ -85,16 +89,18 @@ export interface PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     functionName: string,
-  ): PublicExecutionResult;
+  ): PublicFunctionCallResult;
   toVMCircuitPublicInputs(
     /** Constants. */
     constants: CombinedConstantData,
-    /** The execution environment of the nested call. */
-    avmEnvironment: AvmExecutionEnvironment,
+    /** The call request that triggered public execution. */
+    callRequest: PublicCallRequest,
     /** How much gas was available for this public execution. */
     startGasLeft: Gas,
     /** How much gas was left after this public execution. */
     endGasLeft: Gas,
+    /** Transaction fee. */
+    transactionFee: Fr,
     /** The call's results */
     avmCallResults: AvmContractCallResult,
   ): VMCircuitPublicInputs;

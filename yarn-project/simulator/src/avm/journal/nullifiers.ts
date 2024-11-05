@@ -22,13 +22,9 @@ export class NullifierManager {
   /**
    * Create a new nullifiers manager with some preloaded pending siloed nullifiers
    */
-  public static newWithPendingSiloedNullifiers(
-    hostNullifiers: CommitmentsDB,
-    pendingSiloedNullifiers: Fr[],
-    parent?: NullifierManager,
-  ) {
+  public static newWithPendingSiloedNullifiers(hostNullifiers: CommitmentsDB, pendingSiloedNullifiers: Fr[]) {
     const cache = new NullifierCache(pendingSiloedNullifiers);
-    return new NullifierManager(hostNullifiers, cache, parent);
+    return new NullifierManager(hostNullifiers, cache);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { UnencryptedL2Log } from '@aztec/circuit-types';
+import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmContractBytecodeHints,
   AvmContractInstanceHint,
@@ -7,11 +7,8 @@ import {
   AvmExternalCallHint,
   AvmKeyValueHint,
   AztecAddress,
-  CallContext,
   type CombinedConstantData,
   type ContractClassIdPreimage,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
   EthAddress,
   Gas,
   L2ToL1Message,
@@ -49,7 +46,7 @@ import {
   TreeLeafReadRequest,
   VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -57,7 +54,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type PublicExecutionResult } from './execution.js';
+import { createSimulationError } from '../common/errors.js';
+import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
@@ -69,8 +67,8 @@ import { type PublicSideEffectTraceInterface } from './side_effect_trace_interfa
 export type SideEffects = {
   enqueuedCalls: PublicCallRequest[];
 
-  contractStorageReads: ContractStorageRead[];
-  contractStorageUpdateRequests: ContractStorageUpdateRequest[];
+  publicDataReads: PublicDataRead[];
+  publicDataWrites: PublicDataUpdateRequest[];
 
   noteHashReadRequests: TreeLeafReadRequest[];
   noteHashes: ScopedNoteHash[];
@@ -96,9 +94,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private sideEffectCounter: number;
 
   private enqueuedCalls: PublicCallRequest[] = [];
-  // TODO(dbanks12):remove contractStorageReads/writes
-  private contractStorageReads: ContractStorageRead[] = [];
-  private contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
+
   private publicDataReads: PublicDataRead[] = [];
   private publicDataWrites: PublicDataUpdateRequest[] = [];
 
@@ -110,7 +106,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private nullifiers: Nullifier[] = [];
 
   private l1ToL2MsgReadRequests: TreeLeafReadRequest[] = [];
-  private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
+  private l2ToL1Messages: ScopedL2ToL1Message[] = [];
 
   private unencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: ScopedLogHash[] = [];
@@ -140,16 +136,16 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         this.previousValidationRequestArrayLengths.nullifierNonExistentReadRequests +
           this.nullifierNonExistentReadRequests.length,
         this.previousValidationRequestArrayLengths.l1ToL2MsgReadRequests + this.l1ToL2MsgReadRequests.length,
-        this.previousValidationRequestArrayLengths.publicDataReads + this.contractStorageReads.length,
+        this.previousValidationRequestArrayLengths.publicDataReads + this.publicDataReads.length,
       ),
       new PublicAccumulatedDataArrayLengths(
         this.previousAccumulatedDataArrayLengths.noteHashes + this.noteHashes.length,
         this.previousAccumulatedDataArrayLengths.nullifiers + this.nullifiers.length,
-        this.previousAccumulatedDataArrayLengths.l2ToL1Msgs + this.l2ToL1Msgs.length,
+        this.previousAccumulatedDataArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
         this.previousAccumulatedDataArrayLengths.noteEncryptedLogsHashes,
         this.previousAccumulatedDataArrayLengths.encryptedLogsHashes,
         this.previousAccumulatedDataArrayLengths.unencryptedLogsHashes + this.unencryptedLogsHashes.length,
-        this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests + this.contractStorageUpdateRequests.length,
+        this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests + this.publicDataWrites.length,
         this.previousAccumulatedDataArrayLengths.publicCallStack,
       ),
     );
@@ -166,17 +162,14 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (
-      this.contractStorageReads.length + this.previousValidationRequestArrayLengths.publicDataReads >=
+      this.publicDataReads.length + this.previousValidationRequestArrayLengths.publicDataReads >=
       MAX_PUBLIC_DATA_READS_PER_TX
     ) {
-      throw new SideEffectLimitReachedError('contract storage read', MAX_PUBLIC_DATA_READS_PER_TX);
+      throw new SideEffectLimitReachedError('public data (contract storage) read', MAX_PUBLIC_DATA_READS_PER_TX);
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
     this.publicDataReads.push(new PublicDataRead(leafSlot, value, this.sideEffectCounter));
-    this.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(contractAddress)),
-    );
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
     );
@@ -186,17 +179,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
     if (
-      this.contractStorageUpdateRequests.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
+      this.publicDataWrites.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     ) {
-      throw new SideEffectLimitReachedError('contract storage write', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+      throw new SideEffectLimitReachedError(
+        'public data (contract storage) write',
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      );
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
-    this.contractStorageUpdateRequests.push(
-      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, contractAddress),
-    );
     this.log.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
@@ -225,6 +218,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     // TODO(dbanks12): make unique and silo instead of scoping
+    //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(AztecAddress.fromField(contractAddress)));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
@@ -234,8 +228,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     this.enforceLimitOnNullifierChecks();
 
-    // TODO(dbanks12): use siloed nullifier instead of scoped
-    // Requires change to VMCircuitPublicInputs
+    // TODO(dbanks12): use siloed nullifier instead of scoped once public kernel stops siloing
+    // and once VM public inputs are meant to contain siloed nullifiers.
     //const siloedNullifier = siloNullifier(contractAddress, nullifier);
     const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(
       AztecAddress.fromField(contractAddress),
@@ -280,12 +274,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   public traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
-    if (this.l2ToL1Msgs.length + this.previousAccumulatedDataArrayLengths.l2ToL1Msgs >= MAX_L2_TO_L1_MSGS_PER_TX) {
+    if (this.l2ToL1Messages.length + this.previousAccumulatedDataArrayLengths.l2ToL1Msgs >= MAX_L2_TO_L1_MSGS_PER_TX) {
       throw new SideEffectLimitReachedError('l2 to l1 message', MAX_L2_TO_L1_MSGS_PER_TX);
     }
 
     const recipientAddress = EthAddress.fromField(recipient);
-    this.l2ToL1Msgs.push(
+    this.l2ToL1Messages.push(
       new L2ToL1Message(recipientAddress, content, this.sideEffectCounter).scope(
         AztecAddress.fromField(contractAddress),
       ),
@@ -404,9 +398,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // Since this trace function happens _after_ a nested call, such threshold limits must take
     // place in another trace function that occurs _before_ a nested call.
     if (avmCallResults.reverted) {
-      this.absorbRevertedNestedTrace(nestedCallTrace);
+      this.mergeRevertedForkedTrace(nestedCallTrace);
     } else {
-      this.absorbSuccessfulNestedTrace(nestedCallTrace);
+      this.mergeSuccessfulForkedTrace(nestedCallTrace);
     }
 
     const gasUsed = new Gas(startGasLeft.daGas - endGasLeft.daGas, startGasLeft.l2Gas - endGasLeft.l2Gas);
@@ -442,18 +436,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // Since this trace function happens _after_ a nested call, such threshold limits must take
     // place in another trace function that occurs _before_ a nested call.
     if (reverted) {
-      this.absorbRevertedNestedTrace(enqueuedCallTrace);
+      this.mergeRevertedForkedTrace(enqueuedCallTrace);
     } else {
-      this.absorbSuccessfulNestedTrace(enqueuedCallTrace);
+      this.mergeSuccessfulForkedTrace(enqueuedCallTrace);
     }
-    this.log.debug(
-      `tracing enqueued call: start side effect ${enqueuedCallTrace.startSideEffectCounter}, end: ${enqueuedCallTrace.sideEffectCounter}`,
-    );
-    //if (enqueuedCallTrace.startSideEffectCounter == enqueuedCallTrace.sideEffectCounter) {
-    //  // TODO(dbanks12): better debug msg and/or move this and clean up
-    //  this.log.debug(`No side effects traced in enqueued call, so its side effect counter was never incremented. Incrementing paren't side effect counter now....`);
-    //  this.incrementSideEffectCounter();
-    //}
 
     this.enqueuedCalls.push(publicCallRequest);
 
@@ -466,9 +452,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
    * Trace an enqueued call.
    * Accept some results from a finished call's trace into this one.
    */
-  public traceAppLogicPhase(
+  public traceExecutionPhase(
     /** The trace of the enqueued call. */
-    appLogicTrace: this,
+    phaseTrace: this,
     /** The call request from private that enqueued this call. */
     publicCallRequests: PublicCallRequest[],
     /** The call's calldata */
@@ -476,21 +462,14 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     /** Did the any enqueued call in app logic revert? */
     reverted: boolean,
   ) {
-    // TODO(4805): check if some threshold is reached for max enqueued or nested calls (to unique contracts?)
-    // TODO(dbanks12): should emit a nullifier read request. There should be two thresholds.
-    // one for max unique contract calls, and another based on max nullifier reads.
-    // Since this trace function happens _after_ a nested call, such threshold limits must take
-    // place in another trace function that occurs _before_ a nested call.
+    // We only merge in enqueued calls here at the top-level
+    // because enqueued calls cannot enqueue others.
+    this.enqueuedCalls.push(...phaseTrace.enqueuedCalls);
     if (reverted) {
-      this.absorbRevertedAppLogicPhaseTrace(appLogicTrace);
+      this.mergeRevertedForkedTrace(phaseTrace);
     } else {
-      this.absorbSuccessfulAppLogicPhaseTrace(appLogicTrace);
+      this.mergeSuccessfulForkedTrace(phaseTrace);
     }
-    //if (appLogicTrace.startSideEffectCounter == appLogicTrace.sideEffectCounter) {
-    //  // TODO(dbanks12): better debug msg and/or move this and clean up
-    //  this.log.debug(`No side effects traced in enqueued call, so its side effect counter was never incremented. Incrementing paren't side effect counter now....`);
-    //  this.incrementSideEffectCounter();
-    //}
 
     for (let i = 0; i < publicCallRequests.length; i++) {
       this.enqueuedCalls.push(publicCallRequests[i]);
@@ -501,26 +480,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
   }
 
-  public absorbSuccessfulAppLogicPhaseTrace(nestedTrace: this) {
-    // TODO(dbanks12): properly absorb hints from nested traces
-    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
-    this.absorbSuccessfulNestedTrace(nestedTrace);
-  }
-
-  public absorbRevertedAppLogicPhaseTrace(nestedTrace: this) {
-    // NOTE: Even on revert of an app-logic enqueued call, we need hints to prove that we reverted for valid reasons!
-    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
-    this.absorbRevertedNestedTrace(nestedTrace);
-  }
-
-  public absorbSuccessfulNestedTrace(nestedTrace: this) {
-    // NOTE: don't absorb enqueued calls! A call cannot enqueue another one,
-    // so only the top level trace instance can trace enqueued calls.
-
+  private mergeSuccessfulForkedTrace(nestedTrace: this) {
     // TODO(dbanks12): accept & merge nested trace's hints!
     this.sideEffectCounter = nestedTrace.sideEffectCounter;
-    this.contractStorageReads.push(...nestedTrace.contractStorageReads);
-    this.contractStorageUpdateRequests.push(...nestedTrace.contractStorageUpdateRequests);
     this.publicDataReads.push(...nestedTrace.publicDataReads);
     this.publicDataWrites.push(...nestedTrace.publicDataWrites);
     this.noteHashReadRequests.push(...nestedTrace.noteHashReadRequests);
@@ -529,12 +491,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.nullifierNonExistentReadRequests.push(...nestedTrace.nullifierNonExistentReadRequests);
     this.nullifiers.push(...nestedTrace.nullifiers);
     this.l1ToL2MsgReadRequests.push(...nestedTrace.l1ToL2MsgReadRequests);
-    this.l2ToL1Msgs.push(...nestedTrace.l2ToL1Msgs);
+    this.l2ToL1Messages.push(...nestedTrace.l2ToL1Messages);
     this.unencryptedLogs.push(...nestedTrace.unencryptedLogs);
     this.unencryptedLogsHashes.push(...nestedTrace.unencryptedLogsHashes);
   }
 
-  public absorbRevertedNestedTrace(nestedTrace: this) {
+  private mergeRevertedForkedTrace(nestedTrace: this) {
     // All read requests, and any writes (storage & nullifiers) that
     // require complex validation in public kernel (with end lifetimes)
     // must be absorbed even on revert.
@@ -542,8 +504,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // TODO(dbanks12): accept & merge nested trace's hints!
     // TODO(dbanks12): What should happen to side effect counter on revert?
     this.sideEffectCounter = nestedTrace.sideEffectCounter;
-    this.contractStorageReads.push(...nestedTrace.contractStorageReads);
-    this.contractStorageUpdateRequests.push(...nestedTrace.contractStorageUpdateRequests);
     this.publicDataReads.push(...nestedTrace.publicDataReads);
     this.publicDataWrites.push(...nestedTrace.publicDataWrites);
     this.noteHashReadRequests.push(...nestedTrace.noteHashReadRequests);
@@ -559,39 +519,69 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public getSideEffects(): SideEffects {
     return {
       enqueuedCalls: this.enqueuedCalls,
-      contractStorageReads: this.contractStorageReads,
-      contractStorageUpdateRequests: this.contractStorageUpdateRequests,
+      publicDataReads: this.publicDataReads,
+      publicDataWrites: this.publicDataWrites,
       noteHashReadRequests: this.noteHashReadRequests,
       noteHashes: this.noteHashes,
       nullifierReadRequests: this.nullifierReadRequests,
       nullifierNonExistentReadRequests: this.nullifierNonExistentReadRequests,
       nullifiers: this.nullifiers,
       l1ToL2MsgReadRequests: this.l1ToL2MsgReadRequests,
-      l2ToL1Msgs: this.l2ToL1Msgs,
+      l2ToL1Msgs: this.l2ToL1Messages,
       unencryptedLogs: this.unencryptedLogs,
       unencryptedLogsHashes: this.unencryptedLogsHashes,
     };
   }
 
-  public toVMCircuitPublicInputs(
-    /** Constants. */
-    constants: CombinedConstantData,
-    /** The execution environment of the nested call. */
-    avmEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
+  /**
+   * Get the results of public execution.
+   */
+  public toPublicEnqueuedCallExecutionResult(
     /** How much gas was left after this public execution. */
     endGasLeft: Gas,
     /** The call's results */
     avmCallResults: AvmContractCallResult,
+  ): EnqueuedPublicCallExecutionResultWithSideEffects {
+    return {
+      endGasLeft,
+      endSideEffectCounter: new Fr(this.sideEffectCounter),
+      returnValues: avmCallResults.output,
+      reverted: avmCallResults.reverted,
+      revertReason: avmCallResults.revertReason
+        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
+        : undefined,
+      sideEffects: {
+        publicDataWrites: this.publicDataWrites,
+        noteHashes: this.noteHashes,
+        nullifiers: this.nullifiers,
+        l2ToL1Messages: this.l2ToL1Messages,
+        unencryptedLogsHashes: this.unencryptedLogsHashes, // Scoped?
+        unencryptedLogs: new UnencryptedFunctionL2Logs(this.unencryptedLogs),
+      },
+    };
+  }
+
+  /**
+   * Construct AVM circuit public inputs based on traced contents.
+   */
+  public toVMCircuitPublicInputs(
+    /** Constants. */
+    constants: CombinedConstantData,
+    /** The call request that triggered public execution. */
+    callRequest: PublicCallRequest,
+    /** How much gas was available for this public execution. */
+    startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** Transaction fee. */
+    transactionFee: Fr,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
   ): VMCircuitPublicInputs {
-    const callRequest = createPublicCallRequest(avmEnvironment);
-    const tempPublicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
-    //tempPublicCallStack[0].item = compress(callRequest);
     return new VMCircuitPublicInputs(
       /*constants=*/ constants,
       /*callRequest=*/ callRequest,
-      /*publicCallStack=*/ tempPublicCallStack,
+      /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty),
       /*previousValidationRequestArrayLengths=*/ this.previousValidationRequestArrayLengths,
       /*validationRequests=*/ this.getValidationRequests(),
       /*previousAccumulatedDataArrayLengths=*/ this.previousAccumulatedDataArrayLengths,
@@ -599,12 +589,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       /*startSideEffectCounter=*/ this.startSideEffectCounter,
       /*endSideEffectCounter=*/ this.sideEffectCounter,
       /*startGasLeft=*/ startGasLeft,
-      /*transactionFee=*/ avmEnvironment.transactionFee,
+      /*transactionFee=*/ transactionFee,
       /*reverted=*/ avmCallResults.reverted,
     );
   }
 
-  public toPublicExecutionResult(
+  public toPublicFunctionCallResult(
     /** The execution environment of the nested call. */
     _avmEnvironment: AvmExecutionEnvironment,
     /** How much gas was available for this public execution. */
@@ -617,7 +607,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     _avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     _functionName: string = 'unknown',
-  ): PublicExecutionResult {
+  ): PublicFunctionCallResult {
     throw new Error('Not implemented');
   }
 
@@ -631,7 +621,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   private getValidationRequests() {
     return new PublicValidationRequests(
-      RollupValidationRequests.empty(), // TODO(dbanks12): what should this be?
+      RollupValidationRequests.empty(),
       padArrayEnd(this.noteHashReadRequests, TreeLeafReadRequest.empty(), MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
       padArrayEnd(this.nullifierReadRequests, ScopedReadRequest.empty(), MAX_NULLIFIER_READ_REQUESTS_PER_TX),
       padArrayEnd(
@@ -648,7 +638,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new PublicAccumulatedData(
       padArrayEnd(this.noteHashes, ScopedNoteHash.empty(), MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(this.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_TX),
-      padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+      padArrayEnd(this.l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       /*noteEncryptedLogsHashes=*/ makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
       /*encryptedLogsHashes=*/ makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
@@ -685,17 +675,4 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       );
     }
   }
-}
-
-/**
- * Helper function to create a public execution request from an AVM execution environment
- */
-function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
-  const callContext = CallContext.from({
-    msgSender: avmEnvironment.sender,
-    contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
-    isStaticCall: avmEnvironment.isStaticCall,
-  });
-  return new PublicCallRequest(callContext, computeVarArgsHash(avmEnvironment.calldata), /*counter=*/ 0);
 }
