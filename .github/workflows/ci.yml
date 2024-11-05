@@ -1050,5 +1050,5 @@ jobs:
               "authors": "${{ steps.get_authors.outputs.authors }}",
               "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
             }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
