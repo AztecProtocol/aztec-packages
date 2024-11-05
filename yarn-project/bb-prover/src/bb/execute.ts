@@ -251,7 +251,6 @@ export async function executeBbClientIvcProof(
   }
 }
 
-
 /**
  * Used for generating verification keys of noir circuits.
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this VK.
