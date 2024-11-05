@@ -1,6 +1,10 @@
-import { TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { TelemetryClientConfig, getConfigEnvVars as getTelemetryConfig, createAndStartTelemetryClient } from '@aztec/telemetry-client/start';
+import {
+  type TelemetryClientConfig,
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryConfig,
+} from '@aztec/telemetry-client/start';
 
 export function getEndToEndTestTelemetryClient(metricsPort?: number, serviceName?: string): Promise<TelemetryClient> {
   return !metricsPort
@@ -19,6 +23,9 @@ export function getEndToEndTestTelemetryConfig(metricsPort?: number, serviceName
     telemetryConfig.metricsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/metrics`);
     telemetryConfig.tracesCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/traces`);
     telemetryConfig.logsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/logs`);
+    // If we are in an end to end test, we want to collect metrics more frequently
+    telemetryConfig.otelCollectIntervalMs = 5000;
+    telemetryConfig.otelExportTimeoutMs = 2500;
   }
   if (serviceName) {
     telemetryConfig.serviceName = serviceName;

@@ -1,4 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { SignableENR } from '@chainsafe/enr';
@@ -9,7 +10,6 @@ import type { BootnodeConfig } from '../config.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../service/discV5_service.js';
 import { createLibP2PPeerId } from '../service/index.js';
 import { convertToMultiaddr } from '../util.js';
-import { OtelMetricsAdapter, TelemetryClient } from '@aztec/telemetry-client';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -18,10 +18,7 @@ export class BootstrapNode {
   private node?: Discv5 = undefined;
   private peerId?: PeerId;
 
-  constructor(
-    private telemetry: TelemetryClient,
-    private logger = createDebugLogger('aztec:p2p_bootstrap'),
-  ) {}
+  constructor(private telemetry: TelemetryClient, private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
 
   /**
    * Starts the bootstrap node.

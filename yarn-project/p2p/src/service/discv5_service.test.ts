@@ -1,4 +1,5 @@
 import { sleep } from '@aztec/foundation/sleep';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -8,7 +9,6 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
   const timeout = 7_000;

@@ -6,6 +6,7 @@ import {
 } from '@aztec/circuit-types';
 import { type DataStoreConfig } from '@aztec/kv-store/utils';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -36,7 +37,6 @@ import {
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -240,12 +240,19 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
   };
 }
 
-export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number, telemetry: TelemetryClient = new NoopTelemetryClient()): Promise<BootstrapNode> {
+export function createBootstrapNodeFromPrivateKey(
+  privateKey: string,
+  port: number,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
   return startBootstrapNode(config, telemetry);
 }
 
-export async function createBootstrapNode(port: number, telemetry: TelemetryClient = new NoopTelemetryClient()): Promise<BootstrapNode> {
+export async function createBootstrapNode(
+  port: number,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+): Promise<BootstrapNode> {
   const peerId = await createLibP2PPeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 

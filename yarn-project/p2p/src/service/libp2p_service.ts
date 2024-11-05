@@ -6,13 +6,13 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
-  metricsTopicStrToLabels,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
   Tx,
   TxHash,
   type WorldStateSynchronizer,
+  metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -33,7 +33,6 @@ import { mplex } from '@libp2p/mplex';
 import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
-import { prometheusMetrics } from "@libp2p/prometheus-metrics";
 
 import { type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
@@ -293,7 +292,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         }) as (components: GossipSubComponents) => GossipSub,
       },
     });
-
 
     // Create request response protocol handlers
     /**
@@ -610,8 +608,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.
   private async stopLibP2P() {
-    console.log(this.metricsAdapter.outputNames());
-
     const TIMEOUT_MS = 5000; // 5 seconds timeout
     const timeout = new Promise((resolve, reject) => {
       setTimeout(() => reject(new Error('Timeout during libp2p.stop()')), TIMEOUT_MS);

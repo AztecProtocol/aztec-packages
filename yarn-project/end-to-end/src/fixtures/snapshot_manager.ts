@@ -24,7 +24,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig, TelemetryClientConfig } from '@aztec/telemetry-client/start';
+import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -312,7 +312,6 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.dataDirectory = statePath;
-
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');

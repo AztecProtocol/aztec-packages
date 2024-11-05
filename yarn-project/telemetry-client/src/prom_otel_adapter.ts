@@ -1,7 +1,10 @@
-import { Meter, Metrics, TelemetryClient, ObservableGauge, Attributes, Gauge } from "./telemetry.js";
+import { type Meter, type Metrics, type TelemetryClient, type ObservableGauge, Attributes, Gauge } from "./telemetry.js";
 
-import { Registry, Gauge as PromGauge, Histogram as PromHistogram } from 'prom-client';
+import { Registry } from 'prom-client';
 
+/**
+ * Types matching the gossipsub and libp2p services
+ */
 type TopicStr = string;
 export type TopicLabel = string
 export type TopicStrToLabel = Map<TopicStr, TopicLabel>
@@ -21,7 +24,6 @@ interface IGauge<Labels extends LabelsGeneric = NoLabels> {
   set: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void
 
   collect?(): void
-  addCollect(collectFn: CollectFn<Labels>): void
 }
 
 interface IHistogram<Labels extends LabelsGeneric = NoLabels> {
@@ -53,7 +55,7 @@ export interface MetricsRegister {
   avgMinMax<Labels extends LabelsGeneric = NoLabels>(config: AvgMinMaxConfig<Labels>): IAvgMinMax<Labels>
 }
 
-/**Otel Metrics Adapter
+/**Otel Metrics Adapters
  *
  * Some dependencies we use export metrics directly in a Prometheus format
  * This adapter is used to convert those metrics to a format that we can use with OpenTelemetry
@@ -67,7 +69,6 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
   private gauge: ObservableGauge;
   private currentValue: number = 0;
   private labeledValues: Map<string, number> = new Map();
-  private collectFns: CollectFn<Labels>[] = [];
 
   private _collect: () => void = () => {};
   get collect(): () => void {
@@ -92,9 +93,6 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
       // Execute the main collect function if assigned
       this._collect();
 
-      // Execute any additional collect callbacks
-      // this.collectFns.forEach(fn => fn());
-
       // Report the current values
       if (this.labelNames.length === 0) {
         result.observe(this.currentValue);
@@ -108,10 +106,6 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
         }
       }
     });
-  }
-
-  addCollect(collectFn: CollectFn<Labels>): void {
-    this.collectFns.push(collectFn);
   }
 
 /**
@@ -213,7 +207,10 @@ private parseLabelsSafely(labelStr: string): Labels | null {
 }
 
 
-class MockOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
+/**
+ * Noop implementation of a Historgram collec
+ */
+class NoopOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
 
   constructor(
     _meter: Meter,
@@ -238,9 +235,12 @@ class MockOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHis
   }
 }
 
-class MockOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
+/**
+ * Noop implementation of an AvgMinMax collector
+ */
+class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
   constructor(
-    meter: Meter,
+    _meter: Meter,
     _name: string, // Metrics must be registered in the aztec labels registry
     _help: string,
     _labelNames: Array<keyof Labels> = []
@@ -253,6 +253,11 @@ class MockOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvg
   reset(): void {}
 }
 
+/**
+ * Otel metrics Adapter
+ *
+ * Maps the PromClient based MetricsRegister from gossipsub and discv5 services to the Otel MetricsRegister
+ */
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
 
@@ -288,7 +293,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   histogram<Labels extends LabelsGeneric = NoLabels>(
     configuration: HistogramConfig<Labels>
   ): IHistogram<Labels> {
-    return new MockOtelHistogram<Labels>(
+    return new NoopOtelHistogram<Labels>(
       this.meter,
       configuration.name as Metrics,
       configuration.help,
@@ -300,7 +305,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   avgMinMax<Labels extends LabelsGeneric = NoLabels>(
     configuration: AvgMinMaxConfig<Labels>
   ): IAvgMinMax<Labels> {
-    return new MockOtelAvgMinMax<Labels>(
+    return new NoopOtelAvgMinMax<Labels>(
       this.meter,
       configuration.name as Metrics,
       configuration.help,
@@ -308,33 +313,11 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     );
   }
 
-  // static<Labels extends LabelsGeneric = NoLabels>({
-  //   name,
-  //   help,
-  //   value
-  // }: StaticConfig<Labels>): void {
-  //   const gauge = this.meter.createObservableGauge(name, {
-  //     description: help,
-  //     unit: '1',
-  //   });
-
-  //   gauge.addCallback((result) => {
-  //     result.observe(1, value);
-  //   });
-  // }
-
-  // counter<Labels extends LabelsGeneric = NoLabels>(
-  //   configuration: CounterConfig<Labels>
-  // ): ICounter<Labels> {
-  //   return new OtelCounter<Labels>(
-  //     this.meter,
-  //     configuration.name,
-  //     configuration.help,
-  //     configuration.labelNames
-  //   );
-  // }
 }
 
+/**
+ * Deal with the multiple ways of passing labels and values caused by generic construction
+ */
 function getLabelAndValue<Labels extends LabelsGeneric>(
   valueOrLabels?: number | number[] | Labels,
   value?: number | number[]
