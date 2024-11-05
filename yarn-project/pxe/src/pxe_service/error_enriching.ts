@@ -54,7 +54,6 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
 
 export async function enrichPublicSimulationError(
   err: SimulationError,
-  revertData: Fr[],
   contractDataOracle: ContractDataOracle,
   db: PxeDatabase,
   logger: DebugLogger,
@@ -70,7 +69,7 @@ export async function enrichPublicSimulationError(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
-  const assertionMessage = resolveAssertionMessageFromRevertData(revertData, artifact);
+  const assertionMessage = resolveAssertionMessageFromRevertData(err.revertData, artifact);
   if (assertionMessage) {
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }

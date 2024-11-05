@@ -781,18 +781,20 @@ export class PXEService implements PXE {
    * @param tx - The transaction to be simulated.
    */
   async #simulatePublicCalls(tx: Tx) {
-    const result = await this.node.simulatePublicCalls(tx);
-    if (result.revertReason) {
-      await enrichPublicSimulationError(
-        result.revertReason,
-        result.publicReturnValues[0].values || [],
-        this.contractDataOracle,
-        this.db,
-        this.log,
-      );
-      throw result.revertReason;
+    // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
+    // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
+    try {
+      const result = await this.node.simulatePublicCalls(tx);
+      if (result.revertReason) {
+        throw result.revertReason;
+      }
+      return result;
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+      }
+      throw err;
     }
-    return result;
   }
 
   async #profileKernelProver(
