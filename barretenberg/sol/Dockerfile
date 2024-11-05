@@ -40,7 +40,7 @@ COPY ./sol .
 # Download and install foundry
 RUN curl -L https://foundry.paradigm.xyz | bash
 ENV PATH="${PATH}:/root/.foundry/bin"
-RUN foundryup
+RUN foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc
 
 RUN cd ../cpp/srs_db && ./download_ignition.sh 3 && cd ../../sol
 
