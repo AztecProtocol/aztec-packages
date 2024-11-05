@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
     "eslint": "^8.35.0",

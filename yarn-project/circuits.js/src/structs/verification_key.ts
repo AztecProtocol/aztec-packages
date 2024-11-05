@@ -98,6 +98,15 @@ export class VerificationKeyAsFields {
     return this.key[CIRCUIT_RECURSIVE_INDEX].equals(Fr.ONE);
   }
 
+  static get schema() {
+    // TODO(palla/schemas): Should we verify the hash matches the key when deserializing?
+    return hexSchemaFor(VerificationKeyAsFields);
+  }
+
+  toJSON() {
+    return '0x' + this.toBuffer().toString('hex');
+  }
+
   /**
    * Serialize as a buffer.
    * @returns The buffer.
@@ -105,6 +114,7 @@ export class VerificationKeyAsFields {
   toBuffer() {
     return serializeToBuffer(...this.toFields());
   }
+
   toFields() {
     return [this.key.length, ...this.key, this.hash];
   }

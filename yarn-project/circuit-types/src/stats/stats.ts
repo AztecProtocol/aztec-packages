@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /** Stats associated with an ACIR proof generation.*/
 export type ProofConstructed = {
   /** Name of the event for metrics purposes */
@@ -234,6 +236,17 @@ export type NoteProcessorStats = {
   /** How many txs were spanned.  */
   txs: number;
 };
+
+export const NoteProcessorStatsSchema = z.object({
+  seen: z.number(),
+  deferredIncoming: z.number(),
+  deferredOutgoing: z.number(),
+  decryptedIncoming: z.number(),
+  decryptedOutgoing: z.number(),
+  failed: z.number(),
+  blocks: z.number(),
+  txs: z.number(),
+}) satisfies z.ZodType<NoteProcessorStats, any, any>;
 
 /** Stats for a tx. */
 export type TxStats = {

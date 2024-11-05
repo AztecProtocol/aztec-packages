@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computePartialAddress } from '../contract/contract_address.js';
@@ -29,6 +30,14 @@ export class CompleteAddress {
 
   /** Size in bytes of an instance */
   static readonly SIZE_IN_BYTES = 32 * 4;
+
+  static get schema() {
+    return hexSchemaFor(CompleteAddress);
+  }
+
+  toJSON() {
+    return this.toString();
+  }
 
   static random(): CompleteAddress {
     return this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
@@ -122,7 +131,7 @@ export class CompleteAddress {
    * @returns A Point instance.
    */
   static fromString(address: string): CompleteAddress {
-    return this.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+    return CompleteAddress.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
   }
 
   /**

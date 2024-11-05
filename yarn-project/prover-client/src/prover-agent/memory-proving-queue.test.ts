@@ -105,7 +105,7 @@ describe('MemoryProvingQueue', () => {
 
     const error = new Error('test error');
 
-    await queue.rejectProvingJob(job!.id, error);
+    await queue.rejectProvingJob(job!.id, error.message);
     await expect(queue.getProvingJob()).resolves.toEqual(job);
   });
 
@@ -113,9 +113,9 @@ describe('MemoryProvingQueue', () => {
     const promise = queue.getBaseParityProof(makeBaseParityInputs());
 
     const error = new Error('test error');
-    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error);
-    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error);
-    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error);
+    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error.message);
+    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error.message);
+    await queue.rejectProvingJob((await queue.getProvingJob())!.id, error.message);
 
     await expect(promise).rejects.toEqual(error);
   });
