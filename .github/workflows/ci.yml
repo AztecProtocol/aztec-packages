@@ -965,13 +965,14 @@ jobs:
       - yarn-project-test
       - prover-client-test
       - network-test
+      - kind-network-smoke
       - kind-network-test
       - l1-contracts-test
       - docs-preview
       # - bb-bench # non-blocking
       - boxes
       - boxes-test
-      - protocol-circuits-gates-report # non-blocking
+      # - protocol-circuits-gates-report # non-blocking
     if: always()
     outputs:
       failure: ${{ steps.set_failed_jobs.outputs.failure }}
