@@ -46,7 +46,7 @@ export const convertBigintsInObj = (obj: any) => {
  * @param obj - The object to be stringified.
  * @returns The resulting string.
  */
-export function JsonStringify(obj: object, prettify?: boolean): string {
+export function jsonStringify(obj: object, prettify?: boolean): string {
   return JSON.stringify(
     obj,
     (key, value) =>
@@ -56,6 +56,27 @@ export function JsonStringify(obj: object, prettify?: boolean): string {
             data: value.toString(),
           })
         : value,
+    prettify ? 2 : 0,
+  );
+}
+
+/**
+ * JSON.stringify helper that stringifies bigints and buffers.
+ * @param obj - The object to be stringified.
+ * @returns The resulting string.
+ */
+export function jsonStringify2(obj: object, prettify?: boolean): string {
+  return JSON.stringify(
+    obj,
+    (_key, value) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      } else if (typeof value === 'object' && Buffer.isBuffer(value)) {
+        return value.toString('base64');
+      } else {
+        return value;
+      }
+    },
     prettify ? 2 : 0,
   );
 }

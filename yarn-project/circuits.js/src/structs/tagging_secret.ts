@@ -1,4 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 export class TaggingSecret {
@@ -24,5 +25,9 @@ export class IndexedTaggingSecret extends TaggingSecret {
 
   static fromTaggingSecret(directionalSecret: TaggingSecret, index: number) {
     return new this(directionalSecret.secret, directionalSecret.recipient, index);
+  }
+
+  computeTag() {
+    return poseidon2Hash([this.secret, this.recipient, this.index]);
   }
 }

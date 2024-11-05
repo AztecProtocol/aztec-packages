@@ -40,27 +40,44 @@ class AvmTraceBuilder {
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
 
     // Compute - Arithmetic
-    void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
+    void op_add(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::ADD_16);
+    void op_sub(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::SUB_16);
+    void op_mul(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::MUL_16);
+    void op_div(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::DIV_16);
+    void op_fdiv(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::FDIV_16);
 
     // Compute - Comparators
-    void op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
+    void op_eq(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::EQ_16);
+    void op_lt(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::LT_16);
+    void op_lte(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::LTE_16);
 
     // Compute - Bitwise
-    void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset);
-    void op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
-    void op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
+    void op_and(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::AND_16);
+    void op_or(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::OR_16);
+    void op_xor(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::XOR_16);
+    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, OpCode op_code = OpCode::NOT_16);
+    void op_shl(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::SHL_16);
+    void op_shr(
+        uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code = OpCode::SHR_16);
 
     // Compute - Type Conversions
-    void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
+    void op_cast(uint8_t indirect,
+                 uint32_t a_offset,
+                 uint32_t dst_offset,
+                 AvmMemoryTag dst_tag,
+                 OpCode op_code = OpCode::CAST_16);
 
     // Execution Environment
     void op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
@@ -100,8 +117,13 @@ class AvmTraceBuilder {
 
     // Machine State - Memory
     // TODO(8945): skip_gas boolean is temporary and should be removed once all fake rows are removed
-    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, bool skip_gas = false);
-    void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
+    void op_set(uint8_t indirect,
+                FF val,
+                uint32_t dst_offset,
+                AvmMemoryTag in_tag,
+                OpCode op_code = OpCode::SET_FF,
+                bool skip_gas = false);
+    void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, OpCode op_code = OpCode::MOV_16);
 
     // World State
     void op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset);

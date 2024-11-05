@@ -45,10 +45,16 @@ opentelemetry-collector:
       prometheus:
         endpoint: ${env:MY_POD_IP}:8889
         metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
     extensions:
       health_check:
         endpoint: ${env:MY_POD_IP}:13133
     processors:
+      resource:
+        attributes:
+        - action: preserve
+          key: k8s.namespace.name
       batch: {}
     receivers:
       otlp:
@@ -155,6 +161,9 @@ prometheus:
         - job_name: aztec
           static_configs:
             - targets: ["metrics-opentelemetry-collector.metrics:8889"]
+        - job_name: 'kube-state-metrics'
+          static_configs:
+            - targets: ['metrics-kube-state-metrics.metrics.svc.cluster.local:8080']
 
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana

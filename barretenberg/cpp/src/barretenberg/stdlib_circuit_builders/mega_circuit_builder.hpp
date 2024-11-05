@@ -233,9 +233,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         databus[static_cast<size_t>(bus_idx)].append(witness_idx);
     }
 
-    const BusVector& get_calldata() { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
-    const BusVector& get_secondary_calldata() { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
-    const BusVector& get_return_data() { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
+    const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
+    const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

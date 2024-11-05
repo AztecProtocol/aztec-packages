@@ -2,7 +2,7 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
@@ -83,7 +83,7 @@ class ClientIVC {
     using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
-    MaxBlockSizeTracker max_block_size_tracker;
+    ExecutionTraceUsageTracker trace_usage_tracker;
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
