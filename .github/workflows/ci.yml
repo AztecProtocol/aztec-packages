@@ -695,20 +695,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [transfer.test.ts, reorg.test.ts, 4epochs.test.ts]
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+          # TODO(#9736)
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: kind-network-test-${{ matrix.test }}
+          concurrency_key: kind-network-${{ matrix.config.test }}
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
-          runner_type: 8core-tester-x86
+          runner_type: ${{ matrix.config.runner_type }}
           spot_strategy: None # use on-demand machines
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
@@ -721,8 +734,8 @@ jobs:
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            test=${{ matrix.test }}
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/$test
+            test=${{ matrix.config.test }}
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
 
   l1-contracts-test:
     needs: [build, configure]
