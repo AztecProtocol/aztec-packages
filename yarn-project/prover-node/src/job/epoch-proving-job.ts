@@ -88,7 +88,6 @@ export class EpochProvingJob {
           : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
 
       for (const block of this.blocks) {
-        // set this.db = prover.db to include all the padding txs
         // Gather all data to prove this block
         const globalVariables = block.header.globalVariables;
         const txHashes = block.body.txEffects.map(tx => tx.txHash);
@@ -121,6 +120,7 @@ export class EpochProvingJob {
         });
 
         if (txCount > txs.length) {
+          // If this block has a padding tx, ensure that the public processor's db has its state
           await this.addPaddingTxState();
         }
 
