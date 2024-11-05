@@ -739,9 +739,10 @@ jobs:
             test=${{ matrix.config.test }}
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
       - name: Copy Network Logs
+        if: always() # Run on failure too
         run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
       - name: Upload Network Logs
-        if: always() # Ensures this step runs regardless of success or failure in the test step
+        if: always() # Run on failure too
         uses: actions/upload-artifact@v3
         with:
           name: network-test.log
