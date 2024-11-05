@@ -89,21 +89,18 @@ export class NetGrumpkinCrs {
   async downloadG1Data() {
     // Skip the download if numPoints is 0 (would download the entire file due to bad range header otherwise)
     if (this.numPoints === 0) {
-      console.log(`not downloading Grumpkin CRS`);
       return (this.data = new Uint8Array([]));
     }
 
     const g1Start = 28;
     const g1End = this.numPoints * 64 - 1;
 
-    console.log(`downloading Grumpkin CRS`);
     const response = await fetch('https://aztec-ignition.s3.amazonaws.com/TEST%20GRUMPKIN/monomial/transcript00.dat', {
       headers: {
         Range: `bytes=${g1Start}-${g1End}`,
       },
       cache: 'force-cache',
     });
-    console.log(`done downloading Grumpkin CRS`);
 
     return (this.data = new Uint8Array(await response.arrayBuffer()));
   }

@@ -1,4 +1,4 @@
-import { NetCrs } from '../net_crs.js';
+import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { stat } from 'fs/promises';
 import createDebug from 'debug';
@@ -96,7 +96,7 @@ export class GrumpkinCrs {
     }
 
     debug(`downloading crs of size: ${this.numPoints}`);
-    const crs = new NetCrs(this.numPoints);
+    const crs = new NetGrumpkinCrs(this.numPoints);
     await crs.init();
     writeFileSync(this.path + '/grumpkin_g1.dat', crs.getG1Data());
   }
