@@ -20,6 +20,7 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
+  getAvmTestContractArtifact,
   getAvmTestContractBytecode,
   initContext,
   initExecutionEnvironment,
@@ -321,10 +322,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeDefined();
+    expect(results.output).toHaveLength(1); // Error selector for static string error
     expect(
       resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
     ).toMatch("Nullifier doesn't exist!");
-    expect(results.output).toHaveLength(1); // Error selector for static string error
   });
 
   describe.each([
@@ -929,14 +930,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
-        const calldata: Fr[] = [value0, value1, ...gas];
+        const targetFunctionSelector = FunctionSelector.fromSignature(
+          'nested_call_to_add_with_gas(Field,Field,Field,Field)',
+        );
+        const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
-        const callBytecode = getAvmTestContractBytecode('nested_call_to_add_with_gas');
-        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        const artifact = getAvmTestContractArtifact('public_dispatch');
+        mockGetBytecode(worldStateDB, artifact.bytecode);
 
         const contractClass = makeContractClassPublic(0, {
-          bytecode: nestedBytecode,
+          bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
@@ -945,16 +948,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         mockTraceFork(trace);
 
-        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-        // TODO(7141): change this once we don't force rethrowing of exceptions.
-        // Outer frame should not revert, but inner should, so the forwarded return value is 0
-        // expect(results.revertReason).toBeUndefined();
-        // expect(results.reverted).toBe(false);
+        const results = await new AvmSimulator(context).executeBytecode(artifact.bytecode);
         expect(results.reverted).toBe(true);
-        expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
+        expect(results.revertReason?.message).toMatch('Not enough L2GAS gas left');
 
-        // Nested call should NOT have been made and therefore should not be traced
-        expect(trace.traceNestedCall).toHaveBeenCalledTimes(0);
+        // Nested call should have been made (and failed).
+        expect(trace.traceNestedCall).toHaveBeenCalledTimes(1);
       });
 
       it(`Nested static call which modifies storage (expect failure)`, async () => {
@@ -971,7 +970,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
 
-        mockTraceFork(trace);
+        const nestedTrace = mock<PublicSideEffectTraceInterface>();
+        mockTraceFork(trace, nestedTrace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
@@ -980,9 +980,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           'Static call cannot update the state, emit L2->L1 messages or generate logs',
         );
 
-        // TODO(7141): external call doesn't recover from nested exception until
-        // we support recoverability of reverts (here and in kernel)
-        //expectTracedNestedCall(context.environment, results, nestedTrace, /*isStaticCall=*/true);
+        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ true);
 
         // Nested call should NOT have been able to write storage
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(0);

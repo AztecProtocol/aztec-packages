@@ -14,7 +14,7 @@ For a guide on using authwit in Aztec.js, [read this](../../js_apps/authwit.md).
 
 ## Introduction
 
-Authentication Witness is a scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
+Authentication Witness (authwit) is a scheme for authentication actions on Aztec, so users can allow third-parties (eg other contracts) to execute an action on their behalf. Authwits can only authorize actions for contracts that your account is calling, they cannot be used to permit other users to take actions on your behalf.
 
 How it works logically is explained in the [concepts](../../../../aztec/concepts/accounts/authwit.md) but we will do a short recap here.
 
