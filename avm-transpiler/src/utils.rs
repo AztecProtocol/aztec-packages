@@ -50,9 +50,11 @@ pub fn dbg_print_avm_program(avm_program: &[AvmInstruction]) {
     info!("Transpiled AVM program has {} instructions", avm_program.len());
     trace!("Printing AVM program...");
     let mut counts = std::collections::HashMap::<AvmOpcode, usize>::new();
+    let mut avm_pc = 0;
     for (i, instruction) in avm_program.iter().enumerate() {
-        trace!("\tPC:{0}: {1}", i, &instruction.to_string());
+        trace!("\tIDX:{0} AVMPC:{1} - {2}", i, avm_pc, &instruction.to_string());
         *counts.entry(instruction.opcode).or_insert(0) += 1;
+        avm_pc += instruction.size();
     }
     debug!("AVM opcode counts:");
     let mut sorted_counts: Vec<_> = counts.into_iter().collect();

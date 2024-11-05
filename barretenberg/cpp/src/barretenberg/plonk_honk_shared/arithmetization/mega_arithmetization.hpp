@@ -1,6 +1,9 @@
 #pragma once
 
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 
 namespace bb {
 
@@ -39,6 +42,13 @@ template <typename FF_> class MegaArith {
                              aux,        poseidon2_external, poseidon2_internal,
                              lookup };
         }
+        auto get() const
+        {
+            return RefArray{ ecc_op,     pub_inputs,         busread,
+                             arithmetic, delta_range,        elliptic,
+                             aux,        poseidon2_external, poseidon2_internal,
+                             lookup };
+        }
 
         auto get_gate_blocks()
         {
@@ -49,7 +59,6 @@ template <typename FF_> class MegaArith {
         bool operator==(const MegaTraceBlocks& other) const = default;
     };
 
-  private:
     // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
     struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
@@ -72,16 +81,42 @@ template <typename FF_> class MegaArith {
     struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         ClientIvcBenchStructuredBlockSizes()
         {
+            // 2^19
             this->ecc_op = 1 << 10;
             this->pub_inputs = 1 << 7;
+            this->busread = 1 << 7;
             this->arithmetic = 198000;
             this->delta_range = 90000;
             this->elliptic = 9000;
             this->aux = 136000;
-            this->lookup = 72000;
-            this->busread = 1 << 7;
             this->poseidon2_external = 2500;
             this->poseidon2_internal = 14000;
+            this->lookup = 72000;
+
+            // Additional structurings for testing
+            // // 2^18 (Only viable if no 2^19 circuit is used!)
+            // this->ecc_op = 1 << 10;
+            // this->pub_inputs = 1 << 6;
+            // this->busread = 1 << 6;
+            // this->arithmetic = 84000;
+            // this->delta_range = 45000;
+            // this->elliptic = 9000;
+            // this->aux = 68000;
+            // this->poseidon2_external = 2500;
+            // this->poseidon2_internal = 14000;
+            // this->lookup = 36000;
+
+            // // 2^20
+            // this->ecc_op = 1 << 11;
+            // this->pub_inputs = 1 << 8;
+            // this->busread = 1 << 8;
+            // this->arithmetic = 396000;
+            // this->delta_range = 180000;
+            // this->elliptic = 18000;
+            // this->aux = 272000;
+            // this->poseidon2_external = 5000;
+            // this->poseidon2_internal = 28000;
+            // this->lookup = 144000;
         }
     };
 
@@ -102,7 +137,6 @@ template <typename FF_> class MegaArith {
         }
     };
 
-  public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
 
