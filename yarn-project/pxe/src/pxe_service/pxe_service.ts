@@ -533,11 +533,24 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
-      const publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+
+      let publicInputs: PrivateKernelTailCircuitPublicInputs;
+      let profileResult;
+      if (profile) {
+        ({ publicInputs, profileResult } = await this.#profileKernelProver(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+        ));
+      } else {
+        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+      }
+
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
@@ -558,7 +571,11 @@ export class PXEService implements PXE {
       if (!msgSender) {
         this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
       }
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
+      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+        privateSimulationResult,
+        publicOutput,
+        profileResult,
+      );
     });
   }
 
@@ -763,16 +780,32 @@ export class PXEService implements PXE {
    * @param tx - The transaction to be simulated.
    */
   async #simulatePublicCalls(tx: Tx) {
-    try {
-      return await this.node.simulatePublicCalls(tx);
-    } catch (err) {
-      // Try to fill in the noir call stack since the PXE may have access to the debug metadata
-      if (err instanceof SimulationError) {
-        await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
-      }
-
-      throw err;
+    const result = await this.node.simulatePublicCalls(tx);
+    if (result.revertReason) {
+      await enrichPublicSimulationError(
+        result.revertReason,
+        result.publicReturnValues[0].values || [],
+        this.contractDataOracle,
+        this.db,
+        this.log,
+      );
+      throw result.revertReason;
     }
+    return result;
+  }
+
+  async #profileKernelProver(
+    txExecutionRequest: TxExecutionRequest,
+    proofCreator: PrivateKernelProver,
+    privateExecutionResult: PrivateExecutionResult,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator);
+
+    // Dry run the prover with profiler enabled
+    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
+    return result;
   }
 
   /**

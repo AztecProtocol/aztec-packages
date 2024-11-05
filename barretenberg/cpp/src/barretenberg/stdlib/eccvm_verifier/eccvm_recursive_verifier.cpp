@@ -128,10 +128,11 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    const auto batched_opening_verified =
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
+    const typename PCS::VerifierAccumulator batched_opening_accumulator =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
 
-    ASSERT(sumcheck_verified && batched_opening_verified);
+    ASSERT(sumcheck_verified);
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

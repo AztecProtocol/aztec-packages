@@ -50,13 +50,12 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
-    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
-
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator ? Fun::compute_perturbator(accumulator, deltas)
-                                                                   : Polynomial<FF>(CONST_PG_LOG_N + 1);
+    const Polynomial<FF> perturbator = accumulator->is_accumulator
+                                           ? pg_internal.compute_perturbator(accumulator, deltas)
+                                           : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
@@ -80,22 +79,20 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
-    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
-
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    const UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(keys);
+    const UnivariateRelationSeparator alphas = PGInternal::compute_and_extend_alphas(keys);
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
     const UnivariateRelationParameters relation_parameters =
-        Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
+        PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
     TupleOfTuplesOfUnivariates accumulators;
-    auto combiner = Fun::compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
+    auto combiner = pg_internal.compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
 
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
-    const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
+    const CombinerQuotient combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
 
     for (size_t idx = DeciderProvingKeys::NUM; idx < DeciderProvingKeys::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
@@ -119,7 +116,6 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     const FF& perturbator_evaluation)
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
-    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
@@ -128,7 +124,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
 
     // Compute the next target sum (for its own use; verifier must compute its own values)
     auto [vanishing_polynomial_at_challenge, lagranges] =
-        Fun::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
+        PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
     result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +
                                      vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
 
