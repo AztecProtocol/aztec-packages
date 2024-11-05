@@ -296,7 +296,7 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
-   * Includes the last seen index used for tagging with this secret, or 0 if this combination hasn't been seen before.
+   * Includes the next index to be used used for tagging with this secret.
    * For this to work, the ivpsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note

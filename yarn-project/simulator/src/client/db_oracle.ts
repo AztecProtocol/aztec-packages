@@ -198,7 +198,7 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
-   * Includes the last seen index used for tagging with this secret, or 0 if this combination hasn't been seen before.
+   * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
