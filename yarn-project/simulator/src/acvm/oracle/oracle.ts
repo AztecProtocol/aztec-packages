@@ -423,9 +423,4 @@ export class Oracle {
       AztecAddress.fromString(recipient),
     );
   }
-
-  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
-    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
-  }
 }

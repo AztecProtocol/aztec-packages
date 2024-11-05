@@ -778,7 +778,7 @@ export class TXE implements TypedOracle {
     return directionalSecret;
   }
 
-  async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const completeAddresses = await this.txeDatabase.getCompleteAddresses();
     // Filter out the addresses corresponding to accounts

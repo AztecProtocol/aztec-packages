@@ -28,7 +28,7 @@ import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/ab
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+import { AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
@@ -252,7 +252,7 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
-   * Includes the last known index used for tagging with this secret.
+   * Includes the last seen index used for tagging with this secret, or 0 if this combination hasn't been seen before.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
@@ -300,7 +300,7 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address receiving the notes
    * @returns A list of siloed tagging secrets
    */
-  public async getAppTaggingSecretsForSenders(
+  async #getAppTaggingSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
@@ -339,7 +339,7 @@ export class SimulatorOracle implements DBOracle {
     // length, since we don't really know the note they correspond to until we decrypt them.
 
     // 1. Get all the secrets for the recipient and sender pairs (#9365)
-    let appTaggingSecrets = await this.getAppTaggingSecretsForSenders(contractAddress, recipient);
+    let appTaggingSecrets = await this.#getAppTaggingSecretsForSenders(contractAddress, recipient);
 
     const logs: TxScopedEncryptedL2NoteLog[] = [];
     while (appTaggingSecrets.length > 0) {
@@ -366,7 +366,16 @@ export class SimulatorOracle implements DBOracle {
     return logs;
   }
 
-  public async processTaggedLogs(logs: TxScopedEncryptedL2NoteLog[], recipient: AztecAddress): Promise<void> {
+  /**
+   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param logs - The logs to process.
+   * @param recipient - The recipient of the logs.
+   */
+  public async processTaggedLogs(
+    logs: TxScopedEncryptedL2NoteLog[],
+    recipient: AztecAddress,
+    simulator?: AcirSimulator,
+  ): Promise<void> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
@@ -375,7 +384,9 @@ export class SimulatorOracle implements DBOracle {
     const ovskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
     );
-    const excludedIndices: Set<number> = new Set();
+    // Since we could have notes with the same index for different txs, we need
+    // to keep track of them scoping by txHash
+    const excludedIndices: Map<string, Set<number>> = new Map();
     const incomingNotes: IncomingNoteDao[] = [];
     const outgoingNotes: OutgoingNoteDao[] = [];
     const deferredIncomingNotes: DeferredNoteDao[] = [];
@@ -399,10 +410,11 @@ export class SimulatorOracle implements DBOracle {
         if (!txEffect) {
           throw new Error(`No tx effect found for ${scopedLog.txHash}`);
         }
-
+        if (!excludedIndices.has(scopedLog.txHash.toString())) {
+          excludedIndices.set(scopedLog.txHash.toString(), new Set());
+        }
         const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
-          // This is disgusting
-          getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+          simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
           incomingNotePayload ? computePoint(recipient) : undefined,
           outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
@@ -410,7 +422,7 @@ export class SimulatorOracle implements DBOracle {
           txEffect.txHash,
           txEffect.noteHashes,
           scopedLog.dataStartIndexForTx,
-          excludedIndices,
+          excludedIndices.get(scopedLog.txHash.toString())!,
           this.log,
           txEffect.unencryptedLogs,
         );
