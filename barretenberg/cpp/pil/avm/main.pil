@@ -351,13 +351,13 @@ namespace main(256);
     #[SUBOP_FDIV_W_IN_TAG_FF]
     sel_op_fdiv * (w_in_tag - constants.MEM_TAG_FF) = 0;
 
-    // op_err cannot be maliciously activated for a non-relevant
+    // TODO: op_err cannot be maliciously activated for a non-relevant
     // operation selector, i.e., op_err == 1 ==> sel_op_fdiv || sel_op_XXX || ...
     // op_err * (sel_op_fdiv + sel_op_XXX + ... - 1) == 0
     // Note that the above is even a stronger constraint, as it shows
     // that exactly one sel_op_XXX must be true.
-    #[SUBOP_ERROR_RELEVANT_OP]
-    op_err * (1 - tag_err) * ((sel_op_fdiv + sel_op_div + sel_op_get_contract_instance) - 1) = 0;
+    // #[SUBOP_ERROR_RELEVANT_OP]
+    // op_err * (1 - tag_err) * ((sel_op_fdiv + sel_op_div + sel_op_get_contract_instance) - 1) = 0;
 
     #[TAG_ERR_IMPLIES_OP_ERR]
     tag_err * (1 - op_err) = 0;
@@ -489,9 +489,9 @@ namespace main(256);
     #[MOV_MAIN_SAME_TAG]
     sel_op_mov * (r_in_tag - w_in_tag) = 0;
 
-    // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
-    // the operation is not copied to the ALU table.
-    sel_alu = SEL_ALL_ALU * (1 - tag_err) * (1 - op_err);
+    // Predicate to activate the copy of intermediate registers to ALU table. If op_err == 1,
+    // the operation is not copied to the ALU table. Note that it encompasses tag_err == 1.
+    sel_alu = SEL_ALL_ALU * (1 - op_err);
 
     // Dispatch the correct in_tag for alu
     SEL_ALU_R_TAG * (alu_in_tag - r_in_tag) = 0;
@@ -540,7 +540,7 @@ namespace main(256);
     // sel_Bin is not explicitly constrained to be boolean, however this is enforced through
     // the operation decomposition step during bytecode unpacking.
     #[BIN_SEL_2]
-    sel_bin = sel_op_and + sel_op_or + sel_op_xor;
+    sel_bin = (sel_op_and + sel_op_or + sel_op_xor) * (1 - op_err);
 
     #[PERM_MAIN_BIN]
     sel_bin {clk, ia, ib, ic, bin_op_id, r_in_tag}

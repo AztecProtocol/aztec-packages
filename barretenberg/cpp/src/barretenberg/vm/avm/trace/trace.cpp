@@ -109,6 +109,21 @@ template <typename MEM, size_t T> std::array<MEM, T> vec_to_arr(std::vector<MEM>
     return arr;
 }
 
+bool check_tag_integral(AvmMemoryTag tag)
+{
+    switch (tag) {
+    case AvmMemoryTag::U1:
+    case AvmMemoryTag::U8:
+    case AvmMemoryTag::U16:
+    case AvmMemoryTag::U32:
+    case AvmMemoryTag::U64:
+    case AvmMemoryTag::U128:
+        return true;
+    default:
+        return false;
+    }
+}
+
 } // anonymous namespace
 
 /**************************************************************************************************
@@ -882,12 +897,15 @@ void AvmTraceBuilder::op_and(
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
+
     bool tag_match = read_a.tag_match && read_b.tag_match;
+    // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
+    bool op_valid = tag_match && check_tag_integral(read_a.tag);
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = tag_match ? bin_trace_builder.op_and(a, b, in_tag, clk) : FF(0);
+    FF c = op_valid ? bin_trace_builder.op_and(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -909,10 +927,11 @@ void AvmTraceBuilder::op_and(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
-        .main_sel_bin = FF(1),
+        .main_sel_bin = FF(static_cast<uint32_t>(op_valid)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -939,12 +958,15 @@ void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
+
     bool tag_match = read_a.tag_match && read_b.tag_match;
+    // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
+    bool op_valid = tag_match && check_tag_integral(read_a.tag);
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = tag_match ? bin_trace_builder.op_or(a, b, in_tag, clk) : FF(0);
+    FF c = op_valid ? bin_trace_builder.op_or(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -966,10 +988,11 @@ void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offs
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
-        .main_sel_bin = FF(1),
+        .main_sel_bin = FF(static_cast<uint32_t>(op_valid)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -998,12 +1021,15 @@ void AvmTraceBuilder::op_xor(
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
+
     bool tag_match = read_a.tag_match && read_b.tag_match;
+    // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
+    bool op_valid = tag_match && check_tag_integral(read_a.tag);
 
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    FF c = tag_match ? bin_trace_builder.op_xor(a, b, in_tag, clk) : FF(0);
+    FF c = op_valid ? bin_trace_builder.op_xor(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1025,10 +1051,11 @@ void AvmTraceBuilder::op_xor(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
-        .main_sel_bin = FF(1),
+        .main_sel_bin = FF(static_cast<uint32_t>(op_valid)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
@@ -1064,14 +1091,14 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
     // Reading from memory and loading into ia
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
 
-    bool tag_match = read_a.tag_match;
+    bool op_valid = check_tag_integral(read_a.tag);
     // ~a = c
     FF a = read_a.val;
 
-    // In case of a memory tag error, we do not perform the computation.
+    // In case of an error (tag of type FF), we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = tag_match ? alu_trace_builder.op_not(a, in_tag, clk) : FF(0);
+    FF c = op_valid ? alu_trace_builder.op_not(a, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1090,6 +1117,7 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -1098,7 +1126,6 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .main_sel_op_not = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
 
@@ -1117,18 +1144,18 @@ void AvmTraceBuilder::op_shl(
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
-    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
     // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
-    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
-    bool tag_match = read_a.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b);
+    const auto tag_b = unconstrained_get_memory_tag(resolved_b); // should be tagged as U8
+    bool op_valid = check_tag_integral(read_a.tag) && tag_b == AvmMemoryTag::U8;
 
-    FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b : FF(0);
+    FF a = op_valid ? read_a.val : FF(0);
+    FF b = op_valid ? read_b : FF(0);
 
-    FF c = tag_match ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
+    FF c = op_valid ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1149,6 +1176,7 @@ void AvmTraceBuilder::op_shl(
         .main_mem_addr_a = FF(read_a.direct_address),
         //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -1159,7 +1187,6 @@ void AvmTraceBuilder::op_shl(
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
         //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
 
@@ -1178,18 +1205,18 @@ void AvmTraceBuilder::op_shr(
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
-    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
     // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
-    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
-    bool tag_match = read_a.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b);
+    const auto tag_b = unconstrained_get_memory_tag(resolved_b); // should be tagged as U8
+    bool op_valid = check_tag_integral(read_a.tag) && tag_b == AvmMemoryTag::U8;
 
-    FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b : FF(0);
+    FF a = op_valid ? read_a.val : FF(0);
+    FF b = op_valid ? read_b : FF(0);
 
-    FF c = tag_match ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
+    FF c = op_valid ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
@@ -1212,6 +1239,7 @@ void AvmTraceBuilder::op_shr(
         // TODO(8603): uncomment
         //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
@@ -1224,7 +1252,6 @@ void AvmTraceBuilder::op_shr(
         // TODO(8603): uncomment
         //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
 
@@ -1249,19 +1276,18 @@ void AvmTraceBuilder::op_cast(
     uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag, OpCode op_code)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    bool tag_match = true;
 
     auto [resolved_a, resolved_c] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ a_offset, dst_offset }, mem_trace_builder);
 
     // Reading from memory and loading into ia
+    // There cannot be any tag error in this case.
     auto memEntry = mem_trace_builder.read_and_load_cast_opcode(call_ptr, clk, resolved_a, dst_tag);
     FF a = memEntry.val;
 
-    // In case of a memory tag error, we do not perform the computation.
     // Therefore, we do not create any entry in ALU table and store the value 0 as
     // output (c) in memory.
-    FF c = tag_match ? alu_trace_builder.op_cast(a, dst_tag, clk) : FF(0);
+    FF c = alu_trace_builder.op_cast(a, dst_tag, clk);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, resolved_c, c, memEntry.tag, dst_tag);
@@ -1284,7 +1310,6 @@ void AvmTraceBuilder::op_cast(
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_cast = FF(1),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(dst_tag)),
     });
 
@@ -1305,7 +1330,6 @@ void AvmTraceBuilder::op_cast(
  *
  * @param indirect - Perform indirect memory resolution
  * @param dst_offset - Memory address to write the lookup result to
- * @param selector - The index of the kernel input lookup column
  * @param value - The value read from the memory address
  * @param w_tag - The memory tag of the value read
  * @return Row
@@ -1346,14 +1370,14 @@ void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t
             .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(1),
-            .main_pc = pc++,
+            .main_pc = pc,
             .main_sel_op_address = FF(1), // TODO(9407): what selector should this be?
         };
 
         // Constrain gas cost
         gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
-
         main_trace.push_back(row);
+        pc = UINT32_MAX; // Stop execution
     } else {
         EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
 
@@ -1401,8 +1425,8 @@ void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t
             throw std::runtime_error("Invalid environment variable");
             break;
         }
+        pc += Deserialization::get_pc_increment(OpCode::GETENVVAR_16);
     }
-    pc += Deserialization::get_pc_increment(OpCode::GETENVVAR_16);
 }
 
 void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
@@ -3844,16 +3868,16 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (size_t i = 0; i < new_trace_size; i++) {
         auto& r = main_trace.at(i);
 
+        if (r.main_tag_err == FF(1)) {
+            r.main_op_err = FF(1); // Consolidation of errors into main_op_err
+        }
+
         if ((r.main_sel_op_add == FF(1) || r.main_sel_op_sub == FF(1) || r.main_sel_op_mul == FF(1) ||
              r.main_sel_op_eq == FF(1) || r.main_sel_op_not == FF(1) || r.main_sel_op_lt == FF(1) ||
              r.main_sel_op_lte == FF(1) || r.main_sel_op_cast == FF(1) || r.main_sel_op_shr == FF(1) ||
              r.main_sel_op_shl == FF(1) || r.main_sel_op_div == FF(1)) &&
-            r.main_tag_err == FF(0) && r.main_op_err == FF(0)) {
-            r.main_sel_alu = FF(1);
-        }
-
-        if (r.main_tag_err == FF(1)) {
-            r.main_op_err = FF(1); // Consolidation of errors into main_op_err
+            r.main_op_err == FF(0)) {
+            r.main_sel_alu = FF(1); // From error consolidation, this is set only if tag_err == 0.
         }
 
         if (r.main_sel_op_internal_call == FF(1) || r.main_sel_op_internal_return == FF(1)) {
