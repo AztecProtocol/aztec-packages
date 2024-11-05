@@ -119,7 +119,7 @@ export class OpenTelemetryClient implements TelemetryClient {
           }),
           // TODO: make this configurable for debug builds
           exportIntervalMillis: 5000,
-          exportTimeoutMillis: 2500
+          exportTimeoutMillis: 2500,
         }),
       ],
     });
