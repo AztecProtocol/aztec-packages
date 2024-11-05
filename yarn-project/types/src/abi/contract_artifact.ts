@@ -128,7 +128,7 @@ function generateFunctionParameter(param: NoirCompiledContractFunctionParameter)
 type NoirCompiledContractFunction = NoirCompiledContract['functions'][number];
 
 /**
- * Generates a function build artifact. Replaces verification key with a mock value.
+ * Generates a function build artifact.
  * @param fn - Noir function entry.
  * @param contract - Parent contract.
  * @returns Function artifact.

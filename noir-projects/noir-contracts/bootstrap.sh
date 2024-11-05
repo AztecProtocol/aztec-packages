@@ -22,12 +22,12 @@ $NARGO compile --silence-warnings --inliner-aggressiveness 0
 echo "Transpiling contracts..."
 scripts/transpile.sh
 
-echo "Generating contract vks..."
+echo "Postprocessing contracts..."
 BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo Using BB hash $BB_HASH
-vkDir="./target/keys"
-mkdir -p $vkDir
+tempDir="./target/tmp"
+mkdir -p $tempDir
 
 for artifactPath in "./target"/*.json; do
-    BB_HASH=$BB_HASH node ./scripts/include_verification_keys.js "$artifactPath" "$vkDir"
+    BB_HASH=$BB_HASH node ./scripts/postprocess_contract.js "$artifactPath" "$tempDir"
 done

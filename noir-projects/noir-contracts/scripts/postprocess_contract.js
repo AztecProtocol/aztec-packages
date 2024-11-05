@@ -64,8 +64,11 @@ async function main() {
   let [artifactPath, tempFolder] = process.argv.slice(2);
   const artifact = JSON.parse(await fs.readFile(artifactPath, "utf8"));
   const barretenbergHash = await getBarretenbergHash();
-  for (const functionArtifact of artifact.functions.filter((functionArtifact) =>
-    functionArtifact.custom_attributes.includes("private")
+  for (const functionArtifact of artifact.functions.filter(
+    // See contract_artifact.ts (getFunctionType) for reference
+    (functionArtifact) =>
+      !functionArtifact.custom_attributes.includes("public") &&
+      !functionArtifact.is_unconstrained
   )) {
     const artifactName = `${artifact.name}-${functionArtifact.name}`;
     const artifactHash = generateArtifactHash(
