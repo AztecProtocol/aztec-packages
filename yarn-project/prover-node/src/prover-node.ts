@@ -171,6 +171,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     await this.coordination.stop();
+    await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
 
