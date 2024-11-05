@@ -27,7 +27,6 @@ import { type PeerManager } from '../service/peer_manager.js';
 import { type P2PReqRespConfig } from '../service/reqresp/config.js';
 import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 import {
-  DEFAULT_SUB_PROTOCOL_HANDLERS,
   PING_PROTOCOL,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
