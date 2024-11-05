@@ -19,8 +19,6 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
-      # We expect the validators to have already been added to the smart contract by this point - but this container still needs
-      # to be run in order to get the values
       initContainers:
         - name: wait-for-boot-node
           image: {{ .Values.images.curl.image }}
@@ -179,6 +177,7 @@ data:
   configure-validator-env.sh: |
     {{ .Files.Get "files/config/config-validator-env.sh" | nindent 4 }}
 ---
+# Headless service for StatefulSet DNS entries
 apiVersion: v1
 kind: Service
 metadata:
@@ -186,7 +185,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
@@ -198,43 +197,50 @@ spec:
       protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}
       name: node
+
 ---
 {{if .Values.network.public }}
+# Service template for TCP load balancers
+{{- range $i, $e := until (int .Values.validator.replicas) }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-validator-lb-tcp
+  name: {{ include "aztec-network.fullname" $ }}-validator-lb-tcp-{{ $i }}
   labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
+    {{- include "aztec-network.labels" $ | nindent 4 }}
 spec:
   type: LoadBalancer
   selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    statefulset.kubernetes.io/pod-name: {{ include "aztec-network.fullname" $ }}-validator-{{ $i }}
+    {{- include "aztec-network.selectorLabels" $ | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pTcpPort }}
+    - port: {{ $.Values.validator.service.p2pTcpPort }}
       name: p2p-tcp
-    - port: {{ .Values.validator.service.nodePort }}
+    - port: {{ $.Values.validator.service.nodePort }}
       name: node
 ---
+# Service template for UDP load balancers
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-validator-lb-udp
+  name: {{ include "aztec-network.fullname" $ }}-validator-lb-udp-{{ $i }}
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
+    {{- include "aztec-network.labels" $ | nindent 4 }}
 spec:
   type: LoadBalancer
   selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    statefulset.kubernetes.io/pod-name: {{ include "aztec-network.fullname" $ }}-validator-{{ $i }}
+    {{- include "aztec-network.selectorLabels" $ | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pUdpPort }}
+    - port: {{ $.Values.validator.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+{{- end }}
 {{ end }}
 {{ end }}
