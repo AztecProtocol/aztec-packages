@@ -933,10 +933,7 @@ jobs:
           # delete the comment in case changes no longer impact circuit sizes
           delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
           message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
-  test:
-    runs-on: ubuntu-20.04
-    steps:
-      - run: exit 1
+
   merge-check:
     runs-on: ubuntu-20.04
     needs:
