@@ -1,7 +1,7 @@
 import {
+  type AvmSimulationError,
   type FunctionCall,
   PublicExecutionRequest,
-  type SimulationError,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import {
@@ -27,7 +27,7 @@ export class PublicExecutionResultBuilder {
   private _contractStorageReads: ContractStorageRead[] = [];
   private _returnValues: Fr[] = [];
   private _reverted = false;
-  private _revertReason: SimulationError | undefined = undefined;
+  private _revertReason: AvmSimulationError | undefined = undefined;
 
   constructor(executionRequest: PublicExecutionRequest) {
     this._executionRequest = executionRequest;
@@ -46,7 +46,7 @@ export class PublicExecutionResultBuilder {
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
     contractStorageReads?: ContractStorageRead[];
-    revertReason?: SimulationError;
+    revertReason?: AvmSimulationError;
   }): PublicExecutionResultBuilder {
     const builder = new PublicExecutionResultBuilder(request);
 
@@ -76,7 +76,7 @@ export class PublicExecutionResultBuilder {
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
     contractStorageReads?: ContractStorageRead[];
-    revertReason?: SimulationError;
+    revertReason?: AvmSimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder(
       new PublicExecutionRequest(new CallContext(from, tx.to, tx.selector, false), tx.args),
@@ -113,7 +113,7 @@ export class PublicExecutionResultBuilder {
     return this;
   }
 
-  withReverted(reason: SimulationError): PublicExecutionResultBuilder {
+  withReverted(reason: AvmSimulationError): PublicExecutionResultBuilder {
     this._reverted = true;
     this._revertReason = reason;
     return this;

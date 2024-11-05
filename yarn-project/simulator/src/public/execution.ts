@@ -1,7 +1,7 @@
 import {
+  type AvmSimulationError,
   NestedProcessReturnValues,
   type PublicExecutionRequest,
-  type SimulationError,
   type UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import {
@@ -49,7 +49,7 @@ export interface PublicExecutionResult {
   /** Whether the execution reverted. */
   reverted: boolean;
   /** The revert reason if the execution reverted. */
-  revertReason?: SimulationError;
+  revertReason?: AvmSimulationError;
 
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];

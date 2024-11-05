@@ -1,11 +1,11 @@
 import {
   type AvmProvingRequest,
+  type AvmSimulationError,
   MerkleTreeId,
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
   PublicKernelPhase,
-  type SimulationError,
   type Tx,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
@@ -84,7 +84,7 @@ export type EnqueuedCallResult = {
   /** Gas used during the execution this enqueued call */
   gasUsed: Gas;
   /** Revert reason, if any */
-  revertReason?: SimulationError;
+  revertReason?: AvmSimulationError;
 };
 
 export class EnqueuedCallSimulator {

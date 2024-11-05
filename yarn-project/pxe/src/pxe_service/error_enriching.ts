@@ -1,4 +1,4 @@
-import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { type AvmSimulationError, type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator';
@@ -53,8 +53,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
 }
 
 export async function enrichPublicSimulationError(
-  err: SimulationError,
-  revertData: Fr[],
+  err: AvmSimulationError,
   contractDataOracle: ContractDataOracle,
   db: PxeDatabase,
   logger: DebugLogger,
@@ -70,7 +69,7 @@ export async function enrichPublicSimulationError(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
-  const assertionMessage = resolveAssertionMessageFromRevertData(revertData, artifact);
+  const assertionMessage = resolveAssertionMessageFromRevertData(err.revertData, artifact);
   if (assertionMessage) {
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
