@@ -445,21 +445,7 @@ export class SimulatorOracle implements DBOracle {
       }
     }
     if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
-      await this.db.addDeferredNotes([...deferredIncomingNotes, ...deferredOutgoingNotes]);
-      deferredIncomingNotes.forEach(noteDao => {
-        this.log.verbose(
-          `Deferred incoming note for contract ${noteDao.payload.contractAddress} at slot ${
-            noteDao.payload.storageSlot
-          } in tx ${noteDao.txHash.toString()}`,
-        );
-      });
-      deferredOutgoingNotes.forEach(noteDao => {
-        this.log.verbose(
-          `Deferred outgoing note for contract ${noteDao.payload.contractAddress} at slot ${
-            noteDao.payload.storageSlot
-          } in tx ${noteDao.txHash.toString()}`,
-        );
-      });
+      throw new Error('Found deferred notes when processing tagged logs. This should not happen.');
     }
     if (incomingNotes.length || outgoingNotes.length) {
       await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
@@ -474,5 +460,28 @@ export class SimulatorOracle implements DBOracle {
         this.log.verbose(`Added outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`);
       });
     }
+    const nullifiedNotes: IncomingNoteDao[] = [];
+    for (const incomingNote of incomingNotes) {
+      // NOTE: this leaks information about the nullifiers I'm interested in to the node.
+      const found = await this.aztecNode.findLeafIndex(
+        'latest',
+        MerkleTreeId.NULLIFIER_TREE,
+        incomingNote.siloedNullifier,
+      );
+      if (found) {
+        nullifiedNotes.push(incomingNote);
+      }
+    }
+    await this.db.removeNullifiedNotes(
+      nullifiedNotes.map(note => note.siloedNullifier),
+      computePoint(recipient),
+    );
+    nullifiedNotes.forEach(noteDao => {
+      this.log.verbose(
+        `Removed note for contract ${noteDao.contractAddress} at slot ${
+          noteDao.storageSlot
+        } with nullifier ${noteDao.siloedNullifier.toString()}`,
+      );
+    });
   }
 }
