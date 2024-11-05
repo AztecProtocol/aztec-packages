@@ -56,7 +56,6 @@ export class BlockRootRollupInputs {
     public proverId: Fr,
     /**
      * Flat list of all tx effects which will be added to the blob.
-     * TODO(Miranda): Account for tightly packing nr fields into BLS fields
      * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
      * Tuple<Fr, FIELDS_PER_BLOB>
      */

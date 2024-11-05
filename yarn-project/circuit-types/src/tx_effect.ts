@@ -343,7 +343,6 @@ export class TxEffect {
     const prefixedFee = reader.readField();
     // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
     effect.transactionFee = Fr.fromBuffer(Buffer.concat([Buffer.alloc(3), prefixedFee.toBuffer().subarray(3)]));
-    // TODO(Miranda): cleanup, use enum
     while (!reader.isFinished()) {
       const { type, length } = this.fromPrefix(reader.readField());
       switch (type) {

@@ -130,15 +130,6 @@ fn bignum_to_bytes(x: F) -> [u8] {
     out
 }
 
-// fn kzg_commitment_to_bytes(c: [Field; 2]) -> [u8] {
-//     let limb_0_bytes: [u8; 32] = x.limbs[0].to_be_bytes();
-//     let limb_1_bytes: [u8; 16] = x.limbs[1].to_be_bytes();
-
-//     let out = limb_2_bytes.append(limb_1_bytes).append(limb_0_bytes);
-//     std::static_assert(out.len() == 32, "bad byte decomposition of bignum");
-//     out
-// }
-
 // DANGER: this assumes the input bignum is <= the Noir field size.
 // Only use this if you _know_ the data being passed in is small enough.
 //
@@ -179,6 +170,8 @@ fn unsafe_extract_top_bit(x: F) -> (Field, F) {
     (top_bit, BigNum { limbs: [x.limbs[0], x.limbs[1], top_limb_with_top_bit_removed] })
 }
 
+// TODO(#8955): Use the below to tightly pack nr fields into bls fields?
+// Not currently used because it adds a lot of complication to constructing/deconstructing blocks
 fn blob_to_fields__tightly_packed(blob: [F; FIELDS_PER_BLOB]) -> [Field; NOIR_FIELDS_PER_BLOB] {
     let mut blob_as_fields: [Field; NOIR_FIELDS_PER_BLOB] = [0; NOIR_FIELDS_PER_BLOB];
     let mut top_bits: [Field; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB] =
@@ -214,22 +207,11 @@ fn blob_to_fields__tightly_packed(blob: [F; FIELDS_PER_BLOB]) -> [Field; NOIR_FI
     blob_as_fields
 }
 
-// TODO: We'll want to hash this data
-// in an arrangement which makes sense to the aztec protocol. THink about this more.
-// fn hash_blob(blob: [F; FIELDS_PER_BLOB]) -> Field {
-//     // let mut blob_as_fields = unsafe_blob_to_fields(blob);
-//     let mut blob_as_fields = blob_to_fields__tightly_packed(blob);
-//     let hash = poseidon2::Poseidon2::hash(blob_as_fields, blob_as_fields.len());
-//     hash
-// }
-
-// TODO(Miranda): Lazily not tightly packing fields as above on first run
 fn check_blob_sponge(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     mut sponge_blob: SpongeBlob,
 ) -> ([F; FIELDS_PER_BLOB], Field) {
     // Check that we haven't overfilled the blob (checking here as we need to check once per blob)
-    // TODO(Miranda): account for packing into NOIR_FIELDS_PER_BLOB
     assert(sponge_blob.expected_fields <= FIELDS_PER_BLOB, "Attempted to overfill blob");
     // Check that the blob is full
     assert(
@@ -238,10 +220,7 @@ fn check_blob_sponge(
     );
     let txs_effects_hash = sponge_blob.squeeze();
     let hash = poseidon2_hash_subarray(blob_as_fields, sponge_blob.fields);
-    // let hash = hash_blob(blob_as_fields, num_effects);
     assert(hash == txs_effects_hash, "Mismatched hashed tx effects");
-    // TODO: check gates of below - unopt
-    // let mut should_check = false;
     let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         blob[i] = field_to_bignum(blob_as_fields[i]);
@@ -256,14 +235,8 @@ fn check_blob_sponge(
     (blob, txs_effects_hash)
 }
 
-// fn hash_kzg_commitment(kzg_commitment: [Field; 2]) -> Field {
-//     let hash = poseidon2::Poseidon2::hash(kzg_commitment, kzg_commitment.len());
-//     hash
-// }
-
 fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> Field {
     let preimage = [hashed_blob_fields, kzg_commitment[0], kzg_commitment[1]];
-    // let blob_hash = 1;
     let challenge = std::hash::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
@@ -285,11 +258,7 @@ pub fn evaluate_blob(
     let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-    // let y = challenge_z_as_bignum; // dummy constraint for when we want to skip the barycentric stuff in testing.
-    // let challenge_z_as_bytes: [u8; 32] = challenge_z.to_be_bytes();
-    // let y_as_bytes: [u8] = bignum_to_bytes(y);
-    // let kzg_commitment_as_bytes: [u8] = ()
-    // TODO(Miranda): Since we are verifying a block root proof currently, the below doesn't apply. We should be hashing ALL block root public inputs, including the blob ones.
+    // TODO(Miranda): Since we are verifying a root proof, the below doesn't apply. We should be hashing ALL root public inputs, including the blob ones.
     // In future, when we do hash PIs, the below will apply.
     // TODO: this return data needs to be TIGHTLY PACKED into bytes.
     // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification.
@@ -721,7 +690,7 @@ unconstrained fn compute_double_modulus() -> [Field; 3] {
 
 #[test]
 unconstrained fn test_compute_double_modulus() {
-    let double_modulus = BLS12_381_Fr_Params::get_instance().double_modulus;
+    let double_modulus = BLS12_381_Fr_Params::get_params().double_modulus;
     assert_eq(double_modulus, compute_double_modulus());
 }
 

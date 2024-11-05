@@ -91,7 +91,6 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
 }
 
-// TODO(Miranda): split out?
 pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
@@ -191,7 +190,7 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
         previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
     ])
 }
-// TODO(Miranda): combine fns?
+
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
     if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
         previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash

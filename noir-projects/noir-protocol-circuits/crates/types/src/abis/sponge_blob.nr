@@ -10,11 +10,9 @@ use std::hash::poseidon2::Poseidon2;
 
 // Each base rollup circuit has a start and end SpongeBlob instance, like a PartialStateReference.
 // Tx data is accumulated by calling absorb() on each field, and incrementing the number of fields.
-// To save gates, we do not check after every absorb whether we have filled a blob (we do this in merge).
+// To save gates, we do not check after every absorb whether we have filled a blob (we do this in block root).
 
 // Each merge rollup circuit checks that the left rollup input's end SpongeBlob == the right rollup input's start SpongeBlob.
-// It also checks whether we have filled any blobs by summing the total fields.
-// TODO(Miranda): For now, I am being lazy and not tightly packing to exactly fill a blob, but should.
 
 // Finally, the block_root is given the list of all fields to be included in the blob.
 // We hash these ^ and check that the hash matches the one given by the block_root's right input's end SpongeBlob.squeeze().
@@ -46,8 +44,6 @@ impl SpongeBlob {
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
         self.sponge = poseidon2_absorb_chunks_existing_sponge(self.sponge, input, in_len, false);
         self.fields += in_len;
-        // TODO(Miranda): add max field check(s)
-        // assert(self.fields + in_len <= expected_fields, "Attempted to overflow blob");
     }
 
     // Finalise the sponge and output poseidon2 hash of all fields absorbed

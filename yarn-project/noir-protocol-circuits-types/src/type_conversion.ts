@@ -330,8 +330,12 @@ export function mapNumberToNoir(number: number): NoirField {
  */
 export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
   // TODO(Miranda): there's gotta be a better way to convert this
-  // Try toBigIntBE
-  return BigInt(bignum.limbs[2].concat(bignum.limbs[1].substring(2), bignum.limbs[0].substring(2)));
+  const paddedLimbs = [
+    `0x` + bignum.limbs[2].substring(2).padStart(4, '0'),
+    bignum.limbs[1].substring(2).padStart(30, '0'),
+    bignum.limbs[0].substring(2).padStart(30, '0'),
+  ];
+  return BigInt(paddedLimbs[0].concat(paddedLimbs[1], paddedLimbs[2]));
 }
 
 export function mapBLS12BigNumToNoir(number: bigint): BigNum {

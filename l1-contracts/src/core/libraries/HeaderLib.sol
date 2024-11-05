@@ -5,8 +5,6 @@ pragma solidity >=0.8.27;
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
-// TODO(Miranda): Update below spec before merging, once structure finalised
-
 /**
  * @title Header Library
  * @author Aztec Labs
@@ -26,34 +24,33 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
  *  |                                                                                  |              |   ContentCommitment {
  *  | 0x0024                                                                           | 0x20         |     numTxs
- *  | 0x0044                                                                           | 0x20         |     txsEffectsHash
- *  | 0x0064                                                                           | 0x20         |     inHash
- *  | 0x0084                                                                           | 0x20         |     outHash
+ *  | 0x0044                                                                           | 0x20         |     inHash
+ *  | 0x0064                                                                           | 0x20         |     outHash
  *  |                                                                                  |              |   StateReference {
- *  | 0x00a4                                                                           | 0x20         |     l1ToL2MessageTree.root
- *  | 0x00c4                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
+ *  | 0x0084                                                                           | 0x20         |     l1ToL2MessageTree.root
+ *  | 0x00a4                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     PartialStateReference {
- *  | 0x00c8                                                                           | 0x20         |       noteHashTree.root
- *  | 0x00e8                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
- *  | 0x00ec                                                                           | 0x20         |       nullifierTree.root
- *  | 0x010c                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
- *  | 0x0110                                                                           | 0x20         |       publicDataTree.root
- *  | 0x0130                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
+ *  | 0x00a8                                                                           | 0x20         |       noteHashTree.root
+ *  | 0x00c8                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
+ *  | 0x00cc                                                                           | 0x20         |       nullifierTree.root
+ *  | 0x00ec                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
+ *  | 0x00f0                                                                           | 0x20         |       publicDataTree.root
+ *  | 0x0110                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     }
  *  |                                                                                  |              |   }
  *  |                                                                                  |              |   GlobalVariables {
- *  | 0x0134                                                                           | 0x20         |     chainId
- *  | 0x0154                                                                           | 0x20         |     version
- *  | 0x0174                                                                           | 0x20         |     blockNumber
- *  | 0x0194                                                                           | 0x20         |     slotNumber
- *  | 0x01b4                                                                           | 0x20         |     timestamp
- *  | 0x01d4                                                                           | 0x14         |     coinbase
- *  | 0x01e8                                                                           | 0x20         |     feeRecipient
- *  | 0x0208                                                                           | 0x20         |     gasFees.feePerDaGas
- *  | 0x0228                                                                           | 0x20         |     gasFees.feePerL2Gas
+ *  | 0x0114                                                                           | 0x20         |     chainId
+ *  | 0x0134                                                                           | 0x20         |     version
+ *  | 0x0154                                                                           | 0x20         |     blockNumber
+ *  | 0x0174                                                                           | 0x20         |     slotNumber
+ *  | 0x0194                                                                           | 0x20         |     timestamp
+ *  | 0x01b4                                                                           | 0x14         |     coinbase
+ *  | 0x01c8                                                                           | 0x20         |     feeRecipient
+ *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
+ *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
- *  | 0x0248                                                                           | 0x20         | total_fees
+ *  | 0x0228                                                                           | 0x20         | total_fees
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {

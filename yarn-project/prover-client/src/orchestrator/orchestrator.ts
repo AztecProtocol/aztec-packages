@@ -881,14 +881,9 @@ export class ProvingOrchestrator implements EpochProver {
     provingState.blockRootRollupStarted = true;
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
-    let txEffectsFields = this.extractTxEffects(provingState)
+    const txEffectsFields = this.extractTxEffects(provingState)
       .map(tx => tx.toFields())
       .flat();
-    if (txEffectsFields.length < provingState.spongeBlobState!.expectedFields) {
-      // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
-      txEffectsFields = padArrayEnd(txEffectsFields, Fr.ZERO, provingState.spongeBlobState!.expectedFields);
-    }
-
     const blob = new Blob(txEffectsFields);
 
     logger.debug(

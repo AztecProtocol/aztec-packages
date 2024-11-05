@@ -1,7 +1,7 @@
 use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
 use types::constants::FIELDS_PER_BLOB;
 
-type F = BigNum<3, BLS12_381_Fr_Params>;
+type F = BigNum<3, 255, BLS12_381_Fr_Params>;
 
 global LOG_FIELDS_PER_BLOB: u32 = 12;
 global EXTRA_FIELDS_PER_BLOB: u32 = 16; // 16 = floor(4096 FIELDS_PER_BLOB / 254 noir_field_bits), wasting only 32 bits.

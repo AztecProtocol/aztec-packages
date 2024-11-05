@@ -53,7 +53,7 @@ contract RollupTest is DecoderBase {
   EpochProofQuoteLib.EpochProofQuote internal quote;
   EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
 
-  // TODO(Miranda): The horrific blob input here and below is just a random set of passing blob precompile inputs
+  // The horrific blob input here and below is just a random set of passing blob precompile inputs
   bytes public constant BLOB_INPUT =
     hex"010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c4440140ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb0000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
   // The below is the first 32 bytes of the above. We can't slice the above e.g. BLOB_INPUT[0:32] because it's not calldata

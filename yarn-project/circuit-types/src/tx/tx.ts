@@ -254,7 +254,7 @@ export class Tx extends Gossipable {
       this.data.getNonEmptyNullifiers(),
       this.data.getNonEmptyL2toL1Msgs().map(msg => msg.message.content),
       this.data.getNonEmptyPublicDataUpdateRequests().map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
-      // TODO(Miranda): the below are log byte lens which will be removed anyway
+      // TODO(#8954):: the below are log byte lens which will be removed anyway
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,

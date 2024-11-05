@@ -54,6 +54,14 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     Slot slotNumber;
   }
 
+  // Blob public inputs are stored when we publish blocks to link DA to a L1 blob. They are read and used
+  // when verifying an epoch proof to link DA to our L2 blocks.
+  struct BlobPublicInputs {
+    bytes32 z;
+    bytes32 y;
+    bytes32[2] c;
+  }
+
   // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
   // for justification of CLAIM_DURATION_IN_L2_SLOTS.
   uint256 public constant CLAIM_DURATION_IN_L2_SLOTS =
@@ -81,16 +89,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   //
   //        More direct approach would be storing keccak256(header) as well
   mapping(uint256 blockNumber => BlockLog log) public blocks;
-
-  // TODO(Miranda): Below are temp solutions to get blobs working.
-  // Blob public inputs are stored when we publish blocks to link DA to a L1 blob. They are read and used
-  // when verifying an epoch proof to link DA to our L2 blocks.
-  struct BlobPublicInputs {
-    bytes32 z;
-    bytes32 y;
-    bytes32[2] c;
-  }
-
+  // The below public inputs are filled when proposing a block, then used to verify an epoch proof.
+  // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
   mapping(uint256 blockNumber => BlobPublicInputs) public blobPublicInputs;
 
   bytes32 public vkTreeRoot;
@@ -513,7 +513,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       z: bytes32(blobInput[32:64]),
       y: bytes32(blobInput[64:96]),
       // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
-      // I don't know best to left pad, sorry, am tired
+      // TODO: The below left pads, possibly inefficiently
       c: [
         bytes32(uint256(uint248(bytes31(blobInput[96:127])))),
         bytes32(uint256(uint136(bytes17(blobInput[127:144]))))
@@ -691,7 +691,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     publicInputs[feesEnd + 2] = _args[6];
 
     // blob_public_inputs
-    for (uint256 i = 0; i < Constants.AZTEC_EPOCH_DURATION; i++) {
+    for (uint256 i = 0; i < _epochSize; i++) {
       uint256 j = feesEnd + 3 + i * 6;
       publicInputs[j] = blobPublicInputs[previousBlockNumber + i + 1].z;
       (publicInputs[j + 1], publicInputs[j + 2], publicInputs[j + 3]) =
