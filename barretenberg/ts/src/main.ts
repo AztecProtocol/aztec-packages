@@ -532,9 +532,9 @@ program.option('-v, --verbose', 'enable verbose logging', false);
 program.option('-c, --crs-path <path>', 'set crs path', './crs');
 
 function handleGlobalOptions() {
-  // if (program.opts().verbose) {
-  createDebug.enable('bb.js*');
-  // }
+  if (program.opts().verbose) {
+    createDebug.enable('bb.js*');
+  }
 }
 
 program
