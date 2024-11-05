@@ -38,7 +38,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
-    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
+    using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     using TupleOfKeys = std::tuple<std::vector<std::shared_ptr<DeciderProvingKey>>,
                                    std::vector<std::shared_ptr<DeciderVerificationKey>>>;
@@ -94,7 +94,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
                                                     bool expected_result)
     {
         size_t accumulator_size = accumulator->proving_key.circuit_size;
-        auto expected_honk_evals = Fun::compute_row_evaluations(
+        PGInternal pg_internal;
+        auto expected_honk_evals = pg_internal.compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
         GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
@@ -147,7 +148,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();
         }
-        auto full_honk_evals = Fun::compute_row_evaluations(
+        PGInternal pg_internal;
+        auto full_honk_evals = pg_internal.compute_row_evaluations(
             decider_pk->proving_key.polynomials, decider_pk->alphas, decider_pk->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
@@ -166,7 +168,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
         std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
         std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-        auto perturbator = Fun::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
+        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         std::vector<FF> expected_values = { FF(648), FF(936), FF(432), FF(64) };
         EXPECT_EQ(perturbator.size(), 4); // log(size) + 1
         for (size_t i = 0; i < perturbator.size(); i++) {
@@ -196,7 +198,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             alpha = FF::random_element();
         }
 
-        auto full_honk_evals = Fun::compute_row_evaluations(full_polynomials, alphas, relation_parameters);
+        PGInternal pg_internal;
+        auto full_honk_evals = pg_internal.compute_row_evaluations(full_polynomials, alphas, relation_parameters);
         std::vector<FF> betas(log_size);
         for (size_t idx = 0; idx < log_size; idx++) {
             betas[idx] = FF::random_element();
@@ -220,7 +223,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         accumulator->alphas = alphas;
 
         auto deltas = compute_round_challenge_pows(log_size, FF::random_element());
-        auto perturbator = Fun::compute_perturbator(accumulator, deltas);
+        auto perturbator = pg_internal.compute_perturbator(accumulator, deltas);
 
         // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
         EXPECT_EQ(perturbator[0], target_sum);
@@ -235,7 +238,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         auto perturbator_evaluation = FF(2); // F(\alpha) in the paper
         auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
-        auto combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
+        auto combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
 
         // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for DeciderProvingKeys::NUM = 2
         // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
@@ -274,11 +277,10 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         pk_2->relation_parameters.eta = 3;
 
         DeciderProvingKeys pks{ { pk_1, pk_2 } };
-        auto relation_parameters_no_optimistic_skipping = Fun::template compute_extended_relation_parameters<
-            typename Fun::UnivariateRelationParametersNoOptimisticSkipping>(pks);
-        auto relation_parameters =
-            Fun::template compute_extended_relation_parameters<typename FoldingProver::UnivariateRelationParameters>(
-                pks);
+        auto relation_parameters_no_optimistic_skipping = PGInternal::template compute_extended_relation_parameters<
+            typename PGInternal::UnivariateRelationParametersNoOptimisticSkipping>(pks);
+        auto relation_parameters = PGInternal::template compute_extended_relation_parameters<
+            typename FoldingProver::UnivariateRelationParameters>(pks);
 
         bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
         EXPECT_EQ(relation_parameters_no_optimistic_skipping.eta, expected_eta);
@@ -305,7 +307,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         pk_2->alphas.fill(4);
 
         DeciderProvingKeys pks{ { pk_1, pk_2 } };
-        auto alphas = Fun::compute_and_extend_alphas(pks);
+        auto alphas = PGInternal::compute_and_extend_alphas(pks);
 
         bb::Univariate<FF, 12> expected_alphas{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
         for (const auto& alpha : alphas) {

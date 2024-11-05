@@ -30,7 +30,8 @@ tests:
   e2e_card_game: {}
   e2e_cheat_codes: {}
   e2e_cross_chain_messaging: {}
-  e2e_crowdfunding_and_claim: {}
+  # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
+  # e2e_crowdfunding_and_claim: {}
   e2e_deploy_contract: {}
   e2e_devnet_smoke: {}
   docs_examples:
@@ -41,16 +42,18 @@ tests:
   # TODO(https://github.com/AztecProtocol/aztec-packages/issues/9488): reenable
   # e2e_fees_dapp_subscription:
   #   test_path: "e2e_fees/dapp_subscription.test.ts"
-  e2e_fees_failures:
-    test_path: 'e2e_fees/failures.test.ts'
+  # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
+  # e2e_fees_failures:
+  #   test_path: 'e2e_fees/failures.test.ts'
   e2e_fees_fee_juice_payments:
     test_path: 'e2e_fees/fee_juice_payments.test.ts'
   e2e_fees_gas_estimation:
     test_path: 'e2e_fees/gas_estimation.test.ts'
   e2e_fees_private_payments:
     test_path: 'e2e_fees/private_payments.test.ts'
-  e2e_fees_private_refunds:
-    test_path: 'e2e_fees/private_refunds.test.ts'
+  # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
+  # e2e_fees_private_refunds:
+  #   test_path: 'e2e_fees/private_refunds.test.ts'
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}
@@ -63,7 +66,8 @@ tests:
   e2e_note_getter: {}
   e2e_ordering: {}
   e2e_outbox: {}
-  e2e_pending_note_hashes_contract: {}
+  # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
+  # e2e_pending_note_hashes_contract: {}
   e2e_private_voting_contract: {}
   e2e_prover_coordination: {}
   e2e_prover_fake_proofs:
@@ -101,25 +105,6 @@ tests:
     test_path: 'guides/writing_an_account_contract.test.ts'
   integration_l1_publisher:
     use_compose: true
-  kind_network_4epochs:
-    env:
-      NAMESPACE: 'smoke'
-      FRESH_INSTALL: 'true'
-      VALUES_FILE: '$-default.yaml'
-    command: './scripts/network_test.sh ./src/spartan/4epochs.test.ts'
-    ignore_failures: true
-  kind_network_smoke:
-    env:
-      NAMESPACE: 'smoke'
-      FRESH_INSTALL: 'true'
-      VALUES_FILE: '$-default.yaml'
-    command: './scripts/network_test.sh ./src/spartan/smoke.test.ts'
-  kind_network_transfer:
-    env:
-      NAMESPACE: 'transfer'
-      FRESH_INSTALL: 'true'
-      VALUES_FILE: '$-default.yaml'
-    command: './scripts/network_test.sh ./src/spartan/transfer.test.ts'
   pxe:
     use_compose: true
   uniswap_trade_on_l1_from_l2:

@@ -124,7 +124,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
 
-    EXPECT_DEBUG_DEATH(verifier.verify(proof), "(sumcheck_verified && batched_opening_verified)");
+    EXPECT_DEBUG_DEATH(verifier.verify(proof), "(ipa_relation.get_value.* == -opening_claim.commitment.get_value.*)");
 }
 
 /**
