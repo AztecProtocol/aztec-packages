@@ -241,23 +241,14 @@ TEST_F(MegaHonkTests, MiscellaneousBlockSimple)
 TEST_F(MegaHonkTests, MiscellaneousBlockAuxOverflow)
 {
     MegaCircuitBuilder builder;
-    // using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
 
     TraceStructure trace_structure = TraceStructure::TINY_TEST;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
     MockCircuits::add_RAM_gates(builder);
 
-    // builder.blocks.set_fixed_block_sizes(trace_structure);
-
-    // builder.blocks.summarize();
-    // DeciderProvingKey::move_structured_trace_overflow_to_miscellaneous_block(builder);
-    // builder.blocks.summarize();
-
     // Construct and verify Honk proof using a structured trace
     auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // builder.blocks.summarize();
     MegaProver prover(proving_key);

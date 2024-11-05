@@ -94,7 +94,7 @@ template <typename FF_> class MegaArith {
             this->arithmetic = 15; // 15
             this->delta_range = 5;
             this->elliptic = 2;
-            this->aux = 14; // 20
+            this->aux = 8; // 20
             this->poseidon2_external = 2;
             this->poseidon2_internal = 2;
             this->lookup = 2;

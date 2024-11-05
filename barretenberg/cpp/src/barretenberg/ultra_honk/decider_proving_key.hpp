@@ -343,9 +343,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
   public:
     static void move_structured_trace_overflow_to_miscellaneous_block(Circuit& circuit)
     {
-        using SelectorType = SlabVector<FF>;
-        using WireType = SlabVector<uint32_t>;
-
         auto& blocks = circuit.blocks;
         auto& misc_block = circuit.blocks.miscellaneous;
 
@@ -365,11 +362,12 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 // account for moving them into the miscellaneous block
                 if (block.has_ram_rom) {
 
-                    for (auto& val : block.q_aux()) {
-                        info("q_aux = ", val);
-                    }
-                    uint32_t offset =
-                        misc_block.trace_offset - block.trace_offset + static_cast<uint32_t>(misc_block.size());
+                    // for (auto& val : block.q_aux()) {
+                    //     info("q_aux = ", val);
+                    // }
+                    uint32_t offset = misc_block.trace_offset + static_cast<uint32_t>(misc_block.size());
+                    offset -= fixed_block_size;   // index was index into aux block
+                    offset -= block.trace_offset; // we'll add block.trace_offset to everything later
                     for (auto& idx : circuit.memory_read_records) {
                         if (idx >= fixed_block_size) {
                             idx += offset;
@@ -384,19 +382,14 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
                 // move the excess wire and selector data from the offending block to the miscellaneous block
                 for (auto [wire, misc_wire] : zip_view(block.wires, misc_block.wires)) {
-                    WireType overflow(wire.begin() + static_cast<std::ptrdiff_t>(fixed_block_size), wire.end());
-                    // misc_wire.push_back(overflow);
-                    for (const auto& val : overflow) {
-                        misc_wire.emplace_back(val);
+                    for (size_t i = fixed_block_size; i < block_size; ++i) {
+                        misc_wire.emplace_back(wire[i]);
                     }
                     wire.resize(fixed_block_size);
                 }
                 for (auto [selector, misc_selector] : zip_view(block.selectors, misc_block.selectors)) {
-                    SelectorType overflow(selector.begin() + static_cast<std::ptrdiff_t>(fixed_block_size),
-                                          selector.end());
-                    // misc_selector.push_back(std::move(overflow));
-                    for (const auto& val : overflow) {
-                        misc_selector.emplace_back(val);
+                    for (size_t i = fixed_block_size; i < block_size; ++i) {
+                        misc_selector.emplace_back(selector[i]);
                     }
                     selector.resize(fixed_block_size);
                 }
