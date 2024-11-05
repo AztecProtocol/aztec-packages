@@ -23,7 +23,6 @@ import {
   AZTEC_VIEW_ATTRIBUTE,
   type NoirCompiledContract,
 } from '../noir/index.js';
-import { mockVerificationKey } from './mocked_keys.js';
 
 /**
  * Serializes a contract artifact to a buffer for storage.
@@ -180,7 +179,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
     parameters,
     returnTypes,
     bytecode: Buffer.from(fn.bytecode, 'base64'),
-    verificationKey: mockVerificationKey,
+    verificationKey: fn.verification_key,
     debugSymbols: fn.debug_symbols,
     errorTypes: fn.abi.error_types,
   };
