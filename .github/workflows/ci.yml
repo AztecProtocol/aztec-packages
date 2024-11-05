@@ -706,7 +706,7 @@ jobs:
           #   runner_type: 32core-tester-x86
           - test: reorg.test.ts
             values: 16-validators
-            runner_type: 16core-tester-x86
+            runner_type: 16core-tester-x86-high-memory
             timeout: 90
           - test: 4epochs.test.ts
             values: 16-validators
