@@ -414,6 +414,9 @@ export class SimulatorOracle implements DBOracle {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
         const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
+          // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
+          // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
+          // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
           incomingNotePayload ? computePoint(recipient) : undefined,

@@ -240,6 +240,7 @@ pub unconstrained fn get_app_tagging_secrets_for_senders(
 ) -> [IndexedTaggingSecret] {
     let results = get_app_tagging_secrets_for_senders_oracle(recipient);
     let mut indexed_tagging_secrets = &[];
+    assert(results.len() % 3 == 0, "Invalid result length");
     for i in 0..results.len() {
         if i % 3 != 0 {
             continue;
@@ -260,7 +261,10 @@ pub fn sync_notes(targetContractAddress: AztecAddress, recipient: AztecAddress) 
     }
 }
 
-unconstrained fn sync_notes_oracle_wrapper(targetContractAddress: AztecAddress, recipient: AztecAddress) {
+unconstrained fn sync_notes_oracle_wrapper(
+    targetContractAddress: AztecAddress,
+    recipient: AztecAddress,
+) {
     sync_notes_oracle(targetContractAddress, recipient);
 }
 
