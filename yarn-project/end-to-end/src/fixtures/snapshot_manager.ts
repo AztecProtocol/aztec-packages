@@ -39,6 +39,7 @@ import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 import { type SetupOptions, getPrivateKeyFromIndex, startAnvil } from './utils.js';
+import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -386,7 +387,8 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort, /*serviceName*/ 'basenode');
+
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 

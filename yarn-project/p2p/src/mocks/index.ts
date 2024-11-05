@@ -5,7 +5,8 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type DataStoreConfig } from '@aztec/kv-store/utils';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -26,6 +27,7 @@ import { type PeerManager } from '../service/peer_manager.js';
 import { type P2PReqRespConfig } from '../service/reqresp/config.js';
 import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 import {
+  DEFAULT_SUB_PROTOCOL_HANDLERS,
   PING_PROTOCOL,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
@@ -114,11 +116,13 @@ export async function createTestLibP2PService(
     p2pEnabled: true,
     peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
   } as P2PConfig & DataStoreConfig;
-  const discoveryService = new DiscV5Service(peerId, config);
+  const discoveryService = new DiscV5Service(peerId, config, telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
 
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
+
+  const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
   return new LibP2PService(
     config,
@@ -129,6 +133,9 @@ export async function createTestLibP2PService(
     proofVerifier,
     worldStateSynchronizer,
     telemetry,
+    // TODO: remove below here
+    DEFAULT_SUB_PROTOCOL_HANDLERS,
+    otelMetricsAdapter,
   );
 }
 
@@ -233,20 +240,27 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
   };
 }
 
-export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number): Promise<BootstrapNode> {
+export function createBootstrapNodeFromPrivateKey(
+  privateKey: string,
+  port: number,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
-  return startBootstrapNode(config);
+  return startBootstrapNode(config, telemetry);
 }
 
-export async function createBootstrapNode(port: number): Promise<BootstrapNode> {
+export async function createBootstrapNode(
+  port: number,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+): Promise<BootstrapNode> {
   const peerId = await createLibP2PPeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
-  return startBootstrapNode(config);
+  return startBootstrapNode(config, telemetry);
 }
 
-async function startBootstrapNode(config: BootnodeConfig) {
-  const bootstrapNode = new BootstrapNode();
+async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
+  const bootstrapNode = new BootstrapNode(telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;
 }

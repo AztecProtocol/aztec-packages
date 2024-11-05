@@ -174,10 +174,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
         proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_structure);
+        trace_usage_tracker = ExecutionTraceUsageTracker(trace_structure);
     } else {
         proving_key = std::make_shared<DeciderProvingKey>(
             circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
     }
+
+    // Update the accumulator trace usage based on the present circuit
+    trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
     honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(proving_key->proving_key);
@@ -201,15 +205,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key });
+        FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
         fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
     }
-
-    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
-    max_block_size_tracker.update(circuit);
 }
 
 /**
@@ -219,7 +220,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    max_block_size_tracker.print();               // print minimum structured sizes for each block
+    trace_usage_tracker.print();                  // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;

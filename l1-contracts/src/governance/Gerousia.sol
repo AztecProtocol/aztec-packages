@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
+import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
 import {IGerousia} from "@aztec/governance/interfaces/IGerousia.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
-import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
 
 /**
  * @notice  A Gerousia implementation following the empire model

@@ -38,7 +38,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   attestationPollingIntervalMs: {
     env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',
     description: 'Interval between polling for new attestations',
-  ...numberConfigHelper(200),
+    ...numberConfigHelper(200),
   },
   attestationWaitTimeoutMs: {
     env: 'VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS',

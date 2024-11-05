@@ -52,7 +52,7 @@ allow_list+=("${input_labels[@]}")
 test_list=$(echo "${full_list[@]}" | grep -v 'base' | grep -v 'bench' | grep -v "network" | grep -v 'devnet' | xargs echo)
 
 # # If branch is master or allow_list contains 'e2e-all', return full list
-if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "e2e-all" ]]; then
+if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "e2e_all" ]]; then
   # print as JSON list
   echo "$test_list" | jq -Rc 'split(" ")'
   exit 0

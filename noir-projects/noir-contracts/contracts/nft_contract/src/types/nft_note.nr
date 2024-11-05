@@ -16,7 +16,7 @@ use dep::aztec::{
 pub struct NFTNote {
     // ID of the token
     token_id: Field,
-    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    // The owner of the note
     owner: AztecAddress,
     // Randomness of the note to hide its contents
     randomness: Field,

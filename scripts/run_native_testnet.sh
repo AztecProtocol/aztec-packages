@@ -32,6 +32,8 @@ PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
 LOG_LEVEL="info"
+METRICS=false
+OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
 display_help() {
@@ -45,6 +47,8 @@ display_help() {
     echo "  -v     Set logging level to verbose"
     echo "  -vv    Set logging level to debug"
     echo "  -i     Run interleaved (default: $INTERLEAVED)"
+    echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
+    echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
     echo
     echo "Example:"
     echo "  $0 -t ./test-4epochs.sh -val 5 -v"
@@ -85,6 +89,14 @@ while [[ $# -gt 0 ]]; do
       LOG_LEVEL="debug"
       shift
       ;;
+    -m)
+      METRICS=true
+      shift
+      ;;
+    -c)
+      OTEL_COLLECTOR_ENDPOINT="$2"
+      shift 2
+      ;;
     *)
       echo "Invalid option: $1" >&2
       display_help
@@ -95,6 +107,13 @@ done
 
 ## Set log level for all child commands
 export LOG_LEVEL
+
+if $METRICS; then
+  export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/logs
+  export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/metrics
+  export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/traces
+  export LOG_JSON=1
+fi
 
 # Go to repo root
 cd $(git rev-parse --show-toplevel)

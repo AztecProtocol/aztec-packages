@@ -30,7 +30,11 @@ describe('e2e_p2p_gerousia', () => {
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_network', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_gerousia',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+    });
     await t.applyBaseSnapshots();
     await t.setup();
   });
@@ -48,7 +52,7 @@ describe('e2e_p2p_gerousia', () => {
    * For this reason we are not running it as part of the CI.
    * TODO(https://github.com/AztecProtocol/aztec-packages/issues/9164): Currently flakey
    */
-  it.skip('Should cast votes to upgrade gerousia', async () => {
+  it('Should cast votes to upgrade gerousia', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

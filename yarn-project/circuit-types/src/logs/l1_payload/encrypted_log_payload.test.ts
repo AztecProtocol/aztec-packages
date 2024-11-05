@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   CompleteAddress,
+  IndexedTaggingSecret,
   KeyValidationRequest,
   PRIVATE_LOG_SIZE_IN_BYTES,
   computeAddressSecret,
@@ -112,7 +113,23 @@ describe('EncryptedLogPayload', () => {
       '00000001301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5c10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e040fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e659900001027',
       'hex',
     );
-    const log = new EncryptedLogPayload(new Fr(0), contract, plaintext);
+
+    // We set a random secret, as it is simply the result of an oracle call, and we are not actually computing this in nr.
+    const logTag = new IndexedTaggingSecret(
+      new Fr(69420),
+      AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn),
+      1337,
+    ).computeTag();
+    const tagString = logTag.toString().slice(2);
+
+    let byteArrayString = `[${tagString.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+    updateInlineTestData(
+      'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
+      'tag_from_typescript',
+      byteArrayString,
+    );
+
+    const log = new EncryptedLogPayload(logTag, contract, plaintext);
 
     const ovskM = new GrumpkinScalar(0x1d7f6b3c491e99f32aad05c433301f3a2b4ed68de661ff8255d275ff94de6fc4n);
     const ovKeys = getKeyValidationRequest(ovskM, contract);
@@ -138,11 +155,11 @@ describe('EncryptedLogPayload', () => {
 
     const encryptedStr = encrypted.toString('hex');
     expect(encryptedStr).toMatchInlineSnapshot(
-      `"00000000000000000000000000000000000000000000000000000000000000008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d93de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97fc6cbcf61f6c2af9b8ebc8f78537ab23fd0c5e818e4d42d459d265adb77c2ef829bf68f87f2c47b478bb57ae7e41a07643f65c353083d557b94e31da4a2a13127498d2eb3f0346da5eed2e9bc245aaf022a954ed0b09132b498f537702899b44e3666776238ebf633b3562d7f124dbba82918e871958a94218fd796bc6983feecc7ce382c82861d63fe45999244ea9494b226ddb667fc8b07f6841de84e667e1c8808dbb4a20e3e477628935d57bce7205d38c1c2c57899a48b72129502e213aafaf98038ec5d0e657314ad49c035e507173b0bb00993afa8ce307f7e4c33d342e81084f30ec4b5760c47ecfafd47f97a1e171713592fc145f0a422806e0d85c607a50e1fefd2924e4356209ff4d6f679f6e9fc1483dd1c92de77dea2fafcbd12930c8eb1deb27af871c528c798fb5b51f3199cf18d3c0c6367a961207025f4ff7e2e72e271dff91b031f29e91c0817546319ba412109234a1034a930a186e9f28827a269cd2bfdb7248aba571f07f87de3c1ac9b62213dba9ef1c0171cba64deae1340e071fb8f2d98514374105fbd531f7c279b8e420078c5dda13e4bc0ffbac80a8707"`,
+      `"0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c368d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d93de818923f85187871d99bdf95d695eff0a9e09ba15153fc9b4d224b6e1e71dfbdcaab06c09d5b3c749bfebe1c0407eccd04f51bbb59142680c8a091b97fc6cbcf61f6c2af9b8ebc8f78537ab23fd0c5e818e4d42d459d265adb77c2ef829bf68f87f2c47b478bb57ae7e41a07643f65c353083d557b94e31da4a2a13127498d2eb3f0346da5eed2e9bc245aaf022a954ed0b09132b498f537702899b44e3666776238ebf633b3562d7f124dbba82918e871958a94218fd796bc6983feecc7ce382c82861d63fe45999244ea9494b226ddb667fc8b07f6841de84e667e1c8808dbb4a20e3e477628935d57bce7205d38c1c2c57899a48b72129502e213aafaf98038ec5d0e657314ad49c035e507173b0bb00993afa8ce307f7e4c33d342e81084f30ec4b5760c47ecfafd47f97a1e171713592fc145f0a422806e0d85c607a50e1fefd2924e4356209ff4d6f679f6e9fc1483dd1c92de77dea2fafcbd12930c8eb1deb27af871c528c798fb5b51f3199cf18d3c0c6367a961207025f4ff7e2e72e271dff91b031f29e91c0817546319ba412109234a1034a930a186e9f28827a269cd2bfdb7248aba571f07f87de3c1ac9b62213dba9ef1c0171cba64deae1340e071fb8f2d98514374105fbd531f7c279b8e420078c5dda13e4bc0ffbac80a8707"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    const byteArrayString = `[${encryptedStr.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+    byteArrayString = `[${encryptedStr.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
       'encrypted_log_from_typescript',
