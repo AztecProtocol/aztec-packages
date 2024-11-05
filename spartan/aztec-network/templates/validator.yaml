@@ -77,7 +77,7 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "socat tcp-listen:{{ .Values.validator.service.p2pUdpPort }},fork,reuseaddr,max-children=1 UDP4:127.0.0.1:{{ .Values.validator.service.p2pUdpPort }}"
+            - "socat TCP4:127.0.0.1:{{ .Values.proverNode.service.p2pUdpPort }},fork,reuseaddr,max-children=1 UDP4:127.0.0.1:{{ .Values.proverNode.service.p2pUdpPort }}"
         - name: validator
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
