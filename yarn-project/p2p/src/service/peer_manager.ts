@@ -78,7 +78,6 @@ export class PeerManager {
     // Get current connections
     const connections = this.libP2PNode.getConnections();
 
-
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - connections.length;
 

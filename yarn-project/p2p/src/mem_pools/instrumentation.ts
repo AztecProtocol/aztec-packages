@@ -8,9 +8,9 @@ export enum PoolName {
 }
 
 type MetricsLabels = {
-  objectInMempool : Metrics;
+  objectInMempool: Metrics;
   objectSize: Metrics;
-}
+};
 
 /**
  * Get the metrics labels for a given pool name.
@@ -23,14 +23,12 @@ function getMetricsLabels(name: PoolName): MetricsLabels {
       objectInMempool: Metrics.MEMPOOL_TX_COUNT,
       objectSize: Metrics.MEMPOOL_TX_SIZE,
     };
-  }
-  else if (name === PoolName.ATTESTATION_POOL) {
+  } else if (name === PoolName.ATTESTATION_POOL) {
     return {
       objectInMempool: Metrics.MEMPOOL_ATTESTATIONS_COUNT,
       objectSize: Metrics.MEMPOOL_ATTESTATIONS_SIZE,
     };
-  }
-  else if (name === PoolName.EPOCH_PROOF_QUOTE_POOL) {
+  } else if (name === PoolName.EPOCH_PROOF_QUOTE_POOL) {
     return {
       objectInMempool: Metrics.MEMPOOL_PROVER_QUOTE_COUNT,
       objectSize: Metrics.MEMPOOL_PROVER_QUOTE_SIZE,
