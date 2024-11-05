@@ -11,10 +11,7 @@ export async function createAndStartTelemetryClient(config: TelemetryClientConfi
   const log = createDebugLogger('aztec:telemetry-client');
   if (config.metricsCollectorUrl) {
     log.info('Using OpenTelemetry client');
-    return await OpenTelemetryClient.createAndStart(
-      config,
-      log,
-    );
+    return await OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');
     return new NoopTelemetryClient();

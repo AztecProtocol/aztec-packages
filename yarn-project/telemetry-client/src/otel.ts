@@ -26,9 +26,9 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import { aztecDetector } from './aztec_resource_detector.js';
+import { type TelemetryClientConfig } from './config.js';
 import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
-import { type TelemetryClientConfig } from './config.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
@@ -78,10 +78,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     await Promise.all([this.meterProvider.shutdown(), this.loggerProvider.shutdown()]);
   }
 
-  public static async createAndStart(
-    config: TelemetryClientConfig,
-    log: DebugLogger,
-  ): Promise<OpenTelemetryClient> {
+  public static async createAndStart(config: TelemetryClientConfig, log: DebugLogger): Promise<OpenTelemetryClient> {
     const resource = detectResourcesSync({
       detectors: [
         osDetectorSync,
@@ -104,7 +101,9 @@ export class OpenTelemetryClient implements TelemetryClient {
 
     // optionally push traces to an OTEL collector instance
     if (config.tracesCollectorUrl) {
-      tracerProvider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href })));
+      tracerProvider.addSpanProcessor(
+        new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href })),
+      );
     }
 
     tracerProvider.register();
