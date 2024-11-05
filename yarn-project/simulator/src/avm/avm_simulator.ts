@@ -1,4 +1,4 @@
-import { MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
+import { Fr, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
@@ -12,7 +12,6 @@ import {
   AvmExecutionError,
   InvalidProgramCounterError,
   NoBytecodeForContractError,
-  revertDataFromExceptionalHalt,
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
@@ -134,12 +133,8 @@ export class AvmSimulator {
       }
 
       const revertReason = revertReasonFromExceptionalHalt(err, this.context);
-      // Note: "exceptional halts" cannot return data, hence []
-      const results = new AvmContractCallResult(
-        /*reverted=*/ true,
-        /*output=*/ revertDataFromExceptionalHalt(err),
-        revertReason,
-      );
+      // Note: "exceptional halts" cannot return data, hence [].
+      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.printOpcodeTallies();

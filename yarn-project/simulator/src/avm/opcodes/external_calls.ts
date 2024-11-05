@@ -5,7 +5,7 @@ import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { gasLeftToGas } from '../avm_gas.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
-import { RethrownError } from '../errors.js';
+import { AvmRevertReason } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -76,23 +76,21 @@ abstract class ExternalCall extends Instruction {
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 
-    // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
-    //               This means that for now, the caller cannot recover from errors.
-    if (!success) {
-      if (!nestedCallResults.revertReason) {
-        throw new Error('A reverted nested call should be assigned a revert reason in the AVM execution loop');
-      }
-      // The nested call's revertReason will be used to track the stack of error causes down to the root.
-      throw new RethrownError(
-        nestedCallResults.revertReason.message,
-        nestedCallResults.revertReason,
-        nestedCallResults.output,
-      );
-    }
-
     // Save return/revert data for later.
     const fullReturnData = nestedCallResults.output;
     context.machineState.nestedReturndata = fullReturnData;
+
+    // If the nested call reverted, we try to save the reason and the revert data.
+    // This will be used by the caller to try to reconstruct the call stack.
+    // This is only a heuristic and may not always work. It is intended to work
+    // for the case where a nested call reverts and the caller always rethrows
+    // (in Noir code).
+    if (!success) {
+      context.machineState.collectedRevertInfo = {
+        revertDataRepresentative: fullReturnData,
+        recursiveRevertReason: nestedCallResults.revertReason!,
+      };
+    }
 
     // Write our success flag into memory.
     memory.set(successOffset, new Uint1(success ? 1 : 0));
