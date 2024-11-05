@@ -16,7 +16,6 @@ import type { Fr } from '@aztec/foundation/fields';
 
 import type { L2Block } from '../l2_block.js';
 import type {
-  EncryptedL2NoteLog,
   FromLogType,
   GetUnencryptedLogsResponse,
   L2BlockL2Logs,

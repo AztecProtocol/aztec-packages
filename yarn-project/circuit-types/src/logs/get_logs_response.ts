@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { EncryptedL2NoteLog, Tx, TxHash } from '../index.js';
+import { EncryptedL2NoteLog, TxHash } from '../index.js';
 import { type ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
 /**

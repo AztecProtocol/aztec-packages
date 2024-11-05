@@ -8,7 +8,6 @@ import {
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
   L1EventPayload,
-  L1NotePayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
