@@ -1028,7 +1028,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs:
       - merge-check
-    if: failure()
+    if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
