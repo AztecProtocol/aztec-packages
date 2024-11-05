@@ -361,7 +361,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       calldata: avmEnvironment.calldata,
       returnValues: avmCallResults.output,
       reverted: avmCallResults.reverted,
-      revertReason: avmCallResults.revertReason ? createSimulationError(avmCallResults.revertReason) : undefined,
+      revertReason: avmCallResults.revertReason
+        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
+        : undefined,
 
       contractStorageReads: this.contractStorageReads,
       contractStorageUpdateRequests: this.contractStorageUpdateRequests,

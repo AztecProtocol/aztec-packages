@@ -10,9 +10,6 @@
 
 namespace acir_format {
 
-// Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
-static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
-
 class ProofSurgeon {
     using FF = bb::fr;
 
@@ -71,9 +68,9 @@ class ProofSurgeon {
         proof.reserve(proof_in.size() + public_inputs.size());
 
         // Construct the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
-        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET);
+        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
-        proof.insert(proof.end(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET, proof_in.end());
+        proof.insert(proof.end(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET, proof_in.end());
 
         return proof;
     }
@@ -90,10 +87,10 @@ class ProofSurgeon {
     {
         // Construct iterators pointing to the start and end of the public inputs within the proof
         auto pub_inputs_begin_itr =
-            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET);
+            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         auto pub_inputs_end_itr =
             proof_witnesses.begin() +
-            static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
+            static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
 
         // Construct the isolated public inputs
         std::vector<bb::fr> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
@@ -117,7 +114,7 @@ class ProofSurgeon {
         std::vector<uint32_t> public_input_witness_indices;
         public_input_witness_indices.reserve(num_public_inputs_to_extract);
 
-        const size_t start = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        const size_t start = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         const size_t end = start + num_public_inputs_to_extract;
         for (size_t i = start; i < end; ++i) {
             public_input_witness_indices.push_back(proof[i].get_witness_index());
