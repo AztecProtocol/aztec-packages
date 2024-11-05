@@ -1,4 +1,5 @@
 import { type FailingFunction, type NoirCallStack, SimulationError } from '@aztec/circuit-types';
+import { type Fr } from '@aztec/circuits.js';
 
 /**
  * An error that occurred during the execution of a function.
@@ -47,7 +48,7 @@ export function traverseCauseChain(error: Error, callback: (error: Error) => voi
  * @param error - The error thrown during execution.
  * @returns - A simulation error.
  */
-export function createSimulationError(error: Error): SimulationError {
+export function createSimulationError(error: Error, revertData?: Fr[]): SimulationError {
   let rootCause = error;
   let noirCallStack: NoirCallStack | undefined = undefined;
   const aztecCallStack: FailingFunction[] = [];
@@ -62,5 +63,5 @@ export function createSimulationError(error: Error): SimulationError {
     }
   });
 
-  return new SimulationError(rootCause.message, aztecCallStack, noirCallStack, { cause: rootCause });
+  return new SimulationError(rootCause.message, aztecCallStack, revertData, noirCallStack, { cause: rootCause });
 }
