@@ -91,11 +91,171 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             }
-            // WORKTODO: in the overflow case, just allocate full polys for simplicity
+            // If using structured trace but overflow has occurred (misc. block in use), allocate full size polynomials
             else if (is_structured && circuit.blocks.has_overflow) {
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
-            } else {
-                instantiate_polynomials_based_on_structured_trace(circuit);
+            } else { // Allocate only a correct amount of memory for each polynomial
+                // Allocate the wires and selectors polynomials
+                {
+                    PROFILE_THIS_NAME("allocating wires");
+                    vinfo("allocating wires");
+
+                    for (auto& wire : proving_key.polynomials.get_wires()) {
+                        wire = Polynomial::shiftable(proving_key.circuit_size);
+                    }
+                }
+                {
+                    PROFILE_THIS_NAME("allocating gate selectors");
+                    vinfo("allocating gate selectors");
+
+                    // Define gate selectors over the block they are isolated to
+                    for (auto [selector, block] :
+                         zip_view(proving_key.polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
+
+                        // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used
+                        // in aux block.
+                        if (&block == &circuit.blocks.arithmetic) {
+                            size_t arith_size = circuit.blocks.aux.trace_offset -
+                                                circuit.blocks.arithmetic.trace_offset +
+                                                circuit.blocks.aux.get_fixed_size(is_structured);
+                            selector = Polynomial(
+                                arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset);
+                        } else {
+                            selector = Polynomial(
+                                block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
+                        }
+                    }
+                }
+                {
+                    PROFILE_THIS_NAME("allocating non-gate selectors");
+                    vinfo("allocating non-gate selectors");
+
+                    // Set the other non-gate selector polynomials to full size
+                    for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
+                        selector = Polynomial(proving_key.circuit_size);
+                    }
+                }
+                if constexpr (IsGoblinFlavor<Flavor>) {
+                    PROFILE_THIS_NAME("allocating ecc op wires and selector");
+                    vinfo("allocating ecc op wires and selector");
+
+                    // Allocate the ecc op wires and selector
+                    const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
+                    const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+                    for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
+                        wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
+                    }
+                    proving_key.polynomials.lagrange_ecc_op =
+                        Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
+                }
+
+                if constexpr (HasDataBus<Flavor>) {
+                    // WORKTODO: could be this:
+                    // for (auto& poly : proving_key.polynomials.get_databus_entities()) {
+                    //     poly = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    // }
+                    proving_key.polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.calldata_read_counts =
+                        Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.secondary_calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.secondary_calldata_read_counts =
+                        Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.secondary_calldata_read_tags =
+                        Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.return_data = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.return_data_read_counts =
+                        Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+                    proving_key.polynomials.return_data_read_tags =
+                        Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
+
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1107): Restricting databus_id to
+                    // databus_size leads to failure.
+                    // const size_t databus_size = std::max({ calldata.size(), secondary_calldata.size(),
+                    // return_data.size() });
+                    proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
+                }
+                const size_t max_tables_size =
+                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
+                size_t table_offset = dyadic_circuit_size - max_tables_size;
+                {
+                    PROFILE_THIS_NAME("allocating table polynomials");
+                    vinfo("allocating table polynomials");
+
+                    ASSERT(dyadic_circuit_size > max_tables_size);
+
+                    // Allocate the table polynomials
+                    if constexpr (IsHonkFlavor<Flavor>) {
+                        for (auto& poly : proving_key.polynomials.get_tables()) {
+                            poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                        }
+                    }
+                }
+                {
+                    PROFILE_THIS_NAME("allocating sigmas and ids");
+                    vinfo("allocating sigmas and ids");
+
+                    for (auto& sigma : proving_key.polynomials.get_sigmas()) {
+                        sigma = typename Flavor::Polynomial(proving_key.circuit_size);
+                    }
+                    for (auto& id : proving_key.polynomials.get_ids()) {
+                        id = typename Flavor::Polynomial(proving_key.circuit_size);
+                    }
+                }
+                {
+                    ZoneScopedN("allocating lookup read counts and tags");
+                    // Allocate the read counts and tags polynomials
+                    vinfo("allocating lookup read counts and tags");
+                    proving_key.polynomials.lookup_read_counts =
+                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                    proving_key.polynomials.lookup_read_tags =
+                        typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
+                }
+                {
+                    ZoneScopedN("allocating lookup and databus inverses");
+                    // Allocate the lookup_inverses polynomial
+                    vinfo("allocating lookup and databus inverses");
+                    const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
+                    // at top of trace
+                    const size_t table_offset =
+                        dyadic_circuit_size -
+                        std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
+                    const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
+                    const size_t lookup_inverses_end =
+                        std::min(dyadic_circuit_size,
+                                 std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
+                                          table_offset + MAX_LOOKUP_TABLES_SIZE));
+                    proving_key.polynomials.lookup_inverses = Polynomial(
+                        lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
+                    if constexpr (HasDataBus<Flavor>) {
+                        const size_t q_busread_end =
+                            circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);
+                        // Allocate the databus inverse polynomials
+                        proving_key.polynomials.calldata_inverses =
+                            Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
+                        proving_key.polynomials.secondary_calldata_inverses = Polynomial(
+                            std::max(circuit.get_secondary_calldata().size(), q_busread_end), dyadic_circuit_size);
+                        proving_key.polynomials.return_data_inverses =
+                            Polynomial(std::max(circuit.get_return_data().size(), q_busread_end), dyadic_circuit_size);
+                    }
+                }
+                {
+                    PROFILE_THIS_NAME("constructing z_perm");
+                    vinfo("constructing z_perm");
+
+                    // Allocate the z_perm polynomial
+                    proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
+                }
+
+                {
+                    PROFILE_THIS_NAME("allocating lagrange polynomials");
+                    vinfo("allocating lagrange polynomials");
+
+                    // First and last lagrange polynomials (in the full circuit size)
+                    proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
+                    proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, dyadic_circuit_size - 1);
+                }
             }
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
@@ -178,164 +338,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
-
-    void instantiate_polynomials_based_on_structured_trace(Circuit& circuit)
-    {
-        // Allocate the wires and selectors polynomials
-        {
-            PROFILE_THIS_NAME("allocating wires");
-            vinfo("allocating wires");
-
-            for (auto& wire : proving_key.polynomials.get_wires()) {
-                wire = Polynomial::shiftable(proving_key.circuit_size);
-            }
-        }
-        {
-            PROFILE_THIS_NAME("allocating gate selectors");
-            vinfo("allocating gate selectors");
-
-            // Define gate selectors over the block they are isolated to
-            for (auto [selector, block] :
-                 zip_view(proving_key.polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
-
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used
-                // in aux block.
-                if (&block == &circuit.blocks.arithmetic) {
-                    size_t arith_size = circuit.blocks.aux.trace_offset - circuit.blocks.arithmetic.trace_offset +
-                                        circuit.blocks.aux.get_fixed_size(is_structured);
-                    selector = Polynomial(arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset);
-                } else {
-                    selector =
-                        Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
-                }
-            }
-        }
-        {
-            PROFILE_THIS_NAME("allocating non-gate selectors");
-            vinfo("allocating non-gate selectors");
-
-            // Set the other non-gate selector polynomials to full size
-            for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
-                selector = Polynomial(proving_key.circuit_size);
-            }
-        }
-        if constexpr (IsGoblinFlavor<Flavor>) {
-            PROFILE_THIS_NAME("allocating ecc op wires and selector");
-            vinfo("allocating ecc op wires and selector");
-
-            // Allocate the ecc op wires and selector
-            const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
-            const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
-            for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
-                wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
-            }
-            proving_key.polynomials.lagrange_ecc_op =
-                Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
-        }
-
-        if constexpr (HasDataBus<Flavor>) {
-            // WORKTODO: could be this:
-            // for (auto& poly : proving_key.polynomials.get_databus_entities()) {
-            //     poly = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            // }
-            proving_key.polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.secondary_calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.secondary_calldata_read_counts =
-                Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.secondary_calldata_read_tags =
-                Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.return_data = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-            proving_key.polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
-
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1107): Restricting databus_id to
-            // databus_size leads to failure.
-            // const size_t databus_size = std::max({ calldata.size(), secondary_calldata.size(),
-            // return_data.size() });
-            proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
-        }
-        const size_t max_tables_size = std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
-        size_t table_offset = dyadic_circuit_size - max_tables_size;
-        {
-            PROFILE_THIS_NAME("allocating table polynomials");
-            vinfo("allocating table polynomials");
-
-            ASSERT(dyadic_circuit_size > max_tables_size);
-
-            // Allocate the table polynomials
-            if constexpr (IsHonkFlavor<Flavor>) {
-                for (auto& poly : proving_key.polynomials.get_tables()) {
-                    poly = typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-                }
-            }
-        }
-        {
-            PROFILE_THIS_NAME("allocating sigmas and ids");
-            vinfo("allocating sigmas and ids");
-
-            for (auto& sigma : proving_key.polynomials.get_sigmas()) {
-                sigma = typename Flavor::Polynomial(proving_key.circuit_size);
-            }
-            for (auto& id : proving_key.polynomials.get_ids()) {
-                id = typename Flavor::Polynomial(proving_key.circuit_size);
-            }
-        }
-        {
-            ZoneScopedN("allocating lookup read counts and tags");
-            // Allocate the read counts and tags polynomials
-            vinfo("allocating lookup read counts and tags");
-            proving_key.polynomials.lookup_read_counts =
-                typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-            proving_key.polynomials.lookup_read_tags =
-                typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
-        }
-        {
-            ZoneScopedN("allocating lookup and databus inverses");
-            // Allocate the lookup_inverses polynomial
-            vinfo("allocating lookup and databus inverses");
-            const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
-            // at top of trace
-            const size_t table_offset =
-                dyadic_circuit_size - std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
-            const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
-            const size_t lookup_inverses_end =
-                std::min(dyadic_circuit_size,
-                         std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
-                                  table_offset + MAX_LOOKUP_TABLES_SIZE));
-            proving_key.polynomials.lookup_inverses =
-                Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
-            if constexpr (HasDataBus<Flavor>) {
-                const size_t q_busread_end =
-                    circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);
-                // Allocate the databus inverse polynomials
-                proving_key.polynomials.calldata_inverses =
-                    Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
-                proving_key.polynomials.secondary_calldata_inverses =
-                    Polynomial(std::max(circuit.get_secondary_calldata().size(), q_busread_end), dyadic_circuit_size);
-                proving_key.polynomials.return_data_inverses =
-                    Polynomial(std::max(circuit.get_return_data().size(), q_busread_end), dyadic_circuit_size);
-            }
-        }
-        {
-            PROFILE_THIS_NAME("constructing z_perm");
-            vinfo("constructing z_perm");
-
-            // Allocate the z_perm polynomial
-            proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
-        }
-
-        {
-            PROFILE_THIS_NAME("allocating lagrange polynomials");
-            vinfo("allocating lagrange polynomials");
-
-            // First and last lagrange polynomials (in the full circuit size)
-            proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
-            proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, dyadic_circuit_size - 1);
-        }
-    }
 };
 
 } // namespace bb

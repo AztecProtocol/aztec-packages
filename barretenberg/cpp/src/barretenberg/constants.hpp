@@ -11,9 +11,9 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 20;
 
-static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 8; // DEBUG!
-// static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 70000;
+// static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 8; // DEBUG!
+static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 70000;
 
-static constexpr uint32_t MAX_DATABUS_SIZE = 3; // DEBUG!
-// static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
+// static constexpr uint32_t MAX_DATABUS_SIZE = 3; // DEBUG!
+static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 } // namespace bb
