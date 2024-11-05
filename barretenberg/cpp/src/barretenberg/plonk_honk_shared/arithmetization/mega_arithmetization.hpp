@@ -91,10 +91,10 @@ template <typename FF_> class MegaArith {
             this->ecc_op = 18;
             this->pub_inputs = 1;
             this->busread = 3;
-            this->arithmetic = 7; // 8
-            this->delta_range = 2;
+            this->arithmetic = 15; // 15
+            this->delta_range = 5;
             this->elliptic = 2;
-            this->aux = 2;
+            this->aux = 14; // 20
             this->poseidon2_external = 2;
             this->poseidon2_internal = 2;
             this->lookup = 2;
@@ -341,6 +341,15 @@ template <typename FF_> class MegaArith {
                         }
                         selector.resize(fixed_block_size);
                     }
+
+                    // WORKTODO: handle mem record offsets
+                    // // if the overflowing block contains RAM/ROM, need to update gate indices in memory records to
+                    // // account for moving them into the miscellaneous block
+                    // if (block.has_ram_rom) {
+                    //     uint32_t offset = this->miscellaneous.offset - block.offset + this->miscellaneous.size();
+                    //     for (auto& idx : )
+
+                    // }
 
                     this->miscellaneous.has_ram_rom = block.has_ram_rom;
                     this->miscellaneous.is_pub_inputs = block.is_pub_inputs;

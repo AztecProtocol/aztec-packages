@@ -1,1 +1,1 @@
-barretenberg_module(ultra_honk sumcheck)
+barretenberg_module(ultra_honk sumcheck circuit_checker)

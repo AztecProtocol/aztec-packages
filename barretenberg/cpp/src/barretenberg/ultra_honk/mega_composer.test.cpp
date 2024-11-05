@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -214,15 +215,50 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
  * @brief Test proof construction/verification for a structured execution trace
  *
  */
-TEST_F(MegaHonkTests, MiscellaneousBlock)
+TEST_F(MegaHonkTests, MiscellaneousBlockSimple)
 {
     MegaCircuitBuilder builder;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
+    MockCircuits::add_arithmetic_gates(builder, 8);
 
     // Construct and verify Honk proof using a structured trace
     TraceStructure trace_structure = TraceStructure::TINY_TEST;
     auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    // builder.blocks.summarize();
+    MegaProver prover(proving_key);
+    // builder.blocks.summarize();
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+    MegaVerifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(verifier.verify_proof(proof));
+}
+
+/**
+ * @brief Test proof construction/verification for a structured execution trace
+ *
+ */
+TEST_F(MegaHonkTests, MiscellaneousBlockAuxOverflow)
+{
+    MegaCircuitBuilder builder;
+    // using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
+
+    TraceStructure trace_structure = TraceStructure::TINY_TEST;
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+    MockCircuits::add_RAM_gates(builder);
+
+    // builder.blocks.set_fixed_block_sizes(trace_structure);
+
+    // builder.blocks.summarize();
+    // DeciderProvingKey::move_structured_trace_overflow_to_miscellaneous_block(builder);
+    // builder.blocks.summarize();
+
+    // Construct and verify Honk proof using a structured trace
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
     // builder.blocks.summarize();
     MegaProver prover(proving_key);
     // builder.blocks.summarize();

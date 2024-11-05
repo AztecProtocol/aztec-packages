@@ -23,11 +23,12 @@ template <typename FF_> class UltraArith {
         T lookup;
         T poseidon2_external;
         T poseidon2_internal;
+        T miscellaneous;
 
         auto get()
         {
-            return RefArray{ pub_inputs, arithmetic, delta_range,        elliptic,
-                             aux,        lookup,     poseidon2_external, poseidon2_internal };
+            return RefArray{ pub_inputs, arithmetic,         delta_range,        elliptic,     aux,
+                             lookup,     poseidon2_external, poseidon2_internal, miscellaneous };
         }
 
         auto get_gate_blocks()
@@ -51,6 +52,7 @@ template <typename FF_> class UltraArith {
             this->lookup = FIXED_SIZE;
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = FIXED_SIZE;
+            this->miscellaneous = 0;
         }
     };
 
@@ -150,6 +152,7 @@ template <typename FF_> class UltraArith {
             info("lookups    :\t", this->lookup.size());
             info("poseidon ext  :\t", this->poseidon2_external.size());
             info("poseidon int  :\t", this->poseidon2_internal.size());
+            info("miscellaneous :\t", this->miscellaneous.size());
         }
 
         size_t get_total_structured_size()

@@ -62,7 +62,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         if (is_structured) {
             circuit.blocks.set_fixed_block_sizes(trace_structure); // set the fixed sizes for each block
             circuit.blocks.summarize();
-            circuit.blocks.check_within_fixed_sizes(); // ensure that no block exceeds its fixed size
+            // circuit.blocks.check_within_fixed_sizes(); // ensure that no block exceeds its fixed size
+            move_structured_trace_overflow_to_miscellaneous_block(circuit);
             circuit.blocks.summarize();
             dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
         } else {
@@ -338,6 +339,80 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
+
+  public:
+    static void move_structured_trace_overflow_to_miscellaneous_block(Circuit& circuit)
+    {
+        using SelectorType = SlabVector<FF>;
+        using WireType = SlabVector<uint32_t>;
+
+        auto& blocks = circuit.blocks;
+        auto& misc_block = circuit.blocks.miscellaneous;
+
+        blocks.compute_offsets(/*is_structured=*/true);
+
+        for (auto& block : blocks.get()) {
+            size_t block_size = block.size();
+            size_t fixed_block_size = block.get_fixed_size();
+            if (block_size > fixed_block_size && block != misc_block) {
+                // We dont handle this case
+                ASSERT(!block.is_pub_inputs);
+
+                // Set flag indicating that at least one block exceeds capacity and the misc block is in use
+                blocks.has_overflow = true;
+
+                // if the overflowing block contains RAM/ROM, need to update gate indices in memory records to
+                // account for moving them into the miscellaneous block
+                if (block.has_ram_rom) {
+
+                    for (auto& val : block.q_aux()) {
+                        info("q_aux = ", val);
+                    }
+                    uint32_t offset =
+                        misc_block.trace_offset - block.trace_offset + static_cast<uint32_t>(misc_block.size());
+                    for (auto& idx : circuit.memory_read_records) {
+                        if (idx >= fixed_block_size) {
+                            idx += offset;
+                        }
+                    }
+                    for (auto& idx : circuit.memory_write_records) {
+                        if (idx >= fixed_block_size) {
+                            idx += offset;
+                        }
+                    }
+                }
+
+                // move the excess wire and selector data from the offending block to the miscellaneous block
+                for (auto [wire, misc_wire] : zip_view(block.wires, misc_block.wires)) {
+                    WireType overflow(wire.begin() + static_cast<std::ptrdiff_t>(fixed_block_size), wire.end());
+                    // misc_wire.push_back(overflow);
+                    for (const auto& val : overflow) {
+                        misc_wire.emplace_back(val);
+                    }
+                    wire.resize(fixed_block_size);
+                }
+                for (auto [selector, misc_selector] : zip_view(block.selectors, misc_block.selectors)) {
+                    SelectorType overflow(selector.begin() + static_cast<std::ptrdiff_t>(fixed_block_size),
+                                          selector.end());
+                    // misc_selector.push_back(std::move(overflow));
+                    for (const auto& val : overflow) {
+                        misc_selector.emplace_back(val);
+                    }
+                    selector.resize(fixed_block_size);
+                }
+
+                blocks.summarize();
+                info(block.size());
+
+                info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
+                     "not be constructed correctly!");
+                blocks.summarize();
+                // ASSERT(false);
+            }
+        }
+        // Set the fixed size of the miscellaneous block to its current size
+        misc_block.set_fixed_size(static_cast<uint32_t>(misc_block.size()));
+    }
 };
 
 } // namespace bb
