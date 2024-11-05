@@ -730,7 +730,6 @@ jobs:
           # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
           tester_ttl: 60
-          # TODO(#9640): use 16-validators.yaml
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
