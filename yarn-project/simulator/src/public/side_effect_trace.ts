@@ -1,11 +1,4 @@
-import {
-  type FailingFunction,
-  type NoirCallStack,
-  PublicExecutionRequest,
-  SimulationError,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
-} from '@aztec/circuit-types';
+import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmContractBytecodeHints,
   AvmContractInstanceHint,
@@ -44,7 +37,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { ExecutionError, createSimulationError, traverseCauseChain } from '../common/errors.js';
+import { createSimulationError } from '../common/errors.js';
 import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
