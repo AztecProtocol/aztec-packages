@@ -282,6 +282,10 @@ template <typename Curve_> class IPA {
         // Step 7
         // Send a_0 to the verifier
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
+
+        info("prove G_zero: ", G_vec_local[0]);
+        info("prove b_zero: ", b_vec[0]);
+        info("prove a_zero: ", a_vec[0]);
     }
 
     /**
@@ -337,8 +341,8 @@ template <typename Curve_> class IPA {
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
         auto pippenger_size = 2 * log_poly_length;
-        std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Fr> round_challenges_inv(log_poly_length);
+        std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
+        std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
@@ -348,14 +352,13 @@ template <typename Curve_> class IPA {
             std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            auto round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (round_challenges[i].is_zero()) {
+                throw_or_abort("Round challenges can't be zero");
+            }
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
+            round_challenges_inv[i] = round_challenges[i].invert();
             if (i < log_poly_length) {
-                round_challenges[i] = round_challenge;
-                if (round_challenges[i].is_zero()) {
-                    throw_or_abort("Round challenges can't be zero");
-                }
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
-                round_challenges_inv[i] = round_challenges[i].invert();
 
                 msm_elements[2 * i] = element_L;
                 msm_elements[2 * i + 1] = element_R;
@@ -378,11 +381,13 @@ template <typename Curve_> class IPA {
         for (size_t i = 0; i < log_poly_length; i++) {
             b_zero *= Fr::one() + (round_challenges_inv[log_poly_length - 1 - i] *
                                    opening_claim.opening_pair.challenge.pow(1 << i));
+            info("native verify b_zero after i: ", i, " is ", b_zero);
+
         }
 
         // Step 7.
         // Construct vector s
-        Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(round_challenges_inv));
+        Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(log_poly_length, std::span(round_challenges_inv).subspan(0, log_poly_length)));
 
         std::span<const Commitment> srs_elements = vk->get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
@@ -408,6 +413,9 @@ template <typename Curve_> class IPA {
         // Step 9.
         // Receive a₀ from the prover
         auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        info("native verify G_zero: ", G_zero);
+        info("native verify b_zero: ", b_zero);
+        info("native verify a_zero: ", a_zero);
 
         // Step 10.
         // Compute C_right
@@ -486,13 +494,14 @@ template <typename Curve_> class IPA {
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
+            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - log_poly_length);
 
             Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
             b_zero *= Fr(1) + monomial;
+            info("rec verify b_zero after i: ", i, " is ", b_zero.get_value());
             if (i != CONST_ECCVM_LOG_N - 1) // this if is fine because the number of iterations is constant
             {
-                challenge = challenge * challenge;
+                challenge = Fr::conditional_assign(dummy_round, challenge, challenge * challenge);
             }
         }
 
@@ -540,6 +549,10 @@ template <typename Curve_> class IPA {
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) + a₀ * b₀) ⋅ U
         // This is a combination of several IPA relations into a large batch mul
         // which should be equal to -C
+        info("rec verify G_zero: ", G_zero.get_value());
+        info("rec verify b_zero: ", b_zero.get_value());
+        info("rec verify a_zero: ", a_zero.get_value());
+
         msm_elements.emplace_back(-G_zero);
         msm_elements.emplace_back(-Commitment::one(builder));
         msm_scalars.emplace_back(a_zero);
@@ -549,7 +562,8 @@ template <typename Curve_> class IPA {
 
         ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value());
         // This should return an actual VerifierAccumulator
-        return {round_challenges_inv, G_zero};
+        Fr stdlib_log_poly_length(static_cast<uint256_t>(log_poly_length));
+        return {stdlib_log_poly_length, round_challenges_inv, G_zero};
     }
 
   public:
@@ -680,13 +694,19 @@ template <typename Curve_> class IPA {
      * @param r 
      * @return Fr 
      */
-    static Fr evaluate_challenge_poly(const std::vector<Fr>& u_challenges_inv, Fr r) {
+    static Fr evaluate_challenge_poly(Fr log_poly_length, const std::vector<Fr>& u_challenges_inv, Fr r) {
+        using Builder = typename Curve::Builder;
+
+        Builder* builder = r.get_context();
         Fr challenge_poly_eval = 1;
         Fr r_pow = r;
-        size_t len = u_challenges_inv.size();
-        for (size_t i = 0; i < len; i++) {
-            challenge_poly_eval *= (Fr(1) + u_challenges_inv[len - 1 - i] * r_pow);
-            r_pow *= r_pow;
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
+            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - uint32_t(log_poly_length.get_value()));
+    
+            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), u_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * r_pow);
+
+            challenge_poly_eval *= (Fr(1) + monomial);
+            r_pow = Fr::conditional_assign(dummy_round, r_pow, r_pow * r_pow);
         }
         return challenge_poly_eval;
     }
@@ -700,8 +720,8 @@ template <typename Curve_> class IPA {
      * @param alpha 
      * @return Fr 
      */
-    static Fr evaluate_and_accumulate_challenge_polys(std::vector<Fr> u_challenges_inv_1, std::vector<Fr> u_challenges_inv_2, Fr r, Fr alpha) {
-        auto result = evaluate_challenge_poly(u_challenges_inv_1, r) + alpha * evaluate_challenge_poly(u_challenges_inv_2, r);
+    static Fr evaluate_and_accumulate_challenge_polys(Fr log_poly_length_1, std::vector<Fr> u_challenges_inv_1, Fr log_poly_length_2, std::vector<Fr> u_challenges_inv_2, Fr r, Fr alpha) {
+        auto result = evaluate_challenge_poly(log_poly_length_1, u_challenges_inv_1, r) + alpha * evaluate_challenge_poly(log_poly_length_2, u_challenges_inv_2, r);
         return result;
     }
 
@@ -711,9 +731,8 @@ template <typename Curve_> class IPA {
      * @param u_challenges_inv 
      * @return Polynomial<bb::fq> 
      */
-    static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const std::vector<bb::fq>& u_challenges_inv) {
-        const size_t poly_length = (1 << u_challenges_inv.size());
-        const size_t log_poly_length = u_challenges_inv.size();
+    static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const size_t log_poly_length, const std::span<const bb::fq>& u_challenges_inv) {
+        const size_t poly_length = (1 << log_poly_length);
 
         // Construct vector s in linear time.
         std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
@@ -751,9 +770,9 @@ template <typename Curve_> class IPA {
      * @param alpha 
      * @return Polynomial<bb::fq> 
      */
-    static Polynomial<bb::fq> create_challenge_poly(const std::vector<bb::fq>& u_challenges_inv_1, const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
-        Polynomial challenge_poly = construct_poly_from_u_challenges_inv(u_challenges_inv_1);
-        Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(u_challenges_inv_2);
+    static Polynomial<bb::fq> create_challenge_poly(const size_t log_poly_length_1, const std::vector<bb::fq>& u_challenges_inv_1, const size_t log_poly_length_2, const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
+        Polynomial challenge_poly = construct_poly_from_u_challenges_inv(log_poly_length_1, u_challenges_inv_1);
+        Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(log_poly_length_2, u_challenges_inv_2);
         challenge_poly.add_scaled(challenge_poly_2, alpha);
         return challenge_poly;
     }
@@ -792,7 +811,7 @@ template <typename Curve_> class IPA {
         output_claim.commitment = pair_1.comm + pair_2.comm * alpha;
         output_claim.opening_pair.challenge = r;
         // Evaluate the challenge_poly polys at r and linearly combine them with alpha challenge
-        output_claim.opening_pair.evaluation = evaluate_and_accumulate_challenge_polys(pair_1.u_challenges_inv, pair_2.u_challenges_inv, r, alpha);
+        output_claim.opening_pair.evaluation = evaluate_and_accumulate_challenge_polys(pair_1.log_poly_length, pair_1.u_challenges_inv, pair_2.log_poly_length, pair_2.u_challenges_inv, r, alpha);
 
         // Step 4: Compute the new polynomial
         std::vector<bb::fq> native_u_challenges_inv_1;
@@ -803,7 +822,7 @@ template <typename Curve_> class IPA {
         for (Fr u_inv_i : pair_2.u_challenges_inv) {
             native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
-        return {output_claim, create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, fq(alpha.get_value()))};
+        return {output_claim, create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()))};
     }
 };
 
