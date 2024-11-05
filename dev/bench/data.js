@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730830469877,
+  "lastUpdate": 1730836216976,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cb58490eed9cc46a7b2039d93645a9456ee9c834",
-          "message": "chore!: replace usage of vector in keccakf1600 input with array (#9350)\n\nWe're currently using a vector to represent the state array for\r\nkeccakf1600 opcodes in brillig. This is unnecessary as it's only defined\r\nfor inputs of size 25 so we should use an array.\r\n\r\n@dbanks12 This impacts AVM as you're also using a vector here. We should\r\nbe able to remove this extra operand from the AVM bytecode but I'm not\r\nsure how to propagate this through the rest of the AVM stack.\r\n\r\n---------\r\n\r\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
-          "timestamp": "2024-10-23T19:39:12-04:00",
-          "tree_id": "dc4514e5f732806049406587c599edea9c41689f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cb58490eed9cc46a7b2039d93645a9456ee9c834"
-        },
-        "date": 1729728391410,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29626.658018000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27963.268034999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5378.266448999966,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5056.678763999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87461.171806,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87461173000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15172.533287999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15172534000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2717145852,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2717145852 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126259638,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126259638 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 145350192,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 145350192 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "wraitii@users.noreply.github.com",
+            "name": "Lancelot de Ferrière",
+            "username": "wraitii"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "047a96431f7f34f16fa1ad6cb21e652645378d93",
+          "message": "Rename DISABLE_TBB flag and disable on MacOS by default (#9747)\n\nPer #9746 , mac os compilation on ARM fails by default because of\r\n`std::execution::par_unseq`.\r\n\r\nThis PR fixes that by explicitly disabling it on MacOS since apple clang\r\ndoesn't support it. There's probably a better plug somewhere but I'm not\r\nultra-familiar with how you setup the build system, should this be a\r\npreset, should this be based on apple-clang specifically, etc. Can adapt\r\nthe PR as needed.\r\n\r\nI also rename DISABLE_TBB here because it seems to me that this should\r\nbe part of the native C++20 support on other platforms, but I have to\r\nadmit I'm really unfamiliar with the details here and I'm not sure if\r\nintel TBB is needed, or indeed what it does exactly. Can cut this from\r\nthe PR.\r\n\r\nLikewise, this turns parallel algorithms ON by default on the same C++20\r\nassumption, but that could well not work.",
+          "timestamp": "2024-11-05T14:14:13-05:00",
+          "tree_id": "9a600aa0a879b587fb52cb20fd98819c85f3410f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/047a96431f7f34f16fa1ad6cb21e652645378d93"
+        },
+        "date": 1730836209872,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29834.218410999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27822.74104 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5390.001780000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4985.522631 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 88529.81214400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 88529814000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15196.312047000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15196313000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3028439701,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3028439701 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143016636,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143016636 ns\nthreads: 1"
           }
         ]
       }
