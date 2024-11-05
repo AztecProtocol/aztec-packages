@@ -52,7 +52,7 @@ if [ "$FRESH_INSTALL" = "true" ]; then
 fi
 
 function copy_stern_to_log() {
-  stern $NAMESPACE -n $NAMESPACE > $SCRIPT_DIR/network-test.log
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log
 }
 
 function show_status_until_pxe_ready() {
