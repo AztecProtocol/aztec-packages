@@ -27,8 +27,8 @@ interface IGauge<Labels extends LabelsGeneric = NoLabels> {
   inc: NoLabels extends Labels ? (value?: number) => void : (labels: Labels, value?: number) => void;
   set: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void;
 
-  collect?(): void;
-  addCollect(fn: CollectFn<Labels>): void;
+  collect?(): void
+  addCollect(collectFn: CollectFn<Labels>): void
 }
 
 interface IHistogram<Labels extends LabelsGeneric = NoLabels> {
@@ -113,6 +113,9 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
         return;
       }
 
+      /**
+       * If there are labels, report the current values for each label
+       */
       for (const [labelStr, value] of this.labeledValues.entries()) {
         const labels = this.parseLabelsSafely(labelStr);
         if (labels) {
@@ -122,11 +125,15 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
     });
   }
 
-  addCollect(fn: CollectFn<Labels>): void {
-    this.collectFns.push(fn);
+  /**
+   * Add a collect callback
+   * @param collectFn - Callback function
+   */
+  addCollect(collectFn: CollectFn<Labels>): void {
+    this.collectFns.push(collectFn);
   }
 
-  /**
+/**
    * Increments the gauge value
    * @param labelsOrValue - Labels object or numeric value
    * @param value - Value to increment by (defaults to 1)

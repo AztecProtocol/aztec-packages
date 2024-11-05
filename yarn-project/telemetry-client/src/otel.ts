@@ -28,6 +28,7 @@ import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentele
 import { aztecDetector } from './aztec_resource_detector.js';
 import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
+import { TelemetryClientConfig } from './config.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
@@ -78,9 +79,7 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public static async createAndStart(
-    metricsCollector: URL,
-    tracesCollector: URL | undefined,
-    logsCollector: URL | undefined,
+    config: TelemetryClientConfig,
     log: DebugLogger,
   ): Promise<OpenTelemetryClient> {
     const resource = detectResourcesSync({
@@ -104,8 +103,8 @@ export class OpenTelemetryClient implements TelemetryClient {
     });
 
     // optionally push traces to an OTEL collector instance
-    if (tracesCollector) {
-      tracerProvider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: tracesCollector.href })));
+    if (config.tracesCollectorUrl) {
+      tracerProvider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href })));
     }
 
     tracerProvider.register();
@@ -115,15 +114,14 @@ export class OpenTelemetryClient implements TelemetryClient {
       readers: [
         new PeriodicExportingMetricReader({
           exporter: new OTLPMetricExporter({
-            url: metricsCollector.href,
+            url: config.metricsCollectorUrl!.href,
           }),
-          // TODO: make this configurable for debug builds
-          exportIntervalMillis: 5000,
-          exportTimeoutMillis: 2500,
+          exportIntervalMillis: config.otelCollectIntervalMs,
+          exportTimeoutMillis: config.otelExportTimeoutMs,
         }),
       ],
     });
-    const loggerProvider = registerOtelLoggerProvider(logsCollector);
+    const loggerProvider = registerOtelLoggerProvider(config.logsCollectorUrl);
 
     const service = new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
     service.start();

@@ -12,9 +12,7 @@ export async function createAndStartTelemetryClient(config: TelemetryClientConfi
   if (config.metricsCollectorUrl) {
     log.info('Using OpenTelemetry client');
     return await OpenTelemetryClient.createAndStart(
-      config.metricsCollectorUrl,
-      config.tracesCollectorUrl,
-      config.logsCollectorUrl,
+      config,
       log,
     );
   } else {
