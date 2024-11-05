@@ -4,7 +4,7 @@ import {
   EncryptedLogPayload,
   L1NotePayload,
   Note,
-  TxEffect,
+  type TxEffect,
   TxHash,
   TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
@@ -26,16 +26,16 @@ import {
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { ContractDataOracle } from '../index.js';
 import { type SimulatorOracle } from './index.js';
 
@@ -280,7 +280,7 @@ describe('Simulator oracle', () => {
     let addNotesSpy: any;
     let simulator: MockProxy<AcirSimulator>;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       addNotesSpy = jest.spyOn(database, 'addNotes');
       simulator = mock<AcirSimulator>();
       simulator.computeNoteHashAndOptionallyANullifier.mockImplementation((...args: any) =>
@@ -339,7 +339,7 @@ describe('Simulator oracle', () => {
         });
       });
 
-      aztecNode.getTxEffect.mockImplementation(async txHash => {
+      aztecNode.getTxEffect.mockImplementation(txHash => {
         return Promise.resolve(txEffectsMap[txHash.toString()] as TxEffect);
       });
       return taggedLogs;

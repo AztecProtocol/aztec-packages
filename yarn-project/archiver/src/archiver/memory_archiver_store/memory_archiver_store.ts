@@ -1,6 +1,5 @@
 import {
   type EncryptedL2BlockL2Logs,
-  type EncryptedL2NoteLog,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,

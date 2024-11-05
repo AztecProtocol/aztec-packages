@@ -6,7 +6,7 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  TxScopedEncryptedL2NoteLog,
+  type TxScopedEncryptedL2NoteLog,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
@@ -28,13 +28,13 @@ import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/ab
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { DeferredNoteDao } from '../database/deferred_note_dao.js';
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { produceNoteDaos } from '../note_processor/utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 

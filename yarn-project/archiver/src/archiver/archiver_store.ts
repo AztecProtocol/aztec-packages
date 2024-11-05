@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -10,7 +9,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
-  TxScopedEncryptedL2NoteLog,
+  type TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,

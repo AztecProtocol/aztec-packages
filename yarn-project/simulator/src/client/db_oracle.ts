@@ -4,7 +4,7 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  TxScopedEncryptedL2NoteLog,
+  type TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,

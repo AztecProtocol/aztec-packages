@@ -3,7 +3,6 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -27,7 +26,7 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
-  TxScopedEncryptedL2NoteLog,
+  type TxScopedEncryptedL2NoteLog,
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
