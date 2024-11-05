@@ -739,9 +739,9 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.config.test }}
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
-      - name: Copy Bench.json
+      - name: Copy Network Logs
         run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
-      - name: Upload network log
+      - name: Upload Network Logs
         if: always() # Ensures this step runs regardless of success or failure in the test step
         uses: actions/upload-artifact@v3
         with:
