@@ -111,6 +111,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    std::vector<Commitment> libra_commitments;
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         Commitment libra_commitment =
             transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));

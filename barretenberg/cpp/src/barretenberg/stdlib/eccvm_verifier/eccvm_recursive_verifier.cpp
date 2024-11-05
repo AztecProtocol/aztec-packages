@@ -70,6 +70,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments;
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         Commitment libra_commitment =
             transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
@@ -78,8 +80,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-
-    info("SUMCHECK verified", sumcheck_verified.value());
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
@@ -92,8 +92,8 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
-                                               {},
-                                               {},
+                                               /* concatenation_group_commitments = */ {},
+                                               /* concatenated_evaluations = */ {},
                                                RefVector(libra_commitments),
                                                libra_evaluations);
     // Reduce the accumulator to a single opening claim

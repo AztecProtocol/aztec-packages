@@ -33,7 +33,6 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     Builder* builder;
 
     RelationParams relation_parameters;
-    std::vector<Commitment> libra_commitments;
 
     TranslatorRecursiveVerifier_(Builder* builder,
                                  const std::shared_ptr<NativeVerificationKey>& native_verifier_key,

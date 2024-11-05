@@ -528,6 +528,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             constant_term += scaling_factor * libra_univariate_evaluation;
         }
 
+        // update the constant term of the Shplonk batched claim
         scalars[idx_of_constant_term] += constant_term;
     }
 };

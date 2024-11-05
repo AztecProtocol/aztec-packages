@@ -103,9 +103,6 @@ void ECCVMProver::execute_relation_check_rounds()
     zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
-    for (auto& eval : sumcheck_output.claimed_libra_evaluations) {
-        info("claimed evals sumcheck outp rounds ", eval);
-    }
 }
 
 /**
@@ -123,8 +120,6 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
-    info("in pcs: ", zk_sumcheck_data.libra_univariates_monomial.size());
-    info("eval size? ", sumcheck_output.claimed_libra_evaluations.size());
     const OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
                          key->polynomials.get_unshifted(),
@@ -132,8 +127,8 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
-                         {},
-                         {},
+                         /* concatenated_polynomials = */ {},
+                         /* groups_to_be_concatenated = */ {},
                          zk_sumcheck_data.libra_univariates_monomial,
                          sumcheck_output.claimed_libra_evaluations);
 
