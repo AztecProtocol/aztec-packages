@@ -231,18 +231,15 @@ unconstrained fn increment_app_tagging_secret_oracle(
     _recipient: AztecAddress,
 ) {}
 
-pub fn sync_notes(targetContractAddress: AztecAddress, recipient: AztecAddress) {
+pub fn sync_notes(recipient: AztecAddress) {
     unsafe {
-        sync_notes_oracle_wrapper(targetContractAddress, recipient);
+        sync_notes_oracle_wrapper(recipient);
     }
 }
 
-unconstrained fn sync_notes_oracle_wrapper(
-    targetContractAddress: AztecAddress,
-    recipient: AztecAddress,
-) {
-    sync_notes_oracle(targetContractAddress, recipient);
+unconstrained fn sync_notes_oracle_wrapper(recipient: AztecAddress) {
+    sync_notes_oracle(recipient);
 }
 
 #[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle(_targetContractAddress: AztecAddress, _recipient: AztecAddress) {}
+unconstrained fn sync_notes_oracle(_recipient: AztecAddress) {}

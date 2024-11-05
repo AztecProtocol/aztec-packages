@@ -608,6 +608,11 @@ export class TXEService {
     return toForeignCallResult([toArray(secret.toFields())]);
   }
 
+  async syncNotes(recipient: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(AztecAddress.fromField(fromSingle(recipient)));
+    return toForeignCallResult([]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {

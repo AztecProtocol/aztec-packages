@@ -423,4 +423,8 @@ export class Oracle {
       AztecAddress.fromString(recipient),
     );
   }
+
+  async syncNotes([recipient]: ACVMField[]) {
+    await this.typedOracle.syncNotes(AztecAddress.fromString(recipient));
+  }
 }

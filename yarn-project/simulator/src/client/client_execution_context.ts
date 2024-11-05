@@ -614,8 +614,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     await this.db.incrementAppTaggingSecret(this.contractAddress, sender, recipient);
   }
 
-  public async syncNotes(targetContractAddress: AztecAddress, recipient: AztecAddress) {
-    const taggedLogs = await this.db.syncTaggedLogs(targetContractAddress, recipient);
+  public override async syncNotes(recipient: AztecAddress) {
+    const taggedLogs = await this.db.syncTaggedLogs(this.contractAddress, recipient);
     await this.db.processTaggedLogs(taggedLogs, recipient);
   }
 }

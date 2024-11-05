@@ -800,6 +800,11 @@ export class TXE implements TypedOracle {
     return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
   }
 
+  async syncNotes(_recipient: AztecAddress) {
+    // TODO: Implement
+    return Promise.resolve();
+  }
+
   // AVM oracles
 
   async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean) {
