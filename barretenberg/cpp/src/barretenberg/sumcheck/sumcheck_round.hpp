@@ -112,29 +112,6 @@ template <typename Flavor> class SumcheckProverRound {
         }
     }
 
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    void extend_edges_with_masking(ExtendedEdges& extended_edges,
-                                   ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                                   const size_t edge_idx,
-                                   const ZKSumcheckData<Flavor>& zk_sumcheck_data)
-    {
-        // extend edges of witness polynomials and add correcting terms
-        for (auto [extended_edge, multivariate, masking_univariate] :
-             zip_view(extended_edges.get_all_witnesses(),
-                      multivariates.get_all_witnesses(),
-                      zk_sumcheck_data.masking_terms_evaluations)) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-            extended_edge += masking_univariate;
-        };
-        // extend edges of public polynomials
-        for (auto [extended_edge, multivariate] :
-             zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-        };
-    };
-
     /**
      * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$  at \f$ X_{i } =
      0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the
@@ -192,11 +169,7 @@ template <typename Flavor> class SumcheckProverRound {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                // if constexpr (!Flavor::HasZK) {
                 extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
-                // } else {
-                //     extend_edges_with_masking(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
-                // }
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
@@ -321,10 +294,8 @@ template <typename Flavor> class SumcheckProverRound {
                                                                   size_t round_idx)
     {
         SumcheckRoundUnivariate libra_round_univariate;
-        // info("inside compute libra? ", round_idx);
         // select the i'th column of Libra book-keeping table
         const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
-        // info("univariate accessed?");
         // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
         // corrected by the Libra running sum
         for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; ++idx) {
@@ -450,7 +421,6 @@ template <typename Flavor> class SumcheckVerifierRound {
         sumcheck_round_failed = (target_total_sum != total_sum);
 
         round_failed = round_failed || sumcheck_round_failed;
-        // info("check sum failed", round_failed);
         return !sumcheck_round_failed;
     };
 
@@ -467,8 +437,6 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         FF total_sum =
             FF::conditional_assign(dummy_round, target_total_sum, univariate.value_at(0) + univariate.value_at(1));
-
-        // info("total sum", total_sum);
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
@@ -478,13 +446,12 @@ template <typename Flavor> class SumcheckVerifierRound {
             // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
             // 0.
             total_sum.self_reduce();
-            // info("self reduce? ", total_sum);
         }
         target_total_sum.assert_equal(total_sum);
         if (!dummy_round.get_value()) {
             sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         }
-        // info("round failed?  dd ", round_failed);
+
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;
     };
@@ -532,13 +499,13 @@ template <typename Flavor> class SumcheckVerifierRound {
                                              const RelationSeparator alpha,
                                              std::optional<FF> full_libra_purported_value = std::nullopt)
     {
+        // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, gate_sparators.partial_evaluation_result);
 
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-
         if constexpr (Flavor::HasZK) {
             output += full_libra_purported_value.value();
             if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
