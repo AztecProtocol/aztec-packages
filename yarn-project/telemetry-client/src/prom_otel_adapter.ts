@@ -28,7 +28,7 @@ interface IGauge<Labels extends LabelsGeneric = NoLabels> {
   set: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void;
 
   collect?(): void;
-  addCallback(fn: CollectFn<Labels>): void;
+  addCollect(fn: CollectFn<Labels>): void;
 }
 
 interface IHistogram<Labels extends LabelsGeneric = NoLabels> {
@@ -122,7 +122,7 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
     });
   }
 
-  addCallback(fn: CollectFn<Labels>): void {
+  addCollect(fn: CollectFn<Labels>): void {
     this.collectFns.push(fn);
   }
 
