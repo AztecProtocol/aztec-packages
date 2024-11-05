@@ -1,4 +1,4 @@
-import { EmptyTxValidator, mockTx, unprocessedToNumTxsEffects } from '@aztec/circuit-types';
+import { EmptyTxValidator, mockTx, toNumTxsEffects, unprocessedToNumTxsEffects } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -56,6 +56,8 @@ describe('prover/orchestrator/public-functions', () => {
         );
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
+
+        context.orchestrator.reInitSpongeBlob(toNumTxsEffects(processed, context.globalVariables.gasFees));
 
         for (const tx of processed) {
           await context.orchestrator.addNewTx(tx);
