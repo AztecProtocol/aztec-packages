@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730757651695,
+  "lastUpdate": 1730820031976,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "21fa3cf054cf1a3652c8a27ddf042c1c48b47039",
-          "message": "feat: translator on Shplemini (#9329)\n\nIn this PR:\r\n* implement concatenation trick (to work for both Gemini and Shplemini),\r\ntry to document it and fix some other documentation in Shplemini\r\n* switch Translator to Shplemini\r\n\r\nThe Translator VM works on many many small polynomials (whose length is\r\ndetermined by a \"minicircuit size\"). To avoid the permutation relation\r\nhaving a very high degree, these small polynomials are split into\r\ngroups, and each group is concatenated into a single polynomial. We want\r\nthe prover to avoid having to commit to these extra concatenation\r\npolynomials (as they will likely not be sparse at all) but rather reuse\r\nthe commitments to the polynomials in its corresponding concatenation\r\ngroup, also showing they are correctly related in the opening protocol.\r\nBriefly, in Gemini, this is achieved by adding the contributibution to\r\nthe batched concatenated polynomials when computing the fold polynomials\r\n(A_0, A_1, ..., A_(logn -1)) but computing A_0- and A_0+ using the\r\npolyinomials in the batched concatenated groups. As the verifier only\r\nreceives commitments to A_1, .., A_(logn-1) and has to compute the\r\ncommitments to A_0- and A_0+ , it can then do this using the commitments\r\nof the polynomials in concatenation groups.",
-          "timestamp": "2024-10-23T11:22:47Z",
-          "tree_id": "4639acdc86297b1588f007e095b7030c66c14e85",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/21fa3cf054cf1a3652c8a27ddf042c1c48b47039"
-        },
-        "date": 1729683875837,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 29591.349123000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 27832.53973 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5362.287860999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5049.772502 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 87483.151404,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 87483154000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15087.907137000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15087907000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2717487451,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2717487451 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126614481,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126614481 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 127502136,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127502136 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "critesjosh@gmail.com",
+            "name": "josh crites",
+            "username": "critesjosh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1779c42c3dfed9a1d433cd0c6f8400a14612e404",
+          "message": "chore(docs): authwit note, not simulating simulations (#9438)\n\nAdds notes to the docs that indicate that authwits only work in single\r\nplayer mode, describes the problems with not simulating simulations, and\r\nupdates the bberg readme install instructions\r\n\r\ncloses https://github.com/AztecProtocol/dev-rel/issues/422\r\ncloses https://github.com/AztecProtocol/dev-rel/issues/433\r\ncloses https://github.com/AztecProtocol/aztec-packages/issues/9256\r\ncloses https://github.com/AztecProtocol/dev-rel/issues/423\r\ncloses https://github.com/AztecProtocol/aztec-packages/issues/6865",
+          "timestamp": "2024-11-05T14:53:03Z",
+          "tree_id": "00f67e9c21790c0d17ddec54ff723e4c65a5ea40",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1779c42c3dfed9a1d433cd0c6f8400a14612e404"
+        },
+        "date": 1730820024474,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28622.92541100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 26978.376987999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5414.052170999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5119.403296 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83804.73116899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83804734000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15126.040959999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15126040000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2493345289,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2493345289 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128300439,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128300439 ns\nthreads: 1"
           }
         ]
       }
