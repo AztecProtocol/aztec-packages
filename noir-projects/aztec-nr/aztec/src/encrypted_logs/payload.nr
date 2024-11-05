@@ -126,8 +126,7 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let mut offset = 0;
 
     let tagging_secret = unsafe { get_app_tagging_secret(sender, recipient) };
-
-    unsafe { increment_app_tagging_secret(sender, recipient); };
+    increment_app_tagging_secret(sender, recipient);
 
     let tag = tagging_secret.compute_tag();
     let tag_bytes: [u8; 32] = tag.to_be_bytes();

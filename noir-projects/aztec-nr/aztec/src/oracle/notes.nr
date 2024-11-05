@@ -221,7 +221,14 @@ unconstrained fn get_app_tagging_secret_oracle(
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
 
-pub unconstrained fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
+pub fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        increment_app_tagging_secret_wrapper(sender, recipient);
+    }
+}
+
+unconstrained fn increment_app_tagging_secret_wrapper(sender: AztecAddress, recipient: AztecAddress) {
     increment_app_tagging_secret_oracle(sender, recipient);
 }
 
