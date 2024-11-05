@@ -1,5 +1,5 @@
 use crate::{
-    abis::{call_context::CallContext, side_effect::Ordered},
+    abis::{call_context::CallContext, function_selector::FunctionSelector, side_effect::Ordered},
     address::AztecAddress,
     constants::PUBLIC_CALL_REQUEST_LENGTH,
     traits::{Deserialize, Empty, Serialize},
@@ -7,34 +7,32 @@ use crate::{
 };
 
 pub struct PublicCallRequest {
-    call_context: CallContext,
+    msg_sender: AztecAddress,
+    contract_address: AztecAddress,
+    function_selector: FunctionSelector,
+    is_static_call: bool,
     args_hash: Field,
-    counter: u32,
-}
-
-impl Ordered for PublicCallRequest {
-    fn counter(self) -> u32 {
-        self.counter
-    }
 }
 
 impl Eq for PublicCallRequest {
     fn eq(self, other: PublicCallRequest) -> bool {
-        (self.call_context == other.call_context)
+        (self.msg_sender == other.msg_sender)
+            & (self.contract_address == other.contract_address)
+            & (self.function_selector == other.function_selector)
+            & (self.is_static_call == other.is_static_call)
             & (self.args_hash == other.args_hash)
-            & (self.counter == other.counter)
     }
 }
 
 impl Empty for PublicCallRequest {
     fn empty() -> Self {
-        PublicCallRequest { call_context: CallContext::empty(), args_hash: 0, counter: 0 }
-    }
-}
-
-impl PublicCallRequest {
-    pub fn expose_to_public(self) -> Self {
-        PublicCallRequest { call_context: self.call_context, args_hash: self.args_hash, counter: 0 }
+        PublicCallRequest {
+            msg_sender: AztecAddress::empty(),
+            contract_address: AztecAddress::empty(),
+            function_selector: FunctionSelector::empty(),
+            is_static_call: false,
+            args_hash: 0,
+        }
     }
 }
 
@@ -42,9 +40,11 @@ impl Serialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
     fn serialize(self) -> [Field; PUBLIC_CALL_REQUEST_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_CALL_REQUEST_LENGTH> = BoundedVec::new();
 
-        fields.extend_from_array(self.call_context.serialize());
+        fields.push(self.msg_sender.to_field());
+        fields.push(self.contract_address.to_field());
+        fields.push(self.function_selector.to_field());
+        fields.push(self.is_static_call as Field);
         fields.push(self.args_hash);
-        fields.push(self.counter as Field);
 
         assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
 
@@ -57,9 +57,11 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
         let mut reader = Reader::new(fields);
 
         let request = PublicCallRequest {
-            call_context: reader.read_struct(CallContext::deserialize),
+            msg_sender: AztecAddress::from_field(reader.read()),
+            contract_address: AztecAddress::from_field(reader.read()),
+            function_selector: FunctionSelector::from_field(reader.read()),
+            is_static_call: reader.read() as bool,
             args_hash: reader.read(),
-            counter: reader.read_u32(),
         };
         reader.finish();
         request
@@ -67,7 +69,7 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_empty_public_call_request() {
     let item = PublicCallRequest::empty();
     let serialized = item.serialize();
     let deserialized = PublicCallRequest::deserialize(serialized);

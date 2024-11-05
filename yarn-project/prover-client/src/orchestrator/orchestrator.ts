@@ -2,15 +2,16 @@ import {
   Body,
   L2Block,
   MerkleTreeId,
-  type PaddingProcessedTx,
   type ProcessedTx,
   type ServerCircuitProver,
   type TxEffect,
   makeEmptyProcessedTx,
-  makePaddingProcessedTx,
-  toTxEffect,
 } from '@aztec/circuit-types';
-import { type EpochProver, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
+import {
+  type EpochProver,
+  type MerkleTreeWriteOperations,
+  type ProofAndVerificationKey,
+} from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -95,7 +96,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 export class ProvingOrchestrator implements EpochProver {
   private provingState: EpochProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
-  private paddingTx: PaddingProcessedTx | undefined = undefined;
+  private paddingTxProof?: ProofAndVerificationKey<RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
@@ -121,7 +122,7 @@ export class ProvingOrchestrator implements EpochProver {
    * Resets the orchestrator's cached padding tx.
    */
   public reset() {
-    this.paddingTx = undefined;
+    this.paddingTxProof = undefined;
   }
 
   public startNewEpoch(epochNumber: number, totalNumBlocks: number) {
@@ -415,9 +416,8 @@ export class ProvingOrchestrator implements EpochProver {
 
   private async buildBlock(provingState: BlockProvingState, expectedHeader?: Header) {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
-    const gasFees = provingState.globalVariables.gasFees;
     const nonEmptyTxEffects: TxEffect[] = provingState!.allTxs
-      .map(txProvingState => toTxEffect(txProvingState.processedTx, gasFees))
+      .map(txProvingState => txProvingState.processedTx.txEffect)
       .filter(txEffect => !txEffect.isEmpty());
     const body = new Body(nonEmptyTxEffects);
 
@@ -459,12 +459,12 @@ export class ProvingOrchestrator implements EpochProver {
   private enqueuePaddingTxs(
     provingState: BlockProvingState,
     txInputs: Array<{ hints: BaseRollupHints; snapshot: TreeSnapshots }>,
-    unprovenPaddingTx: ProcessedTx,
+    paddingTx: ProcessedTx,
   ) {
-    if (this.paddingTx) {
+    if (this.paddingTxProof) {
       // We already have the padding transaction
       logger.debug(`Enqueuing ${txInputs.length} padding transactions using existing padding tx`);
-      this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
+      this.provePaddingTransactions(txInputs, paddingTx, this.paddingTxProof, provingState);
       return;
     }
     logger.debug(`Enqueuing deferred proving for padding txs to enqueue ${txInputs.length} paddings`);
@@ -480,14 +480,14 @@ export class ProvingOrchestrator implements EpochProver {
         signal =>
           this.prover.getEmptyPrivateKernelProof(
             new PrivateKernelEmptyInputData(
-              unprovenPaddingTx.data.constants.historicalHeader,
+              paddingTx.constants.historicalHeader,
               // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
               // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
               // we'd have to clear out the paddingTx here and regenerate it when they do.
-              unprovenPaddingTx.data.constants.txContext.chainId,
-              unprovenPaddingTx.data.constants.txContext.version,
-              getVKTreeRoot(),
-              protocolContractTreeRoot,
+              paddingTx.constants.txContext.chainId,
+              paddingTx.constants.txContext.version,
+              paddingTx.constants.vkTreeRoot,
+              paddingTx.constants.protocolContractTreeRoot,
             ),
             signal,
             provingState.epochNumber,
@@ -495,8 +495,8 @@ export class ProvingOrchestrator implements EpochProver {
       ),
       result => {
         logger.debug(`Completed proof for padding tx, now enqueuing ${txInputs.length} padding txs`);
-        this.paddingTx = makePaddingProcessedTx(result);
-        this.provePaddingTransactions(txInputs, this.paddingTx, provingState);
+        this.paddingTxProof = { proof: result.proof, verificationKey: result.verificationKey };
+        this.provePaddingTransactions(txInputs, paddingTx, this.paddingTxProof, provingState);
       },
     );
   }
@@ -504,12 +504,14 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Prepares the cached sets of base rollup inputs for padding transactions and proves them
    * @param txInputs - The base rollup inputs, start and end hash paths etc
-   * @param paddingTx - The padding tx, contains the header, proof, vk, public inputs used in the proof
+   * @param paddingTx - The padding tx, contains the header and public inputs used in the proof
+   * @param proofAndVk - The proof and vk of the paddingTx.
    * @param provingState - The block proving state
    */
   private provePaddingTransactions(
     txInputs: Array<{ hints: BaseRollupHints; snapshot: TreeSnapshots }>,
-    paddingTx: PaddingProcessedTx,
+    paddingTx: ProcessedTx,
+    proofAndVk: ProofAndVerificationKey<RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>>,
     provingState: BlockProvingState,
   ) {
     // The padding tx contains the proof and vk, generated separately from the base inputs
@@ -517,7 +519,7 @@ export class ProvingOrchestrator implements EpochProver {
     for (let i = 0; i < txInputs.length; i++) {
       const { hints, snapshot } = txInputs[i];
       const txProvingState = new TxProvingState(paddingTx, hints, snapshot);
-      txProvingState.assignTubeProof({ proof: paddingTx.recursiveProof, verificationKey: paddingTx.verificationKey });
+      txProvingState.assignTubeProof(proofAndVk);
       const txIndex = provingState.addNewTx(txProvingState);
       this.enqueueBaseRollup(provingState, txIndex);
     }
@@ -605,12 +607,6 @@ export class ProvingOrchestrator implements EpochProver {
     provingState: BlockProvingState,
   ) {
     const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
-
-    const rejectReason = txProvingState.verifyStateOrReject();
-    if (rejectReason) {
-      provingState.reject(rejectReason);
-      return;
-    }
 
     const txIndex = provingState.addNewTx(txProvingState);
     this.enqueueTube(provingState, txIndex);

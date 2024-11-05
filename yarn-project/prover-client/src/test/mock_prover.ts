@@ -117,16 +117,6 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyTubeProof(): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return Promise.resolve(
-      makePublicInputsAndRecursiveProof(
-        makeKernelCircuitPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
-      ),
-    );
-  }
-
   getRootRollupProof(): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(

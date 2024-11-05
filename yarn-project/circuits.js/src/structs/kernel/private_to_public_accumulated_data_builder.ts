@@ -1,23 +1,20 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
-import { ScopedNoteHash } from '../note_hash.js';
-import { Nullifier } from '../nullifier.js';
 import { PublicCallRequest } from '../public_call_request.js';
-import { PublicDataUpdateRequest } from '../public_data_update_request.js';
-import { PublicAccumulatedData } from './public_accumulated_data.js';
+import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 
 /**
  * TESTS-ONLY CLASS
@@ -25,33 +22,32 @@ import { PublicAccumulatedData } from './public_accumulated_data.js';
  * as PublicAccumulatedData is (or will shortly be) immutable.
  *
  */
-export class PublicAccumulatedDataBuilder {
-  private noteHashes: ScopedNoteHash[] = [];
-  private nullifiers: Nullifier[] = [];
+export class PrivateToPublicAccumulatedDataBuilder {
+  private noteHashes: Fr[] = [];
+  private nullifiers: Fr[] = [];
   private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
   private noteEncryptedLogsHashes: LogHash[] = [];
   private encryptedLogsHashes: ScopedLogHash[] = [];
   private unencryptedLogsHashes: ScopedLogHash[] = [];
-  private publicDataUpdateRequests: PublicDataUpdateRequest[] = [];
   private publicCallStack: PublicCallRequest[] = [];
   private gasUsed: Gas = Gas.empty();
 
-  pushNoteHash(newNoteHash: ScopedNoteHash) {
+  pushNoteHash(newNoteHash: Fr) {
     this.noteHashes.push(newNoteHash);
     return this;
   }
 
-  withNoteHashes(noteHashes: ScopedNoteHash[]) {
+  withNoteHashes(noteHashes: Fr[]) {
     this.noteHashes = noteHashes;
     return this;
   }
 
-  pushNullifier(newNullifier: Nullifier) {
+  pushNullifier(newNullifier: Fr) {
     this.nullifiers.push(newNullifier);
     return this;
   }
 
-  withNullifiers(nullifiers: Nullifier[]) {
+  withNullifiers(nullifiers: Fr[]) {
     this.nullifiers = nullifiers;
     return this;
   }
@@ -96,16 +92,6 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushPublicDataUpdateRequest(publicDataUpdateRequest: PublicDataUpdateRequest) {
-    this.publicDataUpdateRequests.push(publicDataUpdateRequest);
-    return this;
-  }
-
-  withPublicDataUpdateRequests(publicDataUpdateRequests: PublicDataUpdateRequest[]) {
-    this.publicDataUpdateRequests = publicDataUpdateRequests;
-    return this;
-  }
-
   pushPublicCall(publicCall: PublicCallRequest) {
     this.publicCallStack.push(publicCall);
     return this;
@@ -121,34 +107,28 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  build(): PublicAccumulatedData {
-    return new PublicAccumulatedData(
-      padArrayEnd(this.noteHashes, ScopedNoteHash.empty(), MAX_NOTE_HASHES_PER_TX),
-      padArrayEnd(this.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_TX),
+  build() {
+    return new PrivateToPublicAccumulatedData(
+      padArrayEnd(this.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(this.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
-      padArrayEnd(
-        this.publicDataUpdateRequests,
-        PublicDataUpdateRequest.empty(),
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      ),
-      padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX),
+      padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       this.gasUsed,
     );
   }
 
-  static fromPublicAccumulatedData(publicAccumulatedData: PublicAccumulatedData): PublicAccumulatedDataBuilder {
-    return new PublicAccumulatedDataBuilder()
+  static fromPublicAccumulatedData(publicAccumulatedData: PrivateToPublicAccumulatedData) {
+    return new PrivateToPublicAccumulatedDataBuilder()
       .withNoteHashes(publicAccumulatedData.noteHashes)
       .withNullifiers(publicAccumulatedData.nullifiers)
       .withL2ToL1Msgs(publicAccumulatedData.l2ToL1Msgs)
       .withNoteEncryptedLogsHashes(publicAccumulatedData.noteEncryptedLogsHashes)
       .withEncryptedLogsHashes(publicAccumulatedData.encryptedLogsHashes)
       .withUnencryptedLogsHashes(publicAccumulatedData.unencryptedLogsHashes)
-      .withPublicDataUpdateRequests(publicAccumulatedData.publicDataUpdateRequests)
-      .withPublicCallStack(publicAccumulatedData.publicCallStack)
+      .withPublicCallStack(publicAccumulatedData.publicCallRequests)
       .withGasUsed(publicAccumulatedData.gasUsed);
   }
 }

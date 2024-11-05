@@ -2,13 +2,10 @@ import {
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
-  PublicDataWrite,
-  PublicKernelPhase,
   SimulationError,
   type TreeInfo,
   type TxValidator,
   mockTx,
-  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
@@ -22,19 +19,17 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicAccumulatedDataBuilder,
+  PrivateToPublicAccumulatedDataBuilder,
   PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   RevertCode,
   StateReference,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeSelector } from '@aztec/circuits.js/testing';
-import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
@@ -98,25 +93,12 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed.length).toBe(1);
-
-      const expected: ProcessedTx = {
-        hash,
-        data: tx.data.toKernelCircuitPublicInputs(),
-        noteEncryptedLogs: tx.noteEncryptedLogs,
-        encryptedLogs: tx.encryptedLogs,
-        unencryptedLogs: tx.unencryptedLogs,
-        clientIvcProof: tx.clientIvcProof,
-        isEmpty: false,
-        revertReason: undefined,
-        avmProvingRequest: undefined,
-        gasUsed: {},
-        finalPublicDataUpdateRequests: times(
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-          PublicDataUpdateRequest.empty,
-        ),
-      };
-
-      expect(processed[0]).toEqual(expected);
+      expect(processed[0]).toEqual(
+        expect.objectContaining({
+          hash,
+          data: tx.data,
+        }),
+      );
       expect(failed).toEqual([]);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
@@ -207,8 +189,8 @@ describe('public_processor', () => {
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       // we keep the logs
-      expect(processed[0].encryptedLogs.getTotalLogCount()).toBe(6);
-      expect(processed[0].unencryptedLogs.getTotalLogCount()).toBe(2);
+      expect(processed[0].txEffect.encryptedLogs.getTotalLogCount()).toBe(6);
+      expect(processed[0].txEffect.unencryptedLogs.getTotalLogCount()).toBe(2);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
@@ -378,7 +360,7 @@ describe('public_processor', () => {
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      const txEffect = toTxEffect(processed[0], GasFees.default());
+      const txEffect = processed[0].txEffect;
       const numPublicDataWrites = 5;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       const expectedWrites = [
@@ -578,7 +560,7 @@ describe('public_processor', () => {
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      const txEffect = toTxEffect(processed[0], GasFees.default());
+      const txEffect = processed[0].txEffect;
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
@@ -594,7 +576,7 @@ describe('public_processor', () => {
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
 
-      expect(processed[0].data.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
+      expect(processed[0].txEffect.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
@@ -692,7 +674,7 @@ describe('public_processor', () => {
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      const txEffect = toTxEffect(processed[0], GasFees.default());
+      const txEffect = processed[0].txEffect;
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
@@ -708,7 +690,7 @@ describe('public_processor', () => {
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(1);
 
-      expect(processed[0].data.revertCode).toEqual(RevertCode.BOTH_REVERTED);
+      expect(processed[0].txEffect.revertCode).toEqual(RevertCode.BOTH_REVERTED);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
@@ -735,11 +717,13 @@ describe('public_processor', () => {
       });
 
       // Private kernel tail to public pushes teardown gas allocation into revertible gas used
-      tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
+      tx.data.forPublic!.revertibleAccumulatedData = PrivateToPublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.revertibleAccumulatedData,
+      )
         .withGasUsed(teardownGas)
         .build();
-      tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
-        tx.data.forPublic!.endNonRevertibleData,
+      tx.data.forPublic!.nonRevertibleAccumulatedData = PrivateToPublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.nonRevertibleAccumulatedData,
       )
         .withGasUsed(Gas.empty())
         .build();
@@ -755,6 +739,9 @@ describe('public_processor', () => {
       // to separately compute available start gas and "effective" start gas
       // for each enqueued call after applying that max.
       const initialGas = gasLimits.sub(teardownGas);
+      const privateGasUsed = tx.data.forPublic!.nonRevertibleAccumulatedData.gasUsed.add(
+        tx.data.forPublic!.revertibleAccumulatedData.gasUsed,
+      );
       const setupGasUsed = Gas.from({ l2Gas: 1e4 });
       const appGasUsed = Gas.from({ l2Gas: 2e4, daGas: 2e4 });
       const teardownGasUsed = Gas.from({ l2Gas: 3e4, daGas: 3e4 });
@@ -764,13 +751,16 @@ describe('public_processor', () => {
 
       // Total gas used is the sum of teardown gas allocation plus all expenditures along the way,
       // without including the gas used in the teardown phase (since that's consumed entirely up front).
-      const expectedTotalGasUsed = teardownGas.add(setupGasUsed).add(appGasUsed);
+      const expectedTotalGasUsed = privateGasUsed.add(setupGasUsed).add(appGasUsed).add(teardownGasUsed);
 
+      // Gas used for computing fees is different to the above expectedTotalGasUsed, which is the exact amount of gas consumed.
+      // For computing fees, the teardownGas specified in gasSettings is used instead of the actual gas in the teardown phase.
+      const feeGasUsed = privateGasUsed.add(setupGasUsed).add(appGasUsed).add(teardownGas);
       // Inclusion fee plus block gas fees times total gas used
       const expectedTxFee =
         tx.data.constants.txContext.gasSettings.inclusionFee.toNumber() +
-        expectedTotalGasUsed.l2Gas * 1 +
-        expectedTotalGasUsed.daGas * 1;
+        feeGasUsed.l2Gas * GasFees.default().feePerL2Gas.toNumber() +
+        feeGasUsed.daGas * GasFees.default().feePerDaGas.toNumber();
       const transactionFee = new Fr(expectedTxFee);
 
       const simulatorResults: PublicExecutionResult[] = [
@@ -869,12 +859,12 @@ describe('public_processor', () => {
       expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      expect(processed[0].data.end.gasUsed).toEqual(Gas.from(expectedTotalGasUsed));
-      expect(processed[0].gasUsed[PublicKernelPhase.SETUP]).toEqual(setupGasUsed);
-      expect(processed[0].gasUsed[PublicKernelPhase.APP_LOGIC]).toEqual(appGasUsed);
-      expect(processed[0].gasUsed[PublicKernelPhase.TEARDOWN]).toEqual(teardownGasUsed);
+      expect(processed[0].gasUsed).toEqual({
+        totalGas: expectedTotalGasUsed,
+        teardownGas: teardownGasUsed,
+      });
 
-      const txEffect = toTxEffect(processed[0], GasFees.default());
+      const txEffect = processed[0].txEffect;
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
@@ -907,11 +897,13 @@ describe('public_processor', () => {
       });
 
       // Private kernel tail to public pushes teardown gas allocation into revertible gas used
-      tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
+      tx.data.forPublic!.revertibleAccumulatedData = PrivateToPublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.revertibleAccumulatedData,
+      )
         .withGasUsed(teardownGas)
         .build();
-      tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
-        tx.data.forPublic!.endNonRevertibleData,
+      tx.data.forPublic!.nonRevertibleAccumulatedData = PrivateToPublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.nonRevertibleAccumulatedData,
       )
         .withGasUsed(Gas.empty())
         .build();
@@ -989,12 +981,8 @@ describe('public_processor', () => {
         expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
-          PublicDataUpdateRequest.from({
-            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-            newValue: new Fr(initialBalance - inclusionFee),
-            sideEffectCounter: 0,
-          }),
+        expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
+          new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - inclusionFee)),
         );
 
         expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
@@ -1031,12 +1019,10 @@ describe('public_processor', () => {
         expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
-          PublicDataUpdateRequest.from({
-            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-            newValue: new Fr(initialBalance - inclusionFee),
-            sideEffectCounter: 0,
-          }),
+
+        const transactionFee = processed[0].txEffect.transactionFee.toBigInt();
+        expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
+          new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - transactionFee)),
         );
 
         expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
@@ -1048,7 +1034,7 @@ describe('public_processor', () => {
         const inclusionFee = 100n;
         const tx = mockTx(1, {
           numberOfNonRevertiblePublicCallRequests: 0,
-          numberOfRevertiblePublicCallRequests: 2,
+          numberOfRevertiblePublicCallRequests: 0,
           feePayer,
         });
 
@@ -1062,11 +1048,12 @@ describe('public_processor', () => {
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        tx.data.publicInputs.end.publicDataUpdateRequests[0] = PublicDataUpdateRequest.from({
-          leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-          newValue: new Fr(initialBalance),
-          sideEffectCounter: 0,
-        });
+        // TODO: Find a better way to test this.
+        // This is wrong. Private kernel tail cannot output any publicDataWrites.
+        tx.data.forRollup!.end.publicDataWrites[0] = new PublicDataWrite(
+          computeFeePayerBalanceLeafSlot(feePayer),
+          new Fr(initialBalance),
+        );
 
         const [processed, failed] = await processor.process([tx], 1, handler);
 
@@ -1074,17 +1061,14 @@ describe('public_processor', () => {
         expect(processed).toHaveLength(1);
         expect(processed[0].hash).toEqual(tx.getTxHash());
         expect(processed[0].clientIvcProof).toEqual(proof);
-        expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
         expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
         expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].finalPublicDataUpdateRequests[0]).toEqual(
-          PublicDataUpdateRequest.from({
-            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-            newValue: new Fr(initialBalance - inclusionFee),
-            sideEffectCounter: 0,
-          }),
+
+        const transactionFee = processed[0].txEffect.transactionFee.toBigInt();
+        expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
+          new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - transactionFee)),
         );
 
         expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);

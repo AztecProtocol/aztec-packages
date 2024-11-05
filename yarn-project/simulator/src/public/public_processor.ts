@@ -4,21 +4,21 @@ import {
   NestedProcessReturnValues,
   type ProcessedTx,
   type ProcessedTxHandler,
+  PublicKernelPhase,
   Tx,
   type TxValidator,
-  makeProcessedTx,
-  validateProcessedTx,
+  makeProcessedTxFromPrivateOnlyTx,
+  makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import {
   ContractClassRegisteredEvent,
   type ContractDataSource,
+  type Fr,
+  Gas,
   type GlobalVariables,
   type Header,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -152,21 +152,17 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs())]
+          ? await this.processPrivateOnlyTx(tx)
           : await this.processTxWithPublicCalls(tx);
         this.log.debug(`Processed tx`, {
           txHash: processedTx.hash,
-          historicalHeaderHash: processedTx.data.constants.historicalHeader.hash(),
-          blockNumber: processedTx.data.constants.globalVariables.blockNumber,
-          lastArchiveRoot: processedTx.data.constants.historicalHeader.lastArchive.root,
+          historicalHeaderHash: processedTx.constants.historicalHeader.hash(),
+          blockNumber: processedTx.constants.globalVariables.blockNumber,
+          lastArchiveRoot: processedTx.constants.historicalHeader.lastArchive.root,
         });
-
-        // Set fee payment update request into the processed tx
-        processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
 
         // Commit the state updates from this transaction
         await this.worldStateDB.commit();
-        validateProcessedTx(processedTx);
 
         // Re-validate the transaction
         if (txValidator) {
@@ -206,32 +202,26 @@ export class PublicProcessor {
    * request for updating fee balance. It also updates the local public state db.
    * See build_or_patch_payment_update_request in base_rollup_inputs.nr for more details.
    */
-  private async createFinalDataUpdateRequests(tx: ProcessedTx) {
-    const finalPublicDataUpdateRequests = [
-      ...tx.data.end.publicDataUpdateRequests,
-      ...times(PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => PublicDataUpdateRequest.empty()),
-    ];
-
-    const feePayer = tx.data.feePayer;
+  private async getFeePaymentPublicDataWrite(
+    publicDataWrites: PublicDataWrite[],
+    txFee: Fr,
+    feePayer: Fr,
+  ): Promise<PublicDataWrite | undefined> {
     if (feePayer.isZero()) {
-      return finalPublicDataUpdateRequests;
+      return;
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
-    const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
 
     this.log.debug(`Deducting ${txFee} balance in Fee Juice for ${feePayer}`);
 
-    const existingBalanceWriteIndex = finalPublicDataUpdateRequests.findIndex(request =>
-      request.leafSlot.equals(leafSlot),
-    );
+    const existingBalanceWrite = publicDataWrites.find(write => write.leafSlot.equals(leafSlot));
 
-    const balance =
-      existingBalanceWriteIndex > -1
-        ? finalPublicDataUpdateRequests[existingBalanceWriteIndex].newValue
-        : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = existingBalanceWrite
+      ? existingBalanceWrite.value
+      : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(`Not enough balance for fee payer to pay for transaction (got ${balance} needs ${txFee})`);
@@ -240,11 +230,30 @@ export class PublicProcessor {
     const updatedBalance = balance.sub(txFee);
     await this.worldStateDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
 
-    finalPublicDataUpdateRequests[
-      existingBalanceWriteIndex > -1 ? existingBalanceWriteIndex : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    ] = new PublicDataUpdateRequest(leafSlot, updatedBalance, 0);
+    return new PublicDataWrite(leafSlot, updatedBalance);
+  }
 
-    return finalPublicDataUpdateRequests;
+  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx]> {
+    const txData = tx.data.toKernelCircuitPublicInputs();
+
+    const gasFees = this.globalVariables.gasFees;
+    const transactionFee = txData.end.gasUsed
+      .computeFee(gasFees)
+      .add(txData.constants.txContext.gasSettings.inclusionFee);
+
+    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
+      txData.end.publicDataWrites,
+      transactionFee,
+      txData.feePayer,
+    );
+
+    const processedTx = makeProcessedTxFromPrivateOnlyTx(
+      tx,
+      transactionFee,
+      feePaymentPublicDataWrite,
+      this.globalVariables,
+    );
+    return [processedTx];
   }
 
   @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
@@ -253,12 +262,18 @@ export class PublicProcessor {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { avmProvingRequest, tailKernelOutput, returnValues, revertReason, gasUsed, processedPhases } =
-      await this.enqueuedCallsProcessor.process(tx);
+    const {
+      avmProvingRequest,
+      returnValues,
+      revertCode,
+      revertReason,
+      gasUsed: phaseGasUsed,
+      processedPhases,
+    } = await this.enqueuedCallsProcessor.process(tx);
 
-    if (!tailKernelOutput) {
+    if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
-      throw new Error('Final public kernel was not executed.');
+      throw new Error('Avm proving result was not generated.');
     }
 
     processedPhases.forEach(phase => {
@@ -279,7 +294,31 @@ export class PublicProcessor {
     const phaseCount = processedPhases.length;
     this.metrics.recordTx(phaseCount, timer.ms());
 
-    const processedTx = makeProcessedTx(tx, tailKernelOutput, { avmProvingRequest, revertReason, gasUsed });
+    const data = avmProvingRequest.inputs.output;
+    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(
+      data.accumulatedData.publicDataWrites,
+      data.transactionFee,
+      tx.data.feePayer,
+    );
+
+    const privateGasUsed = tx.data.forPublic!.revertibleAccumulatedData.gasUsed.add(
+      tx.data.forPublic!.nonRevertibleAccumulatedData.gasUsed,
+    );
+    const publicGasUsed = Object.values(phaseGasUsed).reduce((total, gas) => total.add(gas), Gas.empty());
+    const gasUsed = {
+      totalGas: privateGasUsed.add(publicGasUsed),
+      teardownGas: phaseGasUsed[PublicKernelPhase.TEARDOWN] ?? Gas.empty(),
+    };
+
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      avmProvingRequest,
+      feePaymentPublicDataWrite,
+      gasUsed,
+      revertCode,
+      revertReason,
+    );
+
     return [processedTx, returnValues];
   }
 }

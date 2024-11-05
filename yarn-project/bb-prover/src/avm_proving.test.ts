@@ -1,5 +1,6 @@
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -148,6 +149,7 @@ const proveAndVerifyAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    /*output*/ AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

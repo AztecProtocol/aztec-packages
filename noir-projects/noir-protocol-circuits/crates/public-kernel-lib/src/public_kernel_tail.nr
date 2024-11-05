@@ -107,8 +107,7 @@ mod tests {
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs, nullifier::ScopedNullifier,
-            nullifier_leaf_preimage::NullifierLeafPreimage,
-            public_data_update_request::PublicDataUpdateRequest,
+            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         },
         address::AztecAddress,
         constants::{
@@ -593,23 +592,11 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert_array_eq(
-            public_inputs.end.public_data_update_requests,
+            public_inputs.end.public_data_writes,
             [
-                PublicDataUpdateRequest {
-                    leaf_slot: 3333,
-                    new_value: 301,
-                    counter: prev_writes[4].counter,
-                },
-                PublicDataUpdateRequest {
-                    leaf_slot: 11,
-                    new_value: 500,
-                    counter: prev_writes[1].counter,
-                },
-                PublicDataUpdateRequest {
-                    leaf_slot: 22,
-                    new_value: 701,
-                    counter: prev_writes[3].counter,
-                },
+                PublicDataWrite { leaf_slot: 3333, value: 301 },
+                PublicDataWrite { leaf_slot: 11, value: 500 },
+                PublicDataWrite { leaf_slot: 22, value: 701 },
             ],
         );
     }

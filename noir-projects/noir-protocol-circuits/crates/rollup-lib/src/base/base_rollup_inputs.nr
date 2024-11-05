@@ -10,8 +10,7 @@ use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_update_request::PublicDataUpdateRequest,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
     },
     address::AztecAddress,
     constants::{
@@ -36,7 +35,7 @@ use dep::types::{
     partial_state_reference::PartialStateReference,
     storage::map::derive_storage_slot_in_map,
     traits::is_empty,
-    utils::field::{full_field_greater_than, full_field_less_than},
+    utils::{arrays::find_index_hint, field::{full_field_greater_than, full_field_less_than}},
 };
 
 // Temporary struct to avoid changing all the references to kernel_data. Will remove it and just pass in the public_inputs.
@@ -49,6 +48,7 @@ pub struct BaseRollupInputs {
     start: PartialStateReference,
 
     state_diff_hints: StateDiffHints,
+    transaction_fee: Field,
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
 
     // TODO: The following 6 values are eventually going to be nuked from here. See discussion:
@@ -128,10 +128,8 @@ impl BaseRollupInputs {
             self.check_nullifier_tree_non_membership_and_insert_to_tree();
 
         // Inject protocol update requests for deducting tx_fee from fee_payer's balance
-        let gas_fees = self.constants.global_variables.gas_fees;
-        let transaction_fee = self.kernel_data.public_inputs.compute_transaction_fee(gas_fees);
         let all_public_data_update_requests =
-            self.calculate_all_public_data_update_requests(transaction_fee);
+            self.calculate_all_public_data_update_requests(self.transaction_fee);
 
         // Validate public data update requests and update public data tree
         let end_public_data_tree_snapshot =
@@ -149,7 +147,7 @@ impl BaseRollupInputs {
         let tx_effects_hash = compute_tx_effects_hash(
             self.kernel_data.public_inputs.end,
             self.kernel_data.public_inputs.revert_code,
-            transaction_fee,
+            self.transaction_fee,
             all_public_data_update_requests,
             out_hash,
         );
@@ -169,7 +167,7 @@ impl BaseRollupInputs {
             },
             txs_effects_hash: tx_effects_hash,
             out_hash,
-            accumulated_fees: transaction_fee,
+            accumulated_fees: self.transaction_fee,
         }
     }
 
@@ -252,11 +250,13 @@ impl BaseRollupInputs {
 
     fn validate_and_process_public_state(
         self,
-        all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        all_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     ) -> AppendOnlyTreeSnapshot {
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
-            all_update_requests.map(PublicDataTreeLeaf::from),
+            all_update_requests.map(|w: PublicDataWrite| {
+                PublicDataTreeLeaf { slot: w.leaf_slot, value: w.value }
+            }),
             self.sorted_public_data_writes,
             self.sorted_public_data_writes_indexes,
             self.low_public_data_writes_preimages,
@@ -273,12 +273,11 @@ impl BaseRollupInputs {
     fn calculate_all_public_data_update_requests(
         self,
         tx_fee: Field,
-    ) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-        let mut all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] =
-            [PublicDataUpdateRequest::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+    ) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+        let mut all_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] =
+            [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            all_update_requests[i] =
-                self.kernel_data.public_inputs.end.public_data_update_requests[i];
+            all_update_requests[i] = self.kernel_data.public_inputs.end.public_data_writes[i];
         }
 
         let (payment_update_request, payment_update_index) =
@@ -294,61 +293,59 @@ impl BaseRollupInputs {
     // from the balance of the fee_payer, using the fee_payer_fee_juice_balance_read_hint to read the current balance.
     // Returns the data update request that subtracts the tx_fee from the fee_payer's balance, and the index where it
     // should be inserted in the public data update requests array.
-    fn build_or_patch_payment_update_request(
-        self,
-        tx_fee: Field,
-    ) -> (PublicDataUpdateRequest, u32) {
+    fn build_or_patch_payment_update_request(self, tx_fee: Field) -> (PublicDataWrite, u32) {
         let fee_payer = self.kernel_data.public_inputs.fee_payer;
 
         // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
         if !fee_payer.is_zero() {
             let read_hint = self.fee_payer_fee_juice_balance_read_hint;
             let leaf_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
+            let existing_update_index = unsafe {
+                find_index_hint(
+                    self.kernel_data.public_inputs.end.public_data_writes,
+                    |w: PublicDataWrite| w.leaf_slot == leaf_slot,
+                )
+            };
 
-            if read_hint.leaf_slot == 0 {
+            if existing_update_index != MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
                 // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update_index =
-                    unsafe { self.find_fee_payer_fee_juice_update_index(leaf_slot) };
-                let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests
-                    [existing_update_index];
-                    assert(
-                        existing_update.leaf_slot == leaf_slot,
-                        "Wrong leaf slot for Fee Juice balance update request",
-                    );
-                    assert(
-                        !existing_update.new_value.lt(tx_fee),
-                        "Not enough balance for fee payer after claim to pay for transaction",
-                    );
+                let existing_update =
+                    self.kernel_data.public_inputs.end.public_data_writes[existing_update_index];
+                assert(
+                    existing_update.leaf_slot == leaf_slot,
+                    "Wrong leaf slot for Fee Juice balance update request",
+                );
+                assert(
+                    !existing_update.value.lt(tx_fee),
+                    "Not enough balance for fee payer after claim to pay for transaction",
+                );
 
-                    let new_value =
-                        compute_public_data_tree_value(existing_update.new_value - tx_fee);
-                    let protocol_update_request =
-                        PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
-                    (protocol_update_request, existing_update_index as u32)
-                } else {
-                    // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
-                    read_hint.validate(self.start.public_data_tree.root);
-
-                    let balance = read_hint.value;
-                    assert(
-                        read_hint.leaf_slot == leaf_slot,
-                        "Wrong leaf slot for Fee Juice balance read hint",
-                    );
-                    assert(
-                        !balance.lt(tx_fee),
-                        "Not enough balance for fee payer to pay for transaction",
-                    );
-
-                    let new_value = compute_public_data_tree_value(balance - tx_fee);
-                    let protocol_update_request =
-                        PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
-                    (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-                }
+                let value = compute_public_data_tree_value(existing_update.value - tx_fee);
+                let protocol_update_request = PublicDataWrite { leaf_slot, value };
+                (protocol_update_request, existing_update_index as u32)
             } else {
-                // Nothing to do, just place an empty update request at the end of the array
-                (PublicDataUpdateRequest::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+                // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
+                read_hint.validate(self.start.public_data_tree.root);
+
+                let balance = read_hint.value;
+                assert(
+                    read_hint.leaf_slot == leaf_slot,
+                    "Wrong leaf slot for Fee Juice balance read hint",
+                );
+                assert(
+                    !balance.lt(tx_fee),
+                    "Not enough balance for fee payer to pay for transaction",
+                );
+
+                let value = compute_public_data_tree_value(balance - tx_fee);
+                let protocol_update_request = PublicDataWrite { leaf_slot, value };
+                (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
             }
+        } else {
+            // Nothing to do, just place an empty update request at the end of the array
+            (PublicDataWrite::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
         }
+    }
 
     // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
     // contains roots of all the trees this is sufficient to verify that the tree roots used by kernels are correct
@@ -370,21 +367,6 @@ impl BaseRollupInputs {
             previous_block_hash_witness.sibling_path,
             archive_root,
         );
-    }
-
-    unconstrained fn find_fee_payer_fee_juice_update_index(self, leaf_slot: Field) -> u32 {
-        let mut update_index = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1;
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if self.kernel_data.public_inputs.end.public_data_update_requests[i].leaf_slot
-                == leaf_slot {
-                update_index = i;
-            }
-        }
-        assert(
-            update_index < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            "Could not find fee payer Fee Juice update request",
-        );
-        update_index
     }
 }
 
@@ -519,8 +501,7 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            nullifier_leaf_preimage::NullifierLeafPreimage,
-            public_data_update_request::PublicDataUpdateRequest,
+            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -578,11 +559,8 @@ mod tests {
             if i < (user_public_data_writes.len()) {
                 let leaf = user_public_data_writes.get_unchecked(i).1;
 
-                kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
-                    leaf_slot: leaf.slot,
-                    new_value: leaf.value,
-                    counter: 0,
-                };
+                kernel_data.public_inputs.end.public_data_writes[i] =
+                    PublicDataWrite { leaf_slot: leaf.slot, value: leaf.value };
             }
         }
 
@@ -657,6 +635,7 @@ mod tests {
 
     struct BaseRollupInputsBuilder {
         kernel_data: FixtureBuilder,
+        transaction_fee: Field,
         pre_existing_notes: [Field; MAX_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
@@ -905,6 +884,7 @@ mod tests {
                     sibling_path: start_archive.get_sibling_path(0),
                 },
                 constants: self.constants,
+                transaction_fee: self.transaction_fee,
                 fee_payer_fee_juice_balance_read_hint,
             }
         }
@@ -927,6 +907,7 @@ mod tests {
         fn empty() -> Self {
             BaseRollupInputsBuilder {
                 kernel_data: FixtureBuilder::new(),
+                transaction_fee: 0,
                 pre_existing_notes: [0; MAX_NOTE_HASHES_PER_TX],
                 pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX],
                 pre_existing_contracts: [0; 2],
@@ -1318,7 +1299,7 @@ mod tests {
         builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
 
         // Set values for computing exact tx_fee
-        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+        builder.transaction_fee = tx_fee;
 
         // Set expected protocol data update
         builder.protocol_public_data_writes.push((
@@ -1367,7 +1348,7 @@ mod tests {
         };
 
         // Set values for computing exact tx_fee
-        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+        builder.transaction_fee = tx_fee;
 
         // Create an existing data update that corresponds to a claim
         builder.public_data_writes.push((
@@ -1422,7 +1403,7 @@ mod tests {
         builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
 
         // Set values for computing exact tx_fee
-        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+        builder.transaction_fee = tx_fee;
 
         // Set expected protocol data update
         builder.protocol_public_data_writes.push((

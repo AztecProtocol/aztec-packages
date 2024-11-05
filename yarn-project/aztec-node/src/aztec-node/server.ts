@@ -748,11 +748,9 @@ export class AztecNodeService implements AztecNode {
       this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
       const [processedTx] = processedTxs;
       return new PublicSimulationOutput(
-        processedTx.encryptedLogs,
-        processedTx.unencryptedLogs,
         processedTx.revertReason,
-        processedTx.data.constants,
-        processedTx.data.end,
+        processedTx.constants,
+        processedTx.txEffect,
         returns,
         processedTx.gasUsed,
       );

@@ -57,7 +57,7 @@ describe('e2e_avm_simulator', () => {
         const simulation = await wallet.simulateTx(request, true);
         // Subtract the teardown gas allocation from the gas used to figure out the gas used by the contract logic.
         const l2TeardownAllocation = GasSettings.simulation().getTeardownLimits().l2Gas;
-        const l2GasUsed = simulation.publicOutput!.end.gasUsed.l2Gas! - l2TeardownAllocation;
+        const l2GasUsed = simulation.publicOutput!.gasUsed.totalGas.l2Gas - l2TeardownAllocation;
         // L2 gas used will vary a lot depending on codegen and other factors,
         // so we just set a wide range for it, and check it's not a suspiciously round number.
         expect(l2GasUsed).toBeGreaterThan(150);

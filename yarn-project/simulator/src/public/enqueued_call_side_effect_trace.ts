@@ -6,7 +6,6 @@ import {
   AvmExternalCallHint,
   AvmKeyValueHint,
   AztecAddress,
-  CallContext,
   type CombinedConstantData,
   type ContractClassIdPreimage,
   ContractStorageRead,
@@ -16,6 +15,7 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -24,7 +24,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -475,7 +474,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new VMCircuitPublicInputs(
       /*constants=*/ constants,
       /*callRequest=*/ createPublicCallRequest(avmEnvironment),
-      /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty),
+      /*publicCallStack=*/ makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicInnerCallRequest.empty),
       /*previousValidationRequestArrayLengths=*/ this.previousValidationRequestArrayLengths,
       /*validationRequests=*/ this.getValidationRequests(),
       /*previousAccumulatedDataArrayLengths=*/ this.previousAccumulatedDataArrayLengths,
@@ -536,7 +535,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         PublicDataUpdateRequest.empty(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
-      /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
+      /*publicCallStack=*/ makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       /*gasUsed=*/ gasUsed,
     );
   }
@@ -574,11 +573,11 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
  * Helper function to create a public execution request from an AVM execution environment
  */
 function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
-  const callContext = CallContext.from({
-    msgSender: avmEnvironment.sender,
-    contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
-    isStaticCall: avmEnvironment.isStaticCall,
-  });
-  return new PublicCallRequest(callContext, computeVarArgsHash(avmEnvironment.calldata), /*counter=*/ 0);
+  return new PublicCallRequest(
+    avmEnvironment.sender,
+    avmEnvironment.address,
+    avmEnvironment.functionSelector,
+    avmEnvironment.isStaticCall,
+    computeVarArgsHash(avmEnvironment.calldata),
+  );
 }
