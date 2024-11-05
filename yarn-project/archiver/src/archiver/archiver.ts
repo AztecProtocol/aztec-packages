@@ -249,7 +249,7 @@ export class Archiver implements ArchiveSource {
 
     // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
     if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
-      this.l1Timestamp = await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber }).then(b => b.timestamp);
+      this.l1Timestamp = (await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber })).timestamp;
       this.l1BlockNumber = currentL1BlockNumber;
     }
 
