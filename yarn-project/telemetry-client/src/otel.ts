@@ -28,7 +28,7 @@ import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentele
 import { aztecDetector } from './aztec_resource_detector.js';
 import { registerOtelLoggerProvider } from './otelLoggerProvider.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
-import { TelemetryClientConfig } from './config.js';
+import { type TelemetryClientConfig } from './config.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
