@@ -117,9 +117,6 @@ export class OpenTelemetryClient implements TelemetryClient {
           exporter: new OTLPMetricExporter({
             url: metricsCollector.href,
           }),
-          // TODO: make this configurable for debug builds
-          exportIntervalMillis: 5000,
-          exportTimeoutMillis: 2500,
         }),
       ],
     });
