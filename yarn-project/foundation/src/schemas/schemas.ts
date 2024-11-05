@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { type AbiDecoded } from '../abi/decoder.js';
+import { EventSelector } from '../abi/event_selector.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -16,10 +18,10 @@ const FqSchema = maybeStructuredStringSchemaFor('Fq', Fq, isHex);
 
 /** Validation schemas for common types. Every schema must match its toJSON. */
 export const schemas = {
-  /** Accepts both a 0x string and a structured { type: EthAddress, value: '0x...' } */
+  /** Accepts both a 0x string and a structured `{ type: EthAddress, value: '0x...' }` */
   EthAddress: maybeStructuredStringSchemaFor('EthAddress', EthAddress, EthAddress.isAddress),
 
-  /** Accepts both a 0x string and a structured { type: AztecAddress, value: '0x...' } */
+  /** Accepts both a 0x string and a structured `{ type: AztecAddress, value: '0x...' }` */
   AztecAddress: maybeStructuredStringSchemaFor('AztecAddress', AztecAddress, AztecAddress.isAddress),
 
   /** Accepts both a 0x string and a structured type. */
@@ -27,6 +29,9 @@ export const schemas = {
 
   /** Accepts both a 0x string and a structured type. */
   NoteSelector: maybeStructuredStringSchemaFor('NoteSelector', NoteSelector),
+
+  /** Accepts both a 0x string and a structured type. */
+  EventSelector: maybeStructuredStringSchemaFor('EventSelector', EventSelector),
 
   /** Field element. Accepts a 0x prefixed hex string or a structured type. */
   Fr: FrSchema,
@@ -54,21 +59,24 @@ export const schemas = {
     .transform(Signature.from0xString),
 
   /** Coerces any input to bigint */
-  BigInt: z.coerce.bigint(),
+  BigInt: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.bigint()),
 
   /** Coerces any input to integer number */
-  Integer: z.coerce.number().int(),
+  Integer: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.number().int()),
 
   /** Coerces input to UInt32 */
-  UInt32: z.coerce
-    .number()
-    .int()
-    .max(2 ** 32 - 1),
+  UInt32: z.union([z.bigint(), z.number(), z.string()]).pipe(
+    z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(2 ** 32 - 1),
+  ),
 
   /** Accepts a hex string as a Buffer32 type */
   Buffer32: z.string().refine(isHex, 'Not a valid hex string').transform(Buffer32.fromString),
 
-  /** Accepts a base64 string or a structured { type: 'Buffer', data: [byte, byte...] } as a buffer */
+  /** Accepts a base64 string or a structured `{ type: 'Buffer', data: [byte, byte...] }` as a buffer */
   BufferB64: z.union([
     z
       .string()
@@ -92,3 +100,11 @@ export const schemas = {
   /** Hex string with an optional 0x prefix, which gets removed as part of the parsing */
   HexString: hexSchema,
 };
+
+export const AbiDecodedSchema: z.ZodType<AbiDecoded, any, any> = z.union([
+  schemas.BigInt,
+  z.boolean(),
+  schemas.AztecAddress,
+  z.array(z.lazy(() => AbiDecodedSchema)),
+  z.record(z.lazy(() => AbiDecodedSchema)),
+]);

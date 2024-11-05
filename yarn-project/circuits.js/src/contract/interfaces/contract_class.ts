@@ -140,6 +140,12 @@ interface ContractClassCommitments {
 /** A contract class with its precomputed id. */
 export type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, 'id'>;
 
+export const ContractClassWithIdSchema = ContractClassSchema.extend({ id: schemas.Fr }) satisfies z.ZodType<
+  ContractClassWithId,
+  any,
+  any
+>;
+
 /** A contract class with public bytecode information, and optional private and unconstrained. */
 export type ContractClassPublic = {
   privateFunctions: ExecutablePrivateFunctionWithMembershipProof[];

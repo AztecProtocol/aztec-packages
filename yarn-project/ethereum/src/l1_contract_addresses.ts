@@ -1,12 +1,15 @@
 import { type ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 /**
  * The names of the current L1 contract addresses.
  * NOTE: When changing this list, make sure to update CLI & CI scripts accordingly.
  * For reference: https://github.com/AztecProtocol/aztec-packages/pull/5553
  */
-export const l1ContractsNames = [
+export const L1ContractsNames = [
   'rollupAddress',
   'registryAddress',
   'inboxAddress',
@@ -19,12 +22,23 @@ export const l1ContractsNames = [
   'governanceAddress',
 ] as const;
 
-/**
- * Provides the directory of current L1 contract addresses
- */
+/** Provides the directory of current L1 contract addresses */
 export type L1ContractAddresses = {
-  [K in (typeof l1ContractsNames)[number]]: EthAddress;
+  [K in (typeof L1ContractsNames)[number]]: EthAddress;
 };
+
+export const L1ContractAddressesSchema = z.object({
+  rollupAddress: schemas.EthAddress,
+  registryAddress: schemas.EthAddress,
+  inboxAddress: schemas.EthAddress,
+  outboxAddress: schemas.EthAddress,
+  feeJuiceAddress: schemas.EthAddress,
+  feeJuicePortalAddress: schemas.EthAddress,
+  nomismatokopioAddress: schemas.EthAddress,
+  sysstiaAddress: schemas.EthAddress,
+  gerousiaAddress: schemas.EthAddress,
+  apellaAddress: schemas.EthAddress,
+}) satisfies z.ZodType<L1ContractAddresses, any, any>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 

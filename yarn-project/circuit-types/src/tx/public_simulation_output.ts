@@ -1,7 +1,10 @@
 import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
 import { mapValues } from '@aztec/foundation/collection';
+import { schemas } from '@aztec/foundation/schemas';
 
-import { type SimulationError } from '../simulation_error.js';
+import { z } from 'zod';
+
+import { SimulationError } from '../simulation_error.js';
 import { TxEffect } from '../tx_effect.js';
 import { type GasUsed } from './gas_used.js';
 
@@ -16,6 +19,15 @@ export class NestedProcessReturnValues {
   constructor(values: ProcessReturnValues, nested?: NestedProcessReturnValues[]) {
     this.values = values;
     this.nested = nested ?? [];
+  }
+
+  static get schema(): z.ZodType<NestedProcessReturnValues, any, any> {
+    return z
+      .object({
+        values: z.array(schemas.Fr).optional(),
+        nested: z.array(z.lazy(() => NestedProcessReturnValues.schema)),
+      })
+      .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested));
   }
 
   toJSON(): any {
@@ -48,6 +60,27 @@ export class PublicSimulationOutput {
     public publicReturnValues: NestedProcessReturnValues[],
     public gasUsed: GasUsed,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        revertReason: SimulationError.schema.optional(),
+        constants: CombinedConstantData.schema,
+        txEffect: TxEffect.schema,
+        publicReturnValues: z.array(NestedProcessReturnValues.schema),
+        gasUsed: z.object({ totalGas: Gas.schema, teardownGas: Gas.schema }),
+      })
+      .transform(
+        fields =>
+          new PublicSimulationOutput(
+            fields.revertReason,
+            fields.constants,
+            fields.txEffect,
+            fields.publicReturnValues,
+            fields.gasUsed,
+          ),
+      );
+  }
 
   toJSON() {
     return {

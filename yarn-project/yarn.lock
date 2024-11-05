@@ -407,6 +407,7 @@ __metadata:
   resolution: "@aztec/circuits.js@workspace:circuits.js"
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -625,6 +626,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     viem: ^2.7.15
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 

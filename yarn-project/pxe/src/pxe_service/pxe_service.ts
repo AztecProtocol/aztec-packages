@@ -2,7 +2,7 @@ import {
   type AuthWitness,
   type AztecNode,
   EventMetadata,
-  EventType,
+  type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
@@ -50,7 +50,6 @@ import {
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type AbiDecoded,
-  type AbiType,
   type ContractArtifact,
   EventSelector,
   FunctionSelector,
@@ -866,41 +865,14 @@ export class PXEService implements PXE {
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
-  public getEvents<T>(
-    type: EventType.Encrypted,
-    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
+  public async getEncryptedEvents<T>(
+    eventMetadataDef: EventMetadataDefinition,
     from: number,
     limit: number,
-    vpks: Point[],
-  ): Promise<T[]>;
-  public getEvents<T>(
-    type: EventType.Unencrypted,
-    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
-    from: number,
-    limit: number,
-  ): Promise<T[]>;
-  public getEvents<T>(
-    type: EventType,
-    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
-    from: number,
-    limit: number,
-    vpks: Point[] = [],
-  ): Promise<T[]> {
-    const eventMetadata = new EventMetadata<T>(type, event);
-    if (type.includes(EventType.Encrypted)) {
-      return this.getEncryptedEvents(from, limit, eventMetadata, vpks);
-    }
-
-    return this.getUnencryptedEvents(from, limit, eventMetadata);
-  }
-
-  async getEncryptedEvents<T>(
-    from: number,
-    limit: number,
-    eventMetadata: EventMetadata<T>,
     // TODO (#9272): Make this better, we should be able to only pass an address now
     vpks: Point[],
   ): Promise<T[]> {
+    const eventMetadata = new EventMetadata<T>(eventMetadataDef);
     if (vpks.length === 0) {
       throw new Error('Tried to get encrypted events without supplying any viewing public keys');
     }
@@ -964,7 +936,8 @@ export class PXEService implements PXE {
     return decodedEvents;
   }
 
-  async getUnencryptedEvents<T>(from: number, limit: number, eventMetadata: EventMetadata<T>): Promise<T[]> {
+  async getUnencryptedEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+    const eventMetadata = new EventMetadata<T>(eventMetadataDef);
     const { logs: unencryptedLogs } = await this.node.getUnencryptedLogs({
       fromBlock: from,
       toBlock: from + limit,

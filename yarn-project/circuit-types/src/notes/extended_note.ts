@@ -65,6 +65,17 @@ export class ExtendedNote {
     const hex = str.replace(/^0x/, '');
     return ExtendedNote.fromBuffer(Buffer.from(hex, 'hex'));
   }
+
+  static random() {
+    return new ExtendedNote(
+      Note.random(),
+      AztecAddress.random(),
+      AztecAddress.random(),
+      Fr.random(),
+      NoteSelector.random(),
+      TxHash.random(),
+    );
+  }
 }
 
 export class UniqueNote extends ExtendedNote {
@@ -101,6 +112,18 @@ export class UniqueNote extends ExtendedNote {
       this.txHash.buffer,
       this.nonce.toBuffer(),
     ]);
+  }
+
+  static override random() {
+    return new UniqueNote(
+      Note.random(),
+      AztecAddress.random(),
+      AztecAddress.random(),
+      Fr.random(),
+      NoteSelector.random(),
+      TxHash.random(),
+      Fr.random(),
+    );
   }
 
   static override fromBuffer(buffer: Buffer | BufferReader) {

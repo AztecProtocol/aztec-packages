@@ -21,11 +21,11 @@
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest .tsbuildinfo ./test/artifacts",
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/test/artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "generate": "./scripts/copy-test-artifacts.sh"
+    "generate": "./scripts/copy-test-artifacts.sh && run -T prettier -w ./src/test/artifacts --loglevel warn"
   },
   "inherits": [
     "../package.common.json",
