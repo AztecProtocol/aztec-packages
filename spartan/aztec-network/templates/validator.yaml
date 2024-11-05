@@ -120,6 +120,8 @@ spec:
               value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
+            - name: SEQ_MAX_TX_PER_BLOCK
+              value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               {{- if .Values.validator.externalTcpHost }}
               value: "{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.p2pTcpPort }}"
