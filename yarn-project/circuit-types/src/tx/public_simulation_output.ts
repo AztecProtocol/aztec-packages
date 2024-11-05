@@ -2,7 +2,7 @@ import { CombinedAccumulatedData, CombinedConstantData, Fr, Gas } from '@aztec/c
 import { mapValues } from '@aztec/foundation/collection';
 
 import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
-import { type FailingFunction, type NoirCallStack, SimulationError } from '../simulation_error.js';
+import { type SimulationError } from '../simulation_error.js';
 import { type PublicKernelPhase } from './processed_tx.js';
 
 /** Return values of simulating a circuit. */
@@ -38,45 +38,13 @@ export class NestedProcessReturnValues {
 }
 
 /**
- * A simulation error for the AVM.
- * This error includes the revert data returned from the top level function.
- */
-export class AvmSimulationError extends SimulationError {
-  constructor(
-    originalMessage: string,
-    functionErrorStack: FailingFunction[],
-    public revertData: Fr[],
-    noirErrorStack?: NoirCallStack,
-    options?: ErrorOptions,
-  ) {
-    super(originalMessage, functionErrorStack, noirErrorStack, options);
-  }
-
-  override toJSON() {
-    return {
-      ...super.toJSON(),
-      revertData: this.revertData.map(fr => fr.toString()),
-    };
-  }
-
-  static override fromJSON(obj: ReturnType<AvmSimulationError['toJSON']>) {
-    return new AvmSimulationError(
-      obj.originalMessage,
-      obj.functionErrorStack,
-      obj.revertData.map(serializedFr => Fr.fromString(serializedFr)),
-      obj.noirErrorStack,
-    );
-  }
-}
-
-/**
  * Outputs of processing the public component of a transaction.
  */
 export class PublicSimulationOutput {
   constructor(
     public encryptedLogs: EncryptedTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
-    public revertReason: AvmSimulationError | undefined,
+    public revertReason: SimulationError | undefined,
     public constants: CombinedConstantData,
     public end: CombinedAccumulatedData,
     public publicReturnValues: NestedProcessReturnValues[],

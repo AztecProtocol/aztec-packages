@@ -1,6 +1,5 @@
 import {
   type AuthWitness,
-  AvmSimulationError,
   type AztecNode,
   EventMetadata,
   EventType,
@@ -791,7 +790,7 @@ export class PXEService implements PXE {
       }
       return result;
     } catch (err) {
-      if (err instanceof AvmSimulationError) {
+      if (err instanceof SimulationError) {
         await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
       }
       throw err;

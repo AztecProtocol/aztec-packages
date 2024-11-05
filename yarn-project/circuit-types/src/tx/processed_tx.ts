@@ -1,6 +1,5 @@
 import {
   type AvmProvingRequest,
-  type AvmSimulationError,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
@@ -53,7 +52,7 @@ export type ProcessedTx = Pick<Tx, 'clientIvcProof' | 'noteEncryptedLogs' | 'enc
   /**
    * Reason the tx was reverted.
    */
-  revertReason: AvmSimulationError | undefined;
+  revertReason: SimulationError | undefined;
   /**
    * The request for AVM proving.
    */
@@ -125,7 +124,7 @@ export function makeProcessedTx(
     avmProvingRequest,
     finalPublicDataUpdateRequests,
   }: {
-    revertReason?: AvmSimulationError;
+    revertReason?: SimulationError;
     gasUsed?: ProcessedTx['gasUsed'];
     avmProvingRequest?: AvmProvingRequest;
     finalPublicDataUpdateRequests?: PublicDataUpdateRequest[];

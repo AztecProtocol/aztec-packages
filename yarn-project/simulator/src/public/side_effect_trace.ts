@@ -1,8 +1,8 @@
 import {
-  AvmSimulationError,
   type FailingFunction,
   type NoirCallStack,
   PublicExecutionRequest,
+  SimulationError,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -44,7 +44,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { ExecutionError, traverseCauseChain } from '../common/errors.js';
+import { ExecutionError, createSimulationError, traverseCauseChain } from '../common/errors.js';
 import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
@@ -369,7 +369,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       returnValues: avmCallResults.output,
       reverted: avmCallResults.reverted,
       revertReason: avmCallResults.revertReason
-        ? createAvmSimulationError(avmCallResults.revertReason, avmCallResults.output)
+        ? createSimulationError(avmCallResults.revertReason, avmCallResults.output)
         : undefined,
 
       contractStorageReads: this.contractStorageReads,
@@ -428,27 +428,4 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
     isStaticCall: avmEnvironment.isStaticCall,
   });
   return new PublicExecutionRequest(callContext, avmEnvironment.calldata);
-}
-
-/**
- * Creates an AVM simulation error from an error chain generated during the execution of public functions.
- * @param error - The error thrown during execution.
- * @returns - An AVM simulation error.
- */
-function createAvmSimulationError(error: Error, revertData: Fr[]): AvmSimulationError {
-  let rootCause = error;
-  let noirCallStack: NoirCallStack | undefined = undefined;
-  const aztecCallStack: FailingFunction[] = [];
-
-  traverseCauseChain(error, cause => {
-    rootCause = cause;
-    if (cause instanceof ExecutionError) {
-      aztecCallStack.push(cause.failingFunction);
-      if (cause.noirCallStack) {
-        noirCallStack = cause.noirCallStack;
-      }
-    }
-  });
-
-  return new AvmSimulationError(rootCause.message, aztecCallStack, revertData, noirCallStack, { cause: rootCause });
 }

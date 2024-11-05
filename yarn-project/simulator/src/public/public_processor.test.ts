@@ -1,5 +1,4 @@
 import {
-  AvmSimulationError,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
@@ -330,7 +329,7 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: revertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
-              revertReason: new AvmSimulationError('Simulation Failed', [], []),
+              revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
           ],
         }).build(),
@@ -435,7 +434,7 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
-              revertReason: new AvmSimulationError('Simulation Failed', [], []),
+              revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
           ],
         }).build(),
@@ -547,7 +546,7 @@ describe('public_processor', () => {
               from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 17)],
-              revertReason: new AvmSimulationError('Simulation Failed', [], []),
+              revertReason: new SimulationError('Simulation Failed', []),
             }).build(teardownResultSettings),
           ],
         }).build(teardownResultSettings),
@@ -645,7 +644,7 @@ describe('public_processor', () => {
             new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 14),
             new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 15),
           ],
-          revertReason: new AvmSimulationError('Simulation Failed', [], []),
+          revertReason: new SimulationError('Simulation Failed', []),
         }).build(),
 
         // Teardown
@@ -661,7 +660,7 @@ describe('public_processor', () => {
               from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
-              revertReason: new AvmSimulationError('Simulation Failed', [], []),
+              revertReason: new SimulationError('Simulation Failed', []),
             }).build(teardownResultSettings),
           ],
         }).build(teardownResultSettings),

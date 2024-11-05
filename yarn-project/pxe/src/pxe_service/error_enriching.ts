@@ -1,4 +1,4 @@
-import { type AvmSimulationError, type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator';
@@ -53,7 +53,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
 }
 
 export async function enrichPublicSimulationError(
-  err: AvmSimulationError,
+  err: SimulationError,
   contractDataOracle: ContractDataOracle,
   db: PxeDatabase,
   logger: DebugLogger,

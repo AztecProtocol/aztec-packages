@@ -1,11 +1,11 @@
 import {
   type AvmProvingRequest,
-  type AvmSimulationError,
   type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
   type ProcessedTx,
   type PublicExecutionRequest,
   PublicKernelPhase,
+  type SimulationError,
   type Tx,
 } from '@aztec/circuit-types';
 import {
@@ -54,13 +54,13 @@ type PublicPhaseResult = {
   /** Time spent for the execution this phase */
   durationMs: number;
   /** Revert reason, if any */
-  revertReason?: AvmSimulationError;
+  revertReason?: SimulationError;
 };
 
 export type ProcessedPhase = {
   phase: PublicKernelPhase;
   durationMs: number;
-  revertReason?: AvmSimulationError;
+  revertReason?: SimulationError;
 };
 
 export type TxPublicCallsResult = {
@@ -72,7 +72,7 @@ export type TxPublicCallsResult = {
   /** Gas used during the execution this tx */
   gasUsed: ProcessedTx['gasUsed'];
   /** Revert reason, if any */
-  revertReason?: AvmSimulationError;
+  revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
 };
 
@@ -160,7 +160,7 @@ export class EnqueuedCallsProcessor {
     let publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
     let isFromPrivate = true;
     let returnValues: NestedProcessReturnValues[] = [];
-    let revertReason: AvmSimulationError | undefined;
+    let revertReason: SimulationError | undefined;
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
       const callRequests = EnqueuedCallsProcessor.getCallRequestsByPhase(tx, phase);
@@ -233,7 +233,7 @@ export class EnqueuedCallsProcessor {
     let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = previousPublicKernelOutput;
     let gasUsed = Gas.empty();
-    let revertReason: AvmSimulationError | undefined;
+    let revertReason: SimulationError | undefined;
     for (let i = callRequests.length - 1; i >= 0 && !revertReason; i--) {
       const callRequest = callRequests[i];
       const executionRequest = executionRequests[i];
