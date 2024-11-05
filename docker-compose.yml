@@ -144,16 +144,30 @@ services:
       - source: grafana-sources
         target: /etc/grafana/provisioning/datasources/default.yml
 
-  jaeger:
-    image: jaegertracing/all-in-one
+  loki:
+    image: grafana/loki
     ports:
-      - 16686:16686
+      - 3100:3100
+    volumes:
+      - loki:/loki
+
+  tempo:
+    image: grafana/tempo
+    user: "0"
     profiles:
       - metrics
+    command: -config.file=/etc/tempo/tempo.yaml
+    configs:
+      - source: tempo-config
+        target: /etc/tempo/tempo.yaml
+    volumes:
+      - tempo:/etc/tempo
 
 volumes:
   aztec:
   grafana:
+  loki:
+  tempo:
 
 configs:
   grafana-sources:
@@ -168,6 +182,12 @@ configs:
           isDefault: true
           jsonData:
             timeInterval: 10s
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+        - name: Tempo
+          type: tempo
+          url: http://tempo:3100
 
   prometheus-config:
     content: |
@@ -211,6 +231,25 @@ configs:
             receivers: [otlp]
             processors: [batch]
             exporters: [prometheus]
+
+  tempo-config:
+    content: |
+      server:
+        http_listen_port: 3100
+      distributor:
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: "0.0.0.0:4317"
+      storage:
+        trace:
+          backend: local
+          local:
+            path: /etc/tempo/blocks
+      compactor:
+        compaction:
+          block_retention: 24h
 
 secrets:
   aztec-node-url:
