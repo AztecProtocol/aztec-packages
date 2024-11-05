@@ -1,4 +1,3 @@
-{{- if not .Values.proverNode.external }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -216,5 +215,5 @@ spec:
     - port: {{ .Values.proverNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
-{{ end }}
+---
 {{ end }}

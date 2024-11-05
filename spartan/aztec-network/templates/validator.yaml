@@ -200,8 +200,8 @@ spec:
       protocol: TCP
 ---
 {{if .Values.network.public }}
-# Service template for TCP load balancers
 {{- range $i, $e := until (int .Values.validator.replicas) }}
+# Service template for TCP load balancers
 apiVersion: v1
 kind: Service
 metadata:
