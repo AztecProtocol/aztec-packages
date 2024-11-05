@@ -11,7 +11,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && npx playwright install && npx playwright install-deps && tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -21,7 +21,7 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch",
-    "build:browser": "rm -rf dest && webpack",
+    "build:browser-app": "rm -rf dest && webpack",
     "serve": "serve -n -L -p 8080 -c ../serve.mt.json dest"
   },
   "jest": {
