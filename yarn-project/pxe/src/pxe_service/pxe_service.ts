@@ -100,7 +100,7 @@ export class PXEService implements PXE {
     logSuffix?: string,
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
-    this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
+    this.synchronizer = new Synchronizer(node, db, this.jobQueue, config.trialDecriptionEnabled ?? false, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;

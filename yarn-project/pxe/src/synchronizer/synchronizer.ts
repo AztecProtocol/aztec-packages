@@ -26,6 +26,7 @@ import { NoteProcessor } from '../note_processor/index.js';
  */
 export class Synchronizer {
   private runningPromise?: RunningPromise;
+  private accounts: CompleteAddress[] = [];
   private noteProcessors: NoteProcessor[] = [];
   private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
