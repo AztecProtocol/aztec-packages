@@ -143,7 +143,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     const typename PCS::VerifierAccumulator batched_opening_accumulator =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
-    info("batching opening verified? ", batched_opening_verified);
 
     ASSERT(sumcheck_verified);
 }

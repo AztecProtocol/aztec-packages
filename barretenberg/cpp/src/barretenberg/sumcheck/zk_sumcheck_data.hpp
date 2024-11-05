@@ -33,8 +33,6 @@ template <typename Flavor> struct ZKSumcheckData {
     // Container for the evaluations of Libra Univariates that have to be proven.
     using ClaimedLibraEvaluations = std::vector<FF>;
 
-    // EvalMaskingScalars eval_masking_scalars;
-    // EvaluationMaskingTable masking_terms_evaluations;
     LibraUnivariates libra_univariates;
     LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
@@ -50,7 +48,6 @@ template <typename Flavor> struct ZKSumcheckData {
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::ProvingKey> proving_key = nullptr)
     {
-        // Initialization logic from setup_zk_sumcheck_data
         setup_zk_sumcheck_data(multivariate_d, transcript, proving_key);
     }
 
@@ -109,9 +106,7 @@ template <typename Flavor> struct ZKSumcheckData {
      * independent uniformly random coefficients.
      *
      */
-    static LibraUnivariates generate_libra_univariates(const size_t number_of_polynomials
-                                                       //    LibraUnivariatesInMonomialBasis& libra_univariates_monomial
-    )
+    static LibraUnivariates generate_libra_univariates(const size_t number_of_polynomials)
     {
         LibraUnivariates libra_full_polynomials(number_of_polynomials);
 
@@ -120,6 +115,7 @@ template <typename Flavor> struct ZKSumcheckData {
         };
         return libra_full_polynomials;
     };
+
     /**
      * @brief Transform Libra univariates from Lagrange to monomial form
      *
@@ -177,20 +173,17 @@ template <typename Flavor> struct ZKSumcheckData {
     }
 
     /**
- * @brief Set up Libra book-keeping table that simplifies the computation of Libra Round Univariates
- *
- * @details The array of Libra univariates is getting scaled
- * \f{align}{
-    \texttt{libra_univariates} \gets \texttt{libra_univariates}\cdot \rho \cdot 2^{d-1}
- \f}
- * We also initialize
- * \f{align}{
-        \texttt{libra_running_sum} \gets \texttt{libra_total_sum} - \texttt{libra_univariates}_{0,0} -
- \texttt{libra_univariates}_{0,1} \f}.
- * @param libra_table
- * @param libra_round_factor
- * @param libra_challenge
- */
+     * @brief Set up Libra book-keeping table that simplifies the computation of Libra Round Univariates
+     *
+     * @details The array of Libra univariates is getting scaled
+     * \f{align}{\texttt{libra_univariates} \gets \texttt{libra_univariates}\cdot \rho \cdot 2^{d-1}\f}
+     * We also initialize
+     * \f{align}{ \texttt{libra_running_sum} \gets \texttt{libra_total_sum} - \texttt{libra_univariates}_{0,0} -
+     * \texttt{libra_univariates}_{0,1} \f}.
+     * @param libra_table
+     * @param libra_round_factor
+     * @param libra_challenge
+     */
     static void setup_auxiliary_data(auto& libra_univariates,
                                      FF& libra_scaling_factor,
                                      const FF libra_challenge,
