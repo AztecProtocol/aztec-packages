@@ -690,7 +690,7 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
-    if: contains(github.event.pull_request.labels.*.name, 'network-all') || github.ref_name == 'master'
+    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
@@ -736,6 +736,12 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.config.test }}
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+      - name: Upload network log
+        if: always() # Ensures this step runs regardless of success or failure in the test step
+        uses: actions/upload-artifact@v3
+        with:
+          name: network-log
+          path: ./scripts/network.log
 
   l1-contracts-test:
     needs: [build, configure]
