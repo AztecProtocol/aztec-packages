@@ -36,8 +36,8 @@ export class ReExStateMismatchError extends ValidatorError {
   }
 }
 
-export class PublicProcessorNotProvidedError extends ValidatorError {
+export class BlockBuilderNotProvidedError extends ValidatorError {
   constructor() {
-    super('Public processor not provided');
+    super('Block builder not provided');
   }
 }

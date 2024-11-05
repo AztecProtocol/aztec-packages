@@ -1,5 +1,5 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
+import { type SentTx, sleep } from '@aztec/aztec.js';
 
 import { beforeAll, describe, it } from '@jest/globals';
 import fs from 'fs';
@@ -58,7 +58,6 @@ describe('e2e_p2p_reex', () => {
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    // tODO: use a tx with nested calls
     nodes.forEach(node => {
       node.getSequencer()?.updateSequencerConfig({
         minTxsPerBlock: NUM_TXS_PER_NODE,
@@ -69,7 +68,7 @@ describe('e2e_p2p_reex', () => {
 
     // now ensure that all txs were successfully mined
     await Promise.all(
-      txs.map(async (tx, i) => {
+      txs.map(async (tx: SentTx, i: number) => {
         t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
         return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
       }),

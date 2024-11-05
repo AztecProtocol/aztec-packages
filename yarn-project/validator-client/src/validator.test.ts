@@ -1,13 +1,13 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash } from '@aztec/circuit-types';
+import { mockTx, TxHash } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
-import { type LightPublicProcessor } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -15,32 +15,23 @@ import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 
 
 import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
 import { type ValidatorClientConfig } from './config.js';
-import { type LightPublicProcessorFactory } from './duties/light_public_processor_factory.js';
 import {
   AttestationTimeoutError,
+  BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
-  PublicProcessorNotProvidedError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { ValidatorClient } from './validator.js';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 describe('ValidationService', () => {
   let config: ValidatorClientConfig;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let validatorAccount: PrivateKeyAccount;
-  let lightPublicProcessorFactory: MockProxy<LightPublicProcessorFactory>;
-  let lightPublicProcessor: MockProxy<LightPublicProcessor>;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
-
-    lightPublicProcessorFactory = mock<LightPublicProcessorFactory>();
-    lightPublicProcessor = mock<LightPublicProcessor>();
-
-    lightPublicProcessorFactory.createWithSyncedState.mockImplementation(() => Promise.resolve(lightPublicProcessor));
 
     const validatorPrivateKey = generatePrivateKey();
     validatorAccount = privateKeyToAccount(validatorPrivateKey);
@@ -62,9 +53,11 @@ describe('ValidationService', () => {
     );
   });
 
-  it('Should throw an error if re-execution is enabled but no public processor is provided', () => {
+  it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
     config.validatorReEx = true;
-    expect(() => ValidatorClient.new(config, p2pClient)).toThrow(PublicProcessorNotProvidedError);
+    p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
+    const val = ValidatorClient.new(config, p2pClient);
+    await expect(val.reExecuteTransactions(makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
   it('Should create a valid block proposal', async () => {
@@ -105,9 +98,9 @@ describe('ValidationService', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
 
-    const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient(), lightPublicProcessorFactory);
-    lightPublicProcessor.process.mockImplementation(() => {
-      throw new Error();
+    const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
+    val.registerBlockBuilder(() => {
+      throw new Error('Failed to build block');
     });
 
     const attestation = await val.attestToProposal(proposal);

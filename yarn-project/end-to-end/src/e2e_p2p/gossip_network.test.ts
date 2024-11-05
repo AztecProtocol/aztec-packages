@@ -38,6 +38,9 @@ describe('e2e_p2p_network', () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
+
+    t.ctx.aztecNodeConfig.validatorReEx = true;
+
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
