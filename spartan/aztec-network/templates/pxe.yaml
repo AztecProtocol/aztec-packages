@@ -1,4 +1,3 @@
-{{- if not .Values.pxe.external }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -118,5 +117,5 @@ spec:
       {{- if and (eq .Values.pxe.service.type "NodePort") .Values.pxe.service.nodePort }}
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
+---
 {{ end }}
-{{- end }}
