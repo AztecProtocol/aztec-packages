@@ -1162,6 +1162,7 @@ __metadata:
     "@opentelemetry/exporter-metrics-otlp-http": ^0.52.0
     "@opentelemetry/exporter-trace-otlp-http": ^0.54.0
     "@opentelemetry/host-metrics": ^0.35.2
+    "@opentelemetry/otlp-exporter-base": ^0.54.0
     "@opentelemetry/resource-detector-aws": ^1.5.2
     "@opentelemetry/resources": ^1.25.0
     "@opentelemetry/sdk-logs": ^0.54.0
@@ -3583,7 +3584,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/otlp-exporter-base@npm:0.54.0":
+"@opentelemetry/otlp-exporter-base@npm:0.54.0, @opentelemetry/otlp-exporter-base@npm:^0.54.0":
   version: 0.54.0
   resolution: "@opentelemetry/otlp-exporter-base@npm:0.54.0"
   dependencies:
