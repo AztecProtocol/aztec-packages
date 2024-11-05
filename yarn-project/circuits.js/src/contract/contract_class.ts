@@ -65,15 +65,16 @@ export function getContractClassPrivateFunctionFromArtifact(
   }
   return {
     selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-    vkHash: computeVerificationKeyHash(f.verificationKey!),
+    vkHash: computeVerificationKeyHash(f),
   };
 }
 
 /**
- * Calculates the hash of a verification key.
+ * For a given private function, computes the hash of its vk.
  */
-export function computeVerificationKeyHash(verificationKeyInBase64: string) {
-  const vkBuffer = Buffer.from(verificationKeyInBase64, 'base64');
-  const vkAsFields = vkAsFieldsMegaHonk(vkBuffer);
-  return hashVK(vkAsFields);
+export function computeVerificationKeyHash(f: FunctionArtifact) {
+  if (!f.verificationKey) {
+    throw new Error('Private function must have a verification key');
+  }
+  return hashVK(vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
 }
