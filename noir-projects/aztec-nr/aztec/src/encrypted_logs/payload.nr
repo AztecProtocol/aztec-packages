@@ -131,7 +131,6 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let tag_bytes = unsafe { get_app_tag_bytes(sender, recipient) };
     increment_app_tagging_secret(sender, recipient);
 
-
     for i in 0..32 {
         encrypted_bytes[offset + i] = tag_bytes[i];
     }

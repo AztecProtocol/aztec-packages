@@ -205,10 +205,7 @@ unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field
 
 /// Same as `get_app_tagging_secret`, except it returns the derived tag as an array of bytes, ready to be included in a
 /// log.
-pub unconstrained fn get_app_tag_bytes(
-    sender: AztecAddress,
-    recipient: AztecAddress
-) -> [u8; 32] {
+pub unconstrained fn get_app_tag_bytes(sender: AztecAddress, recipient: AztecAddress) -> [u8; 32] {
     let tag = get_app_tagging_secret(sender, recipient).compute_tag();
     tag.to_be_bytes()
 }
@@ -243,7 +240,10 @@ pub fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddres
     }
 }
 
-unconstrained fn increment_app_tagging_secret_wrapper(sender: AztecAddress, recipient: AztecAddress) {
+unconstrained fn increment_app_tagging_secret_wrapper(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) {
     increment_app_tagging_secret_oracle(sender, recipient);
 }
 
