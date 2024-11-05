@@ -12,7 +12,7 @@
 namespace bb {
 
 constexpr size_t COMMITMENT_TEST_NUM_BN254_POINTS = 4096;
-constexpr size_t COMMITMENT_TEST_NUM_GRUMPKIN_POINTS = CONST_ECCVM_LOG_N;
+constexpr size_t COMMITMENT_TEST_NUM_GRUMPKIN_POINTS = 1 << CONST_ECCVM_LOG_N;
 
 template <class CK> inline std::shared_ptr<CK> CreateCommitmentKey();
 
