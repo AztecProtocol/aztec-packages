@@ -1,5 +1,6 @@
 import {
   type FailedTx,
+  MerkleTreeId,
   type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
@@ -13,12 +14,18 @@ import {
 import {
   ContractClassRegisteredEvent,
   type ContractDataSource,
-  type Fr,
+  Fr,
   Gas,
   type GlobalVariables,
   type Header,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -179,6 +186,42 @@ export class PublicProcessor {
         if (processedTxHandler) {
           await processedTxHandler.addNewTx(processedTx);
         }
+        // Update the state so that the next tx in the loop has the correct .startState
+        // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
+        // a) had only 1 tx with public calls per block, so this loop had len 1
+        // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
+        // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
+        // The below is taken from buildBaseRollupHints:
+        await this.db.appendLeaves(
+          MerkleTreeId.NOTE_HASH_TREE,
+          padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+        );
+        try {
+          await this.db.batchInsert(
+            MerkleTreeId.NULLIFIER_TREE,
+            padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
+            NULLIFIER_SUBTREE_HEIGHT,
+          );
+        } catch (error) {
+          if (txValidator) {
+            // Ideally the validator has already caught this above, but just in case:
+            throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
+          } else {
+            // We have no validator and assume this call should blindly process txs with duplicates being caught later
+            this.log.warn(`Detected duplicate nullifier after public processing for: ${processedTx.hash}.`);
+          }
+        }
+
+        const allPublicDataWrites = padArrayEnd(
+          processedTx.txEffect.publicDataWrites,
+          PublicDataWrite.empty(),
+          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        );
+        await this.db.batchInsert(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          allPublicDataWrites.map(x => x.toBuffer()),
+          PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
         result.push(processedTx);
         returns = returns.concat(returnValues ?? []);
       } catch (err: any) {

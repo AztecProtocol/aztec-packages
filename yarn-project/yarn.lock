@@ -396,6 +396,7 @@ __metadata:
     tslib: ^2.5.0
     typescript: ^5.0.4
     viem: ^2.7.15
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 
@@ -681,7 +682,7 @@ __metadata:
     ts-node: ^10.9.1
     typescript: ^5.0.4
     viem: ^2.7.15
-    zod: ^3.22.4
+    zod: ^3.23.8
   languageName: unknown
   linkType: soft
 
@@ -1130,6 +1131,7 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.3
@@ -1160,6 +1162,7 @@ __metadata:
     "@opentelemetry/exporter-metrics-otlp-http": ^0.52.0
     "@opentelemetry/exporter-trace-otlp-http": ^0.54.0
     "@opentelemetry/host-metrics": ^0.35.2
+    "@opentelemetry/otlp-exporter-base": ^0.54.0
     "@opentelemetry/resource-detector-aws": ^1.5.2
     "@opentelemetry/resources": ^1.25.0
     "@opentelemetry/sdk-logs": ^0.54.0
@@ -3390,7 +3393,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.36.0
+    "@noir-lang/types": 0.37.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -3399,13 +3402,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.36.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=b897b0&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.37.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=7257df&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.52.0
-    "@noir-lang/noirc_abi": 0.36.0
-    "@noir-lang/types": 0.36.0
-  checksum: 80eab489930f98827554644d8031a4b884042e24a0786bea001cd8ad4aca7b15b95bc97efa00dcd2301f7efd10dcc35ce8cb9dce0c4e492127701dbafaca34db
+    "@noir-lang/acvm_js": 0.53.0
+    "@noir-lang/noirc_abi": 0.37.0
+    "@noir-lang/types": 0.37.0
+  checksum: 50419bebe0146ec664232712abb190148a9bb4e9bcfe538a13a0107192e31045ec22efddeeb8eac3eb5ac6cb50f52782adddaaeb87df328ebea3caf55579a3c8
   languageName: node
   linkType: hard
 
@@ -3413,7 +3416,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.36.0
+    "@noir-lang/types": 0.37.0
   languageName: node
   linkType: soft
 
@@ -3581,7 +3584,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/otlp-exporter-base@npm:0.54.0":
+"@opentelemetry/otlp-exporter-base@npm:0.54.0, @opentelemetry/otlp-exporter-base@npm:^0.54.0":
   version: 0.54.0
   resolution: "@opentelemetry/otlp-exporter-base@npm:0.54.0"
   dependencies:
@@ -16758,7 +16761,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.22.4, zod@npm:^3.23.8":
+"zod@npm:^3.23.8":
   version: 3.23.8
   resolution: "zod@npm:3.23.8"
   checksum: 15949ff82118f59c893dacd9d3c766d02b6fa2e71cf474d5aa888570c469dbf5446ac5ad562bb035bf7ac9650da94f290655c194f4a6de3e766f43febd432c5c

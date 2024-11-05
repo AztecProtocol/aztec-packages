@@ -1,6 +1,12 @@
 import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
 
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, type GasUsed, UnencryptedTxL2Logs } from '../index.js';
+import {
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
+  type GasUsed,
+  type PrivateKernelProverProfileResult,
+  UnencryptedTxL2Logs,
+} from '../index.js';
 import {
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
@@ -60,6 +66,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
     privateExecutionResult: PrivateExecutionResult,
     publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
+    public profileResult?: PrivateKernelProverProfileResult,
   ) {
     super(privateExecutionResult, publicInputs);
   }
@@ -80,11 +87,13 @@ export class TxSimulationResult extends PrivateSimulationResult {
   static fromPrivateSimulationResultAndPublicOutput(
     privateSimulationResult: PrivateSimulationResult,
     publicOutput?: PublicSimulationOutput,
+    profileResult?: PrivateKernelProverProfileResult,
   ) {
     return new TxSimulationResult(
       privateSimulationResult.privateExecutionResult,
       privateSimulationResult.publicInputs,
       publicOutput,
+      profileResult,
     );
   }
 
@@ -93,6 +102,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
       privateExecutionResult: this.privateExecutionResult.toJSON(),
       publicInputs: this.publicInputs.toBuffer().toString('hex'),
       publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
+      profileResult: this.profileResult,
     };
   }
 
@@ -100,7 +110,8 @@ export class TxSimulationResult extends PrivateSimulationResult {
     const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
     const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
-    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput);
+    const profileResult = obj.profileResult;
+    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput, profileResult);
   }
 }
 

@@ -71,7 +71,7 @@ contract StaticChild {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
         new_value
     }

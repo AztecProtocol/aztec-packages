@@ -120,6 +120,8 @@ spec:
               value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
+            - name: SEQ_MAX_TX_PER_BLOCK
+              value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               {{- if .Values.validator.externalTcpHost }}
               value: "{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.p2pTcpPort }}"
@@ -136,6 +138,8 @@ spec:
               value: "0.0.0.0:{{ .Values.validator.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.validator.service.p2pUdpPort }}"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT

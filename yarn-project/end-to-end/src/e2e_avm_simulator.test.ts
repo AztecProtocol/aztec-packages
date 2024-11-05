@@ -33,15 +33,32 @@ describe('e2e_avm_simulator', () => {
     });
 
     describe('Assertions', () => {
-      it('PXE processes failed assertions and fills in the error message with the expression', async () => {
-        await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
-          "Assertion failed: This assertion should fail! 'not_true == true'",
-        );
+      describe('Not nested', () => {
+        it('PXE processes user code assertions and recovers message', async () => {
+          await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
+            "Assertion failed: This assertion should fail! 'not_true == true'",
+          );
+        });
+        it('PXE processes user code assertions and recovers message (complex)', async () => {
+          await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
+            "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+          );
+        });
+        it('PXE processes intrinsic assertions and recovers message', async () => {
+          await expect(avmContract.methods.divide_by_zero().simulate()).rejects.toThrow('Division by zero');
+        });
       });
-      it('PXE processes failed assertions and fills in the error message with the expression (even complex ones)', async () => {
-        await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
-          "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
-        );
+      describe('Nested', () => {
+        it('PXE processes user code assertions and recovers message', async () => {
+          await expect(avmContract.methods.external_call_to_assertion_failure().simulate()).rejects.toThrow(
+            "Assertion failed: This assertion should fail! 'not_true == true'",
+          );
+        });
+        it('PXE processes intrinsic assertions and recovers message', async () => {
+          await expect(avmContract.methods.external_call_to_divide_by_zero().simulate()).rejects.toThrow(
+            'Division by zero',
+          );
+        });
       });
     });
 

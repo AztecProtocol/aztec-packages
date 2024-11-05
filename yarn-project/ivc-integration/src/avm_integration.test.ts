@@ -67,12 +67,13 @@ describe('AVM Integration', () => {
   async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
     const witnessFileName = path.join(bbWorkingDirectory, 'witnesses.gz');
     await fs.writeFile(witnessFileName, witness);
-
+    const recursive = false;
     const provingResult = await generateProof(
       bbBinaryPath,
       bbWorkingDirectory,
       'mock-public-kernel',
       Buffer.from(bytecode, 'base64'),
+      recursive,
       witnessFileName,
       'ultra_honk',
       logger.info,
@@ -222,7 +223,9 @@ const proveAvmTestContract = async (
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
     expect(avmResult.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!, avmResult.output)).toContain(
+      assertionErrString,
+    );
   }
 
   const pxResult = trace.toPublicExecutionResult(

@@ -2,7 +2,7 @@ import { type Fr } from '@aztec/circuits.js';
 
 import { GAS_DIMENSIONS, type Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
-import { OutOfGasError } from './errors.js';
+import { type AvmRevertReason, OutOfGasError } from './errors.js';
 
 /**
  * A few fields of machine state are initialized from AVM session inputs or call instruction arguments
@@ -13,22 +13,45 @@ export type InitialAvmMachineState = {
 };
 
 /**
+ * Used to track the call stack and revert data of nested calls.
+ * This is used to provide a more detailed revert reason when a contract call reverts.
+ * It is only a heuristic and may not always provide the correct revert reason.
+ */
+type TrackedRevertInfo = {
+  revertDataRepresentative: Fr[];
+  recursiveRevertReason: AvmRevertReason;
+};
+
+type CallStackEntry = {
+  callPc: number;
+  returnPc: number;
+};
+
+/**
  * Avm state modified on an instruction-per-instruction basis.
  */
 export class AvmMachineState {
   /** gas remaining of the gas allocated for a contract call */
   public l2GasLeft: number;
   public daGasLeft: number;
-  /** program counter */
+  /** program counter, byte based */
   public pc: number = 0;
+  /** program counter of the next instruction, byte based */
+  public nextPc: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
+  /**
+   * Used to track the call stack and revert data of nested calls.
+   * This is used to provide a more detailed revert reason when a contract call reverts.
+   * It is only a heuristic and may not always provide the correct revert reason.
+   */
+  public collectedRevertInfo: TrackedRevertInfo | undefined;
 
   /**
-   * On INTERNALCALL, internal call stack is pushed to with the current pc + 1
-   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the pc.
+   * On INTERNALCALL, internal call stack is pushed to with the current pc and the return pc.
+   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the return pc.
    */
-  public internalCallStack: number[] = [];
+  public internalCallStack: CallStackEntry[] = [];
 
   /** Memory accessible to user code */
   public readonly memory: TaggedMemory = new TaggedMemory();
@@ -89,13 +112,6 @@ export class AvmMachineState {
     for (const dimension of GAS_DIMENSIONS) {
       this[`${dimension}Left`] += gasRefund[dimension] ?? 0;
     }
-  }
-
-  /**
-   * Most instructions just increment PC before they complete
-   */
-  public incrementPc() {
-    this.pc++;
   }
 
   /**

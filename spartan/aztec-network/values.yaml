@@ -76,6 +76,7 @@ validator:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+    maxTxsPerBlock: 4
   validator:
     disabled: false
   p2p:
