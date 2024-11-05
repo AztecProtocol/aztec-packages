@@ -1063,7 +1063,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs:
       - merge-check
-    if: github.ref == 'refs/heads/master' && failure()
+    if: failure()
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
