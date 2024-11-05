@@ -1,4 +1,4 @@
-import { Fr, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
+import { MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';

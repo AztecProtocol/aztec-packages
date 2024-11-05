@@ -5,7 +5,6 @@ import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { gasLeftToGas } from '../avm_gas.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
-import { AvmRevertReason } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';

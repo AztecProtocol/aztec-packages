@@ -11,7 +11,6 @@ import { type Fieldable } from '@aztec/foundation/serialize';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
-import { resolveAssertionMessageFromRevertData } from '../common/errors.js';
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
 import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
