@@ -26,7 +26,7 @@ describe('Client IVC Integration', () => {
     bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-client-ivc-integration-'));
     bbBinaryPath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
-      '../../../barretenberg/cpp/build-assert/bin',
+      '../../../barretenberg/cpp/build/bin',
       'bb',
     );
   });
