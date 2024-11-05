@@ -1,4 +1,5 @@
 import createDebug from 'debug';
+
 import { generate3FunctionTestingIVCStack, proveAndVerifyBrowser } from './index.js';
 
 createDebug.enable('*');
@@ -8,7 +9,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const button = document.createElement('button');
   button.innerText = 'Run Test';
   button.addEventListener('click', async () => {
-    logger(`generating circuit and witness...`);[]
+    logger(`generating circuit and witness...`);
+    [];
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
     logger(`done. proving and verifying...`);
     const verified = await proveAndVerifyBrowser(bytecodes, witnessStack);

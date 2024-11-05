@@ -11,8 +11,8 @@ import {
 import {
   generate3FunctionTestingIVCStack,
   generate6FunctionTestingIVCStack,
-  proveAndVerifyBrowser,
   proveAndVerifyAztecClient,
+  proveAndVerifyBrowser,
 } from './index.js';
 
 /* eslint-disable camelcase */

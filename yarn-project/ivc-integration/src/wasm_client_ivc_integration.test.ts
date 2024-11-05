@@ -29,9 +29,9 @@ describe('Client IVC Integration', () => {
   beforeEach(async () => {});
 
   function base64ToUint8Array(base64: string) {
-    let binaryString = atob(base64);
-    let len = binaryString.length;
-    let bytes = new Uint8Array(len);
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
@@ -50,7 +50,7 @@ describe('Client IVC Integration', () => {
     );
 
     const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    console.log(`finished running proveAndVerify ${verified}`);
+    logger.debug(`finished running proveAndVerify ${verified}`);
     await backend.destroy();
     return verified;
   }
@@ -155,5 +155,4 @@ describe('Client IVC Integration', () => {
 
     expect(verifyResult).toEqual(true);
   });
-
 });

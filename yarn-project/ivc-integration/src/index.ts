@@ -215,7 +215,6 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
 
-
 export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
