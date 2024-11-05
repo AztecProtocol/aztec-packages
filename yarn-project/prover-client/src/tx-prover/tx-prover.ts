@@ -2,13 +2,13 @@ import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import {
   type EpochProver,
   type EpochProverManager,
+  type MerkleTreeWriteOperations,
   type ProvingJobSource,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
 import { Fr } from '@aztec/circuits.js';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
@@ -33,7 +33,7 @@ export class TxProver implements EpochProverManager {
     this.queue = new MemoryProvingQueue(telemetry, config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
   }
 
-  public createEpochProver(db: MerkleTreeOperations): EpochProver {
+  public createEpochProver(db: MerkleTreeWriteOperations): EpochProver {
     return new ProvingOrchestrator(db, this.queue, this.telemetry, this.config.proverId);
   }
 

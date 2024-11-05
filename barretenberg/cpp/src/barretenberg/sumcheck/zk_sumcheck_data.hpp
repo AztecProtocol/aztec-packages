@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/polynomials/univariate.hpp"
 #include <array>
 #include <optional>
 #include <vector>

@@ -1,6 +1,5 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress, type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/circuits.js';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

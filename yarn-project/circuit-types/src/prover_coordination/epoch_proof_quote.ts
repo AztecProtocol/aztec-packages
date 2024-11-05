@@ -1,8 +1,11 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type Secp256k1Signer } from '@aztec/foundation/crypto';
+import { type Secp256k1Signer, keccak256 } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
@@ -20,7 +23,8 @@ export class EpochProofQuote extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return new Buffer32(this.signature.toBuffer());
+    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
+    return new Buffer32(keccak256(this.signature.toBuffer()));
   }
 
   override toBuffer(): Buffer {
@@ -30,6 +34,26 @@ export class EpochProofQuote extends Gossipable {
   static fromBuffer(buf: Buffer | BufferReader): EpochProofQuote {
     const reader = BufferReader.asReader(buf);
     return new EpochProofQuote(reader.readObject(EpochProofQuotePayload), reader.readObject(Signature));
+  }
+
+  toJSON() {
+    return {
+      payload: this.payload.toJSON(),
+      signature: this.signature.to0xString(),
+    };
+  }
+
+  static get schema() {
+    return z
+      .object({
+        payload: EpochProofQuotePayload.schema,
+        signature: schemas.Signature,
+      })
+      .transform(({ payload, signature }) => new EpochProofQuote(payload, signature));
+  }
+
+  static fromJSON(obj: any) {
+    return EpochProofQuote.schema.parse(obj);
   }
 
   // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
@@ -56,5 +80,13 @@ export class EpochProofQuote extends Gossipable {
       quote: this.payload.toViemArgs(),
       signature: this.signature.toViemSignature(),
     };
+  }
+
+  /**
+   * Get the size of the epoch proof quote in bytes.
+   * @returns The size of the epoch proof quote in bytes.
+   */
+  getSize(): number {
+    return this.payload.getSize() + this.signature.getSize();
   }
 }

@@ -3,8 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 /**
  * @title Txs Decoder Library
@@ -83,7 +83,7 @@ library TxsDecoder {
    * @param _body - The L2 block body calldata.
    * @return The txs effects hash.
    */
-  function decode(bytes calldata _body) internal pure returns (bytes32) {
+  function decode(bytes calldata _body) external pure returns (bytes32) {
     ArrayOffsets memory offsets;
     Counts memory counts;
     ConsumablesVars memory vars;

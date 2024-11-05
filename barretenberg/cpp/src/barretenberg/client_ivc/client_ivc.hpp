@@ -2,7 +2,7 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
@@ -83,7 +83,7 @@ class ClientIVC {
     using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
-    MaxBlockSizeTracker max_block_size_tracker;
+    ExecutionTraceUsageTracker trace_usage_tracker;
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
@@ -112,7 +112,6 @@ class ClientIVC {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
     // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
     bool auto_verify_mode = false;
-    bool is_kernel = true;
 
     bool initialized = false; // Is the IVC accumulator initialized
 

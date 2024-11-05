@@ -25,6 +25,7 @@ async function main() {
   const config = getArchiverConfigFromEnv();
   const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
+  log.info(`Starting archiver in main(): ${JSON.stringify(config)}`);
   const publicClient = createPublicClient({
     chain: localhost,
     transport: http(rpcUrl),

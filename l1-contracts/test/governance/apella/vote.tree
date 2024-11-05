@@ -1,0 +1,22 @@
+VoteTest
+├── given state is not active
+│   ├── given state is pending
+│   │   └── it revert
+│   ├── given state is queued
+│   │   └── it revert
+│   ├── given state is executable
+│   │   └── it revert
+│   ├── given state is rejected
+│   │   └── it revert
+│   ├── given state is dropped
+│   │   └── it revert
+│   └── given state is expired
+│       └── it revert
+└── given state is active
+    ├── given amount larger than available power
+    │   └── it revert
+    └── given amount smaller or eq available power
+        ├── it increase yea or nea on user ballot by amount
+        ├── it increase yea or nea on total by amount
+        ├── it emits {VoteCast} event
+        └── it returns true

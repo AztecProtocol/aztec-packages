@@ -12,7 +12,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
-    memory.checkTags(this.inTag, aOffset, bOffset);
+    memory.checkTagsAreSame(aOffset, bOffset);
 
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
@@ -21,7 +21,6 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
     memory.set(dstOffset, dest);
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 
   protected abstract compare(a: MemoryValue, b: MemoryValue): boolean;

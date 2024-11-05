@@ -1,10 +1,12 @@
 import { generatePublicKey } from '@aztec/aztec.js';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
+import { registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { type AccountWalletWithSecretKey, SignerlessWallet } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
 import { deriveMasterIncomingViewingSecretKey, deriveSigningKey } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
 
-import { getSchnorrAccount } from '../schnorr/index.js';
+import { SchnorrAccountContractArtifact, getSchnorrAccount } from '../schnorr/index.js';
 
 export const INITIAL_TEST_SECRET_KEYS = [
   Fr.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
@@ -69,28 +71,28 @@ export async function deployInitialTestAccounts(pxe: PXE) {
       secretKey,
     };
   });
+  // Register contract class to avoid duplicate nullifier errors
+  const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
+  const deployWallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+  await (await registerContractClass(deployWallet, SchnorrAccountContractArtifact)).send().wait();
   // Attempt to get as much parallelism as possible
-  const deployMethods = await Promise.all(
+  const deployTxs = await Promise.all(
     accounts.map(async x => {
       const deployMethod = await x.account.getDeployMethod();
-      await deployMethod.create({
+      const tx = await deployMethod.prove({
         contractAddressSalt: x.account.salt,
-        skipClassRegistration: true,
-        skipPublicDeployment: true,
         universalDeploy: true,
       });
-      await deployMethod.prove({});
-      return deployMethod;
+      return tx;
     }),
   );
   // Send tx together to try and get them in the same rollup
-  const sentTxs = deployMethods.map(dm => {
-    return dm.send();
+  const sentTxs = deployTxs.map(tx => {
+    return tx.send();
   });
   await Promise.all(
-    sentTxs.map(async (tx, i) => {
-      const wallet = await accounts[i].account.getWallet();
-      return tx.wait({ wallet });
+    sentTxs.map(tx => {
+      return tx.wait();
     }),
   );
   return accounts;

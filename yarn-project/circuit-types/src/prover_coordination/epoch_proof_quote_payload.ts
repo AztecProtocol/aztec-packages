@@ -1,17 +1,34 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
+
+// Required so typescript can properly annotate the exported schema
+export { type EthAddress };
 
 export class EpochProofQuotePayload {
+  // Cached values
+  private asBuffer: Buffer | undefined;
+  private size: number | undefined;
+
   constructor(
     public readonly epochToProve: bigint,
     public readonly validUntilSlot: bigint,
     public readonly bondAmount: bigint,
     public readonly prover: EthAddress,
     public readonly basisPointFee: number,
-  ) {}
+  ) {
+    if (basisPointFee < 0 || basisPointFee > 10000) {
+      throw new Error(`Invalid basisPointFee ${basisPointFee}`);
+    }
+  }
+
+  static empty() {
+    return new EpochProofQuotePayload(0n, 0n, 0n, EthAddress.ZERO, 0);
+  }
 
   static getFields(fields: FieldsOf<EpochProofQuotePayload>) {
     return [
@@ -24,7 +41,13 @@ export class EpochProofQuotePayload {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    // We cache the buffer to avoid recalculating it
+    if (this.asBuffer) {
+      return this.asBuffer;
+    }
+    this.asBuffer = serializeToBuffer(...EpochProofQuotePayload.getFields(this));
+    this.size = this.asBuffer.length;
+    return this.asBuffer;
   }
 
   static fromBuffer(buf: Buffer | BufferReader): EpochProofQuotePayload {
@@ -48,6 +71,32 @@ export class EpochProofQuotePayload {
     );
   }
 
+  toJSON() {
+    return {
+      epochToProve: this.epochToProve.toString(),
+      validUntilSlot: this.validUntilSlot.toString(),
+      bondAmount: this.bondAmount.toString(),
+      prover: this.prover.toString(),
+      basisPointFee: this.basisPointFee,
+    };
+  }
+
+  static get schema() {
+    return z
+      .object({
+        epochToProve: z.coerce.bigint(),
+        validUntilSlot: z.coerce.bigint(),
+        bondAmount: z.coerce.bigint(),
+        prover: schemas.EthAddress,
+        basisPointFee: z.number(),
+      })
+      .transform(EpochProofQuotePayload.from);
+  }
+
+  static fromJSON(obj: any): EpochProofQuotePayload {
+    return EpochProofQuotePayload.schema.parse(obj);
+  }
+
   toViemArgs(): {
     epochToProve: bigint;
     validUntilSlot: bigint;
@@ -62,6 +111,16 @@ export class EpochProofQuotePayload {
       prover: this.prover.toString(),
       basisPointFee: this.basisPointFee,
     };
+  }
+
+  getSize(): number {
+    // We cache size to avoid recalculating it
+    if (this.size) {
+      return this.size;
+    }
+    // Size is cached when calling toBuffer
+    this.toBuffer();
+    return this.size!;
   }
 
   [inspect.custom](): string {

@@ -1,5 +1,5 @@
-use protocol_types::meta::flatten_to_fields;
 use super::utils::compute_event_selector;
+use protocol_types::meta::flatten_to_fields;
 
 comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
     let name = s.name();

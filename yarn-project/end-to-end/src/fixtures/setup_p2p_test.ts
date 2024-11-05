@@ -4,7 +4,6 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -114,39 +113,10 @@ export async function createValidatorConfig(
     maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
     blockCheckIntervalMS: 1000,
-    l2QueueSize: 1,
     transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
   };
 
   return nodeConfig;
-}
-
-export function createBootstrapNodeConfig(privateKey: string, port: number): BootnodeConfig {
-  return {
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    peerIdPrivateKey: privateKey,
-    minPeerCount: 10,
-    maxPeerCount: 100,
-  };
-}
-
-export function createBootstrapNodeFromPrivateKey(privateKey: string, port: number): Promise<BootstrapNode> {
-  const config = createBootstrapNodeConfig(privateKey, port);
-  return startBootstrapNode(config);
-}
-
-export async function createBootstrapNode(port: number): Promise<BootstrapNode> {
-  const peerId = await createLibP2PPeerId();
-  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
-
-  return startBootstrapNode(config);
-}
-
-async function startBootstrapNode(config: BootnodeConfig) {
-  const bootstrapNode = new BootstrapNode();
-  await bootstrapNode.start(config);
-  return bootstrapNode;
 }

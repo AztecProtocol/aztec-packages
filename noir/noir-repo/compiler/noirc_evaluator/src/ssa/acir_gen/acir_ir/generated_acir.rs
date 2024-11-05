@@ -5,13 +5,13 @@ use std::{collections::BTreeMap, u32};
 use crate::{
     brillig::{brillig_gen::brillig_directive, brillig_ir::artifact::GeneratedBrillig},
     errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::dfg::CallStack,
+    ssa::ir::{dfg::CallStack, instruction::ErrorType},
 };
 use acvm::acir::{
     circuit::{
         brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
-        AssertionPayload, BrilligOpcodeLocation, OpcodeLocation,
+        AssertionPayload, BrilligOpcodeLocation, ErrorSelector, OpcodeLocation,
     },
     native_types::Witness,
     BlackBoxFunc,
@@ -20,7 +20,9 @@ use acvm::{
     acir::AcirField,
     acir::{circuit::directives::Directive, native_types::Expression},
 };
+
 use iter_extended::vecmap;
+use noirc_errors::debug_info::ProcedureDebugId;
 use num_bigint::BigUint;
 
 /// Brillig calls such as for the Brillig std lib are resolved only after code generation is finished.
@@ -62,6 +64,9 @@ pub(crate) struct GeneratedAcir<F: AcirField> {
     /// Correspondence between an opcode index and the error message associated with it.
     pub(crate) assertion_payloads: BTreeMap<OpcodeLocation, AssertionPayload<F>>,
 
+    /// Correspondence between error selectors and types associated with them.
+    pub(crate) error_types: BTreeMap<ErrorSelector, ErrorType>,
+
     pub(crate) warnings: Vec<SsaReport>,
 
     /// Name for the corresponding entry point represented by this Acir-gen output.
@@ -72,12 +77,19 @@ pub(crate) struct GeneratedAcir<F: AcirField> {
     /// As to avoid passing the ACIR gen shared context into each individual ACIR
     /// we can instead keep this map and resolve the Brillig calls at the end of code generation.
     pub(crate) brillig_stdlib_func_locations: BTreeMap<OpcodeLocation, BrilligStdlibFunc>,
+
+    /// Brillig function id -> Brillig procedure locations map
+    /// This maps allows a profiler to determine which Brillig opcodes
+    /// originated from a reusable procedure.
+    pub(crate) brillig_procedure_locs: BTreeMap<BrilligFunctionId, BrilligProcedureRangeMap>,
 }
 
 /// Correspondence between an opcode index (in opcodes) and the source code call stack which generated it
 pub(crate) type OpcodeToLocationsMap = BTreeMap<OpcodeLocation, CallStack>;
 
 pub(crate) type BrilligOpcodeToLocationsMap = BTreeMap<BrilligOpcodeLocation, CallStack>;
+
+pub(crate) type BrilligProcedureRangeMap = BTreeMap<ProcedureDebugId, (usize, usize)>;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub(crate) enum BrilligStdlibFunc {
@@ -225,16 +237,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                     output: outputs[0],
                 }
             }
-            BlackBoxFunc::PedersenCommitment => BlackBoxFuncCall::PedersenCommitment {
-                inputs: inputs[0].clone(),
-                outputs: (outputs[0], outputs[1]),
-                domain_separator: constant_inputs[0].to_u128() as u32,
-            },
-            BlackBoxFunc::PedersenHash => BlackBoxFuncCall::PedersenHash {
-                inputs: inputs[0].clone(),
-                output: outputs[0],
-                domain_separator: constant_inputs[0].to_u128() as u32,
-            },
             BlackBoxFunc::EcdsaSecp256k1 => {
                 BlackBoxFuncCall::EcdsaSecp256k1 {
                     // 32 bytes for each public key co-ordinate
@@ -294,9 +296,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                 input2: Box::new([inputs[3][0], inputs[4][0], inputs[5][0]]),
                 outputs: (outputs[0], outputs[1], outputs[2]),
             },
-            BlackBoxFunc::Keccak256 => {
-                unreachable!("unexpected BlackBox {}", func_name.to_string())
-            }
             BlackBoxFunc::Keccakf1600 => BlackBoxFuncCall::Keccakf1600 {
                 inputs: inputs[0]
                     .clone()
@@ -475,7 +474,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// This equation however falls short when `t != 0` because then `t`
     /// may not be `1`. If `t` is non-zero, then `y` is also non-zero due to
-    /// `y == 1 - t` and the equation `y * t == 0` fails.  
+    /// `y == 1 - t` and the equation `y * t == 0` fails.
     ///
     /// To fix, we introduce another free variable called `z` and apply the following
     /// constraint instead: `y == 1 - t * z`.
@@ -485,7 +484,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// We now arrive at the conclusion that when `t == 0`, `y` is `1` and when
     /// `t != 0`, then `y` is `0`.
-    ///  
+    ///
     /// Bringing it all together, We introduce two variables `y` and `z`,
     /// With the following equations:
     /// - `y == 1 - tz` (`z` is a value that is chosen to be the inverse of `t` by the prover)
@@ -589,19 +588,20 @@ impl<F: AcirField> GeneratedAcir<F> {
             return;
         }
 
-        // TODO(https://github.com/noir-lang/noir/issues/5792)
-        for (brillig_index, message) in generated_brillig.assert_messages.iter() {
-            self.assertion_payloads.insert(
-                OpcodeLocation::Brillig {
-                    acir_index: self.opcodes.len() - 1,
-                    brillig_index: *brillig_index,
-                },
-                AssertionPayload::StaticString(message.clone()),
-            );
+        for (error_selector, error_type) in generated_brillig.error_types.iter() {
+            self.record_error_type(*error_selector, error_type.clone());
         }
 
         if inserted_func_before {
             return;
+        }
+
+        for (procedure_id, (start_index, end_index)) in generated_brillig.procedure_locations.iter()
+        {
+            self.brillig_procedure_locs
+                .entry(brillig_function_index)
+                .or_default()
+                .insert(procedure_id.to_debug_id(), (*start_index, *end_index));
         }
 
         for (brillig_index, call_stack) in generated_brillig.locations.iter() {
@@ -632,6 +632,20 @@ impl<F: AcirField> GeneratedAcir<F> {
     pub(crate) fn last_acir_opcode_location(&self) -> OpcodeLocation {
         OpcodeLocation::Acir(self.opcodes.len() - 1)
     }
+
+    pub(crate) fn record_error_type(&mut self, selector: ErrorSelector, typ: ErrorType) {
+        self.error_types.insert(selector, typ);
+    }
+
+    pub(crate) fn generate_assertion_message_payload(
+        &mut self,
+        message: String,
+    ) -> AssertionPayload<F> {
+        let error_type = ErrorType::String(message);
+        let error_selector = error_type.selector();
+        self.record_error_type(error_selector, error_type);
+        AssertionPayload { error_selector: error_selector.as_u64(), payload: Vec::new() }
+    }
 }
 
 /// This function will return the number of inputs that a blackbox function
@@ -643,12 +657,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
 
         // All of the hash/cipher methods will take in a
         // variable number of inputs.
-        BlackBoxFunc::AES128Encrypt
-        | BlackBoxFunc::Keccak256
-        | BlackBoxFunc::Blake2s
-        | BlackBoxFunc::Blake3
-        | BlackBoxFunc::PedersenCommitment
-        | BlackBoxFunc::PedersenHash => None,
+        BlackBoxFunc::AES128Encrypt | BlackBoxFunc::Blake2s | BlackBoxFunc::Blake3 => None,
 
         BlackBoxFunc::Keccakf1600 => Some(25),
         // The permutation takes a fixed number of inputs, but the inputs length depends on the proving system implementation.
@@ -696,19 +705,13 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::AND | BlackBoxFunc::XOR => Some(1),
 
         // 32 byte hash algorithms
-        BlackBoxFunc::Keccak256 | BlackBoxFunc::Blake2s | BlackBoxFunc::Blake3 => Some(32),
+        BlackBoxFunc::Blake2s | BlackBoxFunc::Blake3 => Some(32),
 
         BlackBoxFunc::Keccakf1600 => Some(25),
         // The permutation returns a fixed number of outputs, equals to the inputs length which depends on the proving system implementation.
         BlackBoxFunc::Poseidon2Permutation => None,
 
         BlackBoxFunc::Sha256Compression => Some(8),
-
-        // Pedersen commitment returns a point
-        BlackBoxFunc::PedersenCommitment => Some(2),
-
-        // Pedersen hash returns a field
-        BlackBoxFunc::PedersenHash => Some(1),
 
         // Can only apply a range constraint to one
         // witness at a time.

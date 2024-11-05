@@ -47,6 +47,7 @@ library Errors {
 
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
+  error Rollup__InsufficientFundsInEscrow(uint256 required, uint256 available); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
@@ -71,6 +72,9 @@ library Errors {
   error Rollup__TimestampTooOld(); // 0x72ed9c81
   error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
+  error Rollup__NonZeroDaFee(); // 0xd9c75f52
+  error Rollup__NonZeroL2Fee(); // 0x7e728abc
+  error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
 
   //TxsDecoder
   error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981

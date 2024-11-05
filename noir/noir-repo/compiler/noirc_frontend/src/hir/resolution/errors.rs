@@ -1,9 +1,13 @@
+use acvm::FieldElement;
 pub use noirc_errors::Span;
-use noirc_errors::{CustomDiagnostic as Diagnostic, FileDiagnostic};
+use noirc_errors::{CustomDiagnostic as Diagnostic, FileDiagnostic, Location};
 use thiserror::Error;
 
 use crate::{
-    ast::Ident, hir::comptime::InterpreterError, parser::ParserError, usage_tracker::UnusedItem,
+    ast::{Ident, UnsupportedNumericGenericType},
+    hir::comptime::InterpreterError,
+    parser::ParserError,
+    usage_tracker::UnusedItem,
     Type,
 };
 
@@ -25,6 +29,8 @@ pub enum ResolverError {
     UnusedVariable { ident: Ident },
     #[error("Unused {}", item.item_type())]
     UnusedItem { ident: Ident, item: UnusedItem },
+    #[error("Unconditional recursion")]
+    UnconditionalRecursion { name: String, span: Span },
     #[error("Could not find variable in this scope")]
     VariableNotDeclared { name: String, span: Span },
     #[error("path is not an identifier")]
@@ -32,7 +38,7 @@ pub enum ResolverError {
     #[error("could not resolve path")]
     PathResolutionError(#[from] PathResolutionError),
     #[error("Expected")]
-    Expected { span: Span, expected: String, got: String },
+    Expected { span: Span, expected: &'static str, got: &'static str },
     #[error("Duplicate field in constructor")]
     DuplicateField { field: Ident },
     #[error("No such field in struct")]
@@ -77,8 +83,6 @@ pub enum ResolverError {
     InvalidClosureEnvironment { typ: Type, span: Span },
     #[error("Nested slices, i.e. slices within an array or slice, are not supported")]
     NestedSlices { span: Span },
-    #[error("#[recursive] attribute is only allowed on entry points to a program")]
-    MisplacedRecursiveAttribute { ident: Ident },
     #[error("#[abi(tag)] attribute is only allowed in contracts")]
     AbiAttributeOutsideContract { span: Span },
     #[error("Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library")]
@@ -103,8 +107,6 @@ pub enum ResolverError {
     NoPredicatesAttributeOnUnconstrained { ident: Ident },
     #[error("#[fold] attribute is only allowed on constrained functions")]
     FoldAttributeOnUnconstrained { ident: Ident },
-    #[error("The only supported types of numeric generics are integers, fields, and booleans")]
-    UnsupportedNumericGenericType { ident: Ident, typ: Type },
     #[error("expected type, found numeric generic parameter")]
     NumericGenericUsedForType { name: String, span: Span },
     #[error("Invalid array length construction")]
@@ -124,7 +126,12 @@ pub enum ResolverError {
     #[error("Associated constants may only be a field or integer type")]
     AssociatedConstantsMustBeNumeric { span: Span },
     #[error("Overflow in `{lhs} {op} {rhs}`")]
-    OverflowInType { lhs: u32, op: crate::BinaryTypeOperator, rhs: u32, span: Span },
+    OverflowInType {
+        lhs: FieldElement,
+        op: crate::BinaryTypeOperator,
+        rhs: FieldElement,
+        span: Span,
+    },
     #[error("`quote` cannot be used in runtime code")]
     QuoteInRuntimeCode { span: Span },
     #[error("Comptime-only type `{typ}` cannot be used in runtime code")]
@@ -133,8 +140,24 @@ pub enum ResolverError {
     MutatingComptimeInNonComptimeContext { name: String, span: Span },
     #[error("Failed to parse `{statement}` as an expression")]
     InvalidInternedStatementInExpr { statement: String, span: Span },
+    #[error("{0}")]
+    UnsupportedNumericGenericType(#[from] UnsupportedNumericGenericType),
     #[error("Type `{typ}` is more private than item `{item}`")]
     TypeIsMorePrivateThenItem { typ: String, item: String, span: Span },
+    #[error("Unable to parse attribute `{attribute}`")]
+    UnableToParseAttribute { attribute: String, span: Span },
+    #[error("Attribute function `{function}` is not a path")]
+    AttributeFunctionIsNotAPath { function: String, span: Span },
+    #[error("Attribute function `{name}` is not in scope")]
+    AttributeFunctionNotInScope { name: String, span: Span },
+    #[error("The trait `{missing_trait}` is not implemented for `{type_missing_trait}")]
+    TraitNotImplemented {
+        impl_trait: String,
+        missing_trait: String,
+        type_missing_trait: String,
+        span: Span,
+        missing_trait_location: Location,
+    },
 }
 
 impl ResolverError {
@@ -189,6 +212,13 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     };
                 diagnostic.unnecessary = true;
                 diagnostic
+            }
+            ResolverError::UnconditionalRecursion { name, span} => {
+                Diagnostic::simple_warning(
+                    format!("function `{name}` cannot return without recursing"),
+                    "function cannot return without recursing".to_string(),
+                    *span,
+                )
             }
             ResolverError::VariableNotDeclared { name, span } => Diagnostic::simple_error(
                 format!("cannot find `{name}` in this scope "),
@@ -348,18 +378,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 "Try to use a constant sized array or BoundedVec instead".into(),
                 *span,
             ),
-            ResolverError::MisplacedRecursiveAttribute { ident } => {
-                let name = &ident.0.contents;
-
-                let mut diag = Diagnostic::simple_error(
-                    format!("misplaced #[recursive] attribute on function {name} rather than the main function"),
-                    "misplaced #[recursive] attribute".to_string(),
-                    ident.0.span(),
-                );
-
-                diag.add_note("The `#[recursive]` attribute specifies to the backend whether it should use a prover which generates proofs that are friendly for recursive verification in another circuit".to_owned());
-                diag
-            }
             ResolverError::AbiAttributeOutsideContract { span } => {
                 Diagnostic::simple_error(
                     "#[abi(tag)] attributes can only be used in contracts".to_string(),
@@ -442,15 +460,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
 
                 diag.add_note("The `#[fold]` attribute specifies whether a constrained function should be treated as a separate circuit rather than inlined into the program entry point".to_owned());
                 diag
-            }
-            ResolverError::UnsupportedNumericGenericType { ident , typ } => {
-                let name = &ident.0.contents;
-
-                Diagnostic::simple_error(
-                    format!("{name} has a type of {typ}. The only supported types of numeric generics are integers, fields, and booleans."),
-                    "Unsupported numeric generic type".to_string(),
-                    ident.0.span(),
-                )
             }
             ResolverError::NumericGenericUsedForType { name, span } => {
                 Diagnostic::simple_error(
@@ -544,12 +553,42 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             },
+            ResolverError::UnsupportedNumericGenericType(err) => err.into(),
             ResolverError::TypeIsMorePrivateThenItem { typ, item, span } => {
                 Diagnostic::simple_warning(
                     format!("Type `{typ}` is more private than item `{item}`"),
                     String::new(),
                     *span,
                 )
+            },
+            ResolverError::UnableToParseAttribute { attribute, span } => {
+                Diagnostic::simple_error(
+                    format!("Unable to parse attribute `{attribute}`"),
+                    "Attribute should be a function or function call".into(),
+                    *span,
+                )
+            },
+            ResolverError::AttributeFunctionIsNotAPath { function, span } => {
+                Diagnostic::simple_error(
+                    format!("Attribute function `{function}` is not a path"),
+                    "An attribute's function should be a single identifier or a path".into(),
+                    *span,
+                )
+            },
+            ResolverError::AttributeFunctionNotInScope { name, span } => {
+                Diagnostic::simple_error(
+                    format!("Attribute function `{name}` is not in scope"),
+                    String::new(),
+                    *span,
+                )
+            },
+            ResolverError::TraitNotImplemented { impl_trait, missing_trait: the_trait, type_missing_trait: typ, span, missing_trait_location} => {
+                let mut diagnostic = Diagnostic::simple_error(
+                    format!("The trait bound `{typ}: {the_trait}` is not satisfied"), 
+                    format!("The trait `{the_trait}` is not implemented for `{typ}")
+                    , *span);
+                diagnostic.add_secondary_with_file(format!("required by this bound in `{impl_trait}"), missing_trait_location.span, missing_trait_location.file);
+                diagnostic
             },
         }
     }

@@ -2,7 +2,7 @@ export interface BBConfig {
   bbBinaryPath: string;
   bbWorkingDirectory: string;
   /** Whether to skip tmp dir cleanup for debugging purposes */
-  bbSkipCleanup?: boolean;
+  bbSkipCleanup: boolean;
 }
 
 export interface ACVMConfig {

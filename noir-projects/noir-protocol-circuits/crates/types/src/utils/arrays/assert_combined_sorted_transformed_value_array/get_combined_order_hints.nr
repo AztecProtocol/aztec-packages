@@ -1,6 +1,10 @@
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
-    utils::arrays::{array_length, sort_by_counter::compare_by_counter_empty_padded_asc, get_sorted_tuple::get_sorted_tuple}
+    abis::side_effect::Ordered,
+    traits::{Empty, is_empty},
+    utils::arrays::{
+        array_length, get_sorted_tuple::get_sorted_tuple,
+        sort_by_counter::compare_by_counter_empty_padded_asc,
+    },
 };
 
 pub struct CombinedOrderHint {
@@ -20,7 +24,10 @@ impl Eq for CombinedOrderHint {
     }
 }
 
-unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+pub unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Ordered + Empty + Eq,
+{
     let mut length = 0;
     for item in array {
         if !is_empty(item) & (item.counter() == 0) {
@@ -30,10 +37,13 @@ unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 wh
     length
 }
 
-unconstrained pub fn get_combined_order_hints_asc<T, let N: u32>(
+pub unconstrained fn get_combined_order_hints_asc<T, let N: u32>(
     array_lt: [T; N],
-    array_gte: [T; N]
-) -> [CombinedOrderHint; N] where T: Ordered + Eq + Empty {
+    array_gte: [T; N],
+) -> [CombinedOrderHint; N]
+where
+    T: Ordered + Eq + Empty,
+{
     let mut hints = [CombinedOrderHint::empty(); N];
     let sorted_lt = get_sorted_tuple(array_lt, compare_by_counter_empty_padded_asc);
     let sorted_gte = get_sorted_tuple(array_gte, compare_by_counter_empty_padded_asc);
@@ -61,17 +71,17 @@ unconstrained pub fn get_combined_order_hints_asc<T, let N: u32>(
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
-        utils::arrays::assert_combined_sorted_transformed_value_array::get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
+        utils::arrays::assert_combined_sorted_transformed_value_array::get_combined_order_hints::{
+            CombinedOrderHint, get_combined_order_hints_asc,
+        },
     };
 
     fn asc_to_equal<let N: u32>(
         array_lt: [TestValue; N],
         array_gte: [TestValue; N],
-        expected: [CombinedOrderHint; N]
+        expected: [CombinedOrderHint; N],
     ) {
-        let hints = unsafe {
-            get_combined_order_hints_asc(array_lt, array_gte)
-        };
+        let hints = unsafe { get_combined_order_hints_asc(array_lt, array_gte) };
         assert_eq(hints, expected);
     }
 
@@ -79,19 +89,19 @@ mod tests {
     fn get_combined_order_hints_asc_full_non_empty() {
         let array_lt = pad_end(
             [
-            TestValue { value: 600, counter: 9 },
-            TestValue { value: 400, counter: 3 },
-            TestValue { value: 500, counter: 6 }
-        ],
-            TestValue::empty()
+                TestValue { value: 600, counter: 9 },
+                TestValue { value: 400, counter: 3 },
+                TestValue { value: 500, counter: 6 },
+            ],
+            TestValue::empty(),
         );
         let array_gte = pad_end(
             [
-            TestValue { value: 200, counter: 13 },
-            TestValue { value: 100, counter: 19 },
-            TestValue { value: 300, counter: 16 }
-        ],
-            TestValue::empty()
+                TestValue { value: 200, counter: 13 },
+                TestValue { value: 100, counter: 19 },
+                TestValue { value: 300, counter: 16 },
+            ],
+            TestValue::empty(),
         );
         let expected_hints = [
             CombinedOrderHint { counter: 3, original_index: 1 },
@@ -99,7 +109,7 @@ mod tests {
             CombinedOrderHint { counter: 9, original_index: 0 },
             CombinedOrderHint { counter: 13, original_index: 0 },
             CombinedOrderHint { counter: 16, original_index: 2 },
-            CombinedOrderHint { counter: 19, original_index: 1 }
+            CombinedOrderHint { counter: 19, original_index: 1 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -107,11 +117,8 @@ mod tests {
     #[test]
     fn get_combined_order_hints_asc_padded_empty() {
         let array_lt = pad_end(
-            [
-            TestValue { value: 500, counter: 6 },
-            TestValue { value: 400, counter: 3 }
-        ],
-            TestValue::empty()
+            [TestValue { value: 500, counter: 6 }, TestValue { value: 400, counter: 3 }],
+            TestValue::empty(),
         );
         let array_gte = pad_end([TestValue { value: 100, counter: 19 }], TestValue::empty());
         let expected_hints = [
@@ -119,7 +126,7 @@ mod tests {
             CombinedOrderHint { counter: 6, original_index: 0 },
             CombinedOrderHint { counter: 19, original_index: 0 },
             CombinedOrderHint { counter: 0, original_index: 1 },
-            CombinedOrderHint { counter: 0, original_index: 2 }
+            CombinedOrderHint { counter: 0, original_index: 2 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -128,17 +135,14 @@ mod tests {
     fn get_combined_order_hints_asc_lt_empty() {
         let array_lt = [TestValue::empty(); 4];
         let array_gte = pad_end(
-            [
-            TestValue { value: 200, counter: 13 },
-            TestValue { value: 100, counter: 19 }
-        ],
-            TestValue::empty()
+            [TestValue { value: 200, counter: 13 }, TestValue { value: 100, counter: 19 }],
+            TestValue::empty(),
         );
         let expected_hints = [
             CombinedOrderHint { counter: 13, original_index: 0 },
             CombinedOrderHint { counter: 19, original_index: 1 },
             CombinedOrderHint { counter: 0, original_index: 2 },
-            CombinedOrderHint { counter: 0, original_index: 3 }
+            CombinedOrderHint { counter: 0, original_index: 3 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -146,18 +150,15 @@ mod tests {
     #[test]
     fn get_combined_order_hints_asc_gte_empty() {
         let array_lt = pad_end(
-            [
-            TestValue { value: 400, counter: 3 },
-            TestValue { value: 500, counter: 6 }
-        ],
-            TestValue::empty()
+            [TestValue { value: 400, counter: 3 }, TestValue { value: 500, counter: 6 }],
+            TestValue::empty(),
         );
         let array_gte = [TestValue::empty(); 4];
         let expected_hints = [
             CombinedOrderHint { counter: 3, original_index: 0 },
             CombinedOrderHint { counter: 6, original_index: 1 },
             CombinedOrderHint { counter: 0, original_index: 0 },
-            CombinedOrderHint { counter: 0, original_index: 1 }
+            CombinedOrderHint { counter: 0, original_index: 1 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -169,7 +170,7 @@ mod tests {
         let expected_hints = [
             CombinedOrderHint { counter: 0, original_index: 0 },
             CombinedOrderHint { counter: 0, original_index: 1 },
-            CombinedOrderHint { counter: 0, original_index: 2 }
+            CombinedOrderHint { counter: 0, original_index: 2 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -178,20 +179,20 @@ mod tests {
     fn get_combined_order_hints_asc_prepended_zero_counters() {
         let array_lt = pad_end(
             [
-            TestValue { value: 700, counter: 0 },
-            TestValue { value: 500, counter: 0 },
-            TestValue { value: 100, counter: 16 },
-            TestValue { value: 400, counter: 13 }
-        ],
-            TestValue::empty()
+                TestValue { value: 700, counter: 0 },
+                TestValue { value: 500, counter: 0 },
+                TestValue { value: 100, counter: 16 },
+                TestValue { value: 400, counter: 13 },
+            ],
+            TestValue::empty(),
         );
         let array_gte = pad_end(
             [
-            TestValue { value: 300, counter: 0 },
-            TestValue { value: 600, counter: 0 },
-            TestValue { value: 200, counter: 19 }
-        ],
-            TestValue::empty()
+                TestValue { value: 300, counter: 0 },
+                TestValue { value: 600, counter: 0 },
+                TestValue { value: 200, counter: 19 },
+            ],
+            TestValue::empty(),
         );
         let expected_hints = [
             CombinedOrderHint { counter: 0, original_index: 0 },
@@ -203,7 +204,7 @@ mod tests {
             CombinedOrderHint { counter: 19, original_index: 2 },
             CombinedOrderHint { counter: 0, original_index: 3 },
             CombinedOrderHint { counter: 0, original_index: 4 },
-            CombinedOrderHint { counter: 0, original_index: 5 }
+            CombinedOrderHint { counter: 0, original_index: 5 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -213,12 +214,12 @@ mod tests {
         let array_lt = [TestValue::empty(); 6];
         let array_gte = pad_end(
             [
-            TestValue { value: 300, counter: 0 },
-            TestValue { value: 600, counter: 0 },
-            TestValue { value: 200, counter: 19 },
-            TestValue { value: 400, counter: 13 }
-        ],
-            TestValue::empty()
+                TestValue { value: 300, counter: 0 },
+                TestValue { value: 600, counter: 0 },
+                TestValue { value: 200, counter: 19 },
+                TestValue { value: 400, counter: 13 },
+            ],
+            TestValue::empty(),
         );
         let expected_hints = [
             CombinedOrderHint { counter: 0, original_index: 0 },
@@ -226,7 +227,7 @@ mod tests {
             CombinedOrderHint { counter: 13, original_index: 3 },
             CombinedOrderHint { counter: 19, original_index: 2 },
             CombinedOrderHint { counter: 0, original_index: 4 },
-            CombinedOrderHint { counter: 0, original_index: 5 }
+            CombinedOrderHint { counter: 0, original_index: 5 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
@@ -235,12 +236,12 @@ mod tests {
     fn get_combined_order_hints_asc_prepended_zero_counters_gte_empty() {
         let array_lt = pad_end(
             [
-            TestValue { value: 300, counter: 0 },
-            TestValue { value: 600, counter: 0 },
-            TestValue { value: 200, counter: 19 },
-            TestValue { value: 400, counter: 13 }
-        ],
-            TestValue::empty()
+                TestValue { value: 300, counter: 0 },
+                TestValue { value: 600, counter: 0 },
+                TestValue { value: 200, counter: 19 },
+                TestValue { value: 400, counter: 13 },
+            ],
+            TestValue::empty(),
         );
         let array_gte = [TestValue::empty(); 6];
         let expected_hints = [
@@ -249,7 +250,7 @@ mod tests {
             CombinedOrderHint { counter: 13, original_index: 3 },
             CombinedOrderHint { counter: 19, original_index: 2 },
             CombinedOrderHint { counter: 0, original_index: 0 },
-            CombinedOrderHint { counter: 0, original_index: 1 }
+            CombinedOrderHint { counter: 0, original_index: 1 },
         ];
         asc_to_equal(array_lt, array_gte, expected_hints);
     }

@@ -21,21 +21,30 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
 {}
 
 /**
- * @brief Populate acir_composer-owned builder with circuit generated from constraint system and an optional witness
+ * @brief Populate acir_composer-owned builder with circuit generated from constraint system and an optional witness and
+ * finalize it
  *
  * @tparam Builder
  * @param constraint_system
  * @param witness
  */
 template <typename Builder>
-void AcirComposer::create_circuit(acir_format::AcirFormat& constraint_system,
-                                  WitnessVector const& witness,
-                                  bool collect_gates_per_opcode)
+void AcirComposer::create_finalized_circuit(acir_format::AcirFormat& constraint_system,
+                                            bool recursive,
+                                            WitnessVector const& witness,
+                                            bool collect_gates_per_opcode)
 {
     vinfo("building circuit...");
-    builder_ = acir_format::create_circuit<Builder>(
-        constraint_system, size_hint_, witness, false, std::make_shared<bb::ECCOpQueue>(), collect_gates_per_opcode);
-    vinfo("gates: ", builder_.get_total_circuit_size());
+    vinfo("should be recursive friendly: ", recursive);
+    builder_ = acir_format::create_circuit<Builder>(constraint_system,
+                                                    recursive,
+                                                    size_hint_,
+                                                    witness,
+                                                    false,
+                                                    std::make_shared<bb::ECCOpQueue>(),
+                                                    collect_gates_per_opcode);
+    finalize_circuit();
+    vinfo("gates: ", builder_.get_estimated_total_circuit_size());
     vinfo("circuit is recursive friendly: ", builder_.is_recursive_circuit);
 }
 
@@ -58,9 +67,11 @@ std::vector<uint8_t> AcirComposer::create_proof()
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
     if (builder_.is_recursive_circuit) {
+        vinfo("creating recursive prover...");
         auto prover = composer.create_prover(builder_);
         proof = prover.construct_proof().proof_data;
     } else {
+        vinfo("creating ultra with keccak prover...");
         auto prover = composer.create_ultra_with_keccak_prover(builder_);
         proof = prover.construct_proof().proof_data;
     }
@@ -146,8 +157,9 @@ std::vector<bb::fr> AcirComposer::serialize_verification_key_into_fields()
     return acir_format::export_key_in_recursion_format(verification_key_);
 }
 
-template void AcirComposer::create_circuit<UltraCircuitBuilder>(acir_format::AcirFormat& constraint_system,
-                                                                WitnessVector const& witness,
-                                                                bool collect_gates_per_opcode);
+template void AcirComposer::create_finalized_circuit<UltraCircuitBuilder>(acir_format::AcirFormat& constraint_system,
+                                                                          bool recursive,
+                                                                          WitnessVector const& witness,
+                                                                          bool collect_gates_per_opcode);
 
 } // namespace acir_proofs

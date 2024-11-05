@@ -72,4 +72,8 @@ export class AppendOnlyTreeSnapshot {
       this.nextAvailableLeafIndex
     } }`;
   }
+
+  public equals(other: this) {
+    return this.root.equals(other.root) && this.nextAvailableLeafIndex === other.nextAvailableLeafIndex;
+  }
 }

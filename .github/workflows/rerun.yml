@@ -5,6 +5,10 @@ on:
     inputs:
       run_id:
         required: true
+      rerun_mode:
+        description: 'Specify rerun mode: failed or all'
+        required: false
+        default: 'failed'
 
 jobs:
   rerun:
@@ -20,11 +24,12 @@ jobs:
         run: |
           gh run watch ${{ inputs.run_id }} > /dev/null 2>&1
 
-      - name: Rerun failed jobs if the commit is the latest on the branch
+      - name: Rerun jobs if the commit is the latest on the branch
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           GH_DEBUG: api
+          RERUN_MODE: ${{ inputs.rerun_mode }}
         run: |
           RUN_ID="${{ inputs.run_id }}"
           # Get the run details
@@ -42,5 +47,11 @@ jobs:
             echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA) and the branch is not master/main. Skipping rerun."
           else
             echo "Commit $COMMIT_SHA is the latest on branch $BRANCH_NAME. Proceeding with rerun."
-            gh run rerun ${{ inputs.run_id }} --failed
+
+            if [[ "$RERUN_MODE" == "all" ]]; then
+              gh run rerun $RUN_ID
+            else
+              gh run rerun $RUN_ID --failed
+            fi
           fi
+

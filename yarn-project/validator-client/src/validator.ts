@@ -2,11 +2,11 @@ import { type BlockAttestation, type BlockProposal, type Tx, type TxHash } from 
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { attachedFixedDataToLogger, createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
-import { type LightPublicProcessor } from '@aztec/simulator';
+import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { type LightPublicProcessorFactory } from './duties/light_public_processor_factory.js';
@@ -20,6 +20,8 @@ import {
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { PublicProcessor } from '@aztec/simulator';
 
 export interface Validator {
   start(): Promise<void>;
@@ -35,16 +37,19 @@ export interface Validator {
 
 /** Validator Client
  */
-export class ValidatorClient implements Validator {
+export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
 
   constructor(
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
-    private lightPublicProcessorFactory?: LightPublicProcessorFactory | undefined,
+    private publicProcessorFactory?: PublicProcessorFactory | undefined,
+    private telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:validator'),
   ) {
+    super(telemetry, 'Validator');
+
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
@@ -52,6 +57,7 @@ export class ValidatorClient implements Validator {
   static new(
     config: ValidatorClientConfig,
     p2pClient: P2P,
+    telemetry?: TelemetryClient = new NoopTelemetryClient(),
     publicProcessorFactory?: LightPublicProcessorFactory | undefined,
   ) {
     if (!config.validatorPrivateKey) {
@@ -66,7 +72,7 @@ export class ValidatorClient implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, p2pClient, config, publicProcessorFactory);
+    const validator = new ValidatorClient(localKeyStore, p2pClient, config, publicProcessorFactory, telemetry);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -88,6 +94,10 @@ export class ValidatorClient implements Validator {
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    this.log.verbose(`request to attest`, {
+      archive: proposal.payload.archive.toString(),
+      txHashes: proposal.payload.txHashes,
+    });
     try {
       await this.ensureTransactionsAreAvailable(proposal);
 
@@ -104,7 +114,7 @@ export class ValidatorClient implements Validator {
       }
       return undefined;
     }
-    this.log.debug(
+    this.log.verbose(
       `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
     );
 
@@ -161,8 +171,12 @@ export class ValidatorClient implements Validator {
    * @param header - The header to check
    * @param lightProcessor - The light processor to check
    */
-  private async checkReExecutedStateRoots(header: Header, lightProcessor: LightPublicProcessor) {
-    const [newNullifierTree, newNoteHashTree, newPublicDataTree] = await lightProcessor.getTreeSnapshots();
+  private async checkReExecutedStateRoots(header: Header, publicProcessor: PublicProcessor) {
+    const [newNullifierTree, newNoteHashTree, newPublicDataTree] = await publicProcessor.getTreeSnapshots();
+
+
+    // Add in the real block builder now
+
 
     if (!header.state.partial.nullifierTree.root.toBuffer().equals(newNullifierTree.root)) {
       this.log.error(
@@ -234,7 +248,7 @@ export class ValidatorClient implements Validator {
     const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
-    const proposalId = proposal.p2pMessageIdentifier().toString();
+    const proposalId = proposal.archive.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
 
     const startTime = Date.now();
@@ -254,9 +268,9 @@ export class ValidatorClient implements Validator {
       }
 
       this.log.verbose(
-        `Collected ${attestations.length} attestations so far, waiting ${this.config.attestationPoolingIntervalMs}ms for more...`,
+        `Collected ${attestations.length} attestations so far, waiting ${this.config.attestationPollingIntervalMs}ms for more...`,
       );
-      await sleep(this.config.attestationPoolingIntervalMs);
+      await sleep(this.config.attestationPollingIntervalMs);
     }
   }
 }

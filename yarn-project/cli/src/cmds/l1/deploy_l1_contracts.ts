@@ -1,3 +1,4 @@
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { deployAztecContracts } from '../../utils/aztec.js';
@@ -9,10 +10,19 @@ export async function deployL1Contracts(
   mnemonic: string,
   salt: number | undefined,
   json: boolean,
+  initialValidators: EthAddress[],
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
-  const { l1ContractAddresses } = await deployAztecContracts(rpcUrl, chainId, privateKey, mnemonic, salt, debugLogger);
+  const { l1ContractAddresses } = await deployAztecContracts(
+    rpcUrl,
+    chainId,
+    privateKey,
+    mnemonic,
+    salt,
+    initialValidators,
+    debugLogger,
+  );
 
   if (json) {
     log(
@@ -29,5 +39,9 @@ export async function deployL1Contracts(
     log(`L2 -> L1 Outbox Address: ${l1ContractAddresses.outboxAddress.toString()}`);
     log(`Fee Juice Address: ${l1ContractAddresses.feeJuiceAddress.toString()}`);
     log(`Fee Juice Portal Address: ${l1ContractAddresses.feeJuicePortalAddress.toString()}`);
+    log(`Nomismatokopio Address: ${l1ContractAddresses.nomismatokopioAddress.toString()}`);
+    log(`Sysstia Address: ${l1ContractAddresses.sysstiaAddress.toString()}`);
+    log(`Gerousia Address: ${l1ContractAddresses.gerousiaAddress.toString()}`);
+    log(`Apella Address: ${l1ContractAddresses.apellaAddress.toString()}`);
   }
 }

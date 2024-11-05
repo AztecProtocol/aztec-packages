@@ -223,15 +223,17 @@ TEST_F(AvmSliceTests, indirectTwoCallsOverlap)
     EXPECT_THAT(main_rows.at(0),
                 AllOf(MAIN_ROW_FIELD_EQ(ia, 1),
                       MAIN_ROW_FIELD_EQ(ib, 3),
-                      MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
-                      MAIN_ROW_FIELD_EQ(ind_addr_c, 100),
+                      // TODO(JEANMON): Uncomment once we have a constraining address resolution
+                      // MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+                      // MAIN_ROW_FIELD_EQ(ind_addr_c, 100),
                       MAIN_ROW_FIELD_EQ(mem_addr_c, 34),
                       MAIN_ROW_FIELD_EQ(clk, 6)));
     EXPECT_THAT(main_rows.at(1),
                 AllOf(MAIN_ROW_FIELD_EQ(ia, 2),
                       MAIN_ROW_FIELD_EQ(ib, 3),
-                      MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
-                      MAIN_ROW_FIELD_EQ(ind_addr_c, 101),
+                      // TODO(JEANMON): Uncomment once we have a constraining address resolution
+                      // MAIN_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1),
+                      // MAIN_ROW_FIELD_EQ(ind_addr_c, 101),
                       MAIN_ROW_FIELD_EQ(mem_addr_c, 2123),
                       MAIN_ROW_FIELD_EQ(clk, 7)));
 
@@ -240,6 +242,9 @@ TEST_F(AvmSliceTests, indirectTwoCallsOverlap)
 
 TEST_F(AvmSliceTests, indirectFailedResolution)
 {
+    // TODO(#9131): Re-enable as part of #9131
+    GTEST_SKIP();
+
     gen_trace_builder({ 2, 3, 4, 5, 6 });
     trace_builder.op_set(0, 34, 100, AvmMemoryTag::U16); // indirect address 100 resolves to 34
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);

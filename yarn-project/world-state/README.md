@@ -31,7 +31,7 @@ Once a new block is received, the synchronizer checks the uncommitted root value
 
 ### The Merkle Tree Interface
 
-The interface to the Merkle Tree DB offers a unified asynchronous API to the set of trees available. Reads from the Merkle Trees need to be marked as to whether they should include uncommitted state. For this reason, the MerkleTreeOperationsFacade exists to abstract this detail away from the end consumer.
+The interface to the Merkle Tree DB offers a unified asynchronous API to the set of trees available. Reads from the Merkle Trees need to be marked as to whether they should include uncommitted state. For this reason, the MerkleTreeReadOperationsFacade exists to abstract this detail away from the end consumer.
 
 # Building/Testing
 

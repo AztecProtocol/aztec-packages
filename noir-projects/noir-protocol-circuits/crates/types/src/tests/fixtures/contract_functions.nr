@@ -1,6 +1,6 @@
 use crate::abis::{function_data::FunctionData, function_selector::FunctionSelector};
-use crate::merkle_tree::membership::MembershipWitness;
 use crate::constants::FUNCTION_TREE_HEIGHT;
+use crate::merkle_tree::membership::MembershipWitness;
 
 pub struct ContractFunction {
     data: FunctionData,
@@ -11,10 +11,7 @@ pub struct ContractFunction {
 
 // sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
 global default_private_function = ContractFunction {
-    data: FunctionData {
-        selector: FunctionSelector { inner: 1010101 },
-        is_private: true,
-    },
+    data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
     vk_hash: 0,
     acir_hash: 1111,
     membership_witness: MembershipWitness {
@@ -30,10 +27,7 @@ global default_private_function = ContractFunction {
 };
 
 global default_public_function = ContractFunction {
-    data: FunctionData {
-        selector: FunctionSelector { inner: 3030303 },
-        is_private: false,
-    },
+    data: FunctionData { selector: FunctionSelector { inner: 3030303 }, is_private: false },
     vk_hash: 0,
     acir_hash: 3333,
     membership_witness: MembershipWitness {
@@ -47,3 +41,24 @@ global default_public_function = ContractFunction {
         ],
     },
 };
+
+pub fn get_protocol_contract_function(contract_index: u32) -> ContractFunction {
+    ContractFunction {
+        data: FunctionData {
+            selector: FunctionSelector { inner: 98989 + contract_index },
+            is_private: true,
+        },
+        vk_hash: 0,
+        acir_hash: 5555 + contract_index as Field,
+        membership_witness: MembershipWitness {
+            leaf_index: contract_index as Field,
+            sibling_path: [
+                0x1498a78842ab5efb2ac65befa149fbcfbcdc88ae49b73673965154361df14f3f,
+                0x062d9223c973936f12eacf94db1cfb9499e5aee67c864677e238402006c20d21,
+                0x26d4cb8f72c0330bbebdb587bf896ce790ec7d091ee6aa3aabcf9bd60b2de307,
+                0x1d8f5034624cbef3663cf6a73a04bf82d34379e7e65f2b7d29fce4d6987ca7c1,
+                0x1758942724d8e39e5a0bc52b58cd80e5b6f26bedcc2a00d4b2f0dc6019fb1bf1,
+            ],
+        },
+    }
+}

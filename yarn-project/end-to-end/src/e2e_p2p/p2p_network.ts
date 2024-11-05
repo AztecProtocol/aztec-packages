@@ -12,7 +12,6 @@ import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
-  createBootstrapNodeFromPrivateKey,
   createValidatorConfig,
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,

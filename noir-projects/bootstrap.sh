@@ -33,9 +33,8 @@ case "$(uname)" in
     echo "Parallel builds not supported on this operating system"
     ;;
 esac
-# This value may be too low.
 # If builds fail with an amount of free memory greater than this value then it should be increased.
-MIN_PARALLEL_BUILD_MEMORY=32854492
+MIN_PARALLEL_BUILD_MEMORY=134217728
 
 yarn
 

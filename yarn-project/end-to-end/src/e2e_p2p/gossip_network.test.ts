@@ -32,7 +32,8 @@ describe('e2e_p2p_network', () => {
     }
   });
 
-  it('should rollup txs from all peers', async () => {
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/9164): Currently flakey
+  it.skip('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

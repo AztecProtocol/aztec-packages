@@ -13,12 +13,17 @@ template <typename FF_> CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_
     real_variable_tags.reserve(size_hint * 3);
 }
 
-template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_gates() const
+template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates() const
 {
     return num_gates;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::print_num_gates() const
+template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finalized_gates() const
+{
+    return num_gates;
+}
+
+template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
 {
     std::cout << num_gates << std::endl;
 }

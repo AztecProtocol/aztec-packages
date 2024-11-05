@@ -258,7 +258,7 @@ export class Point {
    * Check this is consistent with how bb is encoding the point at infinity
    */
   public get inf() {
-    return this.x.isZero() && this.y.isZero() && this.isInfinite;
+    return this.isInfinite;
   }
 
   isOnGrumpkin() {

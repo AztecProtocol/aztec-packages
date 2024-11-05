@@ -7,8 +7,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Auth {
     use dep::aztec::{
-        protocol_types::address::AztecAddress, state_vars::{PublicImmutable, SharedMutable},
-        macros::{storage::storage, functions::{private, public, initializer, view}}
+        macros::{functions::{initializer, private, public, view}, storage::storage},
+        protocol_types::address::AztecAddress,
+        state_vars::{PublicImmutable, SharedMutable},
     };
 
     // Authorizing a new address has a certain block delay before it goes into effect.
@@ -52,7 +53,8 @@ contract Auth {
     #[view]
     fn get_scheduled_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_scheduled_public
-        let (scheduled_value, _block_of_change): (AztecAddress, u32) = storage.authorized.get_scheduled_value_in_public();
+        let (scheduled_value, _block_of_change): (AztecAddress, u32) =
+            storage.authorized.get_scheduled_value_in_public();
         // docs:end:shared_mutable_get_scheduled_public
         scheduled_value
     }

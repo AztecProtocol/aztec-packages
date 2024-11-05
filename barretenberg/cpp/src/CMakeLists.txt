@@ -63,6 +63,7 @@ endif()
 
 add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)

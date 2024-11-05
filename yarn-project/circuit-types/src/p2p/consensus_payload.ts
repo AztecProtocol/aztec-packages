@@ -9,6 +9,8 @@ import { TxHash } from '../tx/tx_hash.js';
 import { type Signable } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
+  private size: number | undefined;
+
   constructor(
     /** The block header the attestation is made over */
     public readonly header: Header,
@@ -31,7 +33,9 @@ export class ConsensusPayload implements Signable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes]);
+    const buffer = serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes]);
+    this.size = buffer.length;
+    return buffer;
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
@@ -49,5 +53,18 @@ export class ConsensusPayload implements Signable {
 
   static empty(): ConsensusPayload {
     return new ConsensusPayload(Header.empty(), Fr.ZERO, []);
+  }
+
+  /**
+   * Get the size of the consensus payload in bytes.
+   * @returns The size of the consensus payload.
+   */
+  getSize(): number {
+    // We cache size to avoid recalculating it
+    if (this.size) {
+      return this.size;
+    }
+    this.size = this.toBuffer().length;
+    return this.size;
   }
 }

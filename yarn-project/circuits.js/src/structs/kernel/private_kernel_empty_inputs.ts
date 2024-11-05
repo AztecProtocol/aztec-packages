@@ -13,10 +13,11 @@ export class PrivateKernelEmptyInputData {
     public readonly chainId: Fr,
     public readonly version: Fr,
     public readonly vkTreeRoot: Fr,
+    public readonly protocolContractTreeRoot: Fr,
   ) {}
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.header, this.chainId, this.version, this.vkTreeRoot);
+    return serializeToBuffer(this.header, this.chainId, this.version, this.vkTreeRoot, this.protocolContractTreeRoot);
   }
 
   toString(): string {
@@ -30,6 +31,7 @@ export class PrivateKernelEmptyInputData {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(Fr),
     );
   }
 
@@ -38,7 +40,13 @@ export class PrivateKernelEmptyInputData {
   }
 
   static from(fields: FieldsOf<PrivateKernelEmptyInputData>) {
-    return new PrivateKernelEmptyInputData(fields.header, fields.chainId, fields.version, fields.vkTreeRoot);
+    return new PrivateKernelEmptyInputData(
+      fields.header,
+      fields.chainId,
+      fields.version,
+      fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
+    );
   }
 }
 
@@ -49,10 +57,18 @@ export class PrivateKernelEmptyInputs {
     public readonly chainId: Fr,
     public readonly version: Fr,
     public readonly vkTreeRoot: Fr,
+    public readonly protocolContractTreeRoot: Fr,
   ) {}
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.emptyNested, this.header, this.chainId, this.version, this.vkTreeRoot);
+    return serializeToBuffer(
+      this.emptyNested,
+      this.header,
+      this.chainId,
+      this.version,
+      this.vkTreeRoot,
+      this.protocolContractTreeRoot,
+    );
   }
 
   static from(fields: FieldsOf<PrivateKernelEmptyInputs>) {
@@ -62,6 +78,7 @@ export class PrivateKernelEmptyInputs {
       fields.chainId,
       fields.version,
       fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
     );
   }
 }

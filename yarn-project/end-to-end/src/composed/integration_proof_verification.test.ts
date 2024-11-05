@@ -54,10 +54,7 @@ describe('proof_verification', () => {
     const bb = await getBBConfig(logger);
     const acvm = await getACVMConfig(logger);
 
-    circuitVerifier = await BBCircuitVerifier.new({
-      bbBinaryPath: bb!.bbBinaryPath,
-      bbWorkingDirectory: bb!.bbWorkingDirectory,
-    });
+    circuitVerifier = await BBCircuitVerifier.new(bb!);
 
     bbTeardown = bb!.cleanup;
     acvmTeardown = acvm!.cleanup;

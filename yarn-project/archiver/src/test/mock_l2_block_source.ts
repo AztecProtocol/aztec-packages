@@ -1,27 +1,38 @@
-import { L2Block, type L2BlockSource, type TxEffect, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { L2Block, type L2BlockSource, type L2Tips, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
 
 /**
- * A mocked implementation of L2BlockSource to be used in p2p tests.
+ * A mocked implementation of L2BlockSource to be used in tests.
  */
-export class MockBlockSource implements L2BlockSource {
-  private l2Blocks: L2Block[] = [];
-  private txEffects: TxEffect[] = [];
-  private provenEpochNumber: number = 0;
+export class MockL2BlockSource implements L2BlockSource {
+  protected l2Blocks: L2Block[] = [];
 
-  constructor(numBlocks = 100, private provenBlockNumber?: number) {
-    this.addBlocks(numBlocks);
+  private provenEpochNumber: number = 0;
+  private provenBlockNumber: number = 0;
+
+  private log = createDebugLogger('aztec:archiver:mock_l2_block_source');
+
+  public createBlocks(numBlocks: number) {
+    for (let i = 0; i < numBlocks; i++) {
+      const blockNum = this.l2Blocks.length + 1;
+      const block = L2Block.random(blockNum);
+      this.l2Blocks.push(block);
+    }
+
+    this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
   }
 
-  public addBlocks(numBlocks: number) {
-    for (let i = 0; i < numBlocks; i++) {
-      const blockNum = this.l2Blocks.length;
-      const block = L2Block.random(blockNum, blockNum);
-      this.l2Blocks.push(block);
-      this.txEffects.push(...block.body.txEffects);
-    }
+  public addBlocks(blocks: L2Block[]) {
+    this.l2Blocks.push(...blocks);
+    this.log.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
+  }
+
+  public removeBlocks(numBlocks: number) {
+    this.l2Blocks = this.l2Blocks.slice(0, -numBlocks);
+    this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
   }
 
   public setProvenBlockNumber(provenBlockNumber: number) {
@@ -53,11 +64,11 @@ export class MockBlockSource implements L2BlockSource {
    * @returns In this mock instance, returns the number of L2 blocks that we've mocked.
    */
   public getBlockNumber() {
-    return Promise.resolve(this.l2Blocks.length - 1);
+    return Promise.resolve(this.l2Blocks.length);
   }
 
-  public async getProvenBlockNumber(): Promise<number> {
-    return this.provenBlockNumber ?? (await this.getBlockNumber());
+  public getProvenBlockNumber(): Promise<number> {
+    return Promise.resolve(this.provenBlockNumber);
   }
 
   public getProvenL2EpochNumber(): Promise<number | undefined> {
@@ -70,7 +81,7 @@ export class MockBlockSource implements L2BlockSource {
    * @returns The requested L2 block.
    */
   public getBlock(number: number) {
-    return Promise.resolve(this.l2Blocks[number]);
+    return Promise.resolve(this.l2Blocks[number - 1]);
   }
 
   /**
@@ -82,13 +93,13 @@ export class MockBlockSource implements L2BlockSource {
   public getBlocks(from: number, limit: number, proven?: boolean) {
     return Promise.resolve(
       this.l2Blocks
-        .slice(from, from + limit)
+        .slice(from - 1, from - 1 + limit)
         .filter(b => !proven || this.provenBlockNumber === undefined || b.number <= this.provenBlockNumber),
     );
   }
 
   getBlockHeader(number: number | 'latest'): Promise<Header | undefined> {
-    return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number : -1)?.header);
+    return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.header);
   }
 
   getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
@@ -106,7 +117,7 @@ export class MockBlockSource implements L2BlockSource {
    * @returns The requested tx effect.
    */
   public getTxEffect(txHash: TxHash) {
-    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+    const txEffect = this.l2Blocks.flatMap(b => b.body.txEffects).find(tx => tx.txHash.equals(txHash));
     return Promise.resolve(txEffect);
   }
 
@@ -133,6 +144,20 @@ export class MockBlockSource implements L2BlockSource {
       }
     }
     return Promise.resolve(undefined);
+  }
+
+  async getL2Tips(): Promise<L2Tips> {
+    const [latest, proven, finalized] = [
+      await this.getBlockNumber(),
+      await this.getProvenBlockNumber(),
+      await this.getProvenBlockNumber(),
+    ] as const;
+
+    return {
+      latest: { number: latest, hash: this.l2Blocks[latest - 1]?.hash().toString() },
+      proven: { number: proven, hash: this.l2Blocks[proven - 1]?.hash().toString() },
+      finalized: { number: finalized, hash: this.l2Blocks[finalized - 1]?.hash().toString() },
+    };
   }
 
   getL2EpochNumber(): Promise<bigint> {

@@ -43,7 +43,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
   public:
     std::shared_ptr<DeciderPK> proving_key;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
@@ -54,7 +53,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
                std::string domain_separator = "")
         : proving_key(proving_key)
         , transcript(transcript)
-        , commitment_key(this->proving_key->proving_key.commitment_key)
         , domain_separator(std::move(domain_separator))
     {}
 

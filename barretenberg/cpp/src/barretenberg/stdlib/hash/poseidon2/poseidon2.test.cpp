@@ -72,7 +72,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         builder.set_public_input(left.witness_index);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -99,7 +99,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);

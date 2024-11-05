@@ -48,7 +48,7 @@ We will need the Aztec library to create this contract. In your `Nargo.toml` you
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 ## Initiate the contract and define imports

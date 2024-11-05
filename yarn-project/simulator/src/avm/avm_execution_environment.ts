@@ -1,4 +1,4 @@
-import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { FunctionSelector, type GlobalVariables } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -9,15 +9,12 @@ import { Fr } from '@aztec/foundation/fields';
 export class AvmExecutionEnvironment {
   constructor(
     public readonly address: AztecAddress,
-    public readonly storageAddress: AztecAddress,
     public readonly sender: AztecAddress,
     public readonly functionSelector: FunctionSelector, // may be temporary (#7224)
     public readonly contractCallDepth: Fr,
     public readonly transactionFee: Fr,
-    public readonly header: Header,
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
-    public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
   ) {}
 
@@ -26,19 +23,15 @@ export class AvmExecutionEnvironment {
     calldata: Fr[],
     functionSelector: FunctionSelector,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     return new AvmExecutionEnvironment(
       /*address=*/ targetAddress,
-      /*storageAddress=*/ targetAddress,
       /*sender=*/ this.address,
       functionSelector,
       this.contractCallDepth.add(Fr.ONE),
       this.transactionFee,
-      this.header,
       this.globals,
       isStaticCall,
-      isDelegateCall,
       calldata,
     );
   }
@@ -53,7 +46,6 @@ export class AvmExecutionEnvironment {
       calldata,
       functionSelector,
       /*isStaticCall=*/ false,
-      /*isDelegateCall=*/ false,
     );
   }
 
@@ -67,15 +59,6 @@ export class AvmExecutionEnvironment {
       calldata,
       functionSelector,
       /*isStaticCall=*/ true,
-      /*isDelegateCall=*/ false,
     );
-  }
-
-  public newDelegateCall(
-    _targetAddress: AztecAddress,
-    _calldata: Fr[],
-    _functionSelector: FunctionSelector,
-  ): AvmExecutionEnvironment {
-    throw new Error('Delegate calls not supported!');
   }
 }

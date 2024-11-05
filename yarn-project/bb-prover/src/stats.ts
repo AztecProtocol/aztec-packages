@@ -9,8 +9,10 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'base-parity';
     case 'RootParityArtifact':
       return 'root-parity';
-    case 'BaseRollupArtifact':
-      return 'base-rollup';
+    case 'PrivateBaseRollupArtifact':
+      return 'private-base-rollup';
+    case 'PublicBaseRollupArtifact':
+      return 'public-base-rollup';
     case 'MergeRollupArtifact':
       return 'merge-rollup';
     case 'BlockRootRollupArtifact':
@@ -21,12 +23,6 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'block-merge-rollup';
     case 'RootRollupArtifact':
       return 'root-rollup';
-    case 'PublicKernelInnerArtifact':
-      return 'public-kernel-inner';
-    case 'PublicKernelMergeArtifact':
-      return 'public-kernel-merge';
-    case 'PublicKernelTailArtifact':
-      return 'public-kernel-tail';
     case 'PrivateKernelInitArtifact':
       return 'private-kernel-init';
     case 'PrivateKernelInnerArtifact':
@@ -42,6 +38,30 @@ export function mapProtocolArtifactNameToCircuitName(
     default: {
       if (artifact.startsWith('PrivateKernelReset')) {
         return 'private-kernel-reset';
+      }
+      throw new Error(`Unknown circuit type: ${artifact}`);
+    }
+  }
+}
+
+export function isProtocolArtifactRecursive(artifact: ServerProtocolArtifact | ClientProtocolArtifact): boolean {
+  switch (artifact) {
+    case 'EmptyNestedArtifact':
+    case 'PrivateKernelEmptyArtifact':
+    case 'BaseParityArtifact':
+    case 'RootParityArtifact':
+    case 'PrivateBaseRollupArtifact':
+    case 'PublicBaseRollupArtifact':
+    case 'MergeRollupArtifact':
+    case 'BlockRootRollupArtifact':
+    case 'EmptyBlockRootRollupArtifact':
+    case 'BlockMergeRollupArtifact':
+    case 'RootRollupArtifact':
+      return true;
+    default: {
+      if (artifact.startsWith('PrivateKernel')) {
+        // The kernel prover, where these are used, eventually calls `createClientIvcProof`, which is recursive.
+        return true;
       }
       throw new Error(`Unknown circuit type: ${artifact}`);
     }

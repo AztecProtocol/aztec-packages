@@ -1,7 +1,7 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
-import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
@@ -81,7 +81,7 @@ export class AccountWallet extends BaseWallet {
       messageHash = this.getMessageHash(messageHashOrIntent);
     }
 
-    return new ContractFunctionInteraction(this, AuthRegistryAddress, this.getSetAuthorizedAbi(), [
+    return new ContractFunctionInteraction(this, ProtocolContractAddress.AuthRegistry, this.getSetAuthorizedAbi(), [
       messageHash,
       authorized,
     ]);
@@ -153,7 +153,7 @@ export class AccountWallet extends BaseWallet {
     // check public
     results.isValidInPublic = (await new ContractFunctionInteraction(
       this,
-      AuthRegistryAddress,
+      ProtocolContractAddress.AuthRegistry,
       this.getIsConsumableAbi(),
       [onBehalfOf, messageHash],
     ).simulate()) as boolean;
@@ -191,6 +191,7 @@ export class AccountWallet extends BaseWallet {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
   }
 
@@ -203,6 +204,7 @@ export class AccountWallet extends BaseWallet {
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 
@@ -226,6 +228,7 @@ export class AccountWallet extends BaseWallet {
         { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 }

@@ -1,4 +1,4 @@
-import { type MerkleTreeOperations, makeProcessedTx, mockTx } from '@aztec/circuit-types';
+import { type MerkleTreeReadOperations, makeProcessedTx, mockTx } from '@aztec/circuit-types';
 import {
   Fr,
   GasSettings,
@@ -17,8 +17,9 @@ import { makeTuple } from '@aztec/foundation/array';
 
 /** Makes a bloated processed tx for testing purposes. */
 export function makeBloatedProcessedTx(
-  historicalHeaderOrDb: Header | MerkleTreeOperations,
+  historicalHeaderOrDb: Header | MerkleTreeReadOperations,
   vkRoot: Fr,
+  protocolContractTreeRoot: Fr,
   seed = 0x1,
   overrides: { inclusionFee?: Fr } = {},
 ) {
@@ -26,6 +27,7 @@ export function makeBloatedProcessedTx(
   const tx = mockTx(seed);
   const kernelOutput = KernelCircuitPublicInputs.empty();
   kernelOutput.constants.vkTreeRoot = vkRoot;
+  kernelOutput.constants.protocolContractTreeRoot = protocolContractTreeRoot;
   kernelOutput.constants.historicalHeader =
     'getInitialHeader' in historicalHeaderOrDb ? historicalHeaderOrDb.getInitialHeader() : historicalHeaderOrDb;
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
@@ -41,7 +43,7 @@ export function makeBloatedProcessedTx(
 
   kernelOutput.constants.txContext.gasSettings = GasSettings.default({ inclusionFee: overrides.inclusionFee });
 
-  const processedTx = makeProcessedTx(tx, kernelOutput, []);
+  const processedTx = makeProcessedTx(tx, kernelOutput);
 
   processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, i => new Fr(i), seed + 0x100);
   processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, i => new Fr(i), seed + 0x100000);

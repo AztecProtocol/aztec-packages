@@ -1,5 +1,5 @@
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type Wallet } from '../wallet/index.js';
 import { ContractBase } from './contract_base.js';

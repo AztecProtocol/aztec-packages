@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
@@ -64,7 +64,11 @@ impl Serialize<3> for UserFlags {
 // after having received the serialized value as a return-value
 impl Deserialize<3> for UserFlags {
     fn deserialize(fields: [Field; 3]) -> Self {
-        Self { is_admin: fields[0] as bool, is_minter: fields[1] as bool, is_blacklisted: fields[2] as bool }
+        Self {
+            is_admin: fields[0] as bool,
+            is_minter: fields[1] as bool,
+            is_blacklisted: fields[2] as bool,
+        }
     }
 }
 

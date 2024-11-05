@@ -3,6 +3,7 @@
  */
 import { TxHash } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
@@ -12,7 +13,7 @@ import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
+import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
 import { type ValidatorClientConfig } from './config.js';
 import { type LightPublicProcessorFactory } from './duties/light_public_processor_factory.js';
 import {
@@ -22,6 +23,7 @@ import {
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { ValidatorClient } from './validator.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 describe('ValidationService', () => {
   let config: ValidatorClientConfig;
@@ -45,17 +47,19 @@ describe('ValidationService', () => {
 
     config = {
       validatorPrivateKey: validatorPrivateKey,
-      attestationPoolingIntervalMs: 1000,
+      attestationPollingIntervalMs: 1000,
       attestationWaitTimeoutMs: 1000,
       disableValidator: false,
       validatorReEx: false,
     };
-    validatorClient = ValidatorClient.new(config, p2pClient);
+    validatorClient = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, p2pClient)).toThrow(InvalidValidatorPrivateKeyError);
+    expect(() => ValidatorClient.new(config, p2pClient, new NoopTelemetryClient())).toThrow(
+      InvalidValidatorPrivateKeyError,
+    );
   });
 
   it('Should throw an error if re-execution is enabled but no public processor is provided', () => {
@@ -101,12 +105,44 @@ describe('ValidationService', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
 
-    const val = ValidatorClient.new(config, p2pClient, lightPublicProcessorFactory);
+    const val = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient(), lightPublicProcessorFactory);
     lightPublicProcessor.process.mockImplementation(() => {
       throw new Error();
     });
 
     const attestation = await val.attestToProposal(proposal);
     expect(attestation).toBeUndefined();
+  });
+
+  it('Should collect attestations for a proposal', async () => {
+    const signer = Secp256k1Signer.random();
+    const attestor1 = Secp256k1Signer.random();
+    const attestor2 = Secp256k1Signer.random();
+
+    const archive = Fr.random();
+    const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+
+    const proposal = makeBlockProposal({ signer, archive, txHashes });
+
+    // Mock the attestations to be returned
+    const expectedAttestations = [
+      makeBlockAttestation({ signer: attestor1, archive, txHashes }),
+      makeBlockAttestation({ signer: attestor2, archive, txHashes }),
+    ];
+    p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
+      if (
+        slot === proposal.payload.header.globalVariables.slotNumber.toBigInt() &&
+        proposalId === proposal.archive.toString()
+      ) {
+        return Promise.resolve(expectedAttestations);
+      }
+      return Promise.resolve([]);
+    });
+
+    // Perform the query
+    const numberOfRequiredAttestations = 3;
+    const attestations = await validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+
+    expect(attestations).toHaveLength(numberOfRequiredAttestations);
   });
 });

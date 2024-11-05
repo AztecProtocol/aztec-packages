@@ -16,13 +16,13 @@ import { type ServiceStarter, extractRelevantOptions } from '../util.js';
 
 export const startProverAgent: ServiceStarter = async (options, signalHandlers, logger) => {
   const proverConfig = extractRelevantOptions<ProverClientConfig>(options, proverClientConfigMappings, 'prover');
-
-  if (!proverConfig.nodeUrl) {
-    throw new Error('Starting prover without an orchestrator is not supported');
+  const proverJobSourceUrl = proverConfig.proverJobSourceUrl ?? proverConfig.nodeUrl;
+  if (!proverJobSourceUrl) {
+    throw new Error('Starting prover without PROVER_JOB_PROVIDER_URL is not supported');
   }
 
-  logger(`Connecting to prover at ${proverConfig.nodeUrl}`);
-  const source = createProvingJobSourceClient(proverConfig.nodeUrl, 'provingJobSource');
+  logger(`Connecting to prover at ${proverJobSourceUrl}`);
+  const source = createProvingJobSourceClient(proverJobSourceUrl, 'provingJobSource');
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
   const telemetry = await createAndStartTelemetryClient(telemetryConfig);

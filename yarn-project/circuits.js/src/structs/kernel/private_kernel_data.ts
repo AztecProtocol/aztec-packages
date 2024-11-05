@@ -2,7 +2,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { VK_TREE_HEIGHT } from '../../constants.gen.js';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
@@ -53,7 +53,7 @@ export class PrivateKernelData {
   static empty(): PrivateKernelData {
     return new PrivateKernelData(
       PrivateKernelCircuitPublicInputs.empty(),
-      VerificationKeyAsFields.makeFake(),
+      VerificationKeyAsFields.makeFake(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
     );

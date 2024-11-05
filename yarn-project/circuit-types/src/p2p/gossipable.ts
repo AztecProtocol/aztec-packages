@@ -23,4 +23,11 @@ export abstract class Gossipable {
    * - Serialization method
    */
   abstract toBuffer(): Buffer;
+
+  /**
+   * Get the size of the gossipable object.
+   *
+   * This is used for metrics recording.
+   */
+  abstract getSize(): number;
 }

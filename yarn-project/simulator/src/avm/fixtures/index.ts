@@ -1,6 +1,6 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, Header } from '@aztec/circuits.js';
-import { FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { GasFees, GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,7 +10,7 @@ import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { type WorldStateDB, resolveAssertionMessage, traverseCauseChain } from '../../index.js';
+import { type WorldStateDB, resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../index.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -58,15 +58,12 @@ export function initPersistableStateManager(overrides?: {
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
-    overrides?.storageAddress ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
     overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
-    overrides?.header ?? Header.empty(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
-    overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
   );
 }
@@ -92,7 +89,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? 1e8,
+    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_ENQUEUED_CALL,
     daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }
@@ -120,6 +117,13 @@ export function randomMemoryFields(length: number): Field[] {
   return [...Array(length)].map(_ => new Field(Fr.random()));
 }
 
+export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
+  const params = artifact.parameters;
+  return FunctionSelector.fromNameAndParameters(artifact.name, params);
+}
+
 export function getAvmTestContractBytecode(functionName: string): Buffer {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
@@ -132,6 +136,7 @@ export function getAvmTestContractBytecode(functionName: string): Buffer {
 export function resolveAvmTestContractAssertionMessage(
   functionName: string,
   revertReason: AvmRevertReason,
+  output: Fr[],
 ): string | undefined {
   const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
 
@@ -143,10 +148,5 @@ export function resolveAvmTestContractAssertionMessage(
     return undefined;
   }
 
-  const debugMetadata = getFunctionDebugMetadata(AvmTestContractArtifact, functionArtifact);
-  if (!debugMetadata) {
-    return undefined;
-  }
-
-  return resolveAssertionMessage(revertReason.noirCallStack, debugMetadata);
+  return resolveAssertionMessageFromRevertData(output, functionArtifact);
 }

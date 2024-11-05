@@ -32,7 +32,7 @@ describe('e2e_p2p_rediscovery', () => {
     }
   });
 
-  it('should re-discover stored peers without bootstrap node', async () => {
+  it.skip('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,

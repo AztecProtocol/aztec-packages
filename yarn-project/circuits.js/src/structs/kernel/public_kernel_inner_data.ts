@@ -37,7 +37,7 @@ export class PublicKernelInnerData {
     return new this(
       VMCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyData.makeFake(),
+      VerificationKeyData.makeFakeHonk(),
     );
   }
 

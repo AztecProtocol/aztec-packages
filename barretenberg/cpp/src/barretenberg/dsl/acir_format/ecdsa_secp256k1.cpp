@@ -25,30 +25,6 @@ secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const bb::secp256k1::g1::
     return { x, y };
 }
 
-// vector of bytes here, assumes that the witness indices point to a field element which can be represented
-// with just a byte.
-// notice that this function truncates each field_element to a byte
-template <std::size_t SIZE, typename Builder>
-bb::stdlib::byte_array<Builder> ecdsa_array_of_bytes_to_byte_array(Builder& builder,
-                                                                   std::array<uint32_t, SIZE> vector_of_bytes)
-{
-    using byte_array_ct = bb::stdlib::byte_array<Builder>;
-    using field_ct = bb::stdlib::field_t<Builder>;
-
-    byte_array_ct arr(&builder);
-
-    // Get the witness assignment for each witness index
-    // Write the witness assignment to the byte_array
-    for (const auto& witness_index : vector_of_bytes) {
-
-        field_ct element = field_ct::from_witness_index(&builder, witness_index);
-        size_t num_bytes = 1;
-
-        byte_array_ct element_bytes(element, num_bytes);
-        arr.write(element_bytes);
-    }
-    return arr;
-}
 witness_ct ecdsa_index_to_witness(Builder& builder, uint32_t index)
 {
     fr value = builder.get_variable(index);

@@ -1,15 +1,21 @@
-import { Note, type PrivateKernelProver, PublicExecutionRequest } from '@aztec/circuit-types';
 import {
-  FunctionData,
+  Note,
+  NoteAndSlot,
+  PrivateExecutionResult,
+  type PrivateKernelProver,
+  PublicExecutionRequest,
+} from '@aztec/circuit-types';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   FunctionSelector,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
   MembershipWitness,
   NoteHash,
-  PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PublicKeys,
   ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
@@ -21,7 +27,6 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
@@ -39,18 +44,13 @@ describe('Kernel Prover', () => {
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
-    .map(() => ({
-      note: new Note([Fr.random(), Fr.random(), Fr.random()]),
-      storageSlot: Fr.random(),
-      noteTypeId: NoteSelector.random(),
-      owner: { x: Fr.random(), y: Fr.random() },
-    }));
+    .map(() => new NoteAndSlot(new Note([Fr.random(), Fr.random(), Fr.random()]), Fr.random(), NoteSelector.random()));
 
   const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
   const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
-  const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
+  const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
     publicInputs.noteHashes = makeTuple(
       MAX_NOTE_HASHES_PER_CALL,
@@ -60,24 +60,23 @@ describe('Kernel Prover', () => {
           : NoteHash.empty(),
       0,
     );
-    const functionData = FunctionData.empty();
-    functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
-    return {
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
-      nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
-      vk: VerificationKey.makeFake().toBuffer(),
-      newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
-      noteHashNullifierCounterMap: new Map(),
-      noteHashLeafIndexMap: new Map(),
-      returnValues: [],
-      acir: Buffer.alloc(0),
-      partialWitness: new Map(),
-      enqueuedPublicFunctionCalls: [],
-      publicTeardownFunctionCall: PublicExecutionRequest.empty(),
-      noteEncryptedLogs: [],
-      encryptedLogs: [],
-      unencryptedLogs: [],
-    };
+    publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
+    return new PrivateExecutionResult(
+      Buffer.alloc(0),
+      VerificationKey.makeFake().toBuffer(),
+      new Map(),
+      publicInputs,
+      new Map(),
+      newNoteIndices.map(idx => notesAndSlots[idx]),
+      new Map(),
+      [],
+      (dependencies[fnName] || []).map(name => createExecutionResult(name)),
+      [],
+      PublicExecutionRequest.empty(),
+      [],
+      [],
+      [],
+    );
   };
 
   const simulateProofOutput = (newNoteIndices: number[]) => {
@@ -92,7 +91,7 @@ describe('Kernel Prover', () => {
     publicInputs.end.noteHashes = noteHashes;
     return {
       publicInputs,
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };
@@ -109,23 +108,23 @@ describe('Kernel Prover', () => {
     return {
       publicInputs,
       outputWitness: new Map(),
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       bytecode: Buffer.from([]),
     };
   };
 
   const computeAppCircuitVerificationKeyOutput = () => {
     return {
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     };
   };
 
   const expectExecution = (fns: string[]) => {
     const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
-      String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
+      String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
     const callStackItemsInner = proofCreator.simulateProofInner.mock.calls.map(args =>
-      String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
+      String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
 
     expect(proofCreator.simulateProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
@@ -135,7 +134,7 @@ describe('Kernel Prover', () => {
     proofCreator.simulateProofInit.mockClear();
   };
 
-  const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
+  const prove = (executionResult: PrivateExecutionResult) => prover.prove(txRequest, executionResult);
 
   beforeEach(() => {
     txRequest = makeTxRequest();
@@ -146,7 +145,7 @@ describe('Kernel Prover', () => {
 
     oracle.getContractAddressPreimage.mockResolvedValue({
       contractClassId: Fr.random(),
-      publicKeysHash: Fr.random(),
+      publicKeys: PublicKeys.random(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({

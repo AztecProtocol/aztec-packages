@@ -23,7 +23,7 @@ import {
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
 import { type UltraKeccakHonkProtocolArtifact, getUltraHonkFlavorForCircuit } from '../honk.js';
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
+import { isProtocolArtifactRecursive, mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
@@ -63,6 +63,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       workingDirectory,
       circuit,
       ProtocolCircuitArtifacts[circuit],
+      isProtocolArtifactRecursive(circuit),
       getUltraHonkFlavorForCircuit(circuit),
       logFn,
     ).then(result => {

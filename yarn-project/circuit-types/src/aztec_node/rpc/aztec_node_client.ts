@@ -1,4 +1,4 @@
-import { FunctionSelector, Header } from '@aztec/circuits.js';
+import { FunctionSelector, Header, PublicKeys } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -15,6 +15,7 @@ import {
   LogId,
   UnencryptedL2BlockL2Logs,
 } from '../../logs/index.js';
+import { EpochProofQuote } from '../../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../../public_data_witness.js';
 import { SiblingPath } from '../../sibling_path/index.js';
 import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
@@ -41,6 +42,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       L2Block,
       LogId,
       PublicDataWitness,
+      PublicKeys,
       SiblingPath,
       TxEffect,
       TxHash,
@@ -53,6 +55,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       Tx,
       TxReceipt,
       UnencryptedL2BlockL2Logs,
+      EpochProofQuote,
     },
     false,
     'node',

@@ -107,10 +107,10 @@ Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i
 2. Prove the valid execution of your Noir program running:
 
     ```bash
-    bb prove_keccak_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+    bb prove_ultra_keccak_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
     ```
 
-    > **Note:** `prove_keccak_ultra_honk` is used to generate UltraHonk proofs with Keccak hashes, as it is what the Solidity verifier is designed to be compatible with given the better gas efficiency when verifying on-chain; `prove_ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
+    > **Note:** `prove_ultra_keccak_honk` is used to generate UltraHonk proofs with Keccak hashes, as it is what the Solidity verifier is designed to be compatible with given the better gas efficiency when verifying on-chain; `prove_ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
 
 3. Compute the verification key for your Noir program running:
 

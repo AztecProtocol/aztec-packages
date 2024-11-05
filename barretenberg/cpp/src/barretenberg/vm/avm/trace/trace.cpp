@@ -16,16 +16,19 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
+#include "barretenberg/vm/avm/trace/addressing_mode.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/vm/avm/trace/fixed_bytes.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm/trace/fixed_powers.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/cmp.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
@@ -87,26 +90,6 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     }
 
     return static_cast<uint32_t>(main_trace.size());
-}
-
-/**
- * @brief Returns an array of mem_offsets and tags them with their given Addressing Mode (direct/indirect) based on the
- * given indirect byte.
- * @tparam N The number of memory offsets to resolve.
- */
-template <size_t N>
-std::array<AddressWithMode, N> unpack_indirects(uint8_t indirect, std::array<uint32_t, N> mem_offsets)
-{
-    std::array<AddressWithMode, N> addr_mode_arr;
-
-    for (size_t i = 0; i < N; i++) {
-        // No need to type this as a bool as is implied by the (& 1).
-        uint8_t indirect_bit = (indirect >> i) & 1;
-        // Cast straight to AddressingMode, saves having to have a branching statement here.
-        auto addr_mode = static_cast<AddressingMode>(indirect_bit);
-        addr_mode_arr[i] = { addr_mode, mem_offsets[i] };
-    }
-    return addr_mode_arr;
 }
 
 template <typename MEM, size_t T> std::array<MEM, T> vec_to_arr(std::vector<MEM> const& vec)
@@ -228,10 +211,10 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
 void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
 {
     // op_set increments the pc, so we need to store the current pc and then jump back to it
-    // to legaly reset the pc.
+    // to legally reset the pc.
     auto current_pc = pc;
-    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag);
-    op_jump(current_pc);
+    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, OpCode::SET_FF, true);
+    op_jump(current_pc, true);
 }
 
 template <typename T>
@@ -276,7 +259,7 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces and initialize gas values.
  */
-AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs<FF> public_inputs,
+AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
                                  ExecutionHints execution_hints_,
                                  uint32_t side_effect_counter,
                                  std::vector<FF> calldata)
@@ -285,11 +268,12 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs<FF> public_inputs,
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
+    , bytecode_trace_builder(execution_hints.all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET]),
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET]));
+        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET]),
+        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET]));
 }
 
 /**************************************************************************************************
@@ -306,13 +290,16 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs<FF> public_inputs,
  * @param in_tag The instruction memory tag of the operands.
  */
 void AvmTraceBuilder::op_add(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve any potential indirects in the order they are encoded in the indirect byte.
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -348,7 +335,7 @@ void AvmTraceBuilder::op_add(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -361,6 +348,9 @@ void AvmTraceBuilder::op_add(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::ADD_8 || op_code == OpCode::ADD_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -373,13 +363,16 @@ void AvmTraceBuilder::op_add(
  * @param in_tag The instruction memory tag of the operands.
  */
 void AvmTraceBuilder::op_sub(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve any potential indirects in the order they are encoded in the indirect byte.
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -415,7 +408,7 @@ void AvmTraceBuilder::op_sub(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -428,6 +421,9 @@ void AvmTraceBuilder::op_sub(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::SUB_8 || op_code == OpCode::SUB_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -440,13 +436,16 @@ void AvmTraceBuilder::op_sub(
  * @param in_tag The instruction memory tag of the operands.
  */
 void AvmTraceBuilder::op_mul(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve any potential indirects in the order they are encoded in the indirect byte.
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -482,7 +481,7 @@ void AvmTraceBuilder::op_mul(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -495,6 +494,9 @@ void AvmTraceBuilder::op_mul(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::MUL_8 || op_code == OpCode::MUL_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -507,12 +509,15 @@ void AvmTraceBuilder::op_mul(
  * @param in_tag The instruction memory tag of the operands.
  */
 void AvmTraceBuilder::op_div(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_dst] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_dst] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -562,7 +567,7 @@ void AvmTraceBuilder::op_div(
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_dst.direct_address),
         .main_op_err = tag_match ? error : FF(1),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -575,6 +580,9 @@ void AvmTraceBuilder::op_div(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::DIV_8 || op_code == OpCode::DIV_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -587,12 +595,13 @@ void AvmTraceBuilder::op_div(
  * @param in_tag The instruction memory tag of the operands.
  */
 void AvmTraceBuilder::op_fdiv(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, [[maybe_unused]] AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve any potential indirects in the order they are encoded in the indirect byte.
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
     // Reading from memory and loading into ia resp. ib.
     auto read_a =
@@ -610,7 +619,6 @@ void AvmTraceBuilder::op_fdiv(
     FF error;
 
     if (!b.is_zero()) {
-
         inv = b.invert();
         c = a * inv;
         error = 0;
@@ -642,7 +650,7 @@ void AvmTraceBuilder::op_fdiv(
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
         .main_op_err = tag_match ? error : FF(1),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -655,6 +663,9 @@ void AvmTraceBuilder::op_fdiv(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
     });
+
+    ASSERT(op_code == OpCode::FDIV_8 || op_code == OpCode::FDIV_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -670,13 +681,15 @@ void AvmTraceBuilder::op_fdiv(
  * @param dst_offset An index in memory pointing to the output of the equality.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_eq(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, AvmMemoryTag::U1, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
@@ -711,7 +724,7 @@ void AvmTraceBuilder::op_eq(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -724,15 +737,20 @@ void AvmTraceBuilder::op_eq(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U1)),
     });
+
+    ASSERT(op_code == OpCode::EQ_8 || op_code == OpCode::EQ_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_lt(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, AvmMemoryTag::U1, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
@@ -763,7 +781,7 @@ void AvmTraceBuilder::op_lt(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -776,15 +794,21 @@ void AvmTraceBuilder::op_lt(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U1)),
     });
+
+    ASSERT(op_code == OpCode::LT_8 || op_code == OpCode::LT_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 void AvmTraceBuilder::op_lte(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, AvmMemoryTag::U1, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, AvmMemoryTag::U1, IntermRegister::IB);
@@ -816,7 +840,7 @@ void AvmTraceBuilder::op_lte(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -829,6 +853,9 @@ void AvmTraceBuilder::op_lte(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U1)),
     });
+
+    ASSERT(op_code == OpCode::LTE_8 || op_code == OpCode::LTE_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -836,12 +863,15 @@ void AvmTraceBuilder::op_lte(
  **************************************************************************************************/
 
 void AvmTraceBuilder::op_and(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -872,7 +902,7 @@ void AvmTraceBuilder::op_and(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_bin = FF(1),
@@ -886,14 +916,19 @@ void AvmTraceBuilder::op_and(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::AND_8 || op_code == OpCode::AND_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
-void AvmTraceBuilder::op_or(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -924,7 +959,7 @@ void AvmTraceBuilder::op_or(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_bin = FF(1),
@@ -938,15 +973,21 @@ void AvmTraceBuilder::op_or(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::OR_8 || op_code == OpCode::OR_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 void AvmTraceBuilder::op_xor(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
@@ -977,7 +1018,7 @@ void AvmTraceBuilder::op_xor(
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_bin = FF(1),
@@ -991,6 +1032,9 @@ void AvmTraceBuilder::op_xor(
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::XOR_8 || op_code == OpCode::XOR_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -1000,12 +1044,13 @@ void AvmTraceBuilder::op_xor(
  * @param a_offset An index in memory pointing to the only operand of Not.
  * @param dst_offset An index in memory pointing to the output of Not.
  */
-void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve any potential indirects in the order they are encoded in the indirect byte.
-    auto [resolved_a, resolved_c] = unpack_indirects<2>(indirect, { a_offset, dst_offset });
+    auto [resolved_a, resolved_c] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ a_offset, dst_offset }, mem_trace_builder);
 
     // We get our representative memory tag from the resolved_a memory address.
     AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
@@ -1038,7 +1083,7 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
@@ -1049,22 +1094,32 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::NOT_8 || op_code == OpCode::NOT_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 void AvmTraceBuilder::op_shl(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
+    // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
+    bool tag_match = read_a.tag_match;
 
     FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF b = tag_match ? read_b : FF(0);
 
     FF c = tag_match ? alu_trace_builder.op_shl(a, b, in_tag, clk) : FF(0);
 
@@ -1078,45 +1133,54 @@ void AvmTraceBuilder::op_shl(
         .main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
-        .main_ib = read_b.val,
+        .main_ib = read_b,
         .main_ic = write_c.val,
         .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
+        //.main_ind_addr_b = FF(read_b.indirect_address),
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
+        //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
+        //.main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_shl = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::SHL_8 || op_code == OpCode::SHL_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 void AvmTraceBuilder::op_shr(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, OpCode op_code)
 {
-
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_a, resolved_b, resolved_c] = unpack_indirects<3>(indirect, { a_offset, b_offset, dst_offset });
+    auto [resolved_a, resolved_b, resolved_c] =
+        Addressing<3>::fromWire(indirect, call_ptr).resolve({ a_offset, b_offset, dst_offset }, mem_trace_builder);
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia resp. ib.
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag if in_tag is FF!
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, in_tag, in_tag, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain b's read & tag
+    // auto read_b = constrained_read_from_memory(call_ptr, clk, resolved_b, AvmMemoryTag::U8, AvmMemoryTag::U8,
+    // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_b = unconstrained_read_from_memory(resolved_b); // should be tagged as U8
+    bool tag_match = read_a.tag_match;
 
     FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF b = tag_match ? read_b : FF(0);
 
     FF c = tag_match ? alu_trace_builder.op_shr(a, b, in_tag, clk) : FF(0);
 
@@ -1130,28 +1194,35 @@ void AvmTraceBuilder::op_shr(
         .main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
-        .main_ib = read_b.val,
+        .main_ib = read_b,
         .main_ic = write_c.val,
         .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
+        // TODO(8603): uncomment
+        //.main_ind_addr_b = FF(read_b.indirect_address),
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
+        // TODO(8603): uncomment
+        //.main_mem_addr_b = FF(read_b.direct_address),
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
+        // TODO(8603): uncomment
+        //.main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_shr = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        // TODO(8603): uncomment
+        //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_c.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
+
+    ASSERT(op_code == OpCode::SHR_8 || op_code == OpCode::SHR_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -1167,32 +1238,17 @@ void AvmTraceBuilder::op_shr(
  * @param dst_offset Offset of destination memory cell.
  * @param dst_tag Destination tag specifying the type the source value must be casted to.
  */
-void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag)
+void AvmTraceBuilder::op_cast(
+    uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag, OpCode op_code)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     bool tag_match = true;
-    uint32_t direct_a_offset = a_offset;
-    uint32_t direct_dst_offset = dst_offset;
 
-    bool indirect_a_flag = is_operand_indirect(indirect, 0);
-    bool indirect_dst_flag = is_operand_indirect(indirect, 1);
-
-    if (indirect_a_flag) {
-        auto read_ind_a =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, a_offset);
-        direct_a_offset = uint32_t(read_ind_a.val);
-        tag_match = tag_match && read_ind_a.tag_match;
-    }
-
-    if (indirect_dst_flag) {
-        auto read_ind_c =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, dst_offset);
-        direct_dst_offset = uint32_t(read_ind_c.val);
-        tag_match = tag_match && read_ind_c.tag_match;
-    }
+    auto [resolved_a, resolved_c] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ a_offset, dst_offset }, mem_trace_builder);
 
     // Reading from memory and loading into ia
-    auto memEntry = mem_trace_builder.read_and_load_cast_opcode(call_ptr, clk, direct_a_offset, dst_tag);
+    auto memEntry = mem_trace_builder.read_and_load_cast_opcode(call_ptr, clk, resolved_a, dst_tag);
     FF a = memEntry.val;
 
     // In case of a memory tag error, we do not perform the computation.
@@ -1201,7 +1257,7 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
     FF c = tag_match ? alu_trace_builder.op_cast(a, dst_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, c, memEntry.tag, dst_tag);
+    mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, resolved_c, c, memEntry.tag, dst_tag);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::CAST_8);
@@ -1212,22 +1268,21 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .main_call_ptr = call_ptr,
         .main_ia = a,
         .main_ic = c,
-        .main_ind_addr_a = indirect_a_flag ? FF(a_offset) : FF(0),
-        .main_ind_addr_c = indirect_dst_flag ? FF(dst_offset) : FF(0),
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(direct_a_offset),
-        .main_mem_addr_c = FF(direct_dst_offset),
-        .main_pc = FF(pc++),
+        .main_mem_addr_a = FF(resolved_a),
+        .main_mem_addr_c = FF(resolved_c),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(memEntry.tag)),
         .main_rwc = FF(1),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_op_cast = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(indirect_a_flag)),
-        .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(indirect_dst_flag)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(dst_tag)),
     });
+
+    ASSERT(op_code == OpCode::CAST_8 || op_code == OpCode::CAST_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -1252,9 +1307,10 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_dst] = unpack_indirects<1>(indirect, { dst_offset });
+    auto [resolved_dst] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
+
     auto write_dst =
-        constrained_write_to_memory(call_ptr, clk, resolved_dst, value, AvmMemoryTag::U0, w_tag, IntermRegister::IA);
+        constrained_write_to_memory(call_ptr, clk, resolved_dst, value, AvmMemoryTag::FF, w_tag, IntermRegister::IA);
 
     return Row{
         .main_clk = clk,
@@ -1263,7 +1319,7 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
         .main_ind_addr_a = FF(write_dst.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(write_dst.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_rwa = 1,
         .main_sel_mem_op_a = 1,
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_dst.is_indirect)),
@@ -1274,55 +1330,72 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
 
 void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
 {
-    ASSERT(env_var < static_cast<int>(EnvironmentVariable::MAX_ENV_VAR));
-    EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+    if (env_var >= static_cast<int>(EnvironmentVariable::MAX_ENV_VAR)) {
+        // Error, bad enum operand
+        // TODO(9395): constrain this via range check
+        auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+        const auto row = Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc++,
+            .main_sel_op_address = FF(1), // TODO(9407): what selector should this be?
+        };
 
-    switch (var) {
-    case EnvironmentVariable::ADDRESS:
-        op_address(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::STORAGEADDRESS:
-        op_storage_address(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::SENDER:
-        op_sender(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FUNCTIONSELECTOR:
-        op_function_selector(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::TRANSACTIONFEE:
-        op_transaction_fee(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::CHAINID:
-        op_chain_id(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::VERSION:
-        op_version(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::BLOCKNUMBER:
-        op_block_number(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::TIMESTAMP:
-        op_timestamp(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FEEPERL2GAS:
-        op_fee_per_l2_gas(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::FEEPERDAGAS:
-        op_fee_per_da_gas(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::ISSTATICCALL:
-        op_is_static_call(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::L2GASLEFT:
-        op_l2gasleft(indirect, dst_offset);
-        break;
-    case EnvironmentVariable::DAGASLEFT:
-        op_dagasleft(indirect, dst_offset);
-        break;
-    default:
-        throw std::runtime_error("Invalid environment variable");
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+
+        main_trace.push_back(row);
+    } else {
+        EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+
+        switch (var) {
+        case EnvironmentVariable::ADDRESS:
+            op_address(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::SENDER:
+            op_sender(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FUNCTIONSELECTOR:
+            op_function_selector(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::TRANSACTIONFEE:
+            op_transaction_fee(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::CHAINID:
+            op_chain_id(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::VERSION:
+            op_version(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::BLOCKNUMBER:
+            op_block_number(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::TIMESTAMP:
+            op_timestamp(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FEEPERL2GAS:
+            op_fee_per_l2_gas(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::FEEPERDAGAS:
+            op_fee_per_da_gas(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::ISSTATICCALL:
+            op_is_static_call(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::L2GASLEFT:
+            op_l2gasleft(indirect, dst_offset);
+            break;
+        case EnvironmentVariable::DAGASLEFT:
+            op_dagasleft(indirect, dst_offset);
+            break;
+        default:
+            throw std::runtime_error("Invalid environment variable");
+            break;
+        }
     }
+    pc += Deserialization::get_pc_increment(OpCode::GETENVVAR_16);
 }
 
 void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
@@ -1331,19 +1404,6 @@ void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
     FF ia_value = kernel_trace_builder.op_address(clk);
     Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_address = FF(1);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
-
-    main_trace.push_back(row);
-}
-
-void AvmTraceBuilder::op_storage_address(uint8_t indirect, uint32_t dst_offset)
-{
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_storage_address(clk);
-    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
-    row.main_sel_op_storage_address = FF(1);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
@@ -1514,34 +1574,25 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [cd_offset_address_r, copy_size_address_r, _] =
-        unpack_indirects<3>(indirect, { cd_offset_address, copy_size_address, dst_offset });
+    auto [cd_offset_resolved, copy_size_offset_resolved, dst_offset_resolved] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ cd_offset_address, copy_size_address, dst_offset }, mem_trace_builder);
 
-    uint32_t direct_dst_offset = dst_offset; // Will be overwritten in indirect mode.
-
-    bool indirect_flag = false;
+    // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
 
-    // The only memory operation performed from the main trace is a possible indirect load for resolving the
-    // direct destination offset stored in main_mem_addr_c.
+    // The only memory operations performed from the main trace are indirect load (address resolutions)
+    // which are still unconstrained.
     // All the other memory operations are triggered by the slice gadget.
 
-    if (is_operand_indirect(indirect, 2)) {
-        indirect_flag = true;
-        auto ind_read =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, dst_offset);
-        direct_dst_offset = uint32_t(ind_read.val);
-        tag_match = ind_read.tag_match;
-    }
-
     // TODO: constrain these.
-    const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_address_r));
-    const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_address_r));
+    const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
+    const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
     if (tag_match) {
         slice_trace_builder.create_calldata_copy_slice(
-            calldata, clk, call_ptr, cd_offset, copy_size, direct_dst_offset);
-        mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, direct_dst_offset);
+            calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+        mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
     }
 
     // Constrain gas cost
@@ -1552,17 +1603,87 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
         .main_call_ptr = call_ptr,
         .main_ia = cd_offset,
         .main_ib = copy_size,
-        .main_ind_addr_c = indirect_flag ? dst_offset : 0,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_c = direct_dst_offset,
-        .main_pc = pc++,
+        .main_mem_addr_c = dst_offset_resolved,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_calldata_copy = 1,
-        .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_flag),
         .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
+
+    pc += Deserialization::get_pc_increment(OpCode::CALLDATACOPY);
+}
+
+void AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    // This boolean will not be a trivial constant anymore once we constrain address resolution.
+    bool tag_match = true;
+
+    auto [resolved_dst_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
+
+    FF returndata_size = tag_match ? FF(nested_returndata.size()) : FF(0);
+    // TODO: constrain
+    write_to_memory(resolved_dst_offset, returndata_size, AvmMemoryTag::U32);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_pc = FF(pc),
+        .main_sel_op_returndata_size = FF(1),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
+    });
+
+    pc += Deserialization::get_pc_increment(OpCode::RETURNDATASIZE);
+}
+
+void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
+                                         uint32_t rd_offset_address,
+                                         uint32_t copy_size_offset,
+                                         uint32_t dst_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto [rd_offset_resolved, copy_size_offset_resolved, dst_offset_resolved] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ rd_offset_address, copy_size_offset, dst_offset }, mem_trace_builder);
+
+    // This boolean will not be a trivial constant anymore once we constrain address resolution.
+    bool tag_match = true;
+
+    // TODO: constrain these.
+    const uint32_t rd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(rd_offset_resolved));
+    const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
+
+    gas_trace_builder.constrain_gas(clk,
+                                    OpCode::RETURNDATACOPY,
+                                    /*dyn_gas_multiplier=*/copy_size);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_pc = FF(pc),
+        .main_sel_op_returndata_copy = FF(1),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+    });
+
+    // Write the return data to memory
+    // TODO: validate bounds
+    auto returndata_slice =
+        std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
+
+    pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
+    write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
 }
 
 /**************************************************************************************************
@@ -1576,7 +1697,7 @@ void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect,
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_dst] = unpack_indirects<1>(indirect, { dst_offset });
+    auto [resolved_dst] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
@@ -1592,7 +1713,7 @@ void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect,
     // Write into memory from intermediate register ia.
     // TODO: probably will be U32 in final version
     auto write_dst = constrained_write_to_memory(
-        call_ptr, clk, resolved_dst, gas_remaining, AvmMemoryTag::U0, AvmMemoryTag::FF, IntermRegister::IA);
+        call_ptr, clk, resolved_dst, gas_remaining, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1601,13 +1722,12 @@ void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect,
         .main_ind_addr_a = FF(write_dst.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(write_dst.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U0)),
+        .main_pc = FF(pc),
         .main_rwa = FF(1),
         .main_sel_mem_op_a = FF(1),
         .main_sel_op_dagasleft = (var == EnvironmentVariable::DAGASLEFT) ? FF(1) : FF(0),
         .main_sel_op_l2gasleft = (var == EnvironmentVariable::L2GASLEFT) ? FF(1) : FF(0),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(is_operand_indirect(indirect, 0))),
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_dst.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!write_dst.tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)), // TODO: probably will be U32 in final version
                                                                       // Should the circuit (pil) constrain U32?
@@ -1636,12 +1756,14 @@ void AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
  *
  * @param jmp_dest - The destination to jump to
  */
-void AvmTraceBuilder::op_jump(uint32_t jmp_dest)
+void AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMP_16);
+    if (!skip_gas) {
+        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_32);
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1670,27 +1792,21 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    // Will be a non-trivial constant once we constrain address resolution
     bool tag_match = true;
-    uint32_t direct_cond_offset = cond_offset;
 
-    bool indirect_cond_flag = is_operand_indirect(indirect, 0);
-
-    if (indirect_cond_flag) {
-        auto read_ind_d =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_D, cond_offset);
-        direct_cond_offset = uint32_t(read_ind_d.val);
-        tag_match = tag_match && read_ind_d.tag_match;
-    }
+    auto [resolved_cond_offset] =
+        Addressing<1>::fromWire(indirect, call_ptr).resolve({ cond_offset }, mem_trace_builder);
 
     // Specific JUMPI loading of conditional value into intermediate register id without any tag constraint.
-    auto read_d = mem_trace_builder.read_and_load_jumpi_opcode(call_ptr, clk, direct_cond_offset);
+    auto read_d = mem_trace_builder.read_and_load_jumpi_opcode(call_ptr, clk, resolved_cond_offset);
 
     const bool id_zero = read_d.val == 0;
     FF const inv = !id_zero ? read_d.val.invert() : 1;
-    uint32_t next_pc = !id_zero ? jmp_dest : pc + 1;
+    uint32_t next_pc = !id_zero ? jmp_dest : pc + Deserialization::get_pc_increment(OpCode::JUMPI_32);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_16);
+    gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1698,15 +1814,13 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
         .main_ia = FF(next_pc),
         .main_id = read_d.val,
         .main_id_zero = static_cast<uint32_t>(id_zero),
-        .main_ind_addr_d = indirect_cond_flag ? cond_offset : 0,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_inv = inv,
-        .main_mem_addr_d = direct_cond_offset,
+        .main_mem_addr_d = resolved_cond_offset,
         .main_pc = FF(pc),
         .main_r_in_tag = static_cast<uint32_t>(read_d.tag),
         .main_sel_mem_op_d = 1,
         .main_sel_op_jumpi = FF(1),
-        .main_sel_resolve_ind_addr_d = static_cast<uint32_t>(indirect_cond_flag),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(read_d.tag),
     });
@@ -1731,14 +1845,14 @@ void AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t con
 void AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
+    const auto next_pc = pc + Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     // We store the next instruction as the return location
     mem_trace_builder.write_into_memory(INTERNAL_CALL_SPACE_ID,
                                         clk,
                                         IntermRegister::IB,
                                         internal_return_ptr,
-                                        FF(pc + 1),
-                                        AvmMemoryTag::U0,
+                                        FF(next_pc),
+                                        AvmMemoryTag::FF,
                                         AvmMemoryTag::U32);
 
     // Constrain gas cost
@@ -1748,7 +1862,7 @@ void AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_ia = FF(jmp_dest),
-        .main_ib = FF(pc + 1),
+        .main_ib = FF(next_pc),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_b = FF(internal_return_ptr),
         .main_pc = FF(pc),
@@ -1781,7 +1895,7 @@ void AvmTraceBuilder::op_internal_return()
     // Internal return pointer is decremented
     // We want to load the value pointed by the internal pointer
     auto read_a = mem_trace_builder.read_and_load_from_memory(
-        INTERNAL_CALL_SPACE_ID, clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::U32, AvmMemoryTag::U0);
+        INTERNAL_CALL_SPACE_ID, clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::U32, AvmMemoryTag::FF);
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::INTERNALRETURN);
@@ -1822,17 +1936,20 @@ void AvmTraceBuilder::op_internal_return()
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_set(
+    uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, OpCode op_code, bool skip_gas)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_c] = unpack_indirects<1>(indirect, { dst_offset });
+    auto [resolved_dst_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ dst_offset }, mem_trace_builder);
 
-    auto write_c =
-        constrained_write_to_memory(call_ptr, clk, resolved_c, val_ff, AvmMemoryTag::U0, in_tag, IntermRegister::IC);
+    auto write_c = constrained_write_to_memory(
+        call_ptr, clk, resolved_dst_offset, val_ff, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
-    gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+    if (!skip_gas) {
+        gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1841,7 +1958,7 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
         .main_ind_addr_c = FF(write_c.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_c = FF(write_c.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_rwc = 1,
         .main_sel_mem_op_c = 1,
         .main_sel_op_set = 1,
@@ -1849,6 +1966,11 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
         .main_tag_err = static_cast<uint32_t>(!write_c.tag_match),
         .main_w_in_tag = static_cast<uint32_t>(in_tag),
     });
+
+    const std::set<OpCode> set_family{ OpCode::SET_8,  OpCode::SET_16,  OpCode::SET_32,
+                                       OpCode::SET_64, OpCode::SET_128, OpCode::SET_FF };
+    ASSERT(set_family.contains(op_code));
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**
@@ -1859,35 +1981,21 @@ void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, A
  * @param src_offset Offset of source memory cell
  * @param dst_offset Offset of destination memory cell
  */
-void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, OpCode op_code)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // Will be a non-trivial constant once we constrain address resolution
     bool tag_match = true;
-    uint32_t direct_src_offset = src_offset;
-    uint32_t direct_dst_offset = dst_offset;
 
-    bool indirect_src_flag = is_operand_indirect(indirect, 0);
-    bool indirect_dst_flag = is_operand_indirect(indirect, 1);
-
-    if (indirect_src_flag) {
-        auto read_ind_a =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, src_offset);
-        tag_match = read_ind_a.tag_match;
-        direct_src_offset = uint32_t(read_ind_a.val);
-    }
-
-    if (indirect_dst_flag) {
-        auto read_ind_c =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, dst_offset);
-        tag_match = tag_match && read_ind_c.tag_match;
-        direct_dst_offset = uint32_t(read_ind_c.val);
-    }
+    auto [resolved_src_offset, resolved_dst_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ src_offset, dst_offset }, mem_trace_builder);
 
     // Reading from memory and loading into ia without tag check.
-    auto const [val, tag] = mem_trace_builder.read_and_load_mov_opcode(call_ptr, clk, direct_src_offset);
+    auto const [val, tag] = mem_trace_builder.read_and_load_mov_opcode(call_ptr, clk, resolved_src_offset);
 
     // Write into memory from intermediate register ic.
-    mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
+    mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, resolved_dst_offset, val, tag, tag);
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
@@ -1898,136 +2006,22 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .main_call_ptr = call_ptr,
         .main_ia = val,
         .main_ic = val,
-        .main_ind_addr_a = indirect_src_flag ? src_offset : 0,
-        .main_ind_addr_c = indirect_dst_flag ? dst_offset : 0,
         .main_internal_return_ptr = internal_return_ptr,
-        .main_mem_addr_a = direct_src_offset,
-        .main_mem_addr_c = direct_dst_offset,
-        .main_pc = pc++,
+        .main_mem_addr_a = resolved_src_offset,
+        .main_mem_addr_c = resolved_dst_offset,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(tag),
         .main_rwc = 1,
         .main_sel_mem_op_a = 1,
         .main_sel_mem_op_c = 1,
         .main_sel_mov_ia_to_ic = 1,
         .main_sel_op_mov = 1,
-        .main_sel_resolve_ind_addr_a = static_cast<uint32_t>(indirect_src_flag),
-        .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_dst_flag),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(tag),
     });
-}
 
-/**
- * @brief Copy value and tag from a memory cell at position src_offset to the
- *        memory cell at position dst_offset. src_offset is a_offset if the value
- *        defined by cond_offset is non-zero. Otherwise, src_offset is b_offset.
- *
- * @param indirect A byte encoding information about indirect/direct memory access.
- * @param a_offset Offset of first candidate source memory cell
- * @param b_offset Offset of second candidate source memory cell
- * @param cond_offset Offset of the condition determining the source offset (a_offset or b_offset)
- * @param dst_offset Offset of destination memory cell
- */
-void AvmTraceBuilder::op_cmov(
-    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset)
-{
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    bool tag_match = true;
-    uint32_t direct_a_offset = a_offset;
-    uint32_t direct_b_offset = b_offset;
-    uint32_t direct_cond_offset = cond_offset;
-    uint32_t direct_dst_offset = dst_offset;
-
-    bool indirect_a_flag = is_operand_indirect(indirect, 0);
-    bool indirect_b_flag = is_operand_indirect(indirect, 1);
-    bool indirect_cond_flag = is_operand_indirect(indirect, 2);
-    bool indirect_dst_flag = is_operand_indirect(indirect, 3);
-
-    if (indirect_a_flag) {
-        auto read_ind_a =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_A, a_offset);
-        direct_a_offset = uint32_t(read_ind_a.val);
-        tag_match = tag_match && read_ind_a.tag_match;
-    }
-
-    if (indirect_b_flag) {
-        auto read_ind_b =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_B, b_offset);
-        direct_b_offset = uint32_t(read_ind_b.val);
-        tag_match = tag_match && read_ind_b.tag_match;
-    }
-
-    if (indirect_cond_flag) {
-        auto read_ind_d =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_D, cond_offset);
-        direct_cond_offset = uint32_t(read_ind_d.val);
-        tag_match = tag_match && read_ind_d.tag_match;
-    }
-
-    if (indirect_dst_flag) {
-        auto read_ind_c =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, dst_offset);
-        direct_dst_offset = uint32_t(read_ind_c.val);
-        tag_match = tag_match && read_ind_c.tag_match;
-    }
-
-    // Reading from memory and loading into ia or ib without tag check. We also load the conditional value
-    // in id without any tag check.
-    std::array<AvmMemTraceBuilder::MemEntry, 3> const cmov_res = mem_trace_builder.read_and_load_cmov_opcode(
-        call_ptr, clk, direct_a_offset, direct_b_offset, direct_cond_offset);
-
-    AvmMemTraceBuilder::MemEntry const& a_mem_entry = cmov_res.at(0);
-    AvmMemTraceBuilder::MemEntry const& b_mem_entry = cmov_res.at(1);
-    AvmMemTraceBuilder::MemEntry const& cond_mem_entry = cmov_res.at(2);
-
-    const bool id_zero = cond_mem_entry.val == 0;
-
-    auto const& val = id_zero ? b_mem_entry.val : a_mem_entry.val;
-    auto const& tag = id_zero ? b_mem_entry.tag : a_mem_entry.tag;
-
-    // Write into memory from intermediate register ic.
-    mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
-
-    FF const inv = !id_zero ? cond_mem_entry.val.invert() : 1;
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::CMOV);
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_call_ptr = call_ptr,
-        .main_ia = a_mem_entry.val,
-        .main_ib = b_mem_entry.val,
-        .main_ic = val,
-        .main_id = cond_mem_entry.val,
-        .main_id_zero = static_cast<uint32_t>(id_zero),
-        .main_ind_addr_a = indirect_a_flag ? a_offset : 0,
-        .main_ind_addr_b = indirect_b_flag ? b_offset : 0,
-        .main_ind_addr_c = indirect_dst_flag ? dst_offset : 0,
-        .main_ind_addr_d = indirect_cond_flag ? cond_offset : 0,
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_inv = inv,
-        .main_mem_addr_a = direct_a_offset,
-        .main_mem_addr_b = direct_b_offset,
-        .main_mem_addr_c = direct_dst_offset,
-        .main_mem_addr_d = direct_cond_offset,
-        .main_pc = pc++,
-        .main_r_in_tag = static_cast<uint32_t>(tag),
-        .main_rwc = 1,
-        .main_sel_mem_op_a = 1,
-        .main_sel_mem_op_b = 1,
-        .main_sel_mem_op_c = 1,
-        .main_sel_mem_op_d = 1,
-        .main_sel_mov_ia_to_ic = static_cast<uint32_t>(!id_zero),
-        .main_sel_mov_ib_to_ic = static_cast<uint32_t>(id_zero),
-        .main_sel_op_cmov = 1,
-        .main_sel_resolve_ind_addr_a = static_cast<uint32_t>(indirect_a_flag),
-        .main_sel_resolve_ind_addr_b = static_cast<uint32_t>(indirect_b_flag),
-        .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_dst_flag),
-        .main_sel_resolve_ind_addr_d = static_cast<uint32_t>(indirect_cond_flag),
-        .main_tag_err = static_cast<uint32_t>(!tag_match),
-        .main_w_in_tag = static_cast<uint32_t>(tag),
-    });
+    ASSERT(op_code == OpCode::MOV_8 || op_code == OpCode::MOV_16);
+    pc += Deserialization::get_pc_increment(op_code);
 }
 
 /**************************************************************************************************
@@ -2046,9 +2040,10 @@ void AvmTraceBuilder::op_cmov(
  */
 Row AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset)
 {
-    auto [resolved_data] = unpack_indirects<1>(indirect, { data_offset });
+    auto [resolved_data] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ data_offset }, mem_trace_builder);
+
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
+        call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_a.tag_match;
 
     return Row{
@@ -2057,7 +2052,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint32_t clk,
         .main_ind_addr_a = FF(read_a.indirect_address),
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_rwa = 0,
         .main_sel_mem_op_a = 1,
@@ -2086,12 +2081,13 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
                                                                uint32_t metadata_offset,
                                                                AvmMemoryTag metadata_r_tag)
 {
-    auto [resolved_data, resolved_metadata] = unpack_indirects<2>(indirect, { data_offset, metadata_offset });
+    auto [resolved_data, resolved_metadata] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ data_offset, metadata_offset }, mem_trace_builder);
 
     auto read_a =
-        constrained_read_from_memory(call_ptr, clk, resolved_data, data_r_tag, AvmMemoryTag::U0, IntermRegister::IA);
+        constrained_read_from_memory(call_ptr, clk, resolved_data, data_r_tag, AvmMemoryTag::FF, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_metadata, metadata_r_tag, AvmMemoryTag::U0, IntermRegister::IB);
+        call_ptr, clk, resolved_metadata, metadata_r_tag, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     return Row{
@@ -2103,7 +2099,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(data_r_tag),
         .main_rwa = 0,
         .main_rwb = 0,
@@ -2127,15 +2123,16 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
  * @param metadata_offset - The offset of the metadata (slot in the sload example)
  * @return Row
  */
-Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(uint8_t indirect,
-                                                                                    uint32_t clk,
-                                                                                    uint32_t data_offset,
-                                                                                    uint32_t metadata_offset)
+Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(
+    uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t address_offset, uint32_t metadata_offset)
 {
     FF exists = execution_hints.get_side_effect_hints().at(side_effect_counter);
-    // TODO: throw error if incorrect
 
-    auto [resolved_data, resolved_metadata] = unpack_indirects<2>(indirect, { data_offset, metadata_offset });
+    // TODO: resolved_address should be used
+    auto [resolved_data, resolved_address, resolved_metadata] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ data_offset, address_offset, metadata_offset }, mem_trace_builder);
+
     auto read_a = constrained_read_from_memory(
         call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
 
@@ -2152,7 +2149,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_rwa = 0,
         .main_rwb = 1,
@@ -2167,18 +2164,19 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
 }
 
 // Specifically for handling the L1TOL2MSGEXISTS and NOTEHASHEXISTS opcodes
-Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(
-    uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, uint32_t leaf_index)
+Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(uint32_t clk,
+                                                                uint32_t data_offset,
+                                                                uint32_t leaf_index,
+                                                                uint32_t metadata_offset)
 {
     // If doesnt exist, should not read_a, but instead get from public inputs
     FF exists = execution_hints.get_leaf_index_hints().at(leaf_index);
 
-    auto [resolved_data, resolved_metadata] = unpack_indirects<2>(indirect, { data_offset, metadata_offset });
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
+        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
 
     auto write_b = constrained_write_to_memory(
-        call_ptr, clk, resolved_metadata, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
+        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && write_b.tag_match;
 
     return Row{
@@ -2190,7 +2188,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(
         .main_internal_return_ptr = internal_return_ptr,
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc++,
+        .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_rwa = 0,
         .main_rwb = 1,
@@ -2224,7 +2222,9 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hint(uint8_
     FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
     // TODO: throw error if incorrect
 
-    auto [resolved_data, resolved_metadata] = unpack_indirects<2>(indirect, { data_offset, metadata_offset });
+    auto [resolved_data, resolved_metadata] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ data_offset, metadata_offset }, mem_trace_builder);
+
     auto write_a = constrained_write_to_memory(
         call_ptr, clk, resolved_data, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(
@@ -2262,7 +2262,8 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_slot, resolved_dest] = unpack_indirects<2>(indirect, { slot_offset, dest_offset });
+    auto [resolved_slot, resolved_dest] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ slot_offset, dest_offset }, mem_trace_builder);
 
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
@@ -2270,7 +2271,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
     // otherwise everything falls apart since this is a fake row.
     //
     // auto read_slot = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_slot, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
+    //     call_ptr, clk, resolved_slot, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     //
     // Read the slot value that we will write hints to in a row
     // main_trace.push_back(Row{
@@ -2289,14 +2290,14 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
     // clk++;
 
     AddressWithMode write_dst = resolved_dest;
-    auto old_pc = pc;
     // Loop over the size and write the hints to memory
     for (uint32_t i = 0; i < size; i++) {
         FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
 
         auto write_a = constrained_write_to_memory(
-            call_ptr, clk, write_dst, value, AvmMemoryTag::U0, AvmMemoryTag::FF, IntermRegister::IA);
+            call_ptr, clk, write_dst, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
+        // TODO(8945): remove fake rows
         auto row = Row{
             .main_clk = clk,
             .main_ia = value,
@@ -2304,9 +2305,7 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
             .main_ind_addr_a = write_a.indirect_address,
             .main_internal_return_ptr = internal_return_ptr,
             .main_mem_addr_a = write_a.direct_address, // direct address incremented at end of the loop
-            // FIXME: We are forced to increment the pc since this is in the main trace,
-            // but this will have to be fixed before bytecode decomposition.
-            .main_pc = pc++,
+            .main_pc = pc,
             .main_rwa = 1,
             .main_sel_mem_op_a = 1,
             .main_sel_op_sload = FF(1),
@@ -2333,15 +2332,15 @@ void AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t 
         // After the first loop, all future write destinations are direct, increment the direct address
         write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
     }
-    // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+    pc += Deserialization::get_pc_increment(OpCode::SLOAD);
 }
 
 void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [resolved_src, resolved_slot] = unpack_indirects<2>(indirect, { src_offset, slot_offset });
+    auto [resolved_src, resolved_slot] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ src_offset, slot_offset }, mem_trace_builder);
 
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
@@ -2371,11 +2370,11 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
 
     // This loop reads a _size_ number of elements from memory and places them into a tuple of (ele, slot)
     // in the kernel lookup.
-    auto old_pc = pc;
     for (uint32_t i = 0; i < size; i++) {
         auto read_a = constrained_read_from_memory(
-            call_ptr, clk, read_src, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
+            call_ptr, clk, read_src, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
+        // TODO(8945): remove fake rows
         Row row = Row{
             .main_clk = clk,
             .main_ia = read_a.val,
@@ -2383,9 +2382,7 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
             .main_ind_addr_a = read_a.indirect_address,
             .main_internal_return_ptr = internal_return_ptr,
             .main_mem_addr_a = read_a.direct_address, // direct address incremented at end of the loop
-            // FIXME: We are forced to increment the pc since this is in the main trace,
-            // but this will have to be fixed before bytecode decomposition.
-            .main_pc = pc++,
+            .main_pc = pc,
             .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
             .main_sel_mem_op_a = 1,
             .main_sel_q_kernel_output_lookup = 1,
@@ -2408,8 +2405,8 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
         // All future reads are direct, increment the direct address
         read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
     }
-    // FIXME: Since we changed the PC, we need to reset it
-    op_jump(old_pc + 1);
+
+    pc += Deserialization::get_pc_increment(OpCode::SSTORE);
 }
 
 void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
@@ -2419,11 +2416,17 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
-    Row row =
-        create_kernel_output_opcode_for_leaf_index(indirect, clk, note_hash_offset, dest_offset, uint32_t(leaf_index));
+    auto [resolved_note_hash, resolved_leaf_index, resolved_dest] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ note_hash_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
+
+    const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+
+    Row row = create_kernel_output_opcode_for_leaf_index(
+        clk, resolved_note_hash, static_cast<uint32_t>(leaf_index), resolved_dest);
+
     kernel_trace_builder.op_note_hash_exists(clk,
-                                             /*side_effect_counter*/ uint32_t(leaf_index),
+                                             /*side_effect_counter*/ static_cast<uint32_t>(leaf_index),
                                              row.main_ia,
                                              /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_note_hash_exists = FF(1);
@@ -2434,6 +2437,7 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     main_trace.push_back(row);
 
     debug("note_hash_exists side-effect cnt: ", side_effect_counter);
+    pc += Deserialization::get_pc_increment(OpCode::NOTEHASHEXISTS);
 }
 
 void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
@@ -2451,14 +2455,19 @@ void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_off
 
     debug("emit_note_hash side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::EMITNOTEHASH);
 }
 
-void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect, uint32_t nullifier_offset, uint32_t dest_offset)
+void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
+                                          uint32_t nullifier_offset,
+                                          uint32_t address_offset,
+                                          uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row =
-        create_kernel_output_opcode_with_set_metadata_output_from_hint(indirect, clk, nullifier_offset, dest_offset);
+    Row row = create_kernel_output_opcode_with_set_metadata_output_from_hint(
+        indirect, clk, nullifier_offset, address_offset, dest_offset);
     kernel_trace_builder.op_nullifier_exists(
         clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_nullifier_exists = FF(1);
@@ -2470,6 +2479,8 @@ void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect, uint32_t nullifier_o
 
     debug("nullifier_exists side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::NULLIFIEREXISTS);
 }
 
 void AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset)
@@ -2487,6 +2498,8 @@ void AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_off
 
     debug("emit_nullifier side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::EMITNULLIFIER);
 }
 
 void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
@@ -2496,10 +2509,18 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
-    Row row = create_kernel_output_opcode_for_leaf_index(indirect, clk, log_offset, dest_offset, uint32_t(leaf_index));
-    kernel_trace_builder.op_l1_to_l2_msg_exists(
-        clk, uint32_t(leaf_index) /*side_effect_counter*/, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+    auto [resolved_log, resolved_leaf_index, resolved_dest] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ log_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
+
+    const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+
+    Row row =
+        create_kernel_output_opcode_for_leaf_index(clk, resolved_log, static_cast<uint32_t>(leaf_index), resolved_dest);
+    kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
+                                                static_cast<uint32_t>(leaf_index) /*side_effect_counter*/,
+                                                row.main_ia,
+                                                /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     // Constrain gas cost
@@ -2508,48 +2529,108 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     main_trace.push_back(row);
 
     debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
+
+    pc += Deserialization::get_pc_increment(OpCode::L1TOL2MSGEXISTS);
 }
 
-void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_get_contract_instance(
+    uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    auto [resolved_address_offset, resolved_dst_offset] = unpack_indirects<2>(indirect, { address_offset, dst_offset });
-    auto read_address = constrained_read_from_memory(
-        call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
-    bool tag_match = read_address.tag_match;
-
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
 
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ia = read_address.val,
-        .main_ind_addr_a = FF(read_address.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(read_address.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-        .main_sel_mem_op_a = FF(1),
-        .main_sel_op_get_contract_instance = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-    });
+    if (member_enum >= static_cast<int>(ContractInstanceMember::MAX_MEMBER)) {
+        // Error, bad enum operand
+        // TODO(9393): constrain this via range check
+        const auto row = Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc,
+            .main_sel_op_get_contract_instance = FF(1),
+        };
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
+    } else {
 
-    // Read the contract instance
-    ContractInstanceHint contract_instance = execution_hints.contract_instance_hints.at(read_address.val);
+        ContractInstanceMember chosen_member = static_cast<ContractInstanceMember>(member_enum);
 
-    // NOTE: we don't write the first entry (the contract instance's address/key) to memory
-    std::vector<FF> contract_instance_vec = { contract_instance.instance_found_in_address,
-                                              contract_instance.salt,
-                                              contract_instance.deployer_addr,
-                                              contract_instance.contract_class_id,
-                                              contract_instance.initialisation_hash,
-                                              contract_instance.public_key_hash };
-    write_slice_to_memory(resolved_dst_offset, AvmMemoryTag::FF, contract_instance_vec);
+        auto [resolved_address_offset, resolved_dst_offset, resolved_exists_offset] =
+            Addressing<3>::fromWire(indirect, call_ptr)
+                .resolve({ address_offset, dst_offset, exists_offset }, mem_trace_builder);
 
-    debug("contract_instance cnt: ", side_effect_counter);
-    side_effect_counter++;
+        auto read_address = constrained_read_from_memory(
+            call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+        bool tag_match = read_address.tag_match;
+
+        // Read the contract instance
+        ContractInstanceHint instance = execution_hints.contract_instance_hints.at(read_address.val);
+
+        FF member_value;
+        switch (chosen_member) {
+        case ContractInstanceMember::DEPLOYER:
+            member_value = instance.deployer_addr;
+            break;
+        case ContractInstanceMember::CLASS_ID:
+            member_value = instance.contract_class_id;
+            break;
+        case ContractInstanceMember::INIT_HASH:
+            member_value = instance.initialisation_hash;
+            break;
+        default:
+            member_value = 0;
+            break;
+        }
+
+        // TODO(8603): once instructions can have multiple different tags for writes, write dst as FF and exists as U1
+        // auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst_offset, member_value,
+        // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC); auto write_exists =
+        // constrained_write_to_memory(call_ptr, clk, resolved_exists_offset, instance.instance_found_in_address,
+        // AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
+
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ia = read_address.val,
+            // TODO(8603): uncomment this and below blocks once instructions can have multiple different tags for
+            // writes
+            //.main_ic = write_dst.val,
+            //.main_id = write_exists.val,
+            .main_ind_addr_a = FF(read_address.indirect_address),
+            //.main_ind_addr_c = FF(write_dst.indirect_address),
+            //.main_ind_addr_d = FF(write_exists.indirect_address),
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_mem_addr_a = FF(read_address.direct_address),
+            //.main_mem_addr_c = FF(write_dst.direct_address),
+            //.main_mem_addr_d = FF(write_exists.direct_address),
+            .main_pc = FF(pc),
+            .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .main_sel_mem_op_a = FF(1),
+            //.main_sel_mem_op_c = FF(1),
+            //.main_sel_mem_op_d = FF(1),
+            .main_sel_op_get_contract_instance = FF(1),
+            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_address.is_indirect)),
+            //.main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(write_dst.is_indirect)),
+            //.main_sel_resolve_ind_addr_d = FF(static_cast<uint32_t>(write_exists.is_indirect)),
+            .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+        });
+
+        pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
+
+        // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+        // is implemented with opcodes (SET and JUMP).
+        // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a constrained
+        // writes
+        write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
+        write_to_memory(resolved_exists_offset, FF(static_cast<uint32_t>(instance.exists)), AvmMemoryTag::U1);
+
+        // TODO(dbanks12): compute contract address nullifier from instance preimage and perform membership check
+
+        debug("contract_instance cnt: ", side_effect_counter);
+        side_effect_counter++;
+    }
 }
 
 /**************************************************************************************************
@@ -2566,9 +2647,11 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
 
     // FIXME: read (and constrain) log_size_offset
     auto [resolved_log_offset, resolved_log_size_offset] =
-        unpack_indirects<2>(indirect, { log_offset, log_size_offset });
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ log_offset, log_size_offset }, mem_trace_builder);
 
-    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_SELECTOR];
+    // This is a hack to get the contract address from the first contract instance
+    // Once we have 1-enqueued call and proper nested contexts, this should use that address of the current contextt
+    FF contract_address = execution_hints.all_contract_bytecode.at(0).contract_instance.address;
     std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
 
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
@@ -2585,13 +2668,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
                          std::make_move_iterator(log_size_bytes.begin()),
                          std::make_move_iterator(log_size_bytes.end()));
 
-    // Load the log values from memory
-    // This first read might be indirect which subsequent reads should not be
-    FF initial_direct_addr = resolved_log_offset.mode == AddressingMode::DIRECT
-                                 ? resolved_log_offset.offset
-                                 : unconstrained_read_from_memory(resolved_log_offset.offset);
-
-    AddressWithMode direct_field_addr = AddressWithMode(static_cast<uint32_t>(initial_direct_addr));
+    AddressWithMode direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
     // We need to read the rest of the log_size number of elements
     std::vector<uint8_t> log_value_bytes;
     for (uint32_t i = 0; i < log_size; i++) {
@@ -2606,19 +2683,19 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
     // Truncate the hash to 31 bytes so it will be a valid field element
     FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
 
-    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and is
-    // prefixed to message see toBuffer in unencrypted_l2_log.ts
+    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and
+    // is prefixed to message see toBuffer in unencrypted_l2_log.ts
     FF length_of_preimage = num_bytes + 32 + 4;
     // The + 4 is because the kernels store the length of the
-    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need to
-    // add four to the length here. [Copied from unencrypted_l2_log.ts]
+    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need
+    // to add four to the length here. [Copied from unencrypted_l2_log.ts]
     FF metadata_log_length = length_of_preimage + 4;
     Row row = Row{
         .main_clk = clk,
         .main_ia = trunc_hash,
         .main_ib = metadata_log_length,
         .main_internal_return_ptr = internal_return_ptr,
-        .main_pc = pc++,
+        .main_pc = pc,
     };
     kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
     row.main_sel_op_emit_unencrypted_log = FF(1);
@@ -2630,6 +2707,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
 
     debug("emit_unencrypted_log side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+    pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
 }
 
 void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset)
@@ -2649,6 +2727,8 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
 
     debug("emit_l2_to_l1_msg side-effect cnt: ", side_effect_counter);
     side_effect_counter++;
+
+    pc += Deserialization::get_pc_increment(OpCode::SENDL2TOL1MSG);
 }
 
 /**************************************************************************************************
@@ -2657,15 +2737,12 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
 
 // Helper/implementation for CALL and STATICCALL
 void AvmTraceBuilder::constrain_external_call(OpCode opcode,
-                                              uint8_t indirect,
+                                              uint16_t indirect,
                                               uint32_t gas_offset,
                                               uint32_t addr_offset,
                                               uint32_t args_offset,
                                               uint32_t args_size_offset,
-                                              uint32_t ret_offset,
-                                              uint32_t ret_size,
-                                              uint32_t success_offset,
-                                              [[maybe_unused]] uint32_t function_selector_offset)
+                                              uint32_t success_offset)
 {
     ASSERT(opcode == OpCode::CALL || opcode == OpCode::STATICCALL);
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -2675,20 +2752,19 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
           resolved_addr_offset,
           resolved_args_offset,
           resolved_args_size_offset,
-          resolved_ret_offset,
           resolved_success_offset] =
-        unpack_indirects<6>(indirect,
-                            { gas_offset, addr_offset, args_offset, args_size_offset, ret_offset, success_offset });
+        Addressing<5>::fromWire(indirect, call_ptr)
+            .resolve({ gas_offset, addr_offset, args_offset, args_size_offset, success_offset }, mem_trace_builder);
 
     // Should read the address next to read_gas as well (tuple of gas values (l2Gas, daGas))
     auto read_gas_l2 = constrained_read_from_memory(
-        call_ptr, clk, resolved_gas_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
+        call_ptr, clk, resolved_gas_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     auto read_gas_da = mem_trace_builder.read_and_load_from_memory(
-        call_ptr, clk, IntermRegister::IB, read_gas_l2.direct_address + 1, AvmMemoryTag::FF, AvmMemoryTag::U0);
+        call_ptr, clk, IntermRegister::IB, read_gas_l2.direct_address + 1, AvmMemoryTag::FF, AvmMemoryTag::FF);
     auto read_addr = constrained_read_from_memory(
-        call_ptr, clk, resolved_addr_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IC);
+        call_ptr, clk, resolved_addr_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC);
     auto read_args = constrained_read_from_memory(
-        call_ptr, clk, resolved_args_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::ID);
+        call_ptr, clk, resolved_args_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
     bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
 
     // TODO: constrain this
@@ -2696,7 +2772,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     gas_trace_builder.constrain_gas(clk,
                                     opcode,
-                                    /*dyn_gas_multiplier=*/args_size + ret_size,
+                                    /*dyn_gas_multiplier=*/args_size,
                                     static_cast<uint32_t>(hint.l2_gas_used),
                                     static_cast<uint32_t>(hint.da_gas_used));
 
@@ -2714,7 +2790,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_mem_addr_b = FF(read_gas_l2.direct_address + 1),
         .main_mem_addr_c = FF(read_addr.direct_address),
         .main_mem_addr_d = FF(read_args.direct_address),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
         .main_sel_mem_op_b = FF(1),
@@ -2728,13 +2804,16 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    // The return data hint is used for now, we check it has the same length as the ret_size
-    ASSERT(hint.return_data.size() == ret_size);
-    // Write the return data to memory
-    write_slice_to_memory(resolved_ret_offset, AvmMemoryTag::FF, hint.return_data);
+    pc += Deserialization::get_pc_increment(opcode);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write the success flag to memory
-    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U1, std::vector<FF>{ hint.success });
+    write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
     external_call_counter++;
+
+    // Save return data for later.
+    nested_returndata = hint.return_data;
 
     // Adjust the side_effect_counter to the value at the end of the external call but not static call.
     if (opcode == OpCode::CALL) {
@@ -2752,33 +2831,18 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
  * @param addr_offset An index in memory pointing to the target contract address
  * @param args_offset An index in memory pointing to the first value of the input array for the external call
  * @param args_size The number of values in the input array for the external call
- * @param ret_offset An index in memory pointing to where the first value of the external calls return value should
- * be stored.
- * @param ret_size The number of values in the return array
  * @param success_offset An index in memory pointing to where the success flag (U1) of the external call should be
  * stored
- * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
-void AvmTraceBuilder::op_call(uint8_t indirect,
+void AvmTraceBuilder::op_call(uint16_t indirect,
                               uint32_t gas_offset,
                               uint32_t addr_offset,
                               uint32_t args_offset,
                               uint32_t args_size_offset,
-                              uint32_t ret_offset,
-                              uint32_t ret_size,
-                              uint32_t success_offset,
-                              [[maybe_unused]] uint32_t function_selector_offset)
+                              uint32_t success_offset)
 {
-    return constrain_external_call(OpCode::CALL,
-                                   indirect,
-                                   gas_offset,
-                                   addr_offset,
-                                   args_offset,
-                                   args_size_offset,
-                                   ret_offset,
-                                   ret_size,
-                                   success_offset,
-                                   function_selector_offset);
+    return constrain_external_call(
+        OpCode::CALL, indirect, gas_offset, addr_offset, args_offset, args_size_offset, success_offset);
 }
 
 /**
@@ -2791,33 +2855,18 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
  * @param addr_offset An index in memory pointing to the target contract address
  * @param args_offset An index in memory pointing to the first value of the input array for the external call
  * @param args_size The number of values in the input array for the static call
- * @param ret_offset An index in memory pointing to where the first value of the static call return value should
- * be stored.
- * @param ret_size The number of values in the return array
  * @param success_offset An index in memory pointing to where the success flag (U8) of the static call should be
  * stored
- * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
  */
-void AvmTraceBuilder::op_static_call(uint8_t indirect,
+void AvmTraceBuilder::op_static_call(uint16_t indirect,
                                      uint32_t gas_offset,
                                      uint32_t addr_offset,
                                      uint32_t args_offset,
                                      uint32_t args_size_offset,
-                                     uint32_t ret_offset,
-                                     uint32_t ret_size,
-                                     uint32_t success_offset,
-                                     [[maybe_unused]] uint32_t function_selector_offset)
+                                     uint32_t success_offset)
 {
-    return constrain_external_call(OpCode::STATICCALL,
-                                   indirect,
-                                   gas_offset,
-                                   addr_offset,
-                                   args_offset,
-                                   args_size_offset,
-                                   ret_offset,
-                                   ret_size,
-                                   success_offset,
-                                   function_selector_offset);
+    return constrain_external_call(
+        OpCode::STATICCALL, indirect, gas_offset, addr_offset, args_offset, args_size_offset, success_offset);
 }
 
 /**
@@ -2854,38 +2903,29 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         return {};
     }
 
-    uint32_t direct_ret_offset = ret_offset; // Will be overwritten in indirect mode.
-
-    bool indirect_flag = false;
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
     bool tag_match = true;
+
+    auto [resolved_ret_offset] = Addressing<1>::fromWire(indirect, call_ptr).resolve({ ret_offset }, mem_trace_builder);
 
     // The only memory operation performed from the main trace is a possible indirect load for resolving the
     // direct destination offset stored in main_mem_addr_c.
     // All the other memory operations are triggered by the slice gadget.
-    if (is_operand_indirect(indirect, 0)) {
-        indirect_flag = true;
-        auto ind_read =
-            mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, ret_offset);
-        direct_ret_offset = uint32_t(ind_read.val);
-        tag_match = ind_read.tag_match;
-    }
 
     if (tag_match) {
-        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, direct_ret_offset, ret_size);
-        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, direct_ret_offset, ret_size);
+        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
+        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
     }
 
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_call_ptr = call_ptr,
         .main_ib = ret_size,
-        .main_ind_addr_c = indirect_flag ? ret_offset : 0,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_c = direct_ret_offset,
+        .main_mem_addr_c = resolved_ret_offset,
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_external_return = 1,
-        .main_sel_resolve_ind_addr_c = static_cast<uint32_t>(indirect_flag),
         .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
@@ -2895,72 +2935,64 @@ std::vector<FF> AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     return returndata;
 }
 
-std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
+    // TODO: This opcode is still masquerading as RETURN.
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // This boolean will not be a trivial constant once we re-enable constraining address resolution
+    bool tag_match = true;
+
+    auto [resolved_ret_offset, resolved_ret_size_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
+    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
+    gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
+
     // TODO: fix and set sel_op_revert
-    return op_return(indirect, ret_offset, ret_size);
+    if (ret_size == 0) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+
+        pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+        return {};
+    }
+
+    // The only memory operation performed from the main trace is a possible indirect load for resolving the
+    // direct destination offset stored in main_mem_addr_c.
+    // All the other memory operations are triggered by the slice gadget.
+    if (tag_match) {
+        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
+        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+    }
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_ib = ret_size,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_mem_addr_c = resolved_ret_offset,
+        .main_pc = pc,
+        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .main_sel_op_external_return = 1,
+        .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
+        .main_tag_err = static_cast<uint32_t>(!tag_match),
+        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+    });
+
+    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    return returndata;
 }
 
 /**************************************************************************************************
  *                                   GADGETS
  **************************************************************************************************/
-
-/**
- * @brief Keccak  with direct or indirect memory access.
- * Keccak is TEMPORARY while we wait for the transition to keccakf1600, so we do the minimal to store the result
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param output_offset An index in memory pointing to where the first u8 value of the output array should be
- * stored.
- * @param input_offset An index in memory pointing to the first u8 value of the input array to be used
- * @param input_size offset An index in memory pointing to the size of the input array.
- */
-void AvmTraceBuilder::op_keccak(uint8_t indirect,
-                                uint32_t output_offset,
-                                uint32_t input_offset,
-                                uint32_t input_size_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
-
-    // Read the input length first
-    auto input_length_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK, static_cast<uint32_t>(input_length_read.val));
-
-    // Store the clock time that we will use to line up the gadget later
-    auto keccak_op_clk = clk;
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ib = input_length_read.val, // Message Length
-        .main_ind_addr_b = FF(input_length_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_b = FF(input_length_read.direct_address), // length
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_sel_mem_op_b = FF(1),
-        .main_sel_op_keccak = FF(1),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(input_length_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_length_read.tag_match)),
-    });
-    clk++;
-
-    std::vector<uint8_t> input;
-    input.reserve(uint32_t(input_length_read.val));
-    // Read the slice length from memory
-    read_slice_from_memory(resolved_input_offset, uint32_t(input_length_read.val), input);
-
-    std::array<uint8_t, 32> result = keccak_trace_builder.keccak(keccak_op_clk, input, uint32_t(input_length_read.val));
-    // We convert the results to field elements here
-    std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 32; i++) {
-        ff_result.emplace_back(result[i]);
-    }
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U8, ff_result);
-}
 
 /**
  * @brief Poseidon2 Permutation with direct or indirect memory access.
@@ -2979,48 +3011,26 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
     // that point to the starting memory addresses for the input, output and h_init values
     // Note::This function will add memory reads at clk in the mem_trace_builder
     auto [resolved_input_offset, resolved_output_offset] =
-        unpack_indirects<2>(indirect, { input_offset, output_offset });
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ input_offset, output_offset }, mem_trace_builder);
 
     // Resolve indirects in the main trace. Do not resolve the value stored in direct addresses.
-    uint32_t direct_input_offset = input_offset;
-    uint32_t direct_output_offset = output_offset;
-    uint32_t indirect_input_offset = 0;
-    uint32_t indirect_output_offset = 0;
-    if (resolved_input_offset.mode == AddressingMode::INDIRECT) {
-        auto ind_read_a = mem_trace_builder.indirect_read_and_load_from_memory(
-            call_ptr, clk, IndirectRegister::IND_A, resolved_input_offset.offset);
-        indirect_input_offset = input_offset;
-        direct_input_offset = uint32_t(ind_read_a.val);
-    }
-    if (resolved_output_offset.mode == AddressingMode::INDIRECT) {
-        auto ind_read_b = mem_trace_builder.indirect_read_and_load_from_memory(
-            call_ptr, clk, IndirectRegister::IND_B, resolved_output_offset.offset);
-        indirect_output_offset = output_offset;
-        direct_output_offset = uint32_t(ind_read_b.val);
-    }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2);
+    gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2PERM);
 
     // Main trace contains on operand values from the bytecode and resolved indirects
     main_trace.push_back(Row{
         .main_clk = clk,
-        .main_ind_addr_a = FF(indirect_input_offset),
-        .main_ind_addr_b = FF(indirect_output_offset),
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = direct_input_offset,
-        .main_mem_addr_b = direct_output_offset,
-        .main_pc = FF(pc++),
+        .main_mem_addr_a = resolved_input_offset,
+        .main_mem_addr_b = resolved_output_offset,
+        .main_pc = FF(pc),
         .main_sel_op_poseidon2 = FF(1),
-        .main_sel_resolve_ind_addr_a =
-            FF(static_cast<uint32_t>(resolved_input_offset.mode == AddressingMode::INDIRECT)),
-        .main_sel_resolve_ind_addr_b =
-            FF(static_cast<uint32_t>(resolved_output_offset.mode == AddressingMode::INDIRECT)),
     });
 
     // These read patterns will be refactored - we perform them here instead of in the poseidon gadget trace
     // even though they are "performed" by the gadget.
-    AddressWithMode direct_src_offset = { AddressingMode::DIRECT, direct_input_offset };
+    AddressWithMode direct_src_offset = { AddressingMode::DIRECT, resolved_input_offset };
     // This is because passing the mem_builder to the gadget causes some issues regarding copy-move semantics in cpp
     auto read_a = constrained_read_from_memory(call_ptr,
                                                clk,
@@ -3052,15 +3062,15 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                                AvmMemTraceBuilder::POSEIDON2);
 
     std::array<FF, 4> input = { read_a.val, read_b.val, read_c.val, read_d.val };
-    std::array<FF, 4> result =
-        poseidon2_trace_builder.poseidon2_permutation(input, clk, direct_input_offset, direct_output_offset);
+    std::array<FF, 4> result = poseidon2_trace_builder.poseidon2_permutation(
+        input, call_ptr, clk, resolved_input_offset, resolved_output_offset);
 
     std::vector<FF> ff_result;
     for (uint32_t i = 0; i < 4; i++) {
         ff_result.emplace_back(result[i]);
     }
     // Write the result to memory after, see the comments at read to understand why this happens here.
-    AddressWithMode direct_dst_offset = { AddressingMode::DIRECT, direct_output_offset };
+    AddressWithMode direct_dst_offset = { AddressingMode::DIRECT, resolved_output_offset };
     constrained_write_to_memory(call_ptr,
                                 clk,
                                 direct_dst_offset,
@@ -3094,60 +3104,164 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                 AvmMemoryTag::FF,
                                 IntermRegister::ID,
                                 AvmMemTraceBuilder::POSEIDON2);
+
+    pc += Deserialization::get_pc_increment(OpCode::POSEIDON2PERM);
 }
 
 /**
- * @brief Pedersen Hash with direct or indirect memory access.
+ * @brief SHA256 Compression with direct or indirect memory access.
+ *
  * @param indirect byte encoding information about indirect/direct memory access.
- * @param gen_ctx_offset An index in memory pointing to where the u32 offset for the pedersen hash generators.
- * @param input_offset An index in memory pointing to the first FF value of the input array to be used in the next
- * @param input_size offset An index in memory pointing to the size of the input array.
+ * @param state_offset An index in memory pointing to the first U32 value of the state array to be used in the next
+ * instance of sha256 compression.
+ * @param input_offset An index in memory pointing to the first U32 value of the input array to be used in the next
+ * instance of sha256 compression.
+ * @param output_offset An index in memory pointing to where the first U32 value of the output array should be
+ * stored.
  */
-void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
-                                       uint32_t gen_ctx_offset,
-                                       uint32_t output_offset,
-                                       uint32_t input_offset,
-                                       uint32_t input_size_offset)
+void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
+                                            uint32_t output_offset,
+                                            uint32_t state_offset,
+                                            uint32_t inputs_offset)
 {
+    // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_gen_ctx_offset, resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        unpack_indirects<4>(indirect, { gen_ctx_offset, output_offset, input_offset, input_size_offset });
 
-    auto input_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
-    // auto input_size_read = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
-    // auto gen_ctx_read = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_gen_ctx_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IC);
-    auto input_size_read = unconstrained_read_from_memory(resolved_input_size_offset);
-    auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
+    // Resolve the indirect flags, the results of this function are used to determine the memory offsets
+    // that point to the starting memory addresses for the input and output values.
+    auto [resolved_output_offset, resolved_state_offset, resolved_inputs_offset] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ output_offset, state_offset, inputs_offset }, mem_trace_builder);
+
+    auto read_a = constrained_read_from_memory(
+        call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IA);
+    auto read_b = constrained_read_from_memory(
+        call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
+    bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // Constrain gas cost
-    // TODO(dbanks12): need tag check u32 here on input size
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN, static_cast<uint32_t>(input_size_read));
+    gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
 
-    // We read the input and output addresses in one row as they should contain FF elements
+    // Since the above adds mem_reads in the mem_trace_builder at clk, we need to follow up resolving the reads in
+    // the main trace at the same clk cycle to preserve the cross-table permutation
+    //
+    // TODO<#6383>: We put the first value of each of the input, output (which is 0 at this point) and h_init arrays
+    // into the main trace at the intermediate registers simply for the permutation check, in the future this will
+    // change.
+    // Note: we could avoid output being zero if we loaded the input and state beforehand (with a new function that
+    // did not lay down constraints), but this is a simplification
     main_trace.push_back(Row{
         .main_clk = clk,
-        .main_ia = input_read.val, // First element of input
-        .main_ind_addr_a = FF(input_read.indirect_address),
+        .main_ia = read_a.val, // First element of state
+        .main_ib = read_b.val, // First element of input
+        .main_ind_addr_a = FF(read_a.indirect_address),
+        .main_ind_addr_b = FF(read_b.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(input_read.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+        .main_mem_addr_a = FF(read_a.direct_address),
+        .main_mem_addr_b = FF(read_b.direct_address),
+        .main_pc = FF(pc),
+        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_op_pedersen = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(input_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_read.tag_match)),
+        .main_sel_mem_op_b = FF(1),
+        .main_sel_op_sha256 = FF(1),
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
+        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
+    // We store the current clk this main trace row occurred so that we can line up the sha256 gadget operation at
+    // the same clk later.
+    auto sha_op_clk = clk;
+    // We need to increment the clk
+    clk++;
+    // State array input is fixed to 256 bits
+    std::vector<uint32_t> h_init_vec;
+    // Input for hash is expanded to 512 bits
+    std::vector<uint32_t> input_vec;
+    // Read results are written to h_init array.
+    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
+    // Read results are written to input array
+    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
 
-    std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, static_cast<uint32_t>(input_size_read), inputs);
-    FF output = pedersen_trace_builder.pedersen_hash(inputs, static_cast<uint32_t>(gen_ctx_read), clk);
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
+    // Now that we have read all the values, we can perform the operation to get the resulting witness.
+    // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the
+    // main trace that has the selector
+    std::array<uint32_t, 8> h_init = vec_to_arr<uint32_t, 8>(h_init_vec);
+    std::array<uint32_t, 16> input = vec_to_arr<uint32_t, 16>(input_vec);
+
+    std::array<uint32_t, 8> result = sha256_trace_builder.sha256_compression(h_init, input, sha_op_clk);
+    // We convert the results to field elements here
+    std::vector<FF> ff_result;
+    for (uint32_t i = 0; i < 8; i++) {
+        ff_result.emplace_back(result[i]);
+    }
+
+    pc += Deserialization::get_pc_increment(OpCode::SHA256COMPRESSION);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
+    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
 }
 
-void AvmTraceBuilder::op_ec_add(uint8_t indirect,
+/**
+ * @brief Keccakf1600  with direct or indirect memory access.
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param output_offset An index in memory pointing to where the first u64 value of the output array should be
+ * stored.
+ * @param input_offset An index in memory pointing to the first u64 value of the input array to be used in the next
+ * instance of keccakf1600.
+ */
+void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    auto [resolved_output_offset, resolved_input_offset] =
+        Addressing<2>::fromWire(indirect, call_ptr).resolve({ output_offset, input_offset }, mem_trace_builder);
+    auto input_read = constrained_read_from_memory(
+        call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
+    auto output_read = constrained_read_from_memory(
+        call_ptr, clk, resolved_output_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IC);
+    bool tag_match = input_read.tag_match && output_read.tag_match;
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_ia = input_read.val,  // First element of input
+        .main_ic = output_read.val, // First element of output
+        .main_ind_addr_a = FF(input_read.indirect_address),
+        .main_ind_addr_c = FF(output_read.indirect_address),
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_mem_addr_a = FF(input_read.direct_address),
+        .main_mem_addr_c = FF(output_read.direct_address),
+        .main_pc = FF(pc),
+        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
+        .main_sel_mem_op_a = FF(1),
+        .main_sel_mem_op_c = FF(1),
+        .main_sel_op_keccak = FF(1),
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(input_read.is_indirect)),
+        .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(output_read.is_indirect)),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+    });
+
+    // Array input is fixed to 1600 bits
+    std::vector<uint64_t> input_vec;
+    // Read results are written to input array
+    read_slice_from_memory<uint64_t>(resolved_input_offset, KECCAKF1600_INPUT_SIZE, input_vec);
+    std::array<uint64_t, KECCAKF1600_INPUT_SIZE> input = vec_to_arr<uint64_t, KECCAKF1600_INPUT_SIZE>(input_vec);
+
+    // Now that we have read all the values, we can perform the operation to get the resulting witness.
+    // Note: We use the keccak_op_clk to ensure that the keccakf1600 operation is performed at the same clock cycle
+    // as the main trace that has the selector
+    std::array<uint64_t, KECCAKF1600_INPUT_SIZE> result = keccak_trace_builder.keccakf1600(clk, input);
+
+    pc += Deserialization::get_pc_increment(OpCode::KECCAKF1600);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
+    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
+}
+
+void AvmTraceBuilder::op_ec_add(uint16_t indirect,
                                 uint32_t lhs_x_offset,
                                 uint32_t lhs_y_offset,
                                 uint32_t lhs_is_inf_offset,
@@ -3163,14 +3277,16 @@ void AvmTraceBuilder::op_ec_add(uint8_t indirect,
           resolved_rhs_x_offset,
           resolved_rhs_y_offset,
           resolved_rhs_is_inf_offset,
-          resolved_output_offset] = unpack_indirects<7>(indirect,
-                                                        { lhs_x_offset,
-                                                          lhs_y_offset,
-                                                          lhs_is_inf_offset,
-                                                          rhs_x_offset,
-                                                          rhs_y_offset,
-                                                          rhs_is_inf_offset,
-                                                          output_offset });
+          resolved_output_offset] = Addressing<7>::fromWire(indirect, call_ptr)
+                                        .resolve({ lhs_x_offset,
+                                                   lhs_y_offset,
+                                                   lhs_is_inf_offset,
+                                                   rhs_x_offset,
+                                                   rhs_y_offset,
+                                                   rhs_is_inf_offset,
+                                                   output_offset },
+                                                 mem_trace_builder);
+
     // Load lhs point
     auto lhs_x_read = unconstrained_read_from_memory(resolved_lhs_x_offset);
     auto lhs_y_read = unconstrained_read_from_memory(resolved_lhs_y_offset);
@@ -3192,21 +3308,21 @@ void AvmTraceBuilder::op_ec_add(uint8_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_ecadd = 1,
         .main_tag_err = FF(0),
     });
 
     gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
 
+    pc += Deserialization::get_pc_increment(OpCode::ECADD);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write point coordinates
-    auto out_addr_direct =
-        resolved_output_offset.mode == AddressingMode::DIRECT
-            ? resolved_output_offset.offset
-            : static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, resolved_output_offset.offset));
-    write_to_memory(out_addr_direct, result.x, AvmMemoryTag::FF);
-    write_to_memory(out_addr_direct + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(out_addr_direct + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
+    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
 }
 
 void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
@@ -3216,10 +3332,11 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
                                       uint32_t point_length_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset] =
-        unpack_indirects<3>(indirect, { points_offset, scalars_offset, output_offset });
+    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset, resolved_point_length_offset] =
+        Addressing<4>::fromWire(indirect, call_ptr)
+            .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
 
-    auto points_length = unconstrained_read_from_memory(point_length_offset);
+    auto points_length = unconstrained_read_from_memory(resolved_point_length_offset);
 
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
     uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
@@ -3227,11 +3344,6 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     std::vector<FF> points_coords_vec;
     std::vector<FF> points_inf_vec;
     std::vector<FF> scalars_vec;
-
-    AddressWithMode coords_offset_direct =
-        resolved_points_offset.mode == AddressingMode::DIRECT
-            ? resolved_points_offset
-            : static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, resolved_points_offset.offset));
 
     // Loading the points is a bit more complex since we need to read the coordinates and the infinity flags
     // separately The current circuit constraints does not allow for multiple memory tags to be loaded from within
@@ -3241,9 +3353,9 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     // Read the coordinates first, +2 since we read 2 points per row, the first load could be indirect
     for (uint32_t i = 0; i < num_points; i++) {
-        auto point_x1 = unconstrained_read_from_memory(coords_offset_direct + 3 * i);
-        auto point_y1 = unconstrained_read_from_memory(coords_offset_direct + 3 * i + 1);
-        auto infty = unconstrained_read_from_memory(coords_offset_direct + 3 * i + 2);
+        auto point_x1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i);
+        auto point_y1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 1);
+        auto infty = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 2);
         points_coords_vec.insert(points_coords_vec.end(), { point_x1, point_y1 });
         points_inf_vec.emplace_back(infty);
     }
@@ -3281,7 +3393,7 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_sel_op_msm = 1,
         .main_tag_err = FF(0),
     });
@@ -3290,54 +3402,14 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     // run out of gas. Casting/truncating here is not secure.
     gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
+    pc += Deserialization::get_pc_increment(OpCode::MSM);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
-    AddressWithMode output_offset_direct =
-        resolved_output_offset.mode == AddressingMode::DIRECT
-            ? resolved_output_offset
-            : static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, resolved_output_offset.offset));
-    write_to_memory(output_offset_direct, result.x, AvmMemoryTag::FF);
-    write_to_memory(output_offset_direct + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(output_offset_direct + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
-}
-
-void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
-                                         uint32_t input_offset,
-                                         uint32_t output_offset,
-                                         uint32_t input_size_offset,
-                                         uint32_t gen_ctx_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_input_offset, resolved_output_offset, resolved_input_size_offset, resolved_gen_ctx_offset] =
-        unpack_indirects<4>(indirect, { input_offset, output_offset, input_size_offset, gen_ctx_offset });
-
-    auto input_length_read = unconstrained_read_from_memory(resolved_input_size_offset);
-    auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
-
-    std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, uint32_t(input_length_read), inputs);
-
-    grumpkin::g1::affine_element result = crypto::pedersen_commitment::commit_native(inputs, uint32_t(gen_ctx_read));
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc++),
-        .main_sel_op_pedersen_commit = 1,
-        .main_tag_err = FF(0),
-    });
-
-    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
-    // run out of gas. Casting/truncating here is not secure.
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT, static_cast<uint32_t>(input_length_read));
-
-    // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
-    AddressWithMode output_offset_direct =
-        resolved_output_offset.mode == AddressingMode::DIRECT
-            ? resolved_output_offset
-            : static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, resolved_output_offset.offset));
-    write_to_memory(output_offset_direct, result.x, AvmMemoryTag::FF);
-    write_to_memory(output_offset_direct + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(output_offset_direct + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
+    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
+    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
 }
 
 /**************************************************************************************************
@@ -3345,17 +3417,17 @@ void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
  **************************************************************************************************/
 
 /**
- * @brief To_Radix_LE with direct or indirect memory access.
+ * @brief To_Radix_BE with direct or indirect memory access.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
+ * @param src_offset An index in memory pointing to the input of the To_Radix_BE conversion.
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb <
  * radix.
  * @param num_limbs The number of limbs to the value into.
  * @param output_bits Should the output be U1s instead of U8s?
  */
-void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
+void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
                                      uint32_t src_offset,
                                      uint32_t dst_offset,
                                      uint32_t radix_offset,
@@ -3369,17 +3441,19 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
                                             : AvmMemoryTag::U8;
 
     auto [resolved_src_offset, resolved_dst_offset, resolved_radix_offset] =
-        unpack_indirects<3>(indirect, { src_offset, dst_offset, radix_offset });
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
 
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
-    // TODO:(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // TODO(8603): once instructions can have multiple different tags for reads, constrain the radix's read
+    // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag!
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 
     FF input = read_src.val;
-    // TODO:(8603): uncomment
+    // TODO(8603): uncomment
     // uint32_t radix = static_cast<uint32_t>(read_radix.val);
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
@@ -3390,12 +3464,12 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
     // Therefore, we do not create any entry in gadget table and we return a vector of 0.
     std::vector<uint8_t> res = error
                                    ? std::vector<uint8_t>(num_limbs, 0)
-                                   : conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, output_bits, clk);
+                                   : conversion_trace_builder.op_to_radix_be(input, radix, num_limbs, output_bits, clk);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXLE, num_limbs);
+    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
 
-    // This is the row that contains the selector to trigger the sel_op_radix_le
+    // This is the row that contains the selector to trigger the sel_op_radix_be
     // In this row, we read the input value and the destination address into register A and B respectively
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3405,191 +3479,30 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
         .main_ic = num_limbs,
         .main_id = output_bits,
         .main_ind_addr_a = read_src.indirect_address,
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_ind_addr_b = read_radix.indirect_address,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = read_src.direct_address,
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_mem_addr_b = read_radix.direct_address,
         .main_op_err = error ? FF(1) : FF(0),
-        .main_pc = FF(pc++),
+        .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_sel_mem_op_b = FF(1),
-        .main_sel_op_radix_le = FF(1),
+        .main_sel_op_radix_be = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_src.is_indirect)),
-        // TODO:(8603): uncomment
+        // TODO(8603): uncomment
         //.main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_radix.is_indirect)),
         .main_w_in_tag = FF(static_cast<uint32_t>(w_in_tag)),
     });
 
+    pc += Deserialization::get_pc_increment(OpCode::TORADIXBE);
+
+    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // is implemented with opcodes (SET and JUMP).
     write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
-}
-
-/**************************************************************************************************
- *                                   FUTURE GADGETS -- pending changes in noir
- **************************************************************************************************/
-
-/**
- * @brief SHA256 Compression with direct or indirect memory access.
- *
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param state_offset An index in memory pointing to the first U32 value of the state array to be used in the next
- * instance of sha256 compression.
- * @param input_offset An index in memory pointing to the first U32 value of the input array to be used in the next
- * instance of sha256 compression.
- * @param output_offset An index in memory pointing to where the first U32 value of the output array should be
- * stored.
- */
-void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
-                                            uint32_t output_offset,
-                                            uint32_t state_offset,
-                                            uint32_t state_size_offset,
-                                            uint32_t inputs_offset,
-                                            uint32_t inputs_size_offset)
-{
-    // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
-    // Resolve the indirect flags, the results of this function are used to determine the memory offsets
-    // that point to the starting memory addresses for the input and output values.
-    auto [resolved_output_offset,
-          resolved_state_offset,
-          resolved_state_size_offset,
-          resolved_inputs_offset,
-          resolved_inputs_size_offset] =
-        unpack_indirects<5>(indirect,
-                            { output_offset, state_offset, state_size_offset, inputs_offset, inputs_size_offset });
-
-    auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
-
-    // Since the above adds mem_reads in the mem_trace_builder at clk, we need to follow up resolving the reads in
-    // the main trace at the same clk cycle to preserve the cross-table permutation
-    //
-    // TODO<#6383>: We put the first value of each of the input, output (which is 0 at this point) and h_init arrays
-    // into the main trace at the intermediate registers simply for the permutation check, in the future this will
-    // change.
-    // Note: we could avoid output being zero if we loaded the input and state beforehand (with a new function that
-    // did not lay down constraints), but this is a simplification
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ia = read_a.val, // First element of state
-        .main_ib = read_b.val, // First element of input
-        .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(read_b.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(read_b.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_b = FF(1),
-        .main_sel_op_sha256 = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-    });
-    // We store the current clk this main trace row occurred so that we can line up the sha256 gadget operation at
-    // the same clk later.
-    auto sha_op_clk = clk;
-    // We need to increment the clk
-    clk++;
-    // State array input is fixed to 256 bits
-    std::vector<uint32_t> h_init_vec;
-    // Input for hash is expanded to 512 bits
-    std::vector<uint32_t> input_vec;
-    // Read results are written to h_init array.
-    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
-    // Read results are written to input array
-    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
-
-    // Now that we have read all the values, we can perform the operation to get the resulting witness.
-    // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the
-    // main trace that has the selector
-    std::array<uint32_t, 8> h_init = vec_to_arr<uint32_t, 8>(h_init_vec);
-    std::array<uint32_t, 16> input = vec_to_arr<uint32_t, 16>(input_vec);
-
-    std::array<uint32_t, 8> result = sha256_trace_builder.sha256_compression(h_init, input, sha_op_clk);
-    // We convert the results to field elements here
-    std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 8; i++) {
-        ff_result.emplace_back(result[i]);
-    }
-
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
-}
-
-/**
- * @brief Keccakf1600  with direct or indirect memory access.
- * This function temporarily has the same interface as the kecccak opcode for compatibility, when the keccak
- * migration is complete (to keccakf1600) We will update this function call as we will not likely need
- * input_size_offset
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param output_offset An index in memory pointing to where the first u64 value of the output array should be
- * stored.
- * @param input_offset An index in memory pointing to the first u64 value of the input array to be used in the next
- * instance of poseidon2 permutation.
- * @param input_size offset An index in memory pointing to the size of the input array. Temporary while we maintain
- * the same interface as keccak (this is fixed to 25)
- */
-void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
-                                     uint32_t output_offset,
-                                     uint32_t input_offset,
-                                     [[maybe_unused]] uint32_t input_size_offset)
-{
-    // What happens if the input_size_offset is > 25 when the state is more that that?
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset] =
-        unpack_indirects<2>(indirect, { output_offset, input_offset });
-    auto input_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::U0, IntermRegister::IA);
-    auto output_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_output_offset, AvmMemoryTag::U64, AvmMemoryTag::U0, IntermRegister::IC);
-    bool tag_match = input_read.tag_match && output_read.tag_match;
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ia = input_read.val,  // First element of input
-        .main_ic = output_read.val, // First element of output
-        .main_ind_addr_a = FF(input_read.indirect_address),
-        .main_ind_addr_c = FF(output_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(input_read.direct_address),
-        .main_mem_addr_c = FF(output_read.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
-        .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_c = FF(1),
-        .main_sel_op_keccak = FF(1),
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(input_read.is_indirect)),
-        .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(output_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-    });
-
-    // Array input is fixed to 1600 bits
-    std::vector<uint64_t> input_vec;
-    // Read results are written to input array
-    read_slice_from_memory<uint64_t>(resolved_input_offset, 25, input_vec);
-    std::array<uint64_t, 25> input = vec_to_arr<uint64_t, 25>(input_vec);
-
-    // Now that we have read all the values, we can perform the operation to get the resulting witness.
-    // Note: We use the keccak_op_clk to ensure that the keccakf1600 operation is performed at the same clock cycle
-    // as the main trace that has the selector
-    std::array<uint64_t, 25> result = keccak_trace_builder.keccakf1600(clk, input);
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 }
 
 /**************************************************************************************************
@@ -3614,7 +3527,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     auto sha256_trace = sha256_trace_builder.finalize();
     auto poseidon2_trace = poseidon2_trace_builder.finalize();
     auto keccak_trace = keccak_trace_builder.finalize();
-    auto pedersen_trace = pedersen_trace_builder.finalize();
     auto slice_trace = slice_trace_builder.finalize();
     const auto& fixed_gas_table = FixedGasTable::get();
     size_t mem_trace_size = mem_trace.size();
@@ -3624,7 +3536,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t sha256_trace_size = sha256_trace.size();
     size_t poseidon2_trace_size = poseidon2_trace.size();
     size_t keccak_trace_size = keccak_trace.size();
-    size_t pedersen_trace_size = pedersen_trace.size();
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
@@ -3633,19 +3544,24 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
     size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,         main_trace_size + 1,   alu_trace_size,
-                                        range_check_size,       conv_trace_size,       sha256_trace_size,
-                                        poseidon2_trace_size,   pedersen_trace_size,   gas_trace_size + 1,
-                                        KERNEL_INPUTS_LENGTH,   KERNEL_OUTPUTS_LENGTH, kernel_trace_size,
-                                        fixed_gas_table.size(), slice_trace_size,      calldata.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size + 1, alu_trace_size,
+                                        range_check_size,      conv_trace_size,     sha256_trace_size,
+                                        poseidon2_trace_size,  gas_trace_size + 1,  KERNEL_INPUTS_LENGTH,
+                                        KERNEL_OUTPUTS_LENGTH, kernel_trace_size,   fixed_gas_table.size(),
+                                        slice_trace_size,      calldata.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // Before making any changes to the main trace, mark the real rows.
     for (size_t i = 0; i < main_trace_size; i++) {
         main_trace[i].main_sel_execution_row = FF(1);
     }
-    // This selector corresponds to the last row of the EXECUTION trace.
-    main_trace.back().main_sel_last = FF(1);
+
+    // Append row with selector toggling execution end.
+    const Row end_exec_row = Row{ .main_sel_execution_end = FF(1) };
+    main_trace.emplace_back(end_exec_row);
+
+    // Set selector for toggling execution start (we have the guarantee that at least one row exists in main_trace)
+    main_trace[0].main_sel_start_exec = FF(1);
 
     // We only need to pad with zeroes to the size to the largest trace here,
     // pow_2 padding is handled in the subgroup_size check in BB.
@@ -3685,7 +3601,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.mem_one_min_inv = src.m_one_min_inv;
         dest.mem_sel_mov_ia_to_ic = FF(static_cast<uint32_t>(src.m_sel_mov_ia_to_ic));
         dest.mem_sel_mov_ib_to_ic = FF(static_cast<uint32_t>(src.m_sel_mov_ib_to_ic));
-        dest.mem_sel_op_cmov = FF(static_cast<uint32_t>(src.m_sel_cmov));
         dest.mem_sel_op_slice = FF(static_cast<uint32_t>(src.m_sel_op_slice));
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
@@ -3735,11 +3650,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
             }
         }
 
-        if (src.m_sel_cmov || src.m_sel_op_slice) {
-            dest.mem_skip_check_tag =
-                dest.mem_sel_op_cmov * (dest.mem_sel_op_d + dest.mem_sel_op_a * (-dest.mem_sel_mov_ia_to_ic + 1) +
-                                        dest.mem_sel_op_b * (-dest.mem_sel_mov_ib_to_ic + 1)) +
-                dest.mem_sel_op_slice;
+        if (src.m_sel_op_slice) {
+            dest.mem_skip_check_tag = dest.mem_sel_op_b * (-dest.mem_sel_mov_ib_to_ic + 1) + dest.mem_sel_op_slice;
         }
 
         if (i + 1 < mem_trace_size) {
@@ -3774,7 +3686,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
     // Finalize cmp gadget of the ALU trace
     auto cmp_trace_size = alu_trace_builder.cmp_builder.get_cmp_trace_size();
-    // HERE IS THE SEG FAULT BUG
     if (main_trace_size < cmp_trace_size) {
         main_trace_size = cmp_trace_size;
         main_trace.resize(cmp_trace_size, {});
@@ -3795,7 +3706,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (size_t i = 0; i < conv_trace_size; i++) {
         auto const& src = conv_trace.at(i);
         auto& dest = main_trace.at(i);
-        dest.conversion_sel_to_radix_le = FF(static_cast<uint8_t>(src.to_radix_le_sel));
+        dest.conversion_sel_to_radix_be = FF(static_cast<uint8_t>(src.to_radix_be_sel));
         dest.conversion_clk = FF(src.conversion_clk);
         dest.conversion_input = src.input;
         dest.conversion_radix = FF(src.radix);
@@ -3834,15 +3745,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.keccakf1600_sel_keccakf1600 = FF(1);
     }
 
-    // Add Pedersen Gadget table
-    for (size_t i = 0; i < pedersen_trace_size; i++) {
-        auto const& src = pedersen_trace.at(i);
-        auto& dest = main_trace.at(i);
-        dest.pedersen_clk = FF(src.clk);
-        dest.pedersen_input = FF(src.input[0]);
-        dest.pedersen_sel_pedersen = FF(1);
-    }
-
     /**********************************************************************************************
      * SLICE TRACE INCLUSION
      **********************************************************************************************/
@@ -3862,12 +3764,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     gas_trace_builder.finalize(main_trace);
     // We need to assert here instead of finalize until we figure out inter-trace threading
-    for (size_t i = 0; i < gas_trace_size; i++) {
-        auto& dest = main_trace.at(i);
-        range_check_builder.assert_range(
-            uint128_t(dest.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(dest.main_clk));
-        range_check_builder.assert_range(
-            uint128_t(dest.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(dest.main_clk));
+    for (size_t i = 0; i < main_trace_size; i++) {
+        auto& row = main_trace.at(i);
+        if (row.main_is_gas_accounted) {
+            range_check_builder.assert_range(
+                uint128_t(row.main_abs_l2_rem_gas), 32, EventEmitter::GAS_L2, uint64_t(row.main_clk));
+            range_check_builder.assert_range(
+                uint128_t(row.main_abs_da_rem_gas), 32, EventEmitter::GAS_DA, uint64_t(row.main_clk));
+        }
     }
 
     /**********************************************************************************************
@@ -3877,11 +3781,22 @@ std::vector<Row> AvmTraceBuilder::finalize()
     kernel_trace_builder.finalize(main_trace);
 
     /**********************************************************************************************
+     * BYTECODE TRACE INCLUSION
+     **********************************************************************************************/
+
+    bytecode_trace_builder.build_bytecode_hash_columns();
+    // Should not have to resize in the future, but for now we do
+    if (bytecode_trace_builder.total_bytecode_length() > main_trace_size) {
+        main_trace_size = bytecode_trace_builder.total_bytecode_length();
+        main_trace.resize(main_trace_size);
+    }
+    bytecode_trace_builder.finalize(main_trace);
+
+    /**********************************************************************************************
      * ONLY FIXED TABLES FROM HERE ON
      **********************************************************************************************/
 
-    Row first_row = Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) };
-    main_trace.insert(main_trace.begin(), first_row);
+    main_trace.insert(main_trace.begin(), Row{ .main_sel_first = FF(1), .mem_lastAccess = FF(1) });
 
     /**********************************************************************************************
      * BYTES TRACE INCLUSION
@@ -3962,7 +3877,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
     // In case the range entries are larger than the main trace, we need to resize the main trace
-    // Normally this would happen at the start of finalize, but we cannot finalize the range checks until after gas :(
+    // Normally this would happen at the start of finalize, but we cannot finalize the range checks until after gas
+    // :(
     if (range_entries.size() > new_trace_size) {
         main_trace.resize(range_entries.size(), {});
         new_trace_size = range_entries.size();
@@ -4034,8 +3950,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
           sha256_trace_size,
           "\n\tposeidon2_trace_size: ",
           poseidon2_trace_size,
-          "\n\tpedersen_trace_size: ",
-          pedersen_trace_size,
           "\n\tgas_trace_size: ",
           gas_trace_size,
           "\n\tfixed_gas_table_size: ",
@@ -4078,7 +3992,6 @@ void AvmTraceBuilder::reset()
     sha256_trace_builder.reset();
     poseidon2_trace_builder.reset();
     keccak_trace_builder.reset();
-    pedersen_trace_builder.reset();
     slice_trace_builder.reset();
 
     external_call_counter = 0;

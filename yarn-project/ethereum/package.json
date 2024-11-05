@@ -25,6 +25,7 @@
   ],
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0",
     "viem": "^2.7.15"
@@ -57,6 +58,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }

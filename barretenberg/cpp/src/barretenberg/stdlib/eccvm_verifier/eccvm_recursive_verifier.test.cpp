@@ -84,7 +84,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
         verifier.verify_proof(proof);
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+        info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -135,10 +135,10 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
         verifier.verify_proof(proof);
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+        info("Recursive Verifier: estimated num finalized gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(outer_circuit.failed(), true) << outer_circuit.err();
+        EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

@@ -1,10 +1,9 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress, PublicKeys } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';
+import { Contract } from '../contract/contract.js';
 import { DeployMethod } from '../contract/deploy_method.js';
-import { Contract } from '../contract/index.js';
 
 /**
  * A class for deploying contract.
@@ -14,7 +13,7 @@ export class ContractDeployer {
   constructor(
     private artifact: ContractArtifact,
     private wallet: Wallet,
-    private publicKeysHash?: Fr,
+    private publicKeys?: PublicKeys,
     private constructorName?: string,
   ) {}
 
@@ -30,7 +29,7 @@ export class ContractDeployer {
   public deploy(...args: any[]) {
     const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, this.artifact, wallet);
     return new DeployMethod(
-      this.publicKeysHash ?? Fr.ZERO,
+      this.publicKeys ?? PublicKeys.default(),
       this.wallet,
       this.artifact,
       postDeployCtor,

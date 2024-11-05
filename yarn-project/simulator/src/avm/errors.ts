@@ -1,5 +1,5 @@
 import { type FailingFunction, type NoirCallStack } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';
@@ -84,7 +84,7 @@ export class StaticCallAlterationError extends InstructionExecutionError {
  * @param nestedError - the revert reason of the nested call
  */
 export class RethrownError extends AvmExecutionError {
-  constructor(message: string, public nestedError: AvmRevertReason) {
+  constructor(message: string, public nestedError: AvmRevertReason, public revertData: Fr[]) {
     super(message);
     this.name = 'RethrownError';
   }
@@ -109,13 +109,22 @@ export class AvmRevertReason extends ExecutionError {
  * @param nestedError - the error that caused this one (if this is not the root-cause itself)
  */
 function createRevertReason(message: string, context: AvmContext, nestedError?: AvmRevertReason): AvmRevertReason {
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
+  // If the function selector is the public dispatch selector, we need to extract the actual function selector from the calldata.
+  // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
+  let functionSelector = context.environment.functionSelector;
+  // We drop the returnPc information.
+  const internalCallStack = context.machineState.internalCallStack.map(entry => entry.callPc);
+  if (functionSelector.toField().equals(new Fr(PUBLIC_DISPATCH_SELECTOR)) && context.environment.calldata.length > 0) {
+    functionSelector = FunctionSelector.fromField(context.environment.calldata[0]);
+  }
   return new AvmRevertReason(
     message,
     /*failingFunction=*/ {
       contractAddress: context.environment.address,
-      functionSelector: context.environment.functionSelector,
+      functionSelector: functionSelector,
     },
-    /*noirCallStack=*/ [...context.machineState.internalCallStack, context.machineState.pc].map(pc => `0.${pc}`),
+    /*noirCallStack=*/ [...internalCallStack, context.machineState.pc].map(pc => `0.${pc}`),
     /*options=*/ { cause: nestedError },
   );
 }
@@ -131,6 +140,15 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
   // A RethrownError has a nested/child AvmRevertReason
   const nestedError = haltingError instanceof RethrownError ? haltingError.nestedError : undefined;
   return createRevertReason(haltingError.message, context, nestedError);
+}
+
+/**
+ * Extracts revert data from an exceptional halt. Currently this is only used to manually bubble up revertadata.
+ * @param haltingError - the lower-level error causing the exceptional halt
+ * @returns the revert data for the exceptional halt
+ */
+export function revertDataFromExceptionalHalt(haltingError: AvmExecutionError): Fr[] {
+  return haltingError instanceof RethrownError ? haltingError.revertData : [];
 }
 
 /**

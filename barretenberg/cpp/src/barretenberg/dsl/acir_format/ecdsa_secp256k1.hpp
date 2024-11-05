@@ -44,7 +44,25 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
 witness_ct ecdsa_index_to_witness(Builder& builder, uint32_t index);
 template <std::size_t SIZE, typename Builder>
 bb::stdlib::byte_array<Builder> ecdsa_array_of_bytes_to_byte_array(Builder& builder,
-                                                                   std::array<uint32_t, SIZE> vector_of_bytes);
+                                                                   std::array<uint32_t, SIZE> vector_of_bytes)
+{
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+
+    byte_array_ct arr(&builder);
+
+    // Get the witness assignment for each witness index
+    // Write the witness assignment to the byte_array
+    for (const auto& witness_index : vector_of_bytes) {
+
+        field_ct element = field_ct::from_witness_index(&builder, witness_index);
+        size_t num_bytes = 1;
+
+        byte_array_ct element_bytes(element, num_bytes);
+        arr.write(element_bytes);
+    }
+    return arr;
+}
 
 // We have the implementation of this template in the header as this method is used
 // by other ecdsa constraints over different curves (e.g. secp256r1).

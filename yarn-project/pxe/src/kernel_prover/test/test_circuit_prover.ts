@@ -5,6 +5,7 @@ import {
 } from '@aztec/circuit-types';
 import type { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -106,12 +107,17 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    // No gates in test prover
+    return Promise.resolve(0);
+  }
+
   computeAppCircuitVerificationKey(
     _bytecode: Buffer,
     _appCircuitName?: string | undefined,
   ): Promise<AppCircuitSimulateOutput> {
     const appCircuitProofOutput: AppCircuitSimulateOutput = {
-      verificationKey: VerificationKeyAsFields.makeEmpty(),
+      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     };
     return Promise.resolve(appCircuitProofOutput);
   }

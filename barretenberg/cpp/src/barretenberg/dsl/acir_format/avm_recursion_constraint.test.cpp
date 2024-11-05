@@ -42,7 +42,8 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    static InnerBuilder create_inner_circuit(const std::vector<FF>& kernel_public_inputs_vec)
+    // mutate the input kernel_public_inputs_vec to add end gas values
+    static InnerBuilder create_inner_circuit(std::vector<FF>& kernel_public_inputs_vec)
     {
         auto public_inputs = convert_public_inputs(kernel_public_inputs_vec);
         AvmTraceBuilder trace_builder(public_inputs);
@@ -50,11 +51,17 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         trace_builder.op_set(0, 15, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 12, 2, AvmMemoryTag::U8);
-        trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
-        trace_builder.op_sub(0, 3, 2, 3, AvmMemoryTag::U8);
-        trace_builder.op_mul(0, 1, 1, 3, AvmMemoryTag::U8);
+        trace_builder.op_add(0, 1, 2, 3);
+        trace_builder.op_sub(0, 3, 2, 3);
+        trace_builder.op_mul(0, 1, 1, 3);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
+
+        avm_trace::inject_end_gas_values(public_inputs, trace);
+        kernel_public_inputs_vec.at(DA_END_GAS_LEFT_PCPI_OFFSET) =
+            std::get<KERNEL_INPUTS>(public_inputs).at(DA_END_GAS_KERNEL_INPUTS_COL_OFFSET);
+        kernel_public_inputs_vec.at(L2_END_GAS_LEFT_PCPI_OFFSET) =
+            std::get<KERNEL_INPUTS>(public_inputs).at(L2_END_GAS_KERNEL_INPUTS_COL_OFFSET);
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
@@ -110,13 +117,13 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system;
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = false;
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
+        auto outer_circuit =
+            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
         return outer_circuit;
     }
 };
@@ -132,7 +139,7 @@ TEST_F(AcirAvmRecursionConstraint, TestBasicSingleAvmRecursionConstraint)
     layer_1_circuits.push_back(create_inner_circuit(public_inputs_vec));
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits, public_inputs_vec);
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
     OuterProver prover(proving_key);

@@ -1,8 +1,8 @@
-use crate::transaction::tx_context::TxContext;
-use crate::header::Header;
-use crate::traits::{Empty, Serialize, Deserialize};
 use crate::abis::global_variables::GlobalVariables;
 use crate::constants::COMBINED_CONSTANT_DATA_LENGTH;
+use crate::header::Header;
+use crate::traits::{Deserialize, Empty, Serialize};
+use crate::transaction::tx_context::TxContext;
 use crate::utils::reader::Reader;
 
 pub struct CombinedConstantData {
@@ -14,6 +14,7 @@ pub struct CombinedConstantData {
     tx_context: TxContext,
 
     vk_tree_root: Field,
+    protocol_contract_tree_root: Field,
 
     // Must be empty in private, will be filled in by the public kernel
     global_variables: GlobalVariables,
@@ -23,9 +24,16 @@ impl CombinedConstantData {
     pub fn private(
         historical_header: Header,
         tx_context: TxContext,
-        vk_tree_root: Field
+        vk_tree_root: Field,
+        protocol_contract_tree_root: Field,
     ) -> CombinedConstantData {
-        CombinedConstantData { historical_header, tx_context, vk_tree_root, global_variables: GlobalVariables::empty() }
+        CombinedConstantData {
+            historical_header,
+            tx_context,
+            vk_tree_root,
+            protocol_contract_tree_root,
+            global_variables: GlobalVariables::empty(),
+        }
     }
 }
 
@@ -35,7 +43,8 @@ impl Empty for CombinedConstantData {
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
             vk_tree_root: 0,
-            global_variables: GlobalVariables::empty()
+            protocol_contract_tree_root: 0,
+            global_variables: GlobalVariables::empty(),
         }
     }
 }
@@ -47,6 +56,7 @@ impl Serialize<COMBINED_CONSTANT_DATA_LENGTH> for CombinedConstantData {
         fields.extend_from_array(self.historical_header.serialize());
         fields.extend_from_array(self.tx_context.serialize());
         fields.push(self.vk_tree_root);
+        fields.push(self.protocol_contract_tree_root);
         fields.extend_from_array(self.global_variables.serialize());
 
         assert_eq(fields.len(), COMBINED_CONSTANT_DATA_LENGTH);
@@ -63,7 +73,8 @@ impl Deserialize<COMBINED_CONSTANT_DATA_LENGTH> for CombinedConstantData {
             historical_header: reader.read_struct(Header::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
             vk_tree_root: reader.read(),
-            global_variables: reader.read_struct(GlobalVariables::deserialize)
+            protocol_contract_tree_root: reader.read(),
+            global_variables: reader.read_struct(GlobalVariables::deserialize),
         };
         reader.finish();
         item
@@ -75,6 +86,7 @@ impl Eq for CombinedConstantData {
         (self.historical_header.eq(other.historical_header))
             & (self.tx_context.eq(other.tx_context))
             & (self.vk_tree_root.eq(other.vk_tree_root))
+            & (self.protocol_contract_tree_root.eq(other.protocol_contract_tree_root))
             & (self.global_variables.eq(other.global_variables))
     }
 }

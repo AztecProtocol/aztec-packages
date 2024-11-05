@@ -1,8 +1,8 @@
-use crate::traits::{ToField, Serialize, Deserialize};
+use crate::traits::{Deserialize, Serialize, ToField};
 
 // Public keys hash. Used in the computation of an address.
 pub struct PublicKeysHash {
-    inner: Field
+    inner: Field,
 }
 
 impl ToField for PublicKeysHash {

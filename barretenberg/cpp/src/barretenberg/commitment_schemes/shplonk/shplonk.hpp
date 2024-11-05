@@ -128,7 +128,7 @@ template <typename Curve> class ShplonkProver_ {
      */
     template <typename Transcript>
     static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                                           std::span<ProverOpeningClaim<Curve>> opening_claims,
+                                           std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript)
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");

@@ -140,7 +140,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
     size_t num_variables = generate_block_constraint(block, witness_values);
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
-        .recursive = false,
         .num_acir_opcodes = 7,
         .public_inputs = {},
         .logic_constraints = {},
@@ -152,10 +151,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -169,12 +165,13 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);
@@ -193,7 +190,6 @@ TEST_F(MegaHonk, Databus)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -205,10 +201,7 @@ TEST_F(MegaHonk, Databus)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -222,13 +215,14 @@ TEST_F(MegaHonk, Databus)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = acir_format::create_circuit<Builder>(constraint_system, 0, witness_values);
+    auto circuit = acir_format::create_circuit<Builder>(constraint_system, /*recursive*/ false, 0, witness_values);
 
     EXPECT_TRUE(prove_and_verify(circuit));
 }
@@ -301,7 +295,6 @@ TEST_F(MegaHonk, DatabusReturn)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
-        .recursive = false,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = {},
@@ -313,10 +306,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -330,13 +320,14 @@ TEST_F(MegaHonk, DatabusReturn)
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = acir_format::create_circuit<Builder>(constraint_system, 0, witness_values);
+    auto circuit = acir_format::create_circuit<Builder>(constraint_system, /*recursive*/ false, 0, witness_values);
 
     EXPECT_TRUE(prove_and_verify(circuit));
 }

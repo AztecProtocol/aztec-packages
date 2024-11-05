@@ -14,6 +14,7 @@ export class EmptyBlockRootRollupInputs {
     public readonly blockHash: Fr,
     public readonly globalVariables: GlobalVariables,
     public readonly vkTreeRoot: Fr,
+    public readonly protocolContractTreeRoot: Fr,
     // // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     public readonly proverId: Fr,
   ) {}
@@ -49,7 +50,14 @@ export class EmptyBlockRootRollupInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<EmptyBlockRootRollupInputs>) {
-    return [fields.archive, fields.blockHash, fields.globalVariables, fields.vkTreeRoot, fields.proverId] as const;
+    return [
+      fields.archive,
+      fields.blockHash,
+      fields.globalVariables,
+      fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
+      fields.proverId,
+    ] as const;
   }
 
   /**
@@ -63,6 +71,7 @@ export class EmptyBlockRootRollupInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
       GlobalVariables.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );

@@ -1,8 +1,8 @@
 import { type EpochProofQuotePayload, type L2Block } from '@aztec/circuit-types';
 
-type QuoteProviderResult = Pick<EpochProofQuotePayload, 'basisPointFee' | 'bondAmount'> &
+export type QuoteProviderResult = Pick<EpochProofQuotePayload, 'basisPointFee' | 'bondAmount'> &
   Partial<Pick<EpochProofQuotePayload, 'validUntilSlot'>>;
 
 export interface QuoteProvider {
-  getQuote(epoch: L2Block[]): Promise<QuoteProviderResult | undefined>;
+  getQuote(epochNumber: number, epoch: L2Block[]): Promise<QuoteProviderResult | undefined>;
 }

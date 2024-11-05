@@ -1,6 +1,8 @@
-import { type AztecAddress, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
+import { RollupAbi, SysstiaAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import '@jest/globals';
+import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
 import { FullProverTest } from './e2e_prover_test.js';
 
@@ -11,11 +13,16 @@ process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
   const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
-  const t = new FullProverTest('full_prover', 1, realProofs);
+  const COINBASE_ADDRESS = EthAddress.random();
+  const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, realProofs);
 
   let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
   let sender: AztecAddress;
   let recipient: AztecAddress;
+
+  let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  let feeJuice: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
+  let sysstia: GetContractReturnType<typeof SysstiaAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -25,6 +32,24 @@ describe('full_prover', () => {
 
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
+
+    rollup = getContract({
+      abi: RollupAbi,
+      address: t.l1Contracts.l1ContractAddresses.rollupAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
+
+    feeJuice = getContract({
+      abi: TestERC20Abi,
+      address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
+
+    sysstia = getContract({
+      abi: SysstiaAbi,
+      address: t.l1Contracts.l1ContractAddresses.sysstiaAddress.toString(),
+      client: t.l1Contracts.publicClient,
+    });
   });
 
   afterAll(async () => {
@@ -53,19 +78,29 @@ describe('full_prover', () => {
 
       // Prove them
       logger.info(`Proving txs`);
-      const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+      const provingOpts = { skipPublicSimulation: true };
+      const [publicProvenTx, privateProvenTx] = await Promise.all([
+        publicInteraction.prove(provingOpts),
+        privateInteraction.prove(provingOpts),
+      ]);
 
       // Verify them
       logger.info(`Verifying txs`);
-      await expect(t.circuitProofVerifier?.verifyProof(publicTx)).resolves.not.toThrow();
-      await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
+      await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
+      await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
-      // Sends the txs to node and awaits them to be mined
-      logger.info(`Sending txs`);
-      const sendOpts = { skipPublicSimulation: true };
-      const txs = [privateInteraction.send(sendOpts), publicInteraction.send(sendOpts)];
-      logger.info(`Awaiting txs to be mined`);
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: false })));
+      // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
+      // and we have more than one block in the epoch we end up proving
+      logger.info(`Sending private tx`);
+      const txPrivate = privateProvenTx.send();
+      await txPrivate.wait({ timeout: 300, interval: 10, proven: false });
+
+      logger.info(`Sending public tx`);
+      const txPublic = publicProvenTx.send();
+      await txPublic.wait({ timeout: 300, interval: 10, proven: false });
+
+      logger.info(`Both txs have been mined`);
+      const txs = [txPrivate, txPublic];
 
       // Flag the transfers on the token simulator
       tokenSim.transferPrivate(sender, recipient, privateSendAmount);
@@ -76,6 +111,9 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
+      const balanceBeforeCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
+      const balanceBeforeProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
+
       // Wait until the prover node submits a quote
       logger.info(`Waiting for prover node to submit quote for epoch ${epoch}`);
       await retryUntil(() => t.aztecNode.getEpochProofQuotes(epoch).then(qs => qs.length > 0), 'quote', 60, 1);
@@ -83,6 +121,7 @@ describe('full_prover', () => {
       // Send another tx so the sequencer can assemble a block that includes the prover node claim
       // so the prover node starts proving
       logger.info(`Sending tx to trigger a new block that includes the quote from the prover node`);
+      const sendOpts = { skipPublicSimulation: true };
       await provenAssets[0].methods
         .transfer(recipient, privateSendAmount)
         .send(sendOpts)
@@ -97,6 +136,25 @@ describe('full_prover', () => {
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
       await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
+
+      const provenBn = await rollup.read.getProvenBlockNumber();
+      const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
+      const balanceAfterProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
+      const blockReward = (await sysstia.read.BLOCK_REWARD()) as bigint;
+      const fees = (
+        await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
+      ).map(b => b!.header.totalFees.toBigInt());
+
+      const rewards = fees.map(fee => fee + blockReward);
+      const toProver = rewards
+        .map(reward => (reward * claim!.basisPointFee) / 10_000n)
+        .reduce((acc, fee) => acc + fee, 0n);
+      const toCoinbase = rewards.reduce((acc, reward) => acc + reward, 0n) - toProver;
+
+      expect(provenBn + 1n).toBe(await rollup.read.getPendingBlockNumber());
+      expect(balanceAfterCoinbase).toBe(balanceBeforeCoinbase + toCoinbase);
+      expect(balanceAfterProver).toBe(balanceBeforeProver + toProver);
+      expect(claim!.bondProvider).toEqual(t.proverAddress);
     },
     TIMEOUT,
   );

@@ -1,4 +1,5 @@
 import {
+  type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProcessedTxHandler,
   PublicDataWrite,
@@ -37,26 +38,21 @@ import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  type PublicExecutionResult,
-  type PublicExecutor,
-  WASMSimulator,
-  computeFeePayerBalanceLeafSlot,
-} from '@aztec/simulator';
+import { type PublicExecutor, WASMSimulator, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicExecutionResultBuilder, makeFunctionCall } from '../mocks/fixtures.js';
+import { type PublicExecutionResult } from './execution.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let db: MockProxy<MerkleTreeOperations>;
+  let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
   let worldStateDB: MockProxy<WorldStateDB>;
   let handler: MockProxy<ProcessedTxHandler>;
@@ -67,7 +63,7 @@ describe('public_processor', () => {
   let processor: PublicProcessor;
 
   beforeEach(() => {
-    db = mock<MerkleTreeOperations>();
+    db = mock<MerkleTreeWriteOperations>();
     publicExecutor = mock<PublicExecutor>();
     worldStateDB = mock<WorldStateDB>();
     handler = mock<ProcessedTxHandler>();
@@ -112,7 +108,7 @@ describe('public_processor', () => {
         clientIvcProof: tx.clientIvcProof,
         isEmpty: false,
         revertReason: undefined,
-        publicProvingRequests: [],
+        avmProvingRequest: undefined,
         gasUsed: {},
         finalPublicDataUpdateRequests: times(
           MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -225,7 +221,7 @@ describe('public_processor', () => {
         request,
         nestedExecutions: [
           PublicExecutionResultBuilder.fromFunctionCall({
-            from: request.contractAddress,
+            from: request.callContext.contractAddress,
             tx: makeFunctionCall(),
           }).build(),
         ],
@@ -322,7 +318,7 @@ describe('public_processor', () => {
           request: revertibleRequests[0],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: revertibleRequests[0].callContext.storageContractAddress,
+              from: revertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13),
@@ -331,7 +327,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: revertibleRequests[0].contractAddress,
+              from: revertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
@@ -343,7 +339,7 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 16),
@@ -387,7 +383,7 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       const expectedWrites = [
         new PublicDataWrite(
-          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
+          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
@@ -428,7 +424,7 @@ describe('public_processor', () => {
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
@@ -436,7 +432,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
@@ -453,7 +449,7 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
             }).build(),
@@ -518,7 +514,7 @@ describe('public_processor', () => {
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
@@ -542,12 +538,12 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
             }).build(teardownResultSettings),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 17)],
               revertReason: new SimulationError('Simulation Failed', []),
@@ -587,7 +583,7 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
         new PublicDataWrite(
-          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
+          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
@@ -631,7 +627,7 @@ describe('public_processor', () => {
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11)],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: nonRevertibleRequests[0].callContext.storageContractAddress,
+              from: nonRevertibleRequests[0].callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12),
@@ -656,12 +652,12 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
             }).build(teardownResultSettings),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
               revertReason: new SimulationError('Simulation Failed', []),
@@ -701,7 +697,7 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
         new PublicDataWrite(
-          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
+          computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
@@ -728,8 +724,9 @@ describe('public_processor', () => {
       const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
       const teardownRequest = tx.getPublicTeardownExecutionRequest()!;
 
-      const gasLimits = Gas.from({ l2Gas: 1e9, daGas: 1e9 });
-      const teardownGas = Gas.from({ l2Gas: 1e7, daGas: 1e7 });
+      // Keep gas numbers MAX_L2_GAS_PER_ENQUEUED_CALL or the logic below has to get weird
+      const gasLimits = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
+      const teardownGas = Gas.from({ l2Gas: 1e5, daGas: 1e5 });
       tx.data.constants.txContext.gasSettings = GasSettings.from({
         gasLimits: gasLimits,
         teardownGasLimits: teardownGas,
@@ -747,27 +744,33 @@ describe('public_processor', () => {
         .withGasUsed(Gas.empty())
         .build();
 
-      const nestedContractAddress = revertibleRequests[0].callContext.storageContractAddress;
+      const nestedContractAddress = revertibleRequests[0].callContext.contractAddress;
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
       const contractSlotC = fr(0x200);
 
       let simulatorCallCount = 0;
 
+      // Keep gas numbers below MAX_L2_GAS_PER_ENQUEUED_CALL or we need
+      // to separately compute available start gas and "effective" start gas
+      // for each enqueued call after applying that max.
       const initialGas = gasLimits.sub(teardownGas);
-      const setupGasUsed = Gas.from({ l2Gas: 1e6 });
-      const appGasUsed = Gas.from({ l2Gas: 2e6, daGas: 2e6 });
-      const teardownGasUsed = Gas.from({ l2Gas: 3e6, daGas: 3e6 });
+      const setupGasUsed = Gas.from({ l2Gas: 1e4 });
+      const appGasUsed = Gas.from({ l2Gas: 2e4, daGas: 2e4 });
+      const teardownGasUsed = Gas.from({ l2Gas: 3e4, daGas: 3e4 });
       const afterSetupGas = initialGas.sub(setupGasUsed);
       const afterAppGas = afterSetupGas.sub(appGasUsed);
       const afterTeardownGas = teardownGas.sub(teardownGasUsed);
 
       // Total gas used is the sum of teardown gas allocation plus all expenditures along the way,
       // without including the gas used in the teardown phase (since that's consumed entirely up front).
-      const expectedTotalGasUsed = { l2Gas: 1e7 + 1e6 + 2e6, daGas: 1e7 + 2e6 };
+      const expectedTotalGasUsed = teardownGas.add(setupGasUsed).add(appGasUsed);
 
       // Inclusion fee plus block gas fees times total gas used
-      const expectedTxFee = 1e4 + (1e7 + 1e6 + 2e6) * 1 + (1e7 + 2e6) * 1;
+      const expectedTxFee =
+        tx.data.constants.txContext.gasSettings.inclusionFee.toNumber() +
+        expectedTotalGasUsed.l2Gas * 1 +
+        expectedTotalGasUsed.daGas * 1;
       const transactionFee = new Fr(expectedTxFee);
 
       const simulatorResults: PublicExecutionResult[] = [
@@ -795,7 +798,7 @@ describe('public_processor', () => {
           request: teardownRequest,
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 16),
@@ -804,7 +807,7 @@ describe('public_processor', () => {
               contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x102), 15)],
             }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: teardownRequest.callContext.storageContractAddress,
+              from: teardownRequest.callContext.contractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13),
@@ -852,6 +855,8 @@ describe('public_processor', () => {
         expect.anything(), // pendingNullifiers
         new Fr(txFee),
         expect.anything(), // SideEffectCounter
+        expect.anything(), // PublicValidationRequestArrayLengths
+        expect.anything(), // PublicAccumulatedDataArrayLengths
       ];
 
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);

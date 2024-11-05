@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use crate::{
     ast::{Ident, ItemVisibility},
     hir::def_map::ModuleId,
-    macros_api::StructId,
-    node_interner::{FuncId, GlobalId, TraitId, TypeAliasId},
+    node_interner::{FuncId, GlobalId, StructId, TraitId, TypeAliasId},
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -74,7 +73,7 @@ impl UsageTracker {
         };
     }
 
-    pub(crate) fn unused_items(&self) -> &HashMap<ModuleId, HashMap<Ident, UnusedItem>> {
+    pub fn unused_items(&self) -> &HashMap<ModuleId, HashMap<Ident, UnusedItem>> {
         &self.unused_items
     }
 }

@@ -1,7 +1,7 @@
 use acvm::{
     acir::{
         brillig::{
-            BinaryFieldOp, BinaryIntOp, BitSize, BlackBoxOp, HeapArray, HeapValueType,
+            BinaryFieldOp, BinaryIntOp, BitSize, BlackBoxOp, HeapValueType, HeapVector,
             MemoryAddress, Opcode as BrilligOpcode, ValueOrArray,
         },
         AcirField,
@@ -224,7 +224,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     /// Adds a label to the next opcode
     pub(crate) fn enter_context(&mut self, label: Label) {
         self.debug_show.enter_context(label.to_string());
-        self.context_label = label;
+        self.context_label = label.clone();
         self.current_section = 0;
         // Add a context label to the next opcode
         self.obj.add_label_at_position(label, self.obj.index_of_next_opcode());
@@ -327,25 +327,6 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.push_opcode(BrilligOpcode::Mov { destination, source });
     }
 
-    /// Emits a conditional `mov` instruction.
-    ///
-    /// Copies the value at `source` into `destination`
-    pub(crate) fn conditional_mov_instruction(
-        &mut self,
-        destination: MemoryAddress,
-        condition: MemoryAddress,
-        source_a: MemoryAddress,
-        source_b: MemoryAddress,
-    ) {
-        self.debug_show.conditional_mov_instruction(destination, condition, source_a, source_b);
-        self.push_opcode(BrilligOpcode::ConditionalMov {
-            destination,
-            source_a,
-            source_b,
-            condition,
-        });
-    }
-
     /// Cast truncates the value to the given bit size and converts the type of the value in memory to that bit size.
     pub(crate) fn cast_instruction(
         &mut self,
@@ -444,7 +425,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.deallocate_single_addr(offset_var);
     }
 
-    pub(super) fn trap_instruction(&mut self, revert_data: HeapArray) {
+    pub(super) fn trap_instruction(&mut self, revert_data: HeapVector) {
         self.debug_show.trap_instruction(revert_data);
 
         self.push_opcode(BrilligOpcode::Trap { revert_data });

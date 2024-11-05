@@ -29,10 +29,10 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
-  constructor(private db: MerkleTreeOperations) {}
+  constructor(private db: MerkleTreeReadOperations) {}
 
   async getNoteHashReadRequestsHints(
     readRequests: Tuple<TreeLeafReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,

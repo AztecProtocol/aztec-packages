@@ -70,7 +70,7 @@ export class Oracle {
       instance.deployer,
       instance.contractClassId,
       instance.initializationHash,
-      instance.publicKeysHash,
+      ...instance.publicKeys.toFields(),
     ].map(toACVMField);
   }
 
@@ -360,7 +360,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const { endSideEffectCounter, returnsHash } = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
@@ -368,7 +367,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
     return [endSideEffectCounter, returnsHash].map(toACVMField);
   }
@@ -379,16 +377,15 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
-  ) {
-    await this.typedOracle.enqueuePublicFunctionCall(
+  ): Promise<ACVMField> {
+    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
+    return toACVMField(newArgsHash);
   }
 
   async setPublicTeardownFunctionCall(
@@ -397,19 +394,38 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
-  ) {
-    await this.typedOracle.setPublicTeardownFunctionCall(
+  ): Promise<ACVMField> {
+    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
+    return toACVMField(newArgsHash);
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
+  }
+
+  async getAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.getAppTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+    return taggingSecret.toFields().map(toACVMField);
+  }
+
+  async incrementAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+  }
+
+  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
+    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
   }
 }

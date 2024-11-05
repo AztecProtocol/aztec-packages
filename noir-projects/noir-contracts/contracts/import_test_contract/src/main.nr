@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 contract ImportTest {
     use dep::aztec::prelude::AztecAddress;
 
-    use dep::test::{Test, Test::DeepStruct, Test::DummyNote};
+    use dep::test::Test::{self, DeepStruct, DummyNote};
 
     use dep::aztec::macros::functions::{private, public};
 
@@ -16,23 +16,25 @@ contract ImportTest {
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[private]
     fn main_contract(target: AztecAddress) -> Field {
-        Test::at(target).test_code_gen(
-            1,
-            true,
-            1 as u32,
-            [1, 2],
-            DummyNote { amount: 1, secret_hash: 2 },
-            DeepStruct {
-            a_field: 1,
-            a_bool: true,
-            a_note: DummyNote { amount: 1, secret_hash: 2 },
-            many_notes: [
+        Test::at(target)
+            .test_code_gen(
+                1,
+                true,
+                1 as u32,
+                [1, 2],
                 DummyNote { amount: 1, secret_hash: 2 },
-                DummyNote { amount: 1, secret_hash: 2 },
-                DummyNote { amount: 1, secret_hash: 2 }
-            ]
-        }
-        ).call(&mut context)
+                DeepStruct {
+                    a_field: 1,
+                    a_bool: true,
+                    a_note: DummyNote { amount: 1, secret_hash: 2 },
+                    many_notes: [
+                        DummyNote { amount: 1, secret_hash: 2 },
+                        DummyNote { amount: 1, secret_hash: 2 },
+                        DummyNote { amount: 1, secret_hash: 2 },
+                    ],
+                },
+            )
+            .call(&mut context)
     }
 
     // Calls the get_this_address on the Test contract at the target address

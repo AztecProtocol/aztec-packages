@@ -13,5 +13,5 @@ static constexpr uint32_t CONST_PG_LOG_N = 20;
 
 static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 70000;
 
-static constexpr uint32_t MAX_DATABUS_SIZE = 10;
+static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 } // namespace bb

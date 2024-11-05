@@ -39,6 +39,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -65,6 +68,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",

@@ -38,8 +38,12 @@ export const APP_CIRCUIT_NAME = 'aztec.circuit.app_circuit_name';
  */
 export const APP_CIRCUIT_TYPE = 'aztec.circuit.app_circuit_type';
 
+/** The block archive */
+export const BLOCK_ARCHIVE = 'aztec.block.archive';
 /** The block number */
 export const BLOCK_NUMBER = 'aztec.block.number';
+/** The slot number */
+export const SLOT_NUMBER = 'aztec.slot.number';
 /** The parent's block number */
 export const BLOCK_PARENT = 'aztec.block.parent';
 /** How many txs are being processed to build this block */
@@ -60,6 +64,8 @@ export const OK = 'aztec.ok';
 export const STATUS = 'aztec.status';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
+/** The L1 address of the entity that sent a transaction to L1 */
+export const L1_SENDER = 'aztec.l1.sender';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 /** The proving job type */
@@ -70,3 +76,6 @@ export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
 export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
 /** Whether the proof submission was timed out (delayed more than 20 min) */
 export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
+
+export const P2P_ID = 'aztec.p2p.id';
+export const POOL_NAME = 'aztec.pool.name';

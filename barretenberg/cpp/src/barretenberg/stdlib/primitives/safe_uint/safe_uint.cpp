@@ -135,6 +135,7 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
 
     this->assert_equal(int_val, "divide method quotient and/or remainder incorrect");
 
+    quotient.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return quotient;
 }
 
@@ -169,6 +170,7 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator/
 
     this->assert_equal(int_val, "/ operator quotient and/or remainder incorrect");
 
+    quotient.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return quotient;
 }
 
@@ -243,6 +245,10 @@ std::array<safe_uint_t<Builder>, 3> safe_uint_t<Builder>::slice(const uint8_t ms
                   (slice_wit * safe_uint_t(uint256_t(1) << lsb))));
 
     std::array<safe_uint_t, 3> result = { lo_wit, slice_wit, hi_wit };
+    OriginTag tag = get_origin_tag();
+    for (auto& element : result) {
+        element.set_origin_tag(tag);
+    }
     return result;
 }
 

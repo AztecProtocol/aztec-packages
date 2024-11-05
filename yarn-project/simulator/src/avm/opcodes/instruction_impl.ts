@@ -8,10 +8,8 @@ export const ThreeOperandWireFormat8 = [
   OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT8,
-  OperandType.UINT8,
 ];
 export const ThreeOperandWireFormat16 = [
-  OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT16,
@@ -29,7 +27,6 @@ export abstract class ThreeOperandInstruction extends Instruction {
 
   constructor(
     protected indirect: number,
-    protected inTag: number,
     protected aOffset: number,
     protected bOffset: number,
     protected dstOffset: number,

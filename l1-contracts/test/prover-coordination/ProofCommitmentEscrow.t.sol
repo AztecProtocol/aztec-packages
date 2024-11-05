@@ -8,7 +8,7 @@ import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 
-import {TestERC20} from "../TestERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 // solhint-disable comprehensive-interface
 

@@ -70,7 +70,7 @@ Encrypts and tags the given plaintext using the provided public keys, and return
 encrypt_and_broadcast(public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH]): Field[MAX_TAGGED_CIPHERTEXT_LENGTH]
 ```
 
-Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery. These functions should be invoked via a [delegate call](../calls/delegate-calls.md), so that the broadcasted event is emitted as if it were from the caller contract.
+Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery.
 
 ```
 encrypt<N>([call_context: CallContext, public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] ][N]): Field[MAX_CIPHERTEXT_LENGTH][N]

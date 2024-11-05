@@ -72,39 +72,27 @@ describe('Bytecode Serialization', () => {
 
   it('Should deserialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.ADD_8,
-        Add.wireFormat8,
-      ),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.SUB_8,
-        Sub.wireFormat8,
-      ),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
       new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
         Opcode.GETENVVAR_16,
         GetEnvVar.wireFormat16,
       ),
       new Call(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*successOffset=*/ 0xf234,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*successOffset=*/ 0xf234,
       ),
     ];
     const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
@@ -116,39 +104,27 @@ describe('Bytecode Serialization', () => {
 
   it('Should serialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.ADD_8,
-        Add.wireFormat8,
-      ),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
-        Opcode.SUB_8,
-        Sub.wireFormat8,
-      ),
+      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
       new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
         Opcode.GETENVVAR_16,
         GetEnvVar.wireFormat16,
       ),
       new Call(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*successOffset=*/ 0xf234,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
-        /*gasOffset=*/ 0x12345678,
-        /*addrOffset=*/ 0xa2345678,
-        /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
-        /*retOffset=*/ 0xd2345678,
-        /*retSize=*/ 0xe2345678,
-        /*successOffset=*/ 0xf2345678,
-        /*functionSelectorOffset=*/ 0xf3345678,
+        /*gasOffset=*/ 0x1234,
+        /*addrOffset=*/ 0xa234,
+        /*argsOffset=*/ 0xb234,
+        /*argsSize=*/ 0xc234,
+        /*successOffset=*/ 0xf234,
       ),
     ];
 

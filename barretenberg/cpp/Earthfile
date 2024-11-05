@@ -1,7 +1,7 @@
 VERSION 0.8
 
 # Note, this is only used on the main build path, caching test artifacts is less useful
-# As those only run if there are changes anyway
+# As those only run if there are changes anyway.
 CACHE_BUILD_BIN:
   FUNCTION
   ARG command
@@ -107,7 +107,15 @@ preset-msan-check:
   # install SRS needed for proving
   COPY --dir ./srs_db/+build/. srs_db
   RUN echo "Warning: If ./bin/client_ivc_tests is not found, there may be build failures above."
-  RUN cd build && ./bin/client_ivc_tests --gtest_also_run_disabled_tests
+  RUN cd build && ./bin/client_ivc_tests --gtest_filter="*BasicStructured"
+
+preset-check:
+  ARG preset
+  FROM +source
+  RUN cmake --preset $preset -Bbuild && cmake --build build --target client_ivc_tests
+  # install SRS needed for proving
+  COPY --dir ./srs_db/+build/. srs_db
+  RUN cd build && ./bin/client_ivc_tests --gtest_filter="*BasicStructured"
 
 preset-wasm:
   ARG TARGETARCH
@@ -131,7 +139,7 @@ preset-sol:
 
 preset-wasm-threads:
   FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads-v1 \
+  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
     --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm"
   SAVE ARTIFACT build/bin
 

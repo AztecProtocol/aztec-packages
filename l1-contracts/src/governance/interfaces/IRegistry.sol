@@ -34,4 +34,6 @@ interface IRegistry {
   // docs:end:registry_number_of_versions
 
   function isRollupRegistered(address _rollup) external view returns (bool);
+
+  function getApella() external view returns (address);
 }

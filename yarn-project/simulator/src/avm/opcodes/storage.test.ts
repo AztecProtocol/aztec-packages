@@ -19,7 +19,7 @@ describe('Storage Instructions', () => {
     persistableState = mock<AvmPersistableStateManager>();
     context = initContext({
       persistableState: persistableState,
-      env: initExecutionEnvironment({ address, storageAddress: address }),
+      env: initExecutionEnvironment({ address }),
     });
   });
 
@@ -28,10 +28,10 @@ describe('Storage Instructions', () => {
       const buf = Buffer.from([
         SStore.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // srcOffset
-        ...Buffer.from('3456789a', 'hex'), // slotOffset
+        ...Buffer.from('1234', 'hex'), // srcOffset
+        ...Buffer.from('3456', 'hex'), // slotOffset
       ]);
-      const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*slotOffset=*/ 0x3456789a);
+      const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x1234, /*slotOffset=*/ 0x3456);
 
       expect(SStore.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -52,7 +52,7 @@ describe('Storage Instructions', () => {
     it('Should not be able to write to storage in a static call', async () => {
       context = initContext({
         persistableState: persistableState,
-        env: initExecutionEnvironment({ address, storageAddress: address, isStaticCall: true }),
+        env: initExecutionEnvironment({ address, isStaticCall: true }),
       });
 
       const a = new Field(1n);
@@ -71,10 +71,10 @@ describe('Storage Instructions', () => {
       const buf = Buffer.from([
         SLoad.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // slotOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // slotOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a);
+      const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x1234, /*dstOffset=*/ 0x3456);
 
       expect(SLoad.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);

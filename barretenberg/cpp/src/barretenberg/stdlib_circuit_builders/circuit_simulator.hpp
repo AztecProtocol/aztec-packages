@@ -76,7 +76,7 @@ class CircuitSimulatorBN254 {
 
     void fix_witness([[maybe_unused]] const uint32_t witness_index, [[maybe_unused]] const bb::fr& witness_value){};
 
-    [[nodiscard]] size_t get_num_gates() const { return 0; }
+    [[nodiscard]] size_t get_estimated_num_finalized_gates() const { return 0; }
 
     void create_add_gate([[maybe_unused]] const add_triple_<FF>& in){};
     void create_mul_gate([[maybe_unused]] const mul_triple_<FF>& in){};

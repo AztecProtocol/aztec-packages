@@ -17,7 +17,7 @@ services:
     image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
     command: 'start --sandbox'
     environment:
-      DEBUG: 'aztec:*'
+      DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337
@@ -36,7 +36,7 @@ services:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     environment:
       BENCHMARK: 'true'
-      DEBUG: ${DEBUG:-aztec:*}
+      DEBUG: ${DEBUG:-aztec:*,-aztec:avm_simulator:memory}
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545
       L1_CHAIN_ID: 31337

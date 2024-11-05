@@ -1,3 +1,4 @@
+import { type Header } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -8,11 +9,25 @@ import { BlockProposal } from './block_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 
-const makeAndSignConsensusPayload = (signer = Secp256k1Signer.random()) => {
+export interface MakeConsensusPayloadOptions {
+  signer?: Secp256k1Signer;
+  header?: Header;
+  archive?: Fr;
+  txHashes?: TxHash[];
+}
+
+const makeAndSignConsensusPayload = (options?: MakeConsensusPayloadOptions) => {
+  const {
+    signer = Secp256k1Signer.random(),
+    header = makeHeader(1),
+    archive = Fr.random(),
+    txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  } = options ?? {};
+
   const payload = ConsensusPayload.fromFields({
-    header: makeHeader(1),
-    archive: Fr.random(),
-    txHashes: [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+    header,
+    archive,
+    txHashes,
   });
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload);
@@ -21,13 +36,13 @@ const makeAndSignConsensusPayload = (signer = Secp256k1Signer.random()) => {
   return { payload, signature };
 };
 
-export const makeBlockProposal = (signer = Secp256k1Signer.random()): BlockProposal => {
-  const { payload, signature } = makeAndSignConsensusPayload(signer);
+export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
+  const { payload, signature } = makeAndSignConsensusPayload(options);
   return new BlockProposal(payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
-export const makeBlockAttestation = (signer?: Secp256k1Signer): BlockAttestation => {
-  const { payload, signature } = makeAndSignConsensusPayload(signer);
+export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
+  const { payload, signature } = makeAndSignConsensusPayload(options);
   return new BlockAttestation(payload, signature);
 };

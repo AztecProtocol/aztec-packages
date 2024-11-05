@@ -1,5 +1,5 @@
 import { type L1ReaderConfig, NULL_KEY } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /**
  * The configuration of the rollup transaction publisher.
@@ -50,6 +50,11 @@ export const getTxSenderConfigMappings: (
     parseEnv: (val: string) => +val,
     defaultValue: 1,
     description: 'The number of confirmations required.',
+  },
+  viemPollingIntervalMS: {
+    env: `${scope}_VIEM_POLLING_INTERVAL_MS`,
+    description: 'The polling interval viem uses in ms',
+    ...numberConfigHelper(1_000),
   },
 });
 

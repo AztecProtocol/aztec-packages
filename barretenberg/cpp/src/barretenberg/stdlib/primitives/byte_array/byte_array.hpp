@@ -75,10 +75,25 @@ template <typename Builder> class byte_array {
 
     std::string get_string() const;
 
+    void set_origin_tag(bb::OriginTag tag)
+    {
+        for (auto& value : values) {
+            value.set_origin_tag(tag);
+        }
+    }
+
+    bb::OriginTag get_origin_tag() const
+    {
+        bb::OriginTag tag{};
+        for (auto& value : values) {
+            tag = bb::OriginTag(tag, value.tag);
+        }
+        return tag;
+    }
+
   private:
     Builder* context;
     bytes_t values;
-
     struct byte_slice {
         field_t<Builder> low;
         field_t<Builder> high;

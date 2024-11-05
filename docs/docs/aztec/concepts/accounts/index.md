@@ -37,7 +37,7 @@ A simple example would be Gnosis Safe (see [_Account Abstraction is NOT coming_]
 
 Ethereum is currently following this approach via [EIP4337](https://eips.ethereum.org/EIPS/eip-4337), an evolution of the [GSN](https://opengsn.org/). This EIP defines a standard method for relaying meta-transactions in a decentralized way, including options for delegating payment to other agents (called paymasters). See [this chart](https://x.com/koeppelmann/status/1632257610455089154) on how 4337 relates to other smart contract wallet efforts.
 
-Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (eg the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
+Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (e.g. the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
 
 Now, there have also been multiple proposals for getting AA implemented at the _protocol_ level in Ethereum. This usually implies introducing a new transaction type or set of opcodes where signature verification and fee payment is handled by the EVM. See EIPs [2803](https://eips.ethereum.org/EIPS/eip-2803), [2938](https://eips.ethereum.org/EIPS/eip-2938), or [3074](https://eips.ethereum.org/EIPS/eip-3074). None of these have gained traction due to the efforts involved in implementing while keeping backwards compatibility.
 
@@ -49,7 +49,7 @@ Protocol AA implementations are vulnerable to DoS attacks due to the unrestricte
 
 Application AA implementations face a similar issue: a smart wallet could return that a transaction is valid when a relayer is about to submit it on-chain and pay for its gas, but when the transaction is actually mined it could turn invalid.
 
-All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://era.zksync.io/docs/dev/developer-guides/aa.html#extending-eip4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/validate_and_execute/).
+All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://docs.zksync.io/build/developer-reference/account-abstraction/extending-4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/validate_and_execute/).
 
 ## Accounts in Aztec
 
@@ -76,7 +76,7 @@ Read more about how to write an account contract [here](../../../tutorials/codea
 
 ### Account contracts and wallets
 
-Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (eg "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
+Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
 
 ### Execution requests
 

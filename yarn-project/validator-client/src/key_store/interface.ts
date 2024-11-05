@@ -1,3 +1,4 @@
+import { type EthAddress } from '@aztec/circuits.js';
 import { type Buffer32 } from '@aztec/foundation/buffer';
 import { type Signature } from '@aztec/foundation/eth-signature';
 
@@ -6,6 +7,13 @@ import { type Signature } from '@aztec/foundation/eth-signature';
  * A keystore interface that can be replaced with a local keystore / remote signer service
  */
 export interface ValidatorKeyStore {
+  /**
+   * Get the address of the signer
+   *
+   * @returns the address
+   */
+  getAddress(): EthAddress;
+
   sign(message: Buffer32): Promise<Signature>;
   /**
    * Flavor of sign message that followed EIP-712 eth signed message prefix

@@ -1,10 +1,13 @@
 use crate::{
     abis::{
-    accumulated_data::PublicAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
-    kernel_circuit_public_inputs::{public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
-    public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestsBuilder
-},
-    address::AztecAddress, traits::Empty
+        accumulated_data::PublicAccumulatedDataBuilder,
+        combined_constant_data::CombinedConstantData,
+        kernel_circuit_public_inputs::public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        public_call_request::PublicCallRequest,
+        validation_requests::PublicValidationRequestsBuilder,
+    },
+    address::AztecAddress,
+    traits::Empty,
 };
 
 pub struct PublicKernelCircuitPublicInputsBuilder {
@@ -28,7 +31,7 @@ impl PublicKernelCircuitPublicInputsBuilder {
             end_side_effect_counter: data.end_side_effect_counter,
             public_teardown_call_request: data.public_teardown_call_request,
             fee_payer: data.fee_payer,
-            revert_code: data.revert_code
+            revert_code: data.revert_code,
         }
     }
 
@@ -44,7 +47,7 @@ impl PublicKernelCircuitPublicInputsBuilder {
             end_side_effect_counter: self.end_side_effect_counter,
             public_teardown_call_request: self.public_teardown_call_request,
             fee_payer: self.fee_payer,
-            revert_code: self.revert_code
+            revert_code: self.revert_code,
         }
     }
 }
@@ -59,7 +62,7 @@ impl Empty for PublicKernelCircuitPublicInputsBuilder {
             end_side_effect_counter: 0,
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
-            revert_code: 0 as u8
+            revert_code: 0 as u8,
         }
     }
 }

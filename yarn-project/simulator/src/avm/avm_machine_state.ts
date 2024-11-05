@@ -12,6 +12,11 @@ export type InitialAvmMachineState = {
   daGasLeft: number;
 };
 
+type CallStackEntry = {
+  callPc: number;
+  returnPc: number;
+};
+
 /**
  * Avm state modified on an instruction-per-instruction basis.
  */
@@ -19,14 +24,18 @@ export class AvmMachineState {
   /** gas remaining of the gas allocated for a contract call */
   public l2GasLeft: number;
   public daGasLeft: number;
-  /** program counter */
+  /** program counter, byte based */
   public pc: number = 0;
+  /** program counter of the next instruction, byte based */
+  public nextPc: number = 0;
+  /** return/revertdata of the last nested call. */
+  public nestedReturndata: Fr[] = [];
 
   /**
-   * On INTERNALCALL, internal call stack is pushed to with the current pc + 1
-   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the pc.
+   * On INTERNALCALL, internal call stack is pushed to with the current pc and the return pc.
+   * On INTERNALRETURN, value is popped from the internal call stack and assigned to the return pc.
    */
-  public internalCallStack: number[] = [];
+  public internalCallStack: CallStackEntry[] = [];
 
   /** Memory accessible to user code */
   public readonly memory: TaggedMemory = new TaggedMemory();
@@ -87,13 +96,6 @@ export class AvmMachineState {
     for (const dimension of GAS_DIMENSIONS) {
       this[`${dimension}Left`] += gasRefund[dimension] ?? 0;
     }
-  }
-
-  /**
-   * Most instructions just increment PC before they complete
-   */
-  public incrementPc() {
-    this.pc++;
   }
 
   /**

@@ -114,14 +114,14 @@ class MegaFlavor {
                               q_r,                  // column 3
                               q_o,                  // column 4
                               q_4,                  // column 5
-                              q_arith,              // column 6
-                              q_delta_range,        // column 7
-                              q_elliptic,           // column 8
-                              q_aux,                // column 9
-                              q_lookup,             // column 10
-                              q_busread,            // column 11
-                              q_poseidon2_external, // column 12
-                              q_poseidon2_internal, // column 13
+                              q_busread,            // column 6
+                              q_arith,              // column 7
+                              q_delta_range,        // column 8
+                              q_elliptic,           // column 9
+                              q_aux,                // column 10
+                              q_poseidon2_external, // column 11
+                              q_poseidon2_internal, // column 12
+                              q_lookup,             // column 13
                               sigma_1,              // column 14
                               sigma_2,              // column 15
                               sigma_3,              // column 16
@@ -145,8 +145,10 @@ class MegaFlavor {
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
         auto get_gate_selectors()
         {
-            return RefArray{ q_arith,  q_delta_range, q_elliptic,           q_aux,
-                             q_lookup, q_busread,     q_poseidon2_external, q_poseidon2_internal };
+            return RefArray{
+                q_busread, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal,
+                q_lookup
+            };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -372,7 +374,7 @@ class MegaFlavor {
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in client_ivc_bench only).
-            BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
+            PROFILE_THIS_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
@@ -396,7 +398,7 @@ class MegaFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            BB_OP_COUNT_TIME_NAME("MegaFlavor::get_row");
+            PROFILE_THIS_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -550,6 +552,9 @@ class MegaFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             set_metadata(proving_key);
+            if (proving_key.commitment_key == nullptr) {
+                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
@@ -575,8 +580,6 @@ class MegaFlavor {
             serialize_to_field_buffer(this->contains_recursive_proof, elements);
             serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.contains_app_return_data_commitment, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.contains_kernel_return_data_commitment, elements);
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
@@ -601,14 +604,14 @@ class MegaFlavor {
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_busread,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
-                        const Commitment& q_busread,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
+                        const Commitment& q_lookup,
                         const Commitment& sigma_1,
                         const Commitment& sigma_2,
                         const Commitment& sigma_3,
@@ -639,14 +642,14 @@ class MegaFlavor {
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_busread = q_busread;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
-            this->q_busread = q_busread;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
+            this->q_lookup = q_lookup;
             this->sigma_1 = sigma_1;
             this->sigma_2 = sigma_2;
             this->sigma_3 = sigma_3;
@@ -677,14 +680,14 @@ class MegaFlavor {
                        q_r,
                        q_o,
                        q_4,
+                       q_busread,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
-                       q_busread,
                        q_poseidon2_external,
                        q_poseidon2_internal,
+                       q_lookup,
                        sigma_1,
                        sigma_2,
                        sigma_3,
@@ -783,14 +786,14 @@ class MegaFlavor {
             q_o = "Q_O";
             q_4 = "Q_4";
             q_m = "Q_M";
+            q_busread = "Q_BUSREAD";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
-            q_lookup = "Q_LOOKUP";
-            q_busread = "Q_BUSREAD";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            q_lookup = "Q_LOOKUP";
             sigma_1 = "SIGMA_1";
             sigma_2 = "SIGMA_2";
             sigma_3 = "SIGMA_3";

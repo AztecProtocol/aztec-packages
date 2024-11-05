@@ -62,7 +62,6 @@ TEST_F(MSMTests, TestMSM)
 
     AcirFormat constraint_system{
         .varnum = 9,
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -74,10 +73,7 @@ TEST_F(MSMTests, TestMSM)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = { msm_constrain },
         .ec_add_constraints = {},
@@ -91,6 +87,7 @@ TEST_F(MSMTests, TestMSM)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
+        .big_quad_constraints = {},
         .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -103,12 +100,12 @@ TEST_F(MSMTests, TestMSM)
         fr(0),
     };
 
-    auto builder = create_circuit(constraint_system, /*size_hint=*/0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
     auto proof = prover.construct_proof();
 
-    auto builder2 = create_circuit(constraint_system, /*size_hint=*/0, {});
+    auto builder2 = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, {});
     auto composer2 = Composer();
     auto verifier = composer2.create_ultra_with_keccak_verifier(builder2);
 

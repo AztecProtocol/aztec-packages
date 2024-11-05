@@ -11,7 +11,7 @@ namespace bb {
 class perm_main_pos2_perm_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 3;
+    constexpr static size_t COLUMNS_PER_SET = 4;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -25,9 +25,11 @@ class perm_main_pos2_perm_permutation_settings {
                                      in.main_sel_op_poseidon2,
                                      in.poseidon2_sel_poseidon_perm,
                                      in.main_clk,
+                                     in.main_space_id,
                                      in.main_mem_addr_a,
                                      in.main_mem_addr_b,
                                      in.poseidon2_clk,
+                                     in.poseidon2_space_id,
                                      in.poseidon2_input_addr,
                                      in.poseidon2_output_addr);
     }
@@ -39,9 +41,11 @@ class perm_main_pos2_perm_permutation_settings {
                                      in.main_sel_op_poseidon2,
                                      in.poseidon2_sel_poseidon_perm,
                                      in.main_clk,
+                                     in.main_space_id,
                                      in.main_mem_addr_a,
                                      in.main_mem_addr_b,
                                      in.poseidon2_clk,
+                                     in.poseidon2_space_id,
                                      in.poseidon2_input_addr,
                                      in.poseidon2_output_addr);
     }

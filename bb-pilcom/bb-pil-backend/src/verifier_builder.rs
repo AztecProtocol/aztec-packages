@@ -6,6 +6,8 @@ pub trait VerifierBuilder {
     fn create_verifier_cpp(&mut self, name: &str, public_cols: &[(usize, String)]);
 
     fn create_verifier_hpp(&mut self, name: &str);
+
+    fn create_recursive_verifier_cpp(&mut self, name: &str, public_cols: &[(usize, String)]);
 }
 
 impl VerifierBuilder for BBFiles {
@@ -32,6 +34,32 @@ impl VerifierBuilder for BBFiles {
         let verifier_cpp = handlebars.render("verifier.cpp", data).unwrap();
 
         self.write_file(None, "verifier.cpp", &verifier_cpp);
+    }
+
+    fn create_recursive_verifier_cpp(&mut self, name: &str, public_cols: &[(usize, String)]) {
+        let mut handlebars = Handlebars::new();
+
+        let data = &json!({
+            "name": name,
+            "public_cols": public_cols.iter().map(|(idx, name)| {
+                json!({
+                    "col": name,
+                    "idx": idx,
+                })
+            }).collect::<Vec<_>>()
+        });
+
+        handlebars
+            .register_template_string(
+                "recursive_verifier.cpp",
+                std::str::from_utf8(include_bytes!("../templates/recursive_verifier.cpp.hbs"))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let verifier_cpp = handlebars.render("recursive_verifier.cpp", data).unwrap();
+
+        self.write_file(None, "recursive_verifier.cpp", &verifier_cpp);
     }
 
     fn create_verifier_hpp(&mut self, name: &str) {

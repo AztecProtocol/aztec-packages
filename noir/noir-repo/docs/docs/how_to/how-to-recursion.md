@@ -1,6 +1,6 @@
 ---
 title: How to use recursion on NoirJS
-description: Learn how to implement recursion with NoirJS, a powerful tool for creating smart contracts on the EVM blockchain. This guide assumes familiarity with NoirJS, solidity verifiers, and the Barretenberg proving backend. Discover how to generate both final and intermediate proofs using `noir_js` and `backend_barretenberg`.
+description: Learn how to implement recursion with NoirJS, a powerful tool for creating smart contracts on the EVM blockchain. This guide assumes familiarity with NoirJS, solidity verifiers, and the Barretenberg proving backend. Discover how to generate both final and intermediate proofs using `noir_js` and `bb.js`.
 keywords:
   [
     "NoirJS",
@@ -10,7 +10,6 @@ keywords:
     "solidity verifiers",
     "Barretenberg backend",
     "noir_js",
-    "backend_barretenberg",
     "intermediate proofs",
     "final proofs",
     "nargo compile",
@@ -25,7 +24,7 @@ This guide shows you how to use recursive proofs in your NoirJS app. For the sak
 
 - You already have a NoirJS app. If you don't, please visit the [NoirJS tutorial](../tutorials/noirjs_app.md) and the [reference](../reference/NoirJS/noir_js/index.md).
 - You are familiar with what are recursive proofs and you have read the [recursion explainer](../explainers/explainer-recursion.md)
-- You already built a recursive circuit following [the reference](../noir/standard_library/recursion.md), and understand how it works.
+- You already built a recursive circuit following [the reference](../noir/standard_library/recursion.mdx), and understand how it works.
 
 It is also assumed that you're not using `noir_wasm` for compilation, and instead you've used [`nargo compile`](../reference/nargo_commands.md) to generate the `json` you're now importing into your project. However, the guide should work just the same if you're using `noir_wasm`.
 
@@ -33,18 +32,11 @@ It is also assumed that you're not using `noir_wasm` for compilation, and instea
 
 As you've read in the [explainer](../explainers/explainer-recursion.md), a recursive proof is an intermediate proof. This means that it doesn't necessarily generate the final step that makes it verifiable in a smart contract. However, it is easy to verify within another circuit.
 
-While "standard" usage of NoirJS packages abstracts final proofs, it currently lacks the necessary interface to abstract away intermediate proofs. This means that these proofs need to be created by using the backend directly.
-
-In short:
-
-- `noir_js` generates *only* final proofs
-- `backend_barretenberg` generates both types of proofs
-
 :::
 
 In a standard recursive app, you're also dealing with at least two circuits. For the purpose of this guide, we will assume the following:
 
-- `main`: a circuit of type `assert(x != y)`, where `main` is marked with a `#[recursive]` attribute. This attribute states that the backend should generate proofs that are friendly for verification within another circuit.
+- `main`: a circuit of type `assert(x != y)`, which we want to embed in another circuit recursively. For example when proving with the `bb` tool, we can use the `--recursive` CLI option to tell the backend that it should generate proofs that are friendly for verification within another circuit.
 - `recursive`: a circuit that verifies `main`
 
 For a full example of how recursive proofs work, please refer to the [noir-examples](https://github.com/noir-lang/noir-examples) repository. We will *not* be using it as a reference for this guide.
@@ -58,7 +50,7 @@ For recursion, this doesn't happen, and the only need for `noir_js` is only to `
 It is also recommended that you instantiate the backend with as many threads as possible, to allow for maximum concurrency:
 
 ```js
-const backend = new Backend(circuit, { threads: 8 })
+const backend = new UltraPlonkBackend(circuit, { threads: 8 }, { recursive: true })
 ```
 
 :::tip
@@ -147,7 +139,7 @@ Managing circuits and "who does what" can be confusing. To make sure your naming
 
 ```js
 const circuits = {
-  main: mainJSON, 
+  main: mainJSON,
   recursive: recursiveJSON
 }
 const backends = {

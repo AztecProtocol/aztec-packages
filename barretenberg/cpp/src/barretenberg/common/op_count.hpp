@@ -3,6 +3,18 @@
 
 #include <memory>
 #include <tracy/Tracy.hpp>
+
+#ifdef BB_USE_OP_COUNT_TIME_ONLY
+#define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
+#define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
+#elif defined TRACY_INSTRUMENTED
+#define PROFILE_THIS() ZoneScopedN(__func__)
+#define PROFILE_THIS_NAME(name) ZoneScopedN(name)
+#else
+#define PROFILE_THIS() (void)0
+#define PROFILE_THIS_NAME(name) (void)0
+#endif
+
 #ifndef BB_USE_OP_COUNT
 // require a semicolon to appease formatters
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -12,18 +24,11 @@
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_CYCLES_NAME(name) (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_CYCLES() (void)0
-#ifndef TRACY_TIME
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name) (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define BB_OP_COUNT_CYCLES() (void)0
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME() (void)0
-#else
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TIME_NAME(name) ZoneScopedN(name)
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TIME() BB_OP_COUNT_TIME_NAME(__func__)
-#endif
 #else
 /**
  * Provides an abstraction that counts operations based on function names.

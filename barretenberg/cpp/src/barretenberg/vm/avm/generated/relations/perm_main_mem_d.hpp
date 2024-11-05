@@ -11,7 +11,7 @@ namespace bb {
 class perm_main_mem_d_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 8;
+    constexpr static size_t COLUMNS_PER_SET = 7;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -31,15 +31,13 @@ class perm_main_mem_d_permutation_settings {
                                      in.main_rwd,
                                      in.main_r_in_tag,
                                      in.main_w_in_tag,
-                                     in.main_sel_op_cmov,
                                      in.mem_clk,
                                      in.mem_space_id,
                                      in.mem_addr,
                                      in.mem_val,
                                      in.mem_rw,
                                      in.mem_r_in_tag,
-                                     in.mem_w_in_tag,
-                                     in.mem_sel_op_cmov);
+                                     in.mem_w_in_tag);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
@@ -55,15 +53,13 @@ class perm_main_mem_d_permutation_settings {
                                      in.main_rwd,
                                      in.main_r_in_tag,
                                      in.main_w_in_tag,
-                                     in.main_sel_op_cmov,
                                      in.mem_clk,
                                      in.mem_space_id,
                                      in.mem_addr,
                                      in.mem_val,
                                      in.mem_rw,
                                      in.mem_r_in_tag,
-                                     in.mem_w_in_tag,
-                                     in.mem_sel_op_cmov);
+                                     in.mem_w_in_tag);
     }
 };
 

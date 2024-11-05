@@ -25,7 +25,6 @@ class AvmSha256TraceBuilder {
     std::array<uint32_t, 8> sha256_compression(const std::array<uint32_t, 8>& h_init,
                                                const std::array<uint32_t, 16>& input,
                                                uint32_t clk);
-    std::array<uint8_t, 32> sha256(const std::vector<uint8_t>& input, uint32_t clk);
 
   private:
     std::vector<Sha256TraceEntry> sha256_trace;

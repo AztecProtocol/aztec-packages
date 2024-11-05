@@ -14,7 +14,8 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
-  function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
+  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
+  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
 }
 
 interface IRollup {
@@ -55,7 +56,7 @@ interface IRollup {
   function submitEpochRootProof(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -80,7 +81,7 @@ interface IRollup {
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
-  function status(uint256 myHeaderBlockNumber)
+  function status(uint256 _myHeaderBlockNumber)
     external
     view
     returns (
@@ -92,25 +93,27 @@ interface IRollup {
       Epoch provenEpochNumber
     );
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
     external
     view
     returns (bytes32);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function canPrune() external view returns (bool);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
-  function nextEpochToClaim() external view returns (Epoch);
-  function getEpochForBlock(uint256 blockNumber) external view returns (Epoch);
-  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
-    external
-    view;
+  function getClaimableEpoch() external view returns (Epoch);
+  function validateEpochProofRightClaimAtTime(
+    Timestamp _ts,
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
+  ) external view;
+  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
-    bytes32[64] calldata _fees,
+    bytes32[] calldata _fees,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);

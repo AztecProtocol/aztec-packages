@@ -4,7 +4,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { witnessMapToFields } from '../acvm/deserialize.js';
-import { Oracle, acvm, extractCallStack, toACVMWitness } from '../acvm/index.js';
+import { Oracle, acvm, extractCallStack, resolveAssertionMessageFromError, toACVMWitness } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ViewDataOracle } from './view_data_oracle.js';
 
@@ -25,6 +25,7 @@ export async function executeUnconstrainedFunction(
   const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
   const acirExecutionResult = await acvm(acir, initialWitness, new Oracle(oracle)).catch((err: Error) => {
+    err.message = resolveAssertionMessageFromError(err, artifact);
     throw new ExecutionError(
       err.message,
       {

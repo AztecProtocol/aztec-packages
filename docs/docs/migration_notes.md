@@ -6,9 +6,116 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.62.0
+### [TXE] Single execution environment
+Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
+This ensures every single test runs in a consistent environment and allows for clearer test syntax:
+
+```diff
+-let my_call_interface = MyContract::at(address).my_function(args);
+-env.call_private(my_contract_interface)
++MyContract::at(address).my_function(args).call(&mut env.private());
+```
+This implies every contract has to be deployed before it can be tested (via `env.deploy` or `env.deploy_self`) and of course it has to be recompiled if its code was changed before TXE can use the modified bytecode.
+
+### Uniqueness of L1 to L2 messages
+
+L1 to L2 messages have been updated to guarantee their uniqueness. This means that the hash of an L1 to L2 message cannot be precomputed, and must be obtained from the `MessageSent` event emitted by the `Inbox` contract, found in the L1 transaction receipt that inserted the message:
+
+```solidity
+event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash);
+```
+
+This event now also includes an `index`. This index was previously required to consume an L1 to L2 message in a public function, and now it is also required for doing so in a private function, since it is part of the message hash preimage. The `PrivateContext` in aztec-nr has been updated to reflect this:
+
+```diff
+pub fn consume_l1_to_l2_message(
+    &mut self,
+    content: Field,
+    secret: Field,
+    sender: EthAddress,
++   leaf_index: Field,
+) {
+```
+
+This change has also modified the internal structure of the archiver database, making it incompatible with previous ones. Last, the API for obtaining an L1 to L2 message membership witness has been simplified to leverage message uniqueness:
+
+```diff
+getL1ToL2MessageMembershipWitness(
+  blockNumber: L2BlockNumber,
+  l1ToL2Message: Fr,
+- startIndex: bigint,
+): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
+```
+
+### Address is now a point
+
+The address now serves as someone's public key to encrypt incoming notes. An address point has a corresponding address secret, which is used to decrypt the notes encrypted with the address point.
+
+### Notes no longer store a hash of the nullifier public keys, and now store addresses
+
+Because of removing key rotation, we can now store addresses as the owner of a note. Because of this and the above change, we can and have removed the process of registering a recipient, because now we do not need any keys of the recipient.
+
+example_note.nr
+```diff
+-npk_m_hash: Field
++owner: AztecAddress
+```
+
+PXE Interface
+```diff
+-registerRecipient(completeAddress: CompleteAddress)
+```
+
+## 0.58.0
+### [l1-contracts] Inbox's MessageSent event emits global tree index
+Earlier `MessageSent` event in Inbox emitted a subtree index (index of the message in the subtree of the l2Block). But the nodes and Aztec.nr expects the index in the global L1_TO_L2_MESSAGES_TREE. So to make it easier to parse this, Inbox now emits this global index.
+
+## 0.57.0
+
+### Changes to PXE API and `ContractFunctionInteraction``
+
+PXE APIs have been refactored to better reflect the lifecycle of a Tx (`execute private -> simulate kernels -> simulate public (estimate gas) -> prove -> send`)
+
+* `.simulateTx`: Now returns a `TxSimulationResult`, containing the output of private execution, kernel simulation and public simulation (optional).
+* `.proveTx`: Now accepts the result of executing the private part of a transaction, so simulation doesn't have to happen again.
+
+Thanks to this refactor, `ContractFunctionInteraction` has been updated to remove its internal cache and avoid bugs due to its mutable nature. As a result our type-safe interfaces now have to be used as follows:
+
+```diff
+-const action = MyContract.at(address).method(args);
+-await action.prove();
+-await action.send().wait();
++const action = MyContract.at(address).method(args);
++const provenTx = await action.prove();
++await provenTx.send().wait();
+```
+
+It's still possible to use `.send()` as before, which will perform proving under the hood.
+
+More changes are coming to these APIs to better support gas estimation mechanisms and advanced features.
+
+
+### Changes to public calling convention
+
+Contracts that include public functions (that is, marked with `#[public]`), are required to have a function `public_dispatch(selector: Field)` which acts as an entry point. This will be soon the only public function registered/deployed in contracts. The calling convention is updated so that external calls are made to this function.
+
+If you are writing your contracts using Aztec-nr, there is nothing you need to change. The `public_dispatch` function is automatically generated by the `#[aztec]` macro.
+
+### [Aztec.nr] Renamed `unsafe_rand` to `random`
+
+Since this is an `unconstrained` function, callers are already supposed to include an `unsafe` block, so this function has been renamed for reduced verbosity.
+
+```diff
+-use aztec::oracle::unsafe_rand::unsafe_rand;
++use aztec::oracle::random::random;
+
+-let random_value = unsafe { unsafe_rand() };
++let random_value = unsafe { random() };
+```
 
 ### [Aztec.js] Removed `L2Block.fromFields`
+
 `L2Block.fromFields` was a syntactic sugar which is causing [issues](https://github.com/AztecProtocol/aztec-packages/issues/8340) so we've removed it.
 
 ```diff
@@ -43,16 +150,16 @@ All of `TestEnvironment`'s functions are now `unconstrained`, preventing acciden
 
 ### [Aztec.nr] removed `encode_and_encrypt_note` and renamed `encode_and_encrypt_note_with_keys` to `encode_and_encrypt_note`
 
-````diff
+```diff
 contract XYZ {
 -   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
 +   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-....
+...
 
 -    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
 +    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
-
 }
+```
 
 ## 0.56.0
 
@@ -190,11 +297,12 @@ export LOG_LEVEL="debug"
 
 `is_valid_impl` method in account contract asserted if signature was true. Instead now we will return the verification to give flexibility to developers to handle it as they please.
 
-````diff
+```diff
 - let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
 - assert(verification == true);
 - true
 + std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
+```
 
 ## 0.49.0
 
@@ -211,7 +319,7 @@ Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `ge
 +let owner_keys = get_current_public_keys(&mut context, owner);
 +let owner_ivpk_m = owner_keys.ivpk_m;
 +let owner_ovpk_m = owner_keys.ovpk_m;
-````
+```
 
 If using more than one key per account, this will result in very large circuit gate count reductions.
 
@@ -393,7 +501,7 @@ struct WithdrawalProcessed {
 
 ### [Aztec.nr] rename `encode_and_encrypt_with_keys` to `encode_and_encrypt_note_with_keys`
 
-````diff
+```diff
 contract XYZ {
 -   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys;
 +   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
@@ -401,9 +509,8 @@ contract XYZ {
 
 -    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
 +    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
-
 }
-
+```
 
 ### [Aztec.nr] changes to `NoteInterface`
 
@@ -456,7 +563,7 @@ These changes were done because having the note hash exposed allowed us to not h
 +        (note_hash_for_nullify, nullifier)
 +    }
 + }
-````
+```
 
 ### [Aztec.nr] `note_getter` returns `BoundedVec`
 

@@ -38,6 +38,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -62,6 +65,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",

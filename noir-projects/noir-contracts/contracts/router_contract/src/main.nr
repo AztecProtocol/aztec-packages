@@ -8,14 +8,16 @@ use dep::aztec::macros::aztec;
 /// the `msg_sender` in the public call is the address of this contract.
 #[aztec]
 contract Router {
-    use aztec::{macros::functions::{private, public, view, internal}, utils::comparison::compare};
+    use aztec::{macros::functions::{internal, private, public, view}, utils::comparison::compare};
 
     // docs:start:check_timestamp
     /// Asserts that the current timestamp in the enqueued public call satisfies the `operation` with respect
     /// to the `value.
     #[private]
     fn check_timestamp(operation: u8, value: u64) {
-        Router::at(context.this_address())._check_timestamp(operation, value).enqueue_view(&mut context);
+        Router::at(context.this_address())._check_timestamp(operation, value).enqueue_view(
+            &mut context,
+        );
     }
 
     #[public]
@@ -32,7 +34,9 @@ contract Router {
     /// to the `value.
     #[private]
     fn check_block_number(operation: u8, value: Field) {
-        Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(&mut context);
+        Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(
+            &mut context,
+        );
     }
 
     #[public]

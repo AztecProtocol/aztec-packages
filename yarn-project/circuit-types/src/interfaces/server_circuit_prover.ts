@@ -1,14 +1,8 @@
 import {
-  type AvmProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-  type PublicInputsAndTubeProof,
-  type Tx,
-} from '@aztec/circuit-types';
-import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BaseRollupInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
@@ -16,21 +10,21 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
-  type PublicKernelCircuitPrivateInputs,
-  type PublicKernelCircuitPublicInputs,
-  type PublicKernelInnerCircuitPrivateInputs,
-  type PublicKernelTailCircuitPrivateInputs,
+  type PublicBaseRollupInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type TUBE_PROOF_LENGTH,
   type TubeInputs,
-  type VMCircuitPublicInputs,
-  type VerificationKeyData,
 } from '@aztec/circuits.js';
+
+import type { Tx } from '../tx/tx.js';
+import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from './proving-job.js';
 
 /**
  * Generates proofs for parity and rollup circuits.
@@ -60,11 +54,17 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getBaseRollupProof(
-    baseRollupInput: BaseRollupInputs,
+  getPrivateBaseRollupProof(
+    baseRollupInput: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
+
+  getPublicBaseRollupProof(
+    inputs: PublicBaseRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
@@ -74,7 +74,7 @@ export interface ServerCircuitProver {
     tubeInput: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>;
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>>;
 
   /**
    * Creates a proof for the given input.
@@ -84,7 +84,7 @@ export interface ServerCircuitProver {
     input: MergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -94,7 +94,7 @@ export interface ServerCircuitProver {
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -114,7 +114,7 @@ export interface ServerCircuitProver {
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
@@ -124,41 +124,19 @@ export interface ServerCircuitProver {
     input: RootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>>;
-
-  /**
-   * Create a public kernel inner proof.
-   * @param kernelRequest - Object containing the details of the proof required
-   */
-  getPublicKernelInnerProof(
-    inputs: PublicKernelInnerCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>>;
-
-  getPublicKernelMergeProof(
-    inputs: PublicKernelCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>>;
-
-  getPublicTailProof(
-    inputs: PublicKernelTailCircuitPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
 
   getEmptyTubeProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndTubeProof<KernelCircuitPublicInputs>>;
+  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof TUBE_PROOF_LENGTH>>;
 
   /**
    * Create a proof for the AVM circuit.
@@ -168,7 +146,7 @@ export interface ServerCircuitProver {
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<AvmProofAndVerificationKey>;
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>>;
 }
 
 /**

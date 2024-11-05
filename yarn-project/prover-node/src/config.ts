@@ -5,6 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, getProverEnvVars, proverClientConfigMappings } from '@aztec/prover-client';
 import {
   type PublisherConfig,
@@ -16,6 +17,7 @@ import {
 } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
 
+import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import {
   type ProverCoordinationConfig,
   getTxProviderConfigFromEnv,
@@ -24,10 +26,12 @@ import {
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &
+  P2PConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
   ProverCoordinationConfig &
+  ProverBondManagerConfig &
   QuoteProviderConfig & {
     proverNodeMaxPendingJobs: number;
     proverNodePollingIntervalMs: number;
@@ -36,6 +40,7 @@ export type ProverNodeConfig = ArchiverConfig &
 export type QuoteProviderConfig = {
   quoteProviderBasisPointFee: number;
   quoteProviderBondAmount: bigint;
+  quoteProviderUrl?: string;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<
@@ -64,16 +69,23 @@ const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
     description: 'The bond amount to charge for providing quotes',
     ...bigintConfigHelper(1000n),
   },
+  quoteProviderUrl: {
+    env: 'QUOTE_PROVIDER_URL',
+    description:
+      'The URL of the remote quote provider. Overrides QUOTE_PROVIDER_BASIS_POINT_FEE and QUOTE_PROVIDER_BOND_AMOUNT.',
+  },
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...archiverConfigMappings,
   ...proverClientConfigMappings,
+  ...p2pConfigMappings,
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
   ...quoteProviderConfigMappings,
+  ...proverBondManagerConfigMappings,
   ...specificProverNodeConfigMappings,
 };
 
@@ -81,11 +93,13 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
   return {
     ...getArchiverConfigFromEnv(),
     ...getProverEnvVars(),
+    ...getP2PConfigFromEnv(),
     ...getWorldStateConfigFromEnv(),
     ...getPublisherConfigFromEnv('PROVER'),
     ...getTxSenderConfigFromEnv('PROVER'),
     ...getTxProviderConfigFromEnv(),
     ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
+    ...getConfigFromMappings(proverBondManagerConfigMappings),
   };
 }

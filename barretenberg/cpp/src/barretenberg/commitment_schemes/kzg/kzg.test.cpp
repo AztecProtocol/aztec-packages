@@ -1,11 +1,9 @@
 
 #include "kzg.hpp"
-#include "../gemini/gemini.hpp"
-#include "../shplonk/shplemini.hpp"
-#include "../shplonk/shplonk.hpp"
-
 #include "../commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/utils/test_utils.hpp"
 
 namespace bb {
 
@@ -13,7 +11,6 @@ template <class Curve> class KZGTest : public CommitmentTest<Curve> {
   public:
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
 };
 
@@ -58,7 +55,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     using GeminiVerifier = GeminiVerifier_<TypeParam>;
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    using GroupElement = typename TypeParam::Element;
+    using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
     const size_t n = 16;
@@ -70,8 +67,8 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     auto poly1 = Polynomial::random(n);
     auto poly2 = Polynomial::random(n, 1); // make 'shiftable'
 
-    GroupElement commitment1 = this->commit(poly1);
-    GroupElement commitment2 = this->commit(poly2);
+    Commitment commitment1 = this->commit(poly1);
+    Commitment commitment2 = this->commit(poly2);
 
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
     auto eval2 = poly2.evaluate_mle(mle_opening_point);
@@ -106,7 +103,8 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
     auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                                     multilinear_evaluations,
+                                                                     RefArray{ eval1, eval2 },
+                                                                     RefArray{ eval2_shift },
                                                                      RefArray{ commitment1, commitment2 },
                                                                      RefArray{ commitment2 },
                                                                      verifier_transcript);
@@ -198,6 +196,94 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
                                                        mle_opening_point,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript);
+    const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+
+    EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+}
+
+TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
+{
+    using ShplonkProver = ShplonkProver_<TypeParam>;
+    using GeminiProver = GeminiProver_<TypeParam>;
+    using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;
+    using KZG = KZG<TypeParam>;
+    using Fr = typename TypeParam::ScalarField;
+    using Commitment = typename TypeParam::AffineElement;
+    using Polynomial = typename bb::Polynomial<Fr>;
+
+    const size_t n = 16;
+    const size_t log_n = 4;
+    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
+    // point.
+    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
+    auto poly1 = Polynomial::random(n, 1);
+    auto poly2 = Polynomial::random(n);
+    auto poly3 = Polynomial::random(n, 1);
+    auto poly4 = Polynomial::random(n);
+
+    Commitment commitment1 = this->commit(poly1);
+    Commitment commitment2 = this->commit(poly2);
+    Commitment commitment3 = this->commit(poly3);
+    Commitment commitment4 = this->commit(poly4);
+    std::vector<Commitment> unshifted_commitments = { commitment1, commitment2, commitment3, commitment4 };
+    std::vector<Commitment> shifted_commitments = { commitment1, commitment3 };
+    auto eval1 = poly1.evaluate_mle(mle_opening_point);
+    auto eval2 = poly2.evaluate_mle(mle_opening_point);
+    auto eval3 = poly3.evaluate_mle(mle_opening_point);
+    auto eval4 = poly4.evaluate_mle(mle_opening_point);
+    auto eval1_shift = poly1.evaluate_mle(mle_opening_point, true);
+    auto eval3_shift = poly3.evaluate_mle(mle_opening_point, true);
+
+    // Collect multilinear evaluations for input to prover
+    std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval3, eval1_shift, eval3_shift };
+
+    auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
+        generate_concatenation_inputs<TypeParam>(
+            mle_opening_point, /*num_concatenated=*/3, /*concatenation_index=*/2, this->ck());
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    // Run the full prover PCS protocol:
+
+    // Compute:
+    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
+    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
+    auto prover_opening_claims = GeminiProver::prove(n,
+                                                     RefArray{ poly1, poly2, poly3, poly4 },
+                                                     RefArray{ poly1, poly3 },
+                                                     mle_opening_point,
+                                                     this->ck(),
+                                                     prover_transcript,
+                                                     RefVector(concatenated_polynomials),
+                                                     to_vector_of_ref_vectors(concatenation_groups));
+
+    // Shplonk prover output:
+    // - opening pair: (z_challenge, 0)
+    // - witness: polynomial Q - Q_z
+    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
+
+    // KZG prover:
+    // - Adds commitment [W] to transcript
+    KZG::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+
+    // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    // Gemini verifier output:
+    // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(n,
+                                                       RefVector(unshifted_commitments),
+                                                       RefVector(shifted_commitments),
+                                                       RefArray{ eval1, eval2, eval3, eval4 },
+                                                       RefArray{ eval1_shift, eval3_shift },
+                                                       mle_opening_point,
+                                                       this->vk()->get_g1_identity(),
+                                                       verifier_transcript,
+                                                       to_vector_of_ref_vectors(concatenation_groups_commitments),
+                                                       RefVector(c_evaluations));
     const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 

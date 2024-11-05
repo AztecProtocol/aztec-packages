@@ -3,7 +3,6 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
-import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 
@@ -15,6 +14,7 @@ import {
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
 } from '../../constants.gen.js';
+import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '../interfaces/index.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class PrivateFunctionBroadcastedEvent {

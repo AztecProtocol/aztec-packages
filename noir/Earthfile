@@ -144,7 +144,7 @@ packages-deps:
 packages:
   FROM +packages-deps
   COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
-  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns .rebuild_patterns_packages"
+  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
       # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-packages" \

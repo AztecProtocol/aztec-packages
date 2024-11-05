@@ -1,0 +1,4 @@
+^noir-projects/noir-protocol-circuits/.*\.(nr|toml|json)$
+^noir-projects/noir-protocol-circuits/bootstrap.sh$
+^noir-projects/noir-protocol-circuits/scripts/generate_variants.js$
+^noir-projects/scripts/generate_vk_json.js$

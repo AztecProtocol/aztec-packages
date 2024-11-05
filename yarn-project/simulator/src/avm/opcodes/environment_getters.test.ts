@@ -13,7 +13,6 @@ import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
 describe('Environment getters', () => {
   const address = AztecAddress.random();
-  const storageAddress = AztecAddress.random();
   const sender = AztecAddress.random();
   const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
@@ -34,7 +33,6 @@ describe('Environment getters', () => {
   });
   const env = initExecutionEnvironment({
     address,
-    storageAddress,
     sender,
     functionSelector,
     transactionFee,
@@ -64,7 +62,6 @@ describe('Environment getters', () => {
 
   describe.each([
     [EnvironmentVariable.ADDRESS, address.toField()],
-    [EnvironmentVariable.STORAGEADDRESS, storageAddress.toField()],
     [EnvironmentVariable.SENDER, sender.toField()],
     [EnvironmentVariable.FUNCTIONSELECTOR, functionSelector.toField(), TypeTag.UINT32],
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
@@ -85,5 +82,11 @@ describe('Environment getters', () => {
       const actual = context.machineState.memory.get(0).toFr();
       expect(actual).toEqual(value);
     });
+  });
+
+  it(`GETENVVAR reverts for bad enum operand`, async () => {
+    const invalidEnum = 255;
+    const instruction = new GetEnvVar(/*indirect=*/ 0, invalidEnum, /*dstOffset=*/ 0);
+    await expect(instruction.execute(context)).rejects.toThrowError(`Invalid GETENVVAR var enum ${invalidEnum}`);
   });
 });

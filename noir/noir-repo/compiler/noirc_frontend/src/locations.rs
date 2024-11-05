@@ -5,9 +5,13 @@ use rustc_hash::FxHashMap as HashMap;
 
 use crate::{
     ast::{FunctionDefinition, ItemVisibility},
-    hir::def_map::{ModuleDefId, ModuleId},
-    macros_api::{NodeInterner, StructId},
-    node_interner::{DefinitionId, FuncId, GlobalId, ReferenceId, TraitId, TypeAliasId},
+    hir::{
+        def_map::{ModuleDefId, ModuleId},
+        resolution::import::PathResolutionItem,
+    },
+    node_interner::{
+        DefinitionId, FuncId, GlobalId, NodeInterner, ReferenceId, StructId, TraitId, TypeAliasId,
+    },
 };
 use petgraph::prelude::NodeIndex as PetGraphIndex;
 
@@ -46,7 +50,10 @@ impl NodeInterner {
             ReferenceId::StructMember(id, field_index) => {
                 let struct_type = self.get_struct(id);
                 let struct_type = struct_type.borrow();
-                Location::new(struct_type.field_at(field_index).0.span(), struct_type.location.file)
+                Location::new(
+                    struct_type.field_at(field_index).name.span(),
+                    struct_type.location.file,
+                )
             }
             ReferenceId::Trait(id) => {
                 let trait_type = self.get_trait(id);
@@ -93,6 +100,37 @@ impl NodeInterner {
                 self.add_global_reference(global_id, location);
             }
         };
+    }
+
+    pub(crate) fn add_path_resolution_kind_reference(
+        &mut self,
+        kind: PathResolutionItem,
+        location: Location,
+        is_self_type: bool,
+    ) {
+        match kind {
+            PathResolutionItem::Module(module_id) => {
+                self.add_module_reference(module_id, location);
+            }
+            PathResolutionItem::Struct(struct_id) => {
+                self.add_struct_reference(struct_id, location, is_self_type);
+            }
+            PathResolutionItem::TypeAlias(type_alias_id) => {
+                self.add_alias_reference(type_alias_id, location);
+            }
+            PathResolutionItem::Trait(trait_id) => {
+                self.add_trait_reference(trait_id, location, is_self_type);
+            }
+            PathResolutionItem::Global(global_id) => {
+                self.add_global_reference(global_id, location);
+            }
+            PathResolutionItem::ModuleFunction(func_id)
+            | PathResolutionItem::StructFunction(_, _, func_id)
+            | PathResolutionItem::TypeAliasFunction(_, _, func_id)
+            | PathResolutionItem::TraitFunction(_, _, func_id) => {
+                self.add_function_reference(func_id, location);
+            }
+        }
     }
 
     pub(crate) fn add_module_reference(&mut self, id: ModuleId, location: Location) {
@@ -277,8 +315,12 @@ impl NodeInterner {
             .next()
     }
 
-    pub(crate) fn register_module(&mut self, id: ModuleId, name: String) {
-        let visibility = ItemVisibility::Public;
+    pub(crate) fn register_module(
+        &mut self,
+        id: ModuleId,
+        visibility: ItemVisibility,
+        name: String,
+    ) {
         self.register_name_for_auto_import(name, ModuleDefId::ModuleId(id), visibility, None);
     }
 
@@ -286,11 +328,10 @@ impl NodeInterner {
         &mut self,
         id: GlobalId,
         name: String,
+        visibility: ItemVisibility,
         parent_module_id: ModuleId,
     ) {
         self.add_definition_location(ReferenceId::Global(id), Some(parent_module_id));
-
-        let visibility = ItemVisibility::Public;
         self.register_name_for_auto_import(name, ModuleDefId::GlobalId(id), visibility, None);
     }
 
@@ -305,10 +346,14 @@ impl NodeInterner {
         self.register_name_for_auto_import(name, ModuleDefId::TypeId(id), visibility, None);
     }
 
-    pub(crate) fn register_trait(&mut self, id: TraitId, name: String, parent_module_id: ModuleId) {
+    pub(crate) fn register_trait(
+        &mut self,
+        id: TraitId,
+        name: String,
+        visibility: ItemVisibility,
+        parent_module_id: ModuleId,
+    ) {
         self.add_definition_location(ReferenceId::Trait(id), Some(parent_module_id));
-
-        let visibility = ItemVisibility::Public;
         self.register_name_for_auto_import(name, ModuleDefId::TraitId(id), visibility, None);
     }
 
@@ -316,11 +361,10 @@ impl NodeInterner {
         &mut self,
         id: TypeAliasId,
         name: String,
+        visibility: ItemVisibility,
         parent_module_id: ModuleId,
     ) {
         self.add_definition_location(ReferenceId::Alias(id), Some(parent_module_id));
-
-        let visibility = ItemVisibility::Public;
         self.register_name_for_auto_import(name, ModuleDefId::TypeAliasId(id), visibility, None);
     }
 

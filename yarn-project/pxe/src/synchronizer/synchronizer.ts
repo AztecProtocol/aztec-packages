@@ -1,6 +1,12 @@
 import { type AztecNode, type L2Block, MerkleTreeId, type TxHash } from '@aztec/circuit-types';
 import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { type AztecAddress, type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  INITIAL_L2_BLOCK_NUM,
+  type PublicKey,
+} from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -243,14 +249,14 @@ export class Synchronizer {
    * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public async addAccount(account: AztecAddress, keyStore: KeyStore, startingBlock: number) {
+  public addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
     const predicate = (x: NoteProcessor) => x.account.equals(account);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
     if (processor) {
       return;
     }
 
-    this.noteProcessorsToCatchUp.push(await NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
+    this.noteProcessorsToCatchUp.push(NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
   }
 
   /**
@@ -262,11 +268,7 @@ export class Synchronizer {
    * @throws If checking a sync status of account which is not registered.
    */
   public async isAccountStateSynchronized(account: AztecAddress) {
-    const completeAddress = await this.db.getCompleteAddress(account);
-    if (!completeAddress) {
-      throw new Error(`Checking if account is synched is not possible for ${account} because it is not registered.`);
-    }
-    const findByAccountAddress = (x: NoteProcessor) => x.account.equals(completeAddress.address);
+    const findByAccountAddress = (x: NoteProcessor) => x.account.address.equals(account);
     const processor =
       this.noteProcessors.find(findByAccountAddress) ?? this.noteProcessorsToCatchUp.find(findByAccountAddress);
     if (!processor) {
@@ -300,7 +302,7 @@ export class Synchronizer {
     const lastBlockNumber = this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
-      notes: Object.fromEntries(this.noteProcessors.map(n => [n.account.toString(), n.status.syncedToBlock])),
+      notes: Object.fromEntries(this.noteProcessors.map(n => [n.account.address.toString(), n.status.syncedToBlock])),
     };
   }
 
@@ -309,7 +311,7 @@ export class Synchronizer {
    * @returns The note processor stats for notes for each public key being tracked.
    */
   public getSyncStats() {
-    return Object.fromEntries(this.noteProcessors.map(n => [n.account.toString(), n.stats]));
+    return Object.fromEntries(this.noteProcessors.map(n => [n.account.address.toString(), n.stats]));
   }
 
   /**
@@ -341,7 +343,7 @@ export class Synchronizer {
         const { incomingNotes: inNotes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
         incomingNotes.push(...inNotes);
 
-        await this.db.addNotes(inNotes, outNotes, processor.account);
+        await this.db.addNotes(inNotes, outNotes, processor.account.address);
 
         inNotes.forEach(noteDao => {
           this.log.debug(
@@ -369,15 +371,15 @@ export class Synchronizer {
 
   async #removeNullifiedNotes(notes: IncomingNoteDao[]) {
     // now group the decoded incoming notes by public key
-    const publicKeyToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
+    const addressPointToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
     for (const noteDao of notes) {
-      const notesForPublicKey = publicKeyToIncomingNotes.get(noteDao.ivpkM) ?? [];
-      notesForPublicKey.push(noteDao);
-      publicKeyToIncomingNotes.set(noteDao.ivpkM, notesForPublicKey);
+      const notesForAddressPoint = addressPointToIncomingNotes.get(noteDao.addressPoint) ?? [];
+      notesForAddressPoint.push(noteDao);
+      addressPointToIncomingNotes.set(noteDao.addressPoint, notesForAddressPoint);
     }
 
     // now for each group, look for the nullifiers in the nullifier tree
-    for (const [publicKey, notes] of publicKeyToIncomingNotes.entries()) {
+    for (const [publicKey, notes] of addressPointToIncomingNotes.entries()) {
       const nullifiers = notes.map(n => n.siloedNullifier);
       const relevantNullifiers: Fr[] = [];
       for (const nullifier of nullifiers) {

@@ -26,6 +26,10 @@ COPY . .
 RUN cmake --preset clang16
 RUN cmake --build --preset clang16 --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
 
+RUN npm install --global yarn
+RUN cmake --preset clang16-pic
+RUN cmake --build --preset clang16-pic --target world_state_napi
+
 FROM ubuntu:lunar
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
@@ -36,3 +40,4 @@ COPY --from=builder /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen /usr/sr
 # Copy libs for consuming projects.
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a
+COPY --from=builder /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node

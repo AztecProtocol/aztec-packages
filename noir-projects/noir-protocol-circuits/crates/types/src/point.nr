@@ -1,5 +1,5 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
-use crate::{traits::{Deserialize, Empty, Hash, Serialize}, hash::poseidon2_hash};
+use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Serialize}};
 
 global POINT_LENGTH: u32 = 3;
 

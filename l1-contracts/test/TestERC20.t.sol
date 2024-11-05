@@ -1,7 +1,7 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import {TestERC20} from "./TestERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 contract TestERC20Test is Test {
   TestERC20 testERC20;

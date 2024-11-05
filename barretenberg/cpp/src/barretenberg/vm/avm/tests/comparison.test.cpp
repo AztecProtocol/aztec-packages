@@ -121,7 +121,7 @@ TEST_P(AvmCmpTestsLT, ParamTest)
         trace_builder.op_set(0, a, 0, mem_tag);
         trace_builder.op_set(0, b, 1, mem_tag);
     }
-    trace_builder.op_lt(0, 0, 1, 2, mem_tag);
+    trace_builder.op_lt(0, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -159,7 +159,7 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
         trace_builder.op_set(0, a, 0, mem_tag);
         trace_builder.op_set(0, b, 1, mem_tag);
     }
-    trace_builder.op_lte(0, 0, 1, 2, mem_tag);
+    trace_builder.op_lte(0, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_lte == FF(1); });
@@ -335,7 +335,7 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
                         .set_full_precomputed_tables(false)
                         .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 3, 0);
-    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF);
+    trace_builder.op_lt(0, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)> select_row = [](Row r) { return r.main_sel_op_lt == FF(1); };
@@ -356,7 +356,7 @@ TEST_P(AvmCmpNegativeTestsLTE, ParamTest)
                         .set_full_precomputed_tables(false)
                         .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 3, 0);
-    trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF);
+    trace_builder.op_lte(0, 0, 1, 2);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)> select_row = [](Row r) { return r.main_sel_op_lte == FF(1); };

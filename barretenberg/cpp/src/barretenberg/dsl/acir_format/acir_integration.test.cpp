@@ -63,8 +63,8 @@ class AcirIntegrationTest : public ::testing::Test {
         Prover prover{ builder };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
-        info("num gates          = ", builder.get_num_gates());
-        info("total circuit size = ", builder.get_total_circuit_size());
+        info("num gates          = ", builder.get_estimated_num_finalized_gates());
+        info("total circuit size = ", builder.get_estimated_total_circuit_size());
         info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
         info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
 #endif
@@ -83,8 +83,8 @@ class AcirIntegrationTest : public ::testing::Test {
         auto prover = composer.create_prover(builder);
 #ifdef LOG_SIZES
         // builder.blocks.summarize();
-        // info("num gates          = ", builder.get_num_gates());
-        // info("total circuit size = ", builder.get_total_circuit_size());
+        // info("num gates          = ", builder.get_estimated_num_finalized_gates());
+        // info("total circuit size = ", builder.get_estimated_total_circuit_size());
 #endif
         auto proof = prover.construct_proof();
 #ifdef LOG_SIZES
@@ -154,7 +154,8 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
         false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
-    Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+    Builder builder =
+        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
 
     // Construct and verify Honk proof
     if constexpr (IsPlonkFlavor<Flavor>) {
@@ -192,7 +193,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "array_to_slice_constant_length",
                                          "assert",
                                          "assert_statement",
-                                         "assert_statement_recursive",
                                          "assign_ex",
                                          "bigint",
                                          "bit_and",
@@ -232,12 +232,10 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "brillig_pedersen",
                                          "brillig_recursion",
                                          "brillig_references",
-                                         //  "brillig_scalar_mul",
                                          "brillig_schnorr",
                                          "brillig_sha256",
                                          "brillig_signed_cmp",
                                          "brillig_signed_div",
-                                         //  "brillig_slice_input",
                                          "brillig_slices",
                                          "brillig_to_be_bytes",
                                          "brillig_to_bits",
@@ -259,10 +257,8 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "databus",
                                          "debug_logs",
                                          "diamond_deps_0",
-                                         //  "distinct_keyword",
                                          "double_verify_nested_proof",
                                          "double_verify_proof",
-                                         "double_verify_proof_recursive",
                                          "ecdsa_secp256k1",
                                          "ecdsa_secp256r1",
                                          "ecdsa_secp256r1_3x",
@@ -311,16 +307,13 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "regression_4088",
                                          "regression_4124",
                                          "regression_4202",
-                                         //  "regression_4383",
-                                         //  "regression_4436",
                                          "regression_4449",
                                          "regression_4709",
+                                         //"regression_5045",
                                          "regression_capacity_tracker",
                                          "regression_mem_op_predicate",
                                          "regression_method_cannot_be_found",
-                                         //  "regression_sha256_slice",
                                          "regression_struct_array_conditional",
-                                         //  "scalar_mul",
                                          "schnorr",
                                          "sha256",
                                          "sha2_byte",
@@ -342,7 +335,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "simple_shift_left_right",
                                          "slice_coercion",
                                          "slice_dynamic_index",
-                                         //  "slice_init_with_complex_type",
                                          "slice_loop",
                                          "slices",
                                          "strings",
@@ -368,6 +360,8 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "unit_value",
                                          "unsafe_range_constraint",
                                          "witness_compression",
+                                         //  "workspace",
+                                         //  "workspace_default_member",
                                          "xor"));
 
 TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
@@ -386,7 +380,8 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
         auto program = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto builder = acir_format::create_circuit<Builder>(program.constraints, 0, program.witness);
+        auto builder =
+            acir_format::create_circuit<Builder>(program.constraints, /*recursive*/ false, 0, program.witness);
 
         // Construct and verify Honk proof for the individidual circuit
         EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
@@ -413,8 +408,8 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         auto program = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto circuit =
-            acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+        auto circuit = acir_format::create_circuit<Builder>(
+            program.constraints, /*recursive*/ false, 0, program.witness, false, ivc.goblin.op_queue);
 
         ivc.accumulate(circuit);
 
@@ -445,7 +440,8 @@ TEST_F(AcirIntegrationTest, DISABLED_Databus)
     acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
-    Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+    Builder builder =
+        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
 
     // This prints a summary of the types of gates in the circuit
     builder.blocks.summarize();
@@ -469,7 +465,8 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
-    Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+    Builder builder =
+        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
 
     // Check that the databus columns in the builder have been populated as expected
     const auto& calldata = builder.get_calldata();
@@ -523,7 +520,8 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
                                               // Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+    auto circuit =
+        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
 
@@ -556,11 +554,14 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     std::string test_name = "verify_honk_proof"; // arbitrary program with RAM gates
     // Note: honk_recursion set to false here because the selection of the honk recursive verifier is indicated by the
     // proof_type field of the constraint generated from noir.
+    // The honk_recursion flag determines whether a noir program will be recursively verified via Honk in a Noir
+    // program.
     auto acir_program = get_program_data_from_test_file(test_name,
                                                         /*honk_recursion=*/false);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+    auto circuit =
+        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));

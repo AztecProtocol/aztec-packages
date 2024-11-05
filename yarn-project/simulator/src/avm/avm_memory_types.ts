@@ -208,21 +208,19 @@ export class Field extends MemoryValue {
 }
 
 export enum TypeTag {
-  UNINITIALIZED,
+  FIELD = MEM_TAG_FF,
   UINT1 = MEM_TAG_U1,
   UINT8 = MEM_TAG_U8,
   UINT16 = MEM_TAG_U16,
   UINT32 = MEM_TAG_U32,
   UINT64 = MEM_TAG_U64,
   UINT128 = MEM_TAG_U128,
-  FIELD = MEM_TAG_FF,
   INVALID,
 }
 
 // Lazy interface definition for tagged memory
 export type TaggedMemoryInterface = FunctionsOf<TaggedMemory>;
 
-// TODO: Consider automatic conversion when getting undefined values.
 export class TaggedMemory implements TaggedMemoryInterface {
   static readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:memory');
 
@@ -255,6 +253,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     TaggedMemory.log.debug(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
+      return new Field(0) as T;
     }
     return word as T;
   }
@@ -264,7 +263,11 @@ export class TaggedMemory implements TaggedMemoryInterface {
     assert(offset + size < TaggedMemory.MAX_MEMORY_SIZE);
     const value = this._mem.slice(offset, offset + size);
     TaggedMemory.log.debug(`getSlice(${offset}, ${size}) = ${value}`);
-    assert(!value.some(e => e === undefined), 'Memory slice contains undefined values.');
+    for (let i = 0; i < value.length; i++) {
+      if (value[i] === undefined) {
+        value[i] = new Field(0);
+      }
+    }
     assert(value.length === size, `Expected slice of size ${size}, got ${value.length}.`);
     return value;
   }
@@ -333,6 +336,16 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   /**
+   * Check that all tags at the given offsets are the same.
+   */
+  public checkTagsAreSame(...offsets: number[]) {
+    const tag = this.getTag(offsets[0]);
+    for (let i = 1; i < offsets.length; i++) {
+      this.checkTag(tag, offsets[i]);
+    }
+  }
+
+  /**
    * Check tags for all memory in the specified range.
    */
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number) {
@@ -347,7 +360,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
     let tag = TypeTag.INVALID;
 
     if (v === undefined) {
-      tag = TypeTag.UNINITIALIZED;
+      tag = TypeTag.FIELD; // uninitialized memory is Field(0)
+    } else if (v instanceof Field) {
+      tag = TypeTag.FIELD;
     } else if (v instanceof Uint1) {
       tag = TypeTag.UINT1;
     } else if (v instanceof Uint8) {
@@ -360,8 +375,6 @@ export class TaggedMemory implements TaggedMemoryInterface {
       tag = TypeTag.UINT64;
     } else if (v instanceof Uint128) {
       tag = TypeTag.UINT128;
-    } else if (v instanceof Field) {
-      tag = TypeTag.FIELD;
     }
 
     return tag;
@@ -371,6 +384,8 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public static buildFromTagTruncating(v: bigint | number, tag: TypeTag): MemoryValue {
     v = BigInt(v);
     switch (tag) {
+      case TypeTag.FIELD:
+        return new Field(v);
       case TypeTag.UINT1:
         return new Uint1(v & 1n);
       case TypeTag.UINT8:
@@ -383,8 +398,6 @@ export class TaggedMemory implements TaggedMemoryInterface {
         return new Uint64(v & ((1n << 64n) - 1n));
       case TypeTag.UINT128:
         return new Uint128(v & ((1n << 128n) - 1n));
-      case TypeTag.FIELD:
-        return new Field(v);
       default:
         throw new Error(`${TypeTag[tag]} is not a valid tag.`);
     }
@@ -393,6 +406,8 @@ export class TaggedMemory implements TaggedMemoryInterface {
   // Does not truncate. Type constructor will check that it fits.
   public static buildFromTagOrDie(v: bigint | number, tag: TypeTag): MemoryValue {
     switch (tag) {
+      case TypeTag.FIELD:
+        return new Field(v);
       case TypeTag.UINT1:
         return new Uint1(v);
       case TypeTag.UINT8:
@@ -405,8 +420,6 @@ export class TaggedMemory implements TaggedMemoryInterface {
         return new Uint64(v);
       case TypeTag.UINT128:
         return new Uint128(v);
-      case TypeTag.FIELD:
-        return new Field(v);
       default:
         throw new Error(`${TypeTag[tag]} is not a valid integral type.`);
     }
@@ -509,6 +522,10 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
 
   public checkTags(tag: TypeTag, ...offsets: number[]): void {
     this.wrapped.checkTags(tag, ...offsets);
+  }
+
+  public checkTagsAreSame(...offsets: number[]): void {
+    this.wrapped.checkTagsAreSame(...offsets);
   }
 
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number): void {

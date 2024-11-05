@@ -48,7 +48,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using bool_ct = stdlib::bool_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("num gates = ", builder.get_num_gates());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
@@ -64,9 +64,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct a = element_ct::from_witness(&builder, input_a);
             element_ct b = element_ct::from_witness(&builder, input_b);
 
-            uint64_t before = builder.get_num_gates();
+            uint64_t before = builder.get_estimated_num_finalized_gates();
             element_ct c = a + b;
-            uint64_t after = builder.get_num_gates();
+            uint64_t after = builder.get_estimated_num_finalized_gates();
             if (i == num_repetitions - 1) {
                 std::cout << "num gates per add = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Biggroup", "ADD", "Gate Count", after - before);
@@ -288,9 +288,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = P * x;
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -738,9 +738,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = element_ct::wnaf_batch_mul({ P }, { x });
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -908,10 +908,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct P = element_ct::from_witness(&builder, input);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             // Note: need >136 bits to complete this when working over bigfield
             element_ct c = element_ct::template wnaf_batch_mul<128>({ P }, { x });
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -955,9 +955,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_ct x3 = scalar_ct::from_witness(&builder, scalar3);
             scalar_ct x4 = scalar_ct::from_witness(&builder, scalar4);
 
-            std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
             element_ct c = element_ct::batch_mul({ P1, P2, P3, P4 }, { x1, x2, x3, x4 }, 128);
-            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
 
             element out = input1 * scalar1;
             out += (input2 * scalar2);

@@ -15,9 +15,20 @@ CMD=${1:-}
 if [ "$CMD" = "clean" ]; then
   git clean -fdx
   exit 0
-elif [ "$CMD" = "full" ]; then
+fi
+
+# Generate l1-artifacts before creating lock file
+(cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+
+if [ "$CMD" = "full" ]; then
   yarn install --immutable
   yarn build
+  exit 0
+elif [ "$CMD" = "fast-only" ]; then
+  # Unlike fast build below, we don't fall back to a normal build.
+  # This is used when we want to ensure that fast build works.
+  yarn install --immutable
+  yarn build:fast
   exit 0
 elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
   echo "Unknown command: $CMD"

@@ -1,8 +1,11 @@
 use crate::components::tail_output_composer::meter_gas_used::meter_gas_used;
 use dep::types::{
     abis::gas::Gas,
-    constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE},
-    tests::fixture_builder::FixtureBuilder
+    constants::{
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 fn new_builder() -> FixtureBuilder {
@@ -66,8 +69,9 @@ fn meter_gas_used_everything_succeeds() {
     let gas = meter_gas_used(data, gas_settings);
 
     assert_eq(
-        gas, Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, computed_l2_gas)
-        + Gas::tx_overhead()
-        + gas_settings.teardown_gas_limits
+        gas,
+        Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, computed_l2_gas)
+            + Gas::tx_overhead()
+            + gas_settings.teardown_gas_limits,
     );
 }

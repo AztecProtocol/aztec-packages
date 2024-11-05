@@ -15,6 +15,7 @@
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
+    "./decorators": "./dest/decorators/index.js",
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
     "./eth-signature": "./dest/eth-signature/index.js",
@@ -39,6 +40,7 @@
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
     "./types": "./dest/types/index.js",
+    "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
@@ -68,6 +70,9 @@
             "parser": {
               "syntax": "typescript",
               "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
             }
           }
         }
@@ -110,7 +115,7 @@
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
     "sha3": "^2.1.4",
-    "zod": "^3.22.4"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

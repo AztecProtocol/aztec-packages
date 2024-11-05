@@ -1,4 +1,5 @@
 #include "mem_bn254_crs_factory.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
@@ -59,6 +60,8 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
 
 std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> MemBn254CrsFactory::get_prover_crs(size_t degree)
 {
+    PROFILE_THIS();
+
     if (prover_crs_->get_monomial_size() < degree) {
         throw_or_abort(format("prover trying to get too many points in MemBn254CrsFactory! ",
                               prover_crs_->get_monomial_size(),

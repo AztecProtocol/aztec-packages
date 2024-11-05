@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 // Shows how to create a custom struct in Public
 pub struct Leader {
