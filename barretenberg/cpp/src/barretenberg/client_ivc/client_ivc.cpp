@@ -235,18 +235,17 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // circuit. So, these have to be preserved as public inputs to the hiding circuit (and, subsequently, as public
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[1]));
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
     vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION", num_public_inputs);
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     vinfo("num_public_inputs of the last folding proof ", num_public_inputs);
     for (size_t i = 0; i < num_public_inputs; i++) {
-        size_t offset = 3;
+        size_t offset = HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder.add_public_variable(fold_proof[i + offset]);
     }
 
-    goblin.verify_merge(builder, merge_verification_queue[0]);
-    merge_verification_queue.clear();
+    process_recursive_merge_verification_queue(builder);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
@@ -257,14 +256,13 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     auto stdlib_proof = bb::convert_proof_to_witness(&builder, fold_proof);
 
-    // Perform recursive folding verification oft he la
+    // Perform recursive folding verification of the last folding proof
     FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
-    auto native_verifier_acc = std::make_shared<DeciderVerificationKey>(recursive_verifier_accumulator->get_value());
     verification_queue.clear();
 
     // Perform recursive decider verification
-    DeciderRecursiveVerifier decider{ &builder, native_verifier_acc };
+    DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     decider.verify_proof(decider_proof);
 
     builder.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));

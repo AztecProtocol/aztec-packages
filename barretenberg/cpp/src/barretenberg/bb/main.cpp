@@ -591,7 +591,7 @@ void prove_tube(const std::string& output_path)
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
 
     for (size_t i = 0; i < num_public_inputs; i++) {
-        auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
     }
     ClientIVC verifier{ builder, input };

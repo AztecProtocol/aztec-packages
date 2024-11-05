@@ -26,6 +26,17 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
         : builder(builder)
         , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)){};
 
+    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<RecursiveDeciderVK> accumulator)
+        : builder(builder)
+    {
+        if (this->builder == accumulator->builder) {
+            this->accumulator = std::move(accumulator);
+        } else {
+            this->accumulator = std::make_shared<RecursiveDeciderVK>(
+                this->builder, std::make_shared<NativeDeciderVK>(accumulator->get_value()));
+        }
+    }
+
     PairingPoints verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
