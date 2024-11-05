@@ -32,7 +32,13 @@ export class Synchronizer {
   private log: DebugLogger;
   private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
-  constructor(private node: AztecNode, private db: PxeDatabase, private jobQueue: SerialQueue, logSuffix = '') {
+  constructor(
+    private node: AztecNode,
+    private db: PxeDatabase,
+    private jobQueue: SerialQueue,
+    private trialDecryptionEnabled: boolean,
+    logSuffix = '',
+  ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
   }
 
