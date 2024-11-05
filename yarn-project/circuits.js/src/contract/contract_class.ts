@@ -60,9 +60,6 @@ export function getContractClassFromArtifact(
 export function getContractClassPrivateFunctionFromArtifact(
   f: FunctionArtifact,
 ): ContractClass['privateFunctions'][number] {
-  if (!f.verificationKey) {
-    throw new Error('Private function must have a verification key');
-  }
   return {
     selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
     vkHash: computeVerificationKeyHash(f),
@@ -74,7 +71,7 @@ export function getContractClassPrivateFunctionFromArtifact(
  */
 export function computeVerificationKeyHash(f: FunctionArtifact) {
   if (!f.verificationKey) {
-    throw new Error('Private function must have a verification key');
+    throw new Error(`Private function ${f.name} must have a verification key`);
   }
   return hashVK(vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
 }
