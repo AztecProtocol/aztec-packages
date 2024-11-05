@@ -357,7 +357,10 @@ namespace main(256);
     // Note that the above is even a stronger constraint, as it shows
     // that exactly one sel_op_XXX must be true.
     #[SUBOP_ERROR_RELEVANT_OP]
-    op_err * ((sel_op_fdiv + sel_op_div + sel_op_get_contract_instance) - 1) = 0;
+    op_err * (1 - tag_err) * ((sel_op_fdiv + sel_op_div + sel_op_get_contract_instance) - 1) = 0;
+
+    #[TAG_ERR_IMPLIES_OP_ERR]
+    tag_err * (1 - op_err) = 0;
 
     // TODO: constraint that we stop execution at the first error (tag_err or op_err)
     // An error can only happen at the last sub-operation row.

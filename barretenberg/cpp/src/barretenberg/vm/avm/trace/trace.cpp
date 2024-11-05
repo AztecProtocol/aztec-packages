@@ -3616,7 +3616,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
 
-        // TODO: Should be a cleaner way to do this in the future. Perhaps an "into_canoncal" function in
+        // TODO: Should be a cleaner way to do this in the future. Perhaps an "into_canonical" function in
         // mem_trace_builder
         if (!src.m_sel_op_slice) {
             switch (src.m_sub_clk) {
@@ -3850,6 +3850,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
              r.main_sel_op_shl == FF(1) || r.main_sel_op_div == FF(1)) &&
             r.main_tag_err == FF(0) && r.main_op_err == FF(0)) {
             r.main_sel_alu = FF(1);
+        }
+
+        if (r.main_tag_err == FF(1)) {
+            r.main_op_err = FF(1); // Consolidation of errors into main_op_err
         }
 
         if (r.main_sel_op_internal_call == FF(1) || r.main_sel_op_internal_return == FF(1)) {
