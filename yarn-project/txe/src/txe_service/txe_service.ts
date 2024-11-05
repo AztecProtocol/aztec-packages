@@ -741,7 +741,6 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          result.returnValues,
           (this.typedOracle as TXE).getContractDataOracle(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
@@ -772,7 +771,6 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          result.returnValues,
           (this.typedOracle as TXE).getContractDataOracle(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,

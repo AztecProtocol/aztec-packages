@@ -695,7 +695,6 @@ export class TXE implements TypedOracle {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           executionResult.revertReason,
-          executionResult.returnValues,
           this.contractDataOracle,
           this.txeDatabase,
           this.logger,
@@ -800,7 +799,7 @@ export class TXE implements TypedOracle {
     return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
   }
 
-  async syncNotes(_recipient: AztecAddress) {
+  syncNotes(_recipient: AztecAddress) {
     // TODO: Implement
     return Promise.resolve();
   }

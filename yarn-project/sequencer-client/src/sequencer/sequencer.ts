@@ -430,16 +430,23 @@ export class Sequencer {
     const numRealTxs = validTxs.length;
     const blockSize = Math.max(2, numRealTxs);
 
-    const fork = await this.worldState.fork();
+    // NB: separating the dbs because both should update the state
+    const publicProcessorFork = await this.worldState.fork();
+    const orchestratorFork = await this.worldState.fork();
     try {
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
+      const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
       const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(fork);
+      const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
       await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(fork)),
+        processor.process(
+          validTxs,
+          blockSize,
+          blockBuilder,
+          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
+        ),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
@@ -510,7 +517,8 @@ export class Sequencer {
         throw err;
       }
     } finally {
-      await fork.close();
+      await publicProcessorFork.close();
+      await orchestratorFork.close();
     }
   }
 
