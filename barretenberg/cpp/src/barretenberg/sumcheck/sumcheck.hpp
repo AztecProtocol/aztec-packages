@@ -211,6 +211,8 @@ template <typename Flavor> class SumcheckProver {
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
+            info("prover challenge  ", round_idx, "  ", round_challenge);
+
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(full_polynomials, multivariate_n, round_challenge);
@@ -238,6 +240,7 @@ template <typename Flavor> class SumcheckProver {
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+            info("prover challenge  ", round_idx, "  ", round_challenge);
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
@@ -554,6 +557,7 @@ template <typename Flavor> class SumcheckVerifier {
             libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
             // get the challenge for the ZK Sumcheck claim
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+            info("libra challenge verifier ", libra_challenge);
         }
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -569,6 +573,7 @@ template <typename Flavor> class SumcheckVerifier {
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+            info("verifier challenge  ", round_idx, "  ", round_challenge);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
