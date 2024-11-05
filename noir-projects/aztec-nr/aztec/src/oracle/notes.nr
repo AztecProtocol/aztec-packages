@@ -231,30 +231,6 @@ unconstrained fn increment_app_tagging_secret_oracle(
     _recipient: AztecAddress,
 ) {}
 
-/// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
-// siloed for the current contract address.
-/// Includes the last known index used for tagging with this secret.
-/// For this to work, PXE must know the ivsk_m of the recipient.
-pub unconstrained fn get_app_tagging_secrets_for_senders(
-    recipient: AztecAddress,
-) -> [IndexedTaggingSecret] {
-    let results = get_app_tagging_secrets_for_senders_oracle(recipient);
-    let mut indexed_tagging_secrets = &[];
-    assert(results.len() % 3 == 0, "Invalid result length");
-    for i in 0..results.len() {
-        if i % 3 != 0 {
-            continue;
-        }
-        indexed_tagging_secrets = indexed_tagging_secrets.push_back(
-            IndexedTaggingSecret::deserialize([results[i], results[i + 1], results[i + 2]]),
-        );
-    }
-    indexed_tagging_secrets
-}
-
-#[oracle(getAppTaggingSecretsForSenders)]
-unconstrained fn get_app_tagging_secrets_for_senders_oracle(_recipient: AztecAddress) -> [Field] {}
-
 pub fn sync_notes(targetContractAddress: AztecAddress, recipient: AztecAddress) {
     unsafe {
         sync_notes_oracle_wrapper(targetContractAddress, recipient);
