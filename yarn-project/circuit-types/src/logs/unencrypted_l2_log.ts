@@ -48,10 +48,7 @@ export class UnencryptedL2Log {
 
   static get schema() {
     return z
-      .object({
-        contractAddress: schemas.AztecAddress,
-        data: schemas.BufferHex,
-      })
+      .object({ contractAddress: schemas.AztecAddress, data: schemas.BufferHex })
       .transform(({ contractAddress, data }) => new UnencryptedL2Log(contractAddress, data));
   }
 

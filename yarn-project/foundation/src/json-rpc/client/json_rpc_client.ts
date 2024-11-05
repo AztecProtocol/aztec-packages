@@ -77,10 +77,17 @@ export async function defaultFetch(
  * @param log - Optional logger for logging attempts.
  * @returns A fetch function.
  */
-export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger) {
-  return async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
+export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: DebugLogger) {
+  return async (
+    host: string,
+    rpcMethod: string,
+    body: any,
+    useApiEndpoints: boolean,
+    noRetry?: boolean,
+    stringify = jsonStringify,
+  ) => {
     return await retry(
-      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry),
+      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry ?? defaultNoRetry, stringify),
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,

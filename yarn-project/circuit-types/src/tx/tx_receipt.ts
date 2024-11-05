@@ -44,6 +44,10 @@ export class TxReceipt {
     public debugInfo?: DebugInfo,
   ) {}
 
+  static empty() {
+    return new TxReceipt(TxHash.zero(), TxStatus.DROPPED, '');
+  }
+
   /**
    * Convert a Tx class object to a plain JSON object.
    * @returns A plain object with Tx properties.
@@ -63,7 +67,7 @@ export class TxReceipt {
   static get schema() {
     return z
       .object({
-        txHash: schemas.Buffer32,
+        txHash: TxHash.schema,
         status: z.nativeEnum(TxStatus),
         error: z.string(),
         blockHash: schemas.BufferHex.optional(),

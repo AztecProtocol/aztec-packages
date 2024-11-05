@@ -150,7 +150,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return Promise.resolve();
   }
 
-  rejectProvingJob(jobId: string, err: any): Promise<void> {
+  rejectProvingJob(jobId: string, reason: string): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running.');
     }
@@ -171,7 +171,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     if (job.attempts < MAX_RETRIES && job.request.type !== ProvingRequestType.PUBLIC_VM) {
       job.attempts++;
       this.log.warn(
-        `Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${err}. Retry ${
+        `Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${reason}. Retry ${
           job.attempts
         }/${MAX_RETRIES}`,
       );
@@ -181,8 +181,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT
           ? this.log.warn
           : this.log.error;
-      logFn(`Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${err}`);
-      job.reject(err);
+      logFn(`Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${reason}`);
+      job.reject(new Error(reason));
     }
     return Promise.resolve();
   }
