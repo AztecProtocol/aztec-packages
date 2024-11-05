@@ -37,6 +37,8 @@ export interface PXEConfig {
   l2StartingBlock: number;
   /** Where to store PXE data. If not set, will store in memory */
   dataDirectory?: string;
+  /** Whether to enable brute forcing note decryption or rely on tagging */
+  trialDecriptionEnabled?: boolean;
 }
 
 export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig;
@@ -81,6 +83,11 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
+    ...booleanConfigHelper(),
+  },
+  trialDecriptionEnabled: {
+    env: 'PXE_TRIAL_DECRYPTION_ENABLED',
+    description: 'Whether to enable brute forcing note decryption or rely on tagging',
     ...booleanConfigHelper(),
   },
 };

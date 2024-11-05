@@ -116,7 +116,9 @@ export class PXEService implements PXE {
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
     await this.synchronizer.start(1, l2BlockPollingIntervalMS);
-    await this.restoreNoteProcessors();
+    if (this.config.trialDecriptionEnabled) {
+      await this.restoreNoteProcessors();
+    }
     await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
@@ -194,7 +196,9 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
+      if (this.config.trialDecriptionEnabled) {
+        this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
+      }
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
