@@ -800,7 +800,7 @@ export class TXE implements TypedOracle {
     return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
   }
 
-  async syncNotes(_recipient: AztecAddress) {
+  syncNotes(_recipient: AztecAddress) {
     // TODO: Implement
     return Promise.resolve();
   }
