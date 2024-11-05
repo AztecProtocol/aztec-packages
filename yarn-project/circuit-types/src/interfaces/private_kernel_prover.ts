@@ -11,6 +11,10 @@ import {
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 
+export type PrivateKernelProverProfileResult = {
+  gateCounts: { circuitName: string; gateCount: number }[];
+};
+
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
  * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
@@ -28,6 +32,8 @@ export type PrivateKernelSimulateOutput<PublicInputsType> = {
   outputWitness: WitnessMap;
 
   bytecode: Buffer;
+
+  profileResult?: PrivateKernelProverProfileResult;
 };
 
 /**
@@ -97,4 +103,12 @@ export interface PrivateKernelProver {
    * @returns A Promise resolving to a Proof object
    */
   computeAppCircuitVerificationKey(bytecode: Buffer, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
+
+  /**
+   * Compute the gate count for a given circuit.
+   * @param bytecode - The circuit bytecode in gzipped bincode format
+   * @param circuitName - The name of the circuit
+   * @returns A Promise resolving to the gate count
+   */
+  computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number>;
 }

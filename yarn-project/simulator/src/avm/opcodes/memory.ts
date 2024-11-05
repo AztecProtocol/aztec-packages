@@ -72,7 +72,6 @@ export class Set extends Instruction {
     memory.set(dstOffset, res);
 
     memory.assert({ writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -113,7 +112,6 @@ export class Cast extends Instruction {
     memory.set(dstOffset, casted);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -152,7 +150,6 @@ export class Mov extends Instruction {
     memory.set(dstOffset, a);
 
     memory.assert({ reads: 1, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -193,7 +190,6 @@ export class CalldataCopy extends Instruction {
     memory.setSlice(dstOffset, transformedData);
 
     memory.assert({ reads: 2, writes: copySize, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -217,7 +213,6 @@ export class ReturndataSize extends Instruction {
     memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
 
     memory.assert({ writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 }
 
@@ -260,6 +255,5 @@ export class ReturndataCopy extends Instruction {
     memory.setSlice(dstOffset, transformedData);
 
     memory.assert({ reads: 2, writes: copySize, addressing });
-    context.machineState.incrementPc();
   }
 }
