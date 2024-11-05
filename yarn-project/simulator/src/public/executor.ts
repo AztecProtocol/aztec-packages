@@ -43,7 +43,6 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
     availableGas: Gas,
     _txContext: TxContext,
-    // TODO(md): this will be shared? Why do we need to pass it everywhere?
     pendingSiloedNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
     startSideEffectCounter: number = 0,
