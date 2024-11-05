@@ -93,7 +93,7 @@ struct ExecutionTraceUsageTracker {
     std::vector<std::string> block_labels{ "ecc_op",     "pub_inputs",         "busread",
                                            "arithmetic", "delta_range",        "elliptic",
                                            "aux",        "poseidon2_external", "poseidon2_internal",
-                                           "lookup" };
+                                           "lookup",     "miscellaneous" };
 
     void print()
     {
