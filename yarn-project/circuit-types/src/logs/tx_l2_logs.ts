@@ -10,6 +10,7 @@ import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
+import { z } from 'zod';
 
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
 import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
@@ -158,6 +159,12 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
 }
 
 export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(UnencryptedFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new UnencryptedTxL2Logs(functionLogs));
+  }
+
   /** Creates an empty instance. */
   public static empty() {
     return new UnencryptedTxL2Logs([]);
@@ -246,6 +253,12 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
 }
 
 export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(EncryptedNoteFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new EncryptedNoteTxL2Logs(functionLogs));
+  }
+
   /** Creates an empty instance. */
   public static empty() {
     return new EncryptedNoteTxL2Logs([]);
@@ -333,6 +346,12 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
 }
 
 export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ functionLogs: z.array(EncryptedFunctionL2Logs.schema) })
+      .transform(({ functionLogs }) => new EncryptedTxL2Logs(functionLogs));
+  }
+
   /** Creates an empty instance. */
   public static empty() {
     return new EncryptedTxL2Logs([]);

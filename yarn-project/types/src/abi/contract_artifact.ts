@@ -182,6 +182,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
     verificationKey: fn.verification_key,
     debugSymbols: fn.debug_symbols,
     errorTypes: fn.abi.error_types,
+    ...(fn.assert_messages ? { assertMessages: fn.assert_messages } : undefined),
   };
 }
 
@@ -307,7 +308,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
       storageLayout: getStorageLayout(contract),
       notes: getNoteTypes(contract),
       fileMap: contract.file_map,
-      aztecNrVersion,
+      ...(aztecNrVersion ? { aztecNrVersion } : {}),
     };
   } catch (err) {
     throw new Error(`Could not generate contract artifact for ${contract.name}: ${err}`);

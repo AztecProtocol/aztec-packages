@@ -48,7 +48,8 @@
     "./testing": "./dest/testing/index.js",
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
-    "./promise": "./dest/promise/index.js"
+    "./promise": "./dest/promise/index.js",
+    "./string": "./dest/string/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",

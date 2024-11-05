@@ -18,6 +18,10 @@ export class ExtendedUnencryptedL2Log {
     public readonly log: UnencryptedL2Log,
   ) {}
 
+  static random() {
+    return new ExtendedUnencryptedL2Log(LogId.random(), UnencryptedL2Log.random());
+  }
+
   toJSON() {
     return { id: this.id, log: this.log };
   }

@@ -1,13 +1,18 @@
 import { z } from 'zod';
 
 import { FunctionSelector } from '../abi/function_selector.js';
+import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { EthAddress } from '../eth-address/index.js';
 import { Signature } from '../eth-signature/eth_signature.js';
 import { Fq, Fr } from '../fields/fields.js';
+import { Point } from '../fields/point.js';
 import { hasHexPrefix, isHex, withoutHexPrefix } from '../string/index.js';
 import { hexSchema, maybeStructuredStringSchemaFor } from './utils.js';
+
+const FrSchema = maybeStructuredStringSchemaFor('Fr', Fr, isHex);
+const FqSchema = maybeStructuredStringSchemaFor('Fq', Fq, isHex);
 
 /** Validation schemas for common types. Every schema must match its toJSON. */
 export const schemas = {
@@ -20,11 +25,26 @@ export const schemas = {
   /** Accepts both a 0x string and a structured type. */
   FunctionSelector: maybeStructuredStringSchemaFor('FunctionSelector', FunctionSelector),
 
-  /** Field element. Accepts a 0x prefixed hex string or a structured type. */
-  Fr: maybeStructuredStringSchemaFor('Fr', Fr, isHex),
+  /** Accepts both a 0x string and a structured type. */
+  NoteSelector: maybeStructuredStringSchemaFor('NoteSelector', NoteSelector),
 
   /** Field element. Accepts a 0x prefixed hex string or a structured type. */
-  Fq: maybeStructuredStringSchemaFor('Fq', Fq, isHex),
+  Fr: FrSchema,
+
+  /** Field element. Accepts a 0x prefixed hex string or a structured type. */
+  Fq: FqSchema,
+
+  /** Point. Serialized as 0x prefixed string or a type. */
+  Point: z
+    .object({
+      x: FrSchema,
+      y: FrSchema,
+      isInfinite: z.boolean().optional(),
+    })
+    .or(hexSchema)
+    .transform(value =>
+      typeof value === 'string' ? Point.fromString(value) : new Point(value.x, value.y, value.isInfinite ?? false),
+    ),
 
   /** Accepts a 0x string */
   Signature: z

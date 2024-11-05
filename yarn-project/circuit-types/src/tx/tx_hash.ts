@@ -23,6 +23,10 @@ export class TxHash extends Buffer32 {
   }
 
   static get schema() {
-    return schemas.Buffer32;
+    return schemas.BufferHex.transform(value => new TxHash(value));
+  }
+
+  static zero() {
+    return new TxHash(Buffer32.ZERO.toBuffer());
   }
 }
