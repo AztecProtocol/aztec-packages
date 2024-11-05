@@ -1040,15 +1040,15 @@ jobs:
           authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
           echo "authors=${authors}" >> $GITHUB_OUTPUT
 
-      # - name: Send notification to aztec3-ci channel if workflow failed on master
-      #   uses: slackapi/slack-github-action@v1.25.0
-      #   with:
-      #     payload: |
-      #       {
-      #         "text": "Master Github Actions failure",
-      #         "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-      #         "authors": "${{ steps.get_authors.outputs.authors }}",
-      #         "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
-      #       }
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Master Github Actions failure",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_authors.outputs.authors }}",
+              "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
+            }
       #   env:
       #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
