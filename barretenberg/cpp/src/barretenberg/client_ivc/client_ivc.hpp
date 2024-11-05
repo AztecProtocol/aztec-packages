@@ -5,6 +5,7 @@
 #include "barretenberg/plonk_honk_shared/arithmetization/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
@@ -41,6 +42,8 @@ class ClientIVC {
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
+    using MegaProver = UltraProver_<Flavor>;
+    using MegaVerifier = UltraVerifier_<Flavor>;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
@@ -50,18 +53,24 @@ class ClientIVC {
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
     using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
+    using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
 
-    // A full proof for the IVC scheme
+    /**
+     * @brief A full  proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
+     * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
+     * proof).
+     *
+     * @details This proof will be zero-knowledge.
+     */
     struct Proof {
-        FoldProof folding_proof; // final fold proof
-        HonkProof decider_proof;
+        HonkProof mega_proof;
         GoblinProof goblin_proof;
 
-        size_t size() const { return folding_proof.size() + decider_proof.size() + goblin_proof.size(); }
+        size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
-        MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
+        MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
@@ -143,13 +152,14 @@ class ClientIVC {
 
     Proof prove();
 
+    HonkProof construct_and_prove_hiding_circuit();
+
     static bool verify(const Proof& proof,
-                       const std::shared_ptr<DeciderVerificationKey>& accumulator,
-                       const std::shared_ptr<DeciderVerificationKey>& final_stack_vk,
+                       const std::shared_ptr<VerificationKey>& ultra_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
+    bool verify(const Proof& proof);
 
     bool prove_and_verify();
 
