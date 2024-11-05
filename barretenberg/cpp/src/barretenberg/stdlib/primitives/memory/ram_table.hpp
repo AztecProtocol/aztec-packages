@@ -1,6 +1,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -46,6 +47,10 @@ template <typename Builder> class ram_table {
         return _all_entries_written_to_with_constant_index;
     }
 
+    OriginTag get_origin_tag() { return _tag; }
+
+    void set_origin_tag(const OriginTag& origin_tag) { _tag = origin_tag; }
+
   private:
     std::vector<field_pt> _raw_entries;
     mutable std::vector<bool> _index_initialized;
@@ -54,5 +59,6 @@ template <typename Builder> class ram_table {
     mutable bool _ram_table_generated_in_builder = false;
     mutable bool _all_entries_written_to_with_constant_index = false;
     mutable Builder* _context = nullptr;
+    OriginTag _tag{};
 };
 } // namespace bb::stdlib

@@ -31,6 +31,10 @@ template <typename Builder> class rom_table {
 
     Builder* get_context() const { return context; }
 
+    OriginTag get_origin_tag() { return _tag; }
+
+    void set_origin_tag(const OriginTag& origin_tag) { _tag = origin_tag; }
+
   private:
     std::vector<field_pt> raw_entries;
     mutable std::vector<field_pt> entries;
@@ -38,5 +42,6 @@ template <typename Builder> class rom_table {
     mutable size_t rom_id = 0; // Builder identifier for this ROM table
     mutable bool initialized = false;
     mutable Builder* context = nullptr;
+    OriginTag _tag{};
 };
 } // namespace bb::stdlib

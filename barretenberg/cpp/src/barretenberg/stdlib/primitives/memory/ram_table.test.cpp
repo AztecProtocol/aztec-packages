@@ -3,6 +3,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "ram_table.hpp"
 
 using namespace bb;
@@ -15,7 +16,37 @@ using ram_table_ct = stdlib::ram_table<Builder>;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
+STANDARD_TESTING_TAGS
 
+TEST(ram_table, tag_correctness)
+{
+
+    Builder builder;
+    std::vector<field_ct> table_values;
+    field_ct entry_1 = witness_ct(&builder, bb::fr::random_element());
+    field_ct entry_2 = witness_ct(&builder, bb::fr::random_element());
+    entry_1.set_origin_tag(submitted_value_origin_tag);
+    entry_2.set_origin_tag(challenge_origin_tag);
+    table_values.emplace_back(entry_1);
+    table_values.emplace_back(entry_2);
+
+    ram_table_ct table(table_values);
+
+    EXPECT_EQ(table.get_origin_tag(), first_two_merged_tag);
+
+    field_ct index = witness_ct(&builder, 0);
+    index.set_origin_tag(next_challenge_tag);
+    auto result = table.read(index);
+    EXPECT_EQ(result.get_origin_tag(), first_second_third_merged_tag);
+
+    auto poison_tag = table.get_origin_tag();
+    poison_tag.poison();
+    table.set_origin_tag(poison_tag);
+
+#ifndef NDEBUG
+    EXPECT_THROW(table.read(index), std::runtime_error);
+#endif
+}
 TEST(ram_table, ram_table_init_read_consistency)
 {
     Builder builder;

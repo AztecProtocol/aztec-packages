@@ -11,9 +11,9 @@ template <typename Builder> rom_table<Builder>::rom_table(const std::vector<fiel
     static_assert(HasPlookup<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
+        _tag = OriginTag(_tag, entry.get_origin_tag());
         if (entry.get_context() != nullptr) {
             context = entry.get_context();
-            break;
         }
     }
     raw_entries = table_entries;
@@ -60,6 +60,7 @@ rom_table<Builder>::rom_table(const rom_table& other)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
+    , _tag(other._tag)
 {}
 
 template <typename Builder>
@@ -70,6 +71,7 @@ rom_table<Builder>::rom_table(rom_table&& other)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
+    , _tag(other._tag)
 {}
 
 template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other)
@@ -80,6 +82,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(co
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
+    _tag = other._tag;
     return *this;
 }
 
@@ -91,6 +94,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(ro
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
+    _tag = other._tag;
     return *this;
 }
 
@@ -117,8 +121,10 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
         context->failure("rom_table: ROM array access out of bounds");
     }
 
-    uint32_t output_idx = context->read_ROM_array(rom_id, index.normalize().get_witness_index());
-    return field_pt::from_witness_index(context, output_idx);
+    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_normalized_witness_index());
+    auto element = field_pt::from_witness_index(context, output_idx);
+    element.set_origin_tag(OriginTag(_tag, index.get_origin_tag()));
+    return element;
 }
 
 template class rom_table<bb::UltraCircuitBuilder>;
