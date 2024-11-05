@@ -743,9 +743,9 @@ jobs:
         run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
       - name: Upload Network Logs
         if: always() # Run on failure too
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: network-test.log
+          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
           path: network-test.log
 
   l1-contracts-test:
