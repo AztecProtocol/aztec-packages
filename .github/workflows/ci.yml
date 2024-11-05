@@ -719,7 +719,7 @@ jobs:
         with:
           concurrency_key: kind-network-${{ matrix.config.test }}
       - name: Setup and KIND Network Test
-        timeout-minutes: 90
+        timeout-minutes: ${{ matrix.config.timeout }}
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
@@ -732,19 +732,21 @@ jobs:
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
-          tester_ttl: 90
+          tester_ttl: ${{ matrix.config.timeout }}
           # TODO(#9640): use 16-validators.yaml
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             test=${{ matrix.config.test }}
             NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+      - name: Copy Bench.json
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network.log network.json
       - name: Upload network log
         if: always() # Ensures this step runs regardless of success or failure in the test step
         uses: actions/upload-artifact@v3
         with:
           name: network-log
-          path: ./scripts/network.log
+          path: network.log
 
   l1-contracts-test:
     needs: [build, configure]
