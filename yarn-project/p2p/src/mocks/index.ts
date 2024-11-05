@@ -5,7 +5,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type DataStoreConfig } from '@aztec/kv-store/utils';
-import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -92,7 +92,7 @@ export async function createLibp2pNode(
  * Test Libp2p service
  * P2P functionality is operational, however everything else is default
  *
- * WORKTODO: more description
+ *
  */
 export async function createTestLibP2PService(
   boostrapAddrs: string[] = [],
@@ -122,8 +122,6 @@ export async function createTestLibP2PService(
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
-  const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
-
   return new LibP2PService(
     config,
     p2pNode as PubSubLibp2p,
@@ -133,9 +131,6 @@ export async function createTestLibP2PService(
     proofVerifier,
     worldStateSynchronizer,
     telemetry,
-    // TODO: remove below here
-    DEFAULT_SUB_PROTOCOL_HANDLERS,
-    otelMetricsAdapter,
   );
 }
 

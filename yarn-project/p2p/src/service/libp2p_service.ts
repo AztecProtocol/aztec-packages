@@ -104,9 +104,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
-
-    // Temp
-    private metricsAdapter: OtelMetricsAdapter,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     // Instatntiate tracer
@@ -322,7 +319,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       worldStateSynchronizer,
       telemetry,
       requestResponseHandlers,
-      otelMetricsAdapter,
     );
   }
 
