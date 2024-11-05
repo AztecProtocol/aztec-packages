@@ -18,7 +18,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { Attributes, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, TelemetryClient, trackSpan, WithTracer } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -58,7 +58,6 @@ import {
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { type P2PMetrics } from '../metrics/index.js';
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -79,7 +78,7 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService  implements P2PService {
+export class LibP2PService extends WithTracer implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
@@ -102,11 +101,13 @@ export class LibP2PService  implements P2PService {
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    private metrics: P2PMetrics,
+    private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger, this.metrics);
+    super(telemetry, 'LibP2PService');
+
+    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
@@ -119,10 +120,6 @@ export class LibP2PService  implements P2PService {
       );
       return Promise.resolve(undefined);
     };
-  }
-
-  get tracer() {
-    return this.metrics.tracer;
   }
 
   /**
@@ -211,7 +208,7 @@ export class LibP2PService  implements P2PService {
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecKVStore,
-    metrics: P2PMetrics,
+    telemetry: TelemetryClient,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -314,7 +311,7 @@ export class LibP2PService  implements P2PService {
       l2BlockSource,
       proofVerifier,
       worldStateSynchronizer,
-      metrics,
+      telemetry,
       requestResponseHandlers,
     );
   }

@@ -79,6 +79,3 @@ export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size'
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
-
-/** p2p metrics */
-export const P2P_PEER_COUNT = 'aztec.p2p.peer_count';

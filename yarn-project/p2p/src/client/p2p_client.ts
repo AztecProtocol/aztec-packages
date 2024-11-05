@@ -14,7 +14,7 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
-import { Attributes, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, TelemetryClient, trackSpan, WithTracer } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 
@@ -25,7 +25,6 @@ import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
-import { P2PMetrics } from '../metrics/index.js';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 /**
@@ -182,7 +181,7 @@ export interface P2P {
 /**
  * The P2P client implementation.
  */
-export class P2PClient implements P2P {
+export class P2PClient extends WithTracer implements P2P {
   /** Property that indicates whether the client is running. */
   private stopping = false;
 
@@ -220,9 +219,11 @@ export class P2PClient implements P2P {
     mempools: MemPools,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
-    private metrics: P2PMetrics = new P2PMetrics(new NoopTelemetryClient(), 'P2PClient'),
+    telemetry: TelemetryClient = new NoopTelemetryClient(),
     private log = createDebugLogger('aztec:p2p'),
   ) {
+    super(telemetry, 'P2PClient');
+
     const { blockCheckIntervalMS, blockRequestBatchSize } = getP2PConfigFromEnv();
 
     this.blockStream = new L2BlockStream(l2BlockSource, this, this, {
@@ -237,10 +238,6 @@ export class P2PClient implements P2P {
     this.txPool = mempools.txPool;
     this.attestationPool = mempools.attestationPool;
     this.epochProofQuotePool = mempools.epochProofQuotePool;
-  }
-
-  get tracer() {
-    return this.metrics.tracer;
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {

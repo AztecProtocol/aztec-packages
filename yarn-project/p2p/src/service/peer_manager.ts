@@ -8,7 +8,6 @@ import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
 import { type PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
-import { type P2PMetrics } from '../metrics/index.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
@@ -29,7 +28,6 @@ export class PeerManager {
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
     private logger = createDebugLogger('aztec:p2p:peer_manager'),
-    private metrics?: P2PMetrics,
   ) {
     this.peerScoring = new PeerScoring(config);
     // Handle new established connections
@@ -40,7 +38,6 @@ export class PeerManager {
       } else {
         this.logger.debug(`Connected to transaction peer ${peerId.toString()}`);
       }
-      this.metrics?.recordAddPeer();
     });
 
     // Handle lost connections
@@ -51,7 +48,6 @@ export class PeerManager {
       } else {
         this.logger.debug(`Disconnected from transaction peer ${peerId.toString()}`);
       }
-      this.metrics?.recordRemovePeer();
     });
 
     // Handle Discovered peers
