@@ -26,6 +26,15 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
         : builder(builder)
         , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)){};
 
+    /**
+     * @brief Construct a decider recursive verifier directly from a stdlib accumulator, returned by a prior iteration
+     * of a recursive folding verifier. This is only appropriate when the two verifiers are part of the same builder,
+     * otherwise the constructor above should be used which instantiatesn a recursive vk from a native one in the
+     * verifier's builder context.
+     *
+     * @param builder
+     * @param accumulator
+     */
     explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<RecursiveDeciderVK> accumulator)
         : builder(builder)
     {
