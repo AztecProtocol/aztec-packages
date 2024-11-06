@@ -4,6 +4,9 @@ FROM aztecprotocol/noir AS built-noir
 # to get built avm-transpiler binary
 FROM aztecprotocol/avm-transpiler AS built-transpiler
 
+# to get built barretenberg binary
+FROM --platform=linux/amd64 aztecprotocol/barretenberg-x86_64-linux-clang as barretenberg
+
 
 FROM ubuntu:noble
 # Install Tini as nargo doesn't handle signals properly.
