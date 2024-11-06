@@ -4,7 +4,7 @@
 # If the first arg is "compile",
 # run nargo and then postprocess any created artifacts.
 #
-# Usage: compile_then_transpile.sh [nargo args]
+# Usage: compile_then_postprocess.sh [nargo args]
 set -eu
 
 NARGO=${NARGO:-nargo}

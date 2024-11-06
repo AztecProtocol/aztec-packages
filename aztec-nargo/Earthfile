@@ -9,11 +9,13 @@ run:
     # Copy binaries to /usr/bin
     COPY ../noir+nargo/nargo /usr/bin/nargo
     COPY ../avm-transpiler+build/avm-transpiler /usr/bin/avm-transpiler
+    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/bin/bb
+
     # Copy in script that calls both binaries
-    COPY ../avm-transpiler+build/compile_then_transpile.sh /usr/bin/compile_then_transpile.sh
+    COPY ./compile_then_postprocess.sh /usr/bin/compile_then_postprocess.sh
 
     ENV PATH "/usr/bin:${PATH}"
-    ENTRYPOINT ["/usr/bin/tini", "--", "/usr/bin/compile_then_transpile.sh"]
+    ENTRYPOINT ["/usr/bin/tini", "--", "/usr/bin/compile_then_postprocess.sh"]
     SAVE IMAGE aztecprotocol/aztec-nargo
 
 export-aztec-nargo:

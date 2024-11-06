@@ -16,7 +16,9 @@ RUN apt-get update && apt-get install -y git tini && rm -rf /var/lib/apt/lists/*
 # Copy binaries to /usr/bin
 COPY --from=built-noir /usr/src/noir/noir-repo/target/release/nargo /usr/bin/nargo
 COPY --from=built-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler /usr/bin/avm-transpiler
-# Copy in script that calls both binaries
-COPY ./avm-transpiler/scripts/compile_then_transpile.sh /usr/src/avm-transpiler/scripts/compile_then_transpile.sh
+COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/bin/bb
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/compile_then_transpile.sh"]
+# Copy in script that calls both binaries
+COPY ./aztec-nargo/scripts/compile_then_postprocess.sh /usr/src/aztec-nargo/scripts/compile_then_postprocess.sh
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/compile_then_postprocess.sh"]
