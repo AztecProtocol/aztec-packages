@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 
 namespace bb {
@@ -62,6 +63,8 @@ template <typename FF_> class UltraArith {
     using FF = FF_;
 
     class UltraTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+        using SelectorType = ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS>::SelectorType;
+
       public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -93,6 +96,13 @@ template <typename FF_> class UltraArith {
         auto& q_lookup_type() { return this->selectors[10]; };
         auto& q_poseidon2_external() { return this->selectors[11]; };
         auto& q_poseidon2_internal() { return this->selectors[12]; };
+
+        RefVector<SelectorType> get_gate_selectors()
+        {
+            return { q_arith(),      q_delta_range(),        q_elliptic(),
+                     q_aux(),        q_poseidon2_external(), q_poseidon2_internal(),
+                     q_lookup_type() };
+        }
     };
 
     struct TraceBlocks : public UltraTraceBlocks<UltraTraceBlock> {

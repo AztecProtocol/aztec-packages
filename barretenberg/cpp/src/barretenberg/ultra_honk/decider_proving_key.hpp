@@ -365,46 +365,71 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                     // for (auto& val : block.q_aux()) {
                     //     info("q_aux = ", val);
                     // }
-                    uint32_t offset = misc_block.trace_offset + static_cast<uint32_t>(misc_block.size());
-                    offset -= fixed_block_size;   // index was index into aux block
-                    offset -= block.trace_offset; // we'll add block.trace_offset to everything later
+                    uint32_t misc_block_start_idx = misc_block.trace_offset + static_cast<uint32_t>(misc_block.size());
+                    misc_block_start_idx -= block.trace_offset; // we'll add block.trace_offset to everything later
+                    uint32_t offset = misc_block_start_idx + 1; // +1 accounts for duplication of final gate
+                    bool last_gate_is_memory_read = false;
+                    bool last_gate_is_memory_write = false;
                     for (auto& idx : circuit.memory_read_records) {
+                        if (idx == fixed_block_size - 1) {
+                            last_gate_is_memory_read = true;
+                            info("last_gate_is_memory_read.");
+                        }
                         if (idx >= fixed_block_size) {
-                            idx += offset;
+                            idx -= fixed_block_size; // redefine index from zero
+                            idx += offset;           // shift to correct location in misc block
                         }
                     }
                     for (auto& idx : circuit.memory_write_records) {
-                        if (idx >= fixed_block_size) {
-                            idx += offset;
+                        if (idx == fixed_block_size - 1) {
+                            last_gate_is_memory_write = true;
+                            info("last_gate_is_memory_write.");
                         }
+                        if (idx >= fixed_block_size) {
+                            idx -= fixed_block_size; // redefine index from zero
+                            idx += offset;           // shift to correct location in misc block
+                        }
+                    }
+                    // The last gate in the main block will be duplicated in the miscellaneous block. If it was a memory
+                    // read/write, add the corresponding the misc block index to the memory record indices.
+                    if (last_gate_is_memory_read) {
+                        circuit.memory_read_records.push_back(misc_block_start_idx);
+                    } else if (last_gate_is_memory_write) {
+                        circuit.memory_write_records.push_back(misc_block_start_idx);
                     }
                 }
 
-                // move the excess wire and selector data from the offending block to the miscellaneous block
+                // Move the excess wire and selector data from the offending block to the miscellaneous block
+                size_t start = fixed_block_size - 1; // the final gate in the main block is duplicated
+                size_t end = block_size;
                 for (auto [wire, misc_wire] : zip_view(block.wires, misc_block.wires)) {
-                    for (size_t i = fixed_block_size; i < block_size; ++i) {
+                    for (size_t i = start; i < end; ++i) {
                         misc_wire.emplace_back(wire[i]);
                     }
                     wire.resize(fixed_block_size);
                 }
                 for (auto [selector, misc_selector] : zip_view(block.selectors, misc_block.selectors)) {
-                    for (size_t i = fixed_block_size; i < block_size; ++i) {
+                    for (size_t i = start; i < end; ++i) {
                         misc_selector.emplace_back(selector[i]);
                     }
                     selector.resize(fixed_block_size);
                 }
-
-                blocks.summarize();
-                info(block.size());
-
-                info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
-                     "not be constructed correctly!");
-                blocks.summarize();
-                // ASSERT(false);
+                // Convert the final gate in the main block to a 'dummy' gate by turning off all gate selectors
+                for (auto& selector : block.get_gate_selectors()) {
+                    selector.back() = 0;
+                }
             }
         }
         // Set the fixed size of the miscellaneous block to its current size
         misc_block.set_fixed_size(static_cast<uint32_t>(misc_block.size()));
+
+        // WORKTODO: make this spit out a clear display of the original block sizes vs fixed sizes
+        if (blocks.has_overflow) {
+            info("WARNING: At least one gate type exceeds the limit defined in the structured trace. The overflow "
+                 "block is in use and may negatively impact performance of the prover!");
+            blocks.summarize();
+            // ASSERT(false);
+        }
     }
 };
 

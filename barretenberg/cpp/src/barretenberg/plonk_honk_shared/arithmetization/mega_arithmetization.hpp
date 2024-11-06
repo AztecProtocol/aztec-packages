@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
@@ -94,7 +95,7 @@ template <typename FF_> class MegaArith {
             this->arithmetic = 15; // 15
             this->delta_range = 5;
             this->elliptic = 2;
-            this->aux = 8; // 20
+            this->aux = 10; // 20
             this->poseidon2_external = 2;
             this->poseidon2_internal = 2;
             this->lookup = 2;
@@ -190,6 +191,8 @@ template <typename FF_> class MegaArith {
     using FF = FF_;
 
     class MegaTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+        using SelectorType = ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS>::SelectorType;
+
       public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -222,6 +225,18 @@ template <typename FF_> class MegaArith {
         auto& q_poseidon2_external() { return this->selectors[11]; };
         auto& q_poseidon2_internal() { return this->selectors[12]; };
         auto& q_lookup_type() { return this->selectors[13]; };
+
+        RefVector<SelectorType> get_gate_selectors()
+        {
+            return { q_busread(),
+                     q_arith(),
+                     q_delta_range(),
+                     q_elliptic(),
+                     q_aux(),
+                     q_poseidon2_external(),
+                     q_poseidon2_internal(),
+                     q_lookup_type() };
+        }
 
         /**
          * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
