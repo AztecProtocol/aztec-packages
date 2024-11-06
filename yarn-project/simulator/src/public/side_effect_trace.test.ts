@@ -64,7 +64,7 @@ describe('Side Effect Trace', () => {
   });
 
   const toPxResult = (trc: PublicSideEffectTrace) => {
-    return trc.toPublicExecutionResult(avmEnvironment, startGasLeft, endGasLeft, bytecode, avmCallResults);
+    return trc.toPublicFunctionCallResult(avmEnvironment, startGasLeft, endGasLeft, bytecode, avmCallResults);
   };
 
   it('Should trace storage reads', () => {

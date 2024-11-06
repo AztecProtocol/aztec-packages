@@ -6,7 +6,6 @@ import {
   type PublicExecutionRequest,
   PublicKernelPhase,
   type SimulationError,
-  type Tx,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import {
@@ -29,43 +28,42 @@ import {
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   Nullifier,
-  PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   PublicCallData,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
   type PublicKernelCircuitPublicInputs,
-  PublicKernelInnerCircuitPrivateInputs,
-  PublicKernelInnerData,
-  PublicValidationRequestArrayLengths,
-  PublicValidationRequests,
   ReadRequest,
   RevertCode,
   TreeLeafReadRequest,
-  VMCircuitPublicInputs,
-  VerificationKeyData,
+  type VMCircuitPublicInputs,
   makeEmptyProof,
-  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
-import { type PublicExecutionResult, accumulatePublicReturnValues, collectExecutionResults } from './execution.js';
-import { type PublicExecutor } from './executor.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
+import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
+import { type EnqueuedPublicCallExecutionResult, type PublicFunctionCallResult } from './execution.js';
+import { type PublicExecutor, createAvmExecutionEnvironment } from './executor.js';
+import { type WorldStateDB } from './public_db_sources.js';
 
-function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: PublicExecutionResult): AvmProvingRequest {
+function emptyAvmProvingRequest(): AvmProvingRequest {
+  return {
+    type: ProvingRequestType.PUBLIC_VM,
+    inputs: AvmCircuitInputs.empty(),
+  };
+}
+function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: PublicFunctionCallResult): AvmProvingRequest {
   return {
     type: ProvingRequestType.PUBLIC_VM,
     inputs: new AvmCircuitInputs(result.functionName, result.calldata, inputs, result.avmCircuitHints),
@@ -83,6 +81,8 @@ export type EnqueuedCallResult = {
   returnValues: NestedProcessReturnValues;
   /** Gas used during the execution this enqueued call */
   gasUsed: Gas;
+  /** Did call revert? */
+  reverted: boolean;
   /** Revert reason, if any */
   revertReason?: SimulationError;
 };
@@ -91,10 +91,11 @@ export class EnqueuedCallSimulator {
   private log: DebugLogger;
   constructor(
     private db: MerkleTreeReadOperations,
+    private worldStateDB: WorldStateDB,
     private publicExecutor: PublicExecutor,
-    private publicKernelSimulator: PublicKernelCircuitSimulator,
     private globalVariables: GlobalVariables,
     private historicalHeader: Header,
+    private realAvmProvingRequests: boolean,
   ) {
     this.log = createDebugLogger(`aztec:sequencer`);
   }
@@ -102,11 +103,11 @@ export class EnqueuedCallSimulator {
   async simulate(
     callRequest: PublicCallRequest,
     executionRequest: PublicExecutionRequest,
-    tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     availableGas: Gas,
     transactionFee: Fr,
     phase: PublicKernelPhase,
+    stateManager: AvmPersistableStateManager,
   ): Promise<EnqueuedCallResult> {
     // Gas allocated to an enqueued call can be different from the available gas
     // if there is more gas available than the max allocation per enqueued call.
@@ -114,126 +115,83 @@ export class EnqueuedCallSimulator {
       /*daGas=*/ availableGas.daGas,
       /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
     );
-    const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
-    const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
+    const _pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
 
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
-    const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
-      previousPublicKernelOutput.validationRequests,
+    const result = (await this.publicExecutor.simulate(
+      stateManager,
+      executionRequest,
+      this.globalVariables,
+      allocatedGas,
+      transactionFee,
+    )) as EnqueuedPublicCallExecutionResult;
+
+    ///////////////////////////////////////////////////////////////////////////
+    // ALL TEMPORARY
+    const fnName = await getPublicFunctionDebugName(
+      this.worldStateDB,
+      executionRequest.callContext.contractAddress,
+      executionRequest.callContext.functionSelector,
+      executionRequest.args,
     );
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
+
+    const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, this.globalVariables, transactionFee);
+    const avmCallResult = new AvmContractCallResult(result.reverted, result.returnValues);
+
+    // Generate an AVM proving request
+    let avmProvingRequest: AvmProvingRequest;
+    if (this.realAvmProvingRequests) {
+      const deprecatedFunctionCallResult = stateManager.trace.toPublicFunctionCallResult(
+        avmExecutionEnv,
+        /*startGasLeft=*/ allocatedGas,
+        /*endGasLeft=*/ Gas.from(result.endGasLeft),
+        Buffer.alloc(0),
+        avmCallResult,
+        fnName,
+      );
+      const callData = await this.getPublicCallData(deprecatedFunctionCallResult);
+      avmProvingRequest = makeAvmProvingRequest(callData.publicInputs, deprecatedFunctionCallResult);
+    } else {
+      avmProvingRequest = emptyAvmProvingRequest();
+    }
 
     // If this is the first enqueued call in public, constants will be empty
     // because private kernel does not expose them.
     const constants = previousPublicKernelOutput.constants.clone();
     constants.globalVariables = this.globalVariables;
 
-    const result = await this.publicExecutor.simulate(
-      executionRequest,
+    // TODO(dbanks12): Since AVM circuit will be at the level of all enqueued calls in a TX,
+    // this public inputs generation will move up to the enqueued calls processor.
+    const vmCircuitPublicInputs = stateManager.trace.toVMCircuitPublicInputs(
       constants,
-      allocatedGas,
-      tx.data.constants.txContext,
-      pendingNullifiers,
-      transactionFee,
-      startSideEffectCounter,
-      previousValidationRequestArrayLengths,
-      previousAccumulatedDataArrayLengths,
-    );
-
-    const callStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
-    callStack[0].item.contractAddress = callRequest.callContext.contractAddress;
-    callStack[0].item.callContext = callRequest.callContext;
-    callStack[0].item.argsHash = callRequest.argsHash;
-
-    const accumulatedData = PublicAccumulatedData.empty();
-    accumulatedData.publicCallStack[0] = callRequest;
-
-    const startVMCircuitOutput = new VMCircuitPublicInputs(
-      previousPublicKernelOutput.constants,
       callRequest,
-      callStack,
-      previousValidationRequestArrayLengths,
-      PublicValidationRequests.empty(),
-      previousAccumulatedDataArrayLengths,
-      accumulatedData,
-      startSideEffectCounter,
-      startSideEffectCounter,
-      allocatedGas,
-      result.transactionFee,
-      result.reverted,
+      /*startGasLeft=*/ allocatedGas,
+      /*endGasLeft=*/ Gas.from(result.endGasLeft),
+      transactionFee,
+      avmCallResult,
     );
+    // FIXME(dbanks12): For now, override this because there is a disconnect with how the TS/simulator
+    // tracks "previous lengths" versus the kernel. The kernel uses "non revertible lengths" in SETUP
+    // and "revertible lengths" otherwise. TS also uses "non revertible lengths" in SETUP, but then
+    // uses _total_/combined lengths otherwise.
+    const prevAccumulatedData =
+      phase === PublicKernelPhase.SETUP
+        ? previousPublicKernelOutput.endNonRevertibleData
+        : previousPublicKernelOutput.end;
+    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
+    vmCircuitPublicInputs.previousAccumulatedDataArrayLengths = previousAccumulatedDataArrayLengths;
+    // END TEMPORARY
+    ///////////////////////////////////////////////////////////////////////////
 
-    return await this.combineNestedExecutionResults(result, startVMCircuitOutput);
-  }
-
-  private async combineNestedExecutionResults(
-    topResult: PublicExecutionResult,
-    startVMCircuitOutput: VMCircuitPublicInputs,
-  ): Promise<EnqueuedCallResult> {
-    const executionResults = collectExecutionResults(topResult);
-
-    let avmProvingRequest: AvmProvingRequest;
-    let gasUsed = Gas.empty();
-    let revertReason;
-    let kernelOutput = startVMCircuitOutput;
-
-    for (const result of executionResults) {
-      // Accumulate gas used in this enqueued call.
-      gasUsed = gasUsed.add(Gas.from(result.startGasLeft).sub(Gas.from(result.endGasLeft)));
-
-      const { contractAddress, functionSelector } = result.executionRequest.callContext;
-
-      // Sanity check for a current upstream assumption.
-      // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
-      if (result.reverted && !result.revertReason) {
-        throw new Error(
-          `Simulation of ${contractAddress}:${functionSelector}(${result.functionName}) reverted with no reason.`,
-        );
-      }
-
-      // Simulate the public kernel circuit.
-      this.log.debug(
-        `Running public kernel inner circuit for ${contractAddress}:${functionSelector}(${result.functionName})`,
-      );
-
-      const callData = await this.getPublicCallData(result);
-      const { inputs, output } = await this.runKernelCircuit(kernelOutput, callData);
-      kernelOutput = output;
-
-      // Capture the inputs for later proving in the AVM and kernel.
-      avmProvingRequest = makeAvmProvingRequest(inputs.publicCall.publicInputs, result);
-
-      // Safely return the revert reason and the kernel output (which has had its revertible side effects dropped)
-      // TODO(@leila) we shouldn't drop everything when it reverts. The tail kernel needs the data to prove that it's reverted for the correct reason.
-      if (result.reverted) {
-        this.log.debug(
-          `Reverting on ${contractAddress}:${functionSelector}(${result.functionName}) with reason: ${result.revertReason}`,
-        );
-        // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
-
-        return {
-          avmProvingRequest,
-          kernelOutput,
-          newUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
-          // TODO: Following the above comment, we should continue when a frame reverts and collect all the return/revert data of all frames.
-          // For now, since we stop at the first revert, we can only return the revert reason of the first frame that reverts.
-          returnValues: new NestedProcessReturnValues(result.returnValues),
-          gasUsed,
-          revertReason: result.revertReason,
-        };
-      }
-    }
+    const gasUsed = allocatedGas.sub(Gas.from(result.endGasLeft));
 
     return {
-      avmProvingRequest: avmProvingRequest!,
-      kernelOutput,
-      newUnencryptedLogs: topResult.allUnencryptedLogs,
-      returnValues: accumulatePublicReturnValues(topResult),
+      avmProvingRequest,
+      kernelOutput: vmCircuitPublicInputs,
+      newUnencryptedLogs: new UnencryptedFunctionL2Logs(stateManager!.trace.getUnencryptedLogs()),
+      returnValues: new NestedProcessReturnValues(result.returnValues),
       gasUsed,
-      revertReason,
+      reverted: result.reverted,
+      revertReason: result.revertReason,
     };
   }
 
@@ -242,31 +200,19 @@ export class EnqueuedCallSimulator {
     return [...ko.end.nullifiers, ...ko.endNonRevertibleData.nullifiers].filter(n => !n.isEmpty());
   }
 
-  private async runKernelCircuit(
-    previousOutput: VMCircuitPublicInputs,
-    callData: PublicCallData,
-  ): Promise<{ inputs: PublicKernelInnerCircuitPrivateInputs; output: VMCircuitPublicInputs }> {
-    // The proof is not used in simulation
-    const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    const vk = VerificationKeyData.makeFakeHonk();
-    const previousKernel = new PublicKernelInnerData(previousOutput, proof, vk);
-    const inputs = new PublicKernelInnerCircuitPrivateInputs(previousKernel, callData);
-    return { inputs, output: await this.publicKernelSimulator.publicKernelCircuitInner(inputs) };
-  }
-
   /**
    * Calculates the PublicCircuitOutput for this execution result along with its proof,
    * and assembles a PublicCallData object from it.
    * @param result - The execution result.
    * @returns A corresponding PublicCallData object.
    */
-  private async getPublicCallData(result: PublicExecutionResult) {
+  private async getPublicCallData(result: PublicFunctionCallResult) {
     const bytecodeHash = await this.getBytecodeHash(result);
     const publicInputs = await this.getPublicCircuitPublicInputs(result);
     return new PublicCallData(publicInputs, makeEmptyProof(), bytecodeHash);
   }
 
-  private async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
+  private async getPublicCircuitPublicInputs(result: PublicFunctionCallResult) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
     this.historicalHeader.state.partial.publicDataTree.root = Fr.fromBuffer(publicDataTreeInfo.root);
 
@@ -353,7 +299,7 @@ export class EnqueuedCallSimulator {
     });
   }
 
-  private getBytecodeHash(_result: PublicExecutionResult) {
+  private getBytecodeHash(_result: PublicFunctionCallResult) {
     // TODO: Determine how to calculate bytecode hash. Circuits just check it isn't zero for now.
     // See https://github.com/AztecProtocol/aztec3-packages/issues/378
     const bytecodeHash = new Fr(1n);
