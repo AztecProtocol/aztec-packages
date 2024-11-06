@@ -1,7 +1,5 @@
 import {
   type AttributeValue,
-  context,
-  Context,
   type MetricOptions,
   type Gauge as OtelGauge,
   type Histogram as OtelHistogram,
@@ -10,8 +8,6 @@ import {
   type UpDownCounter as OtelUpDownCounter,
   type Span,
   SpanStatusCode,
-  trace,
-  TraceFlags,
   Tracer,
 } from '@opentelemetry/api';
 
@@ -134,7 +130,6 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
   spanName: string | ((this: T, ...args: Parameters<F>) => string),
   attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Attributes),
   extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => Attributes,
-  traceId?: (this: T, ...args: Parameters<F>) => string,
 ): SpanDecorator<T, F> {
   // the return value of trackSpan is a decorator
   return (originalMethod: F, _context: ClassMethodDecoratorContext<T>) => {
@@ -143,33 +138,12 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
     return function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
       const name = typeof spanName === 'function' ? spanName.call(this, ...args) : spanName;
       const currentAttrs = typeof attributes === 'function' ? attributes.call(this, ...args) : attributes;
-      const currentTraceId = typeof traceId === 'function' ? traceId.call(this, ...args) : traceId;
-
-      // Allow setting of the traceId on the span
-      let ctx: Context | undefined = context.active();
-      if (currentTraceId !== undefined) {
-        const spanContext = {
-          traceId: currentTraceId,
-          spanId: crypto.randomUUID() as string,
-          traceFlags: TraceFlags.SAMPLED,
-          isRemote: false,
-        };
-        ctx = trace.setSpanContext(ctx, spanContext);
-      }
-
-      const spanOptions = {
-        attributes: currentAttrs,
-      }
-
-      const startSpan = (func: (span: Span) => Promise<any>) => traceId === undefined
-        ? this.tracer.startActiveSpan(name, func)
-        : this.tracer.startActiveSpan(name, spanOptions, ctx, func);
 
       // run originalMethod wrapped in an active span
       // "active" means the span will be alive for the duration of the function execution
       // and if any other spans are started during the execution of originalMethod, they will be children of this span
       // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v18.x/docs/api/async_context.html
-      return startSpan(async (span: Span) => {
+      return this.tracer.startActiveSpan(name, async (span: Span) => {
         span.setAttributes(currentAttrs ?? {});
 
         try {
