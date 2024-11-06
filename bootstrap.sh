@@ -74,10 +74,9 @@ function check_toolchains {
     if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
       encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation (requires rust 1.79+)"
-      echo "  rustup toolchain install 1.79"
+      echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -b 25f24e677a6a32a62512ad4f561995589ac2c7dc"
+      echo "  foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
     fi
   done

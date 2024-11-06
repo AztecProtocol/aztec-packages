@@ -230,6 +230,21 @@ contract AvmTest {
     }
 
     #[public]
+    fn external_call_to_assertion_failure() {
+        AvmTest::at(context.this_address()).assertion_failure().call(&mut context);
+    }
+
+    #[public]
+    fn divide_by_zero() -> u8 {
+        1 / 0
+    }
+
+    #[public]
+    fn external_call_to_divide_by_zero() {
+        AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+    }
+
+    #[public]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);

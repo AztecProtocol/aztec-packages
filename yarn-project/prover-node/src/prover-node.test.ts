@@ -378,13 +378,14 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      db: MerkleTreeWriteOperations,
+      publicDb: MerkleTreeWriteOperations,
+      _proverDb: MerkleTreeWriteOperations,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {
       const job = mock<EpochProvingJob>({ getState: () => 'processing', run: () => Promise.resolve() });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job, cleanUp, db });
+      jobs.push({ epochNumber, job, cleanUp, db: publicDb });
       return job;
     }
 

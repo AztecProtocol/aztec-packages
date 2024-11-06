@@ -40,6 +40,7 @@ import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simula
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ValidatorClient } from '@aztec/validator-client';
 
+import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type BlockBuilderFactory } from '../block_builder/index.js';
@@ -47,6 +48,7 @@ import { type GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
+import { SequencerState } from './utils.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
@@ -190,7 +192,9 @@ describe('sequencer', () => {
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
       new NoopTelemetryClient(),
+      { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
+    sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000));
   });
 
   it('builds a block out of a single tx', async () => {
@@ -215,6 +219,36 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
   });
+
+  it.each([
+    {
+      previousState: SequencerState.PROPOSER_CHECK,
+      delayedState: SequencerState.WAITING_FOR_TXS,
+    },
+    // It would be nice to add the other states, but we would need to inject delays within the `work` loop
+  ])(
+    'does not build a block if it does not have enough time left in the slot',
+    async ({ previousState, delayedState }) => {
+      // trick the sequencer into thinking that we are just too far into the slot
+      sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000) - (sequencer.getTimeTable()[delayedState] + 1));
+
+      const tx = mockTxForRollup();
+      tx.data.constants.txContext.chainId = chainId;
+
+      p2p.getTxs.mockReturnValueOnce([tx]);
+      blockBuilder.setBlockCompleted.mockResolvedValue(block);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+
+      globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+      await expect(sequencer.work()).rejects.toThrow(
+        `Cannot set sequencer from ${previousState} to ${delayedState} as there is not enough time left in the slot.`,
+      );
+
+      expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
+      expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+    },
+  );
 
   it('builds a block when it is their turn', async () => {
     const tx = mockTxForRollup();
@@ -793,7 +827,15 @@ describe('sequencer', () => {
 });
 
 class TestSubject extends Sequencer {
+  public getTimeTable() {
+    return this.timeTable;
+  }
+
+  public setL1GenesisTime(l1GenesisTime: number) {
+    this.l1GenesisTime = l1GenesisTime;
+  }
   public override work() {
+    this.setState(SequencerState.IDLE, true /** force */);
     return super.work();
   }
 }
