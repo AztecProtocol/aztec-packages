@@ -168,7 +168,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         EXPECT_EQ(info.meta.size, 1);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::ARCHIVE));
         // this is the expected archive tree root at genesis
-        EXPECT_EQ(info.meta.root, bb::fr("0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860"));
     }
 }
 
