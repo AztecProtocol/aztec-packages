@@ -22,20 +22,19 @@ export async function defaultFetch(
   body: any,
   useApiEndpoints: boolean,
   noRetry = false,
-  stringify = jsonStringify,
 ) {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   if (useApiEndpoints) {
     resp = await fetch(`${host}/${rpcMethod}`, {
       method: 'POST',
-      body: stringify(body),
+      body: jsonStringify(body),
       headers: { 'content-type': 'application/json' },
     });
   } else {
     resp = await fetch(host, {
       method: 'POST',
-      body: stringify({ ...body, method: rpcMethod }),
+      body: jsonStringify({ ...body, method: rpcMethod }),
       headers: { 'content-type': 'application/json' },
     });
   }
@@ -70,16 +69,9 @@ export async function defaultFetch(
  * @returns A fetch function.
  */
 export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: DebugLogger) {
-  return async (
-    host: string,
-    rpcMethod: string,
-    body: any,
-    useApiEndpoints: boolean,
-    noRetry?: boolean,
-    stringify = jsonStringify,
-  ) => {
+  return async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean, noRetry?: boolean) => {
     return await retry(
-      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry ?? defaultNoRetry, stringify),
+      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry ?? defaultNoRetry),
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,

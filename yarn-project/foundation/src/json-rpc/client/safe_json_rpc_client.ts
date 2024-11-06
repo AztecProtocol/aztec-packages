@@ -2,10 +2,7 @@ import { format } from 'util';
 
 import { createDebugLogger } from '../../log/logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
-import { jsonStringify2 } from '../convert.js';
 import { defaultFetch } from './fetch.js';
-
-export { jsonStringify } from '../convert.js';
 
 /**
  * Creates a Proxy object that delegates over RPC and validates outputs against a given schema.
@@ -33,13 +30,13 @@ export function createSafeJsonRpcClient<T extends object>(
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
-    const res = await fetch(host, method, body, useApiEndpoints, undefined, jsonStringify2);
+    const res = await fetch(host, method, body, useApiEndpoints);
     log.debug(format(`result`, method, res));
 
     if (res.error) {
       throw res.error;
     }
-    // TODO: Why check for string null and undefined?
+    // TODO(palla/schemas): Find a better way to handle null responses (JSON.stringify(null) is string "null").
     if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
       return;
     }
