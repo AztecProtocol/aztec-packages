@@ -14,10 +14,5 @@ export function createValidatorClient(config: ValidatorClientConfig, p2pClient: 
     config.validatorPrivateKey = generatePrivateKey();
   }
 
-  // We only craete a public processor factory if re-execution is enabled
-  if (config.validatorReEx) {
-    return ValidatorClient.new(config, p2pClient, telemetry);
-  }
-
   return ValidatorClient.new(config, p2pClient, telemetry);
 }

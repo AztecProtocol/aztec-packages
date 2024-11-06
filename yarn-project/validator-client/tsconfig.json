@@ -22,9 +22,6 @@
       "path": "../p2p"
     },
     {
-      "path": "../simulator"
-    },
-    {
       "path": "../telemetry-client"
     },
     {

@@ -67,12 +67,14 @@ export class ValidatorClient extends WithTracer implements Validator {
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
-    private telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = new NoopTelemetryClient(),
     private log = createDebugLogger('aztec:validator'),
   ) {
+    // Instantiate tracer
     super(telemetry, 'Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
+    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
