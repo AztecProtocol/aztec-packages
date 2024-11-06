@@ -7,7 +7,7 @@ import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 
 /** Provides basic operations for ProverNodes to interact with other nodes in the network. */
-export interface ProverCoordinationApi {
+export interface ProverCoordination {
   /**
    * Returns a transaction given its hash if available.
    * @param txHash - The hash of the transaction, used as an ID.
@@ -22,12 +22,7 @@ export interface ProverCoordinationApi {
   addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
 }
 
-export interface ProverCoordination extends ProverCoordinationApi {
-  /** Stops the service. */
-  stop(): Promise<void>;
-}
-
-export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordinationApi> = {
+export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
   addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
 };

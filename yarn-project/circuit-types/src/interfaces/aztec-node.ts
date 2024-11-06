@@ -41,13 +41,13 @@ import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { type ProverCoordinationApi, ProverCoordinationApiSchema } from './prover-coordination.js';
+import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
 
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNodeApi extends ProverCoordinationApi {
+export interface AztecNode extends ProverCoordination {
   /**
    * Find the index of the given leaf in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
@@ -381,12 +381,7 @@ export interface AztecNodeApi extends ProverCoordinationApi {
   getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 }
 
-export interface AztecNode extends AztecNodeApi {
-  /** Stops the service. */
-  stop(): Promise<void>;
-}
-
-export const AztecNodeApiSchema: ApiSchemaFor<AztecNodeApi> = {
+export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   ...ProverCoordinationApiSchema,
 
   findLeafIndex: z
