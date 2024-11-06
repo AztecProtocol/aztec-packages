@@ -2,7 +2,9 @@
 
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include <utility>
 
 namespace bb::stdlib::recursion::honk {

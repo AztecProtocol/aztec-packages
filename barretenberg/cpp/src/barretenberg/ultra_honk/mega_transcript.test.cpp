@@ -33,10 +33,11 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    static TranscriptManifest construct_mega_honk_manifest()
+    static TranscriptManifest construct_mega_honk_manifest(size_t circuit_size = 0)
     {
         using Commitment = typename Flavor::Commitment;
         TranscriptManifest manifest_expected;
+        auto log_n = numeric::get_msb(circuit_size);
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -98,12 +99,29 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
             round++;
         }
 
+        if constexpr (Flavor::HasZK) {
+            for (size_t i = 0; i < log_n; i++) {
+                std::string label = "Libra:commitment_" + std::to_string(i);
+                manifest_expected.add_entry(round, label, frs_per_G);
+            }
+            manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
+            manifest_expected.add_challenge(round, "Libra:Challenge");
+            round++;
+        }
+
         for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
             manifest_expected.add_challenge(round, label);
             round++;
+        }
+
+        if constexpr (Flavor::HasZK) {
+            for (size_t i = 0; i < log_n; i++) {
+                std::string idx = std::to_string(i);
+                manifest_expected.add_entry(round, "Libra:evaluation_" + idx, frs_per_Fr);
+            }
         }
 
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
@@ -177,7 +195,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_mega_honk_manifest();
+    auto manifest_expected = TestFixture::construct_mega_honk_manifest(proving_key->proving_key.circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
