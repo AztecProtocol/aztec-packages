@@ -82,18 +82,15 @@ polynomials,
         using View = typename Accumulator::View;
 
         if constexpr (read_index == 0) {
-
             return Accumulator(View(in.msm_add1));
         }
         if constexpr (read_index == 1) {
             return Accumulator(View(in.msm_add2));
         }
         if constexpr (read_index == 2) {
-
             return Accumulator(View(in.msm_add3));
         }
         if constexpr (read_index == 3) {
-
             return Accumulator(View(in.msm_add4));
         }
         return Accumulator(1);

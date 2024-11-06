@@ -57,11 +57,13 @@ template <typename Curve> class ShplonkProver_ {
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
-
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
         }
+
+        // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
+        // batched before adding Libra commitments and evaluations is bounded by CONST_PROOF_SIZE_LOG_N+2
         for (size_t idx = opening_claims.size(); idx < CONST_PROOF_SIZE_LOG_N + 2; idx++) {
             current_nu *= nu;
         };
