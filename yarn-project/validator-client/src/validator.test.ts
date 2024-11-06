@@ -1,7 +1,7 @@
 /**
  * Validation logic unit tests
  */
-import { mockTx, TxHash } from '@aztec/circuit-types';
+import { TxHash, mockTx } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
