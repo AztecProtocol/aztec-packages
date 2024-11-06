@@ -1244,7 +1244,6 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"
-    "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
