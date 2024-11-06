@@ -423,15 +423,18 @@ export class Sequencer {
       await this.worldState.syncImmediate(historicalHeader.globalVariables.blockNumber.toNumber() - 1);
     }
 
-    const fork = await this.worldState.fork();
+    // NB: separating the dbs because both should update the state
+    const publicProcessorFork = await this.worldState.fork();
+    const orchestratorFork = await this.worldState.fork();
+
     // We create a fresh processor each time to reset any cached state (eg storage writes)
-    const processor = this.publicProcessorFactory.create(fork, historicalHeader, newGlobalVariables);
+    const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
     const blockBuildingTimer = new Timer();
-    const blockBuilder = this.blockBuilderFactory.create(fork);
+    const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
     await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(fork)),
+      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
     );
     if (failedTxs.length > 0) {
       const failedTxData = failedTxs.map(fail => fail.tx);
@@ -443,6 +446,9 @@ export class Sequencer {
 
     // All real transactions have been added, set the block as full and complete the proving.
     const block = await blockBuilder.setBlockCompleted();
+
+    await publicProcessorFork.close();
+    await orchestratorFork.close();
 
     return { block, publicProcessorDuration, numProcessedTxs: processedTxs.length, blockBuildingTimer };
   }
@@ -498,7 +504,6 @@ export class Sequencer {
       }
     };
 
-    const fork = await this.worldState.fork();
     try {
       const { block, publicProcessorDuration, numProcessedTxs, blockBuildingTimer } = await this.buildBlock(
         validTxs,
@@ -554,8 +559,6 @@ export class Sequencer {
         this.metrics.recordFailedBlock();
         throw err;
       }
-    } finally {
-      await fork.close();
     }
   }
 

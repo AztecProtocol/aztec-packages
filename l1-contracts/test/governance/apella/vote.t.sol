@@ -159,7 +159,7 @@ contract VoteTest is ApellaBase {
     assertEq(proposal.config.votingDelay, fresh.config.votingDelay, "votingDelay");
     assertEq(proposal.config.votingDuration, fresh.config.votingDuration, "votingDuration");
     assertEq(proposal.creation, fresh.creation, "creation");
-    assertEq(proposal.creator, fresh.creator, "creator");
+    assertEq(proposal.gerousia, fresh.gerousia, "gerousia");
     assertEq(proposal.summedBallot.nea + (_support ? 0 : power), fresh.summedBallot.nea, "nea");
     assertEq(proposal.summedBallot.yea + (_support ? power : 0), fresh.summedBallot.yea, "yea");
     // The "written" state is still the same.

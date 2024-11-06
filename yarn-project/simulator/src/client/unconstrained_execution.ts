@@ -4,8 +4,8 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { witnessMapToFields } from '../acvm/deserialize.js';
-import { Oracle, acvm, extractCallStack, resolveAssertionMessageFromError, toACVMWitness } from '../acvm/index.js';
-import { ExecutionError } from '../common/errors.js';
+import { Oracle, acvm, extractCallStack, toACVMWitness } from '../acvm/index.js';
+import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
 import { type ViewDataOracle } from './view_data_oracle.js';
 
 // docs:start:execute_unconstrained_function
