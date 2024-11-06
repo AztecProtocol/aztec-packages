@@ -24,10 +24,7 @@ pub fn validate_contract_address(
     );
 
     let protocol_contract_index = contract_address.to_field();
-    debug_log_format(
-        "protocol_contract_index:{0} with computed_address: {1}",
-        [protocol_contract_index, computed_address.to_field()],
-    );
+
     let computed_protocol_contract_tree_root = if (MAX_PROTOCOL_CONTRACTS as Field).lt(
         protocol_contract_index,
     ) {
