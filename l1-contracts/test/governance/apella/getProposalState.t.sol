@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+
 import {ApellaBase} from "./base.t.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
@@ -9,6 +11,7 @@ import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/Pro
 
 contract GetProposalStateTest is ApellaBase {
   using ProposalLib for DataStructures.Proposal;
+  using stdStorage for StdStorage;
 
   function test_WhenProposalIsOutOfBounds(uint256 _index) external {
     // it revert
@@ -153,9 +156,8 @@ contract GetProposalStateTest is ApellaBase {
 
     // We can overwrite the quorum to be 0 to hit an invalid case
     assertGt(apella.getProposal(proposalId).config.quorum, 0);
-    bytes32 slot =
-      bytes32(uint256(keccak256(abi.encodePacked(uint256(proposalId), uint256(1)))) + 4);
-    vm.store(address(apella), slot, 0);
+    stdstore.target(address(apella)).sig("getProposal(uint256)").with_key(proposalId).depth(6)
+      .checked_write(uint256(0));
     assertEq(apella.getProposal(proposalId).config.quorum, 0);
 
     uint256 totalPower = apella.totalPowerAt(Timestamp.wrap(block.timestamp));

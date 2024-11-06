@@ -3,7 +3,6 @@ pragma solidity >=0.8.27;
 
 import {ApellaBase} from "./base.t.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
@@ -88,7 +87,7 @@ contract InitiateWithdrawTest is ApellaBase {
       assertEq(withdrawal.amount, amount, "invalid amount");
       assertEq(
         withdrawal.unlocksAt,
-        Timestamp.wrap(block.timestamp) + config.lockDelay(),
+        Timestamp.wrap(block.timestamp) + config.withdrawalDelay(),
         "Invalid timestamp"
       );
       assertEq(withdrawal.recipient, recipient, "invalid recipient");

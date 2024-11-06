@@ -1,4 +1,4 @@
-import { type AztecAddress, type FunctionSelector } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type FunctionSelector } from '@aztec/circuits.js';
 import { type OpcodeLocation } from '@aztec/foundation/abi';
 
 /**
@@ -68,6 +68,7 @@ export class SimulationError extends Error {
   constructor(
     private originalMessage: string,
     private functionErrorStack: FailingFunction[],
+    public revertData: Fr[] = [],
     private noirErrorStack?: NoirCallStack,
     options?: ErrorOptions,
   ) {
@@ -202,10 +203,16 @@ export class SimulationError extends Error {
       originalMessage: this.originalMessage,
       functionErrorStack: this.functionErrorStack,
       noirErrorStack: this.noirErrorStack,
+      revertData: this.revertData.map(fr => fr.toString()),
     };
   }
 
   static fromJSON(obj: ReturnType<SimulationError['toJSON']>) {
-    return new SimulationError(obj.originalMessage, obj.functionErrorStack, obj.noirErrorStack);
+    return new SimulationError(
+      obj.originalMessage,
+      obj.functionErrorStack,
+      obj.revertData.map(serializedFr => Fr.fromString(serializedFr)),
+      obj.noirErrorStack,
+    );
   }
 }
