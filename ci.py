@@ -69,10 +69,10 @@ def ssh_into_machine(suffix):
             time.sleep(10)
 
     # SSH command using the public IP
-    ssh_cmd = f"ssh -o StrictHostKeychecking=no -i {ssh_key_path} ubuntu@{instance_ip} 'sudo shutdown -P 40'"
+    ssh_cmd = f"ssh -o StrictHostKeyСhecking=no -i {ssh_key_path} ubuntu@{instance_ip} 'sudo shutdown -P 40'"
     ssh_process = subprocess.Popen(ssh_cmd, shell=True)
     ssh_process.wait()  # Wait for the SSH session to complete
-    ssh_cmd = f"ssh -o StrictHostKeychecking=no -i {ssh_key_path} ubuntu@{instance_ip}"
+    ssh_cmd = f"ssh -o StrictHostKeyСhecking=no -i {ssh_key_path} ubuntu@{instance_ip}"
     print(f"Connecting to {instance_ip}. Note that unless a github job or 'earthly' are running, spot may terminate.")
     ssh_process = subprocess.Popen(ssh_cmd, shell=True)
     ssh_process.wait()  # Wait for the SSH session to complete
