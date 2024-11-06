@@ -49,14 +49,14 @@ import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
-import { type AztecNodeApi, AztecNodeApiSchema } from './aztec-node.js';
+import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { type ProverConfig } from './prover-client.js';
 
 describe('AztecNodeApiSchema', () => {
   let handler: MockAztecNode;
-  let context: JsonRpcTestContext<AztecNodeApi>;
+  let context: JsonRpcTestContext<AztecNode>;
   let artifact: ContractArtifact;
 
   const tested: Set<string> = new Set();
@@ -68,7 +68,7 @@ describe('AztecNodeApiSchema', () => {
 
   beforeEach(async () => {
     handler = new MockAztecNode(artifact);
-    context = await createJsonRpcTestSetup<AztecNodeApi>(handler, AztecNodeApiSchema);
+    context = await createJsonRpcTestSetup<AztecNode>(handler, AztecNodeApiSchema);
   });
 
   afterEach(() => {
@@ -311,7 +311,7 @@ describe('AztecNodeApiSchema', () => {
   });
 });
 
-class MockAztecNode implements AztecNodeApi {
+class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
 
   findLeafIndex(blockNumber: number | 'latest', treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
