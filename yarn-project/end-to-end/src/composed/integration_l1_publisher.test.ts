@@ -38,7 +38,6 @@ import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
@@ -424,10 +423,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
-
-        const txEffectsInBlob = padArrayEnd(block.body.toFields(), Fr.ZERO, block.body.toFields().length);
-        const blob = new Blob(txEffectsInBlob);
+        const blob = new Blob(block.body.toFields());
 
         const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
         const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
@@ -450,6 +446,9 @@ describe('L1Publisher integration', () => {
           ],
         });
         expect(ethTx.input).toEqual(expectedData);
+
+        const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
+
         const tree = new StandardTree(
           openTmpStore(true),
           new SHA256Trunc(),
@@ -531,8 +530,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const txEffectsInBlob = padArrayEnd(block.body.toFields(), Fr.ZERO, block.body.toFields().length);
-        const blob = new Blob(txEffectsInBlob);
+        const blob = new Blob(block.body.toFields());
 
         const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
         const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);

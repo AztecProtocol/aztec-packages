@@ -31,9 +31,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { GerousiaAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
-import cKzg from 'c-kzg';
 import pick from 'lodash.pick';
-import { resolve } from 'path';
 import { inspect } from 'util';
 import {
   BaseError,
@@ -61,7 +59,6 @@ import {
   hexToBytes,
   http,
   publicActions,
-  setupKzg,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type * as chains from 'viem/chains';
@@ -805,9 +802,7 @@ export class L1Publisher {
         args,
       });
 
-      // TODO(Miranda): viem's own path export does not work
-      const mainnetTrustedSetupPath = resolve('../node_modules/viem/trusted-setups/mainnet.json');
-      const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
+      const kzg = Blob.getViemKzgInstance();
 
       // Viem does not allow sending a blob via contract.write()
       return {
@@ -851,9 +846,7 @@ export class L1Publisher {
         args: [...args, quote.toViemArgs()],
       });
 
-      // TODO(Miranda): viem's own path export does not work
-      const mainnetTrustedSetupPath = resolve('../node_modules/viem/trusted-setups/mainnet.json');
-      const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
+      const kzg = Blob.getViemKzgInstance();
 
       // Viem does not allow sending a blob via contract.write()
       return {

@@ -6,7 +6,7 @@ import { makeBlobPublicInputs } from '../tests/factories.js';
 import { BlobPublicInputs } from './blob_public_inputs.js';
 import { Fr } from './index.js';
 
-describe('PartialStateReference', () => {
+describe('BlobPublicInputs', () => {
   let blobPI: BlobPublicInputs;
 
   beforeAll(() => {

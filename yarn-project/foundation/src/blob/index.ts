@@ -95,4 +95,11 @@ export class Blob {
     ]);
     return `0x${buf.toString('hex')}`;
   }
+
+  static getViemKzgInstance() {
+    return {
+      blobToKzgCommitment: cKzg.blobToKzgCommitment,
+      computeBlobKzgProof: cKzg.computeBlobKzgProof,
+    };
+  }
 }

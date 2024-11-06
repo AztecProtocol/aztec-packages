@@ -7,16 +7,13 @@ import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import cKzg from 'c-kzg';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { resolve } from 'path';
 import {
   type GetTransactionReceiptReturnType,
   type Kzg,
   type PrivateKeyAccount,
   type SendTransactionReturnType,
   encodeFunctionData,
-  setupKzg,
 } from 'viem';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
@@ -161,9 +158,8 @@ describe('L1Publisher', () => {
       functionName: 'propose',
       args,
     });
-    // TODO(Miranda): viem's own path export does not work
-    const mainnetTrustedSetupPath = resolve('../node_modules/viem/trusted-setups/mainnet.json');
-    const kzg = setupKzg(cKzg, mainnetTrustedSetupPath);
+
+    const kzg = Blob.getViemKzgInstance();
     expect(walletClient.sendTransaction).toHaveBeenCalledWith({
       data,
       account,
