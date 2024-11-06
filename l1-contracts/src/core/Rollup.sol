@@ -227,8 +227,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
+    if (canPrune()) {
+      _prune();
+    }
+
     uint256 previousBlockNumber = tips.provenBlockNumber;
     uint256 endBlockNumber = previousBlockNumber + _epochSize;
+
+    // @note The getEpochForBlock is expected to revert if the block is beyond pending.
+    //       If this changes you are gonna get so rekt you won't believe it.
+    //       I mean proving blocks that have been pruned rekt.
+    Epoch epochToProve = getEpochForBlock(endBlockNumber);
 
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
@@ -287,7 +296,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       }
     }
 
-    if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
+    if (proofClaim.epochToProve == epochToProve) {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
 
