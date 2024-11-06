@@ -47,7 +47,7 @@ import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
-import { MAX_SECONDS_INTO_SLOT_PER_STATE, Sequencer, SequencerState } from './sequencer.js';
+import { Sequencer, SequencerState } from './sequencer.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
@@ -191,6 +191,7 @@ describe('sequencer', () => {
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
       new NoopTelemetryClient(),
+      { enforceTimeTable: true },
     );
     sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000));
   });
@@ -222,14 +223,13 @@ describe('sequencer', () => {
     {
       previousState: SequencerState.PROPOSER_CHECK,
       delayedState: SequencerState.WAITING_FOR_TXS,
-      maxTime: MAX_SECONDS_INTO_SLOT_PER_STATE[SequencerState.WAITING_FOR_TXS],
     },
     // It would be nice to add the other states, but we would need to inject delays within the `work` loop
   ])(
     'does not build a block if it does not have enough time left in the slot',
-    async ({ previousState, delayedState, maxTime }) => {
+    async ({ previousState, delayedState }) => {
       // trick the sequencer into thinking that we are just too far into the slot
-      sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000) - (maxTime + 1));
+      sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000) - (sequencer.getTimeTable()[delayedState] + 1));
 
       const tx = mockTxForRollup();
       tx.data.constants.txContext.chainId = chainId;
@@ -826,6 +826,10 @@ describe('sequencer', () => {
 });
 
 class TestSubject extends Sequencer {
+  public getTimeTable() {
+    return this.timeTable;
+  }
+
   public setL1GenesisTime(l1GenesisTime: number) {
     this.l1GenesisTime = l1GenesisTime;
   }

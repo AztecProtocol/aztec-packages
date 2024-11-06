@@ -73,6 +73,12 @@ export class Sequencer {
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
   protected l1GenesisTime: number;
+  /**
+   * The maximum number of seconds that the sequencer can be into a slot to transition to a particular state.
+   * For example, in order to transition into WAITING_FOR_ATTESTATIONS, the sequencer can be at most 3 seconds into the slot.
+   */
+  protected timeTable!: Record<SequencerState, number>;
+  protected enforceTimeTable: boolean = false;
 
   constructor(
     private publisher: L1Publisher,
@@ -93,6 +99,7 @@ export class Sequencer {
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
+    this.setTimeTable();
   }
 
   get tracer(): Tracer {
@@ -134,11 +141,31 @@ export class Sequencer {
     if (config.gerousiaPayload) {
       this.publisher.setPayload(config.gerousiaPayload);
     }
+    this.enforceTimeTable = config.enforceTimeTable === true;
+
+    this.setTimeTable();
 
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
     this.config = config;
   }
 
+  public setTimeTable() {
+    const newTimeTable: Record<SequencerState, number> = {
+      [SequencerState.STOPPED]: AZTEC_SLOT_DURATION,
+      [SequencerState.IDLE]: AZTEC_SLOT_DURATION,
+      [SequencerState.SYNCHRONIZING]: AZTEC_SLOT_DURATION,
+      [SequencerState.PROPOSER_CHECK]: AZTEC_SLOT_DURATION, // We always want to allow the full slot to check if we are the proposer
+      [SequencerState.WAITING_FOR_TXS]: 3,
+      [SequencerState.CREATING_BLOCK]: 5,
+      [SequencerState.PUBLISHING_BLOCK_TO_PEERS]: 5 + this.maxTxsPerBlock * 2, // if we take 5 seconds to create block, then 4 transactions at 2 seconds each
+      [SequencerState.WAITING_FOR_ATTESTATIONS]: 5 + this.maxTxsPerBlock * 2 + 3, // it shouldn't take 3 seconds to publish to peers
+      [SequencerState.PUBLISHING_BLOCK]: 5 + this.maxTxsPerBlock * 2 + 3 + 5, // wait 5 seconds for attestations
+    };
+    if (this.enforceTimeTable && newTimeTable[SequencerState.PUBLISHING_BLOCK] > AZTEC_SLOT_DURATION) {
+      throw new Error('Sequencer cannot publish block in less than a slot');
+    }
+    this.timeTable = newTimeTable;
+  }
   /**
    * Starts the sequencer and moves to IDLE state. Blocks until the initial sync is complete.
    */
@@ -148,7 +175,7 @@ export class Sequencer {
     this.l1GenesisTime = Number(l1GenesisTime);
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
-    this.setState(SequencerState.PROPOSER_CHECK, true /** force */);
+    this.setState(SequencerState.IDLE, true /** force */);
     this.log.info('Sequencer started');
     return Promise.resolve();
   }
@@ -171,7 +198,7 @@ export class Sequencer {
     this.log.info('Restarting sequencer');
     this.publisher.restart();
     this.runningPromise!.start();
-    this.setState(SequencerState.PROPOSER_CHECK, true /** force */);
+    this.setState(SequencerState.IDLE, true /** force */);
   }
 
   /**
@@ -325,22 +352,26 @@ export class Sequencer {
   }
 
   doIHaveEnoughTimeLeft(proposedState: SequencerState): boolean {
-    if (MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState] === AZTEC_SLOT_DURATION) {
+    if (!this.enforceTimeTable) {
+      return true;
+    }
+
+    if (this.timeTable[proposedState] === AZTEC_SLOT_DURATION) {
       return true;
     }
 
     const secondsIntoSlot = (Date.now() / 1000 - this.l1GenesisTime) % AZTEC_SLOT_DURATION;
-    const bufferSeconds = MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState] - secondsIntoSlot;
+    const bufferSeconds = this.timeTable[proposedState] - secondsIntoSlot;
     this.metrics.recordStateTransitionBufferMs(bufferSeconds * 1000, proposedState);
 
     if (bufferSeconds < 0) {
       this.log.warn(
-        `Too far into slot to transition to ${proposedState}. max allowed: ${MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
+        `Too far into slot to transition to ${proposedState}. max allowed: ${this.timeTable[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
       );
       return false;
     }
     this.log.debug(
-      `Enough time to transition to ${proposedState}, max allowed: ${MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
+      `Enough time to transition to ${proposedState}, max allowed: ${this.timeTable[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
     );
     return true;
   }
@@ -776,22 +807,6 @@ export enum SequencerState {
    */
   PUBLISHING_BLOCK = 'PUBLISHING_BLOCK',
 }
-
-/**
- * The maximum number of seconds that the sequencer can be into a slot to transition to a particular state.
- * For example, in order to transition into WAITING_FOR_ATTESTATIONS, the sequencer can be at most 3 seconds into the slot.
- */
-export const MAX_SECONDS_INTO_SLOT_PER_STATE: Record<SequencerState, number> = {
-  [SequencerState.STOPPED]: AZTEC_SLOT_DURATION,
-  [SequencerState.IDLE]: AZTEC_SLOT_DURATION,
-  [SequencerState.SYNCHRONIZING]: AZTEC_SLOT_DURATION,
-  [SequencerState.PROPOSER_CHECK]: AZTEC_SLOT_DURATION, // We always want to allow the full slot to check if we are the proposer
-  [SequencerState.WAITING_FOR_TXS]: 3,
-  [SequencerState.CREATING_BLOCK]: 5,
-  [SequencerState.PUBLISHING_BLOCK_TO_PEERS]: 5 + 4 * 2, // if we take 5 seconds to create block, then 4 transactions at 2 seconds each
-  [SequencerState.WAITING_FOR_ATTESTATIONS]: 5 + 4 * 2 + 3, // it shouldn't take 3 seconds to publish to peers
-  [SequencerState.PUBLISHING_BLOCK]: 5 + 4 * 2 + 3 + 5, // wait 5 seconds for attestations
-};
 
 export function sequencerStateToNumber(state: SequencerState): number {
   return Object.values(SequencerState).indexOf(state);
