@@ -1,4 +1,4 @@
-import { jsonStringify2 } from '@aztec/foundation/json-rpc';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
 
@@ -18,7 +18,7 @@ function shouldBehaveLikeTxL2Logs(
     it('can encode TxL2Logs to JSON and back', () => {
       const l2Logs = TxL2Logs.random(4, 2);
 
-      const buffer = jsonStringify2(l2Logs.toJSON());
+      const buffer = jsonStringify(l2Logs.toJSON());
       const recovered = TxL2Logs.fromJSON(JSON.parse(buffer));
 
       expect(recovered).toEqual(l2Logs);
