@@ -37,7 +37,6 @@ impl EnqueuedCallDataValidator {
     ) {
         self.validate_global_variables(previous_kernel);
         self.validate_against_call_request(previous_kernel);
-        self.validate_counters(previous_kernel);
         self.validate_start_gas(previous_kernel);
         self.validate_transaction_fee(previous_kernel);
         self.validate_array_lengths(
@@ -83,14 +82,6 @@ impl EnqueuedCallDataValidator {
         assert(
             self.enqueued_call.data.call_request == call_request,
             "enqueued call does not match item at the top of the call stack",
-        );
-    }
-
-    fn validate_counters(self, previous_kernel: PublicKernelCircuitPublicInputs) {
-        assert_eq(
-            self.enqueued_call.data.start_side_effect_counter,
-            previous_kernel.end_side_effect_counter + 1,
-            "enqueued call must start from the end counter of the previous call",
         );
     }
 
@@ -165,7 +156,7 @@ impl EnqueuedCallDataValidator {
         assert_eq(
             self.enqueued_call.data.previous_accumulated_data_array_lengths,
             prev_lengths,
-            "mismatch previoius_accumulated_data_array_lengths",
+            "mismatch previous_accumulated_data_array_lengths",
         );
     }
 }
