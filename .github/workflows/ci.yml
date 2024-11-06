@@ -361,8 +361,7 @@ jobs:
         uses: ./.github/ensure-tester
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
-        # note: tester by default times out at 30, would need to delay shutdwon for more
-        timeout-minutes: 30
+        timeout-minutes: 45  # For tasks with compilation and testing
         with:
           runner_type: 128core-tester-x86
           run: |
