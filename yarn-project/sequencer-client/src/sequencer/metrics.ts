@@ -10,9 +10,7 @@ import {
   millisecondBuckets,
 } from '@aztec/telemetry-client';
 
-import { SequencerState, sequencerStateToNumber } from './sequencer.js';
-
-type SequencerStateCallback = () => SequencerState;
+import { type SequencerState, type SequencerStateCallback, sequencerStateToNumber } from './utils.js';
 
 export class SequencerMetrics {
   public readonly tracer: Tracer;

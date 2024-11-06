@@ -1,5 +1,4 @@
 import {
-  type BlockAttestation,
   type EpochProofQuote,
   type L1ToL2MessageSource,
   type L2Block,
@@ -10,7 +9,7 @@ import {
   type TxValidator,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type AllowedElement, type WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
+import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AZTEC_SLOT_DURATION,
@@ -22,7 +21,6 @@ import {
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -41,6 +39,7 @@ import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
+import { SequencerState, orderAttestations } from './utils.js';
 
 export type ShouldProposeArgs = {
   pendingTxsCount?: number;
@@ -769,72 +768,3 @@ export class Sequencer {
 /**
  * State of the sequencer.
  */
-export enum SequencerState {
-  /**
-   * Sequencer is stopped and not processing any txs from the pool.
-   */
-  STOPPED = 'STOPPED',
-  /**
-   * Sequencer is awaiting the next call to work().
-   */
-  IDLE = 'IDLE',
-  /**
-   * Synchronizing with the L2 chain.
-   */
-  SYNCHRONIZING = 'SYNCHRONIZING',
-  /**
-   * Checking if we are the proposer for the current slot.
-   */
-  PROPOSER_CHECK = 'PROPOSER_CHECK',
-  /**
-   * Polling the P2P module for txs to include in a block. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
-   */
-  WAITING_FOR_TXS = 'WAITING_FOR_TXS',
-  /**
-   * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
-   */
-  CREATING_BLOCK = 'CREATING_BLOCK',
-  /**
-   * Publishing blocks to validator peers. Will move to WAITING_FOR_ATTESTATIONS.
-   */
-  PUBLISHING_BLOCK_TO_PEERS = 'PUBLISHING_BLOCK_TO_PEERS',
-  /**
-   * The block has been published to peers, and we are waiting for attestations. Will move to PUBLISHING_CONTRACT_DATA.
-   */
-  WAITING_FOR_ATTESTATIONS = 'WAITING_FOR_ATTESTATIONS',
-  /**
-   * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to SYNCHRONIZING.
-   */
-  PUBLISHING_BLOCK = 'PUBLISHING_BLOCK',
-}
-
-export function sequencerStateToNumber(state: SequencerState): number {
-  return Object.values(SequencerState).indexOf(state);
-}
-
-/** Order Attestations
- *
- * Returns attestation signatures in the order of a series of provided ethereum addresses
- * The rollup smart contract expects attestations to appear in the order of the committee
- *
- * @todo: perform this logic within the memory attestation store instead?
- */
-function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Signature[] {
-  // Create a map of sender addresses to BlockAttestations
-  const attestationMap = new Map<string, BlockAttestation>();
-
-  for (const attestation of attestations) {
-    const sender = attestation.getSender();
-    if (sender) {
-      attestationMap.set(sender.toString(), attestation);
-    }
-  }
-
-  // Create the ordered array based on the orderAddresses, else return an empty signature
-  const orderedAttestations = orderAddresses.map(address => {
-    const addressString = address.toString();
-    return attestationMap.get(addressString)?.signature || Signature.empty();
-  });
-
-  return orderedAttestations;
-}

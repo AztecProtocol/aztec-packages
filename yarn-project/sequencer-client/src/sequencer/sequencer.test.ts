@@ -47,7 +47,8 @@ import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
-import { Sequencer, SequencerState } from './sequencer.js';
+import { Sequencer } from './sequencer.js';
+import { SequencerState } from './utils.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
@@ -191,7 +192,7 @@ describe('sequencer', () => {
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
       new NoopTelemetryClient(),
-      { enforceTimeTable: true },
+      { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
     sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000));
   });
@@ -240,7 +241,7 @@ describe('sequencer', () => {
 
       globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
-      expect(sequencer.work()).rejects.toThrow(
+      await expect(sequencer.work()).rejects.toThrow(
         `Cannot set sequencer from ${previousState} to ${delayedState} as there is not enough time left in the slot.`,
       );
 
