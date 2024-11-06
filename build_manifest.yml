@@ -55,11 +55,6 @@ avm-transpiler:
 aztec-nargo:
   buildDir: .
   dockerfile: aztec-nargo/Dockerfile
-  rebuildPatterns:
-    - ^aztec-nargo/
-    - ^avm-transpiler/
-    - ^noir/
-    - ^barretenberg/
   dependencies:
     - barretenberg-x86_64-linux-clang
     - avm-transpiler
