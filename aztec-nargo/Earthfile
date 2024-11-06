@@ -17,6 +17,7 @@ run:
     ENV PATH "/usr/bin:${PATH}"
     ENTRYPOINT ["/usr/bin/tini", "--", "/usr/bin/compile_then_postprocess.sh"]
     SAVE IMAGE aztecprotocol/aztec-nargo
+    SAVE ARTIFACT /usr/bin/compile_then_postprocess.sh /aztec-nargo
 
 export-aztec-nargo:
   FROM +run
