@@ -87,19 +87,42 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     // multivariate evaluations at u
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
-
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
-
-    // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
-    auto opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
-                                                                commitments.get_unshifted(),
-                                                                commitments.get_to_be_shifted(),
-                                                                claimed_evaluations.get_unshifted(),
-                                                                claimed_evaluations.get_shifted(),
-                                                                multivariate_challenge,
-                                                                Commitment::one(builder),
-                                                                transcript);
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments;
+    if constexpr (Flavor::HasZK) {
+        for (size_t idx = 0; idx < log_circuit_size; idx++) {
+            Commitment libra_commitment =
+                transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+            libra_commitments.push_back(libra_commitment);
+        };
+    }
+    SumcheckOutput<Flavor> sumcheck_output;
+    sumcheck_output = sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+    BatchOpeningClaim<Curve> opening_claim;
+    if constexpr (!Flavor::HasZK) {
+        // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
+        opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
+                                                               commitments.get_unshifted(),
+                                                               commitments.get_to_be_shifted(),
+                                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                                               sumcheck_output.challenge,
+                                                               Commitment::one(builder),
+                                                               transcript);
+    } else {
+        opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
+                                                               commitments.get_unshifted(),
+                                                               commitments.get_to_be_shifted(),
+                                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                                               sumcheck_output.challenge,
+                                                               Commitment::one(builder),
+                                                               transcript,
+                                                               {},
+                                                               {},
+                                                               RefVector(libra_commitments),
+                                                               sumcheck_output.claimed_libra_evaluations);
+    }
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();
@@ -113,6 +136,8 @@ template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBui
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::MegaWithZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::MegaWithZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 } // namespace bb::stdlib::recursion::honk

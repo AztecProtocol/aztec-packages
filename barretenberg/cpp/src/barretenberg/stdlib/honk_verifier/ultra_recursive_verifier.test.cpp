@@ -295,7 +295,9 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                               MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                               MegaWithZKRecursiveFlavor_<MegaCircuitBuilder>,
+                               MegaWithZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 
