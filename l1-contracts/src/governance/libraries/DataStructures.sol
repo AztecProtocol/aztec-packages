@@ -23,7 +23,13 @@ library DataStructures {
   }
   // docs:end:registry_snapshot
 
+  struct ProposeConfiguration {
+    Timestamp lockDelay;
+    uint256 lockAmount;
+  }
+
   struct Configuration {
+    ProposeConfiguration proposeConfig;
     Timestamp votingDelay;
     Timestamp votingDuration;
     Timestamp executionDelay;
@@ -53,7 +59,7 @@ library DataStructures {
     Configuration config;
     ProposalState state;
     IPayload payload;
-    address creator;
+    address gerousia;
     Timestamp creation;
     Ballot summedBallot;
   }
