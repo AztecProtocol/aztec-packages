@@ -1,18 +1,17 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { NOTE_HASH_TREE_HEIGHT, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import {
+    NOTE_HASH_TREE_HEIGHT,
+    NullifierLeafPreimage,
+    PublicDataTreeLeaf,
+    PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
-import {
-    EphemeralAvmTree,
-    EphemeralTreeContainer,
-    IndexedInsertionResult,
-    LowPublicDataWitness,
-    computePublicDataHash,
-} from './avm_tree.js';
+import { EphemeralAvmTree, EphemeralTreeContainer, IndexedInsertionResult, computePublicDataHash } from './avm_tree.js';
 
 describe('AVM Ephemeral Tree Append Tree', () => {
     it('Should append the same way the merkle tree does', async () => {
@@ -137,7 +136,11 @@ describe('AVM Ephemeral Container Indexed Tree', () => {
             lowNullifierIndex!.index,
             true,
         );
-        let containerLowNullifier = await treeContainer.getLowNullifier(MerkleTreeId.NULLIFIER_TREE, new Fr(1000));
+        let containerLowNullifier = await treeContainer.getLowInfo(
+            MerkleTreeId.NULLIFIER_TREE,
+            new Fr(1000),
+            NullifierLeafPreimage,
+        );
         expect(lowNullifier).toEqual(containerLowNullifier.preimage);
     });
 
@@ -172,7 +175,11 @@ describe('AVM Ephemeral Container Indexed Tree', () => {
             true,
         );
         // Get the low nullifier from the local container
-        const containerLowNullifier = await treeContainer.getLowNullifier(MerkleTreeId.NULLIFIER_TREE, new Fr(1005));
+        const containerLowNullifier = await treeContainer.getLowInfo(
+            MerkleTreeId.NULLIFIER_TREE,
+            new Fr(1005),
+            NullifierLeafPreimage,
+        );
         expect(lowNullifier).toEqual(containerLowNullifier.preimage);
     });
 });
@@ -191,12 +198,12 @@ describe('Avm Public Data Tree', () => {
         }
         const wsResult = await worldStateTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrites[0]], 0);
         const container = await EphemeralTreeContainer.create(copyState);
-        const containerResult: IndexedInsertionResult<LowPublicDataWitness> = await container.writePublicStorage(
+        const containerResult: IndexedInsertionResult<PublicDataTreeLeafPreimage> = await container.writePublicStorage(
             slots[0],
             values[0],
         );
         // Check the insertion path match
-        expect(containerResult.lowSiblingPath).toEqual(wsResult.lowLeavesWitnessData![0].siblingPath.toFields());
+        expect(containerResult.lowWitness.lowSiblingPath).toEqual(wsResult.lowLeavesWitnessData![0].siblingPath.toFields());
         expect(containerResult.lowWitness.index).toEqual(wsResult.lowLeavesWitnessData![0].index);
         expect(containerResult.lowWitness.preimage).toEqual(wsResult.lowLeavesWitnessData![0].leafPreimage);
 

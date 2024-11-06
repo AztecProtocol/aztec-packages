@@ -1,9 +1,9 @@
 import { IndexedTreeId, MerkleTreeId } from '@aztec/circuit-types';
 import { MerkleTreeReadOperations } from '@aztec/circuit-types';
-import { NullifierLeafPreimage, PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { IndexedTreeLeafPreimage, TreeLeafPreimage } from '@aztec/foundation/trees';
 
 /****************************************************/
 /****** Some useful Structs and Enums **************/
@@ -72,11 +72,23 @@ export type LowPublicDataWitness = {
   index: bigint;
 };
 
-export type IndexedInsertionResult<T> = {
+export type LowPreimageWitness<T extends IndexedTreeLeafPreimage> = {
+  preimage: T;
+  index: bigint;
+};
+
+export type LowWitness<T extends IndexedTreeLeafPreimage> = {
+  preimage: T;
+  index: bigint;
+  update: boolean;
+  lowSiblingPath: Fr[];
+};
+
+export type IndexedInsertionResult<T extends IndexedTreeLeafPreimage> = {
   leafIndex: bigint;
   insertionPath: Fr[];
-  lowSiblingPath: Fr[];
-  lowWitness: T;
+  newOrElementToUpdate: { update: boolean; element: T };
+  lowWitness: LowWitness<T>;
 };
 
 export const computeNullifierHash = (nullifier: NullifierLeafPreimage): Fr => {
@@ -93,51 +105,159 @@ export const computePublicDataHash = (publicData: PublicDataTreeLeafPreimage): F
 
 export class EphemeralTreeContainer {
   public indexedTreeMin: Map<IndexedTreeId, [Buffer, bigint]> = new Map();
-  public nullifierUpdates: Map<bigint, NullifierLeafPreimage> = new Map(); // This is a sorted map
-  public minNullifier: NullifierLeafPreimage | undefined = undefined;
-  public minNullifierIndex: bigint | undefined = undefined;
-  public publicDataUpdates: Map<bigint, PublicDataTreeLeafPreimage> = new Map();
-  public minPublicData: PublicDataTreeLeafPreimage | undefined = undefined;
-  public minPublicDataIndex: bigint | undefined = undefined;
+  public indexedUpdates: Map<IndexedTreeId, Map<bigint, Buffer>> = new Map();
 
-  constructor(
-    private treeDb: MerkleTreeReadOperations,
-    public nullifierTree: EphemeralAvmTree,
-    public noteHashTree: EphemeralAvmTree,
-    public publicDataTree: EphemeralAvmTree,
-  ) {}
+  constructor(private treeDb: MerkleTreeReadOperations, public treeMap: Map<MerkleTreeId, EphemeralAvmTree>) {}
 
   static async create(treeDb: MerkleTreeReadOperations): Promise<EphemeralTreeContainer> {
-    const nullifierTreeInfo = await treeDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-    const nullifierTree = await EphemeralAvmTree.create(
-      nullifierTreeInfo.size,
-      nullifierTreeInfo.depth,
-      treeDb,
-      MerkleTreeId.NULLIFIER_TREE,
-    );
-    const noteHashInfo = await treeDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-    const noteHashTree = await EphemeralAvmTree.create(
-      noteHashInfo.size,
-      noteHashInfo.depth,
-      treeDb,
-      MerkleTreeId.NOTE_HASH_TREE,
-    );
-    const publicDataTreeInfo = await treeDb.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    const publicDataTree = await EphemeralAvmTree.create(
-      publicDataTreeInfo.size,
-      publicDataTreeInfo.depth,
-      treeDb,
-      MerkleTreeId.PUBLIC_DATA_TREE,
-    );
-    return new EphemeralTreeContainer(treeDb, nullifierTree, noteHashTree, publicDataTree);
+    const treeMap = new Map<MerkleTreeId, EphemeralAvmTree>();
+    const treeTypes = [MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.PUBLIC_DATA_TREE];
+    for (const treeType of treeTypes) {
+      const treeInfo = await treeDb.getTreeInfo(treeType);
+      const tree = await EphemeralAvmTree.create(treeInfo.size, treeInfo.depth, treeDb, treeType);
+      treeMap.set(treeType, tree);
+    }
+    return new EphemeralTreeContainer(treeDb, treeMap);
   }
 
-  async writePublicStorage(slot: Fr, value: Fr): Promise<IndexedInsertionResult<LowPublicDataWitness>> {
-    return this._handlePublicDataUpdate(slot, value);
+  async appendIndexedTree<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
+    treeId: ID,
+    lowWitnessIndex: bigint,
+    lowWitness: T,
+    newLeaf: T,
+  ): Promise<Fr[]> {
+    const tree = this.treeMap.get(treeId);
+    if (tree === undefined) {
+      throw new Error('Tree not found');
+    }
+    const newLeafHash = this.hashPreimage(newLeaf);
+    const insertIndex = this.treeMap.get(treeId)!.leafCount;
+
+    const lowWitnessHash = this.hashPreimage(lowWitness);
+    // Update the low nullifier hash
+    this.setIndexedUpdates(treeId, lowWitnessIndex, lowWitness);
+
+    tree.updateLeaf(lowWitnessHash, lowWitnessIndex);
+    let insertionPath = tree.getSiblingPath(newLeafHash, insertIndex);
+    if (insertionPath === undefined) {
+      // Do we append zero just to get the sibling path?
+      tree.appendLeaf(Fr.zero());
+      insertionPath = tree.getSiblingPath(newLeafHash, insertIndex);
+      tree.updateLeaf(newLeafHash, insertIndex);
+    } else {
+      tree.appendLeaf(newLeafHash);
+    }
+    if (insertionPath === undefined) {
+      throw new Error('Insertion path is undefined');
+    }
+    this.setIndexedUpdates(treeId, insertIndex, newLeaf);
+
+    return insertionPath;
+  }
+
+  async writePublicStorage(slot: Fr, newValue: Fr): Promise<IndexedInsertionResult<PublicDataTreeLeafPreimage>> {
+    const treeId = MerkleTreeId.PUBLIC_DATA_TREE;
+    const tree = this.treeMap.get(treeId)!;
+    const lowResult = await this._getIndexedLowWitness(treeId, slot, PublicDataTreeLeafPreimage);
+    if (lowResult.update) {
+      const existingIndex = lowResult.preimage.getNextIndex();
+      const existingPreimage =
+        this.getIndexedUpdates(treeId, existingIndex, PublicDataTreeLeafPreimage) ??
+        (await this.treeDb.getLeafPreimage(treeId, slot.toBigInt()));
+      if (existingPreimage === undefined) {
+        throw new Error('No previous value found');
+      }
+      const existingPublicData = PublicDataTreeLeafPreimage.fromBuffer(existingPreimage.toBuffer());
+      const existingPublicDataSiblingPath =
+        tree.getSiblingPath(this.hashPreimage(existingPublicData), existingIndex) ??
+        (await this.treeDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, existingIndex)).toFields();
+
+      existingPublicData.value = newValue;
+      return {
+        leafIndex: existingIndex,
+        insertionPath: existingPublicDataSiblingPath,
+        newOrElementToUpdate: { update: true, element: existingPublicData },
+        lowWitness: lowResult,
+      };
+    }
+    // we are Appending here
+    const insertionIndex = tree.leafCount;
+    const lowWitness = lowResult.preimage;
+
+    const updateLowWitness = new PublicDataTreeLeafPreimage(
+      lowWitness.slot,
+      lowWitness.value,
+      new Fr(slot.toBigInt()),
+      insertionIndex,
+    );
+
+    const newPublicDataNode = new PublicDataTreeLeafPreimage(
+      slot,
+      newValue,
+      new Fr(lowWitness.getNextKey()),
+      lowWitness.getNextIndex(),
+    );
+    const insertionPath = await this.appendIndexedTree(treeId, lowResult.index, updateLowWitness, newPublicDataNode);
+
+    this._updateMinInfo(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      PublicDataTreeLeafPreimage,
+      [newPublicDataNode, lowWitness],
+      [insertionIndex, lowResult.index],
+    );
+    return {
+      leafIndex: insertionIndex,
+      insertionPath: insertionPath,
+      newOrElementToUpdate: { update: false, element: newPublicDataNode },
+      lowWitness: lowResult,
+    };
+  }
+
+  private _updateMinInfo<T extends IndexedTreeLeafPreimage>(
+    treeId: IndexedTreeId,
+    T: { fromBuffer: (buffer: Buffer) => T },
+    stuff: T[],
+    indices: bigint[],
+  ): void {
+    let currentMin = this.getMinInfo(treeId, T);
+    if (currentMin === undefined) {
+      currentMin = { preimage: stuff[0], index: indices[0] };
+    }
+    for (let i = 0; i < stuff.length; i++) {
+      if (stuff[i].getKey() <= currentMin.preimage.getKey()) {
+        currentMin = { preimage: stuff[i], index: indices[i] };
+      }
+    }
+    this.setMinInfo(treeId, currentMin.preimage, currentMin.index);
   }
 
   async appendNullifier(value: Fr): Promise<IndexedInsertionResult<NullifierLeafPreimage>> {
-    return this._handleNullifierInsertion(value);
+    const treeId = MerkleTreeId.NULLIFIER_TREE;
+    const tree = this.treeMap.get(treeId)!;
+    const lowResult = await this._getIndexedLowWitness(treeId, value, NullifierLeafPreimage);
+    if (lowResult.update) {
+      throw new Error('Not allowed to update nullifier');
+    }
+    // we are Appending here
+    const insertionIndex = tree.leafCount;
+    const lowWitness = lowResult.preimage;
+
+    const updateLowWitness = new NullifierLeafPreimage(lowWitness.nullifier, value, insertionIndex);
+    const newNullifierNode = new NullifierLeafPreimage(value, lowWitness.nextNullifier, lowWitness.nextIndex);
+    const insertionPath = await this.appendIndexedTree(treeId, lowResult.index, updateLowWitness, newNullifierNode);
+
+    this._updateMinInfo(
+      MerkleTreeId.NULLIFIER_TREE,
+      NullifierLeafPreimage,
+      [newNullifierNode, updateLowWitness],
+      [insertionIndex, lowResult.index],
+    );
+    return {
+      leafIndex: insertionIndex,
+      insertionPath: insertionPath,
+      newOrElementToUpdate: { update: false, element: newNullifierNode },
+      lowWitness: lowResult,
+    };
   }
 
   async appendLeaf(treeId: MerkleTreeId, value: Fr): Promise<Fr[]> {
@@ -150,10 +270,11 @@ export class EphemeralTreeContainer {
   }
 
   private async _handleNoteHashAppend(value: Fr): Promise<Fr[]> {
-    this.noteHashTree.appendLeaf(value);
+    const tree = this.treeMap.get(MerkleTreeId.NOTE_HASH_TREE)!;
+    tree.appendLeaf(value);
     const insertionPath =
-      this.noteHashTree.getSiblingPath(value, this.noteHashTree.leafCount) ??
-      (await this.treeDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, this.noteHashTree.leafCount - 1n)).toFields();
+      tree.getSiblingPath(value, tree.leafCount) ??
+      (await this.treeDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, tree.leafCount - 1n)).toFields();
     return insertionPath;
   }
 
@@ -167,66 +288,50 @@ export class EphemeralTreeContainer {
     return { preimage: O.fromBuffer(buffer), index };
   }
 
-  // Check this also works for min and max values
-  async getLowNullifier<ID extends IndexedTreeId>(treeId: ID, value: Fr): Promise<LowNullifierWitness> {
-    const start = this.minNullifier;
-    // If the first element we have is already greater than the value, we need to do an external lookup
-    if ((start?.nullifier ?? 0) >= value || start === undefined) {
-      // The low nullifier is in the previous tree
-      const { index: lowNullifierIndex } = (await this.treeDb.getPreviousValueIndex(treeId, value.toBigInt()))!;
-      const preimage = await this.treeDb.getLeafPreimage(treeId, lowNullifierIndex);
-
-      if (preimage === undefined) {
-        throw new Error('No previous value found');
-      }
-
-      const lowNullifier = NullifierLeafPreimage.fromBuffer(preimage.toBuffer());
-      return { preimage: lowNullifier, index: lowNullifierIndex };
+  private setIndexedUpdates<ID extends IndexedTreeId>(treeId: ID, index: bigint, O: { toBuffer: () => Buffer }): void {
+    let updates = this.indexedUpdates.get(treeId);
+    if (updates === undefined) {
+      updates = new Map();
+      this.indexedUpdates.set(treeId, updates);
     }
-    // We look for the element that is just less than the value and whose next element is greater than the value
-    let found = false;
-    let curr = start;
-    let result = undefined;
-    const LIMIT = 100_000; // Temp to avoid infinite loops
-    let counter = 0;
-    let lowNullifierIndex = this.minNullifierIndex!;
-    while (!found && counter < LIMIT) {
-      // We found it via an exact match
-      if (curr.nextNullifier.equals(value)) {
-        found = true;
-        result = { preimage: curr, index: lowNullifierIndex };
-      } else if (curr.nextNullifier > value && curr.nullifier < value) {
-        // We found it via sandwich
-        found = true;
-        result = { preimage: curr, index: lowNullifierIndex };
-      }
-      // We found it via the max condition
-      else if (curr.nextIndex === 0n && curr.nullifier < value) {
-        found = true;
-        result = { preimage: curr, index: lowNullifierIndex };
-      }
-      // Update the the values for the next iteration
-      else {
-        lowNullifierIndex = curr.nextIndex;
-        if (this.nullifierUpdates.has(lowNullifierIndex)) {
-          curr = this.nullifierUpdates.get(lowNullifierIndex)!;
-        } else {
-          const preimage = (await this.treeDb.getLeafPreimage(treeId, lowNullifierIndex))!;
-          curr = NullifierLeafPreimage.fromBuffer(preimage.toBuffer());
-        }
-      }
-      counter++;
-    }
-    // We did not find it - this is unexpected
-    if (result === undefined) throw new Error('No previous value found');
-    return result;
+    updates.set(index, O.toBuffer());
   }
 
-  //***** THIS LOOKS LIKE HTE SMAE AS THE FIRST - CAN WE CONSOLIDATE
-  async getLowPublicData<ID extends IndexedTreeId>(treeId: ID, value: Fr): Promise<LowPublicDataWitness> {
-    const start = this.minPublicData;
+  private getIndexedUpdates<ID extends IndexedTreeId, O>(
+    treeId: ID,
+    index: bigint,
+    O: { fromBuffer: (buffer: Buffer) => O },
+  ): O {
+    const updates = this.indexedUpdates.get(treeId);
+    if (updates === undefined) {
+      throw new Error('No updates found');
+    }
+    const buffer = updates.get(index);
+    if (buffer === undefined) {
+      throw new Error('No updates found');
+    }
+    return O.fromBuffer(buffer);
+  }
+
+  private hasLocalUpdates<ID extends IndexedTreeId>(treeId: ID, index: bigint): boolean {
+    const updates = this.indexedUpdates.get(treeId);
+    if (updates === undefined) return false;
+    return updates.has(index);
+  }
+
+  private setMinInfo<ID extends IndexedTreeId>(treeId: ID, preimage: { toBuffer: () => Buffer }, index: bigint): void {
+    this.indexedTreeMin.set(treeId, [preimage.toBuffer(), index]);
+  }
+
+  async getLowInfo<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
+    treeId: ID,
+    value: Fr,
+    T: { fromBuffer: (buffer: Buffer) => T },
+  ): Promise<LowPreimageWitness<T>> {
+    const minPreimage = this.getMinInfo(treeId, T);
+    const start = minPreimage?.preimage;
     // If the first element we have is already greater than the value, we need to do an external lookup
-    if ((start?.value ?? 0) >= value || start === undefined) {
+    if (minPreimage === undefined || (start?.getKey() ?? 0n) >= value.toBigInt()) {
       // The low public data witness is in the previous tree
       const { index: lowPublicDataIndex } = (await this.treeDb.getPreviousValueIndex(treeId, value.toBigInt()))!;
       const preimage = await this.treeDb.getLeafPreimage(treeId, lowPublicDataIndex);
@@ -237,42 +342,42 @@ export class EphemeralTreeContainer {
 
       // Since we have never seen this before - we should insert it into our tree
       const lowSiblingPath = (await this.treeDb.getSiblingPath(treeId, lowPublicDataIndex)).toFields();
-      this.publicDataTree.insertSiblingPath(lowPublicDataIndex, lowSiblingPath);
-      const getAnother = this.publicDataTree.getSiblingPath(value, lowPublicDataIndex);
 
-      const lowPublicDataPreimage = PublicDataTreeLeafPreimage.fromBuffer(preimage.toBuffer());
+      this.treeMap.get(treeId)!.insertSiblingPath(lowPublicDataIndex, lowSiblingPath);
+
+      const lowPublicDataPreimage = T.fromBuffer(preimage.toBuffer());
       return { preimage: lowPublicDataPreimage, index: lowPublicDataIndex };
     }
     // We look for the element that is just less than the value and whose next element is greater than the value
     let found = false;
-    let curr = start;
+    let curr = minPreimage.preimage;
     let result = undefined;
     const LIMIT = 100_000; // Temp to avoid infinite loops
     let counter = 0;
-    let lowPublicDataIndex = this.minPublicDataIndex!;
+    let lowPublicDataIndex = minPreimage.index;
     while (!found && counter < LIMIT) {
       // We found it via an exact match
-      if (curr.nextSlot.equals(value)) {
+      if (curr.getNextKey() === value.toBigInt()) {
         found = true;
         result = { preimage: curr, index: lowPublicDataIndex };
-      } else if (curr.nextSlot > value && curr.slot < value) {
+      } else if (curr.getNextKey() > value.toBigInt() && curr.getKey() < value.toBigInt()) {
         // We found it via sandwich
         found = true;
         result = { preimage: curr, index: lowPublicDataIndex };
       }
       // We found it via the max condition
-      else if (curr.nextIndex === 0n && curr.slot < value) {
+      else if (curr.getNextIndex() === 0n && curr.getKey() < value.toBigInt()) {
         found = true;
         result = { preimage: curr, index: lowPublicDataIndex };
       }
       // Update the the values for the next iteration
       else {
-        lowPublicDataIndex = curr.nextIndex;
-        if (this.publicDataUpdates.has(lowPublicDataIndex)) {
-          curr = this.publicDataUpdates.get(lowPublicDataIndex)!;
+        lowPublicDataIndex = curr.getNextIndex();
+        if (this.hasLocalUpdates(treeId, lowPublicDataIndex)) {
+          curr = this.getIndexedUpdates(treeId, lowPublicDataIndex, T)!;
         } else {
           const preimage = (await this.treeDb.getLeafPreimage(treeId, lowPublicDataIndex))!;
-          curr = PublicDataTreeLeafPreimage.fromBuffer(preimage.toBuffer());
+          curr = T.fromBuffer(preimage.toBuffer());
         }
       }
       counter++;
@@ -283,158 +388,62 @@ export class EphemeralTreeContainer {
   }
 
   // Should check old nullifier prior
-  private async _handleNullifierInsertion(value: Fr): Promise<IndexedInsertionResult<NullifierLeafPreimage>> {
-    // Get low nullifier
-    const { preimage: lowNullifier, index } = await this.getLowNullifier(MerkleTreeId.NULLIFIER_TREE, value);
 
-    const lowNullifierPath =
-      this.nullifierTree.getSiblingPath(lowNullifier.nullifier, index) ??
-      (await this.treeDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, index)).toFields();
-    // The newly inserted nullifier will inherit the low nullifier's "next" values.
-    const newNullifier = new NullifierLeafPreimage(value, lowNullifier.nextNullifier, lowNullifier.nextIndex);
-    const newNullifierHash = computeNullifierHash(newNullifier);
-    const insertionIndex = this.publicDataTree.leafCount;
-    // The low nullifier will have the new nullifier as its next value
-    const oldLowNullifier = lowNullifier.clone();
-    lowNullifier.nextNullifier = value;
-    lowNullifier.nextIndex = this.nullifierTree.leafCount;
-    const lowNullifierHash = computeNullifierHash(lowNullifier);
-    this.nullifierTree.updateLeaf(lowNullifierHash, index);
-    // Update the local map - indexed by insertion order
-    this.nullifierUpdates.set(index, lowNullifier);
-    this.nullifierUpdates.set(this.nullifierTree.leafCount, newNullifier);
-    // Build result struct
-    let insertionPath = this.nullifierTree.getSiblingPath(newNullifierHash, insertionIndex);
-    if (insertionPath === undefined) {
-      // Do we append zero just to get the sibling path?
-      this.nullifierTree.appendLeaf(Fr.zero());
-      insertionPath = this.nullifierTree.getSiblingPath(newNullifierHash, insertionIndex)!;
-      this.nullifierTree.updateLeaf(newNullifierHash, insertionIndex);
-    } else {
-      this.nullifierTree.appendLeaf(newNullifierHash);
-    }
-    const result = {
-      leafIndex: insertionIndex /** leaf index **/,
-      insertionPath: insertionPath,
-      lowSiblingPath: lowNullifierPath,
-      lowWitness: oldLowNullifier,
-    };
-    // Update the nullifier tree with the old nullifier and the new nullifier
-    this.nullifierTree.appendLeaf(newNullifierHash);
-
-    // Now we update our view of what the minimum nullifier in our set is
-    // Should probably clean this up
-    if (this.minNullifier === undefined) {
-      this.minNullifier = newNullifier;
-      this.minNullifierIndex = this.nullifierTree.leafCount;
-    }
-    // We do <= here because the nullifier value might be the same but the next values change (i.e. Low nullifier updated)
-    if (newNullifier.nullifier <= this.minNullifier.nullifier) {
-      this.minNullifier = newNullifier;
-      this.minNullifierIndex = this.nullifierTree.leafCount;
-    }
-    if (lowNullifier.nullifier <= this.minNullifier.nullifier) {
-      this.minNullifier = lowNullifier;
-      this.minNullifierIndex = index;
-    }
-    return result;
+  hashPreimage<T extends TreeLeafPreimage>(preimage: T): Fr {
+    const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
+    return poseidon2Hash(input);
   }
 
-  private async _handlePublicDataUpdate(slot: Fr, newValue: Fr): Promise<IndexedInsertionResult<LowPublicDataWitness>> {
+  private async _getIndexedLowWitness<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
+    treeId: ID,
+    slot: Fr,
+    T: { fromBuffer: (buffer: Buffer) => T },
+  ): Promise<LowWitness<T>> {
     // Get low public data witness
-    const { preimage: lowWitness, index } = await this.getLowPublicData(MerkleTreeId.PUBLIC_DATA_TREE, slot);
+    const { preimage: lowWitness, index } = await this.getLowInfo(treeId, slot, T);
     // We check if the slot is already in the tree
-    const isUpdate: boolean = lowWitness.nextSlot.equals(slot);
+    const isUpdate: boolean = lowWitness.getNextKey() === slot.toBigInt();
     if (isUpdate) {
-      // If we are updating then the low nullifier stays the same
-      const existingPreimage =
-        this.publicDataUpdates.get(slot.toBigInt()) ??
-        (await this.treeDb.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, slot.toBigInt()));
-      if (existingPreimage === undefined) {
-        throw new Error('No previous value found');
-      }
-      const existingPublicData = PublicDataTreeLeafPreimage.fromBuffer(existingPreimage.toBuffer());
-      const existingPublicDataSiblingPath =
-        this.publicDataTree.getSiblingPath(computePublicDataHash(existingPublicData), lowWitness.nextIndex) ??
-        (await this.treeDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowWitness.nextIndex)).toFields();
-
       const lowSiblingPath =
-        this.publicDataTree.getSiblingPath(computePublicDataHash(lowWitness), index) ??
-        (await this.treeDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index)).toFields();
+        this.treeMap.get(treeId)!.getSiblingPath(this.hashPreimage(lowWitness), index) ??
+        (await this.treeDb.getSiblingPath(treeId, index)).toFields();
       const result = {
-        leafIndex: lowWitness.nextIndex /** leaf index **/,
-        insertionPath: existingPublicDataSiblingPath,
+        update: true,
         lowSiblingPath: lowSiblingPath,
-        lowWitness: {
-          preimage: existingPublicData,
-          index,
-        },
+        preimage: lowWitness,
+        index,
       };
-
-      existingPublicData.value = newValue;
-      this.publicDataUpdates.set(lowWitness.nextIndex, existingPublicData);
-
       return result;
     }
     // This is an insertion of a new entry
     const lowSiblingPath =
-      this.publicDataTree.getSiblingPath(computePublicDataHash(lowWitness), index) ??
-      (await this.treeDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index)).toFields();
-    const oldLowWitness = lowWitness.clone();
+      this.treeMap.get(treeId)!.getSiblingPath(this.hashPreimage(lowWitness), index) ??
+      (await this.treeDb.getSiblingPath(treeId, index)).toFields();
+    // Does this copy?
+    const oldLowWitness = T.fromBuffer(lowWitness.toBuffer());
 
-    // The newly inserted public data leaf will inherit the low nullifier's "next" values.
-    const newPublicDataNode = new PublicDataTreeLeafPreimage(slot, newValue, lowWitness.nextSlot, lowWitness.nextIndex);
-    const newPublicDataNodeHash = computePublicDataHash(newPublicDataNode);
-    const insertionIndex = this.publicDataTree.leafCount;
-
-    lowWitness.nextSlot = slot;
-    lowWitness.nextIndex = insertionIndex;
-    const lowWitnessHash = computePublicDataHash(lowWitness);
-    this.publicDataUpdates.set(index, lowWitness);
-    this.publicDataTree.updateLeaf(lowWitnessHash, index);
-
-    let newPublicDataSiblingPath = this.publicDataTree.getSiblingPath(newPublicDataNodeHash, insertionIndex);
-    if (newPublicDataSiblingPath === undefined) {
-      // Do we append zero just to get the sibling path?
-      this.publicDataTree.appendLeaf(Fr.zero());
-      newPublicDataSiblingPath = this.publicDataTree.getSiblingPath(newPublicDataNodeHash, insertionIndex)!;
-      this.publicDataTree.updateLeaf(newPublicDataNodeHash, insertionIndex);
-    } else {
-      this.publicDataTree.appendLeaf(newPublicDataNodeHash);
-    }
-
-    // Update the public data tree
-    // The low Read will have the new node slot as its next value
-
-    // Update the local map - indexed by insertion order
-    this.publicDataUpdates.set(insertionIndex, newPublicDataNode);
-
-    // Build Result struc
+    // Build Result struct
     const result = {
-      leafIndex: insertionIndex /** leaf index **/,
-      insertionPath: newPublicDataSiblingPath,
+      update: false,
       lowSiblingPath: lowSiblingPath,
-      lowWitness: {
-        preimage: oldLowWitness,
-        index,
-      },
+      preimage: oldLowWitness,
+      index,
     };
 
-    // Now we update our view of what the minimum nullifier in our set is
-    // Should probably clean this up
-    if (this.minPublicData === undefined) {
-      this.minPublicData = newPublicDataNode;
-      this.minPublicDataIndex = this.publicDataTree.leafCount;
-    }
-    // We do <= here because the nullifier value might be the same but the next values change (i.e. Low nullifier updated)
-    if (newPublicDataNode.slot <= this.minPublicData.slot) {
-      this.minPublicData = newPublicDataNode;
-      this.minNullifierIndex = this.publicDataTree.leafCount;
-    }
-    if (lowWitness.slot <= this.minPublicData.slot) {
-      this.minPublicData = lowWitness;
-      this.minPublicDataIndex = index;
-    }
+    // // Now we update our view of what the minimum nullifier in our set is
+    // // Should probably clean this up
+    // let currentMin = this.getMinInfo(MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage);
+    // if (currentMin === undefined) {
+    //   currentMin = { preimage: newPublicDataNode, index: this.publicDataTree.leafCount };
+    // }
+    // // We do <= here because the nullifier value might be the same but the next values change (i.e. Low nullifier updated)
+    // if (newPublicDataNode.getKey() <= currentMin!.preimage.getKey()) {
+    //   currentMin = { preimage: newPublicDataNode, index: this.publicDataTree.leafCount };
+    // }
+    // if (lowWitness.getKey() <= currentMin!.preimage.getKey()) {
+    //   currentMin = { preimage: lowWitness, index };
+    // }
+    // this.setMinInfo(MerkleTreeId.PUBLIC_DATA_TREE, currentMin.preimage, currentMin.index);
     return result;
   }
 }
