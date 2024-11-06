@@ -7,4 +7,5 @@ export {
   botConfigMappings,
   SupportedTokenContracts,
 } from './config.js';
+export { createBotRunnerRpcServer, getBotRunnerApiHandler } from './rpc.js';
 export * from './interface.js';

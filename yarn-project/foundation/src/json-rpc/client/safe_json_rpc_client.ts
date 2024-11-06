@@ -3,7 +3,7 @@ import { format } from 'util';
 import { createDebugLogger } from '../../log/logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
 import { jsonStringify2 } from '../convert.js';
-import { defaultFetch } from './json_rpc_client.js';
+import { defaultFetch } from './fetch.js';
 
 export { jsonStringify } from '../convert.js';
 
