@@ -22,7 +22,7 @@ import {
   ContractArtifactSchema,
   type EventSelector,
 } from '@aztec/foundation/abi';
-import { AbiDecodedSchema, type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -470,7 +470,7 @@ export interface PXEInfo {
 const PXEInfoSchema = z.object({
   pxeVersion: z.string(),
   protocolContractAddresses: ProtocolContractAddressesSchema,
-}) satisfies z.ZodType<PXEInfo, any, any>;
+}) satisfies ZodFor<PXEInfo>;
 
 export const PXESchema: ApiSchemaFor<PXE> = {
   addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),

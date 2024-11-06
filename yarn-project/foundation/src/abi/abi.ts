@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { type Fr } from '../fields/fields.js';
 import { schemas } from '../schemas/schemas.js';
+import { type ZodFor } from '../schemas/types.js';
 import { type FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
@@ -155,7 +156,7 @@ const AbiErrorTypeSchema = z.union([
   z.object({ error_kind: z.literal('string'), string: z.string() }),
   z.object({ error_kind: z.literal('fmtstring'), length: z.number(), item_types: z.array(AbiTypeSchema) }),
   z.object({ error_kind: z.literal('custom') }).and(AbiTypeSchema),
-]) satisfies z.ZodType<AbiErrorType, any, any>;
+]) satisfies ZodFor<AbiErrorType>;
 
 /** Aztec.nr function types. */
 export enum FunctionType {
@@ -234,7 +235,7 @@ export const FunctionArtifactSchema = FunctionAbiSchema.and(
     debugSymbols: z.string(),
     debug: FunctionDebugMetadataSchema.optional(),
   }),
-) satisfies z.ZodType<FunctionArtifact, any, any>;
+) satisfies ZodFor<FunctionArtifact>;
 
 /** A file ID. It's assigned during compilation. */
 export type FileId = number;
@@ -317,7 +318,7 @@ export const ContractNoteSchema = z.object({
   id: schemas.NoteSelector,
   typ: z.string(),
   fields: z.array(NoteFieldSchema),
-}) satisfies z.ZodType<ContractNote, any, any>;
+}) satisfies ZodFor<ContractNote>;
 
 /** Type representing a field layout in the storage of a contract. */
 export type FieldLayout = {
@@ -352,7 +353,7 @@ export interface ContractArtifact {
   fileMap: DebugFileMap;
 }
 
-export const ContractArtifactSchema: z.ZodType<ContractArtifact, any, any> = z.object({
+export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   name: z.string(),
   aztecNrVersion: z.string().optional(),
   functions: z.array(FunctionArtifactSchema),

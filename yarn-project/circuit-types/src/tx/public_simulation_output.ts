@@ -1,6 +1,6 @@
 import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
 import { mapValues } from '@aztec/foundation/collection';
-import { schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -21,7 +21,7 @@ export class NestedProcessReturnValues {
     this.nested = nested ?? [];
   }
 
-  static get schema(): z.ZodType<NestedProcessReturnValues, any, any> {
+  static get schema(): ZodFor<NestedProcessReturnValues> {
     return z
       .object({
         values: z.array(schemas.Fr).optional(),

@@ -1,6 +1,6 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -37,8 +37,8 @@ export const ContractInstanceSchema = z.object({
   contractClassId: schemas.Fr,
   initializationHash: schemas.Fr,
   publicKeys: PublicKeys.schema,
-}) satisfies z.ZodType<ContractInstance, any, any>;
+}) satisfies ZodFor<ContractInstance>;
 
 export const ContractInstanceWithAddressSchema = ContractInstanceSchema.and(
   z.object({ address: schemas.AztecAddress }),
-) satisfies z.ZodType<ContractInstanceWithAddress, any, any>;
+) satisfies ZodFor<ContractInstanceWithAddress>;

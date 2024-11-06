@@ -1,3 +1,4 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
@@ -21,10 +22,8 @@ export abstract class L2BlockL2Logs<TLog extends UnencryptedL2Log | EncryptedL2N
 
   public abstract get type(): string;
 
-  static get schema(): z.ZodType<
-    L2BlockL2Logs<EncryptedL2NoteLog> | L2BlockL2Logs<EncryptedL2Log> | L2BlockL2Logs<UnencryptedL2Log>,
-    any,
-    any
+  static get schema(): ZodFor<
+    L2BlockL2Logs<EncryptedL2NoteLog> | L2BlockL2Logs<EncryptedL2Log> | L2BlockL2Logs<UnencryptedL2Log>
   > {
     // TODO(palla/schemas): This should be a discriminated union, but the compiler refuses
     return z.union([EncryptedNoteL2BlockL2Logs.schema, EncryptedL2BlockL2Logs.schema, UnencryptedL2BlockL2Logs.schema]);
