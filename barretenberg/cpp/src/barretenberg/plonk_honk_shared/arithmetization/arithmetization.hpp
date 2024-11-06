@@ -32,6 +32,11 @@ struct StackTraces {
 // it is best to use the smallest possible block sizes to accommodate a given situation.
 enum class TraceStructure { NONE, TINY_TEST, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
 
+struct TraceSettings {
+    TraceStructure structure = TraceStructure::NONE;
+    size_t overflow = 0;
+};
+
 /**
  * @brief Basic structure for storing gate data in a builder
  *

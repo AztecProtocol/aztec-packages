@@ -245,6 +245,7 @@ TEST_F(MegaHonkTests, MiscellaneousBlockAuxOverflow)
     TraceStructure trace_structure = TraceStructure::TINY_TEST;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
+    MockCircuits::add_arithmetic_gates(builder, 8);
     MockCircuits::add_RAM_gates(builder);
 
     // Construct and verify Honk proof using a structured trace
