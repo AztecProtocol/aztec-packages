@@ -34,7 +34,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 
         PROFILE_THIS_NAME("sumcheck.prove");
         if constexpr (Flavor::HasZK) {
-            info("Type: ", typeid(proving_key->proving_key.commitment_key).name());
             auto commitment_key = std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
             zk_sumcheck_data = ZKSumcheckData<Flavor>(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
