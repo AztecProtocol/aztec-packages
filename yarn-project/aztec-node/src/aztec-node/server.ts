@@ -374,6 +374,7 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
+    await this.telemetry.stop();
     this.log.info(`Stopped`);
   }
 

@@ -228,7 +228,7 @@ const proveAvmTestContract = async (
     );
   }
 
-  const pxResult = trace.toPublicExecutionResult(
+  const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
     /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),

@@ -28,10 +28,10 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type PublicExecutionResult } from '@aztec/simulator';
+import { type PublicFunctionCallResult } from '@aztec/simulator';
 
 // TODO: pub somewhere more usable - copied from abstract phase manager
-export function getPublicInputs(result: PublicExecutionResult): PublicCircuitPublicInputs {
+export function getPublicInputs(result: PublicFunctionCallResult): PublicCircuitPublicInputs {
   return PublicCircuitPublicInputs.from({
     callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,

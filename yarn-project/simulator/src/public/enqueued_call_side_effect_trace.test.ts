@@ -20,6 +20,7 @@ import {
   Nullifier,
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
+  PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicValidationRequestArrayLengths,
@@ -28,14 +29,29 @@ import {
   SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
 import { randomBytes, randomInt } from 'crypto';
 
 import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { initExecutionEnvironment } from '../avm/fixtures/index.js';
 import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
+
+/**
+ * Helper function to create a public execution request from an AVM execution environment
+ */
+function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
+  return new PublicCallRequest(
+    avmEnvironment.sender,
+    avmEnvironment.address,
+    avmEnvironment.functionSelector,
+    avmEnvironment.isStaticCall,
+    computeVarArgsHash(avmEnvironment.calldata),
+  );
+}
 
 describe('Enqueued-call Side Effect Trace', () => {
   const address = Fr.random();
@@ -79,7 +95,14 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   const toVMCircuitPublicInputs = (trc: PublicEnqueuedCallSideEffectTrace) => {
-    return trc.toVMCircuitPublicInputs(constants, avmEnvironment, startGasLeft, endGasLeft, avmCallResults);
+    return trc.toVMCircuitPublicInputs(
+      constants,
+      createPublicCallRequest(avmEnvironment),
+      startGasLeft,
+      endGasLeft,
+      transactionFee,
+      avmCallResults,
+    );
   };
 
   it('Should trace storage reads', () => {
@@ -89,7 +112,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().publicDataReads;
-    expectedArray[0] = new PublicDataRead(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataRead(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.validationRequests.publicDataReads).toEqual(expectedArray);
@@ -101,7 +125,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().publicDataUpdateRequests;
-    expectedArray[0] = new PublicDataUpdateRequest(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.publicDataUpdateRequests).toEqual(expectedArray);
@@ -172,7 +197,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().nullifiers;
-    expectedArray[0] = new Nullifier(utxo, startCounter, Fr.ZERO);
+    expectedArray[0] = new Nullifier(siloNullifier(address, utxo), startCounter, Fr.ZERO);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.nullifiers).toEqual(expectedArray);
@@ -462,8 +487,8 @@ describe('Enqueued-call Side Effect Trace', () => {
       const parentSideEffects = trace.getSideEffects();
       const childSideEffects = nestedTrace.getSideEffects();
       if (callResults.reverted) {
-        expect(parentSideEffects.contractStorageReads).toEqual(childSideEffects.contractStorageReads);
-        expect(parentSideEffects.contractStorageUpdateRequests).toEqual(childSideEffects.contractStorageUpdateRequests);
+        expect(parentSideEffects.publicDataReads).toEqual(childSideEffects.publicDataReads);
+        expect(parentSideEffects.publicDataWrites).toEqual(childSideEffects.publicDataWrites);
         expect(parentSideEffects.noteHashReadRequests).toEqual(childSideEffects.noteHashReadRequests);
         expect(parentSideEffects.noteHashes).toEqual([]);
         expect(parentSideEffects.nullifierReadRequests).toEqual(childSideEffects.nullifierReadRequests);
