@@ -59,7 +59,7 @@ There are many ways you can participate and help build high quality software. Ch
 
 ## Syncing noir
 
-We currently use [git-subrepo](https://github.com/ingydotnet/git-subrepo) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
+We currently use [git-subrepo](https://github.com/ingydotnet/git-subrepo) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around syncs.
 
 There is an automatic mirror pushing noir to a PR on noir side. If the mirror is not working, generally we need to do a "git subrepo pull noir".
 
