@@ -1,4 +1,5 @@
 import {
+  type ProverAgentApi,
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
@@ -16,7 +17,7 @@ const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
  */
-export class ProverAgent {
+export class ProverAgent implements ProverAgentApi {
   private inFlightPromises = new Map<
     string,
     {
@@ -37,11 +38,12 @@ export class ProverAgent {
     private log = createDebugLogger('aztec:prover-client:prover-agent'),
   ) {}
 
-  setMaxConcurrency(maxConcurrency: number): void {
+  setMaxConcurrency(maxConcurrency: number): Promise<void> {
     if (maxConcurrency < 1) {
       throw new Error('Concurrency must be at least 1');
     }
     this.maxConcurrency = maxConcurrency;
+    return Promise.resolve();
   }
 
   setCircuitProver(circuitProver: ServerCircuitProver): void {
@@ -49,11 +51,17 @@ export class ProverAgent {
   }
 
   isRunning() {
+    return Promise.resolve(this.#isRunning());
+  }
+
+  #isRunning() {
     return this.runningPromise?.isRunning() ?? false;
   }
 
-  getCurrentJobs(): { id: string; type: string }[] {
-    return Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] }));
+  getCurrentJobs(): Promise<{ id: string; type: string }[]> {
+    return Promise.resolve(
+      Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] })),
+    );
   }
 
   start(jobSource: ProvingJobSource): void {
@@ -130,7 +138,7 @@ export class ProverAgent {
       this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
       const type: TRequest['type'] = job.request.type;
       const [time, result] = await elapsed(this.getProof(job.request));
-      if (this.isRunning()) {
+      if (this.#isRunning()) {
         this.log.verbose(`Processed proving job id=${job.id} type=${ProvingRequestType[type]} duration=${time}ms`);
         await jobSource.resolveProvingJob(job.id, makeProvingRequestResult(type, result));
       } else {
@@ -142,7 +150,7 @@ export class ProverAgent {
       }
     } catch (err) {
       const type = ProvingRequestType[job.request.type];
-      if (this.isRunning()) {
+      if (this.#isRunning()) {
         if (job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
           this.log.warn(`Expected error processing VM proving job id=${job.id} type=${type}: ${err}`);
         } else {
