@@ -49,6 +49,7 @@ template <typename Builder> class ram_table {
 
   private:
     std::vector<field_pt> _raw_entries;
+    // Origin Tags for detection of dangerous interactions within stdlib primitives
     mutable std::vector<OriginTag> _tags;
     mutable std::vector<bool> _index_initialized;
     size_t _length = 0;

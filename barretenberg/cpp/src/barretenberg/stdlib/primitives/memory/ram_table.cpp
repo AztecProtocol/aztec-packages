@@ -71,13 +71,10 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
         return;
     }
     ASSERT(_context != nullptr);
-    std::vector<OriginTag> tags;
-    tags.resize(_length);
     _ram_id = _context->create_RAM_array(_length);
 
     if (_raw_entries.size() > 0) {
         for (size_t i = 0; i < _length; ++i) {
-            tags[i] = _raw_entries[i].get_origin_tag();
             if (!_index_initialized[i]) {
                 field_pt entry;
                 if (_raw_entries[i].is_constant()) {
@@ -92,8 +89,12 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
         }
     }
 
+    // Store the tags of the original entries
+    _tags.resize(_length);
+    for (size_t i = 0; i < _length; i++) {
+        _tags[i] = _raw_entries[i].get_origin_tag();
+    }
     _ram_table_generated_in_builder = true;
-    _tags = tags;
 }
 
 /**
@@ -210,6 +211,7 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
     auto element = field_pt::from_witness_index(_context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+    // If the index is legitimate, restore the tag
     if (native_index < _length) {
         element.set_origin_tag(_tags[cast_index]);
     }
@@ -265,7 +267,8 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
         _context->write_RAM_array(
             _ram_id, index_wire.get_normalized_witness_index(), value_wire.get_normalized_witness_index());
     }
-    if (uint256_t(index.get_value()) < _length) {
+    // Update the value of the stored tag, if index is legitimate
+    if (native_value < _length) {
         _tags[cast_index] = value.get_origin_tag();
     }
 }
