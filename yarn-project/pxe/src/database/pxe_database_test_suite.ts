@@ -8,9 +8,11 @@ import {
   computePoint,
 } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { FunctionType } from '@aztec/foundation/abi';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
 import { IncomingNoteDao } from './incoming_note_dao.js';
 import { OutgoingNoteDao } from './outgoing_note_dao.js';
@@ -437,6 +439,19 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const id = Fr.random();
         await database.addContractArtifact(id, artifact);
         await expect(database.getContractArtifact(id)).resolves.toEqual(artifact);
+      });
+
+      it('does not store a contract artifact with a duplicate private function selector', async () => {
+        const artifact = TestContractArtifact;
+        const index = artifact.functions.findIndex(fn => fn.functionType === FunctionType.PRIVATE);
+
+        const copiedFn = structuredClone(artifact.functions[index]);
+        artifact.functions.push(copiedFn);
+
+        const id = Fr.random();
+        await expect(database.addContractArtifact(id, artifact)).rejects.toThrow(
+          'Repeated function selectors of private functions',
+        );
       });
 
       it('stores a contract instance', async () => {
