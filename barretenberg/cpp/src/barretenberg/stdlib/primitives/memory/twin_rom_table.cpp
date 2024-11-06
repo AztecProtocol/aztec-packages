@@ -130,13 +130,14 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_pt& index) const
 {
-    initialize_table();
     if (index.is_constant()) {
         return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
     }
     if (context == nullptr) {
         context = index.get_context();
     }
+
+    initialize_table();
     if (uint256_t(index.get_value()) >= length) {
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
