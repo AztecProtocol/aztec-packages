@@ -1,9 +1,10 @@
 import * as yaml from "js-yaml";
 import * as fs from "fs";
-import path, { join, dirname } from "path";
+import { join, dirname } from "path";
 import { fileURLToPath } from "@aztec/foundation/url";
-const GRAFANA_ENDPOINT = "http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query"
+import { createDebugLogger, DebugLogger } from "@aztec/aztec.js";
 
+const GRAFANA_ENDPOINT = "http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query"
 interface AlertConfig {
   alert: string;
   expr: string;
@@ -39,41 +40,41 @@ async function queryGrafana(expr: string): Promise<number> {
 
   const data = await response.json();
   const result = data.data.result;
-  console.log(data)
   return result.length > 0 ? parseFloat(result[0].value[1]) : 0;
 }
 
 // Function to check alerts based on expressions
-async function checkAlerts(alerts: AlertConfig[]) {
+async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
   for (const alert of alerts) {
-    console.log(`Checking alert: ${JSON.stringify(alert)}`);
+    logger.info(`Checking alert: ${JSON.stringify(alert)}`);
 
     const metricValue = await queryGrafana(alert.expr);
-    console.log(`Metric value: ${metricValue}`);
+    logger.info(`Metric value: ${metricValue}`);
     if (metricValue > 0) {  // Adjust condition as needed
-      console.log(`Alert ${alert.alert} triggered! Value: ${metricValue}`);
+      logger.error(`Alert ${alert.alert} triggered! Value: ${metricValue}`);
       throw new Error(`Test failed due to triggered alert: ${alert.alert}`);
     } else {
-      console.log(`Alert ${alert.alert} passed.`);
+      logger.info(`Alert ${alert.alert} passed.`);
     }
   }
 }
 
 // Main function to run tests
-async function runAlertChecker() {
+async function runAlertChecker(logger: DebugLogger) {
   const alerts = loadAlertsConfig('alerts.yaml');
   try {
-    await checkAlerts(alerts);
-    console.log("All alerts passed.");
+    await checkAlerts(alerts, logger);
+    logger.info("All alerts passed.");
   } catch (error) {
-    console.error(error);
+    logger.error(error instanceof Error ? error.message : String(error));
     process.exit(1);  // Exit with error code
   }
 }
 
 // Running as a jest test to use existing end to end test framework
 describe('Alert Checker', () => {
+  const logger = createDebugLogger('alert-checker');
   it('should check alerts', async () => {
-    await runAlertChecker();
+    await runAlertChecker(logger);
   });
 });
