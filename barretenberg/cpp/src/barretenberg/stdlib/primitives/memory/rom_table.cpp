@@ -11,9 +11,9 @@ template <typename Builder> rom_table<Builder>::rom_table(const std::vector<fiel
     static_assert(HasPlookup<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
-        _tag = OriginTag(_tag, entry.get_origin_tag());
         if (entry.get_context() != nullptr) {
             context = entry.get_context();
+            break;
         }
     }
     raw_entries = table_entries;
@@ -37,8 +37,11 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
     // populate table. Table entries must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         if (entry.is_constant()) {
-            entries.emplace_back(
-                field_pt::from_witness_index(context, context->put_constant_variable(entry.get_value())));
+            auto fixed_witness =
+                field_pt::from_witness_index(context, context->put_constant_variable(entry.get_value()));
+            fixed_witness.set_origin_tag(entry.get_origin_tag());
+            entries.emplace_back(fixed_witness);
+
         } else {
             entries.emplace_back(entry.normalize());
         }
@@ -49,6 +52,10 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
         context->set_ROM_element(rom_id, i, entries[i].get_witness_index());
     }
 
+    _tags.resize(raw_entries.size());
+    for (size_t i = 0; i < length; ++i) {
+        _tags[i] = raw_entries[i].get_origin_tag();
+    }
     initialized = true;
 }
 
@@ -56,33 +63,33 @@ template <typename Builder>
 rom_table<Builder>::rom_table(const rom_table& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , _tags(other._tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
-    , _tag(other._tag)
 {}
 
 template <typename Builder>
 rom_table<Builder>::rom_table(rom_table&& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , _tags(other._tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
-    , _tag(other._tag)
 {}
 
 template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other)
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    _tags = other._tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
-    _tag = other._tag;
     return *this;
 }
 
@@ -90,11 +97,11 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(ro
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    _tags = other._tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
-    _tag = other._tag;
     return *this;
 }
 
@@ -110,20 +117,26 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
 
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const field_pt& index) const
 {
+    initialize_table();
     if (index.is_constant()) {
         return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
     }
     if (context == nullptr) {
         context = index.get_context();
     }
-    initialize_table();
-    if (uint256_t(index.get_value()) >= length) {
+    const auto native_index = uint256_t(index.get_value());
+    if (native_index >= length) {
         context->failure("rom_table: ROM array access out of bounds");
     }
 
     uint32_t output_idx = context->read_ROM_array(rom_id, index.get_normalized_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
-    element.set_origin_tag(OriginTag(_tag, index.get_origin_tag()));
+
+    const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+    if (native_index < length) {
+
+        element.set_origin_tag(_tags[cast_index]);
+    }
     return element;
 }
 

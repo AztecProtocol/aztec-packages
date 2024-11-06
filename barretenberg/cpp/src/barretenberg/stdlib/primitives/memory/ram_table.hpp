@@ -47,18 +47,14 @@ template <typename Builder> class ram_table {
         return _all_entries_written_to_with_constant_index;
     }
 
-    OriginTag get_origin_tag() { return _tag; }
-
-    void set_origin_tag(const OriginTag& origin_tag) { _tag = origin_tag; }
-
   private:
     std::vector<field_pt> _raw_entries;
+    mutable std::vector<OriginTag> _tags;
     mutable std::vector<bool> _index_initialized;
     size_t _length = 0;
     mutable size_t _ram_id = 0; // Builder identifier for this ROM table
     mutable bool _ram_table_generated_in_builder = false;
     mutable bool _all_entries_written_to_with_constant_index = false;
     mutable Builder* _context = nullptr;
-    OriginTag _tag{};
 };
 } // namespace bb::stdlib

@@ -26,26 +26,25 @@ TEST(rom_table, tag_correctness)
     std::vector<field_ct> table_values;
     field_ct entry_1 = witness_ct(&builder, bb::fr::random_element());
     field_ct entry_2 = witness_ct(&builder, bb::fr::random_element());
+    field_ct entry_3 = witness_ct(&builder, bb::fr::random_element());
     entry_1.set_origin_tag(submitted_value_origin_tag);
     entry_2.set_origin_tag(challenge_origin_tag);
+    entry_3.set_origin_tag(instant_death_tag);
+
     table_values.emplace_back(entry_1);
     table_values.emplace_back(entry_2);
+    table_values.emplace_back(entry_3);
 
     rom_table_ct table(table_values);
 
-    EXPECT_EQ(table.get_origin_tag(), first_two_merged_tag);
+    EXPECT_EQ(table[field_ct(0)].get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(table[field_ct(witness_ct(&builder, 0))].get_origin_tag(), submitted_value_origin_tag);
 
-    field_ct index = witness_ct(&builder, 0);
-    index.set_origin_tag(next_challenge_tag);
-    auto result = table[index];
-    EXPECT_EQ(result.get_origin_tag(), first_second_third_merged_tag);
-
-    auto poison_tag = table.get_origin_tag();
-    poison_tag.poison();
-    table.set_origin_tag(poison_tag);
+    EXPECT_EQ(table[field_ct(1)].get_origin_tag(), challenge_origin_tag);
+    EXPECT_EQ(table[field_ct(witness_ct(&builder, 1))].get_origin_tag(), challenge_origin_tag);
 
 #ifndef NDEBUG
-    EXPECT_THROW(table[index], std::runtime_error);
+    EXPECT_THROW(table[0] + table[2], std::runtime_error);
 #endif
 }
 TEST(rom_table, rom_table_read_write_consistency)

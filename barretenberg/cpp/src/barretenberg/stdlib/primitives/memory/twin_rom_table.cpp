@@ -12,12 +12,13 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     static_assert(HasPlookup<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
-        _tag = OriginTag(_tag, entry[0].get_origin_tag(), entry[1].get_origin_tag());
         if (entry[0].get_context() != nullptr) {
             context = entry[0].get_context();
+            break;
         }
         if (entry[1].get_context() != nullptr) {
             context = entry[1].get_context();
+            break;
         }
     }
     raw_entries = table_entries;
@@ -60,6 +61,10 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
         context->set_ROM_element_pair(
             rom_id, i, std::array<uint32_t, 2>{ entries[i][0].get_witness_index(), entries[i][1].get_witness_index() });
     }
+    tags.resize(length);
+    for (size_t i = 0; i < length; ++i) {
+        tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
+    }
     initialized = true;
 }
 
@@ -67,33 +72,33 @@ template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , tags(other.tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
-    , _tag(other._tag)
 {}
 
 template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , tags(other.tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
-    , _tag(other._tag)
 {}
 
 template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other)
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    tags = other.tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
-    _tag = other._tag;
     return *this;
 }
 
@@ -101,11 +106,11 @@ template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::op
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    tags = other.tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
-    _tag = other._tag;
     return *this;
 }
 
@@ -123,13 +128,13 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_pt& index) const
 {
+    initialize_table();
     if (index.is_constant()) {
         return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
     }
     if (context == nullptr) {
         context = index.get_context();
     }
-    initialize_table();
     if (uint256_t(index.get_value()) >= length) {
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
@@ -139,9 +144,13 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
         field_pt::from_witness_index(context, output_indices[0]),
         field_pt::from_witness_index(context, output_indices[1]),
     };
-    const auto result_tag = OriginTag(_tag, index.get_origin_tag());
-    pair[0].set_origin_tag(result_tag);
-    pair[1].set_origin_tag(result_tag);
+
+    const auto native_index = uint256_t(index.get_value());
+    const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+    if (native_index < length) {
+        pair[0].set_origin_tag(tags[cast_index][0]);
+        pair[1].set_origin_tag(tags[cast_index][1]);
+    }
     return pair;
 }
 
