@@ -82,6 +82,7 @@ tests:
   e2e_static_calls: {}
   e2e_synching: {}
   e2e_token_contract: {}
+  e2e_p2p: {}
   flakey_e2e_tests:
     test_path: './src/flakey'
     ignore_failures: true
