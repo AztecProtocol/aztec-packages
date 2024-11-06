@@ -117,13 +117,14 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
 
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const field_pt& index) const
 {
-    initialize_table();
     if (index.is_constant()) {
         return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
     }
     if (context == nullptr) {
         context = index.get_context();
     }
+
+    initialize_table();
     const auto native_index = uint256_t(index.get_value());
     if (native_index >= length) {
         context->failure("rom_table: ROM array access out of bounds");

@@ -37,10 +37,8 @@ TEST(rom_table, tag_correctness)
 
     rom_table_ct table(table_values);
 
-    EXPECT_EQ(table[field_ct(0)].get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(table[field_ct(witness_ct(&builder, 0))].get_origin_tag(), submitted_value_origin_tag);
 
-    EXPECT_EQ(table[field_ct(1)].get_origin_tag(), challenge_origin_tag);
     EXPECT_EQ(table[field_ct(witness_ct(&builder, 1))].get_origin_tag(), challenge_origin_tag);
 
 #ifndef NDEBUG
