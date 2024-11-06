@@ -57,7 +57,7 @@ TEST(TwinRomTable, TagCorrectness)
     twin_rom_table_ct table(table_values);
 
     // Check that the tags in positions [0][0], [0][1], [1][0] are preserved
-    EXPECT_EQ(table[field_ct(0)][0].get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(table[field_ct(witness_ct(&builder, 0))][0].get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(table[field_ct(witness_ct(&builder, 0))][1].get_origin_tag(), challenge_origin_tag);
     EXPECT_EQ(table[field_ct(1)][0].get_origin_tag(), next_challenge_tag);
 

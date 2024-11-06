@@ -23,7 +23,7 @@ using witness_ct = stdlib::witness_t<Builder>;
 using DynamicArray_ct = stdlib::DynamicArray<Builder>;
 
 STANDARD_TESTING_TAGS
-TEST(DynamicArray, TagConsistency)
+TEST(DynamicArray, TagCorrectness)
 {
 
     Builder builder;
