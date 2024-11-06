@@ -100,7 +100,7 @@ export class PXEService implements PXE {
     logSuffix?: string,
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
-    this.synchronizer = new Synchronizer(node, db, this.jobQueue, config.trialDecriptionEnabled ?? false, logSuffix);
+    this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
@@ -116,31 +116,9 @@ export class PXEService implements PXE {
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
     await this.synchronizer.start(1, l2BlockPollingIntervalMS);
-    await this.restoreNoteProcessors();
     await this.#registerProtocolContracts();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
-  }
-
-  private async restoreNoteProcessors() {
-    const accounts = await this.keyStore.getAccounts();
-    const accountsSet = new Set(accounts.map(k => k.toString()));
-
-    const registeredAddresses = await this.db.getCompleteAddresses();
-
-    let count = 0;
-    for (const completeAddress of registeredAddresses) {
-      if (!accountsSet.has(completeAddress.address.toString())) {
-        continue;
-      }
-
-      count++;
-      this.synchronizer.addAccount(completeAddress, this.keyStore, this.config.l2StartingBlock);
-    }
-
-    if (count > 0) {
-      this.log.info(`Restored ${count} accounts`);
-    }
   }
 
   /**
@@ -194,7 +172,6 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      this.synchronizer.addAccount(accountCompleteAddress, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
@@ -294,7 +271,6 @@ export class PXEService implements PXE {
 
     this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
     await this.db.addContractInstance(instance);
-    await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
   }
 
   public getContracts(): Promise<AztecAddress[]> {
@@ -696,7 +672,6 @@ export class PXEService implements PXE {
       const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
-      await this.synchronizer.reprocessDeferredNotesForContract(address);
       this.log.info(`Added protocol contract ${name} at ${address.toString()}`);
     }
   }
@@ -841,16 +816,8 @@ export class PXEService implements PXE {
     return await this.synchronizer.isGlobalStateSynchronized();
   }
 
-  public async isAccountStateSynchronized(account: AztecAddress) {
-    return await this.synchronizer.isAccountStateSynchronized(account);
-  }
-
   public getSyncStatus() {
     return Promise.resolve(this.synchronizer.getSyncStatus());
-  }
-
-  public getSyncStats(): Promise<{ [address: string]: NoteProcessorStats }> {
-    return Promise.resolve(this.synchronizer.getSyncStats());
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

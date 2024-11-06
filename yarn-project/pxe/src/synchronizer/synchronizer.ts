@@ -1,21 +1,11 @@
-import { type AztecNode, type L2Block, MerkleTreeId, type TxHash } from '@aztec/circuit-types';
-import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type PublicKey,
-} from '@aztec/circuits.js';
+import { type AztecNode, type L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type KeyStore } from '@aztec/key-store';
 
-import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { NoteProcessor } from '../note_processor/index.js';
 
 /**
  * The Synchronizer class manages the synchronization of note processors and interacts with the Aztec node
@@ -26,20 +16,11 @@ import { NoteProcessor } from '../note_processor/index.js';
  */
 export class Synchronizer {
   private runningPromise?: RunningPromise;
-  private accounts: CompleteAddress[] = [];
-  private noteProcessors: NoteProcessor[] = [];
   private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: DebugLogger;
-  private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
-  constructor(
-    private node: AztecNode,
-    private db: PxeDatabase,
-    private jobQueue: SerialQueue,
-    private trialDecryptionEnabled: boolean,
-    logSuffix = '',
-  ) {
+  constructor(private node: AztecNode, private db: PxeDatabase, private jobQueue: SerialQueue, logSuffix = '') {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
   }
 
@@ -87,13 +68,7 @@ export class Synchronizer {
       let moreWork = true;
       // keep external this.running flag to interrupt greedy sync
       while (moreWork && this.running) {
-        if (this.noteProcessorsToCatchUp.length > 0) {
-          // There is a note processor that needs to catch up. We hijack the main loop to catch up the note processor.
-          moreWork = await this.workNoteProcessorCatchUp(limit);
-        } else {
-          // No note processor needs to catch up. We continue with the normal flow.
-          moreWork = await this.work(limit);
-        }
+        moreWork = await this.work(limit);
       }
     });
   }
@@ -115,112 +90,9 @@ export class Synchronizer {
       // Update latest tree roots from the most recent block
       const latestBlock = blocks[blocks.length - 1];
       await this.setHeaderFromBlock(latestBlock);
-
-      this.log.debug(`Forwarding ${blocks.length} blocks to ${this.noteProcessors.length} note processors`);
-      for (const noteProcessor of this.noteProcessors) {
-        await noteProcessor.process(blocks);
-      }
       return true;
     } catch (err) {
       this.log.error(`Error in synchronizer work`, err);
-      return false;
-    }
-  }
-
-  /**
-   * Catch up note processors that are lagging behind the main sync.
-   * e.g. because we just added a new account.
-   *
-   * @param limit - the maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
-   * @returns true if there could be more work, false if there was an error which allows a retry with delay.
-   */
-  protected async workNoteProcessorCatchUp(limit = 1): Promise<boolean> {
-    const toBlockNumber = this.getSynchedBlockNumber();
-
-    // filter out note processors that are already caught up
-    // and sort them by the block number they are lagging behind in ascending order
-    const noteProcessorsToCatchUp: NoteProcessor[] = [];
-
-    this.noteProcessorsToCatchUp.forEach(noteProcessor => {
-      if (noteProcessor.status.syncedToBlock >= toBlockNumber) {
-        // Note processor is ahead of main sync, nothing to do
-        this.noteProcessors.push(noteProcessor);
-      } else {
-        noteProcessorsToCatchUp.push(noteProcessor);
-      }
-    });
-
-    this.noteProcessorsToCatchUp = noteProcessorsToCatchUp;
-
-    if (!this.noteProcessorsToCatchUp.length) {
-      // No note processors to catch up, nothing to do here,
-      // but we return true to continue with the normal flow.
-      return true;
-    }
-
-    // create a copy so that:
-    // 1. we can modify the original array while iterating over it
-    // 2. we don't need to serialize insertions into the array
-    const catchUpGroup = this.noteProcessorsToCatchUp
-      .slice()
-      // sort by the block number they are lagging behind
-      .sort((a, b) => a.status.syncedToBlock - b.status.syncedToBlock);
-
-    // grab the note processor that is lagging behind the most
-    const from = catchUpGroup[0].status.syncedToBlock + 1;
-    // Ensuring that the note processor does not sync further than the main sync.
-    limit = Math.min(limit, toBlockNumber - from + 1);
-    // this.log(`Catching up ${catchUpGroup.length} note processors by up to ${limit} blocks starting at block ${from}`);
-
-    if (limit < 1) {
-      throw new Error(`Unexpected limit ${limit} for note processor catch up`);
-    }
-
-    try {
-      const blocks = await this.node.getBlocks(from, limit);
-      if (!blocks.length) {
-        // This should never happen because this function should only be called when the note processor is lagging
-        // behind main sync.
-        throw new Error('No blocks in processor catch up mode');
-      }
-
-      for (const noteProcessor of catchUpGroup) {
-        // find the index of the first block that the note processor is not yet synced to
-        const index = blocks.findIndex(block => block.number > noteProcessor.status.syncedToBlock);
-        if (index === -1) {
-          // Due to the limit, we might not have fetched a new enough block for the note processor.
-          // And since the group is sorted, we break as soon as we find a note processor
-          // that needs blocks newer than the newest block we fetched.
-          break;
-        }
-
-        this.log.debug(
-          `Catching up note processor ${noteProcessor.account.toString()} by processing ${
-            blocks.length - index
-          } blocks`,
-        );
-        await noteProcessor.process(blocks.slice(index));
-
-        if (noteProcessor.status.syncedToBlock === toBlockNumber) {
-          // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-          this.log.debug(`Note processor for ${noteProcessor.account.toString()} has caught up`, {
-            eventName: 'note-processor-caught-up',
-            account: noteProcessor.account.toString(),
-            duration: noteProcessor.timer.ms(),
-            dbSize: await this.db.estimateSize(),
-            ...noteProcessor.stats,
-          } satisfies NoteProcessorCaughtUpStats);
-
-          this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(
-            np => !np.account.equals(noteProcessor.account),
-          );
-          this.noteProcessors.push(noteProcessor);
-        }
-      }
-
-      return true; // could be more work, immediately continue syncing
-    } catch (err) {
-      this.log.error(`Error in synchronizer workNoteProcessorCatchUp`, err);
       return false;
     }
   }
@@ -246,46 +118,6 @@ export class Synchronizer {
     this.log.info('Stopped');
   }
 
-  /**
-   * Add a new account to the Synchronizer with the specified private key.
-   * Creates a NoteProcessor instance for the account and pushes it into the noteProcessors array.
-   * The method resolves immediately after pushing the new note processor.
-   *
-   * @param publicKey - The public key for the account.
-   * @param keyStore - The key store.
-   * @param startingBlock - The block where to start scanning for notes for this accounts.
-   * @returns A promise that resolves once the account is added to the Synchronizer.
-   */
-  public addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
-    const predicate = (x: NoteProcessor) => x.account.equals(account);
-    const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
-    if (processor) {
-      return;
-    }
-
-    this.noteProcessorsToCatchUp.push(NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
-  }
-
-  /**
-   * Checks if the specified account is synchronized.
-   * @param account - The aztec address for which to query the sync status.
-   * @returns True if the account is fully synched, false otherwise.
-   * @remarks Checks whether all the notes from all the blocks have been processed. If it is not the case, the
-   *          retrieved information from contracts might be old/stale (e.g. old token balance).
-   * @throws If checking a sync status of account which is not registered.
-   */
-  public async isAccountStateSynchronized(account: AztecAddress) {
-    const findByAccountAddress = (x: NoteProcessor) => x.account.address.equals(account);
-    const processor =
-      this.noteProcessors.find(findByAccountAddress) ?? this.noteProcessorsToCatchUp.find(findByAccountAddress);
-    if (!processor) {
-      throw new Error(
-        `Checking if account is synched is not possible for ${account} because it is only registered as a recipient.`,
-      );
-    }
-    return await processor.isSynchronized();
-  }
-
   private getSynchedBlockNumber() {
     return this.db.getBlockNumber() ?? this.initialSyncBlockNumber;
   }
@@ -309,71 +141,7 @@ export class Synchronizer {
     const lastBlockNumber = this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
-      notes: Object.fromEntries(this.noteProcessors.map(n => [n.account.address.toString(), n.status.syncedToBlock])),
     };
-  }
-
-  /**
-   * Returns the note processor stats.
-   * @returns The note processor stats for notes for each public key being tracked.
-   */
-  public getSyncStats() {
-    return Object.fromEntries(this.noteProcessors.map(n => [n.account.address.toString(), n.stats]));
-  }
-
-  /**
-   * Retry decoding any deferred notes for the specified contract address.
-   * @param contractAddress - the contract address that has just been added
-   */
-  public reprocessDeferredNotesForContract(contractAddress: AztecAddress): Promise<void> {
-    return this.jobQueue.put(() => this.#reprocessDeferredNotesForContract(contractAddress));
-  }
-
-  async #reprocessDeferredNotesForContract(contractAddress: AztecAddress): Promise<void> {
-    const deferredNotes = await this.db.getDeferredNotesByContract(contractAddress);
-
-    // group deferred notes by txHash to properly deal with possible duplicates
-    const txHashToDeferredNotes: Map<TxHash, DeferredNoteDao[]> = new Map();
-    for (const note of deferredNotes) {
-      const notesForTx = txHashToDeferredNotes.get(note.txHash) ?? [];
-      notesForTx.push(note);
-      txHashToDeferredNotes.set(note.txHash, notesForTx);
-    }
-
-    // keep track of decoded notes
-    const incomingNotes: IncomingNoteDao[] = [];
-
-    // now process each txHash
-    for (const deferredNotes of txHashToDeferredNotes.values()) {
-      // to be safe, try each note processor in case the deferred notes are for different accounts.
-      for (const processor of this.noteProcessors) {
-        const { incomingNotes: inNotes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
-        incomingNotes.push(...inNotes);
-
-        await this.db.addNotes(inNotes, outNotes, processor.account.address);
-
-        inNotes.forEach(noteDao => {
-          this.log.debug(
-            `Decoded deferred incoming note under account ${processor.account.toString()} for contract ${
-              noteDao.contractAddress
-            } at slot ${noteDao.storageSlot} with nullifier ${noteDao.siloedNullifier.toString()}`,
-          );
-        });
-
-        outNotes.forEach(noteDao => {
-          this.log.debug(
-            `Decoded deferred outgoing note under account ${processor.account.toString()} for contract ${
-              noteDao.contractAddress
-            } at slot ${noteDao.storageSlot}`,
-          );
-        });
-      }
-    }
-
-    // now drop the deferred notes, and add the decoded notes
-    await this.db.removeDeferredNotesByContract(contractAddress);
-
-    await this.#removeNullifiedNotes(incomingNotes);
   }
 
   async #removeNullifiedNotes(notes: IncomingNoteDao[]) {

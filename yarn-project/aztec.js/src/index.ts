@@ -53,7 +53,6 @@ export {
   generateClaimSecret,
   generatePublicKey,
   readFieldCompressedString,
-  waitForAccountSynch,
   waitForPXE,
   type AztecAddressLike,
   type EthAddressLike,

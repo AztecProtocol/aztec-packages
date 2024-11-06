@@ -37,7 +37,6 @@ import solc from 'solc';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
-import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
@@ -222,17 +221,8 @@ export class FullProverTest {
       await result.pxe.registerContract(this.fakeProofsAsset);
 
       for (let i = 0; i < 2; i++) {
-        await waitRegisteredAccountSynced(
-          result.pxe,
-          this.keys[i][0],
-          this.wallets[i].getCompleteAddress().partialAddress,
-        );
-
-        await waitRegisteredAccountSynced(
-          this.pxe,
-          this.keys[i][0],
-          this.wallets[i].getCompleteAddress().partialAddress,
-        );
+        await result.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
+        await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
       }
 
       const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);

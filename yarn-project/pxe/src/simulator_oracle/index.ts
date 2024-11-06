@@ -35,7 +35,7 @@ import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
-import { produceNoteDaos } from '../note_processor/utils/produce_note_daos.js';
+import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 
 /**

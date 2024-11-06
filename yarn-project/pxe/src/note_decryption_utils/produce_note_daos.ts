@@ -3,10 +3,10 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { type AcirSimulator } from '@aztec/simulator';
 
-import { type DeferredNoteDao } from '../../database/deferred_note_dao.js';
-import { IncomingNoteDao } from '../../database/incoming_note_dao.js';
-import { OutgoingNoteDao } from '../../database/outgoing_note_dao.js';
-import { type PxeDatabase } from '../../database/pxe_database.js';
+import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { type PxeDatabase } from '../database/pxe_database.js';
 import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
 
 /**

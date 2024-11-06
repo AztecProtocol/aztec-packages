@@ -152,30 +152,10 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletB, token, walletB.getAddress(), userBBalance, logger);
 
     // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S SECRET KEYS ARE NOT REGISTERED
-    // Note: Not checking if the account is synchronized because it is not registered as an account (it would throw).
-    const checkIfSynchronized = false;
     // Check that user A balance is 0 on server B
-    await expectTokenBalance(walletB, token, walletA.getAddress(), 0n, logger, checkIfSynchronized);
+    await expectTokenBalance(walletB, token, walletA.getAddress(), 0n, logger);
     // Check that user B balance is 0 on server A
-    await expectTokenBalance(walletA, token, walletB.getAddress(), 0n, logger, checkIfSynchronized);
-  });
-
-  it('permits migrating an account from one PXE to another', async () => {
-    const secretKey = Fr.random();
-    const account = getUnsafeSchnorrAccount(pxeA, secretKey, Fr.random());
-    const completeAddress = account.getCompleteAddress();
-    const wallet = await account.waitSetup();
-
-    await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, secretKey, account.salt);
-    const walletOnB = await accountOnB.getWallet();
-
-    // need to register first otherwise the new PXE won't know about the account
-    await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).rejects.toThrow();
-
-    await accountOnB.register();
-    // registering should wait for the account to be synchronized
-    await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
+    await expectTokenBalance(walletA, token, walletB.getAddress(), 0n, logger);
   });
 
   it('permits sending funds to a user before they have registered the contract', async () => {
@@ -208,7 +188,6 @@ describe('e2e_2_pxes', () => {
     const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
-    await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
 
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
@@ -242,7 +221,6 @@ describe('e2e_2_pxes', () => {
     // PXE-B reprocesses the deferred notes, and sees the nullifier for A -> Shared
     await pxeB.registerContract(token);
     await expectTokenBalance(walletB, token, walletB.getAddress(), transferAmount2, logger);
-    await expect(sharedWalletOnB.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
     await expectTokenBalance(
       sharedWalletOnB,
       token,

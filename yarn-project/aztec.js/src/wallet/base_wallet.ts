@@ -170,14 +170,8 @@ export abstract class BaseWallet implements Wallet {
   isGlobalStateSynchronized() {
     return this.pxe.isGlobalStateSynchronized();
   }
-  isAccountStateSynchronized(account: AztecAddress) {
-    return this.pxe.isAccountStateSynchronized(account);
-  }
   getSyncStatus(): Promise<SyncStatus> {
     return this.pxe.getSyncStatus();
-  }
-  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }> {
-    return this.pxe.getSyncStats();
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
