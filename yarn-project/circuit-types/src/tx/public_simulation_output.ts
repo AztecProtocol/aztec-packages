@@ -2,6 +2,7 @@ import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
 import { mapValues } from '@aztec/foundation/collection';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
+import times from 'lodash.times';
 import { z } from 'zod';
 
 import { SimulationError } from '../simulation_error.js';
@@ -46,6 +47,13 @@ export class NestedProcessReturnValues {
 
   static empty() {
     return new NestedProcessReturnValues([]);
+  }
+
+  static random(depth = 1): NestedProcessReturnValues {
+    return new NestedProcessReturnValues(
+      times(3, Fr.random),
+      depth > 0 ? [NestedProcessReturnValues.random(depth - 1)] : [],
+    );
   }
 }
 
@@ -101,6 +109,16 @@ export class PublicSimulationOutput {
         ? json.publicReturnValues.map((returns: any) => NestedProcessReturnValues.fromJSON(returns))
         : [],
       mapValues(json.gasUsed, gas => Gas.fromJSON(gas)),
+    );
+  }
+
+  static random() {
+    return new PublicSimulationOutput(
+      SimulationError.random(),
+      CombinedConstantData.empty(),
+      TxEffect.empty(),
+      times(2, NestedProcessReturnValues.random),
+      { teardownGas: Gas.random(), totalGas: Gas.random() },
     );
   }
 }

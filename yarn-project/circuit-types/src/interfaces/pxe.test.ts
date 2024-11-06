@@ -51,6 +51,8 @@ describe('PXESchema', () => {
   let artifact: ContractArtifact;
   let instance: ContractInstanceWithAddress;
 
+  const tested = new Set<string>();
+
   beforeAll(() => {
     const path = resolve(fileURLToPath(import.meta.url), '../../test/artifacts/token_contract-Token.json');
     artifact = loadContractArtifact(JSON.parse(readFileSync(path, 'utf-8')));
@@ -72,7 +74,13 @@ describe('PXESchema', () => {
   });
 
   afterEach(() => {
+    tested.add(/^PXESchema\s+([^(]+)/.exec(expect.getState().currentTestName!)![1]);
     context.httpServer.close();
+  });
+
+  afterAll(() => {
+    const all = Object.keys(PXESchema);
+    expect([...tested].sort()).toEqual(all.sort());
   });
 
   it('addAuthWitness', async () => {
