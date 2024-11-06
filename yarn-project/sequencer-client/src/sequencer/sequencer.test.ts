@@ -192,7 +192,7 @@ describe('sequencer', () => {
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
       new NoopTelemetryClient(),
     );
-    sequencer.setL1GenesisTime(BigInt(Math.floor(Date.now() / 1000)));
+    sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000));
   });
 
   it('builds a block out of a single tx', async () => {
@@ -229,7 +229,7 @@ describe('sequencer', () => {
     'does not build a block if it does not have enough time left in the slot',
     async ({ previousState, delayedState, maxTime }) => {
       // trick the sequencer into thinking that we are just too far into the slot
-      sequencer.setL1GenesisTime(BigInt(Math.floor(Date.now() / 1000)) - BigInt(maxTime + 1));
+      sequencer.setL1GenesisTime(Math.floor(Date.now() / 1000) - (maxTime + 1));
 
       const tx = mockTxForRollup();
       tx.data.constants.txContext.chainId = chainId;
@@ -826,7 +826,7 @@ describe('sequencer', () => {
 });
 
 class TestSubject extends Sequencer {
-  public setL1GenesisTime(l1GenesisTime: bigint) {
+  public setL1GenesisTime(l1GenesisTime: number) {
     this.l1GenesisTime = l1GenesisTime;
   }
   public override work() {

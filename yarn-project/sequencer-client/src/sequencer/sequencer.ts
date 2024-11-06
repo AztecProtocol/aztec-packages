@@ -72,7 +72,7 @@ export class Sequencer {
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
-  protected l1GenesisTime: bigint;
+  protected l1GenesisTime: number;
 
   constructor(
     private publisher: L1Publisher,
@@ -89,7 +89,7 @@ export class Sequencer {
     private config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.l1GenesisTime = BigInt(0);
+    this.l1GenesisTime = 0;
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
@@ -145,7 +145,7 @@ export class Sequencer {
   public async start() {
     const rollup = this.publisher.getRollupContract();
     const [l1GenesisTime] = await Promise.all([rollup.read.GENESIS_TIME()] as const);
-    this.l1GenesisTime = l1GenesisTime;
+    this.l1GenesisTime = Number(l1GenesisTime);
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
     this.setState(SequencerState.PROPOSER_CHECK, true /** force */);
@@ -329,20 +329,18 @@ export class Sequencer {
       return true;
     }
 
-    const timeInSlot = Number(
-      (BigInt(Math.floor(Date.now() / 1000)) - this.l1GenesisTime) % BigInt(AZTEC_SLOT_DURATION),
-    );
-    const buffer = MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState] - timeInSlot;
-    this.metrics.recordStateTransitionBuffer(buffer, proposedState);
+    const secondsIntoSlot = (Date.now() / 1000 - this.l1GenesisTime) % AZTEC_SLOT_DURATION;
+    const bufferSeconds = MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState] - secondsIntoSlot;
+    this.metrics.recordStateTransitionBufferMs(bufferSeconds * 1000, proposedState);
 
-    if (buffer < 0) {
+    if (bufferSeconds < 0) {
       this.log.warn(
-        `Too far into slot to transition to ${proposedState}. max allowed: ${MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState]}s, time into slot: ${timeInSlot}s`,
+        `Too far into slot to transition to ${proposedState}. max allowed: ${MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
       );
       return false;
     }
     this.log.debug(
-      `Enough time to transition to ${proposedState}, max allowed: ${MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState]}s, time into slot: ${timeInSlot}s`,
+      `Enough time to transition to ${proposedState}, max allowed: ${MAX_SECONDS_INTO_SLOT_PER_STATE[proposedState]}s, time into slot: ${secondsIntoSlot}s`,
     );
     return true;
   }

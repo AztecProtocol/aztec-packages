@@ -91,7 +91,7 @@ export class SequencerMetrics {
     this.setCurrentBlock(blockNumber, txCount);
   }
 
-  recordStateTransitionBuffer(durationMs: number, state: SequencerState) {
+  recordStateTransitionBufferMs(durationMs: number, state: SequencerState) {
     this.stateTransitionBufferDuration.record(durationMs, {
       [Attributes.SEQUENCER_STATE]: state,
     });
