@@ -24,9 +24,11 @@ import {
   REVERT_CODE_PREFIX,
   RevertCode,
   TX_FEE_PREFIX,
+  TX_START_PREFIX,
   UNENCRYPTED_LOGS_PREFIX,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import {
@@ -37,6 +39,11 @@ import {
 } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+
+// These are helper constants to decode tx effects from blob encoded fields
+const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
+// 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
+const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
 
 export class TxEffect {
   constructor(
@@ -275,17 +282,74 @@ export class TxEffect {
   }
 
   /**
+   * Encodes the first field of a tx effect as used in a blob:
+   * TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+   */
+  private encodeFirstField(length: number, revertCode: RevertCode) {
+    const lengthBuf = Buffer.alloc(2);
+    lengthBuf.writeUInt16BE(length, 0);
+    return new Fr(
+      Buffer.concat([
+        toBufferBE(TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH),
+        Buffer.alloc(1),
+        lengthBuf,
+        Buffer.alloc(1),
+        Buffer.from([REVERT_CODE_PREFIX]),
+        Buffer.alloc(1),
+        revertCode.toBuffer(),
+      ]),
+    );
+  }
+
+  /**
+   * Decodes the first field of a tx effect as used in a blob:
+   * TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+   * Assumes that isFirstField has been called already.
+   */
+  static decodeFirstField(field: Fr) {
+    const buf = field.toBuffer().subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
+    return {
+      length: new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber(),
+      revertCode: buf[buf.length - 1],
+    };
+  }
+
+  /**
+   * Determines whether a field is the first field of a tx effect
+   */
+  static isFirstField(field: Fr) {
+    const buf = field.toBuffer();
+    if (
+      !buf
+        .subarray(0, field.size - TX_EFFECT_PREFIX_BYTE_LENGTH)
+        .equals(Buffer.alloc(field.size - TX_EFFECT_PREFIX_BYTE_LENGTH))
+    ) {
+      return false;
+    }
+    const sliced = buf.subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
+    if (
+      // Checking we start with the correct prefix...
+      !new Fr(sliced.subarray(0, TX_START_PREFIX_BYTES_LENGTH)).equals(new Fr(TX_START_PREFIX)) ||
+      // ...and include the revert code prefix..
+      sliced[sliced.length - 3] !== REVERT_CODE_PREFIX ||
+      // ...and the following revert code is valid.
+      sliced[sliced.length - 1] > 4
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Returns a flat packed array of prefixed fields of all tx effects, used for blobs.
    */
   toFields(): Fr[] {
-    // TODO(Miranda): Check this nullifier trick is sufficient
     if (this.isEmpty()) {
       return [];
     }
     const flattened: Fr[] = [];
-    // Since the revert code and tx fee are always included and < 31 bytes,
-    // we don't need an extra prefix, so we push one value:
-    flattened.push(this.toPrefix(REVERT_CODE_PREFIX, this.revertCode.toField().toNumber()));
+    // We reassign the first field when we know the length of all effects - see below
+    flattened.push(Fr.ZERO);
     // TODO: how long should tx fee be? For now, not using toPrefix()
     flattened.push(
       new Fr(
@@ -322,6 +386,12 @@ export class TxEffect {
       flattened.push(this.toPrefix(UNENCRYPTED_LOGS_PREFIX, this.unencryptedLogs.unrollLogs().length));
       flattened.push(...this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
     }
+
+    // The first value appended to each list of fields representing a tx effect is:
+    // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+    // Tx start and len are to aid decomposing/ identifying when we reach a new tx effect
+    // The remaining bytes are used for revert code, since that only requires 3 bytes
+    flattened[0] = this.encodeFirstField(flattened.length, this.revertCode);
     return flattened;
   }
 
@@ -335,9 +405,21 @@ export class TxEffect {
     encryptedLogs?: EncryptedTxL2Logs,
     unencryptedLogs?: UnencryptedTxL2Logs,
   ) {
-    const reader = FieldReader.asReader(fields);
+    const ensureEmpty = <T>(arr: Array<T>) => {
+      if (arr.length) {
+        throw new Error('Invalid fields given to TxEffect.fromFields(): Attempted to assign property twice.');
+      }
+    };
     const effect = this.empty();
-    const { type: _, length: revertCode } = this.fromPrefix(reader.readField());
+    if (!(fields instanceof FieldReader) && !fields.length) {
+      return effect;
+    }
+    const reader = FieldReader.asReader(fields);
+    const firstField = reader.readField();
+    if (!this.isFirstField(firstField)) {
+      throw new Error('Invalid fields given to TxEffect.fromFields(): First field invalid.');
+    }
+    const { length: _, revertCode } = this.decodeFirstField(firstField);
     effect.revertCode = RevertCode.fromField(new Fr(revertCode));
     // TODO: how long should tx fee be? For now, not using fromPrefix()
     const prefixedFee = reader.readField();
@@ -347,15 +429,19 @@ export class TxEffect {
       const { type, length } = this.fromPrefix(reader.readField());
       switch (type) {
         case NOTES_PREFIX:
+          ensureEmpty(effect.noteHashes);
           effect.noteHashes = reader.readFieldArray(length);
           break;
         case NULLIFIERS_PREFIX:
+          ensureEmpty(effect.nullifiers);
           effect.nullifiers = reader.readFieldArray(length);
           break;
         case L2_L1_MSGS_PREFIX:
+          ensureEmpty(effect.l2ToL1Msgs);
           effect.l2ToL1Msgs = reader.readFieldArray(length);
           break;
         case PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: {
+          ensureEmpty(effect.publicDataWrites);
           const publicDataPairs = reader.readFieldArray(length);
           for (let i = 0; i < length; i += 2) {
             effect.publicDataWrites.push(new PublicDataWrite(publicDataPairs[i], publicDataPairs[i + 1]));
@@ -365,6 +451,7 @@ export class TxEffect {
         // TODO(#8954): When logs are refactored into fields, we will append the read fields here
         case NOTE_ENCRYPTED_LOGS_PREFIX:
           // effect.noteEncryptedLogs = EncryptedNoteTxL2Logs.fromFields(reader.readFieldArray(length));
+          ensureEmpty(effect.noteEncryptedLogs.functionLogs);
           if (!noteEncryptedLogs) {
             throw new Error(`Tx effect has note logs, but they were not passed raw to .fromFields()`);
           }
@@ -374,6 +461,7 @@ export class TxEffect {
           break;
         case ENCRYPTED_LOGS_PREFIX:
           // effect.encryptedLogs = EncryptedTxL2Logs.fromFields(reader.readFieldArray(length));
+          ensureEmpty(effect.encryptedLogs.functionLogs);
           if (!encryptedLogs) {
             throw new Error(`Tx effect has encrypted logs, but they were not passed raw to .fromFields()`);
           }
@@ -383,6 +471,7 @@ export class TxEffect {
           break;
         case UNENCRYPTED_LOGS_PREFIX:
           // effect.unencryptedLogs = UnencryptedTxL2Logs.fromFields(reader.readFieldArray(length));
+          ensureEmpty(effect.unencryptedLogs.functionLogs);
           if (!unencryptedLogs) {
             throw new Error(`Tx effect has unencrypted logs, but they were not passed raw to .fromFields()`);
           }

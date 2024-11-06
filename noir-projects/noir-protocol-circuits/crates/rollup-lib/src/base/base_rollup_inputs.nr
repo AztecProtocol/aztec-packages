@@ -537,7 +537,7 @@ mod tests {
             PRIVATE_KERNEL_TAIL_INDEX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
             PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
-            TX_FEE_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -1172,8 +1172,15 @@ mod tests {
         let mut tx_effects = [0; 53];
         // TODO(#8954): This test uses 50 notes and 3 extra absorbed fields
         // This may change when logs are deconstructed
-        // The first 3 are: i=0 revert code, i=1: tx fee, i=2: note prefix
-        tx_effects[0] = field_from_bytes([REVERT_CODE_PREFIX, 0, 0], true);
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // The first 3 are: i=0 init field, i=1: tx fee, i=2: note prefix
+        tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [0, 0, tx_effects.len(), 0, REVERT_CODE_PREFIX, 0, 0],
+            ),
+            true,
+        );
         tx_effects[1] = field_from_bytes(
             array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
             true,
@@ -1223,8 +1230,16 @@ mod tests {
         let outputs = builder.execute();
 
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0
-        reconstructed_tx_effects[0] = field_from_bytes([REVERT_CODE_PREFIX, 0, 0], true);
+        // fields appended here = 129 = offset once appending complete
+        reconstructed_tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [0, 0, 129, 0, REVERT_CODE_PREFIX, 0, 0],
+            ),
+            true,
+        );
         // tx fee
         let tx_fee =
             builder.kernel_data.gas_used.compute_fee(builder.constants.global_variables.gas_fees);

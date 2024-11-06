@@ -16,7 +16,7 @@ use dep::types::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
-        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
         UNENCRYPTED_LOGS_PREFIX,
     },
     hash::{
@@ -295,9 +295,11 @@ pub fn append_tx_effects_for_blob(
     let mut offset = 0;
     let mut array_len = 0;
 
-    // REVERT CODE
-    // upcast to Field to have the same size for the purposes of the hash
-    tx_effects_hash_input[offset] = field_from_bytes([REVERT_CODE_PREFIX, 0, revert_code], true);
+    // NB: for publishing fields of blob data we use the first element of the blob to encode:
+    // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+    // Two bytes are used to encode the number of fields appended here, given by 'offset'
+    // We only know the value once the appending is complete, hence we overwrite input[0] below
+    tx_effects_hash_input[offset] = 0;
     offset += 1;
 
     // TX FEE
@@ -407,6 +409,21 @@ pub fn append_tx_effects_for_blob(
         }
         offset += array_len;
     }
+
+    // Now we know the number of fields appended, we can assign the first value:
+    // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+    // Start prefix is "tx_start".to_field() => 8 bytes
+    let prefix_bytes = TX_START_PREFIX.to_be_bytes::<8>();
+    // Assigning length to 2 bytes, since we may go over 255 fields
+    let length_bytes = (offset as Field).to_be_bytes::<2>();
+    // REVERT CODE
+    tx_effects_hash_input[0] = field_from_bytes(
+        array_concat(
+            prefix_bytes,
+            [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, revert_code],
+        ),
+        true,
+    );
 
     // NB: using start.absorb & returning start caused issues in ghost values appearing in
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.

@@ -282,6 +282,7 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
+  uint256 internal constant TX_START_PREFIX = 8392562855083340404;
   uint256 internal constant REVERT_CODE_PREFIX = 1;
   uint256 internal constant TX_FEE_PREFIX = 2;
   uint256 internal constant NOTES_PREFIX = 3;

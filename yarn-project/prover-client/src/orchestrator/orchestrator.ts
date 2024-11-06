@@ -937,7 +937,6 @@ export class ProvingOrchestrator implements EpochProver {
         provingState.finalProof = result.proof.binaryProof;
         const blobOutputs = result.inputs.blobPublicInputs[0];
 
-        // TODO(Miranda): Move the below checks to wherever the ts blob struct will live
         if (!blobOutputs.equals(BlobPublicInputs.fromBlob(blob))) {
           throw new Error(
             `Rollup circuits produced mismatched blob evaluation:

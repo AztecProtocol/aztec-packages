@@ -706,6 +706,7 @@ global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
+global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
 global REVERT_CODE_PREFIX: u8 = 1;
 global TX_FEE_PREFIX: u8 = 2;
 global NOTES_PREFIX: u8 = 3;

@@ -28,9 +28,12 @@ try {
     throw new Error(error);
   }
 }
+
+// The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
 const VERSIONED_HASH_VERSION_KZG = 0x01;
+
 /**
- * First run at a simple blob class TODO: Test a lot
+ * A class to create, manage, and prove EVM blobs.
  */
 export class Blob {
   /** The blob to be broadcast on L1 in bytes form. */
@@ -72,7 +75,7 @@ export class Blob {
     return [new Fr(this.commitment.subarray(0, 31)), new Fr(this.commitment.subarray(31, 48))];
   }
 
-  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash
+  // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
   getEthVersionedBlobHash(): Buffer {
     const hash = sha256(this.commitment);
     hash[0] = VERSIONED_HASH_VERSION_KZG;
@@ -85,6 +88,7 @@ export class Blob {
   //  * input[64:96]   - y
   //  * input[96:144]  - commitment C
   //  * input[144:192] - proof (a commitment to the quotient polynomial q(X))
+  // See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
   getEthBlobEvaluationInputs(): `0x${string}` {
     const buf = Buffer.concat([
       this.getEthVersionedBlobHash(),

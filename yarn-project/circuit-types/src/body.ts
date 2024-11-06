@@ -58,27 +58,16 @@ export class Body {
     encryptedLogs?: EncryptedL2BlockL2Logs,
     unencryptedLogs?: UnencryptedL2BlockL2Logs,
   ) {
-    // TODO(Miranda): Probably also encode a length per tx in the first (revertcode) elt to avoid doing the below
     const txEffectsFields: Fr[][] = [];
-    let startIndex = -1;
-    fields.forEach((field, i) => {
-      if (
-        // Checking that we start with the revert code...
-        TxEffect.fromPrefix(field).type == 1 &&
-        // ... and the value is a valid revert code..
-        TxEffect.fromPrefix(field).length < 4 &&
-        // ... and the next value is a tx fee:
-        fields[i + 1].toBuffer().readUint8(1) == 2
-      ) {
-        if (startIndex !== -1) {
-          // push each tx effect's fields
-          txEffectsFields.push(fields.slice(startIndex, i));
-        }
-        startIndex = i;
+    let checkedFields = 0;
+    while (checkedFields !== fields.length) {
+      if (!TxEffect.isFirstField(fields[checkedFields])) {
+        throw new Error('Invalid fields given to Body.fromFields(): First field invalid.');
       }
-    });
-    // push the final tx effect's fields
-    txEffectsFields.push(fields.slice(startIndex, fields.length));
+      const len = TxEffect.decodeFirstField(fields[checkedFields]).length;
+      txEffectsFields.push(fields.slice(checkedFields, checkedFields + len));
+      checkedFields += len;
+    }
     const txEffects = txEffectsFields
       .filter(effect => effect.length)
       .map((effect, i) =>
