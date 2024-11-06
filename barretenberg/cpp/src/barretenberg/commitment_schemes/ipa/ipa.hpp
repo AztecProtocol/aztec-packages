@@ -199,7 +199,7 @@ template <typename Curve_> class IPA {
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
-        if (log_poly_length >= CONST_ECCVM_LOG_N) {
+        if (log_poly_length > CONST_ECCVM_LOG_N) {
             throw_or_abort("IPA log_poly_length is too large");
         }
 
@@ -335,7 +335,7 @@ template <typename Curve_> class IPA {
         Commitment aux_generator = Commitment::one() * generator_challenge;
 
         auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
-        if (log_poly_length >= CONST_ECCVM_LOG_N) {
+        if (log_poly_length > CONST_ECCVM_LOG_N) {
             throw_or_abort("IPA log_poly_length is too large");
         }
         // Step 3.
@@ -459,7 +459,7 @@ template <typename Curve_> class IPA {
         typename Curve::Builder* builder = generator_challenge.get_context();
 
         const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        if (log_poly_length >= CONST_ECCVM_LOG_N) {
+        if (log_poly_length > CONST_ECCVM_LOG_N) {
             throw_or_abort("IPA log_poly_length is too large");
         }
         auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
@@ -696,7 +696,7 @@ template <typename Curve_> class IPA {
         Builder* builder = r.get_context();
         Fr challenge_poly_eval = 1;
         Fr r_pow = r;
-        if (uint32_t(log_poly_length.get_value()) >= CONST_ECCVM_LOG_N) {
+        if (uint32_t(log_poly_length.get_value()) > CONST_ECCVM_LOG_N) {
             throw_or_abort("IPA log_poly_length is too large");
         }
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
