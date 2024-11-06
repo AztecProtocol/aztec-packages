@@ -75,13 +75,11 @@ export interface AztecNode extends ProverCoordination {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @param startIndex - The index to start searching from.
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
-    startIndex: bigint,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
   /**

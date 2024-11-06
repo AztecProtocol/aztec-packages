@@ -119,6 +119,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     } as FunctionAbi;
   }
 }

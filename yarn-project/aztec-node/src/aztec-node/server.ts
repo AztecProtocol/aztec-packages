@@ -30,7 +30,6 @@ import {
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
-  partitionReverts,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -44,7 +43,6 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
   type ProtocolContractAddresses,
@@ -376,6 +374,7 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
+    await this.telemetry.stop();
     this.log.info(`Stopped`);
   }
 
@@ -448,15 +447,13 @@ export class AztecNodeService implements AztecNode {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   public async getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
-    startIndex = 0n,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     if (index === undefined) {
       return undefined;
     }
@@ -471,15 +468,10 @@ export class AztecNodeService implements AztecNode {
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @param startL2BlockNumber - The block number after which we are interested in checking if the message was
-   * included.
-   * @remarks We pass in the minL2BlockNumber because there can be duplicate messages and the block number allow us
-   * to skip the duplicates (we know after which block a given message is to be included).
    * @returns Whether the message is synced and ready to be included in a block.
    */
-  public async isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber = INITIAL_L2_BLOCK_NUM): Promise<boolean> {
-    const startIndex = BigInt(startL2BlockNumber - INITIAL_L2_BLOCK_NUM) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex)) !== undefined;
+  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message)) !== undefined;
   }
 
   /**
@@ -743,18 +735,15 @@ export class AztecNodeService implements AztecNode {
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
-      // REFACTOR: Consider returning the error/revert rather than throwing
+      // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
         throw failedTxs[0].error;
       }
-      const { reverted } = partitionReverts(processedTxs);
-      if (reverted.length) {
-        this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
-        throw reverted[0].revertReason;
-      }
-      this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
+
       const [processedTx] = processedTxs;
+      this.log.debug(`Simulated tx ${tx.getTxHash()} ${processedTx.revertReason ? 'Reverts' : 'Succeeds'}`);
+
       return new PublicSimulationOutput(
         processedTx.encryptedLogs,
         processedTx.unencryptedLogs,

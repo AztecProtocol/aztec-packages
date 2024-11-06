@@ -15,7 +15,7 @@ interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
+  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
 }
 
 interface IRollup {
@@ -31,8 +31,6 @@ interface IRollup {
   );
 
   function prune() external;
-
-  function canPrune() external view returns (bool);
 
   function claimEpochProofRight(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote) external;
 
@@ -83,7 +81,7 @@ interface IRollup {
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
-  function status(uint256 myHeaderBlockNumber)
+  function status(uint256 _myHeaderBlockNumber)
     external
     view
     returns (
@@ -95,21 +93,23 @@ interface IRollup {
       Epoch provenEpochNumber
     );
 
-  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory quote)
+  function quoteToDigest(EpochProofQuoteLib.EpochProofQuote memory _quote)
     external
     view
     returns (bytes32);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function canPrune() external view returns (bool);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
   function getClaimableEpoch() external view returns (Epoch);
-  function getEpochForBlock(uint256 blockNumber) external view returns (Epoch);
-  function validateEpochProofRightClaim(EpochProofQuoteLib.SignedEpochProofQuote calldata _quote)
-    external
-    view;
+  function validateEpochProofRightClaimAtTime(
+    Timestamp _ts,
+    EpochProofQuoteLib.SignedEpochProofQuote calldata _quote
+  ) external view;
+  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,

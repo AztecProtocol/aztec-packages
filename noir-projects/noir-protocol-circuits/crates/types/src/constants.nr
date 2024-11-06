@@ -133,6 +133,7 @@ global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
+global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
@@ -477,9 +478,9 @@ global RECURSIVE_PROOF_LENGTH: u32 = 463;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 463;
 global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128; // size of an Ultra verification key
 
-global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143;
+global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)

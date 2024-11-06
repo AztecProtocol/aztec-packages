@@ -4,11 +4,9 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ApellaBase} from "./base.t.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 
 contract ProposeTest is ApellaBase {
   function test_WhenCallerIsNotGerousia() external {
@@ -45,7 +43,7 @@ contract ProposeTest is ApellaBase {
     assertEq(proposal.config.votingDelay, config.votingDelay);
     assertEq(proposal.config.votingDuration, config.votingDuration);
     assertEq(proposal.creation, Timestamp.wrap(block.timestamp));
-    assertEq(proposal.creator, address(gerousia));
+    assertEq(proposal.gerousia, address(gerousia));
     assertEq(proposal.summedBallot.nea, 0);
     assertEq(proposal.summedBallot.yea, 0);
     assertTrue(proposal.state == DataStructures.ProposalState.Pending);

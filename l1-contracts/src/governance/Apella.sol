@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IApella} from "@aztec/governance/interfaces/IApella.sol";
-
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
-
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -40,6 +37,10 @@ contract Apella is IApella {
     gerousia = _gerousia;
 
     configuration = DataStructures.Configuration({
+      proposeConfig: DataStructures.ProposeConfiguration({
+        lockDelay: Timestamp.wrap(3600),
+        lockAmount: 1000e18
+      }),
       votingDelay: Timestamp.wrap(3600),
       votingDuration: Timestamp.wrap(3600),
       executionDelay: Timestamp.wrap(3600),
@@ -84,21 +85,7 @@ contract Apella is IApella {
     override(IApella)
     returns (uint256)
   {
-    users[msg.sender].sub(_amount);
-    total.sub(_amount);
-
-    uint256 withdrawalId = withdrawalCount++;
-
-    withdrawals[withdrawalId] = DataStructures.Withdrawal({
-      amount: _amount,
-      unlocksAt: Timestamp.wrap(block.timestamp) + configuration.lockDelay(),
-      recipient: _to,
-      claimed: false
-    });
-
-    emit WithdrawInitiated(withdrawalId, _to, _amount);
-
-    return withdrawalId;
+    return _initiateWithdraw(_to, _amount, configuration.withdrawalDelay());
   }
 
   function finaliseWithdraw(uint256 _withdrawalId) external override(IApella) {
@@ -117,21 +104,37 @@ contract Apella is IApella {
 
   function propose(IPayload _proposal) external override(IApella) returns (bool) {
     require(msg.sender == gerousia, Errors.Apella__CallerNotGerousia(msg.sender, gerousia));
+    return _propose(_proposal);
+  }
 
-    uint256 proposalId = proposalCount++;
+  /**
+   * @notice  Propose a new proposal by locking up a bunch of power
+   *
+   *          Beware that if the gerousia changes these proposals will also be dropped
+   *          This is to ensure consistency around way proposals are made, and they should
+   *          really be using the proposal logic in Gerousia, which might have a similar
+   *          mechanism in place as well.
+   *          It is here for emergency purposes.
+   *          Using the lock should be a last resort if the Gerousia is broken.
+   *
+   * @param _proposal The proposal to propose
+   * @param _to The address to send the lock to
+   * @return True if the proposal was proposed
+   */
+  function proposeWithLock(IPayload _proposal, address _to)
+    external
+    override(IApella)
+    returns (bool)
+  {
+    uint256 availablePower = users[msg.sender].powerNow();
+    uint256 amount = configuration.proposeConfig.lockAmount;
 
-    proposals[proposalId] = DataStructures.Proposal({
-      config: configuration,
-      state: DataStructures.ProposalState.Pending,
-      payload: _proposal,
-      creator: msg.sender,
-      creation: Timestamp.wrap(block.timestamp),
-      summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
-    });
+    require(
+      amount <= availablePower, Errors.Apella__InsufficientPower(msg.sender, availablePower, amount)
+    );
 
-    emit Proposed(proposalId, address(_proposal));
-
-    return true;
+    _initiateWithdraw(_to, amount, configuration.proposeConfig.lockDelay);
+    return _propose(_proposal);
   }
 
   function vote(uint256 _proposalId, uint256 _amount, bool _support)
@@ -181,12 +184,27 @@ contract Apella is IApella {
     for (uint256 i = 0; i < actions.length; i++) {
       require(actions[i].target != address(ASSET), Errors.Apella__CannotCallAsset());
       // We allow calls to EOAs. If you really want be my guest.
+      // solhint-disable-next-line avoid-low-level-calls
       (bool success,) = actions[i].target.call(actions[i].data);
       require(success, Errors.Apella__CallFailed(actions[i].target));
     }
 
     emit ProposalExecuted(_proposalId);
 
+    return true;
+  }
+
+  function dropProposal(uint256 _proposalId) external override(IApella) returns (bool) {
+    DataStructures.Proposal storage self = proposals[_proposalId];
+    require(
+      self.state != DataStructures.ProposalState.Dropped, Errors.Apella__ProposalAlreadyDropped()
+    );
+    require(
+      getProposalState(_proposalId) == DataStructures.ProposalState.Dropped,
+      Errors.Apella__ProposalCannotBeDropped()
+    );
+
+    self.state = DataStructures.ProposalState.Dropped;
     return true;
   }
 
@@ -204,34 +222,31 @@ contract Apella is IApella {
     return total.powerAt(_ts);
   }
 
-  function getConfiguration() external view returns (DataStructures.Configuration memory) {
+  function getConfiguration()
+    external
+    view
+    override(IApella)
+    returns (DataStructures.Configuration memory)
+  {
     return configuration;
   }
 
-  function getProposal(uint256 _proposalId) external view returns (DataStructures.Proposal memory) {
+  function getProposal(uint256 _proposalId)
+    external
+    view
+    override(IApella)
+    returns (DataStructures.Proposal memory)
+  {
     return proposals[_proposalId];
   }
 
   function getWithdrawal(uint256 _withdrawalId)
     external
     view
+    override(IApella)
     returns (DataStructures.Withdrawal memory)
   {
     return withdrawals[_withdrawalId];
-  }
-
-  function dropProposal(uint256 _proposalId) external returns (bool) {
-    DataStructures.Proposal storage self = proposals[_proposalId];
-    require(
-      self.state != DataStructures.ProposalState.Dropped, Errors.Apella__ProposalAlreadyDropped()
-    );
-    require(
-      getProposalState(_proposalId) == DataStructures.ProposalState.Dropped,
-      Errors.Apella__ProposalCannotBeDropped()
-    );
-
-    self.state = DataStructures.ProposalState.Dropped;
-    return true;
   }
 
   /**
@@ -255,7 +270,7 @@ contract Apella is IApella {
     }
 
     // If the gerousia have changed we mark is as dropped
-    if (gerousia != self.creator) {
+    if (gerousia != self.gerousia) {
       return DataStructures.ProposalState.Dropped;
     }
 
@@ -284,5 +299,43 @@ contract Apella is IApella {
     }
 
     return DataStructures.ProposalState.Expired;
+  }
+
+  function _initiateWithdraw(address _to, uint256 _amount, Timestamp _delay)
+    internal
+    returns (uint256)
+  {
+    users[msg.sender].sub(_amount);
+    total.sub(_amount);
+
+    uint256 withdrawalId = withdrawalCount++;
+
+    withdrawals[withdrawalId] = DataStructures.Withdrawal({
+      amount: _amount,
+      unlocksAt: Timestamp.wrap(block.timestamp) + _delay,
+      recipient: _to,
+      claimed: false
+    });
+
+    emit WithdrawInitiated(withdrawalId, _to, _amount);
+
+    return withdrawalId;
+  }
+
+  function _propose(IPayload _proposal) internal returns (bool) {
+    uint256 proposalId = proposalCount++;
+
+    proposals[proposalId] = DataStructures.Proposal({
+      config: configuration,
+      state: DataStructures.ProposalState.Pending,
+      payload: _proposal,
+      gerousia: gerousia,
+      creation: Timestamp.wrap(block.timestamp),
+      summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
+    });
+
+    emit Proposed(proposalId, address(_proposal));
+
+    return true;
   }
 }

@@ -78,18 +78,22 @@ export class TestContext {
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
-    let actualDb: MerkleTreeWriteOperations;
+    // Separated dbs for public processor and prover - see public_processor for context
+    let publicDb: MerkleTreeWriteOperations;
+    let proverDb: MerkleTreeWriteOperations;
 
     if (worldState === 'native') {
       const ws = await NativeWorldStateService.tmp();
-      actualDb = await ws.fork();
+      publicDb = await ws.fork();
+      proverDb = await ws.fork();
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);
-      actualDb = await ws.getLatest();
+      publicDb = await ws.getLatest();
+      proverDb = await ws.getLatest();
     }
 
     const processor = PublicProcessor.create(
-      actualDb,
+      publicDb,
       publicExecutor,
       publicKernel,
       globalVariables,
@@ -122,7 +126,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
+    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -134,7 +138,7 @@ export class TestContext {
       processor,
       simulationProvider,
       globalVariables,
-      actualDb,
+      proverDb,
       localProver,
       agent,
       orchestrator,

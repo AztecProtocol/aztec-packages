@@ -1,4 +1,4 @@
-import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import type { FunctionCall, PrivateKernelProverProfileResult, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
 import {
   type FunctionAbi,
@@ -25,6 +25,14 @@ export type SimulateMethodOptions = {
   gasSettings?: GasSettings;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
+};
+
+/**
+ * The result of a profile() call.
+ */
+export type ProfileResult = PrivateKernelProverProfileResult & {
+  /** The result of the transaction as returned by the contract function. */
+  returnValues: any;
 };
 
 /**
@@ -109,5 +117,31 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         : simulatedTx.getPublicReturnValues()?.[0].values;
 
     return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+  }
+
+  /**
+   * Simulate a transaction and profile the gate count for each function in the transaction.
+   * @param options - Same options as `simulate`.
+   *
+   * @returns An object containing the function return value and profile result.
+   */
+  public async simulateWithProfile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
+    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
+      throw new Error("Can't profile an unconstrained function.");
+    }
+
+    const txRequest = await this.create();
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation, true);
+
+    const rawReturnValues =
+      this.functionDao.functionType == FunctionType.PRIVATE
+        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
+        : simulatedTx.getPublicReturnValues()?.[0].values;
+    const rawReturnValuesDecoded = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+
+    return {
+      returnValues: rawReturnValuesDecoded,
+      gateCounts: simulatedTx.profileResult!.gateCounts,
+    };
   }
 }

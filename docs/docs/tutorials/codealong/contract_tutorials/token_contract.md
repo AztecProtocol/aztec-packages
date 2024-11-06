@@ -77,9 +77,9 @@ These are functions that have transparent logic, will execute in a publicly veri
 These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
 - `redeem_shield` enables accounts to claim tokens that have been made private via `mint_private` or `shield` by providing the secret
-- `unshield` enables an account to send tokens from their private balance to any other account's public balance
+- `transfer_to_public` enables an account to send tokens from their private balance to any other account's public balance
 - `transfer` enables an account to send tokens from their private balance to another account's private balance
-- `transferFrom` enables an account to send tokens from another account's private balance to another account's private balance
+- `transfer_from` enables an account to send tokens from another account's private balance to another account's private balance
 - `cancel_authwit` enables an account to cancel an authorization to spend tokens
 - `burn` enables tokens to be burned privately
 
@@ -87,7 +87,7 @@ These are functions that have private logic and will be executed on user devices
 
 Internal functions are functions that can only be called by the contract itself. These can be used when the contract needs to call one of it's public functions from one of it's private functions.
 
-- `_increase_public_balance` increases the public balance of an account when `unshield` is called
+- `_increase_public_balance` increases the public balance of an account when `transfer_to_public` is called
 - `_reduce_total_supply` reduces the total supply of tokens when a token is privately burned
 
 To clarify, let's review some details of the Aztec transaction lifecycle, particularly how a transaction "moves through" these contexts.
@@ -133,7 +133,6 @@ We are importing:
 
 - `CompressedString` to hold the token symbol
 - Types from `aztec::prelude`
-- `compute_secret_hash` that will help with the shielding and unshielding, allowing someone to claim a token from private to public
 - Types for storing note types
 
 ### Types files
@@ -206,7 +205,7 @@ First, storage is initialized. Then the function checks that the `msg_sender` is
 
 This public function allows an account approved in the public `minters` mapping to create new private tokens that can be claimed by anyone that has the pre-image to the `secret_hash`.
 
-First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. 
+First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function.
 
 #include_code mint_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -251,7 +250,7 @@ Private functions are declared with the `#[private]` macro above the function na
     fn redeem_shield(
 ```
 
-As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`unshield`](#unshield) function).
+As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`transfer_to_public`](#transfer_to_public) function).
 
 Storage is referenced as `storage.variable`.
 
@@ -265,7 +264,7 @@ The function returns `1` to indicate successful execution.
 
 #include_code redeem_shield /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-#### `unshield`
+#### `transfer_to_public`
 
 This private function enables un-shielding of private `UintNote`s stored in `balances` to any Aztec account's `public_balance`.
 
@@ -273,7 +272,7 @@ After initializing storage, the function checks that the `msg_sender` is authori
 
 The function returns `1` to indicate successful execution.
 
-#include_code unshield /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_to_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `transfer`
 
@@ -303,7 +302,7 @@ Internal functions are functions that can only be called by this contract. The f
 
 #### `_increase_public_balance`
 
-This function is called from [`unshield`](#unshield). The account's private balance is decremented in `shield` and the public balance is increased in this function.
+This function is called from [`transfer_to_public`](#transfer_to_public). The account's private balance is decremented in `shield` and the public balance is increased in this function.
 
 #include_code increase_public_balance /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 library ConfigurationLib {
@@ -18,9 +18,13 @@ library ConfigurationLib {
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(3600);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
-  function lockDelay(DataStructures.Configuration storage self) internal view returns (Timestamp) {
-    return Timestamp.wrap(Timestamp.unwrap(self.votingDelay) / 5) + self.votingDuration
-      + self.executionDelay;
+  function withdrawalDelay(DataStructures.Configuration storage _self)
+    internal
+    view
+    returns (Timestamp)
+  {
+    return Timestamp.wrap(Timestamp.unwrap(_self.votingDelay) / 5) + _self.votingDuration
+      + _self.executionDelay;
   }
 
   /**
@@ -28,49 +32,65 @@ library ConfigurationLib {
    * @dev     We specify `memory` here since it is called on outside import for validation
    *          before writing it to state.
    */
-  function assertValid(DataStructures.Configuration memory self) internal pure returns (bool) {
-    require(self.quorum >= QUORUM_LOWER, Errors.Apella__ConfigurationLib__QuorumTooSmall());
-    require(self.quorum <= QUORUM_UPPER, Errors.Apella__ConfigurationLib__QuorumTooBig());
+  function assertValid(DataStructures.Configuration memory _self) internal pure returns (bool) {
+    require(_self.quorum >= QUORUM_LOWER, Errors.Apella__ConfigurationLib__QuorumTooSmall());
+    require(_self.quorum <= QUORUM_UPPER, Errors.Apella__ConfigurationLib__QuorumTooBig());
 
     require(
-      self.voteDifferential <= DIFFERENTIAL_UPPER,
+      _self.voteDifferential <= DIFFERENTIAL_UPPER,
       Errors.Apella__ConfigurationLib__DifferentialTooBig()
     );
 
     require(
-      self.minimumVotes >= VOTES_LOWER, Errors.Apella__ConfigurationLib__InvalidMinimumVotes()
+      _self.minimumVotes >= VOTES_LOWER, Errors.Apella__ConfigurationLib__InvalidMinimumVotes()
+    );
+    require(
+      _self.proposeConfig.lockAmount >= VOTES_LOWER,
+      Errors.Apella__ConfigurationLib__LockAmountTooSmall()
+    );
+
+    // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal delay
+    // this, can be useful if one want to ensure that the "locker" cannot himself vote in the proposal, but as it is unclear
+    // if this is a useful property, it is not enforced.
+    require(
+      _self.proposeConfig.lockDelay >= TIME_LOWER,
+      Errors.Apella__ConfigurationLib__TimeTooSmall("LockDelay")
+    );
+    require(
+      _self.proposeConfig.lockDelay <= TIME_UPPER,
+      Errors.Apella__ConfigurationLib__TimeTooBig("LockDelay")
     );
 
     require(
-      self.votingDelay >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("VotingDelay")
+      _self.votingDelay >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("VotingDelay")
     );
     require(
-      self.votingDelay <= TIME_UPPER, Errors.Apella__ConfigurationLib__TimeTooBig("VotingDelay")
+      _self.votingDelay <= TIME_UPPER, Errors.Apella__ConfigurationLib__TimeTooBig("VotingDelay")
     );
 
     require(
-      self.votingDuration >= TIME_LOWER,
+      _self.votingDuration >= TIME_LOWER,
       Errors.Apella__ConfigurationLib__TimeTooSmall("VotingDuration")
     );
     require(
-      self.votingDuration <= TIME_UPPER,
+      _self.votingDuration <= TIME_UPPER,
       Errors.Apella__ConfigurationLib__TimeTooBig("VotingDuration")
     );
 
     require(
-      self.executionDelay >= TIME_LOWER,
+      _self.executionDelay >= TIME_LOWER,
       Errors.Apella__ConfigurationLib__TimeTooSmall("ExecutionDelay")
     );
     require(
-      self.executionDelay <= TIME_UPPER,
+      _self.executionDelay <= TIME_UPPER,
       Errors.Apella__ConfigurationLib__TimeTooBig("ExecutionDelay")
     );
 
     require(
-      self.gracePeriod >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("GracePeriod")
+      _self.gracePeriod >= TIME_LOWER, Errors.Apella__ConfigurationLib__TimeTooSmall("GracePeriod")
     );
     require(
-      self.gracePeriod <= TIME_UPPER, Errors.Apella__ConfigurationLib__TimeTooBig("GracePeriod")
+      _self.gracePeriod <= TIME_UPPER, Errors.Apella__ConfigurationLib__TimeTooBig("GracePeriod")
     );
 
     return true;

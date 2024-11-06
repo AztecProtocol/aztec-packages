@@ -15,3 +15,4 @@ export * from './proving-job.js';
 export * from './server_circuit_prover.js';
 export * from './sync-status.js';
 export * from './world_state.js';
+export * from './prover-node.js';

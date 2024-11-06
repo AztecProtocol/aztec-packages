@@ -1,15 +1,25 @@
 import {
   EmptyTxValidator,
   type EpochProver,
+  type EpochProvingJobState,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
+  MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   type ProverCoordination,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
+import {
+  KernelCircuitPublicInputs,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
+  PublicDataTreeLeaf,
+} from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -110,6 +120,11 @@ export class EpochProvingJob {
           uuid: this.uuid,
         });
 
+        if (txCount > txs.length) {
+          // If this block has a padding tx, ensure that the public processor's db has its state
+          await this.addPaddingTxState();
+        }
+
         // Mark block as completed and update archive tree
         await this.prover.setBlockCompleted(block.header);
         previousHeader = block.header;
@@ -177,12 +192,28 @@ export class EpochProvingJob {
 
     return processedTxs;
   }
+
+  private async addPaddingTxState() {
+    const emptyKernelOutput = KernelCircuitPublicInputs.empty();
+    await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, emptyKernelOutput.end.noteHashes);
+    await this.db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      emptyKernelOutput.end.nullifiers.map(n => n.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+    const allPublicDataWrites = padArrayEnd(
+      emptyKernelOutput.end.publicDataUpdateRequests.map(
+        ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
+      ),
+      PublicDataTreeLeaf.empty(),
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+    await this.db.batchInsert(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      allPublicDataWrites.map(x => x.toBuffer()),
+      PUBLIC_DATA_SUBTREE_HEIGHT,
+    );
+  }
 }
 
-export type EpochProvingJobState =
-  | 'initialized'
-  | 'processing'
-  | 'awaiting-prover'
-  | 'publishing-proof'
-  | 'completed'
-  | 'failed';
+export { type EpochProvingJobState };

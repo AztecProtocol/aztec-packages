@@ -97,13 +97,8 @@ describe('e2e_fees account_init', () => {
     });
 
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
-      const { secret } = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(
-        t.INITIAL_GAS_BALANCE,
-        t.INITIAL_GAS_BALANCE,
-        bobsAddress,
-      );
-
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, t.INITIAL_GAS_BALANCE, secret);
+      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(t.INITIAL_GAS_BALANCE, bobsAddress);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([t.INITIAL_GAS_BALANCE - tx.transactionFee!]);
@@ -130,7 +125,7 @@ describe('e2e_fees account_init', () => {
       // the new account should have paid the full fee to the FPC
       await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
 
-      // the FPC got paid through "unshield", so it's got a new public balance
+      // the FPC got paid through "transfer_to_public", so it's got a new public balance
       await expect(t.getBananaPublicBalanceFn(bananaFPC.address)).resolves.toEqual([
         fpcsInitialPublicBananas + actualFee,
       ]);
@@ -186,9 +181,6 @@ describe('e2e_fees account_init', () => {
       const bobsPublicKeys = deriveKeys(bobsSecretKey).publicKeys;
       const bobsSigningPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
       const bobsInstance = bobsAccountManager.getInstance();
-
-      // alice registers bobs keys in the pxe
-      await pxe.registerRecipient(bobsCompleteAddress);
 
       // and deploys bob's account, paying the fee from her balance
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
