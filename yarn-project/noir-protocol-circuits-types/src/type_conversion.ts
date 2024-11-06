@@ -1835,7 +1835,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
 ): PrivateKernelTailCircuitPublicInputs {
   const forRollup = new PartialPrivateTailPublicInputsForRollup(mapCombinedAccumulatedDataFromNoir(inputs.end));
   return new PrivateKernelTailCircuitPublicInputs(
-    mapCombinedConstantDataFromNoir(inputs.constants),
+    mapTxConstantDataFromNoir(inputs.constants),
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapAztecAddressFromNoir(inputs.fee_payer),
     undefined,

@@ -210,10 +210,10 @@ export function makeProcessedTxFromTxWithPublicCalls(
     }
   }
 
-  const noteEncryptedLogPreimagesLength = tx.noteEncryptedLogs.unrollLogs().reduce((accum, l) => accum + l.length, 0);
-  const encryptedLogPreimagesLength = tx.encryptedLogs.unrollLogs().reduce((accum, l) => accum + l.length, 0);
-  // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly.
-  const unencryptedLogPreimagesLength = tx.unencryptedLogs.unrollLogs().reduce((accum, l) => accum + l.length, 0);
+  const noteEncryptedLogPreimagesLength = tx.noteEncryptedLogs.getKernelLength();
+  const encryptedLogPreimagesLength = tx.encryptedLogs.getKernelLength();
+  // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
+  const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
 
   const txEffect = new TxEffect(
     revertCode,
