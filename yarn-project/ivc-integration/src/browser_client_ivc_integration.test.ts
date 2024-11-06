@@ -12,7 +12,6 @@ import {
   generate3FunctionTestingIVCStack,
   generate6FunctionTestingIVCStack,
   proveAndVerifyAztecClient,
-  proveAndVerifyBrowser,
 } from './index.js';
 
 /* eslint-disable camelcase */
@@ -59,8 +58,7 @@ describe('Client IVC Integration', () => {
     const context = await browser.newContext();
     page = await context.newPage();
     page.on('console', msg => formatAndPrintLog(msg.text()));
-    await page.goto('about:blank');
-    await page.exposeFunction('proveAndVerifyBrowser', proveAndVerifyBrowser);
+    await page.goto('http://localhost:8080');
   });
 
   afterAll(async () => {

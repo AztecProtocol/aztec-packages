@@ -67,7 +67,7 @@ export class CachedNetGrumpkinCrs {
   constructor(public readonly numPoints: number) {}
 
   static async new(numPoints: number) {
-    const crs = new CachedNetCrs(numPoints);
+    const crs = new CachedNetGrumpkinCrs(numPoints);
     await crs.init();
     return crs;
   }
@@ -77,13 +77,13 @@ export class CachedNetGrumpkinCrs {
    */
   async init() {
     // Check if data is in IndexedDB
-    const g1Data = await get('g1Data');
-    const netCrs = new NetGrumpkinCrs(this.numPoints);
+    const g1Data = await get('grumpkinG1Data');
+    const netGrumpkinCrs = new NetGrumpkinCrs(this.numPoints);
     const g1DataLength = this.numPoints * 64;
 
     if (!g1Data || g1Data.length < g1DataLength) {
-      this.g1Data = await netCrs.downloadG1Data();
-      await set('g1Data', this.g1Data);
+      this.g1Data = await netGrumpkinCrs.downloadG1Data();
+      await set('grumpkinG1Data', this.g1Data);
     } else {
       this.g1Data = g1Data;
     }

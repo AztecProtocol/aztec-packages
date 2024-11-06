@@ -5,6 +5,8 @@ import { generate3FunctionTestingIVCStack, proveAndVerifyBrowser } from './index
 createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
+(window as any).proveAndVerifyBrowser = proveAndVerifyBrowser;
+
 document.addEventListener('DOMContentLoaded', function () {
   const button = document.createElement('button');
   button.innerText = 'Run Test';

@@ -51,7 +51,8 @@ build:
     COPY . .
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
-    RUN cd ivc-integration && yarn && npx playwright install && npx playwright install-deps
+    RUN cd ivc-integration
+    RUN chmod +x run_browser_tests.sh && npx playwright install && npx playwright install-deps
 
 
 build-dev:

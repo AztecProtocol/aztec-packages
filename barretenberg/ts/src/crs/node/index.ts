@@ -69,20 +69,6 @@ export class GrumpkinCrs {
     return crs;
   }
 
-  async downloadG1Data() {
-    const g1Start = 28;
-    const g1End = g1Start + this.numPoints * 64 - 1;
-
-    const response = await fetch('https://aztec-ignition.s3.amazonaws.com/TEST%20GRUMPKIN/monomial/transcript00.dat', {
-      headers: {
-        Range: `bytes=${g1Start}-${g1End}`,
-      },
-      cache: 'force-cache',
-    });
-
-    return new Uint8Array(await response.arrayBuffer());
-  }
-
   async init() {
     mkdirSync(this.path, { recursive: true });
 
