@@ -39,13 +39,27 @@ import { prettyLogViemErrorMsg } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
-import { SequencerState, orderAttestations } from './utils.js';
+import { SequencerState, getSecondsIntoSlot, orderAttestations } from './utils.js';
 
 export type ShouldProposeArgs = {
   pendingTxsCount?: number;
   validTxsCount?: number;
   processedTxsCount?: number;
 };
+
+export class SequencerTooSlowError extends Error {
+  constructor(
+    public readonly currentState: SequencerState,
+    public readonly proposedState: SequencerState,
+    public readonly maxAllowedTime: number,
+    public readonly currentTime: number,
+  ) {
+    super(
+      `Too far into slot to transition to ${proposedState}. max allowed: ${maxAllowedTime}s, time into slot: ${currentTime}s`,
+    );
+    this.name = 'SequencerTooSlowError';
+  }
+}
 
 /**
  * Sequencer client
@@ -216,7 +230,7 @@ export class Sequencer {
    *          - Submit block
    *          - If our block for some reason is not included, revert the state
    */
-  private async doRealWork() {
+  protected async doRealWork() {
     this.setState(SequencerState.SYNCHRONIZING);
     // Update state when the previous block has been synced
     const prevBlockSynced = await this.isBlockSynced();
@@ -314,6 +328,13 @@ export class Sequencer {
   protected async work() {
     try {
       await this.doRealWork();
+    } catch (err) {
+      if (err instanceof SequencerTooSlowError) {
+        this.log.warn(err.message);
+      } else {
+        // Re-throw other errors
+        throw err;
+      }
     } finally {
       this.setState(SequencerState.IDLE);
     }
@@ -350,7 +371,7 @@ export class Sequencer {
     }
   }
 
-  doIHaveEnoughTimeLeft(proposedState: SequencerState): boolean {
+  doIHaveEnoughTimeLeft(proposedState: SequencerState, secondsIntoSlot: number): boolean {
     if (!this.enforceTimeTable) {
       return true;
     }
@@ -359,7 +380,6 @@ export class Sequencer {
       return true;
     }
 
-    const secondsIntoSlot = (Date.now() / 1000 - this.l1GenesisTime) % AZTEC_SLOT_DURATION;
     const bufferSeconds = this.timeTable[proposedState] - secondsIntoSlot;
     this.metrics.recordStateTransitionBufferMs(bufferSeconds * 1000, proposedState);
 
@@ -382,10 +402,9 @@ export class Sequencer {
       );
       return;
     }
-    if (!this.doIHaveEnoughTimeLeft(proposedState)) {
-      throw new Error(
-        `Cannot set sequencer from ${this.state} to ${proposedState} as there is not enough time left in the slot.`,
-      );
+    const secondsIntoSlot = getSecondsIntoSlot(this.l1GenesisTime);
+    if (!this.doIHaveEnoughTimeLeft(proposedState, secondsIntoSlot)) {
+      throw new SequencerTooSlowError(this.state, proposedState, this.timeTable[proposedState], secondsIntoSlot);
     }
     this.state = proposedState;
   }
