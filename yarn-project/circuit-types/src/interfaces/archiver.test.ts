@@ -38,10 +38,12 @@ import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
 
-describe('ArchiverSchema', () => {
+describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;
   let context: JsonRpcTestContext<ArchiverApi>;
   let artifact: ContractArtifact;
+
+  const tested: Set<string> = new Set();
 
   beforeAll(() => {
     const path = resolve(fileURLToPath(import.meta.url), '../../test/artifacts/token_contract-Token.json');
@@ -54,7 +56,13 @@ describe('ArchiverSchema', () => {
   });
 
   afterEach(() => {
+    tested.add(/^ArchiverApiSchema\s+([^(]+)/.exec(expect.getState().currentTestName!)![1]);
     context.httpServer.close();
+  });
+
+  afterAll(() => {
+    const all = Object.keys(ArchiverApiSchema);
+    expect([...tested].sort()).toEqual(all.sort());
   });
 
   it('getRollupAddress', async () => {

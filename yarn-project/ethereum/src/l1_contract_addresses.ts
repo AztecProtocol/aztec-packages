@@ -34,10 +34,10 @@ export const L1ContractAddressesSchema = z.object({
   outboxAddress: schemas.EthAddress,
   feeJuiceAddress: schemas.EthAddress,
   feeJuicePortalAddress: schemas.EthAddress,
-  nomismatokopioAddress: schemas.EthAddress,
-  sysstiaAddress: schemas.EthAddress,
-  gerousiaAddress: schemas.EthAddress,
-  apellaAddress: schemas.EthAddress,
+  coinIssuerAddress: schemas.EthAddress,
+  rewardDistributorAddress: schemas.EthAddress,
+  governanceProposerAddress: schemas.EthAddress,
+  governanceAddress: schemas.EthAddress,
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);

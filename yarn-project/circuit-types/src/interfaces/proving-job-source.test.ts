@@ -21,13 +21,21 @@ describe('ProvingJobSourceSchema', () => {
   let handler: MockProvingJobSource;
   let context: JsonRpcTestContext<ProvingJobSource>;
 
+  const tested = new Set<string>();
+
   beforeEach(async () => {
     handler = new MockProvingJobSource();
     context = await createJsonRpcTestSetup<ProvingJobSource>(handler, ProvingJobSourceSchema);
   });
 
   afterEach(() => {
+    tested.add(/^ProvingJobSourceSchema\s+([^(]+)/.exec(expect.getState().currentTestName!)![1]);
     context.httpServer.close();
+  });
+
+  afterAll(() => {
+    const all = Object.keys(ProvingJobSourceSchema);
+    expect([...tested].sort()).toEqual(all.sort());
   });
 
   it('getProvingJob', async () => {

@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
+import { hexSchemaFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -57,7 +57,8 @@ export class CombinedConstantData {
         protocolContractTreeRoot: schemas.Fr,
         globalVariables: GlobalVariables.schema,
       })
-      .transform(CombinedConstantData.from);
+      .transform(CombinedConstantData.from)
+      .or(hexSchemaFor(CombinedConstantData));
   }
 
   toBuffer() {

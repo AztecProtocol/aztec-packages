@@ -3,9 +3,11 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { type EpochProvingJobState, type ProverNodeApi, ProverNodeApiSchema } from './prover-node.js';
 
-describe('ProvingNodeSchema', () => {
+describe('ProvingNodeApiSchema', () => {
   let handler: MockProverNode;
   let context: JsonRpcTestContext<ProverNodeApi>;
+
+  const tested = new Set<string>();
 
   beforeEach(async () => {
     handler = new MockProverNode();
@@ -13,7 +15,13 @@ describe('ProvingNodeSchema', () => {
   });
 
   afterEach(() => {
+    tested.add(/^ProvingNodeApiSchema\s+([^(]+)/.exec(expect.getState().currentTestName!)![1]);
     context.httpServer.close();
+  });
+
+  afterAll(() => {
+    const all = Object.keys(ProverNodeApiSchema);
+    expect([...tested].sort()).toEqual(all.sort());
   });
 
   it('getJobs', async () => {

@@ -1,4 +1,4 @@
-import { type AztecAddress, Fr, type FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { type OpcodeLocation } from '@aztec/foundation/abi';
 import { schemas } from '@aztec/foundation/schemas';
 
@@ -241,12 +241,18 @@ export class SimulationError extends Error {
             functionName: z.string().optional(),
           }),
         ),
-        noirErrorStack: NoirCallStackSchema,
+        noirErrorStack: NoirCallStackSchema.optional(),
         revertData: z.array(schemas.Fr),
       })
       .transform(
         ({ originalMessage, functionErrorStack, noirErrorStack, revertData }) =>
           new SimulationError(originalMessage, functionErrorStack, revertData, noirErrorStack),
       );
+  }
+
+  static random() {
+    return new SimulationError('Random simulation error', [
+      { contractAddress: AztecAddress.random(), functionSelector: FunctionSelector.random() },
+    ]);
   }
 }

@@ -38,6 +38,18 @@ export class TxScopedEncryptedL2NoteLog {
     public log: EncryptedL2NoteLog,
   ) {}
 
+  static get schema() {
+    return z
+      .object({
+        txHash: TxHash.schema,
+        dataStartIndexForTx: z.number(),
+        log: EncryptedL2NoteLog.schema,
+      })
+      .transform(
+        ({ txHash, dataStartIndexForTx, log }) => new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, log),
+      );
+  }
+
   toBuffer() {
     return Buffer.concat([this.txHash.toBuffer(), numToUInt32BE(this.dataStartIndexForTx), this.log.toBuffer()]);
   }
@@ -49,5 +61,9 @@ export class TxScopedEncryptedL2NoteLog {
       reader.readNumber(),
       EncryptedL2NoteLog.fromBuffer(reader.readToEnd()),
     );
+  }
+
+  static random() {
+    return new TxScopedEncryptedL2NoteLog(TxHash.random(), 1, EncryptedL2NoteLog.random());
   }
 }

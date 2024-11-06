@@ -46,6 +46,10 @@ export class Gas {
     return new Gas(0, 0);
   }
 
+  static random() {
+    return new Gas(Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9));
+  }
+
   /** Returns large enough gas amounts for testing purposes. */
   static test() {
     return new Gas(1e9, MAX_L2_GAS_PER_ENQUEUED_CALL);
