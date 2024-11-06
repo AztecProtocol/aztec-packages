@@ -37,6 +37,8 @@ template <typename Builder> class twin_rom_table {
   private:
     std::vector<field_pair_pt> raw_entries;
     mutable std::vector<field_pair_pt> entries;
+
+    // Origin Tags used for tracking dangerous interactions in stdlib primtives
     mutable std::vector<std::array<OriginTag, 2>> tags;
     size_t length = 0;
     mutable size_t rom_id = 0; // Builder identifier for this ROM table

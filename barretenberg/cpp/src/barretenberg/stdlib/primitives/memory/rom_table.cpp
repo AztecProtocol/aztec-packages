@@ -52,6 +52,7 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
         context->set_ROM_element(rom_id, i, entries[i].get_witness_index());
     }
 
+    // Preserve tags to restore them in the future lookups
     _tags.resize(raw_entries.size());
     for (size_t i = 0; i < length; ++i) {
         _tags[i] = raw_entries[i].get_origin_tag();
@@ -134,6 +135,8 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
     auto element = field_pt::from_witness_index(context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+
+    // If the index is legitimate, restore the tag
     if (native_index < length) {
 
         element.set_origin_tag(_tags[cast_index]);

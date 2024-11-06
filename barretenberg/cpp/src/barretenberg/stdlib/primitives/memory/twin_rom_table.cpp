@@ -61,6 +61,8 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
         context->set_ROM_element_pair(
             rom_id, i, std::array<uint32_t, 2>{ entries[i][0].get_witness_index(), entries[i][1].get_witness_index() });
     }
+
+    // Ensure that the origin tags of all entries are preserved so we can assign them on lookups
     tags.resize(length);
     for (size_t i = 0; i < length; ++i) {
         tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
@@ -147,6 +149,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
 
     const auto native_index = uint256_t(index.get_value());
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+    // In case of a legitimate lookup, restore the tags of the original entries to the output
     if (native_index < length) {
         pair[0].set_origin_tag(tags[cast_index][0]);
         pair[1].set_origin_tag(tags[cast_index][1]);
