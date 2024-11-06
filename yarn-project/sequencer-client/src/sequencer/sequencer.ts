@@ -490,10 +490,12 @@ export class Sequencer {
 
       this.isFlushing = false;
       this.log.verbose('Collecting attestations');
+      const stopCollectingAttestationsTimer = this.metrics.startCollintingAttestationsTimer();
       const attestations = await this.collectAttestations(block, txHashes);
       this.log.verbose('Attestations collected');
-
+      stopCollectingAttestationsTimer();
       this.log.verbose('Collecting proof quotes');
+
       const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
       this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
 

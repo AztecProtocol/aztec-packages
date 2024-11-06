@@ -546,6 +546,7 @@ __metadata:
     "@swc/jest": ^0.2.36
     "@types/fs-extra": ^11.0.2
     "@types/jest": ^29.5.0
+    "@types/js-yaml": ^4.0.9
     "@types/koa": ^2.13.9
     "@types/koa-static": ^4.0.2
     "@types/levelup": ^5.1.2
@@ -563,6 +564,7 @@ __metadata:
     jest: ^29.5.0
     jest-extended: ^4.0.2
     jest-mock-extended: ^3.0.5
+    js-yaml: ^4.1.0
     koa: ^2.14.2
     koa-static: ^5.0.0
     levelup: ^5.1.1
@@ -4527,6 +4529,13 @@ __metadata:
     expect: ^29.0.0
     pretty-format: ^29.0.0
   checksum: 19b1efdeed9d9a60a81edc8226cdeae5af7479e493eaed273e01243891c9651f7b8b4c08fc633a7d0d1d379b091c4179bbaa0807af62542325fd72f2dd17ce1c
+  languageName: node
+  linkType: hard
+
+"@types/js-yaml@npm:^4.0.9":
+  version: 4.0.9
+  resolution: "@types/js-yaml@npm:4.0.9"
+  checksum: e5e5e49b5789a29fdb1f7d204f82de11cb9e8f6cb24ab064c616da5d6e1b3ccfbf95aa5d1498a9fbd3b9e745564e69b4a20b6c530b5a8bbb2d4eb830cda9bc69
   languageName: node
   linkType: hard
 
