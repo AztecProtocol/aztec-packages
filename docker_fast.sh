@@ -11,7 +11,7 @@ if ! git diff-index --quiet HEAD --; then
   echo "Warning: You have unstaged changes. For now this is a fatal error as this script relies on git metadata." >&2
   S3_BUILD_CACHE_UPLOAD=false
   S3_BUILD_CACHE_DOWNLOAD=false
-  S3_BUILD_CACHE_MINIO_URL=""A
+  S3_BUILD_CACHE_MINIO_URL=""
   exit 1
 elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
   S3_BUILD_CACHE_DOWNLOAD=true
