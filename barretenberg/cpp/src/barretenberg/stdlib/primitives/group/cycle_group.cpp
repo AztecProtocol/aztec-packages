@@ -903,8 +903,8 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
     // this also performs an implicit range check on the input slices
     const auto slice_scalar = [&](const field_t& scalar, const size_t num_bits) {
         std::pair<std::vector<field_t>, std::vector<uint64_t>> result;
-        result.first.reserve(1ULL << table_bits);
-        result.second.reserve(1ULL << table_bits);
+        result.first.reserve(static_cast<size_t>(1ULL) << table_bits);
+        result.second.reserve(static_cast<size_t>(1ULL) << table_bits);
 
         if (num_bits == 0) {
             return result;
