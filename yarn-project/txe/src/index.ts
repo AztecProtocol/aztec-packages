@@ -120,5 +120,5 @@ const TXEDispatcherApiChema: ApiSchemaFor<TXEDispatcher> = {
  * @returns A TXE RPC server.
  */
 export function createTXERpcServer(logger: Logger) {
-  return new JsonRpcServer(new TXEDispatcher(logger), { Fr }, {}, ['init']);
+  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiChema);
 }

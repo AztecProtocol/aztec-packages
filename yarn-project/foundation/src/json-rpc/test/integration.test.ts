@@ -1,6 +1,6 @@
 import { createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
-import { startHttpRpcServer } from '../server/json_rpc_server.js';
+import { startHttpRpcServer } from '../server/safe_json_rpc_server.js';
 import {
   type SafeJsonRpcServer,
   createNamespacedSafeJsonRpcServer,

@@ -16,6 +16,7 @@ import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethe
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
+import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -501,3 +502,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
 };
+
+export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
+  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, false, 'node', fetch);
+}

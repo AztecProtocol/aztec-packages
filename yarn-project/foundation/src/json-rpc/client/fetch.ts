@@ -1,16 +1,8 @@
-// comlink:
-//  Dev dependency just for the somewhat complex RemoteObject type
-//  This takes a {foo(): T} and makes {foo(): Promise<T>}
-//  while avoiding Promise of Promise.
-import { type RemoteObject } from 'comlink';
 import { format } from 'util';
 
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
-import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
-import { convertFromJsonObj, convertToJsonObj, jsonStringify } from '../convert.js';
-
-export { jsonStringify } from '../convert.js';
+import { jsonStringify } from '../convert.js';
 
 const log = createDebugLogger('json-rpc:json_rpc_client');
 
@@ -94,65 +86,4 @@ export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Debu
       false,
     );
   };
-}
-
-/**
- * Creates a Proxy object that delegates over RPC and satisfies RemoteObject<T>.
- * The server should have ran new JsonRpcServer().
- * @param host - The host URL.
- * @param stringClassMap - A map of class names to string representations.
- * @param objectClassMap - A map of class names to class constructors.
- * @param useApiEndpoints - Whether to use the API endpoints or the default RPC endpoint.
- * @param namespaceMethods - String value (or false/empty) to namespace all methods sent to the server. e.g. 'getInfo' -\> 'pxe_getInfo'
- * @param fetch - The fetch implementation to use.
- */
-export function createJsonRpcClient<T extends object>(
-  host: string,
-  stringClassMap: StringClassConverterInput,
-  objectClassMap: JsonClassConverterInput,
-  useApiEndpoints: boolean,
-  namespaceMethods?: string | false,
-  fetch = defaultFetch,
-) {
-  const classConverter = new ClassConverter(stringClassMap, objectClassMap);
-  let id = 0;
-  const request = async (method: string, params: any[]): Promise<any> => {
-    const body = {
-      jsonrpc: '2.0',
-      id: id++,
-      method,
-      params: params.map(param => convertToJsonObj(classConverter, param)),
-    };
-    log.debug(format(`JsonRpcClient.request`, method, '<-', params));
-    const res = await fetch(host, method, body, useApiEndpoints);
-    log.debug(format(`JsonRpcClient.result`, method, '->', res));
-    if (res.error) {
-      throw res.error;
-    }
-    if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
-      return;
-    }
-    return convertFromJsonObj(classConverter, res.result);
-  };
-
-  // Intercept any RPC methods with a proxy
-  // This wraps 'request' with a method-call syntax wrapper
-  return new Proxy(
-    {},
-    {
-      get: (target, method: string) => {
-        let rpcMethod = method;
-        if (namespaceMethods) {
-          rpcMethod = `${namespaceMethods}_${method}`;
-        }
-        if (['then', 'catch'].includes(method)) {
-          return Reflect.get(target, method);
-        }
-        return (...params: any[]) => {
-          log.debug(format(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params));
-          return request(rpcMethod, params);
-        };
-      },
-    },
-  ) as RemoteObject<T>;
 }

@@ -1,9 +1,9 @@
 import type http from 'http';
 
 import { type ApiSchemaFor } from '../../schemas/api.js';
-import { makeFetch } from '../client/json_rpc_client.js';
+import { makeFetch } from '../client/fetch.js';
 import { createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
-import { startHttpRpcServer } from '../server/json_rpc_server.js';
+import { startHttpRpcServer } from '../server/safe_json_rpc_server.js';
 import { type SafeJsonRpcServer, createSafeJsonRpcServer } from '../server/safe_json_rpc_server.js';
 
 export type JsonRpcTestContext<T extends object> = {
