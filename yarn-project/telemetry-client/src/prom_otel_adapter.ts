@@ -3,7 +3,6 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Registry } from 'prom-client';
 
 import { type Meter, type Metrics, type ObservableGauge, type TelemetryClient } from './telemetry.js';
-import { AttributeValue, ObservableCallback } from '@opentelemetry/api';
 
 /**
  * Types matching the gossipsub and libp2p services

@@ -1,8 +1,9 @@
-import { Logger } from '@aztec/foundation/log';
-import { Meter, ObservableGauge } from './telemetry.js';
-import { OtelGauge } from './prom_otel_adapter.js';
+import { type Logger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
+
+import { OtelGauge } from './prom_otel_adapter.js';
+import { type Meter, type ObservableGauge } from './telemetry.js';
 
 describe('OtelGauge', () => {
   let mockLogger: Logger;
@@ -49,7 +50,13 @@ describe('OtelGauge', () => {
 
   test('increments and sets value with labels', () => {
     const labelConfig = { region: 'us-east-1', instance: 'test-instance' };
-    const otelGaugeWithLabels = new OtelGauge(mockLogger, mockMeter, 'test_gauge_with_labels', 'Test gauge with labels', ['region', 'instance']);
+    const otelGaugeWithLabels = new OtelGauge(
+      mockLogger,
+      mockMeter,
+      'test_gauge_with_labels',
+      'Test gauge with labels',
+      ['region', 'instance'],
+    );
 
     otelGaugeWithLabels.inc(labelConfig, 3);
     expect(otelGaugeWithLabels['labeledValues'].get(JSON.stringify(labelConfig))).toBe(3);
@@ -60,7 +67,13 @@ describe('OtelGauge', () => {
 
   test('decrements value with labels', () => {
     const labelConfig = { region: 'us-east-1', instance: 'test-instance' };
-    const otelGaugeWithLabels = new OtelGauge(mockLogger, mockMeter, 'test_gauge_with_labels', 'Test gauge with labels', ['region', 'instance']);
+    const otelGaugeWithLabels = new OtelGauge(
+      mockLogger,
+      mockMeter,
+      'test_gauge_with_labels',
+      'Test gauge with labels',
+      ['region', 'instance'],
+    );
 
     otelGaugeWithLabels.set(labelConfig, 5);
     otelGaugeWithLabels.dec(labelConfig);
@@ -69,7 +82,13 @@ describe('OtelGauge', () => {
 
   test('handles invalid labels with error', () => {
     const invalidLabelConfig = { invalid: 'label' };
-    const otelGaugeWithLabels = new OtelGauge(mockLogger, mockMeter, 'test_gauge_with_labels', 'Test gauge with labels', ['region', 'instance']);
+    const otelGaugeWithLabels = new OtelGauge(
+      mockLogger,
+      mockMeter,
+      'test_gauge_with_labels',
+      'Test gauge with labels',
+      ['region', 'instance'],
+    );
 
     expect(() => otelGaugeWithLabels.inc(invalidLabelConfig as any, 1)).toThrowError('Invalid label key: invalid');
     expect(mockLogger.error).not.toHaveBeenCalled();
