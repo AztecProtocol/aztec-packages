@@ -7,7 +7,7 @@ FROM aztecprotocol/avm-transpiler AS transpiler
 
 # We need yarn. Start fresh container.
 FROM node:18.19.0
-RUN apt update && apt install netcat-openbsd
+RUN apt update && apt install netcat-openbsd jq
 COPY --from=aztec /usr/src /usr/src
 COPY --from=noir-projects /usr/src/noir-projects/aztec-nr /usr/src/noir-projects/aztec-nr
 COPY --from=noir-projects /usr/src/noir-projects/noir-protocol-circuits/crates/types /usr/src/noir-projects/noir-protocol-circuits/crates/types

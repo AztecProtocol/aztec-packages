@@ -39,7 +39,7 @@ build:
     ENV NARGO=/usr/src/noir/noir-repo/target/release/nargo
     ENV TRANSPILER=/usr/src/avm-transpiler/target/release/avm-transpiler
     ENV BB=/usr/src/barretenberg/cpp/build/bin/bb
-    ENV AZTEC_NARGO=../aztec-nargo/compile_then_postprocess.sh
+    ENV AZTEC_NARGO=/usr/src/aztec-nargo/compile_then_postprocess.sh
     ENV AZTEC_BUILDER=/usr/src/yarn-project/builder/aztec-builder-dest
     COPY . .
     RUN yarn build
