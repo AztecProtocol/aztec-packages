@@ -19,6 +19,6 @@ COPY --from=built-transpiler /usr/src/avm-transpiler/target/release/avm-transpil
 COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/bin/bb
 
 # Copy in script that calls both binaries
-COPY ./aztec-nargo/scripts/compile_then_postprocess.sh /usr/src/aztec-nargo/scripts/compile_then_postprocess.sh
+COPY ./aztec-nargo/compile_then_postprocess.sh /usr/src/aztec-nargo/compile_then_postprocess.sh
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/compile_then_postprocess.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/aztec-nargo/compile_then_postprocess.sh"]
