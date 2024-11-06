@@ -107,7 +107,7 @@ fn validate_contract_address_protocol_contract_wrong_computed_address_fails() {
 fn validate_contract_address_wrong_vk_hash_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    // Set the contract_address to 0.
+    // Fake the vk hash so it doesn't match the preimage
     builder.private_call.client_ivc_vk.hash = 27;
 
     builder.validate();
@@ -117,7 +117,7 @@ fn validate_contract_address_wrong_vk_hash_fails() {
 fn validate_contract_address_wrong_vk_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    // Set the contract_address to 0.
+    // Change the VK so the address doesn't match anymore
     builder.private_call.client_ivc_vk.key[0] = 27;
     builder.private_call.client_ivc_vk.hash =
         verification_key_hash(builder.private_call.client_ivc_vk.key);
