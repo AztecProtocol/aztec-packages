@@ -51,6 +51,10 @@ if [ "$FRESH_INSTALL" = "true" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found=true --wait=true --now --timeout=10m
 fi
 
+function copy_stern_to_log() {
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log
+}
+
 function show_status_until_pxe_ready() {
   set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
@@ -99,6 +103,7 @@ handle_network_shaping() {
     return 0
 }
 
+copy_stern_to_log &
 show_status_until_pxe_ready &
 
 function cleanup() {
@@ -145,7 +150,6 @@ if ! handle_network_shaping; then
     exit 1
   fi
 fi
-
 
 docker run --rm --network=host \
   -v ~/.kube:/root/.kube \
