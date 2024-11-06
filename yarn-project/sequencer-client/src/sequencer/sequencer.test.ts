@@ -192,6 +192,7 @@ describe('sequencer', () => {
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
       new NoopTelemetryClient(),
     );
+    sequencer.setL1GenesisTime(BigInt(Math.floor(Date.now() / 1000)));
   });
 
   it('builds a block out of a single tx', async () => {
