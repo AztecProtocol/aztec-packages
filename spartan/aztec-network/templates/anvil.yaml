@@ -1,4 +1,3 @@
-{{- if not .Values.ethereum.external }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -143,5 +142,5 @@ spec:
       {{- if and (eq .Values.ethereum.service.type "NodePort") .Values.ethereum.service.nodePort }}
       nodePort: {{ .Values.ethereum.service.nodePort }}
       {{- end }}
-{{ end }}
+---
 {{ end }}

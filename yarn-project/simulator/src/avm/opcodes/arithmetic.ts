@@ -1,5 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
 import { type Field, type MemoryValue } from '../avm_memory_types.js';
+import { ArithmeticError } from '../errors.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
@@ -21,7 +22,6 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
     memory.set(dstOffset, dest);
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;
@@ -59,11 +59,14 @@ export class Div extends ThreeOperandArithmeticInstruction {
   static readonly opcode = Opcode.DIV_8; // FIXME: needed for gas.
 
   protected compute(a: MemoryValue, b: MemoryValue): MemoryValue {
+    if (b.toBigInt() === 0n) {
+      throw new ArithmeticError('Division by zero');
+    }
+
     return a.div(b);
   }
 }
 
-// TODO: This class now temporarily has a tag, until all tags are removed.
 export class FieldDiv extends ThreeOperandArithmeticInstruction {
   static type: string = 'FDIV';
   static readonly opcode = Opcode.FDIV_8; // FIXME: needed for gas.

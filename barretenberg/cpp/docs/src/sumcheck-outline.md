@@ -16,7 +16,7 @@ The implementation consists of several components.
   At the stage of proving their evaluations at the challenge point, the multilinear witness polynomials fed to Sumcheck must not reveal any private information.
   We use a modification of Construction 3 described in <a href=" https://eprint.iacr.org/2019/317">Libra</a> allowing the prover to open a new multilinear polynomial in \f$d\f$ variables, where \f$2^d\f$ is the circuit size, which is derived from the witnesses by adding a product of a random scalar and a public quadratic polynomial in \f$d\f$ variables
 
-- [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses is assessed, and the theoretical upper bound on prover's work is compared to the implemenation costs.
+- [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses is assessed, and the theoretical upper bound on prover's work is compared to the implementation costs.
 
 # Non ZK-Sumcheck Outline {#NonZKSumcheck}
 
@@ -331,7 +331,7 @@ Using the PCS introduced in Section 4 of <a href=" https://eprint.iacr.org/2020/
 
 ---
 
-At the last step of Sumcheck, the Prover adds the evaluations of multilinear polynomials \f$P_1,\ldots, P_N \f$ at the challenge point \f$\vec u = (u_0,\ldots, u_{d-1})\f$ to the trasncript.
+At the last step of Sumcheck, the Prover adds the evaluations of multilinear polynomials \f$P_1,\ldots, P_N \f$ at the challenge point \f$\vec u = (u_0,\ldots, u_{d-1})\f$ to the transcript.
 
 Let \f$ N_w\leq N\f$ and assume that \f$ P_1,\ldots, P_{N_w}\f$ are witness polynomials.
 To mask their evaluations at the challenge point\f$\vec u\f$, the prover samples
@@ -385,7 +385,7 @@ Note that \f$ \tilde{D} \f$ <b> sets up </b> the corresponding parameter of [Lib
 The random scalars \f$ \rho_1,\ldots, \rho_{N_w}\f$ are created by the method \ref bb::SumcheckProver< Flavor >::setup_zk_sumcheck_data "setup_zk_sumcheck_data" and are stored as \f$ \texttt{eval_masking_scalars} \f$.
 
 ### Book-keeping {#BookKeepingMaskingWitnesses}
-To faciliate the computation of Sumcheck Round Univariates, the prover \ref bb::SumcheckProver< Flavor >::create_evaluation_masking_table "creates the vector" of univariates
+To facilitate the computation of Sumcheck Round Univariates, the prover \ref bb::SumcheckProver< Flavor >::create_evaluation_masking_table "creates the vector" of univariates
 \f{align}{
 \texttt{masking_terms_evaluations}_j(k)\gets \texttt{eval_masking_scalars}_j \cdot (1-k) k
 \f}
@@ -424,7 +424,7 @@ In contrast to non-ZK-Sumcheck, the prover needs to compute \f$\tilde{D} \sim D+
 \f{align}{
 ((D+D_w)\cdot N + C_a \cdot (D+D_w) + 2\cdot N + 2\cdot (D+D_w) N_w ) (2^d - 1)
 \f}
-addditions and
+additions and
 \f{align}{
 (C_m\cdot (D+D_w) + N) \cdot (2^d -1)
 \f}

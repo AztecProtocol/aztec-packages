@@ -1032,7 +1032,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         sorted_list.emplace_back(shrinked_value);
     }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(sorted_list.begin(), sorted_list.end());
 #else
     std::sort(std::execution::par_unseq, sorted_list.begin(), sorted_list.end());
@@ -2560,7 +2560,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         }
     }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(rom_array.records.begin(), rom_array.records.end());
 #else
     std::sort(std::execution::par_unseq, rom_array.records.begin(), rom_array.records.end());
@@ -2652,7 +2652,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         }
     }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(ram_array.records.begin(), ram_array.records.end());
 #else
     std::sort(std::execution::par_unseq, ram_array.records.begin(), ram_array.records.end());

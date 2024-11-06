@@ -20,6 +20,7 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
+  getAvmTestContractArtifact,
   getAvmTestContractBytecode,
   initContext,
   initExecutionEnvironment,
@@ -287,9 +288,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
-      expect(resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!)).toMatch(
-        'attempt to add with overflow',
-      );
+      expect(
+        resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
+      ).toMatch('attempt to add with overflow');
     });
 
     it('Expect failure on U128::from_integer() overflow', async () => {
@@ -297,9 +298,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
       expect(results.revertReason).toBeDefined();
-      expect(resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!)).toMatch(
-        'call to assert_max_bit_size',
-      );
+      expect(
+        resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!, results.output),
+      ).toMatch('call to assert_max_bit_size');
     });
   });
 
@@ -321,10 +322,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!)).toMatch(
-      "Nullifier doesn't exist!",
-    );
-    expect(results.output).toEqual([]);
+    expect(results.output).toHaveLength(1); // Error selector for static string error
+    expect(
+      resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
+    ).toMatch("Nullifier doesn't exist!");
   });
 
   describe.each([
@@ -425,10 +426,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    const expectedResults = Buffer.concat('0010101011'.split('').map(c => new Fr(Number(c)).toBuffer()));
-    const resultBuffer = Buffer.concat(results.output.map(f => f.toBuffer()));
-
-    expect(resultBuffer.equals(expectedResults)).toBe(true);
+    expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
   });
 
   describe('Side effects, world state, nested calls', () => {
@@ -932,14 +930,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
-        const calldata: Fr[] = [value0, value1, ...gas];
+        const targetFunctionSelector = FunctionSelector.fromSignature(
+          'nested_call_to_add_with_gas(Field,Field,Field,Field)',
+        );
+        const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
-        const callBytecode = getAvmTestContractBytecode('nested_call_to_add_with_gas');
-        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        const artifact = getAvmTestContractArtifact('public_dispatch');
+        mockGetBytecode(worldStateDB, artifact.bytecode);
 
         const contractClass = makeContractClassPublic(0, {
-          bytecode: nestedBytecode,
+          bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
@@ -948,16 +948,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         mockTraceFork(trace);
 
-        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-        // TODO(7141): change this once we don't force rethrowing of exceptions.
-        // Outer frame should not revert, but inner should, so the forwarded return value is 0
-        // expect(results.revertReason).toBeUndefined();
-        // expect(results.reverted).toBe(false);
+        const results = await new AvmSimulator(context).executeBytecode(artifact.bytecode);
         expect(results.reverted).toBe(true);
-        expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
+        expect(results.revertReason?.message).toMatch('Not enough L2GAS gas left');
 
-        // Nested call should NOT have been made and therefore should not be traced
-        expect(trace.traceNestedCall).toHaveBeenCalledTimes(0);
+        // Nested call should have been made (and failed).
+        expect(trace.traceNestedCall).toHaveBeenCalledTimes(1);
       });
 
       it(`Nested static call which modifies storage (expect failure)`, async () => {
@@ -974,7 +970,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
 
-        mockTraceFork(trace);
+        const nestedTrace = mock<PublicSideEffectTraceInterface>();
+        mockTraceFork(trace, nestedTrace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
@@ -983,9 +980,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           'Static call cannot update the state, emit L2->L1 messages or generate logs',
         );
 
-        // TODO(7141): external call doesn't recover from nested exception until
-        // we support recoverability of reverts (here and in kernel)
-        //expectTracedNestedCall(context.environment, results, nestedTrace, /*isStaticCall=*/true);
+        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ true);
 
         // Nested call should NOT have been able to write storage
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(0);
@@ -1011,9 +1006,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
         expect(results.revertReason).toBeDefined();
-        expect(resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!)).toMatch(
-          'Values are not equal',
-        );
+        expect(
+          resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!, results.output),
+        ).toMatch('Values are not equal');
       });
 
       it('Should handle returndatacopy oracle', async () => {
@@ -1084,7 +1079,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           // infinitely loop back to the tested instruction
           // infinite loop should break on side effect overrun error,
           // but otherwise will run out of gas
-          new Jump(/*jumpOffset*/ 2),
+          // Note: 15 is the byte index, calculated as 3*size(Set.wireFormat8)
+          new Jump(/*jumpOffset*/ 15),
         ]);
         const context = initContext({ persistableState });
         const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));

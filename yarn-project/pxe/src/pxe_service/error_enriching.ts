@@ -1,7 +1,7 @@
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { resolveAssertionMessage, resolveOpcodeLocations } from '@aztec/simulator';
+import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 
@@ -64,17 +64,24 @@ export async function enrichPublicSimulationError(
   // To be able to resolve the assertion message, we need to use the information from the public dispatch function,
   // no matter what the call stack selector points to (since we've modified it to point to the target function).
   // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
+
+  const artifact = await contractDataOracle.getFunctionArtifact(
+    originalFailingFunction.contractAddress,
+    FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
+  );
+  const assertionMessage = resolveAssertionMessageFromRevertData(err.revertData, artifact);
+  if (assertionMessage) {
+    err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
+  }
+
   const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
+
   const noirCallStack = err.getNoirCallStack();
   if (debugInfo) {
     if (isNoirCallStackUnresolved(noirCallStack)) {
-      const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
-      if (assertionMessage) {
-        err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
-      }
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.

@@ -258,7 +258,8 @@ jobs:
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
             ./scripts/e2e_test.sh ${{ matrix.test }}
 
-            earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
+            # TODO(#9692): disabled after refactoring - trying to call function as target
+            # ../../scripts/earthly-ci +UPLOAD_LOGS --PULL_REQUEST=${{ github.event.pull_request.number }} --BRANCH=${{ github.ref_name }} --COMMIT_HASH=${{ env.GIT_COMMIT }}
 
   acir-bench:
     runs-on: ubuntu-20.04
@@ -656,15 +657,10 @@ jobs:
         if: matrix.test == 'test-transfer.sh' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
         run: sudo shutdown -P 60 ; earthly-ci --no-output ./yarn-project/+network-test --test=./${{ matrix.test }}
 
-  # note: proving disabled
-  kind-network-test:
+  kind-smoke-test:
     needs: [build, configure]
     if: needs.configure.outputs.yarn-project == 'true' || github.ref_name == 'master'
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    strategy:
-      fail-fast: false
-      matrix:
-        test: [smoke.test.ts, transfer.test.ts] # TODO reinstate: 4epochs.test.ts
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -674,7 +670,6 @@ jobs:
       - name: Setup and KIND Network Test
         timeout-minutes: 60
         uses: ./.github/ensure-tester-with-images
-        if: matrix.test == 'smoke.test.ts' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all')
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
@@ -690,8 +685,68 @@ jobs:
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            test=${{ matrix.test }}
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/$test
+            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+
+  # note: proving disabled
+  kind-network-test:
+    needs: [build, configure]
+    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
+    runs-on: ${{ needs.configure.outputs.username }}-x86
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          # TODO(#9736)
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86-high-memory
+            timeout: 90
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: kind-network-${{ matrix.config.test }}
+      - name: Setup and KIND Network Test
+        timeout-minutes: ${{ matrix.config.timeout }}
+        uses: ./.github/ensure-tester-with-images
+        env:
+          USERNAME: ${{ needs.configure.outputs.username }}
+        with:
+          runner_type: ${{ matrix.config.runner_type }}
+          spot_strategy: None # use on-demand machines
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: ${{ matrix.config.timeout }}
+          run: |
+            cd yarn-project/end-to-end
+            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+            test=${{ matrix.config.test }}
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+      - name: Copy Network Logs
+        if: always() # Run on failure too
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
+      - name: Upload Network Logs
+        if: always() # Run on failure too
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
+          path: network-test.log
 
   l1-contracts-test:
     needs: [build, configure]
