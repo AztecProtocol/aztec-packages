@@ -282,10 +282,6 @@ template <typename Curve_> class IPA {
         // Step 7
         // Send a_0 to the verifier
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
-
-        info("prove G_zero: ", G_vec_local[0]);
-        info("prove b_zero: ", b_vec[0]);
-        info("prove a_zero: ", a_vec[0]);
     }
 
     /**
@@ -381,8 +377,6 @@ template <typename Curve_> class IPA {
         for (size_t i = 0; i < log_poly_length; i++) {
             b_zero *= Fr::one() + (round_challenges_inv[log_poly_length - 1 - i] *
                                    opening_claim.opening_pair.challenge.pow(1 << i));
-            info("native verify b_zero after i: ", i, " is ", b_zero);
-
         }
 
         // Step 7.
@@ -413,9 +407,6 @@ template <typename Curve_> class IPA {
         // Step 9.
         // Receive a₀ from the prover
         auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
-        info("native verify G_zero: ", G_zero);
-        info("native verify b_zero: ", b_zero);
-        info("native verify a_zero: ", a_zero);
 
         // Step 10.
         // Compute C_right
@@ -498,7 +489,6 @@ template <typename Curve_> class IPA {
 
             Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
             b_zero *= Fr(1) + monomial;
-            info("rec verify b_zero after i: ", i, " is ", b_zero.get_value());
             if (i != CONST_ECCVM_LOG_N - 1) // this if is fine because the number of iterations is constant
             {
                 challenge = Fr::conditional_assign(dummy_round, challenge, challenge * challenge);
@@ -549,10 +539,6 @@ template <typename Curve_> class IPA {
         // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) + a₀ * b₀) ⋅ U
         // This is a combination of several IPA relations into a large batch mul
         // which should be equal to -C
-        info("rec verify G_zero: ", G_zero.get_value());
-        info("rec verify b_zero: ", b_zero.get_value());
-        info("rec verify a_zero: ", a_zero.get_value());
-
         msm_elements.emplace_back(-G_zero);
         msm_elements.emplace_back(-Commitment::one(builder));
         msm_scalars.emplace_back(a_zero);
