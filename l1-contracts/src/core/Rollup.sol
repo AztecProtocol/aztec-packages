@@ -464,7 +464,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
    * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
-   * @param _body - The body of the L2 block
+   * @param  - The body of the L2 block
    * @param blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function propose(
@@ -474,7 +474,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata _body,
+    bytes calldata,
     bytes calldata blobInput
   ) public override(IRollup) {
     if (canPrune()) {
