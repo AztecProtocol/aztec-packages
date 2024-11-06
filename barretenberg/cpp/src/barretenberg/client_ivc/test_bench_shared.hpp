@@ -14,9 +14,7 @@ namespace bb {
  */
 bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
 {
-    auto verifier_inst =
-        std::make_shared<DeciderVerificationKey_<MegaFlavor>>(ivc.verification_queue[0].honk_verification_key);
-    bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
+    bool verified = ivc.verify(proof);
 
     // This is a benchmark, not a test, so just print success or failure to the log
     if (verified) {

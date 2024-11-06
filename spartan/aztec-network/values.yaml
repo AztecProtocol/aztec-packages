@@ -21,7 +21,6 @@ images:
     pullPolicy: IfNotPresent
 
 bootNode:
-  external: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1
@@ -59,7 +58,6 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  external: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1
@@ -76,6 +74,7 @@ validator:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+    maxTxsPerBlock: 4
   validator:
     disabled: false
   p2p:
@@ -92,7 +91,6 @@ validator:
   storage: "8Gi"
 
 proverNode:
-  external: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1
@@ -112,7 +110,6 @@ proverNode:
   storage: "8Gi"
 
 pxe:
-  external: false
   externalHost: ""
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
@@ -163,7 +160,6 @@ bot:
       cpu: "200m"
 
 ethereum:
-  external: false
   externalHost: ""
   replicas: 1
   chainId: 31337
