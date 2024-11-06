@@ -15,7 +15,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
  *          Beware that while governance generally do not care about the implementation
  *          this implementation will since it is dependent on the sequencer selection.
  *          This also means that the implementation here will need to be "updated" if
- *          the interfaces of the sequencer selection changes, for exampel going optimistic.
+ *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
 contract GovernanceProposer is IGovernanceProposer {
   using SlotLib for Slot;

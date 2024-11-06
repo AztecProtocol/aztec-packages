@@ -17,7 +17,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
  * @title Governance
  * @author Aztec Labs
  * @notice  A contract that implements the governance logic, including proposal creation, voting, and execution
- *          A proposal is a payload which returns a list of actions to be executed by the governance, exluding
+ *          A proposal is a payload which returns a list of actions to be executed by the governance, excluding
  *          calls to the governance token itself.
  *          The model is snapshot based and it is possible to make "partial" votes, using a fraction of one's power,
  *          making it simpler to build "aggregated" voting, for example for privately voting from inside the rollup.

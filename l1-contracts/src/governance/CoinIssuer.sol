@@ -10,7 +10,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 /**
  * @title CoinIssuer
  * @author Aztec Labs
- * @notice A contract that allow minting of coin at most at a fixed rate
+ * @notice A contract that allows minting of coins at a maximum fixed rate
  */
 contract CoinIssuer is ICoinIssuer, Ownable {
   IMintableERC20 public immutable ASSET;
