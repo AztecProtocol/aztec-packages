@@ -27,6 +27,12 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
     // with a non-const field element.
+
+    // Ensure that the origin tags of all entries are preserved so we can assign them on lookups
+    tags.resize(length);
+    for (size_t i = 0; i < length; ++i) {
+        tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
+    }
 }
 
 // initialize the table once we perform a read. This ensures we always have a valid

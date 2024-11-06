@@ -1,6 +1,7 @@
 #include "ram_table.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <vector>
 
@@ -54,6 +55,12 @@ template <typename Builder> ram_table<Builder>::ram_table(const std::vector<fiel
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `read` or `write` operator is called
     // with a non-const field element.
+
+    // Store tags
+    _tags.resize(_length);
+    for (size_t i = 0; i < _length; i++) {
+        _tags[i] = table_entries[i].get_origin_tag();
+    }
 }
 
 /**
@@ -91,8 +98,10 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
 
     // Store the tags of the original entries
     _tags.resize(_length);
-    for (size_t i = 0; i < _length; i++) {
-        _tags[i] = _raw_entries[i].get_origin_tag();
+    if (_raw_entries.size() > 0) {
+        for (size_t i = 0; i < _length; i++) {
+            _tags[i] = _raw_entries[i].get_origin_tag();
+        }
     }
     _ram_table_generated_in_builder = true;
 }
@@ -241,7 +250,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
 
     initialize_table();
     field_pt index_wire = index;
-    auto native_index = index.get_value();
+    const auto native_index = uint256_t(index.get_value());
     if (index.is_constant()) {
         // need to write every array element at a constant index before doing reads/writes at prover-defined indices
         index_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(native_index));
@@ -268,7 +277,8 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
             _ram_id, index_wire.get_normalized_witness_index(), value_wire.get_normalized_witness_index());
     }
     // Update the value of the stored tag, if index is legitimate
-    if (native_value < _length) {
+
+    if (native_index < _length) {
         _tags[cast_index] = value.get_origin_tag();
     }
 }
