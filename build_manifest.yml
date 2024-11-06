@@ -59,7 +59,9 @@ aztec-nargo:
     - ^aztec-nargo/
     - ^avm-transpiler/
     - ^noir/
+    - ^barretenberg/
   dependencies:
+    - barretenberg-x86_64-linux-clang
     - avm-transpiler
     - noir
   multiarch: buildx
@@ -250,8 +252,10 @@ boxes:
   buildDir: boxes
   dependencies:
     - aztec
-    - noir
     - noir-projects
+    - noir
+    - avm-transpiler
+    - barretenberg-x86_64-linux-clang
   runDependencies:
     - aztec
 
