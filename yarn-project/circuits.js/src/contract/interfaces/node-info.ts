@@ -1,4 +1,5 @@
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
+import { type ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -29,4 +30,4 @@ export const NodeInfoSchema = z
     l1ContractAddresses: L1ContractAddressesSchema,
     protocolContractAddresses: ProtocolContractAddressesSchema,
   })
-  .transform(obj => ({ enr: undefined, ...obj })) satisfies z.ZodType<NodeInfo, any, any>;
+  .transform(obj => ({ enr: undefined, ...obj })) satisfies ZodFor<NodeInfo>;

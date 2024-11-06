@@ -1,3 +1,5 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
+
 import { z } from 'zod';
 
 /** Stats associated with an ACIR proof generation.*/
@@ -246,7 +248,7 @@ export const NoteProcessorStatsSchema = z.object({
   failed: z.number(),
   blocks: z.number(),
   txs: z.number(),
-}) satisfies z.ZodType<NoteProcessorStats, any, any>;
+}) satisfies ZodFor<NoteProcessorStats>;
 
 /** Stats for a tx. */
 export type TxStats = {

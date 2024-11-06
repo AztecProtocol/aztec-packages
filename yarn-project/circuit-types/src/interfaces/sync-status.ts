@@ -1,3 +1,5 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
+
 import { z } from 'zod';
 
 /** Provides up to which block has been synced by different components. */
@@ -11,4 +13,4 @@ export type SyncStatus = {
 export const SyncStatusSchema = z.object({
   blocks: z.number(),
   notes: z.record(z.number()),
-}) satisfies z.ZodType<SyncStatus, any, any>;
+}) satisfies ZodFor<SyncStatus>;

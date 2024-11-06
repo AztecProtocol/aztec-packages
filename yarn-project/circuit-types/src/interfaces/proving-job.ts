@@ -23,6 +23,7 @@ import {
   TubeInputs,
   VerificationKeyData,
 } from '@aztec/circuits.js';
+import { type ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -32,11 +33,11 @@ export type ProofAndVerificationKey<P> = { proof: P; verificationKey: Verificati
 
 function schemaForRecursiveProofAndVerificationKey<N extends number>(
   proofLength: N,
-): z.ZodType<ProofAndVerificationKey<RecursiveProof<N>>, any, any> {
+): ZodFor<ProofAndVerificationKey<RecursiveProof<N>>> {
   return z.object({
     proof: RecursiveProof.schemaFor(proofLength),
     verificationKey: VerificationKeyData.schema,
-  }) as z.ZodType<ProofAndVerificationKey<RecursiveProof<N>>, any, any>;
+  }) as ZodFor<ProofAndVerificationKey<RecursiveProof<N>>>;
 }
 
 export function makeProofAndVerificationKey<P>(
@@ -53,14 +54,14 @@ export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RE
 };
 
 function schemaForPublicInputsAndRecursiveProof<T extends object>(
-  inputs: z.ZodType<T, any, any>,
-): z.ZodType<PublicInputsAndRecursiveProof<T>, any, any> {
+  inputs: ZodFor<T>,
+): ZodFor<PublicInputsAndRecursiveProof<T>> {
   const proofSize = NESTED_RECURSIVE_PROOF_LENGTH;
   return z.object({
     inputs,
     proof: RecursiveProof.schemaFor(proofSize),
     verificationKey: VerificationKeyData.schema,
-  }) as z.ZodType<PublicInputsAndRecursiveProof<T>, any, any>;
+  }) as ZodFor<PublicInputsAndRecursiveProof<T>>;
 }
 
 export function makePublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH>(
@@ -229,4 +230,4 @@ export const ProvingRequestResultSchema = z.discriminatedUnion('type', [
     type: z.literal(ProvingRequestType.TUBE_PROOF),
     result: schemaForRecursiveProofAndVerificationKey(TUBE_PROOF_LENGTH),
   }),
-]) satisfies z.ZodType<ProvingRequestResult, any, any>;
+]) satisfies ZodFor<ProvingRequestResult>;

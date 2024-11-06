@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -18,7 +19,7 @@ export type GetUnencryptedLogsResponse = {
 export const GetUnencryptedLogsResponseSchema = z.object({
   logs: z.array(ExtendedUnencryptedL2Log.schema),
   maxLogsHit: z.boolean(),
-}) satisfies z.ZodType<GetUnencryptedLogsResponse, any, any>;
+}) satisfies ZodFor<GetUnencryptedLogsResponse>;
 
 export class TxScopedEncryptedL2NoteLog {
   constructor(

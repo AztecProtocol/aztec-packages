@@ -13,7 +13,7 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor, mapSchema, schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, hexSchemaFor, mapSchema, schemas } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -69,7 +69,7 @@ export class NoteAndSlot {
 export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> implements IsEmpty {
   constructor(public log: TLog, public counter: number) {}
 
-  static get schema(): z.ZodType<CountedLog<UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>, any, any> {
+  static get schema(): ZodFor<CountedLog<UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>> {
     return z
       .object({
         log: z.union([EncryptedL2Log.schema, EncryptedL2NoteLog.schema, UnencryptedL2Log.schema]),
@@ -78,19 +78,13 @@ export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | Enc
       .transform(CountedLog.from);
   }
 
-  static schemaFor<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(log: {
-    schema: z.ZodType<TLog, any, any>;
-  }) {
+  static schemaFor<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(log: { schema: ZodFor<TLog> }) {
     return z
       .object({
         log: log.schema,
         counter: schemas.Integer,
       })
-      .transform(({ log, counter }) => new CountedLog(log!, counter) as CountedLog<TLog>) as z.ZodType<
-      CountedLog<TLog>,
-      any,
-      any
-    >;
+      .transform(({ log, counter }) => new CountedLog(log!, counter) as CountedLog<TLog>) as ZodFor<CountedLog<TLog>>;
   }
 
   static from<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(fields: {
@@ -110,7 +104,7 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
     super(log, counter);
   }
 
-  static override get schema(): z.ZodType<CountedNoteLog, any, any> {
+  static override get schema(): ZodFor<CountedNoteLog> {
     return z
       .object({
         log: EncryptedL2NoteLog.schema,
@@ -222,7 +216,7 @@ export class PrivateExecutionResult {
     public unencryptedLogs: CountedLog<UnencryptedL2Log>[],
   ) {}
 
-  static get schema(): z.ZodType<PrivateExecutionResult, any, any> {
+  static get schema(): ZodFor<PrivateExecutionResult> {
     return z
       .object({
         acir: schemas.BufferHex,

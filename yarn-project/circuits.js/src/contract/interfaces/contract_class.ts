@@ -1,6 +1,6 @@
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -36,7 +36,7 @@ export interface PrivateFunction {
 const PrivateFunctionSchema = z.object({
   selector: schemas.FunctionSelector,
   vkHash: schemas.Fr,
-}) satisfies z.ZodType<PrivateFunction, any, any>;
+}) satisfies ZodFor<PrivateFunction>;
 
 /** Private function definition with executable bytecode. */
 export interface ExecutablePrivateFunction extends PrivateFunction {
@@ -46,7 +46,7 @@ export interface ExecutablePrivateFunction extends PrivateFunction {
 
 const ExecutablePrivateFunctionSchema = PrivateFunctionSchema.and(
   z.object({ bytecode: schemas.BufferB64 }),
-) satisfies z.ZodType<ExecutablePrivateFunction, any, any>;
+) satisfies ZodFor<ExecutablePrivateFunction>;
 
 /** Public function definition within a contract class. */
 export interface PublicFunction {
@@ -59,7 +59,7 @@ export interface PublicFunction {
 export const PublicFunctionSchema = z.object({
   selector: schemas.FunctionSelector,
   bytecode: schemas.BufferB64,
-}) satisfies z.ZodType<PublicFunction, any, any>;
+}) satisfies ZodFor<PublicFunction>;
 
 /** Unconstrained function definition. */
 export interface UnconstrainedFunction {
@@ -73,7 +73,7 @@ const UnconstrainedFunctionSchema = z.object({
   /** lala */
   selector: schemas.FunctionSelector,
   bytecode: schemas.BufferB64,
-}) satisfies z.ZodType<UnconstrainedFunction, any, any>;
+}) satisfies ZodFor<UnconstrainedFunction>;
 
 /** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
 export type PrivateFunctionMembershipProof = {
@@ -94,7 +94,7 @@ const PrivateFunctionMembershipProofSchema = z.object({
   privateFunctionTreeLeafIndex: schemas.Integer,
   artifactTreeSiblingPath: z.array(schemas.Fr),
   artifactTreeLeafIndex: schemas.Integer,
-}) satisfies z.ZodType<PrivateFunctionMembershipProof, any, any>;
+}) satisfies ZodFor<PrivateFunctionMembershipProof>;
 
 /** A private function with a memebership proof. */
 export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
@@ -114,7 +114,7 @@ const UnconstrainedFunctionMembershipProofSchema = z.object({
   privateFunctionsArtifactTreeRoot: schemas.Fr,
   artifactTreeSiblingPath: z.array(schemas.Fr),
   artifactTreeLeafIndex: schemas.Integer,
-}) satisfies z.ZodType<UnconstrainedFunctionMembershipProof, any, any>;
+}) satisfies ZodFor<UnconstrainedFunctionMembershipProof>;
 
 /** An unconstrained function with a membership proof. */
 export type UnconstrainedFunctionWithMembershipProof = UnconstrainedFunction & UnconstrainedFunctionMembershipProof;
@@ -125,7 +125,7 @@ export const ContractClassSchema = z.object({
   privateFunctions: z.array(PrivateFunctionSchema),
   publicFunctions: z.array(PublicFunctionSchema),
   packedBytecode: schemas.BufferB64,
-}) satisfies z.ZodType<ContractClass, any, any>;
+}) satisfies ZodFor<ContractClass>;
 
 /** Commitments to fields of a contract class. */
 interface ContractClassCommitments {
@@ -140,11 +140,9 @@ interface ContractClassCommitments {
 /** A contract class with its precomputed id. */
 export type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, 'id'>;
 
-export const ContractClassWithIdSchema = ContractClassSchema.extend({ id: schemas.Fr }) satisfies z.ZodType<
-  ContractClassWithId,
-  any,
-  any
->;
+export const ContractClassWithIdSchema = ContractClassSchema.extend({
+  id: schemas.Fr,
+}) satisfies ZodFor<ContractClassWithId>;
 
 /** A contract class with public bytecode information, and optional private and unconstrained. */
 export type ContractClassPublic = {
@@ -160,7 +158,7 @@ export const ContractClassPublicSchema = z
     privateFunctions: z.array(ExecutablePrivateFunctionSchema.and(PrivateFunctionMembershipProofSchema)),
     unconstrainedFunctions: z.array(UnconstrainedFunctionSchema.and(UnconstrainedFunctionMembershipProofSchema)),
   })
-  .and(ContractClassSchema.omit({ privateFunctions: true })) satisfies z.ZodType<ContractClassPublic, any, any>;
+  .and(ContractClassSchema.omit({ privateFunctions: true })) satisfies ZodFor<ContractClassPublic>;
 
 /** The contract class with the block it was initially deployed at */
 export type ContractClassPublicWithBlockNumber = { l2BlockNumber: number } & ContractClassPublic;

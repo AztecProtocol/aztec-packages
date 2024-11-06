@@ -11,6 +11,7 @@ import { Signature } from '../eth-signature/eth_signature.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
 import { hasHexPrefix, isHex, withoutHexPrefix } from '../string/index.js';
+import { type ZodFor } from './types.js';
 import { hexSchema, maybeStructuredStringSchemaFor } from './utils.js';
 
 const FrSchema = maybeStructuredStringSchemaFor('Fr', Fr, isHex);
@@ -101,7 +102,7 @@ export const schemas = {
   HexString: hexSchema,
 };
 
-export const AbiDecodedSchema: z.ZodType<AbiDecoded, any, any> = z.union([
+export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
   schemas.BigInt,
   z.boolean(),
   schemas.AztecAddress,

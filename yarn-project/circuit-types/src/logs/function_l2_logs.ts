@@ -4,6 +4,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
 } from '@aztec/circuits.js';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -130,7 +131,7 @@ export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteL
 }
 
 export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
-  static get schema(): z.ZodType<EncryptedFunctionL2Logs, any, any> {
+  static get schema(): ZodFor<EncryptedFunctionL2Logs> {
     return z
       .object({ logs: z.array(EncryptedL2Log.schema) })
       .transform(({ logs }) => new EncryptedFunctionL2Logs(logs));

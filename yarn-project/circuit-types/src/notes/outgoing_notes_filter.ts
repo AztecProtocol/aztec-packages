@@ -1,5 +1,5 @@
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -20,7 +20,7 @@ export type OutgoingNotesFilter = {
   owner?: AztecAddress;
 };
 
-export const OutgoingNotesFilterSchema: z.ZodType<OutgoingNotesFilter, any, any> = z.object({
+export const OutgoingNotesFilterSchema: ZodFor<OutgoingNotesFilter> = z.object({
   txHash: TxHash.schema.optional(),
   contractAddress: schemas.AztecAddress.optional(),
   storageSlot: schemas.Fr.optional(),

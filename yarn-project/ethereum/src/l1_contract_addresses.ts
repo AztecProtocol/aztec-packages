@@ -1,6 +1,6 @@
 import { type ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -38,7 +38,7 @@ export const L1ContractAddressesSchema = z.object({
   sysstiaAddress: schemas.EthAddress,
   gerousiaAddress: schemas.EthAddress,
   apellaAddress: schemas.EthAddress,
-}) satisfies z.ZodType<L1ContractAddresses, any, any>;
+}) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 
