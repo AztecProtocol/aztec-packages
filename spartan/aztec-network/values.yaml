@@ -36,6 +36,7 @@ bootNode:
     minTxsPerBlock: 1
   validator:
     disabled: true
+    reEx: true
   p2p:
     enabled: "true"
   resources:
