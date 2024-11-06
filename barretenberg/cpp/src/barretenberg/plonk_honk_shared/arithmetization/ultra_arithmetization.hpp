@@ -137,8 +137,9 @@ template <typename FF_> class UltraArith {
 
         auto get()
         {
-            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,        this->elliptic,
-                             this->aux,        this->lookup,     this->poseidon2_external, this->poseidon2_internal };
+            return RefArray{ this->pub_inputs,   this->arithmetic, this->delta_range,        this->elliptic,
+                             this->aux,          this->lookup,     this->poseidon2_external, this->poseidon2_internal,
+                             this->miscellaneous };
         }
 
         void summarize() const
