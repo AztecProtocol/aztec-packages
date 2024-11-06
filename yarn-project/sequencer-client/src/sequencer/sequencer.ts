@@ -434,7 +434,12 @@ export class Sequencer {
     await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork)),
+      processor.process(
+        validTxs,
+        blockSize,
+        blockBuilder,
+        this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
+      ),
     );
     if (failedTxs.length > 0) {
       const failedTxData = failedTxs.map(fail => fail.tx);
@@ -547,18 +552,16 @@ export class Sequencer {
       const proofQuote = await this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt());
       this.log.verbose(proofQuote ? `Using proof quote ${inspect(proofQuote.payload)}` : 'No proof quote available');
 
-      try {
-        await this.publishL2Block(block, attestations, txHashes, proofQuote);
-        this.metrics.recordPublishedBlock(workDuration);
-        this.log.info(
-          `Submitted rollup block ${block.number} with ${numProcessedTxs} transactions duration=${Math.ceil(
-            workDuration,
-          )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
-        );
-      } catch (err) {
-        this.metrics.recordFailedBlock();
-        throw err;
-      }
+      await this.publishL2Block(block, attestations, txHashes, proofQuote);
+      this.metrics.recordPublishedBlock(workDuration);
+      this.log.info(
+        `Submitted rollup block ${block.number} with ${numProcessedTxs} transactions duration=${Math.ceil(
+          workDuration,
+        )}ms (Submitter: ${this.publisher.getSenderAddress()})`,
+      );
+    } catch (err) {
+      this.metrics.recordFailedBlock();
+      throw err;
     }
   }
 
