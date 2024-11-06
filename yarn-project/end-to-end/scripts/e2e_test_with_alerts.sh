@@ -9,6 +9,8 @@
 
 set -e
 
+test_path=$1
+
 echo "Running otel stack"
 CONTAINER_ID=$(docker run -d -p 3000:3000 -p 4317:4317 -p 4318:4318 --rm grafana/otel-lgtm)
 
@@ -29,9 +31,14 @@ if [ $timeout -eq 0 ]; then
     exit 1
 fi
 
-
 ## Pass through run the existing e2e test
-./e2e_test.sh $@
+docker run \
+    -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
+    -e FAKE_PROOFS="$FAKE_PROOFS" \
+    $env_args \
+    --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
+    "$test_path" "$@" || [ "$ignore_failures" = "true" ]
+
 
 echo "Running alert checker..."
 docker run --network host --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG quality_of_service/alert_checker.test.ts
