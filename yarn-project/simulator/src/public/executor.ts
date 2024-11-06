@@ -43,7 +43,7 @@ export class PublicExecutor {
    */
   public async simulate(
     stateManager: AvmPersistableStateManager,
-    executionRequest: PublicExecutionRequest, // TODO(dbanks12): CallRequest instead?
+    executionRequest: PublicExecutionRequest,
     globalVariables: GlobalVariables,
     allocatedGas: Gas,
     transactionFee: Fr = Fr.ZERO,
@@ -105,6 +105,8 @@ export class PublicExecutor {
    * @param transactionFee - Fee offered for this TX.
    * @param startSideEffectCounter - The start counter to initialize the side effect trace with.
    * @returns The result of execution including side effect vectors.
+   * FIXME: this function is only used by the TXE. Ideally we would not support this as an external interface.
+   * Avoid using this interface as it it shouldn't really exist in the first place.
    */
   public async simulateIsolatedEnqueuedCall(
     executionRequest: PublicExecutionRequest,
