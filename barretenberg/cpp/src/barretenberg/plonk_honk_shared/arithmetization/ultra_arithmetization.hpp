@@ -116,11 +116,11 @@ template <typename FF_> class UltraArith {
         }
 
         // Set fixed block sizes for use in structured trace
-        void set_fixed_block_sizes(TraceStructure setting)
+        void set_fixed_block_sizes(TraceSettings settings)
         {
             UltraTraceBlocks<uint32_t> fixed_block_sizes{}; // zero initialized
 
-            switch (setting) {
+            switch (settings.structure) {
             case TraceStructure::NONE:
                 break;
             // We don't use Ultra in ClientIvc so no need for anything other than sizing for simple unit tests
@@ -134,6 +134,7 @@ template <typename FF_> class UltraArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
+            this->miscellaneous.set_fixed_size(settings.overflow);
         }
 
         void compute_offsets(bool is_structured)

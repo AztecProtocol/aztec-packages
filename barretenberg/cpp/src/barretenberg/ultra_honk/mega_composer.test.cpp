@@ -87,8 +87,8 @@ TEST_F(MegaHonkTests, BasicStructured)
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof using a structured trace
-    TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
     MegaProver prover(proving_key);
     auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
@@ -223,8 +223,8 @@ TEST_F(MegaHonkTests, MiscellaneousBlockSimple)
     MockCircuits::add_arithmetic_gates(builder, 8);
 
     // Construct and verify Honk proof using a structured trace
-    TraceStructure trace_structure = TraceStructure::TINY_TEST;
-    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    TraceSettings trace_settings{ TraceStructure::TINY_TEST };
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
     // builder.blocks.summarize();
     MegaProver prover(proving_key);
     // builder.blocks.summarize();
@@ -242,14 +242,14 @@ TEST_F(MegaHonkTests, MiscellaneousBlockAuxOverflow)
 {
     MegaCircuitBuilder builder;
 
-    TraceStructure trace_structure = TraceStructure::TINY_TEST;
+    TraceSettings trace_settings{ TraceStructure::TINY_TEST };
 
     GoblinMockCircuits::construct_simple_circuit(builder);
     MockCircuits::add_arithmetic_gates(builder, 8);
     MockCircuits::add_RAM_gates(builder);
 
     // Construct and verify Honk proof using a structured trace
-    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
 
     // builder.blocks.summarize();
     MegaProver prover(proving_key);

@@ -174,13 +174,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     std::shared_ptr<DeciderProvingKey> proving_key;
     if (!initialized) {
         proving_key = std::make_shared<DeciderProvingKey>(
-            circuit, trace_settings.structure, /*commitment_key=*/nullptr, dyadic_circuit_size_override);
-        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings.structure);
+            circuit, trace_settings, /*commitment_key=*/nullptr, dyadic_circuit_size_override);
+        trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
     } else {
-        proving_key = std::make_shared<DeciderProvingKey>(circuit,
-                                                          trace_settings.structure,
-                                                          fold_output.accumulator->proving_key.commitment_key,
-                                                          dyadic_circuit_size_override);
+        proving_key = std::make_shared<DeciderProvingKey>(
+            circuit, trace_settings, fold_output.accumulator->proving_key.commitment_key, dyadic_circuit_size_override);
     }
 
     // Update the accumulator trace usage based on the present circuit

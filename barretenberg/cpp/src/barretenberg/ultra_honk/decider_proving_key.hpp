@@ -51,10 +51,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     size_t dyadic_circuit_size_override = 0;
 
     DeciderProvingKey_(Circuit& circuit,
-                       TraceStructure trace_structure = TraceStructure::NONE,
+                       TraceSettings trace_settings = TraceSettings{},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr,
                        size_t circuit_size_override = 0)
-        : is_structured(trace_structure != TraceStructure::NONE)
+        : is_structured(trace_settings.structure != TraceStructure::NONE)
         , dyadic_circuit_size_override(circuit_size_override)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
@@ -67,7 +67,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
-            circuit.blocks.set_fixed_block_sizes(trace_structure); // set the fixed sizes for each block
+            circuit.blocks.set_fixed_block_sizes(trace_settings); // set the fixed sizes for each block
             circuit.blocks.summarize();
             // circuit.blocks.check_within_fixed_sizes(); // ensure that no block exceeds its fixed size
             move_structured_trace_overflow_to_miscellaneous_block(circuit);

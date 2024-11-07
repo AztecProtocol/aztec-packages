@@ -266,11 +266,11 @@ template <typename FF_> class MegaArith {
         }
 
         // Set fixed block sizes for use in structured trace
-        void set_fixed_block_sizes(TraceStructure setting)
+        void set_fixed_block_sizes(TraceSettings settings)
         {
             MegaTraceBlocks<uint32_t> fixed_block_sizes{}; // zero initialized
 
-            switch (setting) {
+            switch (settings.structure) {
             case TraceStructure::NONE:
                 break;
             case TraceStructure::TINY_TEST:
@@ -289,6 +289,7 @@ template <typename FF_> class MegaArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
+            this->miscellaneous.set_fixed_size(settings.overflow);
         }
 
         void compute_offsets(bool is_structured)
