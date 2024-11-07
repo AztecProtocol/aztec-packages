@@ -69,12 +69,13 @@ export class SequencerMetrics {
     this.setCurrentBlock(0, 0);
   }
 
-  startCollintingAttestationsTimer(): () => void {
+  startCollectingAttestationsTimer(): () => void {
     const startTime = Date.now();
-    return () => {
+    const stop = () => {
       const duration = Date.now() - startTime;
       this.recordTimeToCollectAttestations(duration);
     };
+    return stop.bind(this);
   }
 
   recordTimeToCollectAttestations(time: number) {

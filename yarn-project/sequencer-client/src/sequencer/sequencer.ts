@@ -583,7 +583,7 @@ export class Sequencer {
 
       this.isFlushing = false;
       this.log.verbose('Collecting attestations');
-      const stopCollectingAttestationsTimer = this.metrics.startCollintingAttestationsTimer();
+      const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
       const attestations = await this.collectAttestations(block, txHashes);
       this.log.verbose('Attestations collected');
       stopCollectingAttestationsTimer();
