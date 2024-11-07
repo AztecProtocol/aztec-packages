@@ -222,7 +222,7 @@ export interface FunctionAbi {
 export interface FunctionArtifact extends FunctionAbi {
   /** The ACIR bytecode of the function. */
   bytecode: Buffer;
-  /** The verification key of the function. */
+  /** The verification key of the function, base64 encoded, if it's a private fn. */
   verificationKey?: string;
   /** Maps opcodes to source code pointers */
   debugSymbols: string;
