@@ -7,13 +7,13 @@ import { FeesTest } from './fees_test.js';
 describe('e2e_fees/private_refunds', () => {
   let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress;
-  let bobAddress: AztecAddress;
+  let sequencerAddress: AztecAddress;
   let bananaCoin: TokenContract;
   let bananaFPC: FPCContract;
 
   let initialAliceBalance: bigint;
   // Bob is the admin of the fee paying contract
-  let initialBobBalance: bigint;
+  let initialSequencerBalance: bigint;
   let initialFPCGasBalance: bigint;
 
   const t = new FeesTest('private_refunds');
@@ -25,12 +25,9 @@ describe('e2e_fees/private_refunds', () => {
     await t.applyDeployBananaTokenSnapshot();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithPrivateBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, bananaFPC, bananaCoin } = await t.setup());
+    ({ aliceWallet, aliceAddress, sequencerAddress, bananaFPC, bananaCoin } = await t.setup());
 
     t.logger.debug(`Alice address: ${aliceAddress}`);
-
-    // We give Alice access to Bob's notes because Alice is used to check if balances are correct.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   afterAll(async () => {
@@ -38,8 +35,8 @@ describe('e2e_fees/private_refunds', () => {
   });
 
   beforeEach(async () => {
-    [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
-      t.getBananaPrivateBalanceFn(aliceAddress, t.bobAddress),
+    [[initialAliceBalance, initialSequencerBalance], [initialFPCGasBalance]] = await Promise.all([
+      t.getBananaPrivateBalanceFn(aliceAddress, sequencerAddress),
       t.getGasBalanceFn(bananaFPC.address),
     ]);
   });
@@ -55,7 +52,7 @@ describe('e2e_fees/private_refunds', () => {
             bananaCoin.address,
             bananaFPC.address,
             aliceWallet,
-            t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
+            sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
           ),
         },
       })
@@ -68,8 +65,8 @@ describe('e2e_fees/private_refunds', () => {
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, t.bobAddress],
-      [initialAliceBalance - transactionFee!, initialBobBalance + transactionFee!],
+      [aliceAddress, t.sequencerAddress],
+      [initialAliceBalance - transactionFee!, initialSequencerBalance + transactionFee!],
     );
   });
 
@@ -84,7 +81,7 @@ describe('e2e_fees/private_refunds', () => {
             bananaCoin.address,
             bananaFPC.address,
             aliceWallet,
-            t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
+            sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
             true, // We set max fee/funded amount to 1 to trigger the error.
           ),
         },

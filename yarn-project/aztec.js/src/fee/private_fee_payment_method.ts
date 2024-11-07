@@ -64,7 +64,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [this.feeRecipient, this.wallet.getCompleteAddress().address, maxFee],
+        args: [this.feeRecipient, this.wallet.getAddress(), maxFee],
         selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,

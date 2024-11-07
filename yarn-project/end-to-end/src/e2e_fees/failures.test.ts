@@ -7,7 +7,6 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
-  computeSecretHash,
 } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
@@ -64,7 +63,7 @@ describe('e2e_fees failures', () => {
               bananaCoin.address,
               bananaFPC.address,
               aliceWallet,
-              aliceAddress,
+              t.sequencerAddress,
             ),
           },
         })
@@ -84,9 +83,6 @@ describe('e2e_fees failures', () => {
     );
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
-    // if we skip simulation, it includes the failed TX
-    const rebateSecret = Fr.random();
-
     // We wait until the proven chain is caught up so all previous fees are paid out.
     await t.catchUpProvenChain();
     const currentSequencerL1Gas = await t.getCoinbaseBalance();
@@ -97,7 +93,12 @@ describe('e2e_fees failures', () => {
         skipPublicSimulation: true,
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, rebateSecret),
+          paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
+            bananaFPC.address,
+            aliceWallet,
+            t.sequencerAddress,
+          ),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -135,9 +136,6 @@ describe('e2e_fees failures', () => {
     // Alice can redeem her shield to get the rebate
     const refund = gasSettings.getFeeLimit().toBigInt() - feeAmount;
     expect(refund).toBeGreaterThan(0n);
-    const secretHashForRebate = computeSecretHash(rebateSecret);
-    await t.addPendingShieldNoteToPXE(t.aliceWallet, refund, secretHashForRebate, txReceipt.txHash);
-    await bananaCoin.methods.redeem_shield(aliceAddress, refund, rebateSecret).send().wait();
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,

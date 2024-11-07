@@ -127,6 +127,7 @@ export class FeesTest {
   }
 
   /** Adds a pending shield transparent node for the banana coin token contract to the pxe. */
+  // TODO(benesjan): nuke this
   async addPendingShieldNoteToPXE(owner: AztecAddress | AccountWallet, amount: bigint, secretHash: Fr, txHash: TxHash) {
     const note = new Note([new Fr(amount), secretHash]);
     const ownerAddress = 'getAddress' in owner ? owner.getAddress() : owner;
