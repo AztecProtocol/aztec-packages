@@ -5,13 +5,13 @@ import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
 import { type AddressInfo } from 'net';
-import { format } from 'util';
+import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
-import { jsonStringify } from '../convert.js';
+import { jsonStringify, tryJsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
 export class SafeJsonRpcServer {
@@ -46,7 +46,7 @@ export class SafeJsonRpcServer {
       try {
         await next();
       } catch (err: any) {
-        this.log.error(err);
+        this.log.warn(`Error in JSON RPC server call ${(ctx.request.body as any).method}: ${inspect(err)}`);
         if (err instanceof SyntaxError) {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
