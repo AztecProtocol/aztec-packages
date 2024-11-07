@@ -2,6 +2,7 @@ import {
   type AztecNode,
   L1NotePayload,
   type L2Block,
+  L2BlockNumber,
   MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
@@ -13,7 +14,7 @@ import {
   type AztecAddress,
   type CompleteAddress,
   type ContractInstance,
-  type Fr,
+  Fr,
   type FunctionSelector,
   type Header,
   IndexedTaggingSecret,
@@ -28,6 +29,8 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+
+import { access } from 'fs';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -159,7 +162,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return this.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
@@ -168,11 +171,16 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
-  public async findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
-    return await this.aztecNode.findLeafIndex(blockNumber, treeId, leafValue);
+  public async findLeafIndex(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValue: Fr,
+  ): Promise<bigint | undefined> {
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
+    return leafIndex;
   }
 
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
@@ -278,6 +286,10 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
   ): Promise<void> {
     const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    this.log.verbose(
+      `Incrementing secret ${secret} as sender ${sender} for recipient: ${recipient} at contract: ${contractName}(${contractAddress})`,
+    );
     await this.db.incrementTaggingSecretsIndexesAsSender([secret]);
   }
 
@@ -332,6 +344,7 @@ export class SimulatorOracle implements DBOracle {
       ? scopes
       : (await this.db.getCompleteAddresses()).map(completeAddress => completeAddress.address);
     const result = new Map<string, TxScopedEncryptedL2NoteLog[]>();
+    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
       const logs: TxScopedEncryptedL2NoteLog[] = [];
       // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
@@ -342,28 +355,64 @@ export class SimulatorOracle implements DBOracle {
 
       // 1. Get all the secrets for the recipient and sender pairs (#9365)
       let appTaggingSecrets = await this.#getAppTaggingSecretsForContacts(contractAddress, recipient);
+      // 1.1 Set up a sliding window with an offset. Chances are the sender might have messed up
+      // and inadvertedly incremented their index without use getting any logs (for example, in case
+      // of a revert). If we stopped looking for logs the first time
+      // we receive 0 for a tag, we might never receive anything from that sender again.
+      const INDEX_OFFSET = 10;
+      const maxIndexesToCheck = appTaggingSecrets.reduce<{ [k: string]: number }>(
+        (acc, appTaggingSecret) => ({
+          ...acc,
+          ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index + INDEX_OFFSET },
+        }),
+        {},
+      );
 
+      const secretsToIncrement = appTaggingSecrets.reduce<{ [k: string]: number }>(
+        (acc, appTaggingSecret) => ({
+          ...acc,
+          ...{ [appTaggingSecret.secret.toString()]: appTaggingSecret.index },
+        }),
+        {},
+      );
       while (appTaggingSecrets.length > 0) {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
         const currentTags = appTaggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient));
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
-        const newTaggingSecrets: IndexedTaggingSecret[] = [];
-        logsByTags.forEach((logsByTag, index) => {
+        let newTaggingSecrets: IndexedTaggingSecret[] = [];
+        logsByTags.forEach((logsByTag, logIndex) => {
+          const { secret: currentSecret, index: currentIndex } = appTaggingSecrets[logIndex];
+          const currentSecretAsStr = currentSecret.toString();
           // 3.1. Append logs to the list and increment the index for the tags that have logs (#9380)
           if (logsByTag.length > 0) {
+            this.log.verbose(
+              `Found ${
+                logsByTag.length
+              } logs for secret ${currentSecretAsStr} as recipient ${recipient}. Incrementing index to ${
+                currentIndex + 1
+              } at contract: ${contractName}(${contractAddress})`,
+            );
             logs.push(...logsByTag);
             // 3.2. Increment the index for the tags that have logs (#9380)
-            newTaggingSecrets.push(
-              new IndexedTaggingSecret(appTaggingSecrets[index].secret, appTaggingSecrets[index].index + 1),
-            );
+            secretsToIncrement[currentSecretAsStr] = currentIndex + 1;
+            // 3.4. Slide the window forwards
+            maxIndexesToCheck[currentSecretAsStr] = currentIndex + INDEX_OFFSET;
+          }
+          // 3.3 Keep increasing the index (inside a window) temporarily for the tags that have no logs
+          // There's a chance the sender missed some and we want to catch up
+          if (currentIndex < maxIndexesToCheck[currentSecretAsStr]) {
+            const newTaggingSecret = new IndexedTaggingSecret(currentSecret, currentIndex + 1);
+            newTaggingSecrets.push(newTaggingSecret);
           }
         });
-        // 4. Consolidate in db and replace initial appTaggingSecrets with the new ones (updated indexes)
-        await this.db.incrementTaggingSecretsIndexesAsRecipient(
-          newTaggingSecrets.map(indexedSecret => indexedSecret.secret),
+        await this.db.setTaggingSecretsIndexesAsRecipient(
+          Object.keys(secretsToIncrement).map(
+            secret => new IndexedTaggingSecret(Fr.fromString(secret), secretsToIncrement[secret]),
+          ),
         );
         appTaggingSecrets = newTaggingSecrets;
       }
+
       result.set(
         recipient.toString(),
         logs.filter(log => log.blockNumber <= maxBlockNumber),
@@ -474,22 +523,18 @@ export class SimulatorOracle implements DBOracle {
       });
     }
     const nullifiedNotes: IncomingNoteDao[] = [];
-    // TODO: Nullify ALL THE NOTES, not only the ones we recovered this time around
-    for (const incomingNote of incomingNotes) {
-      // NOTE: this leaks information about the nullifiers I'm interested in to the node.
-      const found = await this.aztecNode.findLeafIndex(
-        'latest',
-        MerkleTreeId.NULLIFIER_TREE,
-        incomingNote.siloedNullifier,
-      );
-      if (found) {
-        nullifiedNotes.push(incomingNote);
-      }
-    }
-    await this.db.removeNullifiedNotes(
-      nullifiedNotes.map(note => note.siloedNullifier),
-      computePoint(recipient),
+    const currentNotesForRecipient = await this.db.getIncomingNotes({ owner: recipient });
+    const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
+      'latest',
+      MerkleTreeId.NULLIFIER_TREE,
+      currentNotesForRecipient.map(note => note.siloedNullifier),
     );
+
+    const foundNullifiers = currentNotesForRecipient
+      .filter((_, i) => nullifierIndexes[i] !== undefined)
+      .map(note => note.siloedNullifier);
+
+    await this.db.removeNullifiedNotes(foundNullifiers, computePoint(recipient));
     nullifiedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${

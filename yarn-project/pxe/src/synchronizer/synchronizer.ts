@@ -143,28 +143,4 @@ export class Synchronizer {
       blocks: lastBlockNumber,
     };
   }
-
-  async #removeNullifiedNotes(notes: IncomingNoteDao[]) {
-    // now group the decoded incoming notes by public key
-    const addressPointToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
-    for (const noteDao of notes) {
-      const notesForAddressPoint = addressPointToIncomingNotes.get(noteDao.addressPoint) ?? [];
-      notesForAddressPoint.push(noteDao);
-      addressPointToIncomingNotes.set(noteDao.addressPoint, notesForAddressPoint);
-    }
-
-    // now for each group, look for the nullifiers in the nullifier tree
-    for (const [publicKey, notes] of addressPointToIncomingNotes.entries()) {
-      const nullifiers = notes.map(n => n.siloedNullifier);
-      const relevantNullifiers: Fr[] = [];
-      for (const nullifier of nullifiers) {
-        // NOTE: this leaks information about the nullifiers I'm interested in to the node.
-        const found = await this.node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
-        if (found) {
-          relevantNullifiers.push(nullifier);
-        }
-      }
-      await this.db.removeNullifiedNotes(relevantNullifiers, publicKey);
-    }
-  }
 }

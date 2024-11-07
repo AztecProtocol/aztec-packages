@@ -3,6 +3,7 @@ import {
   type CompleteAddress,
   type ContractInstanceWithAddress,
   type Header,
+  IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -228,9 +229,9 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets
+   * Sets the index for the provided app siloed tagging secrets
    * To be used when the generated tags have been "seen" as a recipient
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<void>;
+  setTaggingSecretsIndexesAsRecipient(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
 }

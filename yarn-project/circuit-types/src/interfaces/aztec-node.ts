@@ -41,13 +41,17 @@ import { type ProverCoordination } from './prover-coordination.js';
  */
 export interface AztecNode extends ProverCoordination {
   /**
-   * Find the index of the given leaf in the given tree.
+   * Find the indexes of the given leaves in the given tree.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
-   * @param leafValue - The value to search for
-   * @returns The index of the given leaf in the given tree or undefined if not found.
+   * @param leafValue - The values to search for
+   * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeavesIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(bigint | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.

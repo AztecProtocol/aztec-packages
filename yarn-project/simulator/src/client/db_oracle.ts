@@ -1,5 +1,6 @@
 import {
   type L2Block,
+  type L2BlockNumber,
   type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
@@ -146,7 +147,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param leafValue - The leaf value buffer.
    * @returns - The index of the leaf. Undefined if it does not exist in the tree.
    */
-  findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
    * Fetch the sibling path of the leaf in the respective tree

@@ -4,6 +4,7 @@ import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   Header,
+  IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
   computePoint,
@@ -607,16 +608,20 @@ export class KVPxeDatabase implements PxeDatabase {
     await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
   }
 
-  async incrementTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<void> {
-    await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients);
-  }
-
   async #incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<void> {
     const indexes = await this.#getTaggingSecretsIndexes(appTaggingSecrets, storageMap);
     await this.db.transaction(() => {
       indexes.forEach((taggingSecretIndex, listIndex) => {
         const nextIndex = taggingSecretIndex + 1;
         void storageMap.set(appTaggingSecrets[listIndex].toString(), nextIndex);
+      });
+    });
+  }
+
+  async setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
+    await this.db.transaction(() => {
+      indexedSecrets.forEach(indexedSecret => {
+        void this.#taggingSecretIndexesForRecipients.set(indexedSecret.secret.toString(), indexedSecret.index);
       });
     });
   }

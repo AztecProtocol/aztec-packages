@@ -19,6 +19,11 @@ export type WaitOpts = {
   interval?: number;
   /** Whether to wait for the tx to be proven. */
   proven?: boolean;
+  /**
+   * Whether to wait for the node to notify that the block in which this tx was mined is available to fetch notes from.
+   * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
+   **/
+  waitForNotesAvailable?: boolean;
   /** Whether to include information useful for debugging/testing in the receipt. */
   debug?: boolean;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
@@ -30,6 +35,7 @@ export const DefaultWaitOpts: WaitOpts = {
   provenTimeout: 600,
   interval: 1,
   debug: false,
+  waitForNotesAvailable: true,
 };
 
 /**
@@ -123,7 +129,20 @@ export class SentTx {
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;
         }
-        return txReceipt;
+        // If the tx was dropped, return it
+        if (txReceipt.status === TxStatus.DROPPED) {
+          return txReceipt;
+        }
+        // If we don't care about waiting for notes to be synced, return the receipt
+        const waitForNotesAvailable = opts?.waitForNotesAvailable ?? DefaultWaitOpts.waitForNotesAvailable;
+        if (!waitForNotesAvailable) {
+          return txReceipt;
+        }
+        // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
+        const { blocks } = await this.pxe.getSyncStatus();
+        const targetBlock = txReceipt.blockNumber!;
+        const areNotesAvailable = blocks >= targetBlock;
+        return areNotesAvailable ? txReceipt : undefined;
       },
       'isMined',
       opts?.timeout ?? DefaultWaitOpts.timeout,

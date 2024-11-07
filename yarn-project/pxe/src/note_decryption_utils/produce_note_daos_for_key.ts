@@ -1,9 +1,8 @@
 import { type L1NotePayload, type Note, type TxHash, type UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { type Fr, type PublicKey } from '@aztec/circuits.js';
 import { type Logger } from '@aztec/foundation/log';
-import { type AcirSimulator, ContractNotFoundError } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator';
 
-import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type PxeDatabase } from '../database/pxe_database.js';
 import { getOrderedNoteItems } from './add_public_values_to_payload.js';
 import { type NoteInfo, bruteForceNoteInfo } from './brute_force_note_info.js';
