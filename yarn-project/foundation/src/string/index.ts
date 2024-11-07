@@ -9,3 +9,7 @@ export function withoutHexPrefix(str: string): string {
 export function isHex(str: string): boolean {
   return /^(0x)?[0-9a-fA-F]*$/.test(str);
 }
+
+export function hexToBuffer(str: string): Buffer {
+  return Buffer.from(withoutHexPrefix(str), 'hex');
+}

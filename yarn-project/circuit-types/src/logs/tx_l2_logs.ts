@@ -6,6 +6,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
@@ -138,7 +139,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
         if ('contractAddress' in log) {
           contractAddress = log.contractAddress;
         } else if ('maskedContractAddress' in log) {
-          contractAddress = log.maskedContractAddress;
+          contractAddress = new AztecAddress(log.maskedContractAddress);
         } else {
           throw new Error("Can't run filterScoped in logs without contractAddress or maskedContractAddress");
         }
