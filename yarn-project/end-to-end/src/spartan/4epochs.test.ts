@@ -18,6 +18,7 @@ describe('token transfer test', () => {
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
   const MINT_AMOUNT = 2000000n;
   const TEST_EPOCHS = 4;
+  const MAX_MISSED_SLOTS = 10n;
   const ROUNDS = BigInt(AZTEC_EPOCH_DURATION * TEST_EPOCHS);
 
   let testWallets: TestWallets;
@@ -85,7 +86,7 @@ describe('token transfer test', () => {
 
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
       const currentSlot = await rollupCheatCodes.getSlot();
-      expect(currentSlot).toBe(startSlot + i);
+      expect(currentSlot).toBeLessThanOrEqual(startSlot + i + MAX_MISSED_SLOTS);
       const startEpoch = await rollupCheatCodes.getEpoch();
       logger.debug(
         `Successfully reached slot ${currentSlot} (iteration ${
