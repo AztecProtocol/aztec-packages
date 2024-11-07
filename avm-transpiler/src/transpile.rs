@@ -307,15 +307,11 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             BrilligOpcode::Return {} => avm_instrs
                 .push(AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() }),
             BrilligOpcode::Stop { return_data } => {
-                avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::RETURN,
-                    indirect: Some(AddressingModeBuilder::default().build()),
-                    operands: vec![
-                        AvmOperand::U16 { value: return_data.pointer.to_usize() as u16 },
-                        AvmOperand::U16 { value: return_data.size.to_usize() as u16 },
-                    ],
-                    ..Default::default()
-                });
+                generate_return_instruction(
+                    &mut avm_instrs,
+                    &return_data.pointer,
+                    &return_data.size,
+                );
             }
             BrilligOpcode::Trap { revert_data } => {
                 generate_revert_instruction(
@@ -960,6 +956,28 @@ fn generate_revert_instruction(
     });
 }
 
+/// Generates an AVM RETURN instruction.
+fn generate_return_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    return_data_pointer: &MemoryAddress,
+    return_data_size_offset: &MemoryAddress,
+) {
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::RETURN,
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .indirect_operand(return_data_pointer)
+                .direct_operand(return_data_size_offset)
+                .build(),
+        ),
+        operands: vec![
+            AvmOperand::U16 { value: return_data_pointer.to_usize() as u16 },
+            AvmOperand::U16 { value: return_data_size_offset.to_usize() as u16 },
+        ],
+        ..Default::default()
+    });
+}
+
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(
     indirect: Option<AvmOperand>,
@@ -1323,25 +1341,16 @@ fn handle_return(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    assert!(inputs.len() == 1);
+    assert!(inputs.len() == 2);
     assert!(destinations.len() == 0);
 
-    let (return_data_offset, return_data_size) = match inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
-        _ => panic!("Return instruction's args input should be a HeapArray"),
+    // First arg is the size, which is ignored because it's redundant.
+    let (return_data_offset, return_data_size) = match inputs[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
+        _ => panic!("Revert instruction's args input should be a HeapVector"),
     };
 
-    avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::RETURN,
-        indirect: Some(
-            AddressingModeBuilder::default().indirect_operand(&return_data_offset).build(),
-        ),
-        operands: vec![
-            AvmOperand::U16 { value: return_data_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: return_data_size as u16 },
-        ],
-        ..Default::default()
-    });
+    generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size);
 }
 
 // #[oracle(avmOpcodeRevert)]
