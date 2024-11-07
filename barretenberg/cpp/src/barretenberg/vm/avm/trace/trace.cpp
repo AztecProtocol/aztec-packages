@@ -2868,8 +2868,11 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         call_ptr, clk, resolved_args_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID);
     bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
 
+    const auto args_size_tag = unconstrained_get_memory_tag(resolved_args_size_offset);
+    bool op_valid = args_size_tag == AvmMemoryTag::U32;
+
     // TODO: constrain this
-    auto args_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset));
+    auto args_size = op_valid ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
 
     gas_trace_builder.constrain_gas(clk,
                                     opcode,
@@ -2891,6 +2894,7 @@ void AvmTraceBuilder::constrain_external_call(OpCode opcode,
         .main_mem_addr_b = FF(read_gas_l2.direct_address + 1),
         .main_mem_addr_c = FF(read_addr.direct_address),
         .main_mem_addr_d = FF(read_args.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
@@ -3050,7 +3054,11 @@ std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
     auto [resolved_ret_offset, resolved_ret_size_offset] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ ret_offset, ret_size_offset }, mem_trace_builder);
-    const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
+
+    const auto ret_size_tag = unconstrained_get_memory_tag(ret_size_offset);
+    bool op_valid = ret_size_tag == AvmMemoryTag::U32;
+    const auto ret_size =
+        op_valid ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
 
     gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
 
@@ -3061,6 +3069,7 @@ std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             .main_call_ptr = call_ptr,
             .main_ib = ret_size,
             .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
             .main_pc = pc,
             .main_sel_op_external_return = 1,
         });
@@ -3077,6 +3086,7 @@ std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
         slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
     }
 
+    // TODO: fix and set sel_op_revert
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_call_ptr = call_ptr,
