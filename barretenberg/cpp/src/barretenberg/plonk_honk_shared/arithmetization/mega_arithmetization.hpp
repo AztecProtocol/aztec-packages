@@ -35,7 +35,7 @@ template <typename FF_> class MegaArith {
         T poseidon2_external;
         T poseidon2_internal;
         T lookup;
-        T overflow;
+        T overflow; // block gates of arbitrary type that overflow their designated block
 
         auto get()
         {
@@ -195,7 +195,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 30128;
             this->poseidon2_internal = 172000;
             this->lookup = 200000;
-            this->overflow = 0; // can contain arbitrary gate types
+            this->overflow = 0;
         }
     };
 
@@ -271,7 +271,7 @@ template <typename FF_> class MegaArith {
 
     struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
 
-        bool has_overflow = false;
+        bool has_overflow = false; // indicates whether the overflow block has non-zero fixed or actual size
 
         TraceBlocks()
         {
