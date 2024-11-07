@@ -1,10 +1,10 @@
 import { type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
+import { Octokit } from '@octokit/rest';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { dirname, join } from 'path';
-import { Octokit } from '@octokit/rest';
 
 const GRAFANA_ENDPOINT = 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query';
 interface AlertConfig {
@@ -86,7 +86,7 @@ async function postCommentOnPR(message: string, logger: DebugLogger) {
   const token = AZTEC_BOT_GITHUB_TOKEN;
   const prNumber = parseInt(PULL_REQUEST, 10);
   if (isNaN(prNumber)) {
-    console.error('Missing required GitHub environment variables.');
+    logger.error('Missing required GitHub environment variables.');
     return;
   }
 
@@ -95,6 +95,7 @@ async function postCommentOnPR(message: string, logger: DebugLogger) {
   await octokit.issues.createComment({
     owner: 'AztecProtocol',
     repo: 'aztec-packages',
+    /* eslint-disable-next-line camelcase */
     issue_number: prNumber,
     body: message,
   });

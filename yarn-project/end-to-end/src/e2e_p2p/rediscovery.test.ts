@@ -3,10 +3,10 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
+import { METRICS_PORT } from '../fixtures/index.js';
 import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
-import { METRICS_PORT } from '../fixtures/index.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;

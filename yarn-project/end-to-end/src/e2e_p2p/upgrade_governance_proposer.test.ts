@@ -12,9 +12,9 @@ import {
 import fs from 'fs';
 import { getAddress, getContract } from 'viem';
 
+import { METRICS_PORT } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { METRICS_PORT } from '../fixtures/fixtures.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
