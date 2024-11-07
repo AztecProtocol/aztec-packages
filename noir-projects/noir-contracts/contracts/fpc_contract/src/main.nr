@@ -28,7 +28,7 @@ contract FPC {
 
     #[private]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress) {
-        // TODO: Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
+        // TODO(PR #8022): Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let settings = storage.settings.read_private();
 
         assert(asset == settings.other_asset);

@@ -36,26 +36,22 @@ describe('e2e_fees failures', () => {
   });
 
   it('reverts transactions but still pays fees using PrivateFeePaymentMethod', async () => {
-    const OutrageousPublicAmountAliceDoesNotHave = BigInt(1e8);
-    const PrivateMintedAlicePrivateBananas = BigInt(1e15);
+    const outrageousPublicAmountAliceDoesNotHave = BigInt(1e8);
+    const privateMintedAlicePrivateBananas = BigInt(1e15);
 
-    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+    const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
-      bananaFPC.address,
-    );
-    const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
-      aliceAddress,
-      bananaFPC.address,
+      sequencerAddress,
     );
     const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
 
-    await t.mintPrivateBananas(PrivateMintedAlicePrivateBananas, aliceAddress);
+    await t.mintPrivateBananas(privateMintedAlicePrivateBananas, aliceAddress);
 
     // if we simulate locally, it throws an error
     await expect(
       bananaCoin.methods
         // still use a public transfer so as to fail in the public app logic phase
-        .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
+        .transfer_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
         .send({
           fee: {
             gasSettings,
@@ -73,13 +69,8 @@ describe('e2e_fees failures', () => {
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, bananaFPC.address],
-      [initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas, initialFPCPrivateBananas],
-    );
-    await expectMapping(
-      t.getBananaPublicBalanceFn,
-      [aliceAddress, bananaFPC.address],
-      [initialAlicePublicBananas, initialFPCPublicBananas],
+      [aliceAddress],
+      [initialAlicePrivateBananas + privateMintedAlicePrivateBananas],
     );
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
@@ -88,7 +79,7 @@ describe('e2e_fees failures', () => {
     const currentSequencerL1Gas = await t.getCoinbaseBalance();
 
     const txReceipt = await bananaCoin.methods
-      .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
+      .transfer_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
         skipPublicSimulation: true,
         fee: {
@@ -115,32 +106,22 @@ describe('e2e_fees failures', () => {
     // and thus we paid the fee
     await expectMapping(
       t.getBananaPrivateBalanceFn,
-      [aliceAddress, bananaFPC.address],
+      [aliceAddress, sequencerAddress],
       [
-        // alice paid the maximum amount in private bananas
-        initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas - gasSettings.getFeeLimit().toBigInt(),
-        initialFPCPrivateBananas,
+        // Even with the revert public teardown function got successfully executed so Alice received the refund note
+        // and hence paid the actual fee.
+        initialAlicePrivateBananas + privateMintedAlicePrivateBananas - feeAmount,
+        // Sequencer is the FPC admin/fee recipient and hence he should have received the fee amount note
+        initialSequencerPrivateBananas + feeAmount,
       ],
     );
-    await expectMapping(
-      t.getBananaPublicBalanceFn,
-      [aliceAddress, bananaFPC.address],
-      [initialAlicePublicBananas, initialFPCPublicBananas + feeAmount],
-    );
+
+    // Gas balance of Alice should have stayed the same as the FPC paid the gas fee and not her (she paid bananas
+    // to FPC admin).
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address],
       [initialAliceGas, initialFPCGas - feeAmount],
-    );
-
-    // Alice can redeem her shield to get the rebate
-    const refund = gasSettings.getFeeLimit().toBigInt() - feeAmount;
-    expect(refund).toBeGreaterThan(0n);
-
-    await expectMapping(
-      t.getBananaPrivateBalanceFn,
-      [aliceAddress, bananaFPC.address],
-      [initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas - feeAmount, initialFPCPrivateBananas],
     );
   });
 
