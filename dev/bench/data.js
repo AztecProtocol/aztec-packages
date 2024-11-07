@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730992611293,
+  "lastUpdate": 1731000706325,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "84fdc526f73027a3450bcdcc78b826fc9da8df88",
-          "message": "feat: Print finalized size and log dyadic size during Ultra proof construction (#9411)\n\nYou can now see the circuit sizes in the e2e full prover test.",
-          "timestamp": "2024-10-24T17:47:24-04:00",
-          "tree_id": "8675acf321f92640b1831bb006457a0e8b411c25",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/84fdc526f73027a3450bcdcc78b826fc9da8df88"
-        },
-        "date": 1729808116794,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30847.066788999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29225.964655000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5372.882576000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5038.989699000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 94092.438965,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 94092441000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15161.680561,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15161680000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2717535451,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2717535451 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126186669,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126186669 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 144134174,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144134174 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d77e473219d1628b2045100a55c4073f9fa32c25",
+          "message": "feat: Origin Tags part 3 (Memory) (#9758)\n\nThis PR:\r\n1. Adds Origin Tags for tracking dangerous interactions to all stdlib\r\nmemory primitives\r\n2. Expands  the tests from TwinRomTable\r\n3. Fixes a bug with the use of nonnormalized value.",
+          "timestamp": "2024-11-07T17:01:08Z",
+          "tree_id": "8e12e5f17236c375fdbaf23660cd5ee3fe7fb500",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d77e473219d1628b2045100a55c4073f9fa32c25"
+        },
+        "date": 1731000699105,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29103.202828999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27223.105461 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5404.776381000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5021.919111000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84476.774951,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84476778000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15177.788907000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15177789000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3079377835,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3079377835 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 144600039,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 144600039 ns\nthreads: 1"
           }
         ]
       }
