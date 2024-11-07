@@ -252,9 +252,9 @@ template <typename Curve> struct verification_key {
         key->n = fields[3];
         key->num_public_inputs = fields[4];
 
-        // NOTE: For now `contains_pairing_point_accum` and `pairing_point_accumulator_public_input_indices` need to be
-        // circuit constants!
-        key->contains_pairing_point_accum = inner_proof_contains_pairing_point_accumulator;
+        // NOTE: For now `contains_pairing_point_accumulator` and `pairing_point_accumulator_public_input_indices` need
+        // to be circuit constants!
+        key->contains_pairing_point_accumulator = inner_proof_contains_pairing_point_accumulator;
         for (size_t i = 0; i < PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
             key->pairing_point_accumulator_public_input_indices[i] = pairing_point_accumulator_public_input_indices[i];
         }
@@ -297,7 +297,7 @@ template <typename Curve> struct verification_key {
         key->n = witness_t<Builder>(ctx, bb::fr(input_key->circuit_size));
         key->num_public_inputs = witness_t<Builder>(ctx, input_key->num_public_inputs);
         key->domain = evaluation_domain<Builder>::from_witness(ctx, input_key->domain);
-        key->contains_pairing_point_accum = input_key->contains_pairing_point_accum;
+        key->contains_pairing_point_accumulator = input_key->contains_pairing_point_accumulator;
         key->pairing_point_accumulator_public_input_indices = input_key->pairing_point_accumulator_public_input_indices;
         for (const auto& [tag, value] : input_key->commitments) {
             // We do not perform on_curve() circuit checks when constructing the Curve::Group element.
@@ -320,7 +320,7 @@ template <typename Curve> struct verification_key {
         key->context = ctx;
         key->n = field_t<Builder>(ctx, input_key->circuit_size);
         key->num_public_inputs = field_t<Builder>(ctx, input_key->num_public_inputs);
-        key->contains_pairing_point_accum = input_key->contains_pairing_point_accum;
+        key->contains_pairing_point_accumulator = input_key->contains_pairing_point_accumulator;
         key->pairing_point_accumulator_public_input_indices = input_key->pairing_point_accumulator_public_input_indices;
 
         key->domain = evaluation_domain<Builder>::from_constants(ctx, input_key->domain);
@@ -445,7 +445,7 @@ template <typename Curve> struct verification_key {
 
     plonk::PolynomialManifest polynomial_manifest;
     // Used to check in the circuit if a proof contains any aggregated state.
-    bool contains_pairing_point_accum = false;
+    bool contains_pairing_point_accumulator = false;
     PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
     size_t program_width = 4;
     Builder* context;

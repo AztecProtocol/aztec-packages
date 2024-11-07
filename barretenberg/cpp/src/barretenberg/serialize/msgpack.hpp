@@ -22,11 +22,11 @@ To make objects serializable as a map-like format, define the `msgpack` method i
 
 ```cpp
 void msgpack(auto ar) {
-    ar(NVP(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accum,
+    ar(NVP(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
 pairing_point_accumulator_public_input_indices));
 }
 or
-MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accum,
+MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
 pairing_point_accumulator_public_input_indices);
 ```
 

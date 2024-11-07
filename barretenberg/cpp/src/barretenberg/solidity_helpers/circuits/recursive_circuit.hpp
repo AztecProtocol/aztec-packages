@@ -104,7 +104,7 @@ template <typename OuterBuilder> class RecursiveCircuit {
 
     static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
-        if (builder.contains_pairing_point_accum &&
+        if (builder.contains_pairing_point_accumulator &&
             builder.pairing_point_accumulator_public_input_indices.size() == 16) {
             const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
@@ -145,7 +145,7 @@ template <typename OuterBuilder> class RecursiveCircuit {
 
             return (result == pairing_target_field::one());
         }
-        if (builder.contains_pairing_point_accum &&
+        if (builder.contains_pairing_point_accumulator &&
             builder.pairing_point_accumulator_public_input_indices.size() != 16) {
             return false;
         }

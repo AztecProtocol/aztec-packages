@@ -51,7 +51,7 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(Circui
     circuit_proving_key->pairing_point_accumulator_public_input_indices =
         circuit_constructor.pairing_point_accumulator_public_input_indices;
 
-    circuit_proving_key->contains_pairing_point_accum = circuit_constructor.contains_pairing_point_accum;
+    circuit_proving_key->contains_pairing_point_accumulator = circuit_constructor.contains_pairing_point_accumulator;
 
     return circuit_proving_key;
 }
@@ -75,7 +75,8 @@ std::shared_ptr<plonk::verification_key> StandardComposer::compute_verification_
     circuit_verification_key->circuit_type = circuit_proving_key->circuit_type;
     circuit_verification_key->pairing_point_accumulator_public_input_indices =
         circuit_constructor.pairing_point_accumulator_public_input_indices;
-    circuit_verification_key->contains_pairing_point_accum = circuit_constructor.contains_pairing_point_accum;
+    circuit_verification_key->contains_pairing_point_accumulator =
+        circuit_constructor.contains_pairing_point_accumulator;
 
     return circuit_verification_key;
 }

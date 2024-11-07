@@ -146,7 +146,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         auto inner_proof = inner_prover.construct_proof();
         auto inner_verifier = inner_composer.create_verifier(inner_circuit);
 
-        const bool has_nested_proof = inner_verifier.key->contains_pairing_point_accum;
+        const bool has_nested_proof = inner_verifier.key->contains_pairing_point_accumulator;
 
         const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
         transcript::StandardTranscript transcript(inner_proof.proof_data,

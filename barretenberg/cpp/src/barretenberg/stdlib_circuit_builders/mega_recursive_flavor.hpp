@@ -124,7 +124,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
-            this->contains_pairing_point_accum = native_key->contains_pairing_point_accum;
+            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
             this->pairing_point_accumulator_public_input_indices =
                 native_key->pairing_point_accumulator_public_input_indices;
             this->databus_propagation_data = native_key->databus_propagation_data;
@@ -151,7 +151,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->contains_pairing_point_accum =
+            this->contains_pairing_point_accumulator =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {

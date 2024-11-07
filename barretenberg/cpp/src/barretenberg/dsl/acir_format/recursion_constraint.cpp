@@ -184,9 +184,9 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
     output.emplace_back(vkey->domain.generator);
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
-    output.emplace_back(vkey->contains_pairing_point_accum);
+    output.emplace_back(vkey->contains_pairing_point_accumulator);
     for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
-        if (vkey->contains_pairing_point_accum) {
+        if (vkey->contains_pairing_point_accumulator) {
             output.emplace_back(vkey->pairing_point_accumulator_public_input_indices[i]);
         } else {
             output.emplace_back(0);
@@ -208,7 +208,7 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
         .circuit_size = static_cast<uint32_t>(vkey->circuit_size),
         .num_public_inputs = static_cast<uint32_t>(vkey->num_public_inputs),
         .commitments = vkey->commitments,
-        .contains_pairing_point_accum = vkey->contains_pairing_point_accum,
+        .contains_pairing_point_accumulator = vkey->contains_pairing_point_accumulator,
         .pairing_point_accumulator_public_input_indices = vkey->pairing_point_accumulator_public_input_indices,
     };
     output.emplace_back(vkey_data.hash_native(0)); // key_hash
@@ -226,7 +226,7 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
  * @return std::vector<fr>
  */
 std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
-                                                     const bool contains_pairing_point_accum)
+                                                     const bool contains_pairing_point_accumulator)
 {
     std::vector<fr> output;
     output.emplace_back(1); // domain.domain (will be inverted)
@@ -236,7 +236,7 @@ std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& p
     output.emplace_back(1); // circuit size
     output.emplace_back(1); // num public inputs
 
-    output.emplace_back(contains_pairing_point_accum); // contains_pairing_point_accum
+    output.emplace_back(contains_pairing_point_accumulator); // contains_pairing_point_accumulator
     for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
         output.emplace_back(0); // pairing_point_accumulator_public_input_indices
     }
@@ -307,7 +307,7 @@ std::vector<fr> export_transcript_in_recursion_format(const transcript::Standard
  * @return std::vector<fr>
  */
 std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
-                                                            const bool contains_pairing_point_accum)
+                                                            const bool contains_pairing_point_accumulator)
 {
     std::vector<fr> fields;
     const auto num_rounds = manifest.get_num_rounds();
@@ -337,7 +337,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                     // If we have a recursive proofs the public inputs must describe an aggregation object that
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
-                    if (contains_pairing_point_accum) {
+                    if (contains_pairing_point_accumulator) {
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.

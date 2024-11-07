@@ -73,11 +73,11 @@ bb::PairingPointAccumulatorIndices create_recursion_constraints(
 
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
 std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
-                                                         bool contains_pairing_point_accum = 0);
+                                                         bool contains_pairing_point_accumulator = 0);
 
 std::vector<bb::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript);
 std::vector<bb::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
-                                                                const bool contains_pairing_point_accum);
+                                                                const bool contains_pairing_point_accumulator);
 size_t recursion_proof_size_without_public_inputs();
 
 // In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1

@@ -139,8 +139,8 @@ TEST(VerificationKey, HashEqualityDifferentContainsRecursiveProof)
 {
     verification_key_data vk0_data = rand_vk_data();
     verification_key_data vk1_data = vk0_data;
-    vk0_data.contains_pairing_point_accum = false;
-    vk1_data.contains_pairing_point_accum = true;
+    vk0_data.contains_pairing_point_accumulator = false;
+    vk1_data.contains_pairing_point_accumulator = true;
     expect_hashes_eq(vk0_data, vk1_data);
 }
 

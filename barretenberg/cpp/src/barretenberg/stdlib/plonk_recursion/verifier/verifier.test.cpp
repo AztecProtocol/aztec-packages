@@ -287,7 +287,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
     static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
-        if (builder.contains_pairing_point_accum) {
+        if (builder.contains_pairing_point_accumulator) {
             const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
                 [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {

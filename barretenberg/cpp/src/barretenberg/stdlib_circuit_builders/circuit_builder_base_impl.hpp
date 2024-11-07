@@ -239,11 +239,11 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
     const PairingPointAccumulatorIndices& proof_output_witness_indices)
 {
-    if (contains_pairing_point_accum) {
+    if (contains_pairing_point_accumulator) {
         failure("added recursive proof when one already exists");
         ASSERT(0);
     }
-    contains_pairing_point_accum = true;
+    contains_pairing_point_accumulator = true;
 
     size_t i = 0;
     for (const auto& idx : proof_output_witness_indices) {
@@ -257,11 +257,11 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::set_pairing_point_accumulator(
     const PairingPointAccumulatorIndices& proof_output_witness_indices)
 {
-    if (contains_pairing_point_accum) {
+    if (contains_pairing_point_accumulator) {
         failure("added recursive proof when one already exists");
         ASSERT(0);
     }
-    contains_pairing_point_accum = true;
+    contains_pairing_point_accumulator = true;
     for (size_t i = 0; i < proof_output_witness_indices.size(); ++i) {
         pairing_point_accumulator_public_input_indices[i] =
             get_public_input_index(real_variable_index[proof_output_witness_indices[i]]);

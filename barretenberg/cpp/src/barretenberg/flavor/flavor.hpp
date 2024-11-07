@@ -109,7 +109,7 @@ class PrecomputedEntitiesBase {
 template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
-    bool contains_pairing_point_accum;
+    bool contains_pairing_point_accumulator;
     PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
@@ -151,7 +151,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    bool contains_pairing_point_accum = false;
+    bool contains_pairing_point_accumulator = false;
     PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
@@ -183,7 +183,7 @@ class VerificationKey_ : public PrecomputedCommitments {
         serialize_to_field_buffer(this->circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        serialize_to_field_buffer(this->contains_pairing_point_accum, elements);
+        serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
         serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
         for (const Commitment& commitment : this->get_all()) {

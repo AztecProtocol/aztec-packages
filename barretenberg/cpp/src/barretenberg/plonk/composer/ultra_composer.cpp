@@ -176,7 +176,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
     circuit_proving_key->pairing_point_accumulator_public_input_indices =
         circuit.pairing_point_accumulator_public_input_indices;
 
-    circuit_proving_key->contains_pairing_point_accum = circuit.contains_pairing_point_accum;
+    circuit_proving_key->contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
     construct_sorted_polynomials(circuit, subgroup_size);
 
@@ -207,7 +207,8 @@ std::shared_ptr<plonk::verification_key> UltraComposer::compute_verification_key
     circuit_verification_key->pairing_point_accumulator_public_input_indices =
         circuit_constructor.pairing_point_accumulator_public_input_indices;
 
-    circuit_verification_key->contains_pairing_point_accum = circuit_constructor.contains_pairing_point_accum;
+    circuit_verification_key->contains_pairing_point_accumulator =
+        circuit_constructor.contains_pairing_point_accumulator;
 
     circuit_verification_key->is_recursive_circuit = circuit_constructor.is_recursive_circuit;
 

@@ -187,7 +187,7 @@ template <typename program_settings> bool VerifierBase<program_settings>::verify
         { 0, { &scalars[0], /*size*/ num_elements } }, elements, state);
     P[1] = -(g1::element(PI_Z_OMEGA) * separator_challenge + PI_Z);
 
-    if (key->contains_pairing_point_accum) {
+    if (key->contains_pairing_point_accumulator) {
         ASSERT(key->pairing_point_accumulator_public_input_indices.size() == 16);
         const auto& inputs = transcript.get_field_element_vector("public_inputs");
         const auto recover_fq_from_public_inputs =

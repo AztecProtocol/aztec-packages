@@ -43,7 +43,7 @@ class CircuitSimulatorBN254 {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr std::string_view NAME_STRING = "SIMULATOR";
-    bool contains_pairing_point_accum = false;
+    bool contains_pairing_point_accumulator = false;
     static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
@@ -55,10 +55,10 @@ class CircuitSimulatorBN254 {
     void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
     {
 
-        if (contains_pairing_point_accum) {
+        if (contains_pairing_point_accumulator) {
             failure("added recursive proof when one already exists");
         }
-        contains_pairing_point_accum = true;
+        contains_pairing_point_accumulator = true;
 
         for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
             set_public_input(proof_element_limbs[idx]);

@@ -17,7 +17,7 @@ struct verification_key_data {
     uint32_t circuit_size;
     uint32_t num_public_inputs;
     std::map<std::string, bb::g1::affine_element> commitments;
-    bool contains_pairing_point_accum = false;
+    bool contains_pairing_point_accumulator = false;
     PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
     bool is_recursive_circuit = false;
 
@@ -26,7 +26,7 @@ struct verification_key_data {
                    circuit_size,
                    num_public_inputs,
                    commitments,
-                   contains_pairing_point_accum,
+                   contains_pairing_point_accumulator,
                    pairing_point_accumulator_public_input_indices,
                    is_recursive_circuit);
     [[nodiscard]] bb::fr hash_native(size_t hash_index = 0) const;
@@ -38,7 +38,7 @@ inline std::ostream& operator<<(std::ostream& os, verification_key_data const& k
               << "key.circuit_size: " << static_cast<uint32_t>(key.circuit_size) << "\n"
               << "key.num_public_inputs: " << static_cast<uint32_t>(key.num_public_inputs) << "\n"
               << "key.commitments: " << key.commitments << "\n"
-              << "key.contains_pairing_point_accum: " << key.contains_pairing_point_accum << "\n"
+              << "key.contains_pairing_point_accumulator: " << key.contains_pairing_point_accumulator << "\n"
               << "key.pairing_point_accumulator_public_input_indices: "
               << key.pairing_point_accumulator_public_input_indices << "\n"
               << "key.is_recursive_circuit: " << key.is_recursive_circuit << "\n";
@@ -75,7 +75,7 @@ struct verification_key {
             .circuit_size = static_cast<uint32_t>(circuit_size),
             .num_public_inputs = static_cast<uint32_t>(num_public_inputs),
             .commitments = commitments,
-            .contains_pairing_point_accum = contains_pairing_point_accum,
+            .contains_pairing_point_accumulator = contains_pairing_point_accumulator,
             .pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices,
             .is_recursive_circuit = is_recursive_circuit,
         };
@@ -98,7 +98,7 @@ struct verification_key {
     // Note that recomputing would also have added constraints to the recursive verifier circuit.
     bb::fr z_pow_n; // ʓ^n (ʓ being the 'evaluation challenge')
 
-    bool contains_pairing_point_accum = false;
+    bool contains_pairing_point_accumulator = false;
     PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
 
     bool is_recursive_circuit = false;
@@ -113,7 +113,7 @@ struct verification_key {
             static_cast<uint32_t>(circuit_size),
             static_cast<uint32_t>(num_public_inputs),
             commitments,
-            contains_pairing_point_accum,
+            contains_pairing_point_accumulator,
             pairing_point_accumulator_public_input_indices,
             is_recursive_circuit,
         };

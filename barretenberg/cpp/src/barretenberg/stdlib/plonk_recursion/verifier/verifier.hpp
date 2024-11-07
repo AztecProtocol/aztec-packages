@@ -333,7 +333,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
      *code path should be used with extreme caution if the verification key is not being generated from circuit
      *constants
      **/
-    if (key->contains_pairing_point_accum) {
+    if (key->contains_pairing_point_accumulator) {
         const auto public_inputs = transcript.get_field_element_vector("public_inputs");
         const auto recover_fq_from_public_inputs =
             [&public_inputs](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
