@@ -700,10 +700,10 @@ jobs:
             values: 16-validators
             runner_type: 16core-tester-x86
             timeout: 60
-          # TODO(#9736)
-          # - test: transfer.test.ts
-          #   values: 48-validators
-          #   runner_type: 32core-tester-x86
+          # TODO(#9736) this fails
+          - test: transfer.test.ts
+            values: 48-validators
+            runner_type: 32core-tester-x86
           - test: reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
