@@ -33,7 +33,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 
         PROFILE_THIS_NAME("sumcheck.prove");
         if constexpr (Flavor::HasZK) {
-            auto commitment_key = std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+            auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
             zk_sumcheck_data = ZKSumcheckData<Flavor>(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                              proving_key->relation_parameters,
@@ -79,8 +79,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               sumcheck_output.challenge,
                                                               proving_key->proving_key.commitment_key,
                                                               transcript,
-                                                              /* concatenated_polynomials = */ {},
-                                                              /* groups_to_be_concatenated = */ {},
                                                               zk_sumcheck_data.libra_univariates_monomial,
                                                               sumcheck_output.claimed_libra_evaluations);
     }

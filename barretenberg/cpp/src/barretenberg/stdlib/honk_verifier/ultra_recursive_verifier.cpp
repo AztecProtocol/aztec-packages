@@ -87,8 +87,9 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     // multivariate evaluations at u
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
+
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments;
+    std::vector<Commitment> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         for (size_t idx = 0; idx < log_circuit_size; idx++) {
             Commitment libra_commitment =
@@ -96,34 +97,27 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
             libra_commitments.push_back(libra_commitment);
         };
     }
-    SumcheckOutput<Flavor> sumcheck_output;
-    sumcheck_output = sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+    SumcheckOutput<Flavor> sumcheck_output =
+        sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
 
-    BatchOpeningClaim<Curve> opening_claim;
-    // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
-    if constexpr (!Flavor::HasZK) {
-        opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
-                                                               commitments.get_unshifted(),
-                                                               commitments.get_to_be_shifted(),
-                                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                               sumcheck_output.claimed_evaluations.get_shifted(),
-                                                               sumcheck_output.challenge,
-                                                               Commitment::one(builder),
-                                                               transcript);
-    } else {
-        opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
-                                                               commitments.get_unshifted(),
-                                                               commitments.get_to_be_shifted(),
-                                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                               sumcheck_output.claimed_evaluations.get_shifted(),
-                                                               sumcheck_output.challenge,
-                                                               Commitment::one(builder),
-                                                               transcript,
-                                                               {},
-                                                               {},
-                                                               RefVector(libra_commitments),
-                                                               sumcheck_output.claimed_libra_evaluations);
+    // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
+    std::vector<FF> libra_evaluations = {};
+    if constexpr (Flavor::HasZK) {
+        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
     }
+
+    // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
+    const BatchOpeningClaim<Curve> opening_claim =
+        Shplemini::compute_batch_opening_claim(key->circuit_size,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               sumcheck_output.challenge,
+                                               Commitment::one(builder),
+                                               transcript,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();

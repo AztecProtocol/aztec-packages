@@ -44,36 +44,14 @@ template <typename Flavor> struct ZKSumcheckData {
     // Default constructor
     ZKSumcheckData() = default;
 
-    // Constructor
+    // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-    {
-        setup_zk_sumcheck_data(multivariate_d, transcript, commitment_key);
-    }
+        : libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
+        , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
 
-  public:
-    /**
-     * @brief Create and populate the structure required for the ZK Sumcheck.
-     *
-     * @details This method creates an array of random field elements \f$ \rho_1,\ldots, \rho_{N_w}\f$ aimed to mask
-     * the evaluations of witness polynomials, these are contained in \f$ \texttt{eval_masking_scalars} \f$. In order to
-     * optimize the computation of Sumcheck Round Univariates, it populates a table of univariates \f$
-     * \texttt{masking_terms_evaluations} \f$ which contains at the beginning the evaluations of polynomials \f$ \rho_j
-     * \cdot (1-X)\cdot X \f$ at \f$ 0,\ldots, \text{MAX_PARTIAL_RELATION_LENGTH} - 1\f$. This method also creates Libra
-     * univariates, computes the Libra total sum and adds it to the transcript, and sets up all auxiliary objects.
-     *
-     * @param zk_sumcheck_data
-     */
-    void setup_zk_sumcheck_data(const size_t multivariate_d,
-                                std::shared_ptr<typename Flavor::Transcript> transcript,
-                                std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
-
-        // Generate random Libra polynomials in the Lagrange basis
-        libra_univariates = generate_libra_univariates(multivariate_d);
-        // To commit to libra_univariates and open them later, need to get their coefficients in the monomial basis
-        libra_univariates_monomial = transform_to_monomial(libra_univariates);
 
         // If proving_key is provided, commit to libra_univariates
         if (commitment_key != nullptr) {
@@ -103,7 +81,7 @@ template <typename Flavor> struct ZKSumcheckData {
 
     /**
      * @brief Given number of univariate polynomials and the number of their evaluations meant to be hidden, this method
-     * produces a vector of univariate polynomials of degree \ref ZK_BATCHED_LENGTH "ZK_BATCHED_LENGTH - 1" with
+     * produces a vector of univariate polynomials of length Flavor::BATCHED_RELATION_PARTIAL_LENGTH with
      * independent uniformly random coefficients.
      *
      */

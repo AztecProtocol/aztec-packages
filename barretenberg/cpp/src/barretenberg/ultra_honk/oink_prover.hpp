@@ -19,7 +19,6 @@
 // clang-format on
 #include <utility>
 
-// #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {

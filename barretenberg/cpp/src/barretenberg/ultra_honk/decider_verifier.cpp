@@ -45,8 +45,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 
     auto sumcheck = SumcheckVerifier<Flavor>(
         static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
-    // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments;
+    // For MegaZKFlavor: receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         for (size_t idx = 0; idx < static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
             Commitment libra_commitment =
@@ -54,10 +54,15 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
             libra_commitments.push_back(libra_commitment);
         };
     }
-    SumcheckOutput<Flavor> sumcheck_output;
 
-    sumcheck_output =
+    SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
+
+    // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
+    std::vector<FF> libra_evaluations = {};
+    if constexpr (Flavor::HasZK) {
+        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
+    }
 
     // If Sumcheck did not verify, return false
     if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
@@ -65,30 +70,17 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         return false;
     }
 
-    BatchOpeningClaim<Curve> opening_claim;
-    if constexpr (!Flavor::HasZK) {
-        opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                                               commitments.get_unshifted(),
-                                                               commitments.get_to_be_shifted(),
-                                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                               sumcheck_output.claimed_evaluations.get_shifted(),
-                                                               sumcheck_output.challenge,
-                                                               Commitment::one(),
-                                                               transcript);
-    } else {
-        opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                                               commitments.get_unshifted(),
-                                                               commitments.get_to_be_shifted(),
-                                                               sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                               sumcheck_output.claimed_evaluations.get_shifted(),
-                                                               sumcheck_output.challenge,
-                                                               Commitment::one(),
-                                                               transcript,
-                                                               {},
-                                                               {},
-                                                               RefVector(libra_commitments),
-                                                               sumcheck_output.claimed_libra_evaluations);
-    }
+    const BatchOpeningClaim<Curve> opening_claim =
+        Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               sumcheck_output.challenge,
+                                               Commitment::one(),
+                                               transcript,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
