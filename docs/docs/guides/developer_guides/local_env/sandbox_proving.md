@@ -20,7 +20,7 @@ To enable client-side proving, update the docker compose file found at `~/.aztec
 ```yml
 BB_BINARY_PATH: /usr/src/barretenberg/cpp/build/bin/bb
 PXE_PROVER_ENABLED: 1
-BB_WORKING_DIRECTORY: ~/bb-temp
+BB_WORKING_DIRECTORY: ~/bb-temp    #any temp directory for writing circuit artifacts
 ```
 
 ## Usage
