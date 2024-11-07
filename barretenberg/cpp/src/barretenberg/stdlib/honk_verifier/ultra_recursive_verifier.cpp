@@ -98,9 +98,10 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     }
     SumcheckOutput<Flavor> sumcheck_output;
     sumcheck_output = sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+
     BatchOpeningClaim<Curve> opening_claim;
+    // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
     if constexpr (!Flavor::HasZK) {
-        // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
         opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
                                                                commitments.get_unshifted(),
                                                                commitments.get_to_be_shifted(),

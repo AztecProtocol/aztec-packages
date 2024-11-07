@@ -17,11 +17,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    // using Flavor = MegaFlavor;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;
-    // using VerificationKey = Flavor::VerificationKey;
-    // using MegaProver = UltraProver_<Flavor>;
     /**
      * @brief Construct a manifest for a Mega Honk proof
      *
