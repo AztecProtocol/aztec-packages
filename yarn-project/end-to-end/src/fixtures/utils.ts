@@ -248,8 +248,8 @@ export type SetupOptions = {
   assumeProvenThrough?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
-  /** Whether to fund the sysstia */
-  fundSysstia?: boolean;
+  /** Whether to fund the rewardDistributor */
+  fundRewardDistributor?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -363,16 +363,16 @@ export async function setup(
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
-  if (opts.fundSysstia) {
-    // Mints block rewards for 10000 blocks to the sysstia contract
+  if (opts.fundRewardDistributor) {
+    // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-    const sysstia = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.sysstiaAddress.toString(),
-      abi: l1Artifacts.sysstia.contractAbi,
+    const rewardDistributor = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
       client: deployL1ContractsValues.publicClient,
     });
 
-    const blockReward = await sysstia.read.BLOCK_REWARD([]);
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD([]);
     const mintAmount = 10_000n * (blockReward as bigint);
 
     const feeJuice = getContract({
@@ -381,9 +381,9 @@ export async function setup(
       client: deployL1ContractsValues.walletClient,
     });
 
-    const sysstiaMintTxHash = await feeJuice.write.mint([sysstia.address, mintAmount], {} as any);
-    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: sysstiaMintTxHash });
-    logger.info(`Funding sysstia in ${sysstiaMintTxHash}`);
+    const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+    logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
 
   if (opts.l2StartTime) {

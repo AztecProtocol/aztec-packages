@@ -20,7 +20,7 @@ import {TokenPortal} from "./TokenPortal.sol";
 import {UniswapPortal} from "./UniswapPortal.sol";
 
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 contract UniswapPortalTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
@@ -54,9 +54,14 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    Sysstia sysstia = new Sysstia(DAI, registry, address(this));
+    RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      new address[](0)
     );
     registry.upgrade(address(rollup));
 

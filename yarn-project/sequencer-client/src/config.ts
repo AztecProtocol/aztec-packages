@@ -109,9 +109,9 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     ...booleanConfigHelper(),
     defaultValue: false,
   },
-  gerousiaPayload: {
-    env: 'GEROUSIA_PAYLOAD_ADDRESS',
-    description: 'The address of the payload for the gerousia',
+  governanceProposerPayload: {
+    env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
   },
