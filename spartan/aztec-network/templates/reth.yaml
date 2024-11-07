@@ -16,6 +16,21 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: ethereum
     spec:
+      initContainers:
+        - name: load-genesis
+          image: {{ .Values.images.reth.image }}
+          imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              cp /genesis/reth-genesis.json /tmp/reth-genesis.json &&
+              reth init --config /tmp/reth-genesis.json
+              {{- include "helpers.flag" (list "datadir" .Values.ethereum.pvc.path) }}
+          volumeMounts:
+            - name: genesis
+              mountPath: /genesis
+            - name: data
+              mountPath: /data
       containers:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
@@ -35,27 +50,40 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-          # readinessProbe:
-          #   exec:
-          #     command:
-          #       - sh
-          #       - -c
-          #       - |
-          #         wget -qO- --post-data='{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-          #         --header='Content-Type: application/json' \
-          #         127.0.0.1:{{ .Values.ethereum.service.port }} \
-          #         | grep -q '"result":"reth'
-          #   initialDelaySeconds: {{ .Values.ethereum.readinessProbe.initialDelaySeconds }}
-          #   periodSeconds: {{ .Values.ethereum.readinessProbe.periodSeconds }}
-          #   timeoutSeconds: {{ .Values.ethereum.readinessProbe.timeoutSeconds }}
-          #   successThreshold: {{ .Values.ethereum.readinessProbe.successThreshold }}
-          #   failureThreshold: {{ .Values.ethereum.readinessProbe.failureThreshold }}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  wget -qO- --post-data='{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                  --header='Content-Type: application/json' \
+                  127.0.0.1:{{ .Values.ethereum.service.port }} \
+                  | grep -q '"result":"reth'
+            initialDelaySeconds: {{ .Values.ethereum.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ethereum.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.ethereum.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.ethereum.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.ethereum.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.ethereum.resources | nindent 12 }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "aztec-network.fullname" . }}-ethereum-data
+        - name: genesis
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-reth-genesis
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-reth-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  reth-genesis.json: |
+    {{ .Files.Get "files/config/reth_genesis.json" | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
