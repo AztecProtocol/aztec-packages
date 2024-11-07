@@ -396,14 +396,14 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
 TEST_F(ClientIVCTests, MiscellaneousBlock)
 {
     ClientIVC ivc;
-    ivc.trace_settings = { TraceStructure::SMALL_TEST, /*overflow=*/1 << 10 };
+    ivc.trace_settings = { TraceStructure::SMALL_TEST, /*overflow=*/1 << 17 };
 
     MockCircuitProducer circuit_producer;
 
     size_t NUM_CIRCUITS = 2;
 
     // Construct and accumulate some circuits of varying size
-    size_t log2_num_gates = 5;
+    size_t log2_num_gates = 14;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
         ivc.accumulate(circuit);

@@ -354,6 +354,13 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         auto& blocks = circuit.blocks;
         auto& misc_block = circuit.blocks.miscellaneous;
 
+        // WORKTODO: need to think about what cases to support here. Can't be surprised by an overflow in the IVC
+        // setting but need to be able to determine the overflow for a one-off circuit.
+        if (misc_block.get_fixed_size() > 0) {
+            info("Miscellaneous block has non-zero size; setting has_overflow to TRUE.");
+            blocks.has_overflow = true;
+        }
+
         blocks.compute_offsets(/*is_structured=*/true);
 
         for (auto& block : blocks.get()) {
@@ -428,8 +435,19 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
             }
         }
+        // WORKTODO: probably don't set this here but this means it needs to be set correctly on input
         // Set the fixed size of the miscellaneous block to its current size
-        misc_block.set_fixed_size(static_cast<uint32_t>(misc_block.size()));
+        if (misc_block.size() > misc_block.get_fixed_size()) {
+            info("WARNING: Overflow value was set too low! Miscellaneous block fixed size: ",
+                 misc_block.get_fixed_size(),
+                 ". Miscellaneous block actual size: ",
+                 misc_block.size());
+            // Cannot currently support dynamic resizing of the miscellaneous block since this would require dynamic
+            // expansion of the accumulator in the IVC setting.
+            // ASSERT(false);
+            info("Setting miscellaneous block size to: ", misc_block.size());
+            misc_block.set_fixed_size(static_cast<uint32_t>(misc_block.size()));
+        }
 
         // WORKTODO: make this spit out a clear display of the original block sizes vs fixed sizes
         if (blocks.has_overflow) {

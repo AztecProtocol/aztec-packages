@@ -289,6 +289,7 @@ template <typename FF_> class MegaArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
+            // Set the size of miscellaneous block containing the overflow from all other blocks
             this->miscellaneous.set_fixed_size(settings.overflow);
         }
 
