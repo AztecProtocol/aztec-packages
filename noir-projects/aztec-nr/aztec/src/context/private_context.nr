@@ -112,41 +112,41 @@ impl PrivateContext {
         }
     }
 
-    fn msg_sender(self) -> AztecAddress {
+    pub fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
-    fn this_address(self) -> AztecAddress {
+    pub fn this_address(self) -> AztecAddress {
         self.inputs.call_context.contract_address
     }
 
-    fn chain_id(self) -> Field {
+    pub fn chain_id(self) -> Field {
         self.inputs.tx_context.chain_id
     }
 
-    fn version(self) -> Field {
+    pub fn version(self) -> Field {
         self.inputs.tx_context.version
     }
 
-    fn selector(self) -> FunctionSelector {
+    pub fn selector(self) -> FunctionSelector {
         self.inputs.call_context.function_selector
     }
 
-    fn get_args_hash(self) -> Field {
+    pub fn get_args_hash(self) -> Field {
         self.args_hash
     }
 
-    fn push_note_hash(&mut self, note_hash: Field) {
+    pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
     }
 
-    fn push_nullifier(&mut self, nullifier: Field) {
+    pub fn push_nullifier(&mut self, nullifier: Field) {
         self.nullifiers.push(
             Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
         );
     }
 
-    fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.nullifiers.push(
             Nullifier {
                 value: nullifier,
@@ -158,7 +158,7 @@ impl PrivateContext {
 
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
     // included in).
-    fn get_header(self) -> Header {
+    pub fn get_header(self) -> Header {
         self.historical_header
     }
 

@@ -93,7 +93,7 @@ impl Serialize<PUBLIC_ACCUMULATED_DATA_LENGTH> for PublicAccumulatedData {
 
         assert_eq(fields.len(), PUBLIC_ACCUMULATED_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -222,7 +222,7 @@ impl Serialize<NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> for PublicAccumulatedDataArra
         fields.push(self.public_data_update_requests as Field);
         fields.push(self.public_call_stack as Field);
 
-        fields.storage
+        fields.storage()
     }
 }
 

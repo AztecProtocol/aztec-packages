@@ -2,10 +2,7 @@ use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
 };
 
-use crate::context::{
-    gas::GasOpts, inputs::PrivateContextInputs, private_context::PrivateContext,
-    public_context::PublicContext,
-};
+use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
 
 use crate::hash::hash_args;
 use crate::oracle::arguments::pack_arguments;

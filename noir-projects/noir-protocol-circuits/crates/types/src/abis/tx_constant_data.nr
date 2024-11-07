@@ -49,7 +49,7 @@ impl Serialize<TX_CONSTANT_DATA_LENGTH> for TxConstantData {
 
         assert_eq(fields.len(), TX_CONSTANT_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
