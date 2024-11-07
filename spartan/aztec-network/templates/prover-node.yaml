@@ -102,6 +102,8 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: P2P_ENABLED
               value: "{{ .Values.proverNode.p2pEnabled }}"
             - name: P2P_TCP_ANNOUNCE_ADDR

@@ -27,6 +27,7 @@ spec:
               {{- include "helpers.flag" (list "http.port" .Values.ethereum.service.port) }}
               {{- include "helpers.flag" (list "builder.gaslimit" .Values.ethereum.gasLimit) }}
               {{- include "helpers.flag" (list "txpool.gas-limit" .Values.ethereum.gasLimit) }}
+              {{- include "helpers.flag" (list "dev.block-time" .Values.ethereum.blockTime) }}
               --datadir /data
               --dev
           ports:
