@@ -77,7 +77,7 @@ export class BootstrapNode {
   public async stop() {
     // stop libp2p
     await this.node?.stop();
-    this.logger.debug('libp2p has stopped');
+    this.logger.debug('Discv5 has stopped');
   }
 
   /**

@@ -143,14 +143,18 @@ export class P2PNetworkTest {
 
   async stopNodes(nodes: AztecNodeService[]) {
     this.logger.info('Stopping nodes');
+
+    if (!nodes) return;
+    if (!nodes.length) return;
+
     for (const node of nodes) {
       await node.stop();
     }
-    await this.bootstrapNode.stop();
     this.logger.info('Nodes stopped');
   }
 
   async teardown() {
+    await this.bootstrapNode.stop();
     await this.snapshotManager.teardown();
   }
 }
