@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730836216976,
+  "lastUpdate": 1730941851928,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c7d4572b49b33ee309f9238f3cec245878e6c295",
-          "message": "feat: eccvm translator zk sumcheck (#9199)\n\nTurned on ZK Sumcheck in ECCVM and Translator Flavors.\r\n\r\nBenching `ClientIvc` with ZK sumcheck turned on in ECCVM and Translator:\r\n\r\n\r\n| Benchmark | without ZK | with ZK (best result) |with ZK | with ZK\r\n(worst result) | Overhead of Worst zk over non-ZK |\r\n\r\n|--------------------------|-------------|----------------|---------------|--------------|-----------------------------|\r\n| **ClientIVCBench/Full/2** | 12,039 ms | 12,512 ms | 12,658 ms | 12,778\r\nms | 6.14% |\r\n| **ClientIVCBench/Full/6** | 33,258 ms | 34,830 ms | 35,038 ms | 35,452\r\nms | 6.60% |\r\n\r\n\r\n**Using non-optimized ZK Sumcheck*",
-          "timestamp": "2024-10-24T15:59:38+02:00",
-          "tree_id": "5f72cbd64e9204880bf816fd6538cf289692a935",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c7d4572b49b33ee309f9238f3cec245878e6c295"
-        },
-        "date": 1729780781551,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30909.597624000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29134.861133000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5355.720123000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5051.7466190000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92142.76948700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92142771000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15180.410025,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15180410000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2749052284,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2749052284 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126181819,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126181819 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 143016636,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143016636 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c95e5fd5606b7f14b1e2e43ecc770d5f22d294a0",
+          "message": "feat: constify eccvm and translator (#9661)\n\nMakes the proof size of ECCVM constant by making the sumcheck gate\r\nchallenges and IPA constant.\r\nFixes the ECCVM recursive verifier size (besides the MSM in the IPA\r\nRecursive verifier) as a result.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1009.",
+          "timestamp": "2024-11-07T00:38:15Z",
+          "tree_id": "47904449d423103db6c7d9916d08c11be481026d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c95e5fd5606b7f14b1e2e43ecc770d5f22d294a0"
+        },
+        "date": 1730941845213,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29939.250129999975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 28122.691898 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5468.394803000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5100.773519999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 89269.495561,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 89269498000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15324.819712,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15324820000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3065985947,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3065985947 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141622772,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141622772 ns\nthreads: 1"
           }
         ]
       }
