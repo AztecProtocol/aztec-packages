@@ -87,10 +87,13 @@ tests:
     with_alerts: true
   e2e_p2p_gerousia:
     test_path: 'e2e_p2p/gerousia.test.ts'
+    with_alerts: true
   e2e_p2p_rediscovery:
     test_path: 'e2e_p2p/rediscovery.test.ts'
+    with_alerts: true
   e2e_p2p_reqresp:
     test_path: 'e2e_p2p/reqresp.test.ts'
+    with_alerts: true
   flakey_e2e_tests:
     test_path: './src/flakey'
     ignore_failures: true
