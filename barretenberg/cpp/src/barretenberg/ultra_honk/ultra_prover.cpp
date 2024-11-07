@@ -55,7 +55,6 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
     vinfo("created oink proof");
 
     generate_gate_challenges();
-    info("gate challenges ok");
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
     vinfo("created decider prover");
@@ -65,6 +64,6 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
 template class UltraProver_<MegaFlavor>;
-template class UltraProver_<MegaFlavorWithZK>;
+template class UltraProver_<MegaZKFlavor>;
 
 } // namespace bb

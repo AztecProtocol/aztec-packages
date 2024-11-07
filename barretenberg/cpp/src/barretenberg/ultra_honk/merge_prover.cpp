@@ -124,6 +124,6 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
 template class MergeProver_<UltraFlavor>;
 template class MergeProver_<MegaFlavor>;
-template class MergeProver_<MegaFlavorWithZK>;
+template class MergeProver_<MegaZKFlavor>;
 
 } // namespace bb

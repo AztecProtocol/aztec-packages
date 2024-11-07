@@ -68,17 +68,16 @@ template <typename Flavor> struct ZKSumcheckData {
                                 std::shared_ptr<typename Flavor::Transcript> transcript,
                                 std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
-        info("multivar d ", multivariate_d);
+
         // Generate random Libra polynomials in the Lagrange basis
         libra_univariates = generate_libra_univariates(multivariate_d);
         // To commit to libra_univariates and open them later, need to get their coefficients in the monomial basis
         libra_univariates_monomial = transform_to_monomial(libra_univariates);
-        info("libra monomial size", libra_univariates_monomial.size());
+
         // If proving_key is provided, commit to libra_univariates
         if (commitment_key != nullptr) {
             size_t idx = 0;
             for (auto& libra_univariate_monomial : libra_univariates_monomial) {
-                info("should be here");
                 auto libra_commitment = commitment_key->commit(Polynomial<FF>(libra_univariate_monomial));
                 transcript->template send_to_verifier("Libra:commitment_" + std::to_string(idx), libra_commitment);
                 idx++;
@@ -93,7 +92,6 @@ template <typename Flavor> struct ZKSumcheckData {
 
         // Receive the Libra challenge from the transcript
         libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
-        info("libra challenge prover", libra_challenge);
 
         // Initialize the Libra running sum
         libra_running_sum = libra_total_sum * libra_challenge;

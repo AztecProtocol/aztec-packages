@@ -347,12 +347,12 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
-using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK, MegaFlavorWithZK>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK, MegaZKFlavor>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
 #define SKIP_IF_ZK()                                                                                                   \
-    if (std::is_same<TypeParam, UltraFlavorWithZK>::value || std::is_same<TypeParam, MegaFlavorWithZK>::value) {       \
+    if (std::is_same<TypeParam, UltraFlavorWithZK>::value || std::is_same<TypeParam, MegaZKFlavor>::value) {           \
         GTEST_SKIP() << "Skipping test for ZK-enabled flavors";                                                        \
     }
 

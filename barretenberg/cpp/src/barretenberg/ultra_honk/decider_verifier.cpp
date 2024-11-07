@@ -98,6 +98,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
-template class DeciderVerifier_<MegaFlavorWithZK>;
+template class DeciderVerifier_<MegaZKFlavor>;
 
 } // namespace bb

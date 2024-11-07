@@ -20,7 +20,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     {
 
         PROFILE_THIS_NAME("execute_preamble_round");
-        info("do i enter oink");
 
         // Add circuit size public input size and public inputs to transcript->
         execute_preamble_round();
@@ -265,6 +264,6 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
 template class OinkProver<MegaFlavor>;
-template class OinkProver<MegaFlavorWithZK>;
+template class OinkProver<MegaZKFlavor>;
 
 } // namespace bb

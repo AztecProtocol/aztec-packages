@@ -11,7 +11,7 @@
 
 using namespace bb;
 
-using FlavorTypes = ::testing::Types<MegaFlavor, MegaFlavorWithZK>;
+using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
@@ -291,18 +291,13 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     typename Flavor::CircuitBuilder builder;
     this->generate_test_circuit(builder);
-    info("test circuit constructed");
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    info("proving key set up");
     Prover prover(proving_key);
-    info("before construct proof");
     auto proof = prover.construct_proof();
-    info("proof not constructed?");
     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
-    info("fine until now?");
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid

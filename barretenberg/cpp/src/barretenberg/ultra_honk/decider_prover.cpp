@@ -28,7 +28,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 {
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->proving_key.circuit_size;
-    info("do i enter relation check?");
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
 
@@ -115,6 +114,6 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 template class DeciderProver_<UltraFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
 template class DeciderProver_<MegaFlavor>;
-template class DeciderProver_<MegaFlavorWithZK>;
+template class DeciderProver_<MegaZKFlavor>;
 
 } // namespace bb

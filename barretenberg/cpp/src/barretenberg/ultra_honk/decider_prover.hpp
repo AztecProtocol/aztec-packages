@@ -55,6 +55,6 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
 using UltraDeciderProver = DeciderProver_<UltraFlavor>;
 using MegaDeciderProver = DeciderProver_<MegaFlavor>;
-using MegaZKDeciderProver = DeciderProver_<MegaFlavorWithZK>;
+using MegaZKDeciderProver = DeciderProver_<MegaZKFlavor>;
 
 } // namespace bb

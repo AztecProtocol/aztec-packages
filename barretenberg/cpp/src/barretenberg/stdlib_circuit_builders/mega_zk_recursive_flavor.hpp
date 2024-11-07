@@ -29,7 +29,7 @@ namespace bb {
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class MegaWithZKRecursiveFlavor_ {
+template <typename BuilderType> class MegaZKRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = stdlib::bn254<CircuitBuilder>;
@@ -37,7 +37,7 @@ template <typename BuilderType> class MegaWithZKRecursiveFlavor_ {
     using GroupElement = typename Curve::Element;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
-    using NativeFlavor = MegaFlavorWithZK;
+    using NativeFlavor = MegaZKFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all

@@ -1,5 +1,6 @@
 #include "merge_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 
@@ -83,6 +84,6 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
 
 template class MergeVerifier_<UltraFlavor>;
 template class MergeVerifier_<MegaFlavor>;
-template class MergeVerifier_<MegaFlavorWithZK>;
+template class MergeVerifier_<MegaZKFlavor>;
 
 } // namespace bb

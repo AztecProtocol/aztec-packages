@@ -15,7 +15,7 @@ using namespace bb;
 
 auto& engine = numeric::get_debug_randomness();
 
-using FlavorTypes = ::testing::Types<MegaFlavor, MegaFlavorWithZK>;
+using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaHonkTests : public ::testing::Test {
   public:
