@@ -238,6 +238,25 @@ For this reason we've decided to rename it:
 
 To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
 
+### Blobs
+We now publish all DA in EVM blobs rather than calldata. This replaces all code that touched the `txsEffectsHash`.
+In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
+
+```diff
+- let txs_effects_hash = sha256_to_field(left.txs_effects_hash, right.txs_effects_hash);
++ assert(left.end_sponge_blob.eq(right.start_sponge_blob));
++ let start_sponge_blob = left.start_sponge_blob;
++ let end_sponge_blob = right.end_sponge_blob;
+```
+This sponge is used in the block root circuit to confirm that an injected array of all `txEffects` does match those rolled up so far in the `spongeBlob`. Then, the `txEffects` array is used to construct and prove opening of the polynomial representing the blob commitment on L1 (this is done efficiently thanks to the Barycentric formula).
+On L1, we publish the array as a blob and verify the above proof of opening. This confirms that the tx effects in the rollup circuit match the data in the blob:
+
+```diff
+- bytes32 txsEffectsHash = TxsDecoder.decode(_body);
++ bytes32 blobHash = _validateBlob(blobInput);
+```
+Where `blobInput` contains the proof of opening and evaluation calculated in the block root rollup circuit. It is then stored and used as a public input to verifying the epoch proof.
+
 ## 0.67.0
 
 ### L2 Gas limit of 6M enforced for public portion of TX

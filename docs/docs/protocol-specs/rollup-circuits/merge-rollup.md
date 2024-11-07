@@ -13,6 +13,8 @@ A[MergeRollupInputs] --> C[MergeRollupCircuit] --> B[BaseOrMergeRollupPublicInpu
 </Mermaid>
 ```
 
+<!-- TODO: this is all very out of date -->
+
 ## Overview
 
 Below is a subset of the data structures figure from earlier for easy reference.
@@ -91,14 +93,16 @@ def MergeRollupCircuit(
     assert left.public_inputs.constants == right.public_inputs.constants
     assert left.public_inputs.end == right.public_inputs.start
     assert left.public_inputs.num_txs >= right.public_inputs.num_txs
+    assert left.public_inputs.end_sponge == right.public_inputs.start_sponge
 
     return BaseOrMergeRollupPublicInputs(
         type=1,
         num_txs=left.public_inputs.num_txs + right.public_inputs.num_txs,
-        txs_effect_hash=SHA256(left.public_inputs.txs_effect_hash | right.public_inputs.txs_effect_hash),
         out_hash=SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
         start=left.public_inputs.start,
         end=right.public_inputs.end,
+        start_sponge=left.public_inputs.start_sponge,
+        end_sponge=right.public_inputs.end_sponge,
         constants=left.public_inputs.constants
     )
 ```

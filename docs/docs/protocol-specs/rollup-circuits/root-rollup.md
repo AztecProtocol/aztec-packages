@@ -19,6 +19,8 @@ For rollup purposes, the node we want to convince of the correctness is the [val
 This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
 :::
 
+<!-- TODO: this is all very out of date -->
+
 ## Overview
 
 ```mdx
@@ -192,6 +194,7 @@ def RootRollupCircuit(
     assert left.public_inputs.constants == right.public_inputs.constants
     assert left.public_inputs.end == right.public_inputs.start
     assert left.public_inputs.num_txs >= right.public_inputs.num_txs
+    assert left.public_inputs.end_sponge == right.public_inputs.start_sponge
 
     assert parent.state.partial == left.public_inputs.start
 
@@ -216,7 +219,6 @@ def RootRollupCircuit(
         last_archive = left.public_inputs.constants.last_archive,
         content_commitment: ContentCommitment(
             num_txs=left.public_inputs.num_txs + right.public_inputs.num_txs,
-            txs_effect_hash=SHA256(left.public_inputs.txs_effect_hash | right.public_inputs.txs_effect_hash),
             in_hash = l1_to_l2_roots.public_inputs.sha_root,
             out_hash = SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
         ),
