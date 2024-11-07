@@ -390,24 +390,29 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
 }
 
 /**
- * @brief Test use of overflow block
+ * @brief Test use of structured trace overflow block mechanism
+ * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the prescribed
+ * arithmetic block size and make use of the overflow block.
  *
  */
 TEST_F(ClientIVCTests, MiscellaneousBlock)
 {
     ClientIVC ivc;
-    ivc.trace_settings = { TraceStructure::SMALL_TEST, /*overflow=*/1 << 17 };
+
+    // Define trace settings with sufficient overflow capacity to acommodate each of the circuits to be accumulated
+    uint32_t overflow_capacity = 1 << 17;
+    ivc.trace_settings = { TraceStructure::SMALL_TEST, overflow_capacity };
 
     MockCircuitProducer circuit_producer;
 
-    size_t NUM_CIRCUITS = 2;
+    size_t NUM_CIRCUITS = 4;
 
     // Construct and accumulate some circuits of varying size
     size_t log2_num_gates = 14;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
         ivc.accumulate(circuit);
-        log2_num_gates += 2;
+        log2_num_gates += 1;
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

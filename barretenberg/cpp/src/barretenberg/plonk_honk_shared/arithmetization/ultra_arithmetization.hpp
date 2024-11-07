@@ -134,7 +134,7 @@ template <typename FF_> class UltraArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
-            this->overflow.set_fixed_size(settings.overflow);
+            this->overflow.set_fixed_size(settings.overflow_capacity);
         }
 
         void compute_offsets(bool is_structured)

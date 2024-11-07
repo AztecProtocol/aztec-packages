@@ -34,7 +34,7 @@ enum class TraceStructure { NONE, TINY_TEST, SMALL_TEST, CLIENT_IVC_BENCH, E2E_F
 
 struct TraceSettings {
     TraceStructure structure = TraceStructure::NONE;
-    uint32_t overflow = 0; // the size of the overflow block
+    uint32_t overflow_capacity = 0; // the size of the overflow block
 };
 
 /**

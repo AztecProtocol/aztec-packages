@@ -280,7 +280,7 @@ template <typename FF_> class MegaArith {
                 block.set_fixed_size(size);
             }
             // Set the size of overflow block containing the overflow from all other blocks
-            this->overflow.set_fixed_size(settings.overflow);
+            this->overflow.set_fixed_size(settings.overflow_capacity);
         }
 
         void compute_offsets(bool is_structured)
