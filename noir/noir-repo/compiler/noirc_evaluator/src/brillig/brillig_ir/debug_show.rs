@@ -217,17 +217,8 @@ impl DebugShow {
     }
 
     /// Emits a external stop instruction (returns data)
-    pub(crate) fn external_stop_instruction(
-        &self,
-        return_data_offset: usize,
-        return_data_size: usize,
-    ) {
-        debug_println!(
-            self.enable_debug_trace,
-            "  EXT_STOP {}..{}",
-            return_data_offset,
-            return_data_offset + return_data_size
-        );
+    pub(crate) fn external_stop_instruction(&self, return_data: HeapVector) {
+        debug_println!(self.enable_debug_trace, "  EXT_STOP {}", return_data);
     }
 
     /// Debug function for enter_context
