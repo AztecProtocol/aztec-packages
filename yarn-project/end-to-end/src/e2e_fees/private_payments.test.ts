@@ -286,24 +286,20 @@ describe('e2e_fees private_payment', () => {
      * PRIVATE SETUP
      * check authwit
      * reduce alice BC.private by MaxFee
-     * enqueue public call to increase FPC BC.public by MaxFee
-     * enqueue public call for fpc.pay_fee_with_shielded_rebate
+     * setup fee and refund partial notes
+     * setup public teardown call
      *
      * PRIVATE APP LOGIC
      * reduce Alice's private balance by privateTransfer
      * create note for Bob with privateTransfer amount of private BC
-     *
-     * PUBLIC SETUP
-     * increase FPC BC.public by MaxFee
      *
      * PUBLIC APP LOGIC
      * BC decrease Alice public balance by shieldedBananas
      * BC create transparent note of shieldedBananas
      *
      * PUBLIC TEARDOWN
-     * call banana.shield
-     *   decrease FPC BC.public by RefundAmount
-     *   create transparent note with RefundAmount
+     *  increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
+     *  increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const tx = await new BatchCall(aliceWallet, [
       bananaCoin.methods.transfer(bobAddress, privateTransfer).request(),
@@ -322,22 +318,22 @@ describe('e2e_fees private_payment', () => {
       })
       .wait();
 
-    const [feeAmount, refundAmount] = getFeeAndRefund(tx);
+    const [feeAmount, _] = getFeeAndRefund(tx);
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
       [
-        initialAlicePrivateBananas - maxFee - privateTransfer,
+        initialAlicePrivateBananas - feeAmount - privateTransfer,
         initialBobPrivateBananas + privateTransfer,
         0n,
-        initialSequencerPrivateBananas,
+        initialSequencerPrivateBananas + feeAmount,
       ],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas - shieldedBananas, initialFPCPublicBananas + maxFee - refundAmount, 0n],
+      [initialAlicePublicBananas - shieldedBananas, initialFPCPublicBananas, 0n],
     );
     await expectMapping(
       t.getGasBalanceFn,
