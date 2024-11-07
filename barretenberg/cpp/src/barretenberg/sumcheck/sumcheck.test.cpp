@@ -142,7 +142,14 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             gate_challenges[idx] =
                 transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
+        SumcheckOutput<Flavor> output;
+
+        if constexpr (Flavor::HasZK) {
+            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, transcript);
+            output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
+        } else {
+            output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
+        }
         FF u_0 = output.challenge[0];
         FF u_1 = output.challenge[1];
         std::vector<FF> expected_values;
@@ -220,8 +227,14 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             prover_gate_challenges[idx] =
                 prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output =
-            sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        SumcheckOutput<Flavor> output;
+        if constexpr (Flavor::HasZK) {
+            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            output = sumcheck_prover.prove(
+                full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
+        } else {
+            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        }
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
@@ -301,8 +314,15 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             prover_gate_challenges[idx] =
                 prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output =
-            sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        SumcheckOutput<Flavor> output;
+        if constexpr (Flavor::HasZK) {
+            // construct libra masking polynomials and compute auxiliary data
+            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            output = sumcheck_prover.prove(
+                full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
+        } else {
+            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        }
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
