@@ -208,6 +208,8 @@ jobs:
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         with:
           runner_type: ${{ steps.runner_type.outputs.type }}
           builder_type: builder-x86
@@ -218,9 +220,6 @@ jobs:
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             ./scripts/e2e_test.sh ${{ matrix.test }}
-          env:
-            PULL_REQUEST: ${{ github.event.pull_request.number }}
-            AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
