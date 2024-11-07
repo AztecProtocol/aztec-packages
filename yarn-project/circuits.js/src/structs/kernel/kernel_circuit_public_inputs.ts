@@ -1,8 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type GasFees } from '../gas_fees.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -40,19 +38,6 @@ export class KernelCircuitPublicInputs {
 
   getNonEmptyNullifiers() {
     return this.end.nullifiers.filter(n => !n.isZero());
-  }
-
-  /**
-   * Computes the transaction fee for the transaction.
-   * @param gasFees - Gas fees for the block. We cannot source this from the constants
-   * since they may be unset if this comes from a private kernel directly.
-   * @returns The amount in Fee Juice to pay for this tx.
-   * @remarks It is safe to compute this method in typescript because we compute the
-   * transaction_fee ourselves in the base rollup. This value must match the value
-   * computed in the base rollup, otherwise the content commitment of the block will be invalid.
-   */
-  getTransactionFee(gasFees: GasFees): Fr {
-    return this.end.gasUsed.computeFee(gasFees).add(this.constants.txContext.gasSettings.inclusionFee);
   }
 
   toBuffer() {

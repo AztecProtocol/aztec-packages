@@ -28,10 +28,10 @@ fn validate_propagated_from_previous_kernel_constants_mismatch_txs_effects_hash_
 }
 
 #[test(should_fail_with = "mismatch constants")]
-fn validate_propagated_from_previous_kernel_constants_non_empty_global_variables_fails() {
+fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contract_tree_root_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.global_variables.block_number += 1;
+    builder.output.protocol_contract_tree_root += 1;
 
     builder.validate_as_inner_call();
 }

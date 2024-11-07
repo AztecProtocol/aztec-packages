@@ -8,7 +8,7 @@ import { type Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
+import { type GetUnencryptedLogsResponse } from '../logs/get_logs_response.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import { Gossipable } from '../p2p/gossipable.js';
@@ -210,11 +210,8 @@ export class Tx extends Gossipable {
           ? // needsSetup? then we pay through a fee payment contract
             this.data.forPublic?.needsSetup
             ? // if the first call is to `approve_public_authwit`, then it's a public payment
-              this.data
-                .getNonRevertiblePublicCallRequests()
-                .at(-1)!
-                .callContext.functionSelector.toField()
-                .toBigInt() === 0x43417bb1n
+              this.data.getNonRevertiblePublicCallRequests().at(-1)!.functionSelector.toField().toBigInt() ===
+              0x43417bb1n
               ? 'fpc_public'
               : 'fpc_private'
             : 'fee_juice'

@@ -6,7 +6,6 @@ import {
   type NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
-  PublicDataWrite,
   PublicExecutionRequest,
   SimulationError,
   type UnencryptedL2Log,
@@ -505,14 +504,14 @@ export class TXE implements TypedOracle {
     const publicDataWrites = values.map((value, i) => {
       const storageSlot = startStorageSlot.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      publicDataWrites.map(write => write.toBuffer()),
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
-    return publicDataWrites.map(write => write.newValue);
+    return publicDataWrites.map(write => write.value);
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {
@@ -804,7 +803,7 @@ export class TXE implements TypedOracle {
     return directionalSecret;
   }
 
-  async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const completeAddresses = await this.txeDatabase.getCompleteAddresses();
     // Filter out the addresses corresponding to accounts
@@ -820,6 +819,11 @@ export class TXE implements TypedOracle {
     const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
     const indexes = await this.txeDatabase.getTaggingSecretsIndexes(directionalSecrets);
     return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
+  }
+
+  syncNotes(_recipient: AztecAddress) {
+    // TODO: Implement
+    return Promise.resolve();
   }
 
   // AVM oracles

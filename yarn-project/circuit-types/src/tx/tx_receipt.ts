@@ -1,8 +1,7 @@
-import { RevertCode } from '@aztec/circuits.js';
+import { type PublicDataWrite, RevertCode } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type UniqueNote } from '../notes/extended_note.js';
-import { type PublicDataWrite } from '../public_data_write.js';
 import { TxHash } from './tx_hash.js';
 
 /**
