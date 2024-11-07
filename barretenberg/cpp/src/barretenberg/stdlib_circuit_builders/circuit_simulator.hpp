@@ -52,7 +52,7 @@ class CircuitSimulatorBN254 {
     static constexpr uint32_t zero_idx = 0; // Ditto?
     std::vector<FF> public_inputs;
 
-    void add_pairing_point_accum(const PairingPointAccumulatorIndices& proof_element_limbs)
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
     {
 
         if (contains_pairing_point_accum) {

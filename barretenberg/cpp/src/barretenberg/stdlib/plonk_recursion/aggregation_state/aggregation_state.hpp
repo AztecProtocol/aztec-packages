@@ -64,7 +64,7 @@ template <typename Curve> struct aggregation_state {
         auto* context = P0.get_context();
 
         CircuitChecker::check(*context);
-        context->add_pairing_point_accum(proof_witness_indices);
+        context->add_pairing_point_accumulator(proof_witness_indices);
     }
 };
 

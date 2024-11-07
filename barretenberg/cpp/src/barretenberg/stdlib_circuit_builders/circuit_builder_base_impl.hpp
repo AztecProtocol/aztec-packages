@@ -236,7 +236,7 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::add_pairing_point_accum(
+void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
     const PairingPointAccumulatorIndices& proof_output_witness_indices)
 {
     if (contains_pairing_point_accum) {
@@ -254,7 +254,7 @@ void CircuitBuilderBase<FF_>::add_pairing_point_accum(
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::set_pairing_point_accum(
+void CircuitBuilderBase<FF_>::set_pairing_point_accumulator(
     const PairingPointAccumulatorIndices& proof_output_witness_indices)
 {
     if (contains_pairing_point_accum) {

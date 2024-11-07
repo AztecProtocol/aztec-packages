@@ -206,18 +206,18 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_pairing_point_accum(const PairingPointAccumulatorIndices& proof_output_witness_indices);
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_output_witness_indices);
 
     /**
-     * TODO: We can remove this and use `add_pairing_point_accum` once my question has been addressed
-     * TODO: using `add_pairing_point_accum` also means that we will need to remove the cde which is
+     * TODO: We can remove this and use `add_pairing_point_accumulator` once my question has been addressed
+     * TODO: using `add_pairing_point_accumulator` also means that we will need to remove the cde which is
      * TODO: adding the public_inputs
      * @brief Update pairing_point_accumulator_public_input_indices with existing public inputs that represent a
      * recursive proof
      *
      * @param proof_output_witness_indices
      */
-    void set_pairing_point_accum(const PairingPointAccumulatorIndices& proof_output_witness_indices);
+    void set_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_output_witness_indices);
 
     bool failed() const;
     const std::string& err() const;

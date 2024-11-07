@@ -253,11 +253,11 @@ void build_constraints(Builder& builder,
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
             ASSERT(honk_recursion);
-            builder.add_pairing_point_accum(current_aggregation_object);
+            builder.add_pairing_point_accumulator(current_aggregation_object);
         } else if (honk_recursion && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
-            builder.add_pairing_point_accum(current_aggregation_object);
+            builder.add_pairing_point_accumulator(current_aggregation_object);
         }
     }
 }
@@ -303,16 +303,16 @@ void process_plonk_recursion_constraints(Builder& builder,
         // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
             // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINT_ACCUM_SIZE) {
+            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINT_ACCUMULATOR_SIZE) {
                 auto error_string = format("Public inputs are always stripped from proofs "
                                            "unless we have a recursive proof.\n"
                                            "Thus, public inputs attached to a proof must match "
                                            "the recursive aggregation object in size "
                                            "which is ",
-                                           bb::PAIRING_POINT_ACCUM_SIZE);
+                                           bb::PAIRING_POINT_ACCUMULATOR_SIZE);
                 throw_or_abort(error_string);
             }
-            for (size_t i = 0; i < bb::PAIRING_POINT_ACCUM_SIZE; ++i) {
+            for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
                 // Set the nested aggregation object indices to the current size of the public
                 // inputs This way we know that the nested aggregation object indices will
                 // always be the last indices of the public inputs
@@ -325,7 +325,7 @@ void process_plonk_recursion_constraints(Builder& builder,
             // in the way that the recursion constraint expects
             constraint.proof.erase(constraint.proof.begin(),
                                    constraint.proof.begin() +
-                                       static_cast<std::ptrdiff_t>(bb::PAIRING_POINT_ACCUM_SIZE));
+                                       static_cast<std::ptrdiff_t>(bb::PAIRING_POINT_ACCUMULATOR_SIZE));
         }
 
         current_output_aggregation_object = create_recursion_constraints(builder,
@@ -351,7 +351,7 @@ void process_plonk_recursion_constraints(Builder& builder,
 
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.set_pairing_point_accum(current_output_aggregation_object);
+        builder.set_pairing_point_accumulator(current_output_aggregation_object);
     }
 }
 

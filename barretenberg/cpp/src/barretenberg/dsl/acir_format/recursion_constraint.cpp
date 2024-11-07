@@ -34,11 +34,11 @@ void generate_dummy_proof() {}
  * @param builder
  * @param input
  * @tparam has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
- * @tparam inner_proof_contains_pairing_point_accum. Do we expect the inner proof to also have performed recursive
+ * @tparam inner_proof_contains_pairing_point_accumulator. Do we expect the inner proof to also have performed recursive
  * verification? We need to know this at circuit-compile time.
  *
- * @note We currently only support RecursionConstraint where inner_proof_contains_pairing_point_accum = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_pairing_point_accum = true,
+ * @note We currently only support RecursionConstraint where inner_proof_contains_pairing_point_accumulator = false.
+ *       We would either need a separate ACIR opcode where inner_proof_contains_pairing_point_accumulator = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
 PairingPointAccumulatorIndices create_recursion_constraints(
@@ -53,17 +53,17 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     for (const auto& idx : nested_aggregation_indices) {
         nested_aggregation_indices_all_zero &= (idx == 0);
     }
-    const bool inner_proof_contains_pairing_point_accum = !nested_aggregation_indices_all_zero;
+    const bool inner_proof_contains_pairing_point_accumulator = !nested_aggregation_indices_all_zero;
 
     // If we do not have a witness, we must ensure that our dummy witness will not trigger
     // on-curve errors and inverting-zero errors
     {
         // get a fake key/proof that satisfies on-curve + inversion-zero checks
         const std::vector<fr> dummy_key = export_dummy_key_in_recursion_format(
-            PolynomialManifest(Builder::CIRCUIT_TYPE), inner_proof_contains_pairing_point_accum);
+            PolynomialManifest(Builder::CIRCUIT_TYPE), inner_proof_contains_pairing_point_accumulator);
         const auto manifest = Composer::create_manifest(input.public_inputs.size());
         std::vector<fr> dummy_proof =
-            export_dummy_transcript_in_recursion_format(manifest, inner_proof_contains_pairing_point_accum);
+            export_dummy_transcript_in_recursion_format(manifest, inner_proof_contains_pairing_point_accumulator);
 
         for (size_t i = 0; i < input.public_inputs.size(); ++i) {
             const auto public_input_idx = input.public_inputs[i];
@@ -156,7 +156,7 @@ PairingPointAccumulatorIndices create_recursion_constraints(
 
     // recursively verify the proof
     std::shared_ptr<verification_key_ct> vkey = verification_key_ct::from_field_elements(
-        &builder, key_fields, inner_proof_contains_pairing_point_accum, nested_aggregation_indices);
+        &builder, key_fields, inner_proof_contains_pairing_point_accumulator, nested_aggregation_indices);
     vkey->program_width = noir_recursive_settings::program_width;
 
     Transcript_ct transcript(&builder, manifest, proof_fields, input.public_inputs.size());
@@ -185,7 +185,7 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
     output.emplace_back(vkey->contains_pairing_point_accum);
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUM_SIZE; ++i) {
+    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
         if (vkey->contains_pairing_point_accum) {
             output.emplace_back(vkey->pairing_point_accumulator_public_input_indices[i]);
         } else {
@@ -237,7 +237,7 @@ std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& p
     output.emplace_back(1); // num public inputs
 
     output.emplace_back(contains_pairing_point_accum); // contains_pairing_point_accum
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUM_SIZE; ++i) {
+    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
         output.emplace_back(0); // pairing_point_accumulator_public_input_indices
     }
 
@@ -341,7 +341,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.
-                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINT_ACCUM_SIZE; ++k) {
+                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++k) {
                             fields.emplace_back(0);
                         }
                         for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
