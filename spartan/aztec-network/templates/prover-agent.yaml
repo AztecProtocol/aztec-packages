@@ -43,7 +43,7 @@ spec:
               {{- end }}
           env:
             - name: PROVER_JOB_SOURCE_URL
-              value: "{{ .Values.proverAgent.jobSourceUrl }}"
+              value: "http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}"
       containers:
         - name: prover-agent
           image: "{{ .Values.images.aztec.image }}"
@@ -62,7 +62,7 @@ spec:
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.proverAgent.realProofs }}"
             - name: PROVER_JOB_SOURCE_URL
-              value: "{{ .Values.proverAgent.jobSourceUrl }}"
+              value: "http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}"
             - name: PROVER_AGENT_ENABLED
               value: "true"
             - name: PROVER_AGENT_CONCURRENCY
