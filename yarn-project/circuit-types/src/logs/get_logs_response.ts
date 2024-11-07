@@ -20,7 +20,21 @@ export type GetUnencryptedLogsResponse = {
 };
 
 export class TxScopedEncryptedL2NoteLog {
-  constructor(public txHash: TxHash, public dataStartIndexForTx: number, public log: EncryptedL2NoteLog) {}
+  constructor(
+    /*
+     * Hash of the tx where the log is included
+     */
+    public txHash: TxHash,
+    /*
+     * The next available leaf index for the note hash tree for this transaction. It is stored
+     * with the log so the noteHashIndex can be reconstructed after decryption.
+     */
+    public dataStartIndexForTx: number,
+    /*
+     * The encrypted note log
+     */
+    public log: EncryptedL2NoteLog,
+  ) {}
 
   toBuffer() {
     return Buffer.concat([this.txHash.toBuffer(), numToUInt32BE(this.dataStartIndexForTx), this.log.toBuffer()]);
