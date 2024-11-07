@@ -17,7 +17,9 @@ import { P2PNetworkTest } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
-const BOOT_NODE_UDP_PORT = 40600;
+// Note: these ports must be distinct from the other e2e tests, else the tests will
+// interfere with each other.
+const BOOT_NODE_UDP_PORT = 45000;
 
 const DATA_DIR = './data/gossip';
 
@@ -36,18 +38,13 @@ describe('e2e_p2p_governance_proposer', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
     }
   });
 
-  /**
-   * There is some flaky behavior in here, likely similar to what is in the gossip test.
-   * For this reason we are not running it as part of the CI.
-   * TODO(https://github.com/AztecProtocol/aztec-packages/issues/9164): Currently flakey
-   */
   it('Should cast votes to upgrade governanceProposer', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
