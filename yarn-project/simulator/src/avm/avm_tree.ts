@@ -1,9 +1,10 @@
-import { IndexedTreeId, MerkleTreeId } from '@aztec/circuit-types';
-import { MerkleTreeReadOperations } from '@aztec/circuit-types';
+import { IndexedTreeId, MerkleTreeId, MerkleTreeReadOperations } from '@aztec/circuit-types';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { IndexedTreeLeafPreimage, TreeLeafPreimage } from '@aztec/foundation/trees';
+
+import cloneDeep from 'lodash.clonedeep';
 
 /****************************************************/
 /****** Some useful Structs and Enums **************/
@@ -101,10 +102,15 @@ export const computePublicDataHash = (publicData: PublicDataTreeLeafPreimage): F
 };
 
 export class EphemeralTreeContainer {
-  public indexedTreeMin: Map<IndexedTreeId, [Buffer, bigint]> = new Map();
-  public indexedUpdates: Map<IndexedTreeId, Map<bigint, Buffer>> = new Map();
+  // public indexedTreeMin: Map<IndexedTreeId, [Buffer, bigint]> = new Map();
+  // public indexedUpdates: Map<IndexedTreeId, Map<bigint, Buffer>> = new Map();
 
-  constructor(private treeDb: MerkleTreeReadOperations, public treeMap: Map<MerkleTreeId, EphemeralAvmTree>) {}
+  constructor(
+    public treeDb: MerkleTreeReadOperations,
+    public treeMap: Map<MerkleTreeId, EphemeralAvmTree>,
+    public indexedTreeMin: Map<IndexedTreeId, [Buffer, bigint]>,
+    public indexedUpdates: Map<IndexedTreeId, Map<bigint, Buffer>>,
+  ) {}
 
   static async create(treeDb: MerkleTreeReadOperations): Promise<EphemeralTreeContainer> {
     const treeMap = new Map<MerkleTreeId, EphemeralAvmTree>();
@@ -114,7 +120,16 @@ export class EphemeralTreeContainer {
       const tree = await EphemeralAvmTree.create(treeInfo.size, treeInfo.depth, treeDb, treeType);
       treeMap.set(treeType, tree);
     }
-    return new EphemeralTreeContainer(treeDb, treeMap);
+    return new EphemeralTreeContainer(treeDb, treeMap, new Map(), new Map());
+  }
+
+  fork(): EphemeralTreeContainer {
+    return new EphemeralTreeContainer(
+      this.treeDb,
+      cloneDeep(this.treeMap),
+      cloneDeep(this.indexedTreeMin),
+      cloneDeep(this.indexedUpdates),
+    );
   }
 
   async getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<Fr[]> {
