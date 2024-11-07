@@ -18,7 +18,7 @@ use crate::{
 
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
-    // Output from the private kernel.
+    // Inputs.
     global_variables: GlobalVariables,
     start_tree_snapshots: TreeSnapshots,
     gas_settings: GasSettings,
@@ -31,7 +31,7 @@ pub struct AvmCircuitPublicInputs {
     previous_revertible_accumulated_data: PrivateToAvmAccumulatedData,
 
     ///////////////////////////////////
-    // Output from the AVM.
+    // Outputs.
     end_tree_snapshots: TreeSnapshots,
     accumulated_data: AvmAccumulatedData,
     transaction_fee: Field,

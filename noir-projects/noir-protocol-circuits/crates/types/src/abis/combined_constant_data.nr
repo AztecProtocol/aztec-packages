@@ -15,7 +15,7 @@ pub struct CombinedConstantData {
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
 
-    // Not specified in private (TxConstantData). This is filled in by the sequencer.
+    // Should be empty for private-only txs. This is filled in by the sequencer for txs with public calls.
     global_variables: GlobalVariables,
 }
 

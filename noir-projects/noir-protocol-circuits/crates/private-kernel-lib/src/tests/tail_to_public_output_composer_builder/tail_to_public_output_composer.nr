@@ -136,7 +136,7 @@ fn tail_to_public_output_composer_succeeds() {
         [public_call_requests[4], public_call_requests[3], public_call_requests[2]],
     );
 
-    // Gas: non-revertible	    assert_array_eq(
+    // Gas: non-revertible
     let total_num_side_effects = 4 + 3 + 1;
     let total_log_length = 12
         + 8 // note_encrypted_log_hash

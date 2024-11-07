@@ -35,7 +35,7 @@ export type ProcessedTx = {
    */
   data: PrivateKernelTailCircuitPublicInputs;
   /**
-   * Proof from the private kernel circuit.
+   * Proof for the private execution.
    */
   clientIvcProof: ClientIvcProof;
   /**
@@ -43,16 +43,15 @@ export type ProcessedTx = {
    */
   avmProvingRequest: AvmProvingRequest | undefined;
   /**
-   * TxConstantData specified by the user combined with global variables.
+   * Combining `TxConstantData` specified by the user, and `GlobalVariables` injected by the sequencer.
    */
   constants: CombinedConstantData;
   /**
    * Output data of the tx.
    */
   txEffect: TxEffect;
-  /**
-   * Gas usage per public execution phase.
-   * Doesn't account for any base costs nor DA gas used in private execution.
+  /*
+   * Gas used by the entire transaction.
    */
   gasUsed: GasUsed;
   /**

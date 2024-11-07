@@ -10,6 +10,7 @@ use crate::{
     utils::reader::Reader,
 };
 
+// TODO: Update it to be specifically for the private_kernel_tail once we remove public_kernel_tail, which also outputs this.
 pub struct KernelCircuitPublicInputs {
     rollup_validation_requests: RollupValidationRequests,
     end: CombinedAccumulatedData,
