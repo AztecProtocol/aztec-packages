@@ -16,7 +16,7 @@ use dep::types::{
             PublicValidationRequestArrayLengths,
         },
     },
-    constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    constants::MAX_ENQUEUED_CALLS_PER_TX,
     traits::is_empty,
     utils::arrays::array_to_bounded_vec,
 };
@@ -25,7 +25,7 @@ use dep::types::{
 pub struct VMCircuitOutputComposer {
     constants: CombinedConstantData,
     call_request: PublicCallRequest,
-    public_call_stack: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_call_stack: BoundedVec<PublicInnerCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
     previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
     validation_requests: PublicValidationRequestsBuilder,
     previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths,

@@ -1,8 +1,9 @@
-import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
 
 import {
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
+  type GasUsed,
   type PrivateKernelProverProfileResult,
   UnencryptedTxL2Logs,
 } from '../index.js';
@@ -68,6 +69,15 @@ export class TxSimulationResult extends PrivateSimulationResult {
     public profileResult?: PrivateKernelProverProfileResult,
   ) {
     super(privateExecutionResult, publicInputs);
+  }
+
+  get gasUsed(): GasUsed {
+    return (
+      this.publicOutput?.gasUsed ?? {
+        totalGas: this.publicInputs.forRollup!.end.gasUsed,
+        teardownGas: Gas.empty(),
+      }
+    );
   }
 
   getPublicReturnValues() {

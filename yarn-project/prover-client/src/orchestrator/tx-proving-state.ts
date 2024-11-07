@@ -16,11 +16,11 @@ import {
   PrivateBaseRollupInputs,
   PrivateTubeData,
   PublicBaseRollupInputs,
+  PublicTubeData,
   type RecursiveProof,
   type TUBE_PROOF_LENGTH,
   TUBE_VK_INDEX,
   TubeInputs,
-  VMCircuitPublicInputs,
   VkWitnessData,
 } from '@aztec/circuits.js';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
@@ -65,13 +65,13 @@ export class TxProvingState {
     }
 
     const vkData = this.getTubeVkData();
-    const tubeData = new PrivateTubeData(this.processedTx.data, this.tube.proof, vkData);
+    const tubeData = new PrivateTubeData(this.processedTx.data.toKernelCircuitPublicInputs(), this.tube.proof, vkData);
 
     return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
   }
 
   public getPublicBaseInputs() {
-    if (!this.requireAvmProof) {
+    if (!this.processedTx.avmProvingRequest) {
       throw new Error('Should create private base rollup for a tx not requiring avm proof.');
     }
     if (!this.tube) {
@@ -81,15 +81,14 @@ export class TxProvingState {
       throw new Error('Tx not ready for proving base rollup: avm proof undefined');
     }
 
-    // Temporary hack.
-    // Passing this.processedTx.data to the tube, which is the output of the simulated public_kernel_tail,
-    // so that the output of the public base will contain all the side effects.
-    // This should be the output of the private_kernel_tail_to_public when the output of the avm proof is the result of
-    // simulating the entire public call stack.
-    const tubeData = new PrivateTubeData(this.processedTx.data, this.tube.proof, this.getTubeVkData());
+    const tubeData = new PublicTubeData(
+      this.processedTx.data.toPublicKernelCircuitPublicInputs(),
+      this.tube.proof,
+      this.getTubeVkData(),
+    );
 
     const avmProofData = new AvmProofData(
-      VMCircuitPublicInputs.empty(), // TODO
+      this.processedTx.avmProvingRequest.inputs.output,
       this.avm.proof,
       this.getAvmVkData(),
     );
@@ -106,33 +105,48 @@ export class TxProvingState {
   }
 
   public verifyStateOrReject(): string | undefined {
-    const kernelPublicInputs = this.processedTx.data;
+    const txEffect = this.processedTx.txEffect;
+    const fromPrivate = this.processedTx.data;
 
-    const txNoteEncryptedLogs = EncryptedNoteTxL2Logs.hashNoteLogs(
-      kernelPublicInputs.end.noteEncryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.value.toBuffer()),
+    const noteEncryptedLogsHashes = [
+      fromPrivate.forRollup?.end.noteEncryptedLogsHashes || [],
+      fromPrivate.forPublic?.nonRevertibleAccumulatedData.noteEncryptedLogsHashes || [],
+      fromPrivate.forPublic?.revertibleAccumulatedData.noteEncryptedLogsHashes || [],
+    ].flat();
+    const txNoteEncryptedLogsHash = EncryptedNoteTxL2Logs.hashNoteLogs(
+      noteEncryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.value.toBuffer()),
     );
-    if (!txNoteEncryptedLogs.equals(this.processedTx.noteEncryptedLogs.hash())) {
-      return `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogs)} === ${Fr.fromBuffer(
-        this.processedTx.noteEncryptedLogs.hash(),
+    if (!txNoteEncryptedLogsHash.equals(txEffect.noteEncryptedLogs.hash())) {
+      return `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogsHash)} === ${Fr.fromBuffer(
+        txEffect.noteEncryptedLogs.hash(),
       )}`;
     }
 
-    const txEncryptedLogs = EncryptedTxL2Logs.hashSiloedLogs(
-      kernelPublicInputs.end.encryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
+    const encryptedLogsHashes = [
+      fromPrivate.forRollup?.end.encryptedLogsHashes || [],
+      fromPrivate.forPublic?.nonRevertibleAccumulatedData.encryptedLogsHashes || [],
+      fromPrivate.forPublic?.revertibleAccumulatedData.encryptedLogsHashes || [],
+    ].flat();
+    const txEncryptedLogsHash = EncryptedTxL2Logs.hashSiloedLogs(
+      encryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
     );
-    if (!txEncryptedLogs.equals(this.processedTx.encryptedLogs.hash())) {
+    if (!txEncryptedLogsHash.equals(txEffect.encryptedLogs.hash())) {
       // @todo This rejection messages is never seen. Never making it out to the logs
-      return `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogs)} === ${Fr.fromBuffer(
-        this.processedTx.encryptedLogs.hash(),
+      return `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogsHash)} === ${Fr.fromBuffer(
+        txEffect.encryptedLogs.hash(),
       )}`;
     }
 
-    const txUnencryptedLogs = UnencryptedTxL2Logs.hashSiloedLogs(
-      kernelPublicInputs.end.unencryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
+    const avmOutput = this.processedTx.avmProvingRequest?.inputs.output;
+    const unencryptedLogsHashes = avmOutput
+      ? avmOutput.accumulatedData.unencryptedLogsHashes
+      : fromPrivate.forRollup!.end.unencryptedLogsHashes;
+    const txUnencryptedLogsHash = UnencryptedTxL2Logs.hashSiloedLogs(
+      unencryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
     );
-    if (!txUnencryptedLogs.equals(this.processedTx.unencryptedLogs.hash())) {
-      return `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogs)} === ${Fr.fromBuffer(
-        this.processedTx.unencryptedLogs.hash(),
+    if (!txUnencryptedLogsHash.equals(txEffect.unencryptedLogs.hash())) {
+      return `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogsHash)} === ${Fr.fromBuffer(
+        txEffect.unencryptedLogs.hash(),
       )}`;
     }
   }

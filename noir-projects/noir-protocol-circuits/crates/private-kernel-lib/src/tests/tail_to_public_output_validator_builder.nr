@@ -18,7 +18,7 @@ impl TailToPublicOutputValidatorBuilder {
     pub fn validate(self) {
         // TODO: Split the data using min_revertible_side_effect_counter in FixtureBuilder.
         let revertible = true;
-        let output = self.output.to_public_kernel_circuit_public_inputs(revertible);
+        let output = self.output.to_private_to_public_kernel_circuit_public_inputs(revertible);
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         TailToPublicOutputValidator::new(output, previous_kernel).validate();
     }
