@@ -1,7 +1,9 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
+
 #include <benchmark/benchmark.h>
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
@@ -244,75 +246,73 @@ void fill_lookup_block(Builder& builder)
     // static constexpr size_t NUM_LOOKUP_TYPES_USED(15);
 
     while (block.size() < (block.get_fixed_size() - 20 * NUM_SHORT)) {
+        // SHA
         uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
         uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
-
         field_ct left = witness_ct(&builder, bb::fr(left_value));
         field_ct right = witness_ct(&builder, bb::fr(right_value));
-
         plookup_read::get_lookup_accumulators(MultiTableId::SHA256_CH_INPUT, left, right, true);
-        // info("read SHA256_CH_INPUT");
         plookup_read::get_lookup_accumulators(MultiTableId::SHA256_CH_OUTPUT, left, right, true);
-        // info("read SHA256_CH_OUTPUT");
         plookup_read::get_lookup_accumulators(MultiTableId::SHA256_MAJ_INPUT, left, right, true);
-        // info("read SHA256_MAJ_INPUT");
         plookup_read::get_lookup_accumulators(MultiTableId::SHA256_MAJ_OUTPUT, left, right, true);
-        // info("read SHA256_MAJ_OUTPUT");
         plookup_read::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, left, right, true);
-        // info("read SHA256_WITNESS_INPUT");
         plookup_read::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_OUTPUT, left, right, true);
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_XLO, left, right, true);
-        // // info("read BN254_XLO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_XHI, left, right, true);
-        // // info("read BN254_XHI");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_YLO, left, right, true);
-        // // info("read BN254_YLO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_YHI, left, right, true);
-        // // info("read BN254_YHI");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_XYPRIME, left, right, true);
-        // // info("read BN254_XYPRIME");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_XLO_ENDO, left, right, true);
-        // // info("read BN254_XLO_ENDO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_XHI_ENDO, left, right, true);
-        // // info("read BN254_XHI_ENDO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::BN254_XYPRIME_ENDO, left, right, true);
-        // // info("read BN254_XYPRIME_ENDO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XLO, left, right, true);
-        // // info("read SECP256K1_XLO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XHI, left, right, true);
-        // // info("read SECP256K1_XHI");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_YLO, left, right, true);
-        // // info("read SECP256K1_YLO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_YHI, left, right, true);
-        // // info("read SECP256K1_YHI");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XYPRIME, left, right, true);
-        // // info("read SECP256K1_XYPRIME");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XLO_ENDO, left, right, true);
-        // // info("read SECP256K1_XLO_ENDO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XHI_ENDO, left, right, true);
-        // // info("read SECP256K1_XHI_ENDO");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XYPRIME_ENDO, left, right, true);
-        // // info("read SECP256K1_XYPRIME_ENDO");
-        // plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR, left, right, true);
-        // // info("read BLAKE_XOR");
-        // plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_16, left, right, true);
-        // // info("read BLAKE_XOR_ROTATE_16");
-        // plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_8, left, right, true);
-        // // info("read BLAKE_XOR_ROTATE_8");
-        // plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_7, left, right, true);
-        // // info("read BLAKE_XOR_ROTATE_7");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_IV, left, right, true);
-        // // info("read PEDERSEN_IV");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_THETA_OUTPUT, left, right, true);
-        // // info("read KECCAK_THETA_OUTPUT");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_CHI_OUTPUT, left, right, true);
-        // // info("read KECCAK_CHI_OUTPUT");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_FORMAT_INPUT, left, right, true);
-        // // info("read KECCAK_FORMAT_INPUT");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_FORMAT_OUTPUT, left, right, true);
-        // // info("read KECCAK_FORMAT_OUTPUT");
-        // // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE, left, right, true);
-        // // info("read KECCAK_NORMALIZE_AND_ROTATE");
+
+        // AES tables not actually used anywhere...
+
+        // fixed base
+        auto pedersen_input_value = fr::random_element();
+        const auto input_hi =
+            uint256_t(pedersen_input_value)
+                .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                       plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+        const auto input_lo =
+            uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
+        const auto input_hi_index = builder.add_variable(input_hi);
+        const auto input_lo_index = builder.add_variable(input_lo);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_HI, input_hi);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_RIGHT_LO, input_lo);
+
+        // bit ops
+        plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
+        plookup_read::get_lookup_accumulators(MultiTableId::UINT32_AND, left, right, true);
+
+        // bn254 generator slices
+        auto byte = field_ct::from_witness(&builder, engine.get_random_uint256() & 0xffULL);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_XLO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_XHI, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_YLO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_YHI, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_XYPRIME, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_XLO_ENDO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_XHI_ENDO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::BN254_XYPRIME_ENDO, byte, 0, false);
+
+        // secp256k1 generator slices
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XLO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XHI, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_YLO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_YHI, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XYPRIME, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XLO_ENDO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XHI_ENDO, byte, 0, false);
+        plookup_read::get_lookup_accumulators(MultiTableId::SECP256K1_XYPRIME_ENDO, byte, 0, false);
+
+        // blake xor
+        plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR, left, right, true);
+        plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_16, left, right, true);
+        plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_8, left, right, true);
+        plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_7, left, right, true);
+
+        // keccak tests trigger
+        // SharedShiftedVirtualZeroesArray ... Assertion `(index >= start_ && index < end_)' failed.
+        // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_THETA_OUTPUT, left, right, true);
+        // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_CHI_OUTPUT, left, right, true);
+        // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_FORMAT_INPUT, left, right, true);
+        // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_FORMAT_OUTPUT, left, right, true);
+        // plookup_read::get_lookup_accumulators(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE, left, right, true);
     }
 }
 

@@ -49,7 +49,8 @@ void init_multi_tables()
         sha256_tables::get_majority_output_table(MultiTableId::SHA256_MAJ_OUTPUT);
     MULTI_TABLES[MultiTableId::SHA256_WITNESS_OUTPUT] =
         sha256_tables::get_witness_extension_output_table(MultiTableId::SHA256_WITNESS_OUTPUT);
-    MULTI_TABLES[MultiTableId::AES_NORMALIZE] = aes128_tables::get_aes_normalization_table(MultiTableId::AES_NORMALIZE);
+    MULTI_TABLES[MultiTableId::AES_NORMALIZE] =
+        aes128_tables::get_aes_normalization_table(MultiTableId::AES_NORMALIZE); // WORKTODO: table not used anywhere?
     MULTI_TABLES[MultiTableId::AES_INPUT] = aes128_tables::get_aes_input_table(MultiTableId::AES_INPUT);
     MULTI_TABLES[MultiTableId::AES_SBOX] = aes128_tables::get_aes_sbox_table(MultiTableId::AES_SBOX);
     MULTI_TABLES[MultiTableId::UINT32_XOR] = uint_tables::get_uint32_xor_table(MultiTableId::UINT32_XOR);
