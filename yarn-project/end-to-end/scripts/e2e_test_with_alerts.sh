@@ -39,7 +39,7 @@ docker run \
     --network host \
     -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
     -e FAKE_PROOFS="$FAKE_PROOFS" \
-    -e METRICS_PORT=4318 \
+    -e METRICS_PORT="4318" \
     -e AZTEC_BOT_GITHUB_TOKEN="$AZTEC_BOT_GITHUB_TOKEN" \
     -e PULL_REQUEST="$PULL_REQUEST" \
     $env_args \
