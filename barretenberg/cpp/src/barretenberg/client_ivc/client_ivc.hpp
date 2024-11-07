@@ -106,8 +106,6 @@ class ClientIVC {
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
 
-    size_t dyadic_circuit_size_override = 0;
-
     // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceSettings trace_settings;
 

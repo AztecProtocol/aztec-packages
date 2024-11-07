@@ -45,17 +45,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
 
-    // Allows for explicit setting of the circuit size; used to ensure that all circuits accumulated in an IVC have the
-    // same circuit size in the event that one or more circuits overflow the structured trace.
-    // WORKTODO: it might make more sense for this to be the overflow size.
-    size_t dyadic_circuit_size_override = 0;
-
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = TraceSettings{},
-                       std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr,
-                       size_t circuit_size_override = 0)
+                       std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : is_structured(trace_settings.structure != TraceStructure::NONE)
-        , dyadic_circuit_size_override(circuit_size_override)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("DeciderProvingKey(Circuit&)");
@@ -71,9 +64,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             circuit.blocks.summarize();
             // circuit.blocks.check_within_fixed_sizes(); // ensure that no block exceeds its fixed size
             move_structured_trace_overflow_to_miscellaneous_block(circuit);
-            dyadic_circuit_size = dyadic_circuit_size_override == 0
-                                      ? compute_structured_dyadic_size(circuit)
-                                      : dyadic_circuit_size_override; // set the dyadic size accordingly
+            dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
         } else {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         }
