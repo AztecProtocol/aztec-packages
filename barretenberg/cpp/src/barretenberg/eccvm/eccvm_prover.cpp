@@ -96,8 +96,8 @@ void ECCVMProver::execute_relation_check_rounds()
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges);
