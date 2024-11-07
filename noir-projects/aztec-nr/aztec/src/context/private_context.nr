@@ -1,6 +1,6 @@
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
-    hash::{ArgsHasher, hash_args_array},
+    hash::{ArgsHasher, hash_args, hash_args_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
@@ -337,8 +337,17 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) -> PackedReturns {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        self.call_private_function_slice(contract_address, function_selector, args.as_slice())
+    }
+
+    pub fn call_private_function_slice(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field],
+    ) -> PackedReturns {
+        let args_hash = hash_args(args);
+        arguments::pack_arguments(args);
         self.call_private_function_with_packed_args(
             contract_address,
             function_selector,
@@ -353,8 +362,17 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) -> PackedReturns {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        self.static_call_private_function_slice(contract_address, function_selector, args.as_slice())
+    }
+
+    pub fn static_call_private_function_slice(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field],
+    ) -> PackedReturns {
+        let args_hash = hash_args(args);
+        arguments::pack_arguments(args);
         self.call_private_function_with_packed_args(
             contract_address,
             function_selector,
@@ -435,8 +453,17 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        self.call_public_function_slice(contract_address, function_selector, args.as_slice())
+    }
+
+    pub fn call_public_function_slice(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field],
+    ) {
+        let args_hash = hash_args(args);
+        arguments::pack_arguments(args);
         self.call_public_function_with_packed_args(
             contract_address,
             function_selector,
@@ -451,8 +478,17 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        self.static_call_public_function_slice(contract_address, function_selector, args.as_slice())
+    }
+
+    pub fn static_call_public_function_slice(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field],
+    ) {
+        let args_hash = hash_args(args);
+        arguments::pack_arguments(args);
         self.call_public_function_with_packed_args(
             contract_address,
             function_selector,

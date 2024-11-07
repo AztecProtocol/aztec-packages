@@ -7,9 +7,6 @@ use crate::context::{
     public_context::PublicContext,
 };
 
-use crate::hash::hash_args;
-use crate::oracle::arguments::pack_arguments;
-
 pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field] {
         self.args
@@ -47,13 +44,8 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
     where
         T: Deserialize<M>,
     {
-        pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-        );
+        let returns =
+            context.call_private_function_slice(self.target_contract, self.selector, self.args);
         let unpacked: T = returns.unpack_into();
         unpacked
     }
@@ -62,12 +54,10 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
     where
         T: Deserialize<M>,
     {
-        pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
+        let returns = context.static_call_private_function_slice(
             self.target_contract,
             self.selector,
-            self.args_hash,
-            true,
+            self.args,
         );
         returns.unpack_into()
     }
@@ -87,26 +77,14 @@ pub struct PrivateVoidCallInterface<let N: u32> {
 
 impl<let N: u32> PrivateVoidCallInterface<N> {
     pub fn call(self, context: &mut PrivateContext) {
-        pack_arguments(self.args);
         context
-            .call_private_function_with_packed_args(
-                self.target_contract,
-                self.selector,
-                self.args_hash,
-                false,
-            )
+            .call_private_function_slice(self.target_contract, self.selector, self.args)
             .assert_empty();
     }
 
     pub fn view(self, context: &mut PrivateContext) {
-        pack_arguments(self.args);
         context
-            .call_private_function_with_packed_args(
-                self.target_contract,
-                self.selector,
-                self.args_hash,
-                true,
-            )
+            .static_call_private_function_slice(self.target_contract, self.selector, self.args)
             .assert_empty();
     }
 }
@@ -128,12 +106,10 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
     where
         T: Deserialize<M>,
     {
-        pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
+        let returns = context.static_call_private_function_slice(
             self.target_contract,
             self.selector,
-            self.args_hash,
-            true,
+            self.args,
         );
         returns.unpack_into()
     }
@@ -153,14 +129,8 @@ pub struct PrivateStaticVoidCallInterface<let N: u32> {
 
 impl<let N: u32> PrivateStaticVoidCallInterface<N> {
     pub fn view(self, context: &mut PrivateContext) {
-        pack_arguments(self.args);
         context
-            .call_private_function_with_packed_args(
-                self.target_contract,
-                self.selector,
-                self.args_hash,
-                true,
-            )
+            .static_call_private_function_slice(self.target_contract, self.selector, self.args)
             .assert_empty();
     }
 }
@@ -210,27 +180,11 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/
-            false,
-        )
+        context.call_public_function_slice(self.target_contract, self.selector, self.args)
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/
-            true,
-        )
+        context.static_call_public_function_slice(self.target_contract, self.selector, self.args)
     }
 }
 
@@ -273,27 +227,11 @@ impl<let N: u32> PublicVoidCallInterface<N> {
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/
-            false,
-        )
+        context.call_public_function_slice(self.target_contract, self.selector, self.args)
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/
-            true,
-        )
+        context.static_call_public_function_slice(self.target_contract, self.selector, self.args)
     }
 }
 
@@ -329,15 +267,7 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/
-            true,
-        )
+        context.static_call_public_function_slice(self.target_contract, self.selector, self.args)
     }
 }
 
@@ -370,14 +300,6 @@ impl<let N: u32> PublicStaticVoidCallInterface<N> {
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        pack_arguments(self.args);
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/
-            true,
-        )
+        context.static_call_public_function_slice(self.target_contract, self.selector, self.args)
     }
 }
