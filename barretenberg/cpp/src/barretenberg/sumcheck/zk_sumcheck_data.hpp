@@ -36,7 +36,6 @@ template <typename Flavor> struct ZKSumcheckData {
 
     LibraUnivariates libra_univariates;
     LibraUnivariates libra_univariates_monomial;
-    LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
     FF libra_challenge;
     FF libra_running_sum;

@@ -191,8 +191,6 @@ template <typename Flavor> class SumcheckProver {
                                  const std::vector<FF>& gate_challenges,
                                  ZKSumcheckData<Flavor> zk_sumcheck_data = ZKSumcheckData<Flavor>())
     {
-        // In case the Flavor has ZK, we populate sumcheck data structure with randomness, compute correcting term for
-        // the total sum, etc.
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
@@ -250,12 +248,7 @@ template <typename Flavor> class SumcheckProver {
             round.round_size = round.round_size >> 1;
             vinfo("completed sumcheck round ", round_idx);
         }
-        // Check that the challenges \f$ u_0,\ldots, u_{d-1} \f$ do not satisfy the equation \f$ u_0(1-u_0) + \ldots +
-        // u_{d-1} (1 - u_{d-1}) = 0 \f$. This equation is satisfied with probability ~ 1/|FF|, in such cases the prover
-        // has to abort and start ZK Sumcheck anew.
-        if constexpr (Flavor::HasZK) {
-            check_that_evals_do_not_leak_witness_data(multivariate_challenge);
-        };
+
         // Zero univariates are used to pad the proof to the fixed size CONST_PROOF_SIZE_LOG_N.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
         for (size_t idx = multivariate_d; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
@@ -424,26 +417,6 @@ polynomials that are sent in clear.
             for (auto univariate : zk_sumcheck_data.libra_univariates) {
                 univariate *= FF(1) / zk_sumcheck_data.libra_challenge;
             }
-        };
-    }
-
-    /**
-     * @brief By the design of ZK Sumcheck, instead of claimed evaluations of witness polynomials \f$ P_1, \ldots,
-    P_{N_w} \f$, the prover sends the evaluations of the witness polynomials masked by the terms \f$ \rho_j
-    \sum_{i=0}^{d-1} u_i(1-u_i) \f$ for \f$ j= 1, \ldots N_w\f$. If the challenges satisfy the equation
-    \f$\sum_{i=0}^{d-1} u_i(1-u_i) = 0\f$, each masking term is \f$0 \f$, which could lead to the leakage of witness
-     *
-     * @param multivariate_challenge
-     */
-    void check_that_evals_do_not_leak_witness_data(std::vector<FF> multivariate_challenge)
-    {
-        auto masking_term = FF(0);
-        for (auto challenge : multivariate_challenge) {
-            masking_term += challenge * (FF(1) - challenge);
-        }
-        if (masking_term == FF(0)) {
-            throw_or_abort("The evaluations of witness polynomials are not masked, because u_0(1-u_0)+...+u_{d-1} "
-                           "(1-u_{d-1}) = 0 ");
         };
     }
 };

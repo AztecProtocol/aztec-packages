@@ -187,42 +187,39 @@ void TranslatorProver::execute_pcs_rounds()
                                        key->polynomials.get_groups_to_be_concatenated(),
                                        zk_sumcheck_data.libra_univariates_monomial,
                                        sumcheck_output.claimed_libra_evaluations);
-                                       key->polynomials.get_groups_to_be_concatenated(),
-                                       zk_sumcheck_data.libra_univariates_monomial,
-                                       sumcheck_output.claimed_libra_evaluations);
-                                       PCS::compute_opening_proof(
-                                           key->commitment_key, prover_opening_claim, transcript);
+
+    PCS::compute_opening_proof(key->commitment_key, prover_opening_claim, transcript);
 }
 
 HonkProof TranslatorProver::export_proof()
 {
-                                       proof = transcript->export_proof();
-                                       return proof;
+    proof = transcript->export_proof();
+    return proof;
 }
 
 HonkProof TranslatorProver::construct_proof()
 {
-                                       PROFILE_THIS_NAME("TranslatorProver::construct_proof");
+    PROFILE_THIS_NAME("TranslatorProver::construct_proof");
 
-                                       // Add circuit size public input size and public inputs to transcript.
-                                       execute_preamble_round();
+    // Add circuit size public input size and public inputs to transcript.
+    execute_preamble_round();
 
-                                       // Compute first three wire commitments
-                                       execute_wire_and_sorted_constraints_commitments_round();
+    // Compute first three wire commitments
+    execute_wire_and_sorted_constraints_commitments_round();
 
-                                       // Fiat-Shamir: gamma
-                                       // Compute grand product(s) and commitments.
-                                       execute_grand_product_computation_round();
+    // Fiat-Shamir: gamma
+    // Compute grand product(s) and commitments.
+    execute_grand_product_computation_round();
 
-                                       // Fiat-Shamir: alpha
-                                       // Run sumcheck subprotocol.
-                                       execute_relation_check_rounds();
+    // Fiat-Shamir: alpha
+    // Run sumcheck subprotocol.
+    execute_relation_check_rounds();
 
-                                       // Fiat-Shamir: rho, y, x, z
-                                       // Execute Shplemini PCS
-                                       execute_pcs_rounds();
+    // Fiat-Shamir: rho, y, x, z
+    // Execute Shplemini PCS
+    execute_pcs_rounds();
 
-                                       return export_proof();
+    return export_proof();
 }
 
 } // namespace bb
