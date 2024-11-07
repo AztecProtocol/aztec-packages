@@ -132,7 +132,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
-        for (size_t i = 0; i < log_n; i++) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
@@ -202,9 +202,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_uint32);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
             round++;
-            std::string idx = std::to_string(log_n - i - 1);
+            std::string idx = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             manifest_expected.add_entry(round, "IPA:L_" + idx, frs_per_G);
             manifest_expected.add_entry(round, "IPA:R_" + idx, frs_per_G);
             std::string label = "IPA:round_challenge_" + idx;

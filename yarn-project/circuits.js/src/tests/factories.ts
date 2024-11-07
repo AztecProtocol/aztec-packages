@@ -152,6 +152,7 @@ import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
   AvmContractBytecodeHints,
+  AvmEnqueuedCallHint,
   AvmProofData,
   BaseRollupHints,
   EnqueuedCallData,
@@ -1490,6 +1491,13 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   );
 }
 
+export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
+  return AvmEnqueuedCallHint.from({
+    contractAddress: new Fr(seed),
+    calldata: makeVector((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+  });
+}
+
 /**
  * Creates arbitrary AvmExecutionHints.
  * @param seed - The seed to use for generating the hints.
@@ -1504,13 +1512,14 @@ export function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   return AvmExecutionHints.from({
-    storageValues: makeVector(baseLength, makeAvmKeyValueHint, seed + 0x4200),
-    noteHashExists: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4300),
-    nullifierExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4400),
-    l1ToL2MessageExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4500),
-    externalCalls: makeVector(baseLength + 4, makeAvmExternalCallHint, seed + 0x4600),
-    contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: makeVector(baseLength + 6, makeAvmBytecodeHints, seed + 0x4800),
+    enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
+    storageValues: makeVector(baseLength + 1, makeAvmKeyValueHint, seed + 0x4200),
+    noteHashExists: makeVector(baseLength + 2, makeAvmKeyValueHint, seed + 0x4300),
+    nullifierExists: makeVector(baseLength + 3, makeAvmKeyValueHint, seed + 0x4400),
+    l1ToL2MessageExists: makeVector(baseLength + 4, makeAvmKeyValueHint, seed + 0x4500),
+    externalCalls: makeVector(baseLength + 5, makeAvmExternalCallHint, seed + 0x4600),
+    contractInstances: makeVector(baseLength + 6, makeAvmContractInstanceHint, seed + 0x4700),
+    contractBytecodeHints: makeVector(baseLength + 7, makeAvmBytecodeHints, seed + 0x4800),
     ...overrides,
   });
 }
