@@ -7,6 +7,9 @@ import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig 
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
 
+// returns the metrics port from the environment variables, or undefined if it is not set
+export const getMetricsPort = () => (process.env.METRICS_PORT ? parseInt(process.env.METRICS_PORT) : undefined);
+
 // creates an instance of the PXE and submit a given number of transactions to it.
 export const createPXEServiceAndSubmitTransactions = async (
   logger: DebugLogger,

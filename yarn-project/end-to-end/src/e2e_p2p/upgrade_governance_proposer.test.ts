@@ -12,9 +12,9 @@ import {
 import fs from 'fs';
 import { getAddress, getContract } from 'viem';
 
-import { METRICS_PORT } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
+import { getMetricsPort } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -38,7 +38,8 @@ describe('e2e_p2p_governance_proposer', () => {
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
-      metricsPort: METRICS_PORT,
+      // Read the metrics port from the environment variables METRICS_PORT
+      metricsPort: getMetricsPort(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
@@ -135,6 +136,7 @@ describe('e2e_p2p_governance_proposer', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
+      getMetricsPort(),
     );
 
     await sleep(4000);

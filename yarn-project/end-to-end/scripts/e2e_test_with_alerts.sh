@@ -15,7 +15,7 @@ test_path=$1
 echo "Running otel stack"
 CONTAINER_ID=$(docker run -d -p 3000:3000 -p 4317:4317 -p 4318:4318 --rm grafana/otel-lgtm)
 
-trap "docker stop $CONTAINER_ID" EXIT
+trap "docker stop $CONTAINER_ID" EXIT SIGINT SIGTERM
 
 echo "Waiting for LGTM stack to be ready..."
 timeout=60
@@ -39,6 +39,7 @@ docker run \
     --network host \
     -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
     -e FAKE_PROOFS="$FAKE_PROOFS" \
+    -e METRICS_PORT=4138 \
     -e AZTEC_BOT_GITHUB_TOKEN="$AZTEC_BOT_GITHUB_TOKEN" \
     -e PULL_REQUEST="$PULL_REQUEST" \
     $env_args \

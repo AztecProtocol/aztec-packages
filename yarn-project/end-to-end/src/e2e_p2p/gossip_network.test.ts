@@ -3,10 +3,9 @@ import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
-import { METRICS_PORT } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
+import { createPXEServiceAndSubmitTransactions, getMetricsPort } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -25,7 +24,8 @@ describe('e2e_p2p_network', () => {
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
-      metricsPort: METRICS_PORT,
+      // Read the metrics port from the environment variables METRICS_PORT
+      metricsPort: getMetricsPort(),
     });
     await t.applyBaseSnapshots();
     await t.setup();
@@ -57,7 +57,7 @@ describe('e2e_p2p_network', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       DATA_DIR,
-      METRICS_PORT,
+      getMetricsPort(),
     );
 
     // wait a bit for peers to discover each other
