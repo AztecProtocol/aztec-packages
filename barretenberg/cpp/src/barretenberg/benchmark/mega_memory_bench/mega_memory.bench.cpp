@@ -21,41 +21,6 @@ using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using plookup_read = stdlib::plookup_read<Builder>;
 
-// void to_run(State& state, TraceStructure structure)
-// {
-//     Builder builder;
-//     builder.blocks.set_fixed_block_sizes(structure);
-
-//     for (const auto& block : builder.blocks.get()) {
-//         info(block.size(), " / ", block.get_fixed_size());
-//     }
-
-//     for (auto& block : builder.blocks.get()) {
-//         const size_t target_size = block.get_fixed_size() - 10;
-//         info("target size: ", target_size);
-
-//         for (auto& vec : block.selectors) {
-//             vec.reserve(target_size);
-//             std::generate_n(std::back_inserter(vec), target_size, []() { return fr::random_element(); });
-//         }
-
-//         for (auto& vec : block.wires) {
-//             vec.reserve(target_size);
-//             std::generate_n(
-//                 std::back_inserter(vec), target_size, []() { return static_cast<uint32_t>(fr::random_element()); });
-//         }
-//     }
-
-//     for (const auto& block : builder.blocks.get()) {
-//         info(block.size(), " / ", block.get_fixed_size());
-//     }
-
-//     for (auto _ : state) {
-//         auto proving_key = std::make_shared<DeciderProvingKey>(builder, structure);
-//         benchmark::DoNotOptimize(proving_key);
-//     }
-// }
-
 static constexpr size_t NUM_SHORT = 10;
 
 void fill_ecc_op_block(Builder& builder)
@@ -316,14 +281,10 @@ void fill_lookup_block(Builder& builder)
     }
 }
 
-void to_run(State& state, TraceStructure structure)
+void fill_trace(State& state, TraceStructure structure)
 {
     Builder builder;
     builder.blocks.set_fixed_block_sizes(structure);
-
-    for (const auto& block : builder.blocks.get()) {
-        info(block.size(), " / ", block.get_fixed_size());
-    }
 
     fill_ecc_op_block(builder);
     fill_pub_inputs_block(builder);
@@ -336,29 +297,50 @@ void to_run(State& state, TraceStructure structure)
     fill_poseidon2_internal_block(builder);
     fill_lookup_block(builder);
     builder.finalize_circuit(/* ensure_nonzero */ false);
-    info("DONE FILLING BLOCKS");
+    {
+        // finalize doesn't populate public inputs block, so copy to verify that the block is being filled well
+        // otherwise the pk construction will overflow the block
+        // alternative: add to finalize or add a flag to check whether PIs have already been populated
+        auto builder_copy = builder;
+        DeciderProvingKey::Trace::populate_public_inputs_block(builder_copy);
 
-    for (size_t idx = 0; const auto& block : builder.blocks.get()) {
-        bool overfilled = block.size() >= block.get_fixed_size();
-        // ASSERT(!overfilled);
-        if (overfilled) {
-            info("block overfilled at index ", idx);
+        for (size_t idx = 0; const auto& block : builder_copy.blocks.get()) {
+            bool overfilled = block.size() >= block.get_fixed_size();
+            if (overfilled) {
+                info("block overfilled at index ", idx);
+            }
+            ASSERT(!overfilled);
+            info(block.size(), " / ", block.get_fixed_size());
+            idx++;
         }
-        info(block.size(), " / ", block.get_fixed_size());
-        idx++;
     }
-
     for (auto _ : state) {
         auto proving_key = std::make_shared<DeciderProvingKey>(builder, structure);
         benchmark::DoNotOptimize(proving_key);
     }
 }
 
-static void construct_dpk(State& state, void (*test_circuit_function)(State&, TraceStructure)) noexcept
+void fill_trace_client_ivc_bench(State& state)
 {
-    test_circuit_function(state, TraceStructure::E2E_FULL_TEST);
+    fill_trace(state, TraceStructure::CLIENT_IVC_BENCH);
 }
 
-BENCHMARK_CAPTURE(construct_dpk, TraceStructure::CLIENT_IVC_BENCH, &to_run)->Unit(kMillisecond)->Iterations(1);
+void fill_trace_e2e_full_test(State& state)
+{
+    fill_trace(state, TraceStructure::E2E_FULL_TEST);
+}
+
+static void construct_pk(State& state, void (*test_circuit_function)(State&)) noexcept
+{
+    test_circuit_function(state);
+}
+
+BENCHMARK_CAPTURE(construct_pk, TraceStructure::E2E_FULL_TEST, &fill_trace_e2e_full_test)
+    ->Unit(kMillisecond)
+    ->Iterations(1);
+
+BENCHMARK_CAPTURE(construct_pk, TraceStructure::CLIENT_IVC_BENCH, &fill_trace_client_ivc_bench)
+    ->Unit(kMillisecond)
+    ->Iterations(1);
 
 BENCHMARK_MAIN();

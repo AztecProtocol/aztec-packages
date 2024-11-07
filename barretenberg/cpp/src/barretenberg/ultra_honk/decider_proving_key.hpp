@@ -30,12 +30,12 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     using Polynomial = typename Flavor::Polynomial;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
-    using Trace = ExecutionTrace_<Flavor>;
-
     // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
     bool is_structured;
 
   public:
+    using Trace = ExecutionTrace_<Flavor>;
+
     ProvingKey proving_key;
 
     bool is_accumulator = false;
