@@ -484,6 +484,14 @@ export class TxEffect {
           throw new Error(`Too many fields to decode given to TxEffect.fromFields()`);
       }
     }
+
+    // If the input fields have no logs, ensure we match the original struct by reassigning injected logs
+    effect.noteEncryptedLogs =
+      !effect.noteEncryptedLogs.getTotalLogCount() && noteEncryptedLogs ? noteEncryptedLogs : effect.noteEncryptedLogs;
+    effect.encryptedLogs =
+      !effect.encryptedLogs.getTotalLogCount() && encryptedLogs ? encryptedLogs : effect.encryptedLogs;
+    effect.unencryptedLogs =
+      !effect.unencryptedLogs.getTotalLogCount() && unencryptedLogs ? unencryptedLogs : effect.unencryptedLogs;
     return effect;
   }
 

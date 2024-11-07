@@ -59,7 +59,7 @@ export class BlockRootRollupInputs {
      * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
      * Tuple<Fr, FIELDS_PER_BLOB>
      */
-    public txEffects: Array<Fr>,
+    public txEffects: Fr[],
     /**
      * KZG commitment representing the blob (precomputed in ts, injected to use inside circuit).
      * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?

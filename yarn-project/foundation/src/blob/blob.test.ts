@@ -79,7 +79,7 @@ describe('blob', () => {
     const blobItems = Array(400).fill(new Fr(3));
     const ourBlob = new Blob(blobItems);
     const blobItemsHash = poseidon2Hash(Array(400).fill(new Fr(3)));
-    expect(blobItemsHash).toEqual(ourBlob.txsEffectsHash);
+    expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
     expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
 
     const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);

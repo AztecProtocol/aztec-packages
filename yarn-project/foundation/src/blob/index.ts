@@ -39,7 +39,7 @@ export class Blob {
   /** The blob to be broadcast on L1 in bytes form. */
   public readonly data: BlobBuffer;
   /** The hash of all tx effects inside the blob. Used in generating the challenge z and proving that we have included all required effects. */
-  public readonly txsEffectsHash: Fr;
+  public readonly fieldsHash: Fr;
   /** Challenge point z (= H(H(tx_effects), kzgCommmitment). Used such that p(z) = y. */
   public readonly challengeZ: Fr;
   /** Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts. */
@@ -50,19 +50,19 @@ export class Blob {
   public readonly proof: Buffer;
 
   constructor(
-    /** All tx effects to be broadcast in the blob. */
-    txEffects: Fr[],
+    /** All fields to be broadcast in the blob. */
+    fields: Fr[],
   ) {
-    if (txEffects.length > FIELD_ELEMENTS_PER_BLOB) {
+    if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
       throw new Error(
-        `Attempted to overfill blob with ${txEffects.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
+        `Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
       );
     }
-    this.data = Buffer.concat([serializeToBuffer(txEffects)], BYTES_PER_BLOB);
+    this.data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
-    this.txsEffectsHash = poseidon2Hash(txEffects);
+    this.fieldsHash = poseidon2Hash(fields);
     this.commitment = Buffer.from(blobToKzgCommitment(this.data));
-    this.challengeZ = poseidon2Hash([this.txsEffectsHash, ...this.commitmentToFields()]);
+    this.challengeZ = poseidon2Hash([this.fieldsHash, ...this.commitmentToFields()]);
     const res = computeKzgProof(this.data, this.challengeZ.toBuffer());
     if (!verifyKzgProof(this.commitment, this.challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
