@@ -5,12 +5,12 @@ import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { type PXEService } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import getPort from 'get-port';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
+import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -48,6 +48,7 @@ export function createNodes(
   numNodes: number,
   bootNodePort: number,
   dataDirectory?: string,
+  metricsPort?: number,
 ): Promise<AztecNodeService[]> {
   const nodePromises = [];
   for (let i = 0; i < numNodes; i++) {
@@ -55,7 +56,7 @@ export function createNodes(
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
-    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir);
+    const nodePromise = createNode(config, peerIdPrivateKeys[i], port, bootstrapNodeEnr, i, dataDir, metricsPort);
     nodePromises.push(nodePromise);
   }
   return Promise.all(nodePromises);
@@ -69,6 +70,7 @@ export async function createNode(
   bootstrapNode: string | undefined,
   publisherAddressIndex: number,
   dataDirectory?: string,
+  metricsPort?: number,
 ) {
   const validatorConfig = await createValidatorConfig(
     config,
@@ -78,9 +80,12 @@ export async function createNode(
     publisherAddressIndex,
     dataDirectory,
   );
+
+  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort, /*serviceName*/ `node:${tcpPort}`);
+
   return await AztecNodeService.createAndSync(
     validatorConfig,
-    new NoopTelemetryClient(),
+    telemetryClient,
     createDebugLogger(`aztec:node-${tcpPort}`),
   );
 }

@@ -4,7 +4,7 @@ import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec
 
 import { inspect } from 'util';
 
-import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
+import { MAX_ENQUEUED_CALLS_PER_TX } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { PublicInnerCallRequest } from '../public_inner_call_request.js';
@@ -19,7 +19,7 @@ export class VMCircuitPublicInputs {
   constructor(
     public constants: CombinedConstantData,
     public callRequest: PublicCallRequest,
-    public publicCallStack: Tuple<PublicInnerCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public publicCallStack: Tuple<PublicInnerCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths,
     public validationRequests: PublicValidationRequests,
     public previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths,
@@ -65,7 +65,7 @@ export class VMCircuitPublicInputs {
     return new VMCircuitPublicInputs(
       reader.readObject(CombinedConstantData),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicInnerCallRequest),
       reader.readObject(PublicValidationRequestArrayLengths),
       reader.readObject(PublicValidationRequests),
       reader.readObject(PublicAccumulatedDataArrayLengths),
@@ -82,7 +82,7 @@ export class VMCircuitPublicInputs {
     return new VMCircuitPublicInputs(
       CombinedConstantData.empty(),
       PublicCallRequest.empty(),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty),
+      makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicInnerCallRequest.empty),
       PublicValidationRequestArrayLengths.empty(),
       PublicValidationRequests.empty(),
       PublicAccumulatedDataArrayLengths.empty(),
@@ -100,7 +100,7 @@ export class VMCircuitPublicInputs {
     return new VMCircuitPublicInputs(
       CombinedConstantData.fromFields(reader),
       PublicCallRequest.fromFields(reader),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicInnerCallRequest),
       PublicValidationRequestArrayLengths.fromFields(reader),
       PublicValidationRequests.fromFields(reader),
       PublicAccumulatedDataArrayLengths.fromFields(reader),

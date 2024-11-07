@@ -42,6 +42,42 @@ TYPED_TEST(KZGTest, single)
 }
 
 /**
+ * @brief Test opening proof of a polynomial given by its evaluations at \f$ i = 0, \ldots, n \f$. Should only be used
+ * for small values of \f$ n \f$.
+ *
+ */
+TYPED_TEST(KZGTest, SingleInLagrangeBasis)
+{
+    const size_t n = 4;
+
+    using KZG = KZG<TypeParam>;
+    using Fr = typename TypeParam::ScalarField;
+
+    // create a random univariate (coefficients are in Lagrange basis)
+    auto witness = bb::Univariate<Fr, n>::get_random();
+    // define the interpolation domain
+    std::array<Fr, 4> eval_points = { Fr(0), Fr(1), Fr(2), Fr(3) };
+    // compute the monomial coefficients
+    Polynomial<Fr> witness_polynomial(std::span<Fr>(eval_points), std::span<Fr>(witness), n);
+    // commit to the polynomial in the monomial form
+    g1::element commitment = this->commit(witness_polynomial);
+
+    auto challenge = Fr::random_element();
+    // evaluate the original univariate
+    auto evaluation = witness.evaluate(challenge);
+    auto opening_pair = OpeningPair<TypeParam>{ challenge, evaluation };
+    auto opening_claim = OpeningClaim<TypeParam>{ opening_pair, commitment };
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    KZG::compute_opening_proof(this->ck(), { witness_polynomial, opening_pair }, prover_transcript);
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto pairing_points = KZG::reduce_verify(opening_claim, verifier_transcript);
+
+    EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+}
+/**
  * @brief Test full PCS protocol: Gemini, Shplonk, KZG and pairing check
  * @details Demonstrates the full PCS protocol as it is used in the construction and verification
  * of a single Honk proof. (Expository comments included throughout).

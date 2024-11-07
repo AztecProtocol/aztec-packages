@@ -4,6 +4,8 @@ use dep::types::{
         accumulated_data::{CombinedAccumulatedData, PublicAccumulatedData},
         log_hash::{LogHash, ScopedLogHash},
         nullifier::Nullifier,
+        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::PublicDataWrite,
     },
     utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc},
 };
@@ -24,7 +26,11 @@ pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
         revertible.l2_to_l1_msgs,
     ));
 
-    let public_data_update_requests = dedupe_array(output_hints.public_data_writes);
+    let public_data_writes = dedupe_array(output_hints.public_data_writes).map(
+        |w: PublicDataUpdateRequest| {
+            PublicDataWrite { leaf_slot: w.leaf_slot, value: w.new_value }
+        },
+    );
 
     let note_encrypted_logs_hashes = sort_by_counter_asc(array_merge(
         non_revertible.note_encrypted_logs_hashes,
@@ -57,7 +63,7 @@ pub unconstrained fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
         note_encrypted_log_preimages_length,
         encrypted_log_preimages_length,
         unencrypted_log_preimages_length,
-        public_data_update_requests,
+        public_data_writes,
         gas_used: revertible.gas_used + non_revertible.gas_used,
     }
 }

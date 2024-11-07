@@ -28,16 +28,17 @@ use dep::protocol_types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_call_request::PublicCallRequest,
         read_request::ReadRequest,
+        side_effect::Counted,
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_ENCRYPTED_LOGS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_DISPATCH_SELECTOR,
+        MAX_ENCRYPTED_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL,
+        PUBLIC_DISPATCH_SELECTOR,
     },
     header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -66,7 +67,7 @@ pub struct PrivateContext {
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
 
     private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
     public_teardown_call_request: PublicCallRequest,
     l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
@@ -503,15 +504,16 @@ impl PrivateContext {
 
         // Public calls are rerouted through the dispatch function.
         let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
-        let call_context = CallContext {
+
+        let call_request = PublicCallRequest {
             msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
+            args_hash,
         };
 
-        let call_request = PublicCallRequest { call_context, args_hash, counter };
-        self.public_call_requests.push(call_request);
+        self.public_call_requests.push(Counted::new(call_request, counter));
     }
 
     pub fn set_public_teardown_function<let ARGS_COUNT: u32>(
@@ -555,14 +557,14 @@ impl PrivateContext {
         );
 
         let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
-        let call_context = CallContext {
+
+        self.public_teardown_call_request = PublicCallRequest {
             msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
+            args_hash,
         };
-
-        self.public_teardown_call_request = PublicCallRequest { call_context, args_hash, counter };
     }
 
     fn next_counter(&mut self) -> u32 {

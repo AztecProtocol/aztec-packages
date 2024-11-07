@@ -7,6 +7,7 @@ export * from './sha512/index.js';
 export * from './pedersen/index.js';
 export * from './poseidon/index.js';
 export * from './secp256k1-signer/index.js';
+export * from './keys/index.js';
 
 /**
  * Init the bb singleton. This constructs (if not already) the barretenberg sync api within bb.js itself.

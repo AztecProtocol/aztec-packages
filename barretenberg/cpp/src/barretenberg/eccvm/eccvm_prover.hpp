@@ -5,6 +5,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -50,6 +51,7 @@ class ECCVMProver {
     std::shared_ptr<ProvingKey> key;
 
     CommitmentLabels commitment_labels;
+    ZKSumcheckData<Flavor> zk_sumcheck_data;
 
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds
