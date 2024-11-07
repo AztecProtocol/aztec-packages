@@ -139,6 +139,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
         }
         round++;
 
+        for (size_t i = 0; i < log_n; i++) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Libra:commitment_" + idx, frs_per_G);
+        }
         manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
         // get the challenge for the ZK Sumcheck claim
         manifest_expected.add_challenge(round, "Libra:Challenge");

@@ -129,16 +129,6 @@ pub fn merkle_hash(left: Field, right: Field) -> Field {
     poseidon2_hash([left, right])
 }
 
-pub fn stdlib_recursion_verification_key_compress_native_vk<let N: u32>(
-    _vk: VerificationKey<N>,
-) -> Field {
-    // Original cpp code
-    // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
-    // The above cpp method is only ever called on verification key, so it has been special cased here
-    let _hash_index = GENERATOR_INDEX__VK;
-    0
-}
-
 pub fn compute_l2_to_l1_hash(
     contract_address: AztecAddress,
     recipient: EthAddress,

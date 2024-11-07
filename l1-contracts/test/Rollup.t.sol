@@ -284,16 +284,18 @@ contract RollupTest is DecoderBase {
     );
   }
 
-  function testMissingProofSlashesBond(uint256 slotsToJump) public setUpFor("mixed_block_1") {
-    // @note, this gives a an overflow if bounding to type(uint256).max
-    // Tracked by https://github.com/AztecProtocol/aztec-packages/issues/9362
-    slotsToJump =
-      bound(slotsToJump, 2 * Constants.AZTEC_EPOCH_DURATION, 1e20 * Constants.AZTEC_EPOCH_DURATION);
+  function testMissingProofSlashesBond(uint256 _slotToHit) public setUpFor("mixed_block_1") {
+    Slot lower = rollup.getCurrentSlot() + Slot.wrap(2 * Constants.AZTEC_EPOCH_DURATION);
+    Slot upper = Slot.wrap(
+      (type(uint256).max - Timestamp.unwrap(rollup.GENESIS_TIME())) / rollup.SLOT_DURATION()
+    );
+    Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
+
     _testBlock("mixed_block_1", false, 1);
     rollup.claimEpochProofRight(signedQuote);
-    warpToL2Slot(slotsToJump);
+    warpToL2Slot(slotToHit.unwrap());
     rollup.prune();
-    _testBlock("mixed_block_1", true, slotsToJump);
+    _testBlock("mixed_block_1", true, slotToHit.unwrap());
 
     assertEq(
       proofCommitmentEscrow.deposits(quote.prover), 9 * quote.bondAmount, "Invalid escrow balance"
@@ -436,9 +438,7 @@ contract RollupTest is DecoderBase {
     (bytes32 preArchive, bytes32 preBlockHash,,) = rollup.blocks(0);
     _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, archive, preArchive)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 2));
     _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
   }
 

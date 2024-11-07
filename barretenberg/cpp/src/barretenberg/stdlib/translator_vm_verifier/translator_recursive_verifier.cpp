@@ -111,6 +111,12 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    std::vector<Commitment> libra_commitments;
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
+    }
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
@@ -124,7 +130,10 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                Commitment::one(builder),
                                                transcript,
                                                commitments.get_groups_to_be_concatenated(),
-                                               claimed_evaluations.get_concatenated());
+                                               claimed_evaluations.get_concatenated(),
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
+
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;
