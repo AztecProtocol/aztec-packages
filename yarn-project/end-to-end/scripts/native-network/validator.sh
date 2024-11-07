@@ -47,7 +47,6 @@ export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
 export ETHEREUM_HOST="http://127.0.0.1:8545"
 export P2P_ENABLED="true"
-export VALIDATOR_RE_EX="true"
 export VALIDATOR_DISABLED="false"
 export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
 export SEQ_MIN_TX_PER_BLOCK="1"

@@ -51,7 +51,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   validatorReEx: {
     env: 'VALIDATOR_RE_EX',
     description: 'Re-execute transactions before attesting',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
 };
 
