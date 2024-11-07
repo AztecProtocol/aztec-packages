@@ -1,3 +1,6 @@
+#pragma GCC diagnostic ignored "-Wunused-variable"
+
+#include "barretenberg/benchmark_memory_manager/custom_allocator.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -5,7 +8,6 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 #include <benchmark/benchmark.h>
-#pragma GCC diagnostic ignored "-Wunused-variable"
 
 using namespace benchmark;
 using namespace bb;
@@ -25,6 +27,7 @@ static constexpr size_t NUM_SHORT = 10;
 
 void fill_ecc_op_block(Builder& builder)
 {
+    info("calling fill_ecc_op_block");
     const auto point = g1::affine_element::random_element();
     const auto scalar = fr::random_element();
     const size_t num_to_add((builder.blocks.ecc_op.get_fixed_size() - NUM_SHORT) >> 1); // each accum call adds two rows
@@ -35,6 +38,7 @@ void fill_ecc_op_block(Builder& builder)
 
 void fill_pub_inputs_block(Builder& builder)
 {
+    info("calling fill_pub_inputs_block");
     for (size_t idx = 0; idx < builder.blocks.pub_inputs.get_fixed_size() - NUM_SHORT; idx++) {
         builder.add_public_variable(fr::random_element());
     }
@@ -42,6 +46,7 @@ void fill_pub_inputs_block(Builder& builder)
 
 void fill_databus_blocks(Builder& builder)
 {
+    info("calling fill_databus_blocks");
     static constexpr size_t NUM_BUS_IDS(3);
     const size_t num_gates_per_bus_id((builder.blocks.busread.get_fixed_size() - NUM_SHORT) / NUM_BUS_IDS);
     for (size_t idx = 1; idx < num_gates_per_bus_id + 1; idx++) { // start at 1 to avoid / by zero below
@@ -62,6 +67,7 @@ void fill_databus_blocks(Builder& builder)
 
 void fill_delta_range_block(Builder& builder)
 {
+    info("calling fill_delta_range_block");
     // At the moment the trace has space for 90k delta range gates but I don't think it's possible to use them all
     // because there is not enough capacity in the arithmetic block!
 
@@ -119,6 +125,7 @@ void fill_delta_range_block(Builder& builder)
 
 void fill_arithmetic_block(Builder& builder)
 {
+    info("calling fill_arithmetic_block");
     const uint32_t idx_1 = builder.add_variable(fr::random_element());
     const uint32_t idx_2 = builder.add_variable(fr::random_element());
     const uint32_t idx_3 = builder.add_variable(fr::random_element());
@@ -130,6 +137,7 @@ void fill_arithmetic_block(Builder& builder)
 
 void fill_elliptic_block(Builder& builder)
 {
+    info("calling fill_elliptic_block");
     const uint32_t x1_idx = builder.add_variable(fr::random_element());
     const uint32_t y1_idx = builder.add_variable(fr::random_element());
     const uint32_t x2_idx = builder.add_variable(fr::random_element());
@@ -143,6 +151,7 @@ void fill_elliptic_block(Builder& builder)
 
 void fill_aux_block(Builder& builder)
 {
+    info("calling fill_aux_block");
     // static constexpr size_t NUM_AUX_TYPES = 11;
     auto& block = builder.blocks.aux;
 
@@ -180,6 +189,7 @@ void fill_aux_block(Builder& builder)
 
 void fill_poseidon2_internal_block(Builder& builder)
 {
+    info("calling fill_poseidon2_internal_block");
     auto& block = builder.blocks.poseidon2_internal;
     const uint32_t idx_1 = builder.add_variable(fr::random_element());
     const uint32_t idx_2 = builder.add_variable(fr::random_element());
@@ -193,6 +203,7 @@ void fill_poseidon2_internal_block(Builder& builder)
 
 void fill_poseidon2_external_block(Builder& builder)
 {
+    info("calling fill_poseidon2_external_block");
     auto& block = builder.blocks.poseidon2_external;
     const uint32_t idx_1 = builder.add_variable(fr::random_element());
     const uint32_t idx_2 = builder.add_variable(fr::random_element());
@@ -206,6 +217,7 @@ void fill_poseidon2_external_block(Builder& builder)
 
 void fill_lookup_block(Builder& builder)
 {
+    info("calling fill_lookup_block");
     auto& block = builder.blocks.lookup;
 
     // static constexpr size_t NUM_LOOKUP_TYPES_USED(15);
@@ -283,6 +295,7 @@ void fill_lookup_block(Builder& builder)
 
 void fill_trace(State& state, TraceStructure structure)
 {
+    info("calling fill_trace");
     Builder builder;
     builder.blocks.set_fixed_block_sizes(structure);
 
@@ -297,6 +310,7 @@ void fill_trace(State& state, TraceStructure structure)
     fill_poseidon2_internal_block(builder);
     fill_lookup_block(builder);
     builder.finalize_circuit(/* ensure_nonzero */ false);
+
     {
         // finalize doesn't populate public inputs block, so copy to verify that the block is being filled well
         // otherwise the pk construction will overflow the block
@@ -314,6 +328,7 @@ void fill_trace(State& state, TraceStructure structure)
             idx++;
         }
     }
+
     for (auto _ : state) {
         auto proving_key = std::make_shared<DeciderProvingKey>(builder, structure);
         benchmark::DoNotOptimize(proving_key);
@@ -322,17 +337,25 @@ void fill_trace(State& state, TraceStructure structure)
 
 void fill_trace_client_ivc_bench(State& state)
 {
+    info("calling fill_trace_client_ivc_bench");
     fill_trace(state, TraceStructure::CLIENT_IVC_BENCH);
 }
 
 void fill_trace_e2e_full_test(State& state)
 {
+    info("calling fill_trace_e2e_full_test");
     fill_trace(state, TraceStructure::E2E_FULL_TEST);
 }
 
+BenchmarkMemoryManager memory_manager;
+
 static void construct_pk(State& state, void (*test_circuit_function)(State&)) noexcept
 {
+    // BenchmarkMemoryManager memory_manager;
+    // benchmark::RegisterMemoryManager(&memory_manager);
     test_circuit_function(state);
+    // ::g_allocator.printStatistics();
+    // benchmark::RegisterMemoryManager(nullptr);
 }
 
 BENCHMARK_CAPTURE(construct_pk, TraceStructure::E2E_FULL_TEST, &fill_trace_e2e_full_test)
@@ -343,4 +366,13 @@ BENCHMARK_CAPTURE(construct_pk, TraceStructure::CLIENT_IVC_BENCH, &fill_trace_cl
     ->Unit(kMillisecond)
     ->Iterations(1);
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    ::benchmark::RegisterMemoryManager(&memory_manager);
+    info("registered memory manager");
+    ::benchmark::Initialize(&argc, argv);
+    info("initialized");
+    ::benchmark::RunSpecifiedBenchmarks();
+    info("ran specified benchmarks");
+    ::benchmark::RegisterMemoryManager(nullptr);
+}
