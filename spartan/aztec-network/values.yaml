@@ -75,6 +75,7 @@ validator:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
+    enforceTimeTable: true
   validator:
     disabled: false
   p2p:
