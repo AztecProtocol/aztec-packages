@@ -143,8 +143,6 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
         // Store the offset of the block containing RAM/ROM read/write gates for use in updating memory records
         if (block.has_ram_rom) {
-            // WORKTODO: uh oh. is this a problem if now the misc block can contain aux stuff too? what updates are
-            // needed?
             trace_data.ram_rom_offset = offset;
         }
         // Store offset of public inputs block for use in the pub input mechanism of the permutation argument

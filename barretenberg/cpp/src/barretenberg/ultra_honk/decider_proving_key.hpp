@@ -355,7 +355,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         for (auto& block : blocks.get()) {
             size_t block_size = block.size();
-            size_t fixed_block_size = block.get_fixed_size();
+            uint32_t fixed_block_size = block.get_fixed_size();
             if (block_size > fixed_block_size && block != overflow_block) {
                 // We dont handle this case
                 ASSERT(!block.is_pub_inputs);

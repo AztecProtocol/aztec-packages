@@ -225,9 +225,11 @@ TEST_F(MegaHonkTests, MiscellaneousBlockSimple)
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ TraceStructure::TINY_TEST };
     auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
-    // builder.blocks.summarize();
+
+    // We expect that the circuit has overflowed the provided structured trace
+    EXPECT_TRUE(builder.blocks.has_overflow);
+
     MegaProver prover(proving_key);
-    // builder.blocks.summarize();
     auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
@@ -250,6 +252,9 @@ TEST_F(MegaHonkTests, MiscellaneousBlockAuxOverflow)
 
     // Construct and verify Honk proof using a structured trace
     auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
+
+    // We expect that the circuit has overflowed the provided structured trace
+    EXPECT_TRUE(builder.blocks.has_overflow);
 
     // builder.blocks.summarize();
     MegaProver prover(proving_key);

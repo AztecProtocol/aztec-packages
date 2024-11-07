@@ -195,7 +195,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 30128;
             this->poseidon2_internal = 172000;
             this->lookup = 200000;
-            this->overflow = 0;
+            this->overflow = 0; // can contain arbitrary gate types
         }
     };
 
