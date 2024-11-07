@@ -129,9 +129,9 @@ describe('e2e_fees failures', () => {
     const outrageousPublicAmountAliceDoesNotHave = BigInt(1e15);
     const publicMintedAlicePublicBananas = BigInt(1e12);
 
-    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+    const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
-      bananaFPC.address,
+      sequencerAddress,
     );
     const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
       aliceAddress,
@@ -161,7 +161,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
+      [initialAlicePrivateBananas, 0n, initialSequencerPrivateBananas],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
@@ -193,7 +193,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
+      [initialAlicePrivateBananas, 0n, initialSequencerPrivateBananas],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
@@ -244,9 +244,9 @@ describe('e2e_fees failures', () => {
      */
     const publicMintedAlicePublicBananas = 100_000_000_000n;
 
-    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+    const [initialAlicePrivateBananas, initialSequencerPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
-      bananaFPC.address,
+      sequencerAddress,
     );
     const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
       aliceAddress,
@@ -297,7 +297,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
+      [initialAlicePrivateBananas, 0n, initialSequencerPrivateBananas],
     );
     // Since setup went through, Alice transferred to the FPC
     await expectMapping(
