@@ -98,9 +98,6 @@ export const computeNullifierHash = (nullifier: NullifierLeafPreimage): Fr => {
 export const computePublicDataHash = (publicData: PublicDataTreeLeafPreimage): Fr => {
   const v = publicData.toHashInputs().map(x => Fr.fromBuffer(x));
   return poseidon2Hash(v);
-  // return poseidon2Hash([publicData.slot, publicData.value, publicData.nextSlot, publicData.nextIndex]);
-  // return poseidon2Hash([publicData.slot, publicData.value, publicData.nextIndex, publicData.nextSlot]);
-  // return std::vector<fr>({ slot, value, nextIndex, nextValue });
 };
 
 export class EphemeralTreeContainer {
@@ -118,6 +115,33 @@ export class EphemeralTreeContainer {
       treeMap.set(treeType, tree);
     }
     return new EphemeralTreeContainer(treeDb, treeMap);
+  }
+
+  async getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<Fr[]> {
+    const tree = this.treeMap.get(treeId)!;
+    let path = tree.getSiblingPath(index);
+    if (path === undefined) {
+      // We dont have the sibling path in our tree - we have to get it from the DB
+      path = (await this.treeDb.getSiblingPath(treeId, index)).toFields();
+      // Since the sibling path could be outdated, we compare it with nodes in our tree
+      // if we encounter a mismatch, we use the node we found in our tree.
+      // Otherwise we use the value from the DB.
+      for (let i = 0; i < path.length; i++) {
+        const siblingIndex = index ^ 1n;
+        try {
+          const node = tree.getNode(siblingIndex, tree.depth - i);
+          const nodeHash = tree._hashTree(node, i + 1);
+          if (!nodeHash.equals(path[i])) {
+            path[i] = nodeHash;
+          }
+        } catch (e) {
+          // Nothing happens here, we just didnt find the node in our tree
+          // So we dont change the value at this path index
+        }
+        index >>= 1n;
+      }
+    }
+    return path;
   }
 
   async appendIndexedTree<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
@@ -138,11 +162,11 @@ export class EphemeralTreeContainer {
     this.setIndexedUpdates(treeId, lowWitnessIndex, lowWitness);
 
     tree.updateLeaf(lowWitnessHash, lowWitnessIndex);
-    let insertionPath = tree.getSiblingPath(newLeafHash, insertIndex);
+    let insertionPath = tree.getSiblingPath(insertIndex);
     if (insertionPath === undefined) {
       // Do we append zero just to get the sibling path?
       tree.appendLeaf(Fr.zero());
-      insertionPath = tree.getSiblingPath(newLeafHash, insertIndex);
+      insertionPath = tree.getSiblingPath(insertIndex);
       tree.updateLeaf(newLeafHash, insertIndex);
     } else {
       tree.appendLeaf(newLeafHash);
@@ -169,7 +193,7 @@ export class EphemeralTreeContainer {
       }
       const existingPublicData = PublicDataTreeLeafPreimage.fromBuffer(existingPreimage.toBuffer());
       const existingPublicDataSiblingPath =
-        tree.getSiblingPath(this.hashPreimage(existingPublicData), existingIndex) ??
+        tree.getSiblingPath(existingIndex) ??
         (await this.treeDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, existingIndex)).toFields();
 
       existingPublicData.value = newValue;
@@ -202,7 +226,7 @@ export class EphemeralTreeContainer {
     this._updateMinInfo(
       MerkleTreeId.PUBLIC_DATA_TREE,
       PublicDataTreeLeafPreimage,
-      [newPublicDataNode, lowWitness],
+      [newPublicDataNode, updateLowWitness],
       [insertionIndex, lowResult.index],
     );
     return {
@@ -273,7 +297,7 @@ export class EphemeralTreeContainer {
     const tree = this.treeMap.get(MerkleTreeId.NOTE_HASH_TREE)!;
     tree.appendLeaf(value);
     const insertionPath =
-      tree.getSiblingPath(value, tree.leafCount) ??
+      tree.getSiblingPath(tree.leafCount - 1n) ??
       (await this.treeDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, tree.leafCount - 1n)).toFields();
     return insertionPath;
   }
@@ -343,6 +367,7 @@ export class EphemeralTreeContainer {
       // Since we have never seen this before - we should insert it into our tree
       const lowSiblingPath = (await this.treeDb.getSiblingPath(treeId, lowPublicDataIndex)).toFields();
 
+      // Is it enough to just insert the sibling path without inserting the leaf?
       this.treeMap.get(treeId)!.insertSiblingPath(lowPublicDataIndex, lowSiblingPath);
 
       const lowPublicDataPreimage = T.fromBuffer(preimage.toBuffer());
@@ -383,7 +408,7 @@ export class EphemeralTreeContainer {
       counter++;
     }
     // We did not find it - this is unexpected
-    if (result === undefined) throw new Error('No previous value found');
+    if (result === undefined) throw new Error('No previous value found or ran out of iterations');
     return result;
   }
 
@@ -405,8 +430,7 @@ export class EphemeralTreeContainer {
     const isUpdate: boolean = lowWitness.getNextKey() === slot.toBigInt();
     if (isUpdate) {
       const lowSiblingPath =
-        this.treeMap.get(treeId)!.getSiblingPath(this.hashPreimage(lowWitness), index) ??
-        (await this.treeDb.getSiblingPath(treeId, index)).toFields();
+        this.treeMap.get(treeId)!.getSiblingPath(index) ?? (await this.treeDb.getSiblingPath(treeId, index)).toFields();
       const result = {
         update: true,
         lowSiblingPath: lowSiblingPath,
@@ -417,8 +441,7 @@ export class EphemeralTreeContainer {
     }
     // This is an insertion of a new entry
     const lowSiblingPath =
-      this.treeMap.get(treeId)!.getSiblingPath(this.hashPreimage(lowWitness), index) ??
-      (await this.treeDb.getSiblingPath(treeId, index)).toFields();
+      this.treeMap.get(treeId)!.getSiblingPath(index) ?? (await this.treeDb.getSiblingPath(treeId, index)).toFields();
     // Does this copy?
     const oldLowWitness = T.fromBuffer(lowWitness.toBuffer());
 
@@ -430,20 +453,6 @@ export class EphemeralTreeContainer {
       index,
     };
 
-    // // Now we update our view of what the minimum nullifier in our set is
-    // // Should probably clean this up
-    // let currentMin = this.getMinInfo(MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage);
-    // if (currentMin === undefined) {
-    //   currentMin = { preimage: newPublicDataNode, index: this.publicDataTree.leafCount };
-    // }
-    // // We do <= here because the nullifier value might be the same but the next values change (i.e. Low nullifier updated)
-    // if (newPublicDataNode.getKey() <= currentMin!.preimage.getKey()) {
-    //   currentMin = { preimage: newPublicDataNode, index: this.publicDataTree.leafCount };
-    // }
-    // if (lowWitness.getKey() <= currentMin!.preimage.getKey()) {
-    //   currentMin = { preimage: lowWitness, index };
-    // }
-    // this.setMinInfo(MerkleTreeId.PUBLIC_DATA_TREE, currentMin.preimage, currentMin.index);
     return result;
   }
 }
@@ -492,10 +501,10 @@ export class EphemeralAvmTree {
     this.tree = this._insertLeaf(value, insertPath, depth, this.tree);
   }
 
-  getSiblingPath(value: Fr, index: bigint): Fr[] | undefined {
+  getSiblingPath(index: bigint): Fr[] | undefined {
     const searchPath = this._derivePathLE(index);
     // Handle cases where we error out
-    const { path, status } = this._getSiblingPath(value, searchPath, this.tree, []);
+    const { path, status } = this._getSiblingPath(searchPath, this.tree, []);
     if (status === SiblingStatus.ERROR) return undefined;
     return path;
   }
@@ -552,26 +561,30 @@ export class EphemeralAvmTree {
   }
 
   public getRoot(): Fr {
-    return this._hashTree(this.tree);
+    return this._hashTree(this.tree, this.depth);
   }
 
-  public _hashTree(tree: Tree): Fr {
+  public _hashTree(tree: Tree, depth: number): Fr {
     switch (tree.tag) {
       case TreeType.BRANCH: {
-        return poseidon2Hash([this._hashTree(tree.leftTree), this._hashTree(tree.rightTree)]);
+        return poseidon2Hash([this._hashTree(tree.leftTree, depth - 1), this._hashTree(tree.rightTree, depth - 1)]);
       }
       case TreeType.LEAF: {
         return tree.value;
       }
       case TreeType.EMPTY: {
-        return Fr.zero();
+        console.log('Hashing empty subtree at depth: ', depth);
+        // throw new Error('Hashing empty subtree');
+        return this.zeroHashes[depth - 1];
       }
     }
   }
 
-  public getNode(index: bigint): Tree {
-    const path = this._derivePathLE(index);
-    return this._getNode(path, this.tree);
+  public getNode(index: bigint, depth: number): Tree {
+    const path = this._derivePathBE(index, depth);
+    const truncatedPath = path.slice(0, depth);
+    truncatedPath.reverse();
+    return this._getNode(truncatedPath, this.tree);
   }
 
   _getNode(nodePath: number[], tree: Tree): Tree {
@@ -625,20 +638,15 @@ export class EphemeralAvmTree {
     }
   }
 
-  private _getSiblingPath(value: Fr, searchPath: number[], tree: Tree, acc: Fr[]): AccumulatedSiblingPath {
+  private _getSiblingPath(searchPath: number[], tree: Tree, acc: Fr[]): AccumulatedSiblingPath {
     // If we have reached the end of the path, we should be at a leaf or empty node
     // If it is a leaf, we check if the value is equal to the leaf value
     // If it is empty we check if the value is equal to zero
     if (searchPath.length === 0) {
       switch (tree.tag) {
-        case TreeType.LEAF:
-          return value.equals(tree.value)
-            ? { path: acc, status: SiblingStatus.MEMBER }
-            : { path: acc, status: SiblingStatus.NONMEMBER };
         case TreeType.EMPTY:
-          return value.equals(Fr.ZERO)
-            ? { path: acc, status: SiblingStatus.MEMBER }
-            : { path: acc, status: SiblingStatus.NONMEMBER };
+        case TreeType.LEAF:
+          return { path: acc, status: SiblingStatus.MEMBER };
         case TreeType.BRANCH:
           console.log('unexpected end of path');
           return { path: [], status: SiblingStatus.ERROR };
@@ -648,15 +656,23 @@ export class EphemeralAvmTree {
     switch (tree.tag) {
       case TreeType.BRANCH: {
         return searchPath.pop() === 0
-          ? this._getSiblingPath(value, searchPath, tree.leftTree, [this._hashTree(tree.rightTree)].concat(acc))
-          : this._getSiblingPath(value, searchPath, tree.rightTree, [this._hashTree(tree.leftTree)].concat(acc));
+          ? this._getSiblingPath(
+              searchPath,
+              tree.leftTree,
+              [this._hashTree(tree.rightTree, searchPath.length)].concat(acc),
+            )
+          : this._getSiblingPath(
+              searchPath,
+              tree.rightTree,
+              [this._hashTree(tree.leftTree, searchPath.length)].concat(acc),
+            );
       }
       // In these two situations we are exploring a subtree we dont have information about
       // We should return an error and look inside the DB
       case TreeType.LEAF:
       case TreeType.EMPTY: {
         // Temp Helpful log
-        console.log('Exploring a subtree we dont have information about');
+        // console.log('Exploring a subtree we dont have information about');
         return { path: [], status: SiblingStatus.ERROR };
       }
     }
