@@ -26,7 +26,7 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   },
   serviceName: {
     env: 'OTEL_SERVICE_NAME',
-    description: 'The URL of the telemetry collector',
+    description: 'The name of the service (attached as metadata to collected metrics)',
     defaultValue: 'aztec',
   },
   networkName: {
