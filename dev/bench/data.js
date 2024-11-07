@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731000706325,
+  "lastUpdate": 1731008474000,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2bb09e59f648e6182f1097d283451afd3c488d27",
-          "message": "feat: bytecode hashing init (#8535)\n\nThis adds proper computation of the public bytecode commitment (i.e.\r\npair-wise poseidon hashing of the public bytecode). This hash is also\r\ncomputed in the witgen although the circuit remains unconstrained.\r\n\r\nFollow up PRs will handle:\r\n1) Deriving class id, including tracing and hinting the artifact hash,\r\netc\r\n2) Deriving the address, including tracing and hinting the contract\r\ninstance\r\n3) Merkle path hinting and verification in the AVM",
-          "timestamp": "2024-10-25T15:13:41+01:00",
-          "tree_id": "d531be1b3de5d89fef81d95a0648210ccf98db24",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2bb09e59f648e6182f1097d283451afd3c488d27"
-        },
-        "date": 1729867261557,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30828.311361999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28952.089779 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5348.9558649999935,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5002.027076 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 93254.62796800002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 93254630000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15220.061291,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15220061000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2715364570,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2715364570 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128242637,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128242637 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 144600039,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144600039 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "46603810b149ef7f03c220d11d6dfd395cf550e0",
+          "message": "feat: introduce avm circuit public inputs (#9759)",
+          "timestamp": "2024-11-07T19:14:13Z",
+          "tree_id": "45f1042bf52906b72284a9d7eb1935fde8c26dac",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/46603810b149ef7f03c220d11d6dfd395cf550e0"
+        },
+        "date": 1731008467145,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29188.23021200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27286.503976000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5398.220129999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5037.958326 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84802.44103599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84802443000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15251.909859000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15251910000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3074022966,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3074022966 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146405492,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146405492 ns\nthreads: 1"
           }
         ]
       }
