@@ -27,6 +27,7 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
+    // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
     // Container for the Libra Univariates. Their number depends on the size of the circuit.
     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
@@ -34,6 +35,7 @@ template <typename Flavor> struct ZKSumcheckData {
     using ClaimedLibraEvaluations = std::vector<FF>;
 
     LibraUnivariates libra_univariates;
+    LibraUnivariates libra_univariates_monomial;
     LibraUnivariates libra_univariates_monomial;
     FF libra_scaling_factor{ 1 };
     FF libra_challenge;
