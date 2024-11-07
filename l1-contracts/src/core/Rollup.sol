@@ -227,8 +227,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
+    if (canPrune()) {
+      _prune();
+    }
+
     uint256 previousBlockNumber = tips.provenBlockNumber;
     uint256 endBlockNumber = previousBlockNumber + _epochSize;
+
+    // @note The getEpochForBlock is expected to revert if the block is beyond pending.
+    //       If this changes you are gonna get so rekt you won't believe it.
+    //       I mean proving blocks that have been pruned rekt.
+    Epoch epochToProve = getEpochForBlock(endBlockNumber);
 
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
@@ -287,7 +296,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       }
     }
 
-    if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
+    if (proofClaim.epochToProve == epochToProve) {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
 
@@ -336,7 +345,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Consider if a prune will hit in this slot
     uint256 pendingBlockNumber =
-      _canPruneAtTime(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+      canPruneAtTime(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
     Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
@@ -772,25 +781,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   function canPrune() public view override(IRollup) returns (bool) {
-    return _canPruneAtTime(Timestamp.wrap(block.timestamp));
+    return canPruneAtTime(Timestamp.wrap(block.timestamp));
   }
 
-  function _prune() internal {
-    // TODO #8656
-    delete proofClaim;
-
-    uint256 pending = tips.pendingBlockNumber;
-
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
-    //        We can do because any new block proposed will overwrite a previous block in the block log,
-    //        so no values should "survive".
-    //        People must therefore read the chain using the pendingTip as a boundary.
-    tips.pendingBlockNumber = tips.provenBlockNumber;
-
-    emit PrunedPending(tips.provenBlockNumber, pending);
-  }
-
-  function _canPruneAtTime(Timestamp _ts) internal view returns (bool) {
+  function canPruneAtTime(Timestamp _ts) public view override(IRollup) returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
@@ -819,6 +813,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return true;
   }
 
+  function _prune() internal {
+    // TODO #8656
+    delete proofClaim;
+
+    uint256 pending = tips.pendingBlockNumber;
+
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    //        We can do because any new block proposed will overwrite a previous block in the block log,
+    //        so no values should "survive".
+    //        People must therefore read the chain using the pendingTip as a boundary.
+    tips.pendingBlockNumber = tips.provenBlockNumber;
+
+    emit PrunedPending(tips.provenBlockNumber, pending);
+  }
+
   /**
    * @notice  Validates the header for submission
    *
@@ -838,7 +847,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber =
-      _canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+      canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
     _validateHeaderForSubmissionBase(
       _header, _currentTime, _txEffectsHash, pendingBlockNumber, _flags
     );

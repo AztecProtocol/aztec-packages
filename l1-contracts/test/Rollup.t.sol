@@ -418,9 +418,7 @@ contract RollupTest is DecoderBase {
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
     _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, archive, preArchive)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 2));
     _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
   }
 
