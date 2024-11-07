@@ -110,19 +110,6 @@ export const Metrics = [
     events: ['l2-block-handled'],
   },
   {
-    name: 'note_successful_decrypting_time_in_ms',
-    groupBy: 'block-size',
-    description: 'Time for the PXE to decrypt all notes in a block where they belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
-    name: 'note_trial_decrypting_time_in_ms',
-    groupBy: 'block-size',
-    description:
-      'Time for the PXE to try decrypting all notes in a block where they do not belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
     name: 'l2_block_building_time_in_ms',
     groupBy: 'block-size',
     description: 'Total time for the sequencer to build an L2 block from a set of txs.',
@@ -145,19 +132,6 @@ export const Metrics = [
     groupBy: 'chain-length',
     description: 'Time for a node without a sequencer to sync chain history',
     events: ['node-synced-chain-history'],
-  },
-  {
-    name: 'note_history_successful_decrypting_time_in_ms',
-    groupBy: 'chain-length',
-    description: 'Time for a PXE to decrypt all notes in the chain where they belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
-    name: 'note_history_trial_decrypting_time_in_ms',
-    groupBy: 'chain-length',
-    description:
-      'Time for a PXE to try decrypting all notes in the chain where they do not belong to a registered account.',
-    events: ['note-processor-caught-up'],
   },
   {
     name: 'node_database_size_in_bytes',

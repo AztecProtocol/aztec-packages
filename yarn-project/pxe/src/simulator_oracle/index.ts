@@ -379,7 +379,7 @@ export class SimulatorOracle implements DBOracle {
   async #decryptTaggedLogs(
     scopedLogs: TxScopedEncryptedL2NoteLog[],
     recipient: AztecAddress,
-    simulator: AcirSimulator,
+    simulator?: AcirSimulator,
   ) {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const ivskM = await this.keyStore.getMasterSecretKey(
@@ -467,11 +467,7 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { incomingNotes, outgoingNotes } = await this.#decryptTaggedLogs(
-      logs,
-      recipient,
-      simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
-    );
+    const { incomingNotes, outgoingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
     if (incomingNotes.length || outgoingNotes.length) {
       await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
       incomingNotes.forEach(noteDao => {
