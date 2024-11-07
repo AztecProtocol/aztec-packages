@@ -232,6 +232,7 @@ unconstrained fn increment_app_tagging_secret_oracle(
 ) {}
 
 pub fn sync_notes(recipient: AztecAddress) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
     unsafe {
         sync_notes_oracle_wrapper(recipient);
     }
