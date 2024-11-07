@@ -802,7 +802,7 @@ export class TXE implements TypedOracle {
     return directionalSecret;
   }
 
-  async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
+  async #getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const completeAddresses = await this.txeDatabase.getCompleteAddresses();
     // Filter out the addresses corresponding to accounts
@@ -818,6 +818,11 @@ export class TXE implements TypedOracle {
     const directionalSecrets = secrets.map(secret => new TaggingSecret(secret, recipient));
     const indexes = await this.txeDatabase.getTaggingSecretsIndexes(directionalSecrets);
     return secrets.map((secret, i) => new IndexedTaggingSecret(secret, recipient, indexes[i]));
+  }
+
+  syncNotes(_recipient: AztecAddress) {
+    // TODO: Implement
+    return Promise.resolve();
   }
 
   // AVM oracles

@@ -156,13 +156,7 @@ export class EncryptedLogPayload {
       return new EncryptedLogPayload(tag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
-      if (
-        !(e instanceof NotOnCurveError) &&
-        !e.message.endsWith('is greater or equal to field modulus.') &&
-        !e.message.startsWith('Invalid AztecAddress length') &&
-        !e.message.startsWith('Selector must fit in') &&
-        !e.message.startsWith('Attempted to read beyond buffer length')
-      ) {
+      if (!this.isAcceptableError(e)) {
         // If we encounter an unexpected error, we rethrow it
         throw e;
       }
@@ -222,18 +216,23 @@ export class EncryptedLogPayload {
       return new EncryptedLogPayload(tag, contractAddress, incomingBody);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
-      if (
-        !(e instanceof NotOnCurveError) &&
-        !e.message.endsWith('is greater or equal to field modulus.') &&
-        !e.message.startsWith('Invalid AztecAddress length') &&
-        !e.message.startsWith('Selector must fit in') &&
-        !e.message.startsWith('Attempted to read beyond buffer length')
-      ) {
+      if (!this.isAcceptableError(e)) {
         // If we encounter an unexpected error, we rethrow it
         throw e;
       }
       return;
     }
+  }
+
+  private static isAcceptableError(e: any) {
+    return (
+      e instanceof NotOnCurveError ||
+      e.message.endsWith('is greater or equal to field modulus.') ||
+      e.message.startsWith('Invalid AztecAddress length') ||
+      e.message.startsWith('Selector must fit in') ||
+      e.message.startsWith('Attempted to read beyond buffer length') ||
+      e.message.startsWith('RangeError [ERR_BUFFER_OUT_OF_BOUNDS]:')
+    );
   }
 
   public toBuffer() {

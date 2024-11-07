@@ -976,7 +976,7 @@ jobs:
       - yarn-project-test
       - prover-client-test
       - network-test
-      - kind-network-smoke
+      - kind-smoke-test
       - kind-network-test
       - l1-contracts-test
       - docs-preview
