@@ -230,6 +230,8 @@ async function setupWithRemoteEnvironment(
 export type SetupOptions = {
   /** State load */
   stateLoad?: string;
+  /** Whether to enable metrics collection, if undefined, metrics collection is disabled */
+  metricsPort?: number | undefined;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
