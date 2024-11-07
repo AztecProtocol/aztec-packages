@@ -31,10 +31,15 @@ build:
     COPY ../noir/+nargo/nargo /usr/src/noir/noir-repo/target/release/nargo
     COPY ../noir-projects/+build/aztec-nr /usr/src/noir-projects/aztec-nr
     COPY ../noir-projects/+build/noir-protocol-circuits/crates/types /usr/src/noir-projects/noir-protocol-circuits/crates/types
-
+    COPY ../avm-transpiler+build/avm-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler
+    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../aztec-nargo+run/aztec-nargo /usr/src/aztec-nargo
     WORKDIR /usr/src/boxes
 
-    ENV AZTEC_NARGO=/usr/src/noir/noir-repo/target/release/nargo
+    ENV NARGO=/usr/src/noir/noir-repo/target/release/nargo
+    ENV TRANSPILER=/usr/src/avm-transpiler/target/release/avm-transpiler
+    ENV BB=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV AZTEC_NARGO=/usr/src/aztec-nargo
     ENV AZTEC_BUILDER=/usr/src/yarn-project/builder/aztec-builder-dest
     COPY . .
     RUN yarn build

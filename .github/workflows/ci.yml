@@ -690,25 +690,41 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
-    if: contains(github.event.pull_request.labels.*.name, 'network-all') || github.ref_name == 'master'
+    if: contains(github.event.pull_request.labels.*.name, 'network-all') || (needs.configure.outputs.yarn-project == 'true' && github.ref_name == 'master')
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
       matrix:
-        test: [transfer.test.ts, reorg.test.ts, 4epochs.test.ts]
+        config:
+          - test: transfer.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
+          # TODO(#9736)
+          # - test: transfer.test.ts
+          #   values: 48-validators
+          #   runner_type: 32core-tester-x86
+          - test: reorg.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86-high-memory
+            timeout: 90
+          - test: 4epochs.test.ts
+            values: 16-validators
+            runner_type: 16core-tester-x86
+            timeout: 60
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: kind-network-test-${{ matrix.test }}
+          concurrency_key: kind-network-${{ matrix.config.test }}
       - name: Setup and KIND Network Test
-        timeout-minutes: 60
+        timeout-minutes: ${{ matrix.config.timeout }}
         uses: ./.github/ensure-tester-with-images
         env:
           USERNAME: ${{ needs.configure.outputs.username }}
         with:
-          runner_type: 8core-tester-x86
+          runner_type: ${{ matrix.config.runner_type }}
           spot_strategy: None # use on-demand machines
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
@@ -716,13 +732,21 @@ jobs:
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
-          tester_ttl: 60
-          # TODO(#9640): use 16-validators.yaml
+          tester_ttl: ${{ matrix.config.timeout }}
           run: |
             cd yarn-project/end-to-end
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            test=${{ matrix.test }}
-            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=default.yaml ./scripts/network_test.sh ./src/spartan/$test
+            test=${{ matrix.config.test }}
+            NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
+      - name: Copy Network Logs
+        if: always() # Run on failure too
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
+      - name: Upload Network Logs
+        if: always() # Run on failure too
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
+          path: network-test.log
 
   l1-contracts-test:
     needs: [build, configure]
@@ -924,7 +948,6 @@ jobs:
   merge-check:
     runs-on: ubuntu-20.04
     needs:
-      # must be kept in sync with rerun-check
       - setup
       - configure
       - build
@@ -953,6 +976,7 @@ jobs:
       - yarn-project-test
       - prover-client-test
       - network-test
+      - kind-smoke-test
       - kind-network-test
       - l1-contracts-test
       - docs-preview
@@ -961,7 +985,22 @@ jobs:
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
     if: always()
+    outputs:
+      failure: ${{ steps.set_failed_jobs.outputs.failure }}
+      failed_jobs: ${{ steps.set_failed_jobs.outputs.failed_jobs }}
     steps:
+      - name: Check for Failures and Set Output
+        id: set_failed_jobs
+        env:
+          # Collect needed jobs
+          NEEDS_JOBS_JSON: ${{ toJson(needs) }}
+        run: |
+          echo "Processing failed jobs..."
+          failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
+          echo "$failed_jobs" > .failed
+          echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
+          echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
+
       - name: Report overall success (non-draft)
         if: github.event.pull_request.draft == false
         env:
@@ -969,7 +1008,7 @@ jobs:
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
           if [[ $FAIL == true ]]; then
-              echo "At least one job failed (or cancelled), merging not allowed."
+              echo "Jobs failed: $(cat .failed), merging not allowed."
               exit 1
           else
               echo "All jobs succeeded, merge allowed."
@@ -984,69 +1023,44 @@ jobs:
     permissions:
       actions: write
     needs:
-      # must be kept in sync with merge-check
-      - setup
-      - configure
-      - build
-      - e2e
-      # - bench-e2e # non-blocking
-      # - acir-bench # non-blocking
-      # - bench-summary # non-blocking
-      - bb-gcc
-      - bb-native-tests
-      - bb-js-test
-      - noir-build-acir-tests
-      - bb-acir-tests-bb
-      - bb-acir-tests-bb-ultra-plonk
-      - bb-acir-tests-bb-ultra-honk
-      - bb-acir-tests-bb-mega-honk
-      - bb-acir-tests-sol
-      - bb-acir-tests-sol-honk
-      - bb-acir-tests-bb-js
-      - noir-format
-      - noir-test
-      - noir-examples
-      - noir-packages-test
-      - noir-projects
-      - avm-format
-      - yarn-project-formatting
-      - yarn-project-test
-      - prover-client-test
-      - network-test
-      - kind-network-test
-      - l1-contracts-test
-      - docs-preview
-      # - bb-bench # non-blocking
-      - boxes
-      - boxes-test
-      # - protocol-circuits-gates-report # non-blocking
+      - merge-check
     if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
-          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
-          HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+          if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
             echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
           fi
 
-  # NOTE: we only notify failures after a rerun has occurred
   notify:
+    runs-on: ubuntu-20.04
     needs:
       - merge-check
-    runs-on: ubuntu-20.04
     if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get Authors of Recent Commit
+        id: get_authors
+        run: |
+          git fetch --depth=1 origin ${{ github.sha }}
+          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
+
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
             {
-              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "Master Github Actions failure",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_authors.outputs.authors }}",
+              "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}

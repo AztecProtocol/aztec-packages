@@ -608,11 +608,9 @@ export class TXEService {
     return toForeignCallResult([toArray(secret.toFields())]);
   }
 
-  async getAppTaggingSecretsForSenders(recipient: ForeignCallSingle) {
-    const secrets = await this.typedOracle.getAppTaggingSecretsForSenders(
-      AztecAddress.fromField(fromSingle(recipient)),
-    );
-    return toForeignCallResult([toArray(secrets.flatMap(secret => secret.toFields()))]);
+  async syncNotes(recipient: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(AztecAddress.fromField(fromSingle(recipient)));
+    return toForeignCallResult([]);
   }
 
   // AVM opcodes
@@ -743,7 +741,6 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          result.returnValues,
           (this.typedOracle as TXE).getContractDataOracle(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
@@ -774,7 +771,6 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          result.returnValues,
           (this.typedOracle as TXE).getContractDataOracle(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,

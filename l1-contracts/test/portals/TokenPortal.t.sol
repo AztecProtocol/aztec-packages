@@ -20,7 +20,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -31,7 +31,7 @@ contract TokenPortalTest is Test {
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
-  Sysstia internal sysstia;
+  RewardDistributor internal rewardDistributor;
   IInbox internal inbox;
   IOutbox internal outbox;
 
@@ -62,9 +62,14 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     testERC20 = new TestERC20();
-    sysstia = new Sysstia(testERC20, registry, address(this));
+    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      new address[](0)
     );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();

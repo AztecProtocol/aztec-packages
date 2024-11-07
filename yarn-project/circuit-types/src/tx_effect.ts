@@ -261,7 +261,7 @@ export class TxEffect {
   [inspect.custom]() {
     // print out the non-empty fields
 
-    return `TxEffect { 
+    return `TxEffect {
       revertCode: ${this.revertCode},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],

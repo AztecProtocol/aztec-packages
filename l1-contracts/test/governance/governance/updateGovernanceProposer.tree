@@ -1,0 +1,6 @@
+UpdateGovernanceProposerTest
+├── when caller is not governance
+│   └── it revert
+└── when caller is governance
+    ├── it updates the governanceProposer
+    └── it emit the {GovernanceProposerUpdated} event

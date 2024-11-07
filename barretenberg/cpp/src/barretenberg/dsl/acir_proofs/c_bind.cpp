@@ -279,3 +279,12 @@ WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out
     std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
     *out_vkey = to_heap_buffer(vkey_as_fields);
 }
+
+WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey)
+{
+    using VerificationKey = MegaFlavor::VerificationKey;
+
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
+    *out_vkey = to_heap_buffer(vkey_as_fields);
+}
