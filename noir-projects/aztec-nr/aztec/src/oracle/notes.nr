@@ -204,6 +204,13 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
+/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag as an array of bytes, ready to be included in a
+/// log.
+pub unconstrained fn get_app_tag_bytes(sender: AztecAddress, recipient: AztecAddress) -> [u8; 32] {
+    let tag = get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient);
+    tag.to_be_bytes()
+}
+
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
 /// Includes the last known index used to send a note tagged with this secret.
 /// For this to work, PXE must know the ivpsk_m of the sender.
@@ -222,9 +229,19 @@ unconstrained fn get_app_tagging_secret_as_sender_oracle(
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
 
-/// Increments the index of the tagging secret for a given sender and recipient pair, siloed for the current contract
-/// It does so from the perspetive of the sender, to avoid reusing the same index in case we have received a note from the same address.
-pub unconstrained fn increment_app_tagging_secret_index_as_sender(
+/// Notifies the simulator that a tag has been used in a note, and to therefore increment the associated index so that
+/// future notes get a different tag and can be discovered by the recipient.
+/// This change should only be persisted in a non-volatile database if the tagged log is found in an actual block -
+/// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
+/// that are not found by the recipient.
+pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
+    }
+}
+
+unconstrained fn increment_app_tagging_secret_index_as_sender_wrapper(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) {
