@@ -8,7 +8,7 @@
 namespace bb {
 
 template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaArith<FF>> {
-  private:
+  public:
     DataBus databus; // Container for public calldata/returndata
 
   public:
@@ -36,7 +36,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     // Metadata for propagating databus return data commitments via the public input mechanism
     DatabusPropagationData databus_propagation_data;
 
-  private:
+  public:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
     void set_goblin_ecc_op_code_constant_variables();
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
