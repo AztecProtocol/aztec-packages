@@ -23,6 +23,11 @@ using witness_ct = stdlib::witness_t<Builder>;
 using DynamicArray_ct = stdlib::DynamicArray<Builder>;
 
 STANDARD_TESTING_TAGS
+
+/**
+ * @brief Check that tags in Dynamic array are propagated correctly
+ *
+ */
 TEST(DynamicArray, TagCorrectness)
 {
 
@@ -31,27 +36,36 @@ TEST(DynamicArray, TagCorrectness)
 
     DynamicArray_ct array(&builder, max_size);
 
+    // Create random entries
     field_ct entry_1 = witness_ct(&builder, bb::fr::random_element());
     field_ct entry_2 = witness_ct(&builder, bb::fr::random_element());
     field_ct entry_3 = witness_ct(&builder, bb::fr::random_element());
     field_ct entry_4 = witness_ct(&builder, bb::fr::random_element());
 
+    // Assign a different tag to each entry
     entry_1.set_origin_tag(submitted_value_origin_tag);
     entry_2.set_origin_tag(challenge_origin_tag);
     entry_3.set_origin_tag(next_challenge_tag);
+    // Entry 4 has an "instant death" tag, that triggers an exception when merged with another tag
     entry_4.set_origin_tag(instant_death_tag);
 
+    // Fill out the dynamic array with the first 3 entries
     array.push(entry_1);
     array.push(entry_2);
     array.push(entry_3);
 
+    // Check that the tags are preserved
     EXPECT_EQ(array.read(1).get_origin_tag(), challenge_origin_tag);
     EXPECT_EQ(array.read(2).get_origin_tag(), next_challenge_tag);
     EXPECT_EQ(array.read(0).get_origin_tag(), submitted_value_origin_tag);
+    // Update an element of the array
     array.write(0, entry_2);
+    // Check that the tag changed
     EXPECT_EQ(array.read(0).get_origin_tag(), challenge_origin_tag);
 
 #ifndef NDEBUG
+    // Check that "instant death" happens when an "instant death"-tagged element is taken from the array and added to
+    // another one
     array.pop();
     array.pop();
     array.push(entry_4);

@@ -1,6 +1,5 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
-#include "barretenberg/transcript/origin_tag.hpp"
 #include "ram_table.hpp"
 namespace bb::stdlib {
 
