@@ -94,7 +94,7 @@ class TranslatorFlavor {
                                   TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, HasZK>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
@@ -105,13 +105,13 @@ class TranslatorFlavor {
 
     // define the containers for storing the contributions from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates =
-        std::tuple<typename TranslatorPermutationRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorDeltaRangeConstraintRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorOpcodeConstraintRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorAccumulatorTransferRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorDecompositionRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorZeroConstraintsRelation<FF>::ZKSumcheckTupleOfUnivariatesOverSubrelations>;
+        std::tuple<typename TranslatorPermutationRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorDeltaRangeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorZeroConstraintsRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**

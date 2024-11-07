@@ -215,7 +215,8 @@ export class EnqueuedCallsProcessor {
     );
     // TODO(dbanks12): insert all non-revertible side effects from private here.
 
-    for (const phase of phases) {
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i];
       let stateManagerForPhase: AvmPersistableStateManager;
       if (phase === PublicKernelPhase.SETUP) {
         // don't need to fork for setup since it's non-revertible
@@ -329,10 +330,8 @@ export class EnqueuedCallsProcessor {
       const transactionFee =
         phase !== PublicKernelPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, publicKernelOutput);
 
-      const enqueuedCallStateManager = txStateManager.fork();
       // each enqueued call starts with an incremented side effect counter
-      enqueuedCallStateManager.trace.incrementSideEffectCounter();
-
+      const enqueuedCallStateManager = txStateManager.fork(/*incrementSideEffectCounter=*/ true);
       const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
         callRequest,
         executionRequest,
@@ -366,6 +365,10 @@ export class EnqueuedCallsProcessor {
       if (revertReason) {
         // TODO(#6464): Should we allow emitting contracts in the private setup phase?
         // if so, this is removing contracts deployed in private setup
+        // You can't submit contracts in public, so this is only relevant for private-created
+        // side effects
+        // Are we reverting here back to end of non-revertible insertions?
+        // What are we reverting back to?
         await this.worldStateDB.removeNewContracts(tx);
         tx.filterRevertedLogs(publicKernelOutput);
       } else {

@@ -100,7 +100,9 @@ void ECCVMProver::execute_relation_check_rounds()
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges);
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key);
+
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
 
 /**
@@ -118,12 +120,17 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
-    const OpeningClaim multivariate_to_univariate_opening_claim = Shplemini::prove(key->circuit_size,
-                                                                                   key->polynomials.get_unshifted(),
-                                                                                   key->polynomials.get_to_be_shifted(),
-                                                                                   sumcheck_output.challenge,
-                                                                                   key->commitment_key,
-                                                                                   transcript);
+    const OpeningClaim multivariate_to_univariate_opening_claim =
+        Shplemini::prove(key->circuit_size,
+                         key->polynomials.get_unshifted(),
+                         key->polynomials.get_to_be_shifted(),
+                         sumcheck_output.challenge,
+                         key->commitment_key,
+                         transcript,
+                         /* concatenated_polynomials = */ {},
+                         /* groups_to_be_concatenated = */ {},
+                         zk_sumcheck_data.libra_univariates_monomial,
+                         sumcheck_output.claimed_libra_evaluations);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
