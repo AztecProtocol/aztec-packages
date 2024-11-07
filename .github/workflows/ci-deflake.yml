@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - release/testnet*
+      - '*/*deflake'
   workflow_dispatch:
     inputs: {}
 
@@ -93,7 +94,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson( needs.build.outputs.e2e_list )}}
+        test:
+          - e2e_2_pxes
+          - e2e_block_building
+          - e2e_prover_coordination
+          - e2e_prover_full
+          - e2e_p2p_gossip
+          - e2e_p2p_rediscovery
+          - e2e_p2p_reqresp
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -133,11 +141,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - test: reorg.test.ts
+            - reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
             timeout: 360
-          - test: 4epochs.test.ts
+            - 4epochs.test.ts
             values: 48-validators
             runner_type: 32core-tester-x86
             timeout: 300
