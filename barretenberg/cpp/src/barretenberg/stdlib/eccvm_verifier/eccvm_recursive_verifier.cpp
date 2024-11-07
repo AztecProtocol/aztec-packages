@@ -63,11 +63,19 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     // maximum possible size of an ECCVM circuit otherwise we might run into problem because the number of rounds of
     // sumcheck is dependent on circuit size.
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript, FF(0));
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments;
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
     }
 
     auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
@@ -75,7 +83,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    const BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
@@ -83,7 +91,11 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                claimed_evaluations.get_shifted(),
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
-                                               transcript);
+                                               transcript,
+                                               /* concatenation_group_commitments = */ {},
+                                               /* concatenated_evaluations = */ {},
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
