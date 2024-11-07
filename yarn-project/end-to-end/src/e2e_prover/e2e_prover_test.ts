@@ -101,7 +101,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      { startProverNode: true, fundSysstia: true, coinbase },
+      { startProverNode: true, fundRewardDistributor: true, coinbase },
       { assumeProvenThrough: undefined },
     );
   }
