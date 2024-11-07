@@ -91,8 +91,6 @@ export class PXEService implements PXE {
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
 
-  private fakeProofCreator = new TestPrivateKernelProver();
-
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,

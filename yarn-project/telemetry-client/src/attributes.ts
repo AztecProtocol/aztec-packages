@@ -79,3 +79,5 @@ export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
 
 export const P2P_ID = 'aztec.p2p.id';
 export const POOL_NAME = 'aztec.pool.name';
+
+export const SEQUENCER_STATE = 'aztec.sequencer.state';

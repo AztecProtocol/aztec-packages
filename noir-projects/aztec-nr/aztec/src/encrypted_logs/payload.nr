@@ -14,7 +14,7 @@ use std::{
 use crate::{
     encrypted_logs::header::EncryptedLogHeader,
     keys::point_to_symmetric_key::point_to_symmetric_key,
-    oracle::{notes::{get_app_tagging_secret, increment_app_tagging_secret}, random::random},
+    oracle::{notes::{get_app_tag_bytes, increment_app_tagging_secret}, random::random},
     utils::point::point_to_bytes,
 };
 
@@ -125,12 +125,11 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let mut encrypted_bytes = [0; M];
     let mut offset = 0;
 
-    let tagging_secret = unsafe { get_app_tagging_secret(sender, recipient) };
-
-    unsafe { increment_app_tagging_secret(sender, recipient); };
-
-    let tag = tagging_secret.compute_tag();
-    let tag_bytes: [u8; 32] = tag.to_be_bytes();
+    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
+    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
+    // automatically.
+    let tag_bytes = unsafe { get_app_tag_bytes(sender, recipient) };
+    increment_app_tagging_secret(sender, recipient);
 
     for i in 0..32 {
         encrypted_bytes[offset + i] = tag_bytes[i];

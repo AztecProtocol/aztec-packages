@@ -159,7 +159,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 
     // initialize an empty mock transcript
     auto transcript = std::make_shared<MockTranscript>();
-    const size_t num_challenges = numeric::get_msb(n) + 1;
+    const size_t num_challenges = CONST_ECCVM_LOG_N + 1;
     std::vector<uint256_t> random_vector(num_challenges);
 
     // Generate a random element vector with challenges
