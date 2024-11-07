@@ -36,21 +36,21 @@ describe('e2e_fees private_payment', () => {
     await t.teardown();
   });
 
-  let InitialSequencerL1Gas: bigint;
+  let initialSequencerL1Gas: bigint;
 
-  let InitialAlicePublicBananas: bigint;
-  let InitialAlicePrivateBananas: bigint;
-  let InitialAliceGas: bigint;
+  let initialAlicePublicBananas: bigint;
+  let initialAlicePrivateBananas: bigint;
+  let initialAliceGas: bigint;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let InitialBobPublicBananas: bigint;
-  let InitialBobPrivateBananas: bigint;
+  let initialBobPublicBananas: bigint;
+  let initialBobPrivateBananas: bigint;
 
-  let InitialFPCPublicBananas: bigint;
-  let InitialFPCPrivateBananas: bigint;
-  let InitialFPCGas: bigint;
+  let initialFPCPublicBananas: bigint;
+  let initialSequencerPrivateBananas: bigint;
+  let initialFPCGas: bigint;
 
-  let InitialSequencerGas: bigint;
+  let initialSequencerGas: bigint;
 
   let maxFee: bigint;
 
@@ -59,14 +59,14 @@ describe('e2e_fees private_payment', () => {
 
     expect(gasSettings.getFeeLimit().toBigInt()).toEqual(maxFee);
 
-    InitialSequencerL1Gas = await t.getCoinbaseBalance();
+    initialSequencerL1Gas = await t.getCoinbaseBalance();
 
     [
-      [InitialAlicePrivateBananas, InitialBobPrivateBananas, InitialFPCPrivateBananas],
-      [InitialAlicePublicBananas, InitialBobPublicBananas, InitialFPCPublicBananas],
-      [InitialAliceGas, InitialFPCGas, InitialSequencerGas],
+      [initialAlicePrivateBananas, initialBobPrivateBananas, initialSequencerPrivateBananas],
+      [initialAlicePublicBananas, initialBobPublicBananas, initialFPCPublicBananas],
+      [initialAliceGas, initialFPCGas, initialSequencerGas],
     ] = await Promise.all([
-      t.getBananaPrivateBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
+      t.getBananaPrivateBalanceFn(aliceAddress, bobAddress, sequencerAddress),
       t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
@@ -82,8 +82,8 @@ describe('e2e_fees private_payment', () => {
      * PRIVATE SETUP (1 nullifier for tx)
      * check authwit (1 nullifier)
      * reduce alice BC.private by MaxFee (1 nullifier)
-     * enqueue public call to increase FPC BC.public by MaxFee
-     * enqueue public call for fpc.pay_fee_with_shielded_rebate
+     * setup fee and refund partial notes
+     * setup public teardown call
      *
      * PRIVATE APP LOGIC
      * reduce Alice's BC.private by transferAmount (1 note)
@@ -91,16 +91,12 @@ describe('e2e_fees private_payment', () => {
      * encrypted logs of 944 bytes
      * unencrypted logs of 20 bytes
      *
-     * PUBLIC SETUP
-     * increase FPC BC.public by MaxFee
-     *
      * PUBLIC APP LOGIC
      * N/A
      *
      * PUBLIC TEARDOWN
-     * call banana.shield
-     *   decrease FPC BC.public by RefundAmount
-     *   create transparent note with RefundAmount
+     *   increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
+     *   increase Alice's private banana balance by feeAmount by finalizing partial note
      *
      * this is expected to squash notes and nullifiers
      */
@@ -113,7 +109,7 @@ describe('e2e_fees private_payment', () => {
           bananaCoin.address,
           bananaFPC.address,
           aliceWallet,
-          t.sequencerAddress,
+          sequencerAddress,
         ),
       },
     };
@@ -150,23 +146,24 @@ describe('e2e_fees private_payment', () => {
     }
 
     // expect(tx.transactionFee).toEqual(200032492n);
-    await expect(t.getCoinbaseBalance()).resolves.toEqual(InitialSequencerL1Gas + tx.transactionFee!);
-    const [feeAmount, refundAmount] = getFeeAndRefund(tx);
+    await expect(t.getCoinbaseBalance()).resolves.toEqual(initialSequencerL1Gas + tx.transactionFee!);
+    const [feeAmount, _] = getFeeAndRefund(tx);
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePrivateBananas - maxFee - transferAmount, transferAmount, InitialFPCPrivateBananas, 0n],
+      [
+        initialAlicePrivateBananas - feeAmount - transferAmount,
+        transferAmount,
+        0n,
+        initialSequencerPrivateBananas + feeAmount,
+      ],
     );
-    await expectMapping(
-      t.getBananaPublicBalanceFn,
-      [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
-    );
+
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
   });
 
@@ -202,7 +199,7 @@ describe('e2e_fees private_payment', () => {
             bananaCoin.address,
             bananaFPC.address,
             aliceWallet,
-            t.sequencerAddress,
+            sequencerAddress,
           ),
         },
       })
@@ -213,17 +210,17 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePrivateBananas - maxFee + newlyMintedBananas, InitialFPCPrivateBananas, 0n],
+      [initialAlicePrivateBananas - maxFee + newlyMintedBananas, 0n, initialSequencerPrivateBananas],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
+      [initialAlicePublicBananas, initialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
   });
 
@@ -262,7 +259,7 @@ describe('e2e_fees private_payment', () => {
             bananaCoin.address,
             bananaFPC.address,
             aliceWallet,
-            t.sequencerAddress,
+            sequencerAddress,
           ),
         },
       })
@@ -273,17 +270,17 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePrivateBananas - maxFee, InitialFPCPrivateBananas, 0n],
+      [initialAlicePrivateBananas - maxFee, 0n, initialSequencerPrivateBananas],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas - shieldedBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
+      [initialAlicePublicBananas - shieldedBananas, initialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
 
     await expect(
@@ -331,7 +328,7 @@ describe('e2e_fees private_payment', () => {
             bananaCoin.address,
             bananaFPC.address,
             aliceWallet,
-            t.sequencerAddress,
+            sequencerAddress,
           ),
         },
       })
@@ -343,21 +340,21 @@ describe('e2e_fees private_payment', () => {
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
       [
-        InitialAlicePrivateBananas - maxFee - privateTransfer,
-        InitialBobPrivateBananas + privateTransfer,
-        InitialFPCPrivateBananas,
+        initialAlicePrivateBananas - maxFee - privateTransfer,
+        initialBobPrivateBananas + privateTransfer,
         0n,
+        initialSequencerPrivateBananas,
       ],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas - shieldedBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
+      [initialAlicePublicBananas - shieldedBananas, initialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
 
     await expect(
@@ -383,7 +380,7 @@ describe('e2e_fees private_payment', () => {
               bananaCoin.address,
               bankruptFPC.address,
               aliceWallet,
-              t.sequencerAddress,
+              sequencerAddress,
             ),
           },
         })
