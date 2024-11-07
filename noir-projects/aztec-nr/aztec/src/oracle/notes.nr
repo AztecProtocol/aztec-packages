@@ -231,7 +231,10 @@ unconstrained fn increment_app_tagging_secret_oracle(
     _recipient: AztecAddress,
 ) {}
 
+/// Finds new notes that may have been sent to `recipient` in the current contract and makes them available
+/// for later querying via the `get_notes` oracle.
 pub fn sync_notes(recipient: AztecAddress) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
     unsafe {
         sync_notes_oracle_wrapper(recipient);
     }
