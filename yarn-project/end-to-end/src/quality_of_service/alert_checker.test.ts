@@ -4,6 +4,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { dirname, join } from 'path';
+import { Octokit } from '@octokit/rest';
 
 const GRAFANA_ENDPOINT = 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query';
 interface AlertConfig {
@@ -46,6 +47,9 @@ async function queryGrafana(expr: string): Promise<number> {
 
 // Function to check alerts based on expressions
 async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
+  let commentMessage = '';
+  let alertTriggered = false;
+
   for (const alert of alerts) {
     logger.info(`Checking alert: ${JSON.stringify(alert)}`);
 
@@ -53,12 +57,47 @@ async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
     logger.info(`Metric value: ${metricValue}`);
     if (metricValue > 0) {
       // Adjust condition as needed
-      logger.error(`Alert ${alert.alert} triggered! Value: ${metricValue}`);
-      throw new Error(`Test failed due to triggered alert: ${alert.alert}`);
+      const message = `Alert ${alert.alert} triggered! Value: ${metricValue}`;
+      logger.error(message);
+
+      commentMessage += message + '\n\n';
+      alertTriggered = true;
     } else {
       logger.info(`Alert ${alert.alert} passed.`);
     }
   }
+
+  // If any alerts have been triggered
+  // We post a comment on the PR and fail the test
+  if (alertTriggered) {
+    await postCommentOnPR(commentMessage, logger);
+
+    throw new Error('Test failed due to triggered alert');
+  }
+}
+
+// Function to post a comment on the PR
+async function postCommentOnPR(message: string, logger: DebugLogger) {
+  const { AZTEC_BOT_GITHUB_TOKEN, PULL_REQUEST } = process.env;
+  if (!AZTEC_BOT_GITHUB_TOKEN || !PULL_REQUEST) {
+    logger.error('Missing required GitHub environment variables, cannot post comment');
+    return;
+  }
+  const token = AZTEC_BOT_GITHUB_TOKEN;
+  const prNumber = parseInt(PULL_REQUEST, 10);
+  if (isNaN(prNumber)) {
+    console.error('Missing required GitHub environment variables.');
+    return;
+  }
+
+  const octokit = new Octokit({ auth: token });
+
+  await octokit.issues.createComment({
+    owner: 'AztecProtocol',
+    repo: 'aztec-packages',
+    issue_number: prNumber,
+    body: message,
+  });
 }
 
 // Main function to run tests

@@ -5,6 +5,6 @@
 
 alerts:
   - alert: SequencerTimeToCollectAttestations
-    expr: aztec_sequencer_time_to_collect_attestations > 500
+    expr: aztec_sequencer_time_to_collect_attestations > 1
     labels:
       severity: page

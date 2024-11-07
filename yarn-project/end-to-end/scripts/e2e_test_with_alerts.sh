@@ -39,6 +39,9 @@ docker run \
     --network host \
     -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
     -e FAKE_PROOFS="$FAKE_PROOFS" \
+    -e AZTEC_BOT_GITHUB_TOKEN="$AZTEC_BOT_GITHUB_TOKEN" \
+    -e PULL_REQUEST="$PULL_REQUEST" \
+    -e GITHUB_REPOSITORY="AztecProtocol/aztec-packages" \
     $env_args \
     --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
     "$test_path" "$@" || [ "$ignore_failures" = "true" ]
