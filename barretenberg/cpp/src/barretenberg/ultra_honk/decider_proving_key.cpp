@@ -80,6 +80,12 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     }
 }
 
+/**
+ * @brief WORKTODO
+ *
+ * @tparam Flavor
+ * @param circuit
+ */
 template <IsHonkFlavor Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
 {
@@ -165,7 +171,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
     // Set the fixed size of the overflow block to its current size
     if (overflow_block.size() > overflow_block.get_fixed_size()) {
         info("WARNING: Structured trace overflowed beyond the prescribed fixed overflow size. This is valid in the "
-             "context of VK computation but not in the IVC setting. \nFixed overflow size: ",
+             "context of one-off VK/proof generation but not in the IVC setting. \nPrescribed overflow size: ",
              overflow_block.get_fixed_size(),
              ". \nActual overflow size: ",
              overflow_block.size());

@@ -79,37 +79,13 @@ template <typename FF_> class MegaArith {
     struct TinyTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         TinyTestStructuredBlockSizes()
         {
-            // const uint32_t FIXED_SIZE = 1 << 14;
-            // this->ecc_op = FIXED_SIZE;
-            // this->pub_inputs = FIXED_SIZE;
-            // this->busread = FIXED_SIZE;
-            // this->arithmetic = 1 << 15;
-            // this->delta_range = FIXED_SIZE;
-            // this->elliptic = FIXED_SIZE;
-            // this->aux = FIXED_SIZE;
-            // this->poseidon2_external = FIXED_SIZE;
-            // this->poseidon2_internal = 1 << 15;
-            // this->lookup = FIXED_SIZE;
-            // this->overflow = 0;
-
-            // this->ecc_op = 50;
-            // this->pub_inputs = 33;
-            // this->busread = 3;
-            // this->arithmetic = 3417; // 3418
-            // this->delta_range = 2002;
-            // this->elliptic = 2;
-            // this->aux = 26;
-            // this->poseidon2_external = 812;
-            // this->poseidon2_internal = 4619;
-            // this->lookup = 2;
-
             this->ecc_op = 18;
             this->pub_inputs = 1;
             this->busread = 3;
-            this->arithmetic = 15; // 15
+            this->arithmetic = 1 << 14;
             this->delta_range = 5;
             this->elliptic = 2;
-            this->aux = 10; // 20
+            this->aux = 10;
             this->poseidon2_external = 2;
             this->poseidon2_internal = 2;
             this->lookup = 2;

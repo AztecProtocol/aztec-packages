@@ -212,55 +212,66 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 }
 
 /**
- * @brief Test proof construction/verification for a structured execution trace
+ * @brief Test the structured trace overflow mechanism for various circuits which overflow in different ways
  *
  */
-TEST_F(MegaHonkTests, MiscellaneousBlockSimple)
+TEST_F(MegaHonkTests, StructuredTraceOverflow)
 {
-    MegaCircuitBuilder builder;
+    using ProvingKey = DeciderProvingKey_<MegaFlavor>;
+    using VerificationKey = MegaFlavor::VerificationKey;
+    using Builder = MegaCircuitBuilder;
 
-    GoblinMockCircuits::construct_simple_circuit(builder);
-    MockCircuits::add_arithmetic_gates(builder, 8);
+    // Construct and verify a MegaHonk proof using a structured trace
+    auto construct_and_verify_proof_with_structured_trace = [](Builder& builder, TraceSettings& trace_settings) {
+        auto proving_key = std::make_shared<ProvingKey>(builder, trace_settings);
 
-    // Construct and verify Honk proof using a structured trace
-    TraceSettings trace_settings{ TraceStructure::TINY_TEST };
-    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
+        // We expect that the circuit has overflowed the provided structured trace
+        EXPECT_TRUE(builder.blocks.has_overflow);
 
-    // We expect that the circuit has overflowed the provided structured trace
-    EXPECT_TRUE(builder.blocks.has_overflow);
-
-    MegaProver prover(proving_key);
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
-    MegaVerifier verifier(verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(verifier.verify_proof(proof));
-}
-
-/**
- * @brief Test proof construction/verification for a structured execution trace
- *
- */
-TEST_F(MegaHonkTests, MiscellaneousBlockAuxOverflow)
-{
-    MegaCircuitBuilder builder;
+        MegaProver prover(proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        MegaVerifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        EXPECT_TRUE(verifier.verify_proof(proof));
+    };
 
     TraceSettings trace_settings{ TraceStructure::TINY_TEST };
 
-    GoblinMockCircuits::construct_simple_circuit(builder);
-    MockCircuits::add_arithmetic_gates(builder, 8);
-    MockCircuits::add_RAM_gates(builder);
+    { // Overflow in Arithmetic block only
+        Builder builder;
 
-    // Construct and verify Honk proof using a structured trace
-    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        MockCircuits::add_arithmetic_gates(builder, 1 << 15);
 
-    // We expect that the circuit has overflowed the provided structured trace
-    EXPECT_TRUE(builder.blocks.has_overflow);
+        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+    }
 
-    // builder.blocks.summarize();
-    MegaProver prover(proving_key);
-    // builder.blocks.summarize();
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
-    MegaVerifier verifier(verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    { // Overflow in Aux block (RAM gates; uses memory records which requires specific logic in overflow mechanism)
+        Builder builder;
+
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        MockCircuits::add_RAM_gates(builder);
+
+        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+    }
+
+    { // Overflow in Lookup block only
+        Builder builder;
+
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        MockCircuits::add_lookup_gates(builder, /*num_iterations=*/8);
+
+        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+    }
+
+    { // Overflow in Multiple blocks simultaneously
+        Builder builder;
+
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        MockCircuits::add_arithmetic_gates(builder, 1 << 15);
+        MockCircuits::add_RAM_gates(builder);
+        MockCircuits::add_lookup_gates(builder, /*num_iterations=*/8);
+
+        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+    }
 }
