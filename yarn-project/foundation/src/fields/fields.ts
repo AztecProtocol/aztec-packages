@@ -182,9 +182,7 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
   return new f(buffer);
 }
 
-/**
- * Branding to ensure fields are not interchangeable types.
- */
+/** Branding to ensure fields are not interchangeable types. */
 export interface Fr {
   /** Brand. */
   _branding: 'Fr';

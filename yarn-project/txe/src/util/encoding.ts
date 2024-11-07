@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -17,11 +18,15 @@ export function fromSingle(obj: ForeignCallSingle) {
   return Fr.fromBuffer(Buffer.from(obj, 'hex'));
 }
 
+export function addressFromSingle(obj: ForeignCallSingle) {
+  return new AztecAddress(fromSingle(obj));
+}
+
 export function fromArray(obj: ForeignCallArray) {
   return obj.map(str => Fr.fromBuffer(Buffer.from(str, 'hex')));
 }
 
-export function toSingle(obj: Fr) {
+export function toSingle(obj: Fr | AztecAddress) {
   return obj.toString().slice(2);
 }
 

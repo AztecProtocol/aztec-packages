@@ -66,7 +66,7 @@ export class CompleteAddress {
   public validate() {
     const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
 
-    if (!AztecAddress.fromField(expectedAddress).equals(this.address)) {
+    if (!expectedAddress.equals(this.address)) {
       throw new Error(
         `Address cannot be derived from public keys and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
       );

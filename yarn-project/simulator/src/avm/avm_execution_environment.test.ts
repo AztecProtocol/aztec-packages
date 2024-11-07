@@ -1,10 +1,10 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { allSameExcept, initExecutionEnvironment } from './fixtures/index.js';
 
 describe('Execution Environment', () => {
-  const newAddress = new Fr(123456n);
+  const newAddress = AztecAddress.fromNumber(123456);
   const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
   const selector = FunctionSelector.empty();
 
