@@ -97,7 +97,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       GeneratorIndex.BLOCK_HASH,
-      10 * 1024 * 1024, // 10 GB per tree (in KB)
+      1024 * 1024 * 1024, // 1TB per tree (in KB)
       Math.min(cpus().length, MAX_WORLD_STATE_THREADS),
     );
     this.queue.start();
