@@ -29,7 +29,6 @@ import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { L2Block } from '../l2_block.js';
-import { EncryptedL2NoteLog } from '../logs/encrypted_l2_note_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import { type GetUnencryptedLogsResponse, TxScopedEncryptedL2NoteLog } from '../logs/get_logs_response.js';
 import {
@@ -213,7 +212,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getLogsByTags', async () => {
     const response = await context.client.getLogsByTags([Fr.random()]);
-    expect(response).toEqual([[expect.any(EncryptedL2NoteLog)]]);
+    expect(response).toEqual([[expect.any(TxScopedEncryptedL2NoteLog)]]);
   });
 
   it('sendTx', async () => {
