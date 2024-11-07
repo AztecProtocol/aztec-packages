@@ -39,4 +39,6 @@ export interface SequencerConfig {
   enforceFees?: boolean;
   /** Payload address to vote for */
   gerousiaPayload?: EthAddress;
+  /** Whether to enforce the time table when building blocks */
+  enforceTimeTable?: boolean;
 }

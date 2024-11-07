@@ -31,6 +31,7 @@ library Errors {
   error Apella__UserLib__NotInPast();
 
   error Apella__ConfigurationLib__InvalidMinimumVotes();
+  error Apella__ConfigurationLib__LockAmountTooSmall();
   error Apella__ConfigurationLib__QuorumTooSmall();
   error Apella__ConfigurationLib__QuorumTooBig();
   error Apella__ConfigurationLib__DifferentialTooSmall();
