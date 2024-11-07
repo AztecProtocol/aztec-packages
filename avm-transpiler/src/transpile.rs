@@ -306,13 +306,13 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             }
             BrilligOpcode::Return {} => avm_instrs
                 .push(AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() }),
-            BrilligOpcode::Stop { return_data_offset, return_data_size } => {
+            BrilligOpcode::Stop { return_data } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::RETURN,
                     indirect: Some(AddressingModeBuilder::default().build()),
                     operands: vec![
-                        AvmOperand::U16 { value: *return_data_offset as u16 },
-                        AvmOperand::U16 { value: *return_data_size as u16 },
+                        AvmOperand::U16 { value: return_data.pointer.to_usize() as u16 },
+                        AvmOperand::U16 { value: return_data.size.to_usize() as u16 },
                     ],
                     ..Default::default()
                 });
