@@ -1,5 +1,12 @@
-import { BlockProposal } from '@aztec/circuit-types';
-import { type Gauge, Metrics, type TelemetryClient, ValueType, type UpDownCounter, Attributes } from '@aztec/telemetry-client';
+import { type BlockProposal } from '@aztec/circuit-types';
+import {
+  Attributes,
+  type Gauge,
+  Metrics,
+  type TelemetryClient,
+  type UpDownCounter,
+  ValueType,
+} from '@aztec/telemetry-client';
 
 export class ValidatorMetrics {
   private reExecutionTime: Gauge;
