@@ -182,7 +182,7 @@ global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
 
 // GAS DEFAULTS
 global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
-global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 100_000_000;
+global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
 global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
 global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
 global DEFAULT_INCLUSION_FEE: Field = 0;
@@ -478,9 +478,9 @@ global RECURSIVE_PROOF_LENGTH: u32 = 463;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 463;
 global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128; // size of an Ultra verification key
 
-global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143;
+global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)

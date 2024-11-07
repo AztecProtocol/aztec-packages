@@ -21,7 +21,6 @@ images:
     pullPolicy: IfNotPresent
 
 bootNode:
-  external: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1
@@ -60,7 +59,6 @@ bootNode:
   storage: "8Gi"
 
 validator:
-  external: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1
@@ -77,6 +75,8 @@ validator:
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+    maxTxsPerBlock: 4
+    enforceTimeTable: true
   validator:
     disabled: false
   p2p:
@@ -93,7 +93,6 @@ validator:
   storage: "8Gi"
 
 proverNode:
-  external: false
   externalTcpHost: ""
   externalUdpHost: ""
   replicas: 1
@@ -113,7 +112,6 @@ proverNode:
   storage: "8Gi"
 
 pxe:
-  external: false
   externalHost: ""
   logLevel: "debug"
   proverEnable: false
@@ -167,7 +165,6 @@ bot:
       cpu: "200m"
 
 ethereum:
-  external: false
   externalHost: ""
   replicas: 1
   chainId: 31337

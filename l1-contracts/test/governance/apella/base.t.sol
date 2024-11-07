@@ -99,7 +99,7 @@ contract ApellaBase is TestBase {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
-    vm.assume(_gerousia != proposal.creator);
+    vm.assume(_gerousia != proposal.gerousia);
 
     vm.prank(address(apella));
     apella.updateGerousia(_gerousia);

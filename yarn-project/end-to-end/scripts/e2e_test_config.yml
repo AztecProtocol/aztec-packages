@@ -63,7 +63,8 @@ tests:
   e2e_note_getter: {}
   e2e_ordering: {}
   e2e_outbox: {}
-  e2e_pending_note_hashes_contract: {}
+  # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727
+  # e2e_pending_note_hashes_contract: {}
   e2e_private_voting_contract: {}
   e2e_prover_coordination: {}
   e2e_prover_fake_proofs:
@@ -101,25 +102,6 @@ tests:
     test_path: 'guides/writing_an_account_contract.test.ts'
   integration_l1_publisher:
     use_compose: true
-  kind_network_4epochs:
-    env:
-      NAMESPACE: 'smoke'
-      FRESH_INSTALL: 'true'
-      VALUES_FILE: '$-default.yaml'
-    command: './scripts/network_test.sh ./src/spartan/4epochs.test.ts'
-    ignore_failures: true
-  kind_network_smoke:
-    env:
-      NAMESPACE: 'smoke'
-      FRESH_INSTALL: 'true'
-      VALUES_FILE: '$-default.yaml'
-    command: './scripts/network_test.sh ./src/spartan/smoke.test.ts'
-  kind_network_transfer:
-    env:
-      NAMESPACE: 'transfer'
-      FRESH_INSTALL: 'true'
-      VALUES_FILE: '$-default.yaml'
-    command: './scripts/network_test.sh ./src/spartan/transfer.test.ts'
   pxe:
     use_compose: true
   uniswap_trade_on_l1_from_l2:

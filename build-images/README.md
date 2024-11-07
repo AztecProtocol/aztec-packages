@@ -18,7 +18,7 @@ Your repo will be mounted at `/workspaces/aztec-packages`, and your home directo
 
 ## GitHub Codespaces
 
-This is also compatible with GitHub codespaces. Visit the repo at `http://github.com/aztecprotocol/aztec-packages`.
+This is also compatible with GitHub codespaces. Visit the repo at `https://github.com/aztecprotocol/aztec-packages`.
 Press `.`, and open a terminal window. You will be prompted to create a new machine.
 You can then continue to work within the browser, or reopen the codespace in your local vscode.
 

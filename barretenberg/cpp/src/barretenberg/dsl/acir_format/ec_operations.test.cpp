@@ -62,7 +62,6 @@ TEST_F(EcOperations, TestECOperations)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables + 1),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -94,7 +93,7 @@ TEST_F(EcOperations, TestECOperations)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);
@@ -198,7 +197,6 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     size_t num_variables = witness_values.size();
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables + 1),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
@@ -230,7 +228,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);

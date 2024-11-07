@@ -23,10 +23,13 @@ allow_list=(
   "e2e_avm_simulator"
   "e2e_block_building"
   "e2e_cross_chain_messaging"
+  "e2e_crowdfunding_and_claim"
   "e2e_deploy_contract"
   "e2e_fees"
+  "e2e_fees_failures"
   "e2e_fees_gas_estimation"
   "e2e_fees_private_payments"
+  "e2e_fees_private_refunds"
   "e2e_max_block_number"
   "e2e_nested_contract"
   "e2e_ordering"
@@ -52,7 +55,7 @@ allow_list+=("${input_labels[@]}")
 test_list=$(echo "${full_list[@]}" | grep -v 'base' | grep -v 'bench' | grep -v "network" | grep -v 'devnet' | xargs echo)
 
 # # If branch is master or allow_list contains 'e2e-all', return full list
-if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "e2e-all" ]]; then
+if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "e2e_all" ]]; then
   # print as JSON list
   echo "$test_list" | jq -Rc 'split(" ")'
   exit 0
