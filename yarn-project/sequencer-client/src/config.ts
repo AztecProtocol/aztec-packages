@@ -103,6 +103,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Whether to require every tx to have a fee payer',
     ...booleanConfigHelper(),
   },
+  enforceTimeTable: {
+    env: 'SEQ_ENFORCE_TIME_TABLE',
+    description: 'Whether to enforce the time table when building blocks',
+    ...booleanConfigHelper(),
+    defaultValue: false,
+  },
   gerousiaPayload: {
     env: 'GEROUSIA_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the gerousia',

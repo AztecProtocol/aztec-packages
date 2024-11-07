@@ -330,7 +330,7 @@ template <typename Curve> class GeminiVerifier_ {
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
                 batched_eval_accumulator =
                     Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
