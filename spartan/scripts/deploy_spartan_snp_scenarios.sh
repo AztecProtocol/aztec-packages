@@ -59,7 +59,7 @@ function deploy_scenario() {
 # Test different validators sets
 for i in 1 4 16 ; do
   # we rely on $i-validators.yaml existing
-  deploy_scenario validators-$i $i-validators \ 
+  deploy_scenario validators-$i $i-validators \
     --set bot.privateTransfersPerTx=1 \
     --set bot.publicTransfersPerTx=2 &
   sleep $((10 * 60))
