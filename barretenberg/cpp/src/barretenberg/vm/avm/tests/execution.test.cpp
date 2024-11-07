@@ -1861,12 +1861,32 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     feed_output(emit_nullifier_out_offset, 1, 1, 0);
 
     // CHECK EMIT UNENCRYPTED LOG
+    // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
+    auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+    FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
+
+    std::vector<uint8_t> contract_address_bytes = address.to_buffer();
+    // Test log is empty, so just have to hash the contract address with 0
+    //
+    std::vector<uint8_t> bytes_to_hash;
+    bytes_to_hash.insert(bytes_to_hash.end(),
+                         std::make_move_iterator(contract_address_bytes.begin()),
+                         std::make_move_iterator(contract_address_bytes.end()));
+    uint32_t num_bytes = 0;
+    std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
+    // Add the log size to the hash to bytes
+    bytes_to_hash.insert(bytes_to_hash.end(),
+                         std::make_move_iterator(log_size_bytes.begin()),
+                         std::make_move_iterator(log_size_bytes.end()));
+
+    std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
+    // Truncate the hash to 31 bytes so it will be a valid field element
+    FF expected_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
     ASSERT_TRUE(emit_log_row != trace.end());
 
-    // Trust me bro for now, this is the truncated sha output
-    FF expected_hash = FF(std::string("0x00b5c135991581f3049df936e35ef23af34bb04a4775426481d944d35a618e9d"));
     EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
     // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
