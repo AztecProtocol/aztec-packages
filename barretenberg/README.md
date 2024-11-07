@@ -133,6 +133,11 @@ When running MacOS Sonoma 14.2.1 the following steps are necessary:
 - update bash with `brew install bash`
 - update [cmake](https://cmake.org/download)
 
+It is recommended to use homebrew llvm on macOS to enable std::execution parallel algorithms. To do so:
+
+- Install llvm with `brew install llvm`
+- Add it to the path with `export PATH="/opt/homebrew/opt/llvm/bin:$PATH"` in your shell or profile file.
+
 <details>
 <summary><h3>Installing openMP (Linux)</h3></summary>
 

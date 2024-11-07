@@ -28,7 +28,7 @@ interface IGauge<Labels extends LabelsGeneric = NoLabels> {
   set: NoLabels extends Labels ? (value: number) => void : (labels: Labels, value: number) => void;
 
   collect?(): void;
-  addCollect(collectFn: CollectFn<Labels>): void;
+  addCollect(fn: CollectFn<Labels>): void;
 }
 
 interface IHistogram<Labels extends LabelsGeneric = NoLabels> {
@@ -72,7 +72,7 @@ export interface MetricsRegister {
  * - libp2p
  */
 
-class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Labels> {
+export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Labels> {
   private gauge: ObservableGauge;
   private currentValue: number = 0;
   private labeledValues: Map<string, number> = new Map();
@@ -98,39 +98,34 @@ class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGauge<Label
     });
 
     // Only observe in the callback when collect() is called
-    this.gauge.addCallback(result => {
-      // Execute the main collect function if assigned
-      this._collect();
-
-      // Execute all the collect functions
-      for (const fn of this.collectFns) {
-        fn(this);
-      }
-
-      // Report the current values
-      if (this.labelNames.length === 0) {
-        result.observe(this.currentValue);
-        return;
-      }
-
-      /**
-       * If there are labels, report the current values for each label
-       */
-      for (const [labelStr, value] of this.labeledValues.entries()) {
-        const labels = this.parseLabelsSafely(labelStr);
-        if (labels) {
-          result.observe(value, labels);
-        }
-      }
-    });
+    this.gauge.addCallback(this.handleObservation.bind(this));
   }
 
-  /**
-   * Add a collect callback
-   * @param collectFn - Callback function
-   */
-  addCollect(collectFn: CollectFn<Labels>): void {
-    this.collectFns.push(collectFn);
+  addCollect(fn: CollectFn<Labels>): void {
+    this.collectFns.push(fn);
+  }
+
+  handleObservation(result: any): void {
+    // Execute the main collect function if assigned
+    this._collect();
+
+    // Execute all the collect functions
+    for (const fn of this.collectFns) {
+      fn(this);
+    }
+
+    // Report the current values
+    if (this.labelNames.length === 0) {
+      result.observe(this.currentValue);
+      return;
+    }
+
+    for (const [labelStr, value] of this.labeledValues.entries()) {
+      const labels = this.parseLabelsSafely(labelStr);
+      if (labels) {
+        result.observe(value, labels);
+      }
+    }
   }
 
   /**

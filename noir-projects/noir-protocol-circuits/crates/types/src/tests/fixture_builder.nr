@@ -41,10 +41,10 @@ use crate::{
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
-        FUNCTION_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -205,7 +205,10 @@ impl FixtureBuilder {
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
-        builder.use_contract(contract_data).use_function(contract_function)
+        builder.use_contract(contract_data).use_function(
+            contract_function,
+            fixtures::contract_functions::default_vk,
+        )
     }
 
     pub fn as_parent_contract(&mut self) -> Self {
@@ -248,7 +251,7 @@ impl FixtureBuilder {
         let _ = self.use_contract(contract_data);
         self.contract_address = AztecAddress::from_field(contract_index as Field);
 
-        self.use_function(function_data)
+        self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
 
     pub fn use_contract(&mut self, contract_data: ContractData) -> Self {
@@ -261,10 +264,15 @@ impl FixtureBuilder {
         *self
     }
 
-    pub fn use_function(&mut self, function_data: ContractFunction) -> Self {
+    pub fn use_function(
+        &mut self,
+        function_data: ContractFunction,
+        vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS],
+    ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
         self.acir_hash = function_data.acir_hash;
+        self.client_ivc_vk = VerificationKey { key: vk, hash: function_data.vk_hash };
         *self
     }
 
