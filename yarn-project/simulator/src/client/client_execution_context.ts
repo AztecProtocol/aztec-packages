@@ -24,7 +24,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
@@ -610,12 +610,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     return this.db.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
-  public override async incrementAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress) {
-    await this.db.incrementAppTaggingSecret(this.contractAddress, sender, recipient);
+  public override async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
+    await this.db.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async syncNotes(recipient: AztecAddress) {
-    const taggedLogs = await this.db.syncTaggedLogs(this.contractAddress, recipient);
-    await this.db.processTaggedLogs(taggedLogs, recipient);
+  public override async syncNotes() {
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(this.contractAddress, this.scopes);
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries())
+      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
   }
 }

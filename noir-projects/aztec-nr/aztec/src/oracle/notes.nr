@@ -155,6 +155,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 where
     Note: NoteInterface<N>,
 {
+    sync_notes_oracle_wrapper();
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -204,42 +205,47 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
-/// Includes the last known index used for tagging with this secret.
+/// Includes the last known index used to send a note tagged with this secret.
 /// For this to work, PXE must know the ivpsk_m of the sender.
 /// For the recipient's side, only the address is needed.
-pub unconstrained fn get_app_tagging_secret(
+pub unconstrained fn get_app_tagging_secret_as_sender(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> IndexedTaggingSecret {
-    let result = get_app_tagging_secret_oracle(sender, recipient);
+    let result = get_app_tagging_secret_as_sender_oracle(sender, recipient);
     IndexedTaggingSecret::deserialize(result)
 }
 
-#[oracle(getAppTaggingSecret)]
-unconstrained fn get_app_tagging_secret_oracle(
+#[oracle(getAppTaggingSecretAsSender)]
+unconstrained fn get_app_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
 
-pub unconstrained fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
-    increment_app_tagging_secret_oracle(sender, recipient);
+/// Increments the index of the tagging secret for a given sender and recipient pair, siloed for the current contract
+/// It does so from the perspetive of the sender, to avoid reusing the same index in case we have received a note from the same address.
+pub unconstrained fn increment_app_tagging_secret_index_as_sender(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) {
+    increment_app_tagging_secret_index_as_sender_oracle(sender, recipient);
 }
 
-#[oracle(incrementAppTaggingSecret)]
-unconstrained fn increment_app_tagging_secret_oracle(
+#[oracle(incrementAppTaggingSecretIndexAsSender)]
+unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) {}
 
-pub fn sync_notes(recipient: AztecAddress) {
+pub fn sync_notes() {
     unsafe {
-        sync_notes_oracle_wrapper(recipient);
+        sync_notes_oracle_wrapper();
     }
 }
 
-unconstrained fn sync_notes_oracle_wrapper(recipient: AztecAddress) {
-    sync_notes_oracle(recipient);
+unconstrained fn sync_notes_oracle_wrapper() {
+    sync_notes_oracle();
 }
 
 #[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle(_recipient: AztecAddress) {}
+unconstrained fn sync_notes_oracle() {}

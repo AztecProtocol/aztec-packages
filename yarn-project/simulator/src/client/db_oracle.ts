@@ -204,7 +204,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  getAppTaggingSecret(
+  getAppTaggingSecretAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -216,7 +216,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    */
-  incrementAppTaggingSecret(
+  incrementAppTaggingSecretIndexAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -229,7 +229,10 @@ export interface DBOracle extends CommitmentsDB {
    * @param recipient - The address of the recipient
    * @returns A list of encrypted logs tagged with the recipient's address
    */
-  syncTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<TxScopedEncryptedL2NoteLog[]>;
+  syncTaggedLogs(
+    contractAddress: AztecAddress,
+    scopes?: AztecAddress[],
+  ): Promise<Map<string, TxScopedEncryptedL2NoteLog[]>>;
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.

@@ -302,10 +302,10 @@ export class ViewDataOracle extends TypedOracle {
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecret(
+  public override async getAppTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
+    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 }

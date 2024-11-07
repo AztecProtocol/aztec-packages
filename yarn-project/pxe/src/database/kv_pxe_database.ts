@@ -6,7 +6,6 @@ import {
   Header,
   type PublicKey,
   SerializableContractInstance,
-  type TaggingSecret,
   computePoint,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -64,8 +63,11 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByAddressPointAndScope: Map<string, AztecMultiMap<string, string>>;
 
-  // Stores the last index used for each tagging secret
-  #taggingSecretIndexes: AztecMap<string, number>;
+  // Stores the last index used for each tagging secret, taking direction into account
+  // This is necessary to avoid reusing the same index for the same secret, which happens if
+  // sender and recipient are the same
+  #taggingSecretIndexesForSenders: AztecMap<string, number>;
+  #taggingSecretIndexesForRecipients: AztecMap<string, number>;
 
   constructor(private db: AztecKVStore) {
     this.#db = db;
@@ -115,7 +117,8 @@ export class KVPxeDatabase implements PxeDatabase {
       this.#notesByAddressPointAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_address_point`));
     }
 
-    this.#taggingSecretIndexes = db.openMap('tagging_secret_indices');
+    this.#taggingSecretIndexesForSenders = db.openMap('tagging_secret_indexes_for_senders');
+    this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
   }
 
   public async getContract(
@@ -600,23 +603,38 @@ export class KVPxeDatabase implements PxeDatabase {
     return incomingNotesSize + outgoingNotesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
-  async incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void> {
-    const indexes = await this.getTaggingSecretsIndexes(appTaggingSecretsWithRecipient);
+  async incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void> {
+    await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
+  }
+
+  async incrementTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<void> {
+    await this.#incrementTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients);
+  }
+
+  async #incrementTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecMap<string, number>): Promise<void> {
+    const indexes = await this.#getTaggingSecretsIndexes(appTaggingSecrets, storageMap);
     await this.db.transaction(() => {
       indexes.forEach((taggingSecretIndex, listIndex) => {
         const nextIndex = taggingSecretIndex + 1;
-        const { secret, recipient } = appTaggingSecretsWithRecipient[listIndex];
-        const key = `${secret.toString()}-${recipient.toString()}`;
-        void this.#taggingSecretIndexes.set(key, nextIndex);
+        void storageMap.set(appTaggingSecrets[listIndex].toString(), nextIndex);
       });
     });
   }
 
-  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]> {
+  async getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]) {
+    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients);
+  }
+
+  async getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]) {
+    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
+  }
+
+  #getTaggingSecretsIndexes(
+    appTaggingSecretsWithRecipient: Fr[],
+    storageMap: AztecMap<string, number>,
+  ): Promise<number[]> {
     return this.db.transaction(() =>
-      appTaggingSecretsWithRecipient.map(
-        ({ secret, recipient }) => this.#taggingSecretIndexes.get(`${secret.toString()}-${recipient.toString()}`) ?? 0,
-      ),
+      appTaggingSecretsWithRecipient.map(secret => storageMap.get(`${secret.toString()}`) ?? 0),
     );
   }
 }

@@ -4,7 +4,6 @@ import {
   type ContractInstanceWithAddress,
   type Header,
   type PublicKey,
-  type TaggingSecret,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -209,18 +208,29 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been seen.
-   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
-   * whether the index was used to tag a sent or received note.
    * @param appTaggingSecrets - The app siloed tagging secrets.
    * @returns The indexes for the provided secrets, 0 if they've never been seen.
    */
-  getTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<number[]>;
+  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<number[]>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets.
-   * The recipient must also be provided to convey "directionality" of the secret and index pair, or in other words
-   * whether the index was used to tag a sent or received note.
+   * Returns the last seen indexes for the provided app siloed tagging secrets or 0 if they've never been used
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   * @returns The indexes for the provided secrets, 0 if they've never been seen.
+   */
+  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
+
+  /**
+   * Increments the index for the provided app siloed tagging secrets in the senders database
+   * To be used when the generated tags have been used as sender
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexes(appTaggingSecretsWithRecipient: TaggingSecret[]): Promise<void>;
+  incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
+
+  /**
+   * Increments the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a recipient
+   * @param appTaggingSecrets - The app siloed tagging secrets.
+   */
+  incrementTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]): Promise<void>;
 }

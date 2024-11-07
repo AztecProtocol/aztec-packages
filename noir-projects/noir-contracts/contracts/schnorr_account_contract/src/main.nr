@@ -20,7 +20,9 @@ contract SchnorrAccount {
         functions::{initializer, noinitcheck, private, view},
         storage::storage,
     };
-    use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
+    use dep::aztec::oracle::{
+        get_nullifier_membership_witness::get_low_nullifier_membership_witness, notes::sync_notes,
+    };
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;

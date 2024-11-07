@@ -17,7 +17,6 @@ import {
   INITIAL_L2_BLOCK_NUM,
   KeyValidationRequest,
   MAX_NOTE_HASHES_PER_TX,
-  TaggingSecret,
   computeAddress,
   computeOvskApp,
   computeTaggingSecret,
@@ -232,23 +231,22 @@ describe('Simulator oracle', () => {
     });
 
     it('should sync tagged logs', async () => {
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, recipient.address);
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
-      expect(syncedLogs).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
 
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
-      const directionalSecrets = senders.map(sender => {
+      const secrets = senders.map(sender => {
         const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        const siloedSecret = poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
-        return new TaggingSecret(siloedSecret, recipient.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
       });
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders hould also have index 1
       // Last 5 senders should have index 2
-      const indexes = await database.getTaggingSecretsIndexes(directionalSecrets);
+      const indexes = await database.getTaggingSecretsIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
@@ -258,18 +256,17 @@ describe('Simulator oracle', () => {
       // Recompute the secrets (as recipient) to update indexes
 
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
-      const directionalSecrets = senders.map(sender => {
+      const secrets = senders.map(sender => {
         const firstSenderSharedSecret = computeTaggingSecret(recipient, ivsk, sender.completeAddress.address);
-        const siloedSecret = poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
-        return new TaggingSecret(siloedSecret, recipient.address);
+        return poseidon2Hash([firstSenderSharedSecret.x, firstSenderSharedSecret.y, contractAddress]);
       });
 
-      await database.incrementTaggingSecretsIndexes(directionalSecrets);
+      await database.incrementTaggingSecretsIndexesAsRecipient(secrets);
 
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, recipient.address);
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress);
 
       // Only half of the logs should be synced since we start from index 1, the other half should be skipped
-      expect(syncedLogs).toHaveLength(NUM_SENDERS / 2);
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
 
       // We should have called the node twice, once for index 1 and once for index 2 (which should return no logs)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);

@@ -14,7 +14,10 @@ use std::{
 use crate::{
     encrypted_logs::header::EncryptedLogHeader,
     keys::point_to_symmetric_key::point_to_symmetric_key,
-    oracle::{notes::{get_app_tagging_secret, increment_app_tagging_secret}, random::random},
+    oracle::{
+        notes::{get_app_tagging_secret_as_sender, increment_app_tagging_secret_index_as_sender},
+        random::random,
+    },
     utils::point::point_to_bytes,
 };
 
@@ -125,11 +128,11 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     let mut encrypted_bytes = [0; M];
     let mut offset = 0;
 
-    let tagging_secret = unsafe { get_app_tagging_secret(sender, recipient) };
+    let tagging_secret = unsafe { get_app_tagging_secret_as_sender(sender, recipient) };
 
-    unsafe { increment_app_tagging_secret(sender, recipient); };
+    unsafe { increment_app_tagging_secret_index_as_sender(sender, recipient); };
 
-    let tag = tagging_secret.compute_tag();
+    let tag = tagging_secret.compute_tag(recipient);
     let tag_bytes: [u8; 32] = tag.to_be_bytes();
 
     for i in 0..32 {

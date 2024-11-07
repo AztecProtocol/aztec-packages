@@ -27,7 +27,6 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
-  TaggingSecret,
   TxContext,
   computeAppNullifierSecretKey,
   computeOvskApp,
@@ -259,10 +258,10 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    oracle.getAppTaggingSecret.mockImplementation(
+    oracle.getAppTaggingSecretAsSender.mockImplementation(
       (_contractAddress: AztecAddress, _sender: AztecAddress, recipient: AztecAddress) => {
-        const directionalSecret = new TaggingSecret(Fr.random(), recipient);
-        return Promise.resolve(IndexedTaggingSecret.fromTaggingSecret(directionalSecret, 0));
+        const secret = Fr.random();
+        return Promise.resolve(new IndexedTaggingSecret(secret, 0));
       },
     );
 
