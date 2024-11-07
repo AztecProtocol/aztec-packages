@@ -81,13 +81,13 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 }
 
 /**
- * @brief Check that the number of gates in each block does not exceed capacity. Move any overflow to the overflow
- * block.
+ * @brief Check that the number of gates in each block does not exceed its fixed capacity. Move any overflow to the
+ * overflow block.
  * @details Using a structured trace (fixed capcity for each gate type) optimizes the efficiency of folding. However,
- * to acommodate circuits which cannot fit into a prescribed trace, gates which overflow their corresponding block are
+ * to accommodate circuits which cannot fit into a prescribed trace, gates which overflow their corresponding block are
  * placed into an overflow block which can contain arbitrary gate types.
  * @note One sublety is that gates at row i may in general utilize the values at row i+1 via shifts. If the last row in
- * a full-capactiy block is such a gate, then moving the overflow out of sequence will cause that gate not to be
+ * a full-capacity block is such a gate, then moving the overflow out of sequence will cause that gate not to be
  * satisfied. To avoid this, when a block overflows, the final gate in the block is duplicated, once as a dummy gate in
  * the main block (so that the prior gate can read into it but it does not itself try to read into the next row) and
  * again as a normal gate in the overflow block. Therefore, the total number of gates in the circuit increases by one
@@ -107,6 +107,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 
     blocks.compute_offsets(/*is_structured=*/true); // compute the offset of each fixed size block
 
+    // Check each block for capacity overflow; if necessary move gates into the overflow block
     for (auto& block : blocks.get()) {
         size_t block_size = block.size();
         uint32_t fixed_block_size = block.get_fixed_size();
@@ -117,9 +118,9 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // Set has_overflow to true if at least one block exceeds its capacity
             blocks.has_overflow = true;
 
-            // The circuit memory records store the indices at which a RAM/ROM read/write has occurred. If the block
-            // containing RAM/ROM gates overflows, these indices of the corresponding gates need to be updated to
-            // reflect their new position in the overflow block
+            // The circuit memory read/write records store the indices at which a RAM/ROM read/write has occurred. If
+            // the block containing RAM/ROM gates overflows, the indices of the corresponding gates in the memory
+            // records need to be updated to reflect their new position in the overflow block
             if (block.has_ram_rom) {
 
                 uint32_t overflow_cur_idx = overflow_block.trace_offset + static_cast<uint32_t>(overflow_block.size());
@@ -152,18 +153,18 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             size_t overflow_end = block_size;
             for (auto [wire, overflow_wire] : zip_view(block.wires, overflow_block.wires)) {
                 for (size_t i = overflow_start; i < overflow_end; ++i) {
-                    overflow_wire.emplace_back(wire[i]);
+                    overflow_wire.push_back(wire[i]);
                 }
                 wire.resize(fixed_block_size); // shrink the main block to its max capacity
             }
             for (auto [selector, overflow_selector] : zip_view(block.selectors, overflow_block.selectors)) {
                 for (size_t i = overflow_start; i < overflow_end; ++i) {
-                    overflow_selector.emplace_back(selector[i]);
+                    overflow_selector.push_back(selector[i]);
                 }
                 selector.resize(fixed_block_size); // shrink the main block to its max capacity
             }
-            // Convert the final gate in the main block to a 'dummy' gate by turning off all gate selectors so ensure it
-            // does not erroneously read into the next row. (The active duplicate exists in the overflow block).
+            // Convert final gate in the main block to a 'dummy' gate by turning off all gate selectors. This ensures it
+            // does not erroneously read into the next row. (An 'active' duplicate exists in the overflow block).
             for (auto& selector : block.get_gate_selectors()) {
                 selector.back() = 0;
             }

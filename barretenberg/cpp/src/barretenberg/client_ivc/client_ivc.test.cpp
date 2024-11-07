@@ -76,11 +76,11 @@ class ClientIVCTests : public ::testing::Test {
         }
 
         auto precompute_verification_keys(const size_t num_circuits,
-                                          TraceStructure trace_structure,
+                                          TraceSettings trace_settings,
                                           size_t log2_num_gates = 16)
         {
             ClientIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
-            ivc.trace_settings.structure = trace_structure;
+            ivc.trace_settings = trace_settings;
 
             std::vector<std::shared_ptr<VerificationKey>> vkeys;
 
@@ -307,7 +307,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 
     MockCircuitProducer circuit_producer;
 
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceStructure::NONE);
+    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -333,7 +333,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     MockCircuitProducer circuit_producer;
 
     auto precomputed_vks =
-        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings.structure, log2_num_gates);
+        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -360,8 +360,7 @@ TEST(ClientIVCBenchValidation, Full6)
     ivc.trace_settings.structure = TraceStructure::CLIENT_IVC_BENCH;
     size_t total_num_circuits{ 12 };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys =
-        circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings.structure);
+    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
     perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
@@ -399,7 +398,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 {
     ClientIVC ivc;
 
-    // Define trace settings with sufficient overflow capacity to acommodate each of the circuits to be accumulated
+    // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
     uint32_t overflow_capacity = 1 << 17;
     ivc.trace_settings = { TraceStructure::SMALL_TEST, overflow_capacity };
 

@@ -160,29 +160,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     proving_key->relation_parameters.eta_two = eta_two;
     proving_key->relation_parameters.eta_three = eta_three;
 
-    // auto& polys = proving_key->proving_key.polynomials;
-    // std::vector<size_t> idxs = { 54, 61 };
-    // for (auto idx : idxs) {
-    //     info("IDX = ", idx);
-    //     info("q_aux = ", polys.q_aux[idx]);
-    //     info("q_arith = ", polys.q_arith[idx]);
-    //     info("w_l = ", polys.w_l[idx]);
-    //     info("w_r = ", polys.w_r[idx]);
-    //     info("w_o = ", polys.w_o[idx]);
-    //     info("w_4 = ", polys.w_4[idx]);
-    // }
-
     proving_key->proving_key.add_ram_rom_memory_records_to_wire_4(eta, eta_two, eta_three);
-
-    // for (auto idx : idxs) {
-    //     info("IDX = ", idx);
-    //     info("q_aux = ", polys.q_aux[idx]);
-    //     info("q_arith = ", polys.q_arith[idx]);
-    //     info("w_l = ", polys.w_l[idx]);
-    //     info("w_r = ", polys.w_r[idx]);
-    //     info("w_o = ", polys.w_o[idx]);
-    //     info("w_4 = ", polys.w_4[idx]);
-    // }
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     {

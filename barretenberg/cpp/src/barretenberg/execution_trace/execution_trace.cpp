@@ -76,15 +76,6 @@ void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(TraceData& trace
     for (auto& index : builder.memory_write_records) {
         proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
-    // info("trace_data.ram_rom_offset = ", trace_data.ram_rom_offset);
-    // info("READ records: ");
-    // for (auto idx : proving_key.memory_read_records) {
-    //     info("idx = ", idx);
-    // }
-    // info("WRITE records: ");
-    // for (auto idx : proving_key.memory_write_records) {
-    //     info("idx = ", idx);
-    // }
 }
 
 template <class Flavor>

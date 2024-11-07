@@ -97,7 +97,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
     std::vector<std::shared_ptr<VerificationKey>> precomputed_vks;
     {
         MockCircuitProducer circuit_producer;
-        precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings.structure);
+        precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings);
     }
 
     MockCircuitProducer circuit_producer;
