@@ -130,7 +130,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const contractClass = makeContractClassPublic(0, publicFn);
     const contractInstance = makeContractInstanceFromClassId(contractClass.id);
 
-    // The values here should match those in `avm_simulator.test.ts`
+    // The values here should match those in getContractInstance test case
     const instanceGet = new SerializableContractInstance({
       version: 1,
       salt: new Fr(0x123),

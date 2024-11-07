@@ -21,7 +21,7 @@ import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
-import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -76,7 +76,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-  ISysstia public immutable SYSSTIA;
+  IRewardDistributor public immutable REWARD_DISTRIBUTOR;
   IERC20 public immutable ASSET;
   IVerifier public epochProofVerifier;
 
@@ -102,7 +102,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
-    ISysstia _sysstia,
+    IRewardDistributor _rewardDistributor,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
@@ -110,7 +110,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    SYSSTIA = _sysstia;
+    REWARD_DISTRIBUTOR = _rewardDistributor;
     ASSET = _fpcJuicePortal.UNDERLYING();
     PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(ASSET, address(this));
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
@@ -259,11 +259,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
     //        Otherwise, the fees are unbacked #7938.
     bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-    bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
+    bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
     uint256 totalProverReward = 0;
 
-    if (isFeeCanonical || isSysstiaCanonical) {
+    if (isFeeCanonical || isRewardDistributorCanonical) {
       for (uint256 i = 0; i < _epochSize; i++) {
         address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
         uint256 reward = 0;
@@ -277,8 +277,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
           }
         }
 
-        if (isSysstiaCanonical) {
-          reward += SYSSTIA.claim(address(this));
+        if (isRewardDistributorCanonical) {
+          reward += REWARD_DISTRIBUTOR.claim(address(this));
         }
 
         if (coinbase == address(0)) {
@@ -540,7 +540,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       _fakeBlockNumberAsProven(blockNumber);
 
       bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-      bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
+      bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
       if (isFeeCanonical && header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
@@ -548,8 +548,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
         //        Consider allowing a failure. See #7938.
         FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
       }
-      if (isSysstiaCanonical && header.globalVariables.coinbase != address(0)) {
-        SYSSTIA.claim(header.globalVariables.coinbase);
+      if (isRewardDistributorCanonical && header.globalVariables.coinbase != address(0)) {
+        REWARD_DISTRIBUTOR.claim(header.globalVariables.coinbase);
       }
 
       emit L2ProofVerified(blockNumber, "CHEAT");

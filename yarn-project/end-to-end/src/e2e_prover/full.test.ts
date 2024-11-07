@@ -1,5 +1,5 @@
 import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
-import { RollupAbi, SysstiaAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
@@ -22,7 +22,7 @@ describe('full_prover', () => {
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let feeJuice: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
-  let sysstia: GetContractReturnType<typeof SysstiaAbi, PublicClient<HttpTransport, Chain>>;
+  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -45,9 +45,9 @@ describe('full_prover', () => {
       client: t.l1Contracts.publicClient,
     });
 
-    sysstia = getContract({
-      abi: SysstiaAbi,
-      address: t.l1Contracts.l1ContractAddresses.sysstiaAddress.toString(),
+    rewardDistributor = getContract({
+      abi: RewardDistributorAbi,
+      address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
       client: t.l1Contracts.publicClient,
     });
   });
@@ -140,7 +140,7 @@ describe('full_prover', () => {
       const provenBn = await rollup.read.getProvenBlockNumber();
       const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
       const balanceAfterProver = await feeJuice.read.balanceOf([t.proverAddress.toString()]);
-      const blockReward = (await sysstia.read.BLOCK_REWARD()) as bigint;
+      const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
       const fees = (
         await Promise.all([t.aztecNode.getBlock(Number(provenBn - 1n)), t.aztecNode.getBlock(Number(provenBn))])
       ).map(b => b!.header.totalFees.toBigInt());

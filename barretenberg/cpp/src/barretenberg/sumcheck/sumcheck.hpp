@@ -719,6 +719,8 @@ template <typename Flavor> class SumcheckVerifier {
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of
+        // a field_t link multivariate_d.
         if (multivariate_d == 0) {
             throw_or_abort("Number of variables in multivariate is 0.");
         }
@@ -748,7 +750,7 @@ template <typename Flavor> class SumcheckVerifier {
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 bool checked = round.check_sum(round_univariate, dummy_round);
                 // Only utilize the checked value if this is not a constant proof size padding round

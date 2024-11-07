@@ -28,7 +28,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { GerousiaAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { GovernanceProposerAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -154,8 +154,8 @@ export class L1Publisher {
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
-  private gerousiaContract?: GetContractReturnType<
-    typeof GerousiaAbi,
+  private governanceProposerContract?: GetContractReturnType<
+    typeof GovernanceProposerAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   > = undefined;
 
@@ -193,10 +193,10 @@ export class L1Publisher {
       client: this.walletClient,
     });
 
-    if (l1Contracts.gerousiaAddress) {
-      this.gerousiaContract = getContract({
-        address: getAddress(l1Contracts.gerousiaAddress.toString()),
-        abi: GerousiaAbi,
+    if (l1Contracts.governanceProposerAddress) {
+      this.governanceProposerContract = getContract({
+        address: getAddress(l1Contracts.governanceProposerAddress.toString()),
+        abi: GovernanceProposerAbi,
         client: this.walletClient,
       });
     }
@@ -392,7 +392,7 @@ export class L1Publisher {
       return false;
     }
 
-    if (!this.gerousiaContract) {
+    if (!this.governanceProposerContract) {
       return false;
     }
 
@@ -405,14 +405,17 @@ export class L1Publisher {
 
     const [proposer, roundNumber] = await Promise.all([
       this.rollupContract.read.getProposerAt([timestamp]),
-      this.gerousiaContract.read.computeRound([slotNumber]),
+      this.governanceProposerContract.read.computeRound([slotNumber]),
     ]);
 
     if (proposer != this.account.address) {
       return false;
     }
 
-    const [slotForLastVote] = await this.gerousiaContract.read.rounds([this.rollupContract.address, roundNumber]);
+    const [slotForLastVote] = await this.governanceProposerContract.read.rounds([
+      this.rollupContract.address,
+      roundNumber,
+    ]);
 
     if (slotForLastVote >= slotNumber) {
       return false;
@@ -425,7 +428,7 @@ export class L1Publisher {
 
     let txHash;
     try {
-      txHash = await this.gerousiaContract.write.vote([this.payload.toString()], {
+      txHash = await this.governanceProposerContract.write.vote([this.payload.toString()], {
         account: this.account,
       });
     } catch (err) {
