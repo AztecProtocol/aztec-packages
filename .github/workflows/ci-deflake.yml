@@ -1,3 +1,4 @@
+# A testnet release-oriented set of tests to run 5 times to deflake them.
 name: CI (deploy branch)
 on:
   push:
