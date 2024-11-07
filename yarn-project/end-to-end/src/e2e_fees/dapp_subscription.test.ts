@@ -103,13 +103,14 @@ describe('e2e_fees dapp_subscription', () => {
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**
     PRIVATE SETUP
-    we first transfer `MAX_FEE` BC from alice's private balance to the FPC's public balance
+    we first deduct `MAX_FEE` BC from alice's private balance
+    we setup partial notes for the fee going to the fee recipient and the refund going to alice
 
     PUBLIC APP LOGIC
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    the FPC publicly sends `REFUND` BC to alice
+    the FPC finalizes the partial notes for the fee and the refund
     */
 
     const { transactionFee } = await subscribe(
@@ -126,8 +127,8 @@ describe('e2e_fees dapp_subscription', () => {
     );
 
     // alice, bob, fpc
-    await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - t.maxFee, t.SUBSCRIPTION_AMOUNT, 0n);
-    await expectBananasPublicDelta(0n, 0n, transactionFee!);
+    await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - transactionFee!, t.SUBSCRIPTION_AMOUNT, 0n);
+    await expectBananasPublicDelta(0n, 0n, 0n);
 
     // REFUND_AMOUNT is a transparent note note
   });
@@ -135,13 +136,14 @@ describe('e2e_fees dapp_subscription', () => {
   it('should allow Alice to subscribe by paying with bananas in public', async () => {
     /**
     PRIVATE SETUP
-    we publicly transfer `MAX_FEE` BC from alice's public balance to the FPC's public balance
+    we first deduct `MAX_FEE` BC from alice's private balance
+    we setup partial notes for the fee going to the fee recipient and the refund going to alice
 
     PUBLIC APP LOGIC
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    the FPC publicly sends `REFUND` BC to alice
+    the FPC finalizes the partial notes for the fee and the refund
     */
     const { transactionFee } = await subscribe(
       new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
