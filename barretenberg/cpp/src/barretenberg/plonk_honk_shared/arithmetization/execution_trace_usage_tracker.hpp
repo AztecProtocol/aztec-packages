@@ -90,10 +90,17 @@ struct ExecutionTraceUsageTracker {
     }
 
     // For printing only. Must match the order of the members in the arithmetization
-    std::vector<std::string> block_labels{ "ecc_op",     "pub_inputs",         "busread",
-                                           "arithmetic", "delta_range",        "elliptic",
-                                           "aux",        "poseidon2_external", "poseidon2_internal",
-                                           "lookup",     "miscellaneous" };
+    std::vector<std::string> block_labels{ "ecc_op",
+                                           "pub_inputs",
+                                           "busread",
+                                           "arithmetic",
+                                           "delta_range",
+                                           "elliptic",
+                                           "aux",
+                                           "poseidon2_external",
+                                           "poseidon2_internal",
+                                           "lookup",
+                                           "overflow" };
 
     void print()
     {

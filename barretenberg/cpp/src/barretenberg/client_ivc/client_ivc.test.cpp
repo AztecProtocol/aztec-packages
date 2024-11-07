@@ -390,7 +390,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
 }
 
 /**
- * @brief Test use of miscellaneous block
+ * @brief Test use of overflow block
  *
  */
 TEST_F(ClientIVCTests, MiscellaneousBlock)

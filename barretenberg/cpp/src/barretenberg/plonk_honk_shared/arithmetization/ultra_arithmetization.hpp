@@ -24,12 +24,12 @@ template <typename FF_> class UltraArith {
         T lookup;
         T poseidon2_external;
         T poseidon2_internal;
-        T miscellaneous;
+        T overflow;
 
         auto get()
         {
-            return RefArray{ pub_inputs, arithmetic,         delta_range,        elliptic,     aux,
-                             lookup,     poseidon2_external, poseidon2_internal, miscellaneous };
+            return RefArray{ pub_inputs, arithmetic,         delta_range,        elliptic, aux,
+                             lookup,     poseidon2_external, poseidon2_internal, overflow };
         }
 
         auto get_gate_blocks()
@@ -53,7 +53,7 @@ template <typename FF_> class UltraArith {
             this->lookup = FIXED_SIZE;
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = FIXED_SIZE;
-            this->miscellaneous = 0;
+            this->overflow = 0;
         }
     };
 
@@ -134,7 +134,7 @@ template <typename FF_> class UltraArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
-            this->miscellaneous.set_fixed_size(settings.overflow);
+            this->overflow.set_fixed_size(settings.overflow);
         }
 
         void compute_offsets(bool is_structured)
@@ -148,9 +148,9 @@ template <typename FF_> class UltraArith {
 
         auto get()
         {
-            return RefArray{ this->pub_inputs,   this->arithmetic, this->delta_range,        this->elliptic,
-                             this->aux,          this->lookup,     this->poseidon2_external, this->poseidon2_internal,
-                             this->miscellaneous };
+            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,        this->elliptic,
+                             this->aux,        this->lookup,     this->poseidon2_external, this->poseidon2_internal,
+                             this->overflow };
         }
 
         void summarize() const
@@ -164,7 +164,7 @@ template <typename FF_> class UltraArith {
             info("lookups    :\t", this->lookup.size());
             info("poseidon ext  :\t", this->poseidon2_external.size());
             info("poseidon int  :\t", this->poseidon2_internal.size());
-            info("miscellaneous :\t", this->miscellaneous.size());
+            info("overflow :\t", this->overflow.size());
         }
 
         size_t get_total_structured_size()
@@ -174,22 +174,6 @@ template <typename FF_> class UltraArith {
                 total_size += block.get_fixed_size();
             }
             return total_size;
-        }
-
-        /**
-         * @brief Check that the number of rows populated in each block does not exceed the specified fixed size
-         * @note This check is only applicable when utilizing a structured trace
-         *
-         */
-        void check_within_fixed_sizes()
-        {
-            for (auto block : this->get()) {
-                if (block.size() > block.get_fixed_size()) {
-                    info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
-                         "not be constructed correctly!");
-                    ASSERT(false);
-                }
-            }
         }
 
         bool operator==(const TraceBlocks& other) const = default;

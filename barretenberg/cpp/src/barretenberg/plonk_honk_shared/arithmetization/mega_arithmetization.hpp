@@ -35,21 +35,35 @@ template <typename FF_> class MegaArith {
         T poseidon2_external;
         T poseidon2_internal;
         T lookup;
-        T miscellaneous;
+        T overflow;
 
         auto get()
         {
-            return RefArray{ ecc_op,     pub_inputs,         busread,
-                             arithmetic, delta_range,        elliptic,
-                             aux,        poseidon2_external, poseidon2_internal,
-                             lookup,     miscellaneous };
+            return RefArray{ ecc_op,
+                             pub_inputs,
+                             busread,
+                             arithmetic,
+                             delta_range,
+                             elliptic,
+                             aux,
+                             poseidon2_external,
+                             poseidon2_internal,
+                             lookup,
+                             overflow };
         }
         auto get() const
         {
-            return RefArray{ ecc_op,     pub_inputs,         busread,
-                             arithmetic, delta_range,        elliptic,
-                             aux,        poseidon2_external, poseidon2_internal,
-                             lookup,     miscellaneous };
+            return RefArray{ ecc_op,
+                             pub_inputs,
+                             busread,
+                             arithmetic,
+                             delta_range,
+                             elliptic,
+                             aux,
+                             poseidon2_external,
+                             poseidon2_internal,
+                             lookup,
+                             overflow };
         }
 
         auto get_gate_blocks()
@@ -76,7 +90,7 @@ template <typename FF_> class MegaArith {
             // this->poseidon2_external = FIXED_SIZE;
             // this->poseidon2_internal = 1 << 15;
             // this->lookup = FIXED_SIZE;
-            // this->miscellaneous = 0;
+            // this->overflow = 0;
 
             // this->ecc_op = 50;
             // this->pub_inputs = 33;
@@ -99,7 +113,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 2;
             this->poseidon2_internal = 2;
             this->lookup = 2;
-            this->miscellaneous = 0;
+            this->overflow = 0;
         }
     };
     // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
@@ -117,7 +131,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = 1 << 15;
             this->lookup = FIXED_SIZE;
-            this->miscellaneous = 0;
+            this->overflow = 0;
         }
     };
 
@@ -136,7 +150,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 2500;
             this->poseidon2_internal = 14000;
             this->lookup = 72000;
-            this->miscellaneous = 0;
+            this->overflow = 0;
 
             // Additional structurings for testing
             // // 2^18 (Only viable if no 2^19 circuit is used!)
@@ -150,7 +164,7 @@ template <typename FF_> class MegaArith {
             // this->poseidon2_external = 2500;
             // this->poseidon2_internal = 14000;
             // this->lookup = 36000;
-            // this->miscellaneous = 0;
+            // this->overflow = 0;
 
             // // 2^20
             // this->ecc_op = 1 << 11;
@@ -163,7 +177,7 @@ template <typename FF_> class MegaArith {
             // this->poseidon2_external = 5000;
             // this->poseidon2_internal = 28000;
             // this->lookup = 144000;
-            // this->miscellaneous = 0;
+            // this->overflow = 0;
         }
     };
 
@@ -181,7 +195,7 @@ template <typename FF_> class MegaArith {
             this->poseidon2_external = 30128;
             this->poseidon2_internal = 172000;
             this->lookup = 200000;
-            this->miscellaneous = 0;
+            this->overflow = 0;
         }
     };
 
@@ -289,8 +303,8 @@ template <typename FF_> class MegaArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
-            // Set the size of miscellaneous block containing the overflow from all other blocks
-            this->miscellaneous.set_fixed_size(settings.overflow);
+            // Set the size of overflow block containing the overflow from all other blocks
+            this->overflow.set_fixed_size(settings.overflow);
         }
 
         void compute_offsets(bool is_structured)
@@ -315,7 +329,7 @@ template <typename FF_> class MegaArith {
             info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
             info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
             info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
-            info("miscellaneous :\t", this->miscellaneous.size(), "/", this->miscellaneous.get_fixed_size());
+            info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
             info("");
         }
 
@@ -326,64 +340,6 @@ template <typename FF_> class MegaArith {
                 total_size += block.get_fixed_size();
             }
             return total_size;
-        }
-
-        void check_within_fixed_sizes()
-        {
-            using SelectorType = SlabVector<FF>;
-            using WireType = SlabVector<uint32_t>;
-
-            for (auto& block : this->get()) {
-                size_t block_size = block.size();
-                size_t fixed_block_size = block.get_fixed_size();
-                if (block_size > block.get_fixed_size() && block != this->miscellaneous) {
-                    // Set flag indicating that at least one block exceeds capacity and the misc block is in use
-                    this->has_overflow = true;
-
-                    // move the excess wire and selector data from the offending block to the miscellaneous block
-                    for (auto [wire, misc_wire] : zip_view(block.wires, this->miscellaneous.wires)) {
-                        WireType overflow(wire.begin() + static_cast<std::ptrdiff_t>(fixed_block_size), wire.end());
-                        // misc_wire.push_back(overflow);
-                        for (const auto& val : overflow) {
-                            misc_wire.emplace_back(val);
-                        }
-                        wire.resize(fixed_block_size);
-                    }
-                    for (auto [selector, misc_selector] : zip_view(block.selectors, this->miscellaneous.selectors)) {
-                        SelectorType overflow(selector.begin() + static_cast<std::ptrdiff_t>(fixed_block_size),
-                                              selector.end());
-                        // misc_selector.push_back(std::move(overflow));
-                        for (const auto& val : overflow) {
-                            misc_selector.emplace_back(val);
-                        }
-                        selector.resize(fixed_block_size);
-                    }
-
-                    // WORKTODO: handle mem record offsets
-                    // // if the overflowing block contains RAM/ROM, need to update gate indices in memory records to
-                    // // account for moving them into the miscellaneous block
-                    // if (block.has_ram_rom) {
-                    //     uint32_t offset = this->miscellaneous.offset - block.offset + this->miscellaneous.size();
-                    //     for (auto& idx : )
-
-                    // }
-
-                    this->miscellaneous.has_ram_rom = block.has_ram_rom;
-                    this->miscellaneous.is_pub_inputs = block.is_pub_inputs;
-                    this->summarize();
-                    info(block.size());
-
-                    info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
-                         "not be constructed correctly!");
-                    summarize();
-                    // ASSERT(false);
-                }
-            }
-            // WORKTODO: for now we dont handle this
-            ASSERT(!this->miscellaneous.has_ram_rom);
-            ASSERT(!this->miscellaneous.is_pub_inputs);
-            // Set the fixed size of the miscellaneous block to its current size
-            this->miscellaneous.set_fixed_size(static_cast<uint32_t>(this->miscellaneous.size()));
         }
 
         bool operator==(const TraceBlocks& other) const = default;

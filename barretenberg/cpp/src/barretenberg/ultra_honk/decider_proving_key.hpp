@@ -62,8 +62,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         if (is_structured) {
             circuit.blocks.set_fixed_block_sizes(trace_settings); // set the fixed sizes for each block
             circuit.blocks.summarize();
-            // circuit.blocks.check_within_fixed_sizes(); // ensure that no block exceeds its fixed size
-            move_structured_trace_overflow_to_miscellaneous_block(circuit);
+            move_structured_trace_overflow_to_overflow_block(circuit);
             dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
         } else {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
@@ -91,7 +90,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             }
-            // If using structured trace but overflow has occurred (misc. block in use), allocate full size polynomials
+            // If using structured trace but overflow has occurred (overflow block in use), allocate full size polys
             else if (is_structured && circuit.blocks.has_overflow) {
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             } else { // Allocate only a correct amount of memory for each polynomial
@@ -340,14 +339,14 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         requires IsGoblinFlavor<Flavor>;
 
   public:
-    static void move_structured_trace_overflow_to_miscellaneous_block(Circuit& circuit)
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
     {
         auto& blocks = circuit.blocks;
-        auto& misc_block = circuit.blocks.miscellaneous;
+        auto& overflow_block = circuit.blocks.overflow;
 
         // WORKTODO: need to think about what cases to support here. Can't be surprised by an overflow in the IVC
         // setting but need to be able to determine the overflow for a one-off circuit.
-        if (misc_block.get_fixed_size() > 0) {
+        if (overflow_block.get_fixed_size() > 0) {
             info("Miscellaneous block has non-zero size; setting has_overflow to TRUE.");
             blocks.has_overflow = true;
         }
@@ -357,23 +356,24 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         for (auto& block : blocks.get()) {
             size_t block_size = block.size();
             size_t fixed_block_size = block.get_fixed_size();
-            if (block_size > fixed_block_size && block != misc_block) {
+            if (block_size > fixed_block_size && block != overflow_block) {
                 // We dont handle this case
                 ASSERT(!block.is_pub_inputs);
 
-                // Set flag indicating that at least one block exceeds capacity and the misc block is in use
+                // Set flag indicating that at least one block exceeds capacity and the overflow block is in use
                 blocks.has_overflow = true;
 
                 // if the overflowing block contains RAM/ROM, need to update gate indices in memory records to
-                // account for moving them into the miscellaneous block
+                // account for moving them into the overflow block
                 if (block.has_ram_rom) {
 
                     // for (auto& val : block.q_aux()) {
                     //     info("q_aux = ", val);
                     // }
-                    uint32_t misc_block_start_idx = misc_block.trace_offset + static_cast<uint32_t>(misc_block.size());
-                    misc_block_start_idx -= block.trace_offset; // we'll add block.trace_offset to everything later
-                    uint32_t offset = misc_block_start_idx + 1; // +1 accounts for duplication of final gate
+                    uint32_t overflow_block_start_idx =
+                        overflow_block.trace_offset + static_cast<uint32_t>(overflow_block.size());
+                    overflow_block_start_idx -= block.trace_offset; // we'll add block.trace_offset to everything later
+                    uint32_t offset = overflow_block_start_idx + 1; // +1 accounts for duplication of final gate
                     bool last_gate_is_memory_read = false;
                     bool last_gate_is_memory_write = false;
                     for (auto& idx : circuit.memory_read_records) {
@@ -383,7 +383,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                         }
                         if (idx >= fixed_block_size) {
                             idx -= fixed_block_size; // redefine index from zero
-                            idx += offset;           // shift to correct location in misc block
+                            idx += offset;           // shift to correct location in overflow block
                         }
                     }
                     for (auto& idx : circuit.memory_write_records) {
@@ -393,30 +393,30 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                         }
                         if (idx >= fixed_block_size) {
                             idx -= fixed_block_size; // redefine index from zero
-                            idx += offset;           // shift to correct location in misc block
+                            idx += offset;           // shift to correct location in overflow block
                         }
                     }
-                    // The last gate in the main block will be duplicated in the miscellaneous block. If it was a memory
-                    // read/write, add the corresponding the misc block index to the memory record indices.
+                    // The last gate in the main block will be duplicated in the overflow block. If it was a memory
+                    // read/write, add the corresponding the overflow block index to the memory record indices.
                     if (last_gate_is_memory_read) {
-                        circuit.memory_read_records.push_back(misc_block_start_idx);
+                        circuit.memory_read_records.push_back(overflow_block_start_idx);
                     } else if (last_gate_is_memory_write) {
-                        circuit.memory_write_records.push_back(misc_block_start_idx);
+                        circuit.memory_write_records.push_back(overflow_block_start_idx);
                     }
                 }
 
-                // Move the excess wire and selector data from the offending block to the miscellaneous block
+                // Move the excess wire and selector data from the offending block to the overflow block
                 size_t start = fixed_block_size - 1; // the final gate in the main block is duplicated
                 size_t end = block_size;
-                for (auto [wire, misc_wire] : zip_view(block.wires, misc_block.wires)) {
+                for (auto [wire, overflow_wire] : zip_view(block.wires, overflow_block.wires)) {
                     for (size_t i = start; i < end; ++i) {
-                        misc_wire.emplace_back(wire[i]);
+                        overflow_wire.emplace_back(wire[i]);
                     }
                     wire.resize(fixed_block_size);
                 }
-                for (auto [selector, misc_selector] : zip_view(block.selectors, misc_block.selectors)) {
+                for (auto [selector, overflow_selector] : zip_view(block.selectors, overflow_block.selectors)) {
                     for (size_t i = start; i < end; ++i) {
-                        misc_selector.emplace_back(selector[i]);
+                        overflow_selector.emplace_back(selector[i]);
                     }
                     selector.resize(fixed_block_size);
                 }
@@ -427,17 +427,17 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             }
         }
         // WORKTODO: probably don't set this here but this means it needs to be set correctly on input
-        // Set the fixed size of the miscellaneous block to its current size
-        if (misc_block.size() > misc_block.get_fixed_size()) {
+        // Set the fixed size of the overflow block to its current size
+        if (overflow_block.size() > overflow_block.get_fixed_size()) {
             info("WARNING: Overflow value was set too low! Miscellaneous block fixed size: ",
-                 misc_block.get_fixed_size(),
+                 overflow_block.get_fixed_size(),
                  ". Miscellaneous block actual size: ",
-                 misc_block.size());
-            // Cannot currently support dynamic resizing of the miscellaneous block since this would require dynamic
+                 overflow_block.size());
+            // Cannot currently support dynamic resizing of the overflow block since this would require dynamic
             // expansion of the accumulator in the IVC setting.
             // ASSERT(false);
-            info("Setting miscellaneous block size to: ", misc_block.size());
-            misc_block.set_fixed_size(static_cast<uint32_t>(misc_block.size()));
+            info("Setting overflow block size to: ", overflow_block.size());
+            overflow_block.set_fixed_size(static_cast<uint32_t>(overflow_block.size()));
         }
 
         // WORKTODO: make this spit out a clear display of the original block sizes vs fixed sizes
