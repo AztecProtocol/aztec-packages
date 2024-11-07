@@ -201,7 +201,6 @@ proverAgent:
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
   concurrency: 1
-  jobSourceUrl: http://{{ include aztec-network.fullname . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}
   bb:
     hardwareConcurrency: ""
 

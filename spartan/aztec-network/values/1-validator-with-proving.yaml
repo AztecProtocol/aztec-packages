@@ -46,13 +46,10 @@ bot:
   privateTransfersPerTx: 1
   bb:
     hardwareConcurrency: 7
-  nodeSelector:
-    cloud.google.com/compute-class: "Performance"
-    cloud.google.com/machine-family: "t2d"
   resources:
     requests:
-      memory: "14Gi"
-      cpu: "7"
+      memory: "8Gi"
+      cpu: "8"
       ephemeral-storage: "8Gi"
 
 jobs:

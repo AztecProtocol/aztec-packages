@@ -61,13 +61,6 @@ spec:
               value: {{ include "aztec-network.ethereumHost" . | quote }}
 
       containers:
-        - name: socat
-          image: alpine/socat
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
-          command:
-            - "/bin/bash"
-            - "-c"
-            - "socat TCP4:127.0.0.1:{{ .Values.proverNode.service.p2pUdpPort }},fork,reuseaddr,max-children=1 UDP4:127.0.0.1:{{ .Values.proverNode.service.p2pUdpPort }}"
         - name: prover-node
           image: "{{ .Values.images.aztec.image }}"
           imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
