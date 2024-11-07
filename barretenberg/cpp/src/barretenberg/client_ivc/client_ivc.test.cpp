@@ -392,10 +392,10 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
 /**
  * @brief Test use of structured trace overflow block mechanism
  * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the prescribed
- * arithmetic block size and make use of the overflow block.
+ * arithmetic block size and make use of the overflow block which has sufficient capacity.
  *
  */
-TEST_F(ClientIVCTests, MiscellaneousBlock)
+TEST_F(ClientIVCTests, StructuredTraceOverflow)
 {
     ClientIVC ivc;
 
