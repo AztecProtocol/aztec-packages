@@ -26,7 +26,7 @@ describe('e2e_state_vars', () => {
 
   afterAll(() => teardown());
 
-  describe.only('SharedImmutable', () => {
+  describe('SharedImmutable', () => {
     it('private read of uninitialized SharedImmutable', async () => {
       const s = await contract.methods.get_shared_immutable().simulate();
 
@@ -34,7 +34,7 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
     });
 
-    it.only('initialize and read SharedImmutable', async () => {
+    it('initialize and read SharedImmutable', async () => {
       // Initializes the shared immutable and then reads the value using an unconstrained function
       // checking the return values:
 

@@ -231,6 +231,7 @@ export interface DBOracle extends CommitmentsDB {
    */
   syncTaggedLogs(
     contractAddress: AztecAddress,
+    maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedEncryptedL2NoteLog[]>>;
 

@@ -26,9 +26,8 @@ export async function produceNoteDaosForKey<T>(
     dataStartIndexForTx: number,
     pkM: PublicKey,
   ) => T,
-): Promise<[T | undefined, DeferredNoteDao | undefined]> {
+): Promise<T | undefined> {
   let noteDao: T | undefined;
-  let deferredNoteDao: DeferredNoteDao | undefined;
 
   try {
     // We get the note by merging publicly and privately delivered note values.
@@ -49,14 +48,8 @@ export async function produceNoteDaosForKey<T>(
 
     noteDao = daoConstructor(note, payload, noteInfo, dataStartIndexForTx, pkM);
   } catch (e) {
-    if (e instanceof ContractNotFoundError) {
-      logger.warn(e.message);
-
-      deferredNoteDao = new DeferredNoteDao(pkM, payload, txHash, noteHashes, dataStartIndexForTx, unencryptedLogs);
-    } else {
-      logger.error(`Could not process note because of "${e}". Discarding note...`);
-    }
+    logger.error(`Could not process note because of "${e}". Discarding note...`);
   }
 
-  return [noteDao, deferredNoteDao];
+  return noteDao;
 }

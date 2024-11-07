@@ -31,19 +31,29 @@ export class TxScopedEncryptedL2NoteLog {
      */
     public dataStartIndexForTx: number,
     /*
+     * The block this log is included in
+     */
+    public blockNumber: number,
+    /*
      * The encrypted note log
      */
     public log: EncryptedL2NoteLog,
   ) {}
 
   toBuffer() {
-    return Buffer.concat([this.txHash.toBuffer(), numToUInt32BE(this.dataStartIndexForTx), this.log.toBuffer()]);
+    return Buffer.concat([
+      this.txHash.toBuffer(),
+      numToUInt32BE(this.dataStartIndexForTx),
+      numToUInt32BE(this.blockNumber),
+      this.log.toBuffer(),
+    ]);
   }
 
   static fromBuffer(buffer: Buffer) {
     const reader = BufferReader.asReader(buffer);
     return new TxScopedEncryptedL2NoteLog(
       TxHash.fromField(reader.readObject(Fr)),
+      reader.readNumber(),
       reader.readNumber(),
       EncryptedL2NoteLog.fromBuffer(reader.readToEnd()),
     );

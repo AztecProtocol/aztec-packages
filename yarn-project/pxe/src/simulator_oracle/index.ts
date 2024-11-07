@@ -30,7 +30,6 @@ import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
@@ -262,9 +261,9 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    const directionalSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
-    const [index] = await this.db.getTaggingSecretsIndexesAsSender([directionalSecret]);
-    return new IndexedTaggingSecret(directionalSecret, index);
+    const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
+    return new IndexedTaggingSecret(secret, index);
   }
 
   /**
@@ -278,8 +277,8 @@ export class SimulatorOracle implements DBOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<void> {
-    const directionalSecret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
-    await this.db.incrementTaggingSecretsIndexesAsSender([directionalSecret]);
+    const secret = await this.#calculateTaggingSecret(contractAddress, sender, recipient);
+    await this.db.incrementTaggingSecretsIndexesAsSender([secret]);
   }
 
   async #calculateTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
@@ -326,6 +325,7 @@ export class SimulatorOracle implements DBOracle {
    */
   public async syncTaggedLogs(
     contractAddress: AztecAddress,
+    maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedEncryptedL2NoteLog[]>> {
     const recipients = scopes
@@ -364,7 +364,10 @@ export class SimulatorOracle implements DBOracle {
         );
         appTaggingSecrets = newTaggingSecrets;
       }
-      result.set(recipient.toString(), logs);
+      result.set(
+        recipient.toString(),
+        logs.filter(log => log.blockNumber <= maxBlockNumber),
+      );
     }
     return result;
   }
@@ -394,8 +397,6 @@ export class SimulatorOracle implements DBOracle {
     const excludedIndices: Map<string, Set<number>> = new Map();
     const incomingNotes: IncomingNoteDao[] = [];
     const outgoingNotes: OutgoingNoteDao[] = [];
-    const deferredIncomingNotes: DeferredNoteDao[] = [];
-    const deferredOutgoingNotes: DeferredNoteDao[] = [];
     for (const scopedLog of scopedLogs) {
       const incomingNotePayload = L1NotePayload.decryptAsIncoming(scopedLog.log.data, addressSecret);
       const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.log.data, ovskM);
@@ -407,6 +408,7 @@ export class SimulatorOracle implements DBOracle {
               incomingNotePayload,
             )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
           );
+          continue;
         }
 
         const payload = incomingNotePayload || outgoingNotePayload;
@@ -419,7 +421,7 @@ export class SimulatorOracle implements DBOracle {
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
-        const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
+        const { incomingNote, outgoingNote } = await produceNoteDaos(
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
@@ -442,18 +444,8 @@ export class SimulatorOracle implements DBOracle {
         if (outgoingNote) {
           outgoingNotes.push(outgoingNote);
         }
-        if (incomingDeferredNote) {
-          deferredIncomingNotes.push(incomingDeferredNote);
-        }
-        if (outgoingDeferredNote) {
-          deferredOutgoingNotes.push(outgoingDeferredNote);
-        }
       }
     }
-    if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
-      this.log.warn('Found deferred notes when processing tagged logs. This should not happen.');
-    }
-
     return { incomingNotes, outgoingNotes };
   }
 

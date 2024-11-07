@@ -217,7 +217,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const dataStartIndexForBlock =
         block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
         block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
-      this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
       block.body.noteEncryptedLogs.txLogs.forEach((txLogs, txIndex) => {
         const txHash = block.body.txEffects[txIndex].txHash;
         const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -232,7 +231,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
             const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
             this.taggedNoteEncryptedLogs.set(tag.toString(), [
               ...currentNoteLogs,
-              new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, noteLog),
+              new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, block.number, noteLog),
             ]);
             const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
             this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
@@ -241,6 +240,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
           }
         });
       });
+      this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
       this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
     });

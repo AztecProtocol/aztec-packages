@@ -10,7 +10,7 @@ export class IndexedTaggingSecret {
   }
 
   static fromFields(serialized: Fr[]) {
-    return new this(serialized[0], serialized[2].toNumber());
+    return new this(serialized[0], serialized[1].toNumber());
   }
 
   computeTag(recipient: AztecAddress) {

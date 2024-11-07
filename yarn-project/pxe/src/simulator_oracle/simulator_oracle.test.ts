@@ -161,15 +161,16 @@ describe('Simulator oracle', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
         const tag = computeTagForIndex(sender, recipient.address, contractAddress, 0);
+        const blockNumber = 1;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
-          1,
+          blockNumber,
           1,
           1,
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, randomNote.encrypt());
+        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, blockNumber, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -178,7 +179,7 @@ describe('Simulator oracle', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = computeTagForIndex(firstSender, recipient.address, contractAddress, 0);
-      const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, EncryptedL2NoteLog.random(tag));
+      const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 1, 0, EncryptedL2NoteLog.random(tag));
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -187,15 +188,16 @@ describe('Simulator oracle', () => {
       for (let i = NUM_SENDERS / 2; i < NUM_SENDERS; i++) {
         const sender = senders[i];
         const tag = computeTagForIndex(sender, recipient.address, contractAddress, 1);
+        const blockNumber = 2;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
-          1,
+          blockNumber,
           1,
           1,
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, randomNote.encrypt());
+        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, blockNumber, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -207,9 +209,10 @@ describe('Simulator oracle', () => {
         const partialAddress = Fr.random();
         const randomRecipient = computeAddress(keys.publicKeys, partialAddress);
         const tag = computeTagForIndex(sender, randomRecipient, contractAddress, 0);
+        const blockNumber = 3;
         const randomNote = new MockNoteRequest(
           getRandomNoteLogPayload(tag, contractAddress),
-          1,
+          blockNumber,
           1,
           1,
           randomRecipient,
@@ -218,7 +221,7 @@ describe('Simulator oracle', () => {
             computeOvskApp(keys.masterOutgoingViewingSecretKey, contractAddress),
           ),
         );
-        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, randomNote.encrypt());
+        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, blockNumber, randomNote.encrypt());
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -231,7 +234,7 @@ describe('Simulator oracle', () => {
     });
 
     it('should sync tagged logs', async () => {
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress);
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
@@ -263,13 +266,20 @@ describe('Simulator oracle', () => {
 
       await database.incrementTaggingSecretsIndexesAsRecipient(secrets);
 
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress);
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
 
       // Only half of the logs should be synced since we start from index 1, the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
 
       // We should have called the node twice, once for index 1 and once for index 2 (which should return no logs)
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
+    });
+
+    it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 1);
+
+      // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
     });
   });
 
@@ -327,7 +337,7 @@ describe('Simulator oracle', () => {
             }
             const dataStartIndex =
               (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
-            const taggedLog = new TxScopedEncryptedL2NoteLog(txHash, dataStartIndex, request.encrypt());
+            const taggedLog = new TxScopedEncryptedL2NoteLog(txHash, dataStartIndex, blockNumber, request.encrypt());
             const note = request.snippetOfNoteDao.note;
             const noteHash = pedersenHash(note.items);
             txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;

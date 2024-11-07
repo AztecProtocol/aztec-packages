@@ -43,8 +43,6 @@ export async function produceNoteDaos(
 ): Promise<{
   incomingNote: IncomingNoteDao | undefined;
   outgoingNote: OutgoingNoteDao | undefined;
-  incomingDeferredNote: DeferredNoteDao | undefined;
-  outgoingDeferredNote: DeferredNoteDao | undefined;
 }> {
   if (!addressPoint && !ovpkM) {
     throw new Error('Both addressPoint and ovpkM are undefined. Cannot create note.');
@@ -52,11 +50,9 @@ export async function produceNoteDaos(
 
   let incomingNote: IncomingNoteDao | undefined;
   let outgoingNote: OutgoingNoteDao | undefined;
-  let incomingDeferredNote: DeferredNoteDao | undefined;
-  let outgoingDeferredNote: DeferredNoteDao | undefined;
 
   if (addressPoint) {
-    [incomingNote, incomingDeferredNote] = await produceNoteDaosForKey(
+    incomingNote = await produceNoteDaosForKey(
       simulator,
       db,
       addressPoint,
@@ -87,7 +83,7 @@ export async function produceNoteDaos(
         ovpkM,
       );
     } else {
-      [outgoingNote, outgoingDeferredNote] = await produceNoteDaosForKey(
+      outgoingNote = await produceNoteDaosForKey(
         simulator,
         db,
         ovpkM,
@@ -106,7 +102,5 @@ export async function produceNoteDaos(
   return {
     incomingNote,
     outgoingNote,
-    incomingDeferredNote,
-    outgoingDeferredNote,
   };
 }

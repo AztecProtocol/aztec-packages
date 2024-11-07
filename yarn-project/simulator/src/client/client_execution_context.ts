@@ -615,7 +615,11 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   public override async syncNotes() {
-    const taggedLogsByRecipient = await this.db.syncTaggedLogs(this.contractAddress, this.scopes);
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+      this.contractAddress,
+      this.historicalHeader.globalVariables.blockNumber.toNumber(),
+      this.scopes,
+    );
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries())
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
   }
