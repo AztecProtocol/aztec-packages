@@ -4,7 +4,6 @@ import {
   BatchCall,
   Fr,
   PrivateFeePaymentMethod,
-  type TxReceipt,
   computeSecretHash,
   sleep,
 } from '@aztec/aztec.js';
@@ -74,8 +73,6 @@ describe('e2e_fees private_payment', () => {
     // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
     aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
-
-  const getFeeAndRefund = (tx: Pick<TxReceipt, 'transactionFee'>) => [tx.transactionFee!, maxFee - tx.transactionFee!];
 
   it('pays fees for tx that dont run public app logic', async () => {
     /**
@@ -147,7 +144,7 @@ describe('e2e_fees private_payment', () => {
 
     // expect(tx.transactionFee).toEqual(200032492n);
     await expect(t.getCoinbaseBalance()).resolves.toEqual(initialSequencerL1Gas + tx.transactionFee!);
-    const [feeAmount, _] = getFeeAndRefund(tx);
+    const feeAmount = tx.transactionFee!;
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
@@ -201,7 +198,7 @@ describe('e2e_fees private_payment', () => {
       })
       .wait();
 
-    const [feeAmount, _] = getFeeAndRefund(tx);
+    const feeAmount = tx.transactionFee!;
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
@@ -253,7 +250,7 @@ describe('e2e_fees private_payment', () => {
       })
       .wait();
 
-    const [feeAmount, _] = getFeeAndRefund(tx);
+    const feeAmount = tx.transactionFee!;
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
@@ -318,7 +315,7 @@ describe('e2e_fees private_payment', () => {
       })
       .wait();
 
-    const [feeAmount, _] = getFeeAndRefund(tx);
+    const feeAmount = tx.transactionFee!;
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
