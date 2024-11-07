@@ -64,6 +64,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByAddressPointAndScope: Map<string, AztecMultiMap<string, string>>;
 
+  // Stores the last index used for each tagging secret
   #taggingSecretIndexes: AztecMap<string, number>;
 
   constructor(private db: AztecKVStore) {

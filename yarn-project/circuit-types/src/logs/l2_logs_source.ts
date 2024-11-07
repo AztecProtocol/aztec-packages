@@ -1,7 +1,6 @@
 import { type Fr } from '@aztec/circuits.js';
 
-import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
-import { type GetUnencryptedLogsResponse } from './get_unencrypted_logs_response.js';
+import { type GetUnencryptedLogsResponse, type TxScopedEncryptedL2NoteLog } from './get_logs_response.js';
 import { type L2BlockL2Logs } from './l2_block_l2_logs.js';
 import { type LogFilter } from './log_filter.js';
 import { type FromLogType, type LogType } from './log_type.js';
@@ -29,7 +28,7 @@ export interface L2LogsSource {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
