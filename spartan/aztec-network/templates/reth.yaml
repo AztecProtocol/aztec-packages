@@ -16,21 +16,6 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: ethereum
     spec:
-      initContainers:
-        - name: load-genesis
-          image: {{ .Values.images.reth.image }}
-          imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
-          command: ["/bin/sh", "-c"]
-          args:
-            - >-
-              cp /genesis/reth-genesis.json /tmp/reth-genesis.json &&
-              reth init --config /tmp/reth-genesis.json
-              {{- include "helpers.flag" (list "datadir" .Values.ethereum.pvc.path) }}
-          volumeMounts:
-            - name: genesis
-              mountPath: /genesis
-            - name: data
-              mountPath: /data
       containers:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
@@ -42,48 +27,38 @@ spec:
               {{- include "helpers.flag" (list "http.port" .Values.ethereum.service.port) }}
               {{- include "helpers.flag" (list "builder.gaslimit" .Values.ethereum.gasLimit) }}
               {{- include "helpers.flag" (list "txpool.gas-limit" .Values.ethereum.gasLimit) }}
-              {{- include "helpers.flag" (list "datadir" .Values.ethereum.pvc.path) }}
+              --datadir /data
               --dev
           ports:
             - containerPort: {{ .Values.ethereum.service.port }}
               name: reth
           volumeMounts:
-            - name: data
+            - name: shared-volume
               mountPath: /data
-          readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - |
-                  wget -qO- --post-data='{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                  --header='Content-Type: application/json' \
-                  127.0.0.1:{{ .Values.ethereum.service.port }} \
-                  | grep -q '"result":"reth'
-            initialDelaySeconds: {{ .Values.ethereum.readinessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.ethereum.readinessProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.ethereum.readinessProbe.timeoutSeconds }}
-            successThreshold: {{ .Values.ethereum.readinessProbe.successThreshold }}
-            failureThreshold: {{ .Values.ethereum.readinessProbe.failureThreshold }}
+          # readinessProbe:
+          #   exec:
+          #     command:
+          #       - sh
+          #       - -c
+          #       - |
+          #         wget -qO- --post-data='{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+          #         --header='Content-Type: application/json' \
+          #         127.0.0.1:{{ .Values.ethereum.service.port }} \
+          #         | grep -q 'reth'
+          #   initialDelaySeconds: {{ .Values.ethereum.readinessProbe.initialDelaySeconds }}
+          #   periodSeconds: {{ .Values.ethereum.readinessProbe.periodSeconds }}
+          #   timeoutSeconds: {{ .Values.ethereum.readinessProbe.timeoutSeconds }}
+          #   successThreshold: {{ .Values.ethereum.readinessProbe.successThreshold }}
+          #   failureThreshold: {{ .Values.ethereum.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.ethereum.resources | nindent 12 }}
       volumes:
-        - name: data
+        - name: shared-volume
           persistentVolumeClaim:
-            claimName: {{ include "aztec-network.fullname" . }}-ethereum-data
+            claimName: {{ include "aztec-network.fullname" . }}-ethereum-pvc
         - name: genesis
           configMap:
             name: {{ include "aztec-network.fullname" . }}-reth-genesis
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-reth-genesis
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-data:
-  reth-genesis.json: |
-    {{ .Files.Get "files/config/reth_genesis.json" | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
@@ -128,13 +103,12 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-ethereum-data
+  name: {{ include "aztec-network.fullname" . }}-ethereum-pvc
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  accessModes:
-    - ReadWriteOnce
+  accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: {{ .Values.ethereum.pvc.size }}
+      storage: {{ .Values.ethereum.storage }}
 ---

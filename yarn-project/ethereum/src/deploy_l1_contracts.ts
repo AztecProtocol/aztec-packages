@@ -226,6 +226,10 @@ export interface DeployL1ContractsArgs {
    * The initial validators for the rollup contract.
    */
   initialValidators?: EthAddress[];
+  /**
+   * Whether using a real chain or anvil.
+   */
+  realChain: boolean;
 }
 
 export type L1Clients = {
@@ -293,7 +297,7 @@ export const deployL1Contracts = async (
     };
     return await (await fetch(rpcUrl, content)).json();
   };
-  if (isAnvilTestChain(chain.id)) {
+  if (isAnvilTestChain(chain.id) && !args.realChain) {
     const interval = 12; // @todo  #8084
     const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
     if (res.error) {

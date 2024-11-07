@@ -11,6 +11,7 @@ export async function deployL1Contracts(
   salt: number | undefined,
   json: boolean,
   initialValidators: EthAddress[],
+  realChain: boolean,
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
@@ -21,6 +22,7 @@ export async function deployL1Contracts(
     mnemonic,
     salt,
     initialValidators,
+    realChain,
     debugLogger,
   );
 

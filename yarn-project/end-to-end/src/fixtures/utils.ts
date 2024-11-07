@@ -103,6 +103,7 @@ export const setupL1Contracts = async (
     salt: args.salt,
     initialValidators: args.initialValidators,
     assumeProvenThrough: args.assumeProvenThrough,
+    realChain: false,
   });
 
   return l1Data;

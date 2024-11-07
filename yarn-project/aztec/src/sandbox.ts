@@ -4,7 +4,7 @@ import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
-import { type DeployL1Contracts, NULL_KEY, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
+import { type DeployL1Contracts, NULL_KEY, createEthereumChain, deployL1Contracts, isAnvilTestChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -80,6 +80,7 @@ export async function deployContractsToL1(
       protocolContractTreeRoot,
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
+      realChain: isAnvilTestChain(aztecNodeConfig.l1ChainId),
     }),
   );
 

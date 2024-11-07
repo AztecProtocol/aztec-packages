@@ -58,6 +58,7 @@ export async function deployAztecContracts(
   mnemonic: string,
   salt: number | undefined,
   initialValidators: EthAddress[],
+  realChain: boolean,
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -76,6 +77,7 @@ export async function deployAztecContracts(
     protocolContractTreeRoot,
     salt,
     initialValidators,
+    realChain,
   });
 }
 
