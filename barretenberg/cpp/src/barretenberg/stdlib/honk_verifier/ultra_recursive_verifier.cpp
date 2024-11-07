@@ -58,7 +58,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // Parse out the aggregation object using the key->recursive_proof_public_inputs_indices
+    // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
     AggregationObject nested_agg_obj;
     size_t idx = 0;
     std::array<typename Curve::Group, 2> nested_pairing_points;
@@ -67,7 +67,8 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
         for (size_t j = 0; j < 2; j++) {
             std::array<FF, 4> bigfield_limbs;
             for (size_t k = 0; k < 4; k++) {
-                bigfield_limbs[k] = verification_key->public_inputs[key->recursive_proof_public_input_indices[idx]];
+                bigfield_limbs[k] =
+                    verification_key->public_inputs[key->pairing_point_accumulator_public_input_indices[idx]];
                 idx++;
             }
             base_field_vals[j] = Curve::BaseField::construct_from_limbs(
