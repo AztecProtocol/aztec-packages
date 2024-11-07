@@ -3,7 +3,6 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
-  type EncryptedL2NoteLog,
   type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -27,6 +26,7 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
+  type TxScopedEncryptedL2NoteLog,
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
@@ -313,7 +313,7 @@ export class AztecNodeService implements AztecNode {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  public getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
@@ -374,6 +374,7 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
+    await this.telemetry.stop();
     this.log.info(`Stopped`);
   }
 

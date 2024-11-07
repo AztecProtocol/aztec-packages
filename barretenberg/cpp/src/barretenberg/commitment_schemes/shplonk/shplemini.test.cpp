@@ -241,6 +241,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
 
     const size_t n = 16;
     const size_t log_n = 4;
+    // In practice, the length of Libra univariates is equal to FLAVOR::BATCHED_RELATION_PARTIAL_LENGTH
     const size_t LIBRA_UNIVARIATE_LENGTH = 12;
 
     std::array<Fr, LIBRA_UNIVARIATE_LENGTH> interpolation_domain;
@@ -261,7 +262,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
     for (size_t idx = 0; idx < log_n; idx++) {
         // generate random polynomial
         Polynomial libra_polynomial = Polynomial::random(LIBRA_UNIVARIATE_LENGTH);
-        // create a univariate with the same coefficients (to store an array intead of a vector)
+        // create a univariate with the same coefficients (to store an array instead of a vector)
         bb::Univariate<Fr, LIBRA_UNIVARIATE_LENGTH> libra_univariate;
         for (size_t i = 0; i < LIBRA_UNIVARIATE_LENGTH; i++) {
             libra_univariate.value_at(i) = libra_polynomial[i];

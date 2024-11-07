@@ -47,7 +47,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
@@ -97,7 +97,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
     }
 
@@ -122,7 +122,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
     }
 
@@ -143,7 +143,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
 
         // Emit note again
@@ -151,7 +151,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
     }
 
@@ -372,7 +372,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
@@ -386,7 +386,7 @@ contract PendingNoteHashes {
             &mut context,
             outgoing_viewer_ovpk_m,
             owner,
-            context.msg_sender(),
+            outgoing_viewer,
         ));
     }
 
@@ -407,7 +407,7 @@ contract PendingNoteHashes {
                 context,
                 outgoing_viewer_ovpk_m,
                 owner,
-                context.msg_sender(),
+                outgoing_viewer,
             ));
         }
     }

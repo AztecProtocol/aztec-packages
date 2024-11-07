@@ -80,7 +80,7 @@ export const startProverNode = async (
     services.push({ provingJobSource });
   }
 
-  signalHandlers.push(proverNode.stop);
+  signalHandlers.push(proverNode.stop.bind(proverNode));
 
   // Automatically start proving unproven blocks
   await proverNode.start();

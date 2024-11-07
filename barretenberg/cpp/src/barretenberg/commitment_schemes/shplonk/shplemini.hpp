@@ -42,16 +42,14 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        groups_to_be_concatenated);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
-        if (!libra_univariates.empty()) {
-            size_t idx = 0;
-            for (auto [libra_univariate, libra_evaluation] : zip_view(libra_univariates, libra_evaluations)) {
-                OpeningClaim new_claim;
-                new_claim.polynomial = Polynomial(libra_univariate);
-                new_claim.opening_pair.challenge = multilinear_challenge[idx];
-                new_claim.opening_pair.evaluation = libra_evaluation;
-                libra_opening_claims.push_back(new_claim);
-                idx++;
-            }
+        size_t idx = 0;
+        for (auto [libra_univariate, libra_evaluation] : zip_view(libra_univariates, libra_evaluations)) {
+            OpeningClaim new_claim;
+            new_claim.polynomial = Polynomial(libra_univariate);
+            new_claim.opening_pair.challenge = multilinear_challenge[idx];
+            new_claim.opening_pair.evaluation = libra_evaluation;
+            libra_opening_claims.push_back(new_claim);
+            idx++;
         }
         OpeningClaim batched_claim =
             ShplonkProver::prove(commitment_key, opening_claims, transcript, libra_opening_claims);
@@ -271,6 +269,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
 
+        // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
+        // ShpleminiVerifier, otherwise this argument is set to be empty
         if (!libra_univariate_evaluations.empty()) {
             add_zk_data(commitments,
                         scalars,
@@ -498,9 +498,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             shplonk_challenge_power *= shplonk_batching_challenge;
         }
 
-        // needed to keep track of the constant term contribution
-        const size_t idx_of_constant_term = commitments.size() - 1;
-
+        // need to keep track of the contribution to the constant term
+        Fr& constant_term = scalars.back();
         // compute shplonk denominators and batch invert them
         std::vector<Fr> denominators;
         size_t num_libra_univariates = libra_univariate_commitments.size();
@@ -518,18 +517,15 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
         // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to the
         // constant term
-        Fr constant_term = 0;
         for (const auto [libra_univariate_commitment, denominator, libra_univariate_evaluation] :
              zip_view(libra_univariate_commitments, denominators, libra_univariate_evaluations)) {
             commitments.push_back(std::move(libra_univariate_commitment));
             Fr scaling_factor = denominator * shplonk_challenge_power;
             scalars.push_back((-scaling_factor));
             shplonk_challenge_power *= shplonk_batching_challenge;
+            // update the constant term of the Shplonk batched claim
             constant_term += scaling_factor * libra_univariate_evaluation;
         }
-
-        // update the constant term of the Shplonk batched claim
-        scalars[idx_of_constant_term] += constant_term;
     }
 };
 } // namespace bb

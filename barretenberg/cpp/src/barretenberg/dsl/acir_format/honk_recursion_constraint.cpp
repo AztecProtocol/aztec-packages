@@ -40,13 +40,13 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
     size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<Flavor::FF>();
-    assert((proof_size - HONK_RECURSION_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+    assert((proof_size - bb::HONK_PROOF_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
             Flavor::NUM_ALL_ENTITIES * num_frs_fr - num_frs_comm) %
                (num_frs_comm + num_frs_fr * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
            0);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size =
-        (proof_size - HONK_RECURSION_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+        (proof_size - bb::HONK_PROOF_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
          Flavor::NUM_ALL_ENTITIES * num_frs_fr - num_frs_comm) /
         (num_frs_comm + num_frs_fr * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
     // First key field is circuit size
@@ -76,7 +76,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+    offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
     // first 3 things
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
     builder.assert_equal(builder.add_variable(public_inputs_size), proof_fields[1].witness_index);

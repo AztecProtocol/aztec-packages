@@ -231,7 +231,9 @@ describe('External Calls', () => {
         argsSizeOffset,
         successOffset,
       );
-      await expect(() => instruction.execute(context)).rejects.toThrow(
+      await instruction.execute(context);
+      // Ideally we'd mock the nested call.
+      expect(context.machineState.collectedRevertInfo?.recursiveRevertReason.message).toMatch(
         'Static call cannot update the state, emit L2->L1 messages or generate logs',
       );
     });
