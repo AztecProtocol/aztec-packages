@@ -61,7 +61,7 @@ describe('Simple Note Hash Consistency', () => {
         const treeId = MerkleTreeId.NOTE_HASH_TREE;
         const treeContainer = await EphemeralTreeContainer.create(copyState);
         for (let i = 0; i < noteHashes.length; i++) {
-            await treeContainer.appendLeaf(treeId, noteHashes[i]);
+            await treeContainer.appendNoteHash(noteHashes[i]);
         }
         await worldStateTrees.appendLeaves(treeId, noteHashes);
 
@@ -81,7 +81,7 @@ describe('Simple Note Hash Consistency', () => {
         const treeContainer = await EphemeralTreeContainer.create(copyState);
 
         for (let i = 0; i < postInserted.length; i++) {
-            await treeContainer.appendLeaf(treeId, postInserted[i]);
+            await treeContainer.appendNoteHash(postInserted[i]);
         }
         await worldStateTrees.appendLeaves(treeId, preInserted.concat(postInserted));
 
@@ -224,7 +224,7 @@ describe('Big Random Avm Ephemeral Container Test', () => {
                 [new PublicDataTreeLeaf(slots[i], values[i]).toBuffer()],
                 0,
             );
-            await treeContainer.appendLeaf(MerkleTreeId.NOTE_HASH_TREE, noteHashes[i]);
+            await treeContainer.appendNoteHash(noteHashes[i]);
             await treeContainer.appendNullifier(indexedHashes[i]);
             await treeContainer.writePublicStorage(slots[i], values[i]);
         }
