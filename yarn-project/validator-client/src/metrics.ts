@@ -1,10 +1,18 @@
-import { type Gauge, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import { BlockProposal } from '@aztec/circuit-types';
+import { type Gauge, Metrics, type TelemetryClient, ValueType, type UpDownCounter, Attributes } from '@aztec/telemetry-client';
 
 export class ValidatorMetrics {
   private reExecutionTime: Gauge;
+  private failedReexecutionCounter: UpDownCounter;
 
-  constructor(private telemetryClient: TelemetryClient) {
+  constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
+
+    this.failedReexecutionCounter = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_REEXECUTION_COUNT, {
+      description: 'The number of failed re-executions',
+      unit: 'count',
+      valueType: ValueType.INT,
+    });
 
     this.reExecutionTime = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME, {
       description: 'The time taken to re-execute a transaction',
@@ -23,5 +31,13 @@ export class ValidatorMetrics {
 
   public recordReExecutionTime(time: number) {
     this.reExecutionTime.record(time);
+  }
+
+  public recordFailedReexecution(proposal: BlockProposal) {
+    this.failedReexecutionCounter.add(1, {
+      [Attributes.STATUS]: 'failed',
+      [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toString(),
+      [Attributes.BLOCK_PROPOSER]: proposal.getSender()?.toString(),
+    });
   }
 }

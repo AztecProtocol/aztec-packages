@@ -54,6 +54,8 @@ export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
 export const BLOCK_SIZE = 'aztec.block.size';
 /** How many blocks are included in this epoch */
 export const EPOCH_SIZE = 'aztec.epoch.size';
+/** The proposer of a block */
+export const BLOCK_PROPOSER = 'aztec.block.proposer';
 /** The epoch number */
 export const EPOCH_NUMBER = 'aztec.epoch.number';
 /** The tx hash */

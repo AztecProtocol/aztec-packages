@@ -181,6 +181,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
     }
   }
