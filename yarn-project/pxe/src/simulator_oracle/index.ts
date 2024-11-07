@@ -296,6 +296,9 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
+   * of the syncTaggedLogs and processTaggedLogs methods. However, it is not possible to do so at the moment,
+   * so we're keeping it private for now.
    * @param contractAddress - The contract address to silo the secret for
    * @param recipient - The address receiving the notes
    * @returns A list of siloed tagging secrets
@@ -367,15 +370,17 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
-   * @param logs - The logs to process.
+   * Decrypts logs tagged for a recipient and returns them.
+   * @param scopedLogs - The logs to decrypt.
    * @param recipient - The recipient of the logs.
+   * @param simulator - The simulator to use for decryption.
+   * @returns The decrypted notes.
    */
-  public async processTaggedLogs(
-    logs: TxScopedEncryptedL2NoteLog[],
+  async #decryptTaggedLogs(
+    scopedLogs: TxScopedEncryptedL2NoteLog[],
     recipient: AztecAddress,
-    simulator?: AcirSimulator,
-  ): Promise<void> {
+    simulator: AcirSimulator,
+  ) {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
@@ -391,13 +396,13 @@ export class SimulatorOracle implements DBOracle {
     const outgoingNotes: OutgoingNoteDao[] = [];
     const deferredIncomingNotes: DeferredNoteDao[] = [];
     const deferredOutgoingNotes: DeferredNoteDao[] = [];
-    for (const scopedLog of logs) {
+    for (const scopedLog of scopedLogs) {
       const incomingNotePayload = L1NotePayload.decryptAsIncoming(scopedLog.log.data, addressSecret);
       const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.log.data, ovskM);
 
       if (incomingNotePayload || outgoingNotePayload) {
         if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
-          throw new Error(
+          this.log.warn(
             `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
               incomingNotePayload,
             )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
@@ -408,7 +413,8 @@ export class SimulatorOracle implements DBOracle {
         const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
 
         if (!txEffect) {
-          throw new Error(`No tx effect found for ${scopedLog.txHash}`);
+          this.log.warn(`No tx effect found for ${scopedLog.txHash} while decrypting tagged logs`);
+          continue;
         }
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
@@ -445,8 +451,27 @@ export class SimulatorOracle implements DBOracle {
       }
     }
     if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
-      throw new Error('Found deferred notes when processing tagged logs. This should not happen.');
+      this.log.warn('Found deferred notes when processing tagged logs. This should not happen.');
     }
+
+    return { incomingNotes, outgoingNotes };
+  }
+
+  /**
+   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param logs - The logs to process.
+   * @param recipient - The recipient of the logs.
+   */
+  public async processTaggedLogs(
+    logs: TxScopedEncryptedL2NoteLog[],
+    recipient: AztecAddress,
+    simulator?: AcirSimulator,
+  ): Promise<void> {
+    const { incomingNotes, outgoingNotes } = await this.#decryptTaggedLogs(
+      logs,
+      recipient,
+      simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+    );
     if (incomingNotes.length || outgoingNotes.length) {
       await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
       incomingNotes.forEach(noteDao => {
