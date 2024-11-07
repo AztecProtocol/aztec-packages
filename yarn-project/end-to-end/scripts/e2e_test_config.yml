@@ -82,8 +82,15 @@ tests:
   e2e_static_calls: {}
   e2e_synching: {}
   e2e_token_contract: {}
-  e2e_p2p:
+  e2e_p2p_gossip:
+    test_path: 'e2e_p2p/gossip_network.test.ts'
     with_alerts: true
+  e2e_p2p_gerousia:
+    test_path: 'e2e_p2p/gerousia.test.ts'
+  e2e_p2p_rediscovery:
+    test_path: 'e2e_p2p/rediscovery.test.ts'
+  e2e_p2p_reqresp:
+    test_path: 'e2e_p2p/reqresp.test.ts'
   flakey_e2e_tests:
     test_path: './src/flakey'
     ignore_failures: true
