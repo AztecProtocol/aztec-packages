@@ -1801,6 +1801,11 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     std::string bytecode_hex = to_hex(OpCode::SET_8) +                // opcode Set
                                "00"                                   // Indirect flag
                                + to_hex(AvmMemoryTag::U32) +          // tag U32
+                               "00"                                   // value 0
+                               "02"                                   // dst_offset 2
+                               + to_hex(OpCode::SET_8) +              // opcode Set
+                               "00"                                   // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +          // tag U32
                                "01"                                   // value 1
                                "01"                                   // dst_offset 1
                                + to_hex(OpCode::CAST_8) +             // opcode CAST (to field)
@@ -1830,7 +1835,7 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse_bytecode_statically(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(7));
+    ASSERT_THAT(instructions, SizeIs(8));
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};

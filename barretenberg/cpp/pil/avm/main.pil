@@ -510,7 +510,7 @@ namespace main(256);
     pol commit sel_slice_gadget; // Selector to activate a slice gadget operation in the gadget (#[PERM_MAIN_SLICE]).
 
     // Activate only if tag_err is disabled or retsize (ib) is non-zero
-    ib * (1 - tag_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
+    ib * (1 - op_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
 
     //====== Inter-table Constraints ============================================
 

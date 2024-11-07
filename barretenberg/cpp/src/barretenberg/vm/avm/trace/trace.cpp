@@ -1611,16 +1611,16 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
+    const auto cd_resolved_tag = unconstrained_get_memory_tag(cd_offset_resolved);
+    const auto copy_size_resolved_tag = unconstrained_get_memory_tag(copy_size_offset_resolved);
 
-    // The only memory operations performed from the main trace are indirect load (address resolutions)
-    // which are still unconstrained.
-    // All the other memory operations are triggered by the slice gadget.
+    bool op_valid = tag_match && cd_resolved_tag == AvmMemoryTag::U32 && copy_size_resolved_tag == AvmMemoryTag::U32;
 
     // TODO: constrain these.
     const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
-    if (tag_match) {
+    if (op_valid) {
         slice_trace_builder.create_calldata_copy_slice(
             calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
         mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
@@ -1636,10 +1636,11 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
         .main_ib = copy_size,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_c = dst_offset_resolved,
+        .main_op_err = static_cast<uint32_t>(!op_valid),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_calldata_copy = 1,
-        .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
+        .main_sel_slice_gadget = static_cast<uint32_t>(op_valid),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
@@ -1689,6 +1690,11 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     // This boolean will not be a trivial constant anymore once we constrain address resolution.
     bool tag_match = true;
 
+    const auto rd_resolved_tag = unconstrained_get_memory_tag(rd_offset_resolved);
+    const auto copy_size_resolved_tag = unconstrained_get_memory_tag(copy_size_offset_resolved);
+
+    bool op_valid = tag_match && rd_resolved_tag == AvmMemoryTag::U32 && copy_size_resolved_tag == AvmMemoryTag::U32;
+
     // TODO: constrain these.
     const uint32_t rd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(rd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
@@ -1700,21 +1706,24 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!op_valid),
         .main_pc = FF(pc),
         .main_sel_op_returndata_copy = FF(1),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
 
-    // Write the return data to memory
-    // TODO: validate bounds
-    auto returndata_slice =
-        std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
+    if (op_valid) {
+        // Write the return data to memory
+        // TODO: validate bounds
+        auto returndata_slice =
+            std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
 
-    pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
+        pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
-    // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
+        // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+        // is implemented with opcodes (SET and JUMP).
+        write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
+    }
 }
 
 /**************************************************************************************************
@@ -1724,7 +1733,7 @@ void AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 // Helper for "gas left" related opcodes
 void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset)
 {
-    assert(var == EnvironmentVariable::L2GASLEFT || var == EnvironmentVariable::DAGASLEFT);
+    ASSERT(var == EnvironmentVariable::L2GASLEFT || var == EnvironmentVariable::DAGASLEFT);
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -2155,20 +2164,15 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t indirect,
  * @return Row
  */
 Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(
-    uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t address_offset, uint32_t metadata_offset)
+    uint32_t clk, uint32_t data_offset, [[maybe_unused]] uint32_t address_offset, uint32_t metadata_offset)
 {
     FF exists = execution_hints.get_side_effect_hints().at(side_effect_counter);
 
-    // TODO: resolved_address should be used
-    auto [resolved_data, resolved_address, resolved_metadata] =
-        Addressing<3>::fromWire(indirect, call_ptr)
-            .resolve({ data_offset, address_offset, metadata_offset }, mem_trace_builder);
-
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
+        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
 
     auto write_b = constrained_write_to_memory(
-        call_ptr, clk, resolved_metadata, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
+        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
     bool tag_match = read_a.tag_match && write_b.tag_match;
 
     return Row{
@@ -2452,15 +2456,27 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
             .resolve({ note_hash_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+    const bool op_valid = unconstrained_get_memory_tag(resolved_leaf_index) == AvmMemoryTag::FF;
+    Row row;
 
-    Row row = create_kernel_output_opcode_for_leaf_index(
-        clk, resolved_note_hash, static_cast<uint32_t>(leaf_index), resolved_dest);
+    if (op_valid) {
+        row = create_kernel_output_opcode_for_leaf_index(
+            clk, resolved_note_hash, static_cast<uint32_t>(leaf_index), resolved_dest);
 
-    kernel_trace_builder.op_note_hash_exists(clk,
-                                             /*side_effect_counter*/ static_cast<uint32_t>(leaf_index),
-                                             row.main_ia,
-                                             /*safe*/ static_cast<uint32_t>(row.main_ib));
-    row.main_sel_op_note_hash_exists = FF(1);
+        kernel_trace_builder.op_note_hash_exists(clk,
+                                                 /*side_effect_counter*/ static_cast<uint32_t>(leaf_index),
+                                                 row.main_ia,
+                                                 /*safe*/ static_cast<uint32_t>(row.main_ib));
+        row.main_sel_op_note_hash_exists = FF(1);
+    } else {
+        row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc,
+            .main_sel_op_note_hash_exists = FF(1),
+        };
+    }
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::NOTEHASHEXISTS);
@@ -2497,11 +2513,30 @@ void AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode_with_set_metadata_output_from_hint(
-        indirect, clk, nullifier_offset, address_offset, dest_offset);
-    kernel_trace_builder.op_nullifier_exists(
-        clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
-    row.main_sel_op_nullifier_exists = FF(1);
+    // TODO: resolved_address should be used
+    auto [resolved_nullifier_offset, resolved_address, resolved_dest] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ nullifier_offset, address_offset, dest_offset }, mem_trace_builder);
+
+    const bool op_valid = unconstrained_get_memory_tag(resolved_address) == AvmMemoryTag::FF;
+
+    Row row;
+
+    if (op_valid) {
+        row = create_kernel_output_opcode_with_set_metadata_output_from_hint(
+            clk, resolved_nullifier_offset, resolved_address, resolved_dest);
+        kernel_trace_builder.op_nullifier_exists(
+            clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+        row.main_sel_op_nullifier_exists = FF(1);
+    } else {
+        row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc,
+            .main_sel_op_nullifier_exists = FF(1),
+        };
+    }
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::NULLIFIEREXISTS);
@@ -2545,14 +2580,26 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
             .resolve({ log_offset, leaf_index_offset, dest_offset }, mem_trace_builder);
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+    const bool op_valid = unconstrained_get_memory_tag(resolved_leaf_index) == AvmMemoryTag::FF;
+    Row row;
 
-    Row row =
-        create_kernel_output_opcode_for_leaf_index(clk, resolved_log, static_cast<uint32_t>(leaf_index), resolved_dest);
-    kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
-                                                static_cast<uint32_t>(leaf_index) /*side_effect_counter*/,
-                                                row.main_ia,
-                                                /*safe*/ static_cast<uint32_t>(row.main_ib));
-    row.main_sel_op_l1_to_l2_msg_exists = FF(1);
+    if (op_valid) {
+        row = create_kernel_output_opcode_for_leaf_index(
+            clk, resolved_log, static_cast<uint32_t>(leaf_index), resolved_dest);
+        kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
+                                                    static_cast<uint32_t>(leaf_index) /*side_effect_counter*/,
+                                                    row.main_ia,
+                                                    /*safe*/ static_cast<uint32_t>(row.main_ib));
+        row.main_sel_op_l1_to_l2_msg_exists = FF(1);
+    } else {
+        row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc,
+            .main_sel_op_l1_to_l2_msg_exists = FF(1),
+        };
+    }
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::L1TOL2MSGEXISTS);
@@ -2668,9 +2715,7 @@ void AvmTraceBuilder::op_get_contract_instance(
  *                              ACCRUED SUBSTATE
  **************************************************************************************************/
 
-void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
-                                              uint32_t log_offset,
-                                              [[maybe_unused]] uint32_t log_size_offset)
+void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset)
 {
     std::vector<uint8_t> bytes_to_hash;
 
@@ -2681,7 +2726,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ log_offset, log_size_offset }, mem_trace_builder);
 
     // This is a hack to get the contract address from the first contract instance
-    // Once we have 1-enqueued call and proper nested contexts, this should use that address of the current contextt
+    // Once we have 1-enqueued call and proper nested contexts, this should use that address of the current context
     FF contract_address = execution_hints.all_contract_bytecode.at(0).contract_instance.address;
     std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
 
@@ -2690,46 +2735,71 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
                          std::make_move_iterator(contract_address_bytes.begin()),
                          std::make_move_iterator(contract_address_bytes.end()));
 
-    uint32_t log_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_log_size_offset));
-    // The size is in fields of 32 bytes, the length used for the hash is in terms of bytes
-    uint32_t num_bytes = log_size * 32;
-    std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
-    // Add the log size to the hash to bytes
-    bytes_to_hash.insert(bytes_to_hash.end(),
-                         std::make_move_iterator(log_size_bytes.begin()),
-                         std::make_move_iterator(log_size_bytes.end()));
+    bool op_valid = unconstrained_get_memory_tag(resolved_log_offset) == AvmMemoryTag::FF &&
+                    unconstrained_get_memory_tag(resolved_log_size_offset) == AvmMemoryTag::U32;
 
-    AddressWithMode direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
-    // We need to read the rest of the log_size number of elements
-    std::vector<uint8_t> log_value_bytes;
-    for (uint32_t i = 0; i < log_size; i++) {
-        FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
-        std::vector<uint8_t> log_value_byte = log_value.to_buffer();
+    Row row;
+    uint32_t log_size = 0;
+    AddressWithMode direct_field_addr;
+    uint32_t num_bytes = 0;
+
+    if (op_valid) {
+        log_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_log_size_offset));
+
+        // The size is in fields of 32 bytes, the length used for the hash is in terms of bytes
+        num_bytes = log_size * 32;
+        std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
+        // Add the log size to the hash to bytes
         bytes_to_hash.insert(bytes_to_hash.end(),
-                             std::make_move_iterator(log_value_byte.begin()),
-                             std::make_move_iterator(log_value_byte.end()));
+                             std::make_move_iterator(log_size_bytes.begin()),
+                             std::make_move_iterator(log_size_bytes.end()));
+
+        direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
+
+        for (uint32_t i = 0; i < log_size; i++) {
+            op_valid = op_valid && unconstrained_get_memory_tag(direct_field_addr + i) == AvmMemoryTag::FF;
+        }
     }
 
-    std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
-    // Truncate the hash to 31 bytes so it will be a valid field element
-    FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+    if (op_valid) {
+        // We need to read the rest of the log_size number of elements
+        for (uint32_t i = 0; i < log_size; i++) {
+            FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
+            std::vector<uint8_t> log_value_byte = log_value.to_buffer();
+            bytes_to_hash.insert(bytes_to_hash.end(),
+                                 std::make_move_iterator(log_value_byte.begin()),
+                                 std::make_move_iterator(log_value_byte.end()));
+        }
 
-    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and
-    // is prefixed to message see toBuffer in unencrypted_l2_log.ts
-    FF length_of_preimage = num_bytes + 32 + 4;
-    // The + 4 is because the kernels store the length of the
-    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need
-    // to add four to the length here. [Copied from unencrypted_l2_log.ts]
-    FF metadata_log_length = length_of_preimage + 4;
-    Row row = Row{
-        .main_clk = clk,
-        .main_ia = trunc_hash,
-        .main_ib = metadata_log_length,
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_pc = pc,
-    };
-    kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
-    row.main_sel_op_emit_unencrypted_log = FF(1);
+        std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
+        // Truncate the hash to 31 bytes so it will be a valid field element
+        FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+
+        // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and
+        // is prefixed to message see toBuffer in unencrypted_l2_log.ts
+        FF length_of_preimage = num_bytes + 32 + 4;
+        // The + 4 is because the kernels store the length of the
+        // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need
+        // to add four to the length here. [Copied from unencrypted_l2_log.ts]
+        FF metadata_log_length = length_of_preimage + 4;
+        row = Row{
+            .main_clk = clk,
+            .main_ia = trunc_hash,
+            .main_ib = metadata_log_length,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_pc = pc,
+        };
+        kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
+        row.main_sel_op_emit_unencrypted_log = FF(1);
+    } else {
+        row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(1),
+            .main_pc = pc,
+            .main_sel_op_emit_unencrypted_log = FF(1),
+        };
+    }
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));

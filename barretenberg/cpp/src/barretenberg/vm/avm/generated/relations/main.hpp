@@ -761,7 +761,7 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<109, ContainerOverSubrelations>;
-            auto tmp = ((new_term.main_ib * (FF(1) - new_term.main_tag_err)) *
+            auto tmp = ((new_term.main_ib * (FF(1) - new_term.main_op_err)) *
                         ((new_term.main_sel_op_calldata_copy + new_term.main_sel_op_external_return) -
                          new_term.main_sel_slice_gadget));
             tmp *= scaling_factor;
