@@ -22,6 +22,12 @@ template <typename Builder> rom_table<Builder>::rom_table(const std::vector<fiel
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
     // with a non-const field element.
+
+    // Initialize tags
+    _tags.resize(raw_entries.size());
+    for (size_t i = 0; i < length; ++i) {
+        _tags[i] = raw_entries[i].get_origin_tag();
+    }
 }
 
 // initialize the table once we perform a read. This ensures we always have a valid
