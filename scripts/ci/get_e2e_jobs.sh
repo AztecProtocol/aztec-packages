@@ -51,22 +51,24 @@ allow_list=(
 # E.g:
 # e2e_p2p label will match e2e_p2p_gossip, e2e_p2p_rediscovery, e2e_p2p_reqresp etc.
 # e2e_prover label will match e2e_prover_fake_proofs, e2e_prover_coordination etc.
-IFS=',' read -r -a input_labels <<<"$LABELS"
+IFS=',' read -r -a input_labels <<< "$LABELS"
 expanded_allow_list=()
+
 for label in "${input_labels[@]}"; do
   # For each input label, find all tests that start with this prefix
   matching_tests=$(echo "$full_list" | tr ' ' '\n' | grep "^${label}" || true)
-  if [ ! -z "$matching_tests" ]; then
-    # Add all matching tests to the expanded allow list
-    while IFS= read -r test; do
-      expanded_allow_list+=("$test")
-    done <<< "$matching_tests"
+
+  # If matching tests are found, add them to expanded_allow_list; otherwise, add the label itself
+  if [ -n "$matching_tests" ]; then
+    expanded_allow_list+=($matching_tests)
   else
-    # If no prefix match found, treat it as an exact match (original behavior)
     expanded_allow_list+=("$label")
   fi
 done
-allow_list+=("${expanded_allow_list[@]}")
+
+# Add the input labels and expanded matches to allow_list
+allow_list+=("${input_labels[@]}" "${expanded_allow_list[@]}")
+
 
 # Generate full list of targets, excluding specific entries, on one line
 test_list=$(echo "${full_list[@]}" | grep -v 'base' | grep -v 'bench' | grep -v "network" | grep -v 'devnet' | xargs echo)
