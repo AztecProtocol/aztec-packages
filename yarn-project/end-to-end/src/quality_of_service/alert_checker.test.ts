@@ -1,10 +1,11 @@
-import * as yaml from "js-yaml";
-import * as fs from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "@aztec/foundation/url";
-import { createDebugLogger, DebugLogger } from "@aztec/aztec.js";
+import { type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/foundation/url';
 
-const GRAFANA_ENDPOINT = "http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query"
+import * as fs from 'fs';
+import * as yaml from 'js-yaml';
+import { dirname, join } from 'path';
+
+const GRAFANA_ENDPOINT = 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query';
 interface AlertConfig {
   alert: string;
   expr: string;
@@ -30,8 +31,8 @@ async function queryGrafana(expr: string): Promise<number> {
 
   const response = await fetch(`${GRAFANA_ENDPOINT}?query=${encodeURIComponent(expr)}`, {
     headers: {
-      'Authorization': `Basic ${credentials}`
-    }
+      Authorization: `Basic ${credentials}`,
+    },
   });
 
   if (!response.ok) {
@@ -50,7 +51,8 @@ async function checkAlerts(alerts: AlertConfig[], logger: DebugLogger) {
 
     const metricValue = await queryGrafana(alert.expr);
     logger.info(`Metric value: ${metricValue}`);
-    if (metricValue > 0) {  // Adjust condition as needed
+    if (metricValue > 0) {
+      // Adjust condition as needed
       logger.error(`Alert ${alert.alert} triggered! Value: ${metricValue}`);
       throw new Error(`Test failed due to triggered alert: ${alert.alert}`);
     } else {
@@ -64,10 +66,10 @@ async function runAlertChecker(logger: DebugLogger) {
   const alerts = loadAlertsConfig('alerts.yaml');
   try {
     await checkAlerts(alerts, logger);
-    logger.info("All alerts passed.");
+    logger.info('All alerts passed.');
   } catch (error) {
     logger.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);  // Exit with error code
+    process.exit(1); // Exit with error code
   }
 }
 

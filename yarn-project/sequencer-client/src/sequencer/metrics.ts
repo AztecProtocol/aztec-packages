@@ -63,7 +63,7 @@ export class SequencerMetrics {
     });
 
     this.timeToCollectAttestations = meter.createGauge(Metrics.SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS, {
-      description: "The time spent collecting attestations from committee members",
+      description: 'The time spent collecting attestations from committee members',
     });
 
     this.setCurrentBlock(0, 0);
