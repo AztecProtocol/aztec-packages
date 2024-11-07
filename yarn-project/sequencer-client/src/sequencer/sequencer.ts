@@ -505,9 +505,7 @@ export class Sequencer {
     const blockSize = Math.max(2, numRealTxs);
 
     // Sync to the previous block at least
-    if (historicalHeader) {
-      await this.worldState.syncImmediate(historicalHeader.globalVariables.blockNumber.toNumber() - 1);
-    }
+    await this.worldState.syncImmediate(newGlobalVariables.blockNumber.toNumber() - 1);
 
     // NB: separating the dbs because both should update the state
     const publicProcessorFork = await this.worldState.fork();
