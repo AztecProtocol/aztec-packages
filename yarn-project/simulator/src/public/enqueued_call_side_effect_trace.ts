@@ -16,6 +16,7 @@ import {
   type ContractClassIdPreimage,
   EthAddress,
   Gas,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
@@ -31,14 +32,17 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
   NoteHash,
   Nullifier,
-  type NullifierLeafPreimage,
+  NullifierLeafPreimage,
+  PUBLIC_DATA_TREE_HEIGHT,
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   PublicCallRequest,
   PublicDataRead,
-  type PublicDataTreeLeafPreimage,
+  PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicInnerCallRequest,
   PublicValidationRequestArrayLengths,
@@ -59,12 +63,19 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { assert } from 'console';
+
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { createSimulationError } from '../common/errors.js';
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
+
+const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());
+const emptyNoteHashPath = () => new Array(NOTE_HASH_TREE_HEIGHT).fill(Fr.zero());
+const emptyNullifierPath = () => new Array(NULLIFIER_TREE_HEIGHT).fill(Fr.zero());
+const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.zero());
 
 /**
  * A struct containing just the side effects as regular arrays
@@ -168,11 +179,16 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public tracePublicStorageRead(
     contractAddress: AztecAddress,
-    slot: Fr, // old
-    leafPreimage: PublicDataTreeLeafPreimage,
-    leafIndex: Fr,
-    path: Fr[],
+    slot: Fr,
+    value: Fr,
+    leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
+    leafIndex: Fr = Fr.zero(),
+    path: Fr[] = emptyPublicDataPath(),
   ) {
+    if (!leafIndex.equals(Fr.zero())) {
+      // if we have real merkle hint content, make sure the value matches the the provided preimage
+      assert(leafPreimage.value.equals(value), 'Value mismatch when tracing in public data write');
+    }
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (
       this.publicDataReads.length + this.previousValidationRequestArrayLengths.publicDataReads >=
@@ -182,10 +198,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
-    // Temp for backward compatibility
-    const { value } = leafPreimage;
+
     this.publicDataReads.push(new PublicDataRead(leafSlot, value, this.sideEffectCounter));
 
+    this.avmCircuitHints.storageValues.items.push(
+      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
+    );
     this.avmCircuitHints.storageReadRequest.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
     this.log.debug(`SLOAD cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
@@ -194,12 +212,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
-    lowLeafPreimage: PublicDataTreeLeafPreimage,
-    lowLeafIndex: Fr,
-    lowLeafPath: Fr[],
-    newLeafPreimage: PublicDataTreeLeafPreimage,
-    insertionPath: Fr[],
+    value: Fr,
+    lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyPublicDataPath(),
+    newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
+    insertionPath: Fr[] = emptyPublicDataPath(),
   ) {
+    if (!lowLeafIndex.equals(Fr.zero())) {
+      // if we have real merkle hint content, make sure the value matches the the provided preimage
+      assert(newLeafPreimage.value.equals(value), 'Value mismatch when tracing in public data read');
+    }
     if (
       this.publicDataWrites.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -211,8 +234,6 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     }
 
     const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
-    // Temp for backward compatibility
-    const { value } = newLeafPreimage;
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
 
     // New hinting
@@ -225,7 +246,13 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path: Fr[]) {
+  public traceNoteHashCheck(
+    _contractAddress: AztecAddress,
+    noteHash: Fr,
+    leafIndex: Fr,
+    exists: boolean,
+    path: Fr[] = emptyNoteHashPath(),
+  ) {
     // NOTE: contractAddress is unused because noteHash is an already-siloed leaf
     if (
       this.noteHashReadRequests.length + this.previousValidationRequestArrayLengths.noteHashReadRequests >=
@@ -244,7 +271,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, path: Fr[]) {
+  public traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, path: Fr[] = emptyNoteHashPath()) {
     if (this.noteHashes.length + this.previousAccumulatedDataArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
@@ -261,9 +288,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     contractAddress: AztecAddress,
     nullifier: Fr,
     exists: boolean,
-    lowLeafPreimage: NullifierLeafPreimage,
-    lowLeafIndex: Fr,
-    lowLeafPath: Fr[],
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     this.enforceLimitOnNullifierChecks();
@@ -291,10 +318,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   public traceNewNullifier(
     contractAddress: AztecAddress,
     nullifier: Fr,
-    lowLeafPreimage: NullifierLeafPreimage,
-    lowLeafIndex: Fr,
-    lowLeafPath: Fr[],
-    insertionPath: Fr[],
+    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
+    lowLeafIndex: Fr = Fr.zero(),
+    lowLeafPath: Fr[] = emptyNullifierPath(),
+    insertionPath: Fr[] = emptyNullifierPath(),
   ) {
     if (this.nullifiers.length + this.previousAccumulatedDataArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
@@ -311,7 +338,13 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceL1ToL2MessageCheck(_contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path: Fr[]) {
+  public traceL1ToL2MessageCheck(
+    _contractAddress: AztecAddress,
+    msgHash: Fr,
+    msgLeafIndex: Fr,
+    exists: boolean,
+    path: Fr[] = emptyL1ToL2MessagePath(),
+  ) {
     // NOTE: contractAddress is unused because msgHash is an already-siloed leaf
     if (
       this.l1ToL2MsgReadRequests.length + this.previousValidationRequestArrayLengths.l1ToL2MsgReadRequests >=

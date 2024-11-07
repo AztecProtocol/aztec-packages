@@ -42,17 +42,19 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   public tracePublicStorageRead(
     contractAddress: AztecAddress,
     slot: Fr,
+    value: Fr,
     leafPreimage: PublicDataTreeLeafPreimage,
     leafIndex: Fr,
     path: Fr[],
   ) {
-    this.innerCallTrace.tracePublicStorageRead(contractAddress, slot, leafPreimage, leafIndex, path);
-    this.enqueuedCallTrace.tracePublicStorageRead(contractAddress, slot, leafPreimage, leafIndex, path);
+    this.innerCallTrace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, leafIndex, path);
+    this.enqueuedCallTrace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, leafIndex, path);
   }
 
   public tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
+    value: Fr,
     lowLeafPreimage: PublicDataTreeLeafPreimage,
     lowLeafIndex: Fr,
     lowLeafPath: Fr[],
@@ -62,6 +64,7 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     this.innerCallTrace.tracePublicStorageWrite(
       contractAddress,
       slot,
+      value,
       lowLeafPreimage,
       lowLeafIndex,
       lowLeafPath,
@@ -71,6 +74,7 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     this.enqueuedCallTrace.tracePublicStorageWrite(
       contractAddress,
       slot,
+      value,
       lowLeafPreimage,
       lowLeafIndex,
       lowLeafPath,
