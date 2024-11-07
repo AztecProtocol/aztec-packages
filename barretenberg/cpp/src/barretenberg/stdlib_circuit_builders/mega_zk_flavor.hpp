@@ -12,10 +12,6 @@ class MegaZKFlavor : public bb::MegaFlavor {
   public:
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
-    using Commitment = MegaFlavor::Commitment;
-    using CommitmentKey = bb::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-
     /**
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.
