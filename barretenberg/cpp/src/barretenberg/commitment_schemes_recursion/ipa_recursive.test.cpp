@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 using namespace bb;
 
@@ -60,6 +61,17 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
 
+    Builder build_ipa_recursive_verifier_circuit(const size_t POLY_LENGTH)
+    {
+        Builder builder;
+        auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
+        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
+
+        RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
+        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        return builder;
+    }
+
     /**
      * @brief Tests IPA recursion
      * @details Creates an IPA claim and then runs the recursive IPA verification and checks that the circuit is valid.
@@ -67,14 +79,58 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
      */
     void test_recursive_ipa(const size_t POLY_LENGTH)
     {
-        Builder builder;
-        auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
-        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
-
-        RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
-        builder.finalize_circuit(/*ensure_nonzero=*/false);
+        Builder builder(build_ipa_recursive_verifier_circuit(POLY_LENGTH));
         info("IPA Recursive Verifier num finalized gates = ", builder.get_num_finalized_gates());
         EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    void test_fixed_ipa_recursive_verifier()
+    {
+
+        srs::init_crs_factory("../srs_db/ignition");
+
+        Builder builder_1(build_ipa_recursive_verifier_circuit(1 << 10));
+        Builder builder_2(build_ipa_recursive_verifier_circuit(1 << 11));
+
+        UltraFlavor::ProvingKey pk_1 = (DeciderProvingKey_<UltraFlavor>(builder_1)).proving_key;
+        UltraFlavor::ProvingKey pk_2 = (DeciderProvingKey_<UltraFlavor>(builder_2)).proving_key;
+        UltraFlavor::VerificationKey verification_key_1(pk_1);
+        UltraFlavor::VerificationKey verification_key_2(pk_2);
+        bool broke(false);
+        auto check_eq = [&broke](auto& p1, auto& p2) {
+            EXPECT_TRUE(p1.size() == p2.size());
+            for (size_t idx = 0; idx < p1.size(); idx++) {
+                if (p1[idx] != p2[idx]) {
+                    broke = true;
+                    break;
+                }
+            }
+        };
+
+        size_t block_idx = 0;
+        for (auto [b_10, b_11] : zip_view(builder_1.blocks.get(), builder_2.blocks.get())) {
+            info("block index: ", block_idx);
+            EXPECT_TRUE(b_10.selectors.size() == 13);
+            EXPECT_TRUE(b_11.selectors.size() == 13);
+            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
+                check_eq(p_10, p_11);
+            }
+            block_idx++;
+        }
+
+        UltraFlavor::CommitmentLabels labels;
+        for (auto [vk_10, vk_11, label] :
+             zip_view(verification_key_1.get_all(), verification_key_2.get_all(), labels.get_precomputed())) {
+            if (vk_10 != vk_11) {
+                broke = true;
+                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
+            }
+        }
+
+        EXPECT_TRUE(verification_key_1.circuit_size == verification_key_2.circuit_size);
+        EXPECT_TRUE(verification_key_1.num_public_inputs == verification_key_2.num_public_inputs);
+
+        EXPECT_FALSE(broke);
     }
 
     /**
@@ -168,4 +224,9 @@ TEST_F(IPARecursiveTests, AccumulateSmall)
 TEST_F(IPARecursiveTests, AccumulateMedium)
 {
     test_accumulation(/*POLY_LENGTH=*/1024);
+}
+
+TEST_F(IPARecursiveTests, ConstantVerifier)
+{
+    test_fixed_ipa_recursive_verifier();
 }
