@@ -52,24 +52,20 @@ contract PushProposalTest is GovernanceProposerBase {
     _;
   }
 
-  function test_WhenRoundTooFarInPast(uint256 _slotsToJump)
+  function test_WhenRoundTooFarInPast(uint256 _slotToHit)
     external
     givenCanonicalInstanceHoldCode
     whenRoundInPast
   {
     // it revert
 
-    uint256 lower = Timestamp.unwrap(
-      leonidas.getTimestampForSlot(
-        leonidas.getCurrentSlot()
-          + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1)
-      )
+    Slot lower = leonidas.getCurrentSlot()
+      + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
+    Slot upper = Slot.wrap(
+      (type(uint256).max - Timestamp.unwrap(leonidas.GENESIS_TIME())) / leonidas.SLOT_DURATION()
     );
-    uint256 upper =
-      (type(uint256).max - Timestamp.unwrap(leonidas.GENESIS_TIME())) / leonidas.SLOT_DURATION();
-    uint256 time = bound(_slotsToJump, lower, upper);
-
-    vm.warp(time);
+    Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
+    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(slotToHit)));
 
     vm.expectRevert(
       abi.encodeWithSelector(
