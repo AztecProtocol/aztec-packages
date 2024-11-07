@@ -24,3 +24,15 @@ export function jsonStringify(obj: object, prettify?: boolean): string {
     prettify ? 2 : 0,
   );
 }
+
+/**
+ * Calls jsonStringify but swallows errors.
+ * Use for logging, when you don't want to potentially introduce another thing that throws.
+ */
+export function tryJsonStringify(obj: any, prettify?: boolean): string | undefined {
+  try {
+    return jsonStringify(obj, prettify);
+  } catch (e) {
+    return undefined;
+  }
+}
