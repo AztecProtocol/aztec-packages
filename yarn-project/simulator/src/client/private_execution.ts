@@ -76,7 +76,7 @@ export async function executePrivateFunction(
 
   return new PrivateExecutionResult(
     acir,
-    Buffer.from(artifact.verificationKey!, 'hex'),
+    Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
     noteHashLeafIndexMap,

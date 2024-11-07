@@ -616,6 +616,18 @@ export class BarretenbergApi {
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out[0];
   }
+
+  async acirVkAsFieldsMegaHonk(vkBuf: Uint8Array): Promise<Fr[]> {
+    const inArgs = [vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = await this.wasm.callWasmExport(
+      'acir_vk_as_fields_mega_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
 }
 export class BarretenbergApiSync {
   constructor(protected wasm: BarretenbergWasm) {}
@@ -1187,6 +1199,18 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = this.wasm.callWasmExport(
       'acir_vk_as_fields_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirVkAsFieldsMegaHonk(vkBuf: Uint8Array): Fr[] {
+    const inArgs = [vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = this.wasm.callWasmExport(
+      'acir_vk_as_fields_mega_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

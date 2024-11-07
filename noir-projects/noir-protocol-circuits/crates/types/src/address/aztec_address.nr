@@ -115,7 +115,7 @@ impl AztecAddress {
 
     pub fn compute_from_private_function(
         function_selector: FunctionSelector,
-        functino_vk_hash: Field,
+        function_vk_hash: Field,
         function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
         contract_class_artifact_hash: Field,
         contract_class_public_bytecode_commitment: Field,
@@ -124,7 +124,7 @@ impl AztecAddress {
     ) -> Self {
         let private_functions_root = private_functions_root_from_siblings(
             function_selector,
-            functino_vk_hash,
+            function_vk_hash,
             function_leaf_membership_witness.leaf_index,
             function_leaf_membership_witness.sibling_path,
         );

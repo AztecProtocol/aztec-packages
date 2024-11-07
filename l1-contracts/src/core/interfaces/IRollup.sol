@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -101,6 +101,7 @@ interface IRollup {
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
   function canPrune() external view returns (bool);
+  function canPruneAtTime(Timestamp _ts) external view returns (bool);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);

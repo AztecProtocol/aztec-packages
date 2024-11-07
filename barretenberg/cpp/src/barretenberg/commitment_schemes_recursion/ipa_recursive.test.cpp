@@ -73,7 +73,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
         builder.finalize_circuit(/*ensure_nonzero=*/false);
-        info("IPA Recursive Verifier num finalizedgates = ", builder.get_num_finalized_gates());
+        info("IPA Recursive Verifier num finalized gates = ", builder.get_num_finalized_gates());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
@@ -96,7 +96,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
         // polynomial.
-        auto [output_claim, h_poly] =
+        auto [output_claim, challenge_poly] =
             RecursiveIPA::accumulate(recursive_verifier_ck, transcript_1, claim_1, transcript_2, claim_2);
         builder.finalize_circuit(/*ensure_nonzero=*/false);
         info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
@@ -111,7 +111,9 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         Commitment native_comm = output_claim.commitment.get_value();
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
-        NativeIPA::compute_opening_proof(this->ck(), { h_poly, opening_pair }, prover_transcript);
+        NativeIPA::compute_opening_proof(this->ck(), { challenge_poly, opening_pair }, prover_transcript);
+
+        EXPECT_EQ(challenge_poly.evaluate(opening_pair.challenge), opening_pair.evaluation);
         // Natively verify this proof to check it.
         auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
@@ -139,6 +141,15 @@ TEST_F(IPARecursiveTests, RecursiveSmall)
 TEST_F(IPARecursiveTests, RecursiveMedium)
 {
     test_recursive_ipa(/*POLY_LENGTH=*/1024);
+}
+
+/**
+ * @brief Tests IPA recursion with polynomial of length 1<<CONST_ECCVM_LOG_N
+ * @details More details in test_recursive_ipa
+ */
+TEST_F(IPARecursiveTests, RecursiveLarge)
+{
+    test_recursive_ipa(/*POLY_LENGTH=*/1 << CONST_ECCVM_LOG_N);
 }
 
 /**
