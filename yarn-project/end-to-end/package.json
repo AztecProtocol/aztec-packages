@@ -53,6 +53,7 @@
     "@aztec/world-state": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@noble/curves": "^1.0.0",
+    "@octokit/rest": "^21.0.2",
     "@swc/core": "^1.4.11",
     "@swc/jest": "^0.2.36",
     "@types/fs-extra": "^11.0.2",
@@ -99,7 +100,6 @@
   "devDependencies": {
     "0x": "^5.7.0",
     "@jest/globals": "^29.5.0",
-    "@octokit/rest": "^21.0.2",
     "@types/jest": "^29.5.0",
     "@types/js-yaml": "^4.0.9",
     "@types/lodash.chunk": "^4.2.9",
