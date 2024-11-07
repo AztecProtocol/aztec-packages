@@ -73,7 +73,7 @@ async function runAlertChecker(logger: DebugLogger) {
 
 // Running as a jest test to use existing end to end test framework
 describe('Alert Checker', () => {
-  const logger = createDebugLogger('alert-checker');
+  const logger = createDebugLogger('aztec:alert-checker');
   it('should check alerts', async () => {
     await runAlertChecker(logger);
   });
