@@ -142,11 +142,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-            - reorg.test.ts
+          - test: reorg.test.ts
             values: 16-validators
             runner_type: 16core-tester-x86-high-memory
             timeout: 360
-            - 4epochs.test.ts
+          - test: 4epochs.test.ts
             values: 48-validators
             runner_type: 32core-tester-x86
             timeout: 300
