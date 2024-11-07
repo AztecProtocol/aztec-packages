@@ -7,6 +7,26 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## 0.62.0
+
+### Blobs
+We now publish all DA in EVM blobs rather than calldata. This replaces all code that touched the `txsEffectsHash`.
+In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
+
+```diff
+- let txs_effects_hash = sha256_to_field(left.txs_effects_hash, right.txs_effects_hash);
++ assert(left.end_sponge_blob.eq(right.start_sponge_blob));
++ let start_sponge_blob = left.start_sponge_blob;
++ let end_sponge_blob = right.end_sponge_blob;
+```
+This sponge is used in the block root circuit to confirm that an injected array of all `txEffects` does match those rolled up so far in the `spongeBlob`. Then, the `txEffects` array is used to construct and prove opening of the polynomial representing the blob commitment on L1 (this is done efficiently thanks to the Barycentric formula).
+On L1, we publish the array as a blob and verify the above proof of opening. This confirms that the tx effects in the rollup circuit match the data in the blob:
+
+```diff
+- bytes32 txsEffectsHash = TxsDecoder.decode(_body);
++ bytes32 blobHash = _validateBlob(blobInput);
+```
+Where `blobInput` contains the proof of opening and evaluation calculated in the block root rollup circuit. It is then stored and used as a public input to verifying the epoch proof.
+
 ### [TXE] Single execution environment
 Thanks to recent advancements in Brillig TXE performs every single call as if it was a nested call, spawning a new ACVM or AVM simulator without performance loss.
 This ensures every single test runs in a consistent environment and allows for clearer test syntax:
