@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
@@ -59,7 +59,7 @@ library DataStructures {
     Configuration config;
     ProposalState state;
     IPayload payload;
-    address gerousia;
+    address governanceProposer;
     Timestamp creation;
     Ballot summedBallot;
   }
