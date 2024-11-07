@@ -127,9 +127,9 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork() {
+  public fork(incrementSideEffectCounter: boolean = false) {
     return new PublicEnqueuedCallSideEffectTrace(
-      this.sideEffectCounter,
+      incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter,
       new PublicValidationRequestArrayLengths(
         this.previousValidationRequestArrayLengths.noteHashReadRequests + this.noteHashReadRequests.length,
         this.previousValidationRequestArrayLengths.nullifierReadRequests + this.nullifierReadRequests.length,
@@ -155,7 +155,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return this.sideEffectCounter;
   }
 
-  public incrementSideEffectCounter() {
+  private incrementSideEffectCounter() {
     this.sideEffectCounter++;
   }
 
@@ -449,8 +449,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   /**
-   * Trace an execution phase.
-   * Accept some results from a finished phase's trace into this one.
+   * Trace an enqueued call.
+   * Accept some results from a finished call's trace into this one.
    */
   public traceExecutionPhase(
     /** The trace of the enqueued call. */
