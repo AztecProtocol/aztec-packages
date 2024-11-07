@@ -1177,7 +1177,7 @@ mod tests {
         tx_effects[0] = field_from_bytes(
             array_concat(
                 TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len(), 0, REVERT_CODE_PREFIX, 0, 0],
+                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
             ),
             true,
         );
