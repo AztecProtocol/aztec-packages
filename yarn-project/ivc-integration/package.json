@@ -69,7 +69,10 @@
   },
   "devDependencies": {
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@msgpack/msgpack": "^3.0.0-beta2",
     "@types/jest": "^29.5.0",

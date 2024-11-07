@@ -108,7 +108,7 @@ describe('Enqueued-call Side Effect Trace', () => {
 
   it('Should trace storage reads', () => {
     const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
-    trace.tracePublicStorageRead(address, slot, leafPreimage, Fr.ZERO, []);
+    trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().publicDataReads;
@@ -117,14 +117,14 @@ describe('Enqueued-call Side Effect Trace', () => {
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.validationRequests.publicDataReads).toEqual(expectedArray);
-    expect(trace.getAvmCircuitHints().storageValues.items).toEqual([{ key: startCounterFr, value: value }]);
+    expect(trace.getAvmCircuitHints().storageValues.items).toEqual([{ key: startCounterFr, value }]);
   });
 
   it('Should trace storage writes', () => {
     const lowLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
     const newLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
 
-    trace.tracePublicStorageWrite(address, slot, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+    trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().publicDataUpdateRequests;
@@ -276,10 +276,10 @@ describe('Enqueued-call Side Effect Trace', () => {
     it('Should enforce maximum number of public storage reads', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; i++) {
         const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
-        trace.tracePublicStorageRead(address, slot, leafPreimage, Fr.ZERO, []);
+        trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       }
       const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
-      expect(() => trace.tracePublicStorageRead(address, slot, leafPreimage, Fr.ZERO, [])).toThrow(
+      expect(() => trace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, [])).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -288,11 +288,11 @@ describe('Enqueued-call Side Effect Trace', () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         const lowLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i), new Fr(i), Fr.ZERO, 0n);
         const newLeafPreimage = new PublicDataTreeLeafPreimage(new Fr(i + 1), new Fr(i + 1), Fr.ZERO, 0n);
-        trace.tracePublicStorageWrite(address, slot, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
+        trace.tracePublicStorageWrite(address, slot, value, lowLeafPreimage, Fr.ZERO, [], newLeafPreimage, []);
       }
       const leafPreimage = new PublicDataTreeLeafPreimage(new Fr(42), new Fr(42), Fr.ZERO, 0n);
       expect(() =>
-        trace.tracePublicStorageWrite(new Fr(42), new Fr(42), leafPreimage, Fr.ZERO, [], leafPreimage, []),
+        trace.tracePublicStorageWrite(new Fr(42), new Fr(42), value, leafPreimage, Fr.ZERO, [], leafPreimage, []),
       ).toThrow(SideEffectLimitReachedError);
     });
 
@@ -417,9 +417,9 @@ describe('Enqueued-call Side Effect Trace', () => {
       let testCounter = startCounter;
       const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
       const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-      nestedTrace.tracePublicStorageRead(address, slot, leafPreimage, Fr.ZERO, []);
+      nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.tracePublicStorageWrite(address, slot, leafPreimage, Fr.ZERO, [], leafPreimage, []);
+      nestedTrace.tracePublicStorageWrite(address, slot, value, leafPreimage, Fr.ZERO, [], leafPreimage, []);
       testCounter++;
       nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
       // counter does not increment for note hash checks

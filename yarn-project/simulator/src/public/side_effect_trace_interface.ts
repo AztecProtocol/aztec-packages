@@ -22,38 +22,40 @@ export interface PublicSideEffectTraceInterface {
   tracePublicStorageRead(
     contractAddress: Fr,
     slot: Fr,
-    leafPreimage: PublicDataTreeLeafPreimage,
-    leafIndex: Fr,
-    path: Fr[],
+    value: Fr,
+    leafPreimage?: PublicDataTreeLeafPreimage,
+    leafIndex?: Fr,
+    path?: Fr[],
   ): void;
   tracePublicStorageWrite(
     contractAddress: Fr,
     slot: Fr, // This is the storage slot not the computed leaf slot
-    lowLeafPreimage: PublicDataTreeLeafPreimage,
-    lowLeafIndex: Fr,
-    lowLeafPath: Fr[],
-    newLeafPreimage: PublicDataTreeLeafPreimage,
-    insertionPath: Fr[],
+    value: Fr,
+    lowLeafPreimage?: PublicDataTreeLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
+    newLeafPreimage?: PublicDataTreeLeafPreimage,
+    insertionPath?: Fr[],
   ): void;
-  traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean, path: Fr[]): void;
-  traceNewNoteHash(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, path: Fr[]): void;
+  traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
+  traceNewNoteHash(contractAddress: Fr, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
   traceNullifierCheck(
     contractAddress: Fr,
     nullifier: Fr,
     exists: boolean,
-    lowLeafPreimage: NullifierLeafPreimage,
-    lowLeafIndex: Fr,
-    lowLeafPath: Fr[],
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
   ): void;
   traceNewNullifier(
     contractAddress: Fr,
     nullifier: Fr,
-    lowLeafPreimage: NullifierLeafPreimage,
-    lowLeafIndex: Fr,
-    lowLeafPath: Fr[],
-    insertionPath: Fr[],
+    lowLeafPreimage?: NullifierLeafPreimage,
+    lowLeafIndex?: Fr,
+    lowLeafPath?: Fr[],
+    insertionPath?: Fr[],
   ): void;
-  traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path: Fr[]): void;
+  traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean, path?: Fr[]): void;
   traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr): void;
   traceUnencryptedLog(contractAddress: Fr, log: Fr[]): void;
   traceGetContractInstance(contractAddress: Fr, exists: boolean, instance?: SerializableContractInstance): void;

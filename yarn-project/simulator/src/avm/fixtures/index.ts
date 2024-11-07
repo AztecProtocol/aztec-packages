@@ -42,7 +42,8 @@ export function initPersistableStateManager(overrides?: {
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
-  merkleTree?: MerkleTreeWriteOperations;
+  doMerkleOperations?: boolean;
+  merkleTrees?: MerkleTreeWriteOperations;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -50,6 +51,8 @@ export function initPersistableStateManager(overrides?: {
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
     overrides?.publicStorage || new PublicStorage(worldStateDB),
     overrides?.nullifiers || new NullifierManager(worldStateDB),
+    overrides?.doMerkleOperations || false,
+    overrides?.merkleTrees || mock<MerkleTreeWriteOperations>(),
   );
 }
 

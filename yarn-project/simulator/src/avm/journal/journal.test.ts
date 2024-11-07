@@ -54,22 +54,8 @@ describe('journal', () => {
 
       // We expect the journal to store the access in [storedVal, cachedVal] - [time0, time1]
       expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(2);
-      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(
-        /*nthCall=*/ 1,
-        address,
-        slot,
-        storedValue,
-        /*exists=*/ true,
-        /*cached=*/ false,
-      );
-      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(
-        /*nthCall=*/ 2,
-        address,
-        slot,
-        cachedValue,
-        /*exists=*/ true,
-        /*cached=*/ true,
-      );
+      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(/*nthCall=*/ 1, address, slot, storedValue);
+      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(/*nthCall=*/ 2, address, slot, cachedValue);
     });
   });
 
@@ -99,13 +85,7 @@ describe('journal', () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-        address,
-        utxo,
-        /*leafIndex=*/ Fr.ZERO,
-        exists,
-        /*isPending=*/ false,
-      );
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, exists);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
@@ -113,12 +93,13 @@ describe('journal', () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists, /*isPending=*/ false);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, exists);
     });
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
       expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ utxo);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(address, /*nullifier=*/ utxo);
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {

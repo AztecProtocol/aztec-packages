@@ -169,14 +169,8 @@ describe('Accrued Substate', () => {
         expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
         const isPending = false;
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          address,
-          /*nullifier=*/ value0,
-          tracedLeafIndex,
-          exists,
-          isPending,
-        );
+        const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, exists);
       });
     });
   });

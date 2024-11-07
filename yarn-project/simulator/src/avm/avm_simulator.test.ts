@@ -1,24 +1,31 @@
+import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
 import {
+  type ContractDataSource,
   GasFees,
   GlobalVariables,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
   type PublicFunction,
   PublicKeys,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { MerkleTrees } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
-import { type WorldStateDB } from '../public/public_db_sources.js';
+import { WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -39,7 +46,7 @@ import {
   randomMemoryUint64s,
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
+import { type AvmPersistableStateManager, getLeafOrLowLeaf } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,
@@ -157,7 +164,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     mockStorageRead(worldStateDB, storageValue);
 
     const trace = mock<PublicSideEffectTraceInterface>();
-    const persistableState = initPersistableStateManager({ worldStateDB, trace });
+    const telemetry = new NoopTelemetryClient();
+    const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
+    worldStateDB.getMerkleInterface.mockReturnValue(merkleTrees);
+    const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees });
     const environment = initExecutionEnvironment({
       functionSelector,
       calldata,
@@ -581,14 +591,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
         const isPending = false;
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          address,
-          /*nullifier=*/ value0,
-          tracedLeafIndex,
-          exists,
-          isPending,
-        );
+        const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, exists);
       });
     });
 
@@ -672,13 +676,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
         expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          address,
-          /*nullifier=*/ value0,
-          /*leafIndex=*/ Fr.ZERO,
-          /*exists=*/ true,
-          /*isPending=*/ true,
-        );
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, /*nullifier=*/ value0, /*exists=*/ true);
       });
       it(`Emits same nullifier twice (expect failure)`, async () => {
         const calldata = [value0];
@@ -745,13 +743,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([value0]);
 
         expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          slot,
-          value0,
-          /*exists=*/ true,
-          /*cached=*/ false,
-        );
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, slot, value0);
       });
 
       it('Should set and read a value from storage (single)', async () => {
@@ -767,13 +759,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot, value0);
         expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          slot,
-          value0,
-          /*exists=*/ true,
-          /*cached=*/ true,
-        );
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, slot, value0);
       });
 
       it('Should set a value in storage (list)', async () => {
@@ -807,20 +793,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0, value1]);
 
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          listSlot0,
-          value0,
-          /*exists=*/ true,
-          /*cached=*/ false,
-        );
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          listSlot1,
-          value1,
-          /*exists=*/ true,
-          /*cached=*/ false,
-        );
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(2);
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, listSlot0, value0);
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, listSlot1, value1);
       });
 
       it('Should set a value in storage (map)', async () => {
@@ -858,13 +833,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(await context.persistableState.peekStorage(address, mapSlot)).toEqual(value0);
 
         expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          mapSlot,
-          Fr.ZERO,
-          /*exists=*/ false,
-          /*cached=*/ false,
-        );
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, mapSlot, Fr.zero());
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, mapSlot, value0);
       });
@@ -882,13 +851,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
         // slot is the result of a pedersen hash and is therefore not known in the test
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          expect.anything(),
-          value0,
-          /*exists=*/ true,
-          /*cached=*/ false,
-        );
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, expect.anything(), value0);
       });
     });
 
@@ -1157,6 +1120,216 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(true);
         expect(results.output).toEqual([]);
         expect(results.revertReason?.message).toMatch('Reached the limit');
+      });
+    });
+  });
+  describe('Side effects including merkle checks', () => {
+    const address = new Fr(1);
+    const sender = new Fr(42);
+
+    const value0 = new Fr(420);
+    const value1 = new Fr(69);
+
+    const slotNumber0 = 1; // must update Noir contract if changing this
+    const slotNumber1 = 2; // must update Noir contract if changing this
+    const slot0 = new Fr(slotNumber0);
+    const slot1 = new Fr(slotNumber1);
+    const leafSlot0 = computePublicDataTreeLeafSlot(address, slot0);
+    const leafSlot1 = computePublicDataTreeLeafSlot(address, slot1);
+    const publicDataTreeLeaf0 = new PublicDataTreeLeaf(leafSlot0, value0);
+    const _publicDataTreeLeaf1 = new PublicDataTreeLeaf(leafSlot1, value1);
+
+    const INTERNAL_PUBLIC_DATA_SUBTREE_HEIGHT = 0;
+
+    const listSlotNumber0 = 2; // must update Noir contract if changing this
+    const listSlotNumber1 = listSlotNumber0 + 1;
+    const listSlot0 = new Fr(listSlotNumber0);
+    const listSlot1 = new Fr(listSlotNumber1);
+    const _leafListSlot0 = computePublicDataTreeLeafSlot(address, listSlot0);
+    const _leafListSlot1 = computePublicDataTreeLeafSlot(address, listSlot1);
+
+    let worldStateDB: WorldStateDB;
+    let merkleTrees: MerkleTreeWriteOperations;
+    let trace: PublicSideEffectTraceInterface;
+    let persistableState: AvmPersistableStateManager;
+
+    beforeEach(async () => {
+      trace = mock<PublicSideEffectTraceInterface>();
+
+      const telemetry = new NoopTelemetryClient();
+      merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
+      worldStateDB = new WorldStateDB(merkleTrees, mock<ContractDataSource>() as ContractDataSource);
+
+      persistableState = initPersistableStateManager({ worldStateDB, trace, doMerkleOperations: true, merkleTrees });
+    });
+
+    const createContext = (calldata: Fr[] = []) => {
+      return initContext({
+        persistableState,
+        env: initExecutionEnvironment({ address, sender, calldata }),
+      });
+    };
+
+    describe('Public storage accesses', () => {
+      it('Should set value in storage (single)', async () => {
+        const calldata = [value0];
+
+        const [lowLeafIndex, lowLeafPreimage, lowLeafPath, leafAlreadyPresent] =
+          await getLeafOrLowLeaf<PublicDataTreeLeafPreimage>(
+            MerkleTreeId.PUBLIC_DATA_TREE,
+            leafSlot0.toBigInt(),
+            merkleTrees,
+          );
+        // leafSlot0 should NOT be present in the tree!
+        expect(leafAlreadyPresent).toEqual(false);
+        expect(lowLeafPreimage.slot).not.toEqual(leafSlot0);
+        const newLeafPreimage = new PublicDataTreeLeafPreimage(
+          leafSlot0,
+          value0,
+          lowLeafPreimage.nextSlot,
+          lowLeafPreimage.nextIndex,
+        );
+
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('set_storage_single');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+
+        expect(await context.persistableState.peekStorage(address, slot0)).toEqual(value0);
+
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(
+          address,
+          slot0,
+          value0,
+          lowLeafPreimage,
+          new Fr(lowLeafIndex),
+          lowLeafPath,
+          newLeafPreimage,
+          expect.anything(), // can't know path without performing test insertion
+        );
+      });
+
+      it('Should read value in storage (single) - never written', async () => {
+        const context = createContext();
+
+        const [lowLeafIndex, lowLeafPreimage, lowLeafPath, leafAlreadyPresent] =
+          await getLeafOrLowLeaf<PublicDataTreeLeafPreimage>(
+            MerkleTreeId.PUBLIC_DATA_TREE,
+            leafSlot0.toBigInt(),
+            merkleTrees,
+          );
+        // leafSlot0 should NOT be present in the tree!
+        expect(leafAlreadyPresent).toEqual(false);
+        expect(lowLeafPreimage.slot).not.toEqual(leafSlot0);
+
+        const bytecode = getAvmTestContractBytecode('read_storage_single');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([Fr.zero()]);
+
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
+          address,
+          slot0,
+          /*value=*/ Fr.zero(),
+          lowLeafPreimage,
+          new Fr(lowLeafIndex),
+          lowLeafPath,
+        );
+      });
+
+      it('Should read value in storage (single) - written before, leaf exists', async () => {
+        const context = createContext();
+
+        await merkleTrees.batchInsert(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          [publicDataTreeLeaf0.toBuffer()],
+          INTERNAL_PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
+        const [leafIndex, leafPreimage, leafPath] = await getLeafOrLowLeaf<PublicDataTreeLeafPreimage>(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          leafSlot0.toBigInt(),
+          merkleTrees,
+        );
+        // leafSlot0 should be present in the tree!
+        expect(leafPreimage.slot).toEqual(leafSlot0);
+        expect(leafPreimage.value).toEqual(value0);
+
+        const bytecode = getAvmTestContractBytecode('read_storage_single');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([value0]);
+
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
+          address,
+          slot0,
+          value0,
+          leafPreimage,
+          new Fr(leafIndex),
+          leafPath,
+        );
+      });
+
+      it('Should set and read value in storage (single)', async () => {
+        const calldata = [value0];
+
+        const [lowLeafIndex, lowLeafPreimage, lowLeafPath, leafAlreadyPresent] =
+          await getLeafOrLowLeaf<PublicDataTreeLeafPreimage>(
+            MerkleTreeId.PUBLIC_DATA_TREE,
+            leafSlot0.toBigInt(),
+            merkleTrees,
+          );
+        // leafSlot0 should NOT be present in the tree!
+        expect(leafAlreadyPresent).toEqual(false);
+        expect(lowLeafPreimage.slot).not.toEqual(leafSlot0);
+        const newLeafPreimage = new PublicDataTreeLeafPreimage(
+          leafSlot0,
+          value0,
+          lowLeafPreimage.nextSlot,
+          lowLeafPreimage.nextIndex,
+        );
+
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('set_read_storage_single');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([value0]);
+
+        const [leafIndex, leafPreimage, leafPath] = await getLeafOrLowLeaf<PublicDataTreeLeafPreimage>(
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          leafSlot0.toBigInt(),
+          merkleTrees,
+        );
+        // leafSlot0 should now be present in the tree!
+        expect(leafPreimage.slot).toEqual(leafSlot0);
+        expect(leafPreimage.value).toEqual(value0);
+
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(
+          address,
+          slot0,
+          value0,
+          lowLeafPreimage,
+          new Fr(lowLeafIndex),
+          lowLeafPath,
+          newLeafPreimage,
+          expect.anything(), // can't know path without performing test insertion
+        );
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
+        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
+          address,
+          slot0,
+          value0,
+          leafPreimage,
+          new Fr(leafIndex),
+          leafPath,
+        );
       });
     });
   });

@@ -837,13 +837,17 @@ export class AvmPublicDataWriteTreeHint {
 
 export class AvmExecutionHints {
   public readonly enqueuedCalls: Vector<AvmEnqueuedCallHint>;
+
   public readonly storageValues: Vector<AvmKeyValueHint>;
   public readonly noteHashExists: Vector<AvmKeyValueHint>;
   public readonly nullifierExists: Vector<AvmKeyValueHint>;
   public readonly l1ToL2MessageExists: Vector<AvmKeyValueHint>;
+
   public readonly externalCalls: Vector<AvmExternalCallHint>;
+
   public readonly contractInstances: Vector<AvmContractInstanceHint>;
   public readonly contractBytecodeHints: Vector<AvmContractBytecodeHints>;
+
   public readonly storageReadRequest: Vector<AvmPublicDataReadTreeHint>;
   public readonly storageUpdateRequest: Vector<AvmPublicDataWriteTreeHint>;
   public readonly nullifierReadRequest: Vector<AvmNullifierReadTreeHint>;
