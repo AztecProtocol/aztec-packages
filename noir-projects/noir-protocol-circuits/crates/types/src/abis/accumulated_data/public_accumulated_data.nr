@@ -8,8 +8,8 @@ use crate::{
         public_data_update_request::PublicDataUpdateRequest,
     },
     constants::{
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
         NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS, PUBLIC_ACCUMULATED_DATA_LENGTH,
     },
@@ -18,6 +18,7 @@ use crate::{
     utils::{arrays::array_length, reader::Reader},
 };
 
+// TODO(#9594): To be deprecated.
 pub struct PublicAccumulatedData {
     note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
     nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
@@ -29,7 +30,7 @@ pub struct PublicAccumulatedData {
 
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 
-    public_call_stack: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    public_call_stack: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
 
     gas_used: Gas,
 }
@@ -46,7 +47,7 @@ impl Empty for PublicAccumulatedData {
             public_data_update_requests: [
                 PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
             ],
-            public_call_stack: [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+            public_call_stack: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             gas_used: Gas::empty(),
         }
     }
@@ -84,7 +85,7 @@ impl Serialize<PUBLIC_ACCUMULATED_DATA_LENGTH> for PublicAccumulatedData {
             fields.extend_from_array(self.public_data_update_requests[i].serialize());
         }
 
-        for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
+        for i in 0..MAX_ENQUEUED_CALLS_PER_TX {
             fields.extend_from_array(self.public_call_stack[i].serialize());
         }
 
@@ -131,7 +132,7 @@ impl Deserialize<PUBLIC_ACCUMULATED_DATA_LENGTH> for PublicAccumulatedData {
             ),
             public_call_stack: reader.read_struct_array(
                 PublicCallRequest::deserialize,
-                [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+                [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             ),
             gas_used: reader.read_struct(Gas::deserialize),
         };

@@ -8,7 +8,7 @@ use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData,
         log_hash::{LogHash, ScopedLogHash},
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::PublicDataWrite,
         sponge_blob::SpongeBlob,
     },
     constants::{
@@ -23,6 +23,7 @@ use dep::types::{
         accumulate_sha256, compute_tx_logs_hash, silo_encrypted_log_hash, silo_unencrypted_log_hash,
     },
     merkle_tree::VariableMerkleTree,
+    traits::is_empty,
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
 };
 use blob::blob_public_inputs::BlobPublicInputs;
@@ -272,7 +273,7 @@ pub fn append_tx_effects_for_blob(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
     start_sponge_blob: SpongeBlob,
 ) -> SpongeBlob {
@@ -361,7 +362,7 @@ pub fn append_tx_effects_for_blob(
 
         for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
-            tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
+            tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].value;
         }
         offset += array_len * 2;
     }
@@ -439,12 +440,12 @@ pub fn append_tx_effects_for_blob(
 }
 
 fn get_all_update_requests_for_tx_effects(
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
+    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+    let mut all_update_requests: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
         BoundedVec::new();
     for update_request in all_public_data_update_requests {
-        if !update_request.is_empty() {
+        if !is_empty(update_request) {
             all_update_requests.push(update_request);
         }
     }

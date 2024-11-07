@@ -1,7 +1,6 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  CallContext,
   CombinedConstantData,
   EthAddress,
   Gas,
@@ -45,13 +44,13 @@ import { SideEffectLimitReachedError } from './side_effect_errors.js';
  * Helper function to create a public execution request from an AVM execution environment
  */
 function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
-  const callContext = CallContext.from({
-    msgSender: avmEnvironment.sender,
-    contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
-    isStaticCall: avmEnvironment.isStaticCall,
-  });
-  return new PublicCallRequest(callContext, computeVarArgsHash(avmEnvironment.calldata), /*counter=*/ 0);
+  return new PublicCallRequest(
+    avmEnvironment.sender,
+    avmEnvironment.address,
+    avmEnvironment.functionSelector,
+    avmEnvironment.isStaticCall,
+    computeVarArgsHash(avmEnvironment.calldata),
+  );
 }
 
 describe('Enqueued-call Side Effect Trace', () => {

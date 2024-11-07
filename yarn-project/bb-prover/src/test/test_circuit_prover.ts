@@ -56,7 +56,6 @@ import {
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
-  convertPrivateKernelEmptyOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -125,31 +124,6 @@ export class TestCircuitProver implements ServerCircuitProver {
       NESTED_RECURSIVE_PROOF_LENGTH,
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
-    );
-  }
-
-  public async getEmptyTubeProof(
-    inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    const emptyNested = new EmptyNestedData(
-      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
-    );
-    const kernelInputs = new PrivateKernelEmptyInputs(
-      emptyNested,
-      inputs.header,
-      inputs.chainId,
-      inputs.version,
-      inputs.vkTreeRoot,
-      inputs.protocolContractTreeRoot,
-    );
-
-    return await this.simulate(
-      kernelInputs,
-      'EmptyNestedArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
-      convertPrivateKernelEmptyInputsToWitnessMap,
-      convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
   }
 

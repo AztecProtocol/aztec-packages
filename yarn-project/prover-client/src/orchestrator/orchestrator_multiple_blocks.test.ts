@@ -1,8 +1,10 @@
 import { toNumTxEffects } from '@aztec/circuit-types';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
-import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
+import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 const logger = createDebugLogger('aztec:orchestrator-multi-blocks');
@@ -25,9 +27,12 @@ describe('prover/orchestrator/multi-block', () => {
 
       for (let i = 0; i < numBlocks; i++) {
         logger.info(`Creating block ${i + 1000}`);
-        const tx = makeBloatedProcessedTx(context.actualDb, i + 1);
-        tx.data.constants.historicalHeader = header;
-        tx.data.constants.vkTreeRoot = getVKTreeRoot();
+        const tx = makeBloatedProcessedTx({
+          header,
+          vkTreeRoot: getVKTreeRoot(),
+          protocolContractTreeRoot,
+          seed: i + 1,
+        });
 
         const blockNum = i + 1000;
         const globals = makeGlobals(blockNum);

@@ -2,13 +2,16 @@ import {
   type AvmProvingRequest,
   type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
-  type ProcessedTx,
   type PublicExecutionRequest,
   PublicKernelPhase,
   type SimulationError,
   type Tx,
 } from '@aztec/circuit-types';
 import {
+  AvmAccumulatedData,
+  AvmCircuitPublicInputs,
+  type CombinedAccumulatedData,
+  CombinedConstantData,
   EnqueuedCallData,
   Fr,
   Gas,
@@ -16,14 +19,23 @@ import {
   type Header,
   type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateKernelTailCircuitPublicInputs,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+  PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
   PublicKernelCircuitPrivateInputs,
-  type PublicKernelCircuitPublicInputs,
+  PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicValidationRequestArrayLengths,
+  PublicValidationRequests,
+  RevertCode,
+  TreeSnapshots,
   type VMCircuitPublicInputs,
   VerificationKeyData,
+  countAccumulatedItems,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -65,6 +77,8 @@ type PublicPhaseResult = {
   revertReason?: SimulationError;
 };
 
+type PublicPhaseGasUsed = Partial<Record<PublicKernelPhase, Gas>>;
+
 export type ProcessedPhase = {
   phase: PublicKernelPhase;
   durationMs: number;
@@ -73,13 +87,12 @@ export type ProcessedPhase = {
 
 export type TxPublicCallsResult = {
   avmProvingRequest: AvmProvingRequest;
-  /** The output of the public kernel tail circuit simulation for this tx */
-  tailKernelOutput: KernelCircuitPublicInputs;
   /** Return values of simulating complete callstack */
   returnValues: NestedProcessReturnValues[];
   /** Gas used during the execution this tx */
-  gasUsed: ProcessedTx['gasUsed'];
+  gasUsed: PublicPhaseGasUsed;
   /** Revert reason, if any */
+  revertCode: RevertCode;
   revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
 };
@@ -165,9 +178,9 @@ export class EnqueuedCallsProcessor {
       PublicKernelPhase.TEARDOWN,
     ];
     const processedPhases: ProcessedPhase[] = [];
-    const gasUsed: ProcessedTx['gasUsed'] = {};
+    const gasUsed: PublicPhaseGasUsed = {};
     let avmProvingRequest: AvmProvingRequest;
-    let publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
+    let publicKernelOutput = this.getPublicKernelCircuitPublicInputs(tx.data);
     let isFromPrivate = true;
     let returnValues: NestedProcessReturnValues[] = [];
     let revertReason: SimulationError | undefined;
@@ -270,12 +283,15 @@ export class EnqueuedCallsProcessor {
       },
     );
 
+    const transactionFee = this.getTransactionFee(tx, publicKernelOutput);
+    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(tx, tailKernelOutput, transactionFee);
+
     return {
       avmProvingRequest: avmProvingRequest!,
-      tailKernelOutput,
       returnValues,
       gasUsed,
       processedPhases,
+      revertCode: tailKernelOutput.revertCode,
       revertReason,
     };
   }
@@ -311,7 +327,8 @@ export class EnqueuedCallsProcessor {
       await this.worldStateDB.addNewContracts(tx);
 
       const availableGas = this.getAvailableGas(tx, publicKernelOutput, phase);
-      const transactionFee = this.getTransactionFee(tx, publicKernelOutput, phase);
+      const transactionFee =
+        phase !== PublicKernelPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, publicKernelOutput);
 
       // each enqueued call starts with an incremented side effect counter
       const enqueuedCallStateManager = txStateManager.fork(/*incrementSideEffectCounter=*/ true);
@@ -394,24 +411,16 @@ export class EnqueuedCallsProcessor {
     }
   }
 
-  private getTransactionFee(
-    tx: Tx,
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    phase: PublicKernelPhase,
-  ): Fr {
-    if (phase !== PublicKernelPhase.TEARDOWN) {
-      return Fr.ZERO;
-    } else {
-      const gasSettings = tx.data.constants.txContext.gasSettings;
-      const gasFees = this.globalVariables.gasFees;
-      // No need to add teardown limits since they are already included in end.gasUsed
-      const gasUsed = previousPublicKernelOutput.end.gasUsed.add(
-        previousPublicKernelOutput.endNonRevertibleData.gasUsed,
-      );
-      const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
-      this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
-      return txFee;
-    }
+  private getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const gasFees = this.globalVariables.gasFees;
+    // No need to add teardown limits since they are already included in end.gasUsed
+    const gasUsed = previousPublicKernelOutput.end.gasUsed
+      .add(previousPublicKernelOutput.endNonRevertibleData.gasUsed)
+      .add(gasSettings.teardownGasLimits);
+    const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
+    this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
+    return txFee;
   }
 
   private async runMergeKernelCircuit(
@@ -442,5 +451,87 @@ export class EnqueuedCallsProcessor {
     const siblingPath = getVKSiblingPath(vkIndex);
 
     return new PublicKernelData(previousOutput, proof, vk, vkIndex, siblingPath);
+  }
+
+  // Temporary hack to create PublicKernelCircuitPublicInputs from PrivateKernelTailCircuitPublicInputs.
+  private getPublicKernelCircuitPublicInputs(data: PrivateKernelTailCircuitPublicInputs) {
+    const constants = CombinedConstantData.combine(data.constants, this.globalVariables);
+
+    const validationRequest = PublicValidationRequests.empty();
+    validationRequest.forRollup = data.rollupValidationRequests;
+
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) => {
+      const to = PublicAccumulatedData.empty();
+      to.noteHashes.forEach((_, i) => (to.noteHashes[i].noteHash.value = from.noteHashes[i]));
+      to.nullifiers.forEach((_, i) => (to.nullifiers[i].value = from.nullifiers[i]));
+      to.l2ToL1Msgs.forEach((_, i) => (to.l2ToL1Msgs[i] = from.l2ToL1Msgs[i]));
+      to.noteEncryptedLogsHashes.forEach((_, i) => (to.noteEncryptedLogsHashes[i] = from.noteEncryptedLogsHashes[i]));
+      to.encryptedLogsHashes.forEach((_, i) => (to.encryptedLogsHashes[i] = from.encryptedLogsHashes[i]));
+      to.unencryptedLogsHashes.forEach((_, i) => (to.unencryptedLogsHashes[i] = from.unencryptedLogsHashes[i]));
+      to.publicCallStack.forEach((_, i) => (to.publicCallStack[i] = from.publicCallRequests[i]));
+      (to.gasUsed as any) = from.gasUsed;
+      return to;
+    };
+
+    return new PublicKernelCircuitPublicInputs(
+      constants,
+      validationRequest,
+      convertAccumulatedData(data.forPublic!.nonRevertibleAccumulatedData),
+      convertAccumulatedData(data.forPublic!.revertibleAccumulatedData),
+      0,
+      data.forPublic!.publicTeardownCallRequest,
+      data.feePayer,
+      RevertCode.OK,
+    );
+  }
+
+  // Temporary hack to create the AvmCircuitPublicInputs from public tail's public inputs.
+  private generateAvmCircuitPublicInputs(tx: Tx, tailOutput: KernelCircuitPublicInputs, transactionFee: Fr) {
+    const startTreeSnapshots = new TreeSnapshots(
+      tailOutput.constants.historicalHeader.state.l1ToL2MessageTree,
+      tailOutput.startState.noteHashTree,
+      tailOutput.startState.nullifierTree,
+      tailOutput.startState.publicDataTree,
+    );
+
+    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedDataArrayLengths(
+        countAccumulatedItems(from.noteHashes),
+        countAccumulatedItems(from.nullifiers),
+        countAccumulatedItems(from.l2ToL1Msgs),
+      );
+
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
+
+    const convertAvmAccumulatedData = (from: CombinedAccumulatedData) =>
+      new AvmAccumulatedData(
+        from.noteHashes,
+        from.nullifiers,
+        from.l2ToL1Msgs,
+        from.unencryptedLogsHashes,
+        from.publicDataWrites,
+      );
+
+    // This is wrong. But this is not used or checked in the rollup at the moment.
+    // Should fetch the updated roots from db.
+    const endTreeSnapshots = startTreeSnapshots;
+
+    return new AvmCircuitPublicInputs(
+      tailOutput.constants.globalVariables,
+      startTreeSnapshots,
+      tx.data.constants.txContext.gasSettings,
+      tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests,
+      tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests,
+      tx.data.forPublic!.publicTeardownCallRequest,
+      getArrayLengths(tx.data.forPublic!.nonRevertibleAccumulatedData),
+      getArrayLengths(tx.data.forPublic!.revertibleAccumulatedData),
+      convertAccumulatedData(tx.data.forPublic!.nonRevertibleAccumulatedData),
+      convertAccumulatedData(tx.data.forPublic!.revertibleAccumulatedData),
+      endTreeSnapshots,
+      convertAvmAccumulatedData(tailOutput.end),
+      transactionFee,
+      !tailOutput.revertCode.equals(RevertCode.OK),
+    );
   }
 }

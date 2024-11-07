@@ -1,4 +1,5 @@
 mod append_only_tree_snapshot;
+pub mod avm_circuit_public_inputs;
 
 mod contract_class_function_leaf_preimage;
 
@@ -10,7 +11,8 @@ mod global_variables;
 mod note_hash_leaf_preimage;
 mod nullifier_leaf_preimage;
 
-mod combined_constant_data;
+pub mod tx_constant_data;
+pub mod combined_constant_data;
 
 mod side_effect;
 mod read_request;
@@ -20,7 +22,7 @@ mod note_hash;
 mod nullifier;
 mod public_data_read;
 mod public_data_update_request;
-mod public_data_write;
+pub mod public_data_write;
 
 mod accumulated_data;
 mod validation_requests;
@@ -50,3 +52,5 @@ mod sponge_blob;
 mod gas_fees;
 mod gas_settings;
 mod gas;
+
+mod tree_snapshots;

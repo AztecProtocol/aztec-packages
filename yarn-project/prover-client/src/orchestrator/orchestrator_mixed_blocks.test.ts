@@ -7,7 +7,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
-import { makeBloatedProcessedTx, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
+import { makeBloatedProcessedTxWithVKRoot, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 const logger = createDebugLogger('aztec:orchestrator-mixed-blocks');
@@ -29,9 +29,9 @@ describe('prover/orchestrator/mixed-blocks', () => {
   describe('blocks', () => {
     it('builds an unbalanced L2 block', async () => {
       const txs = [
-        makeBloatedProcessedTx(context.actualDb, 1),
-        makeBloatedProcessedTx(context.actualDb, 2),
-        makeBloatedProcessedTx(context.actualDb, 3),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 2),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 3),
       ];
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
@@ -53,7 +53,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
     });
 
     it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
-      const txs = times(totalCount, (i: number) => makeBloatedProcessedTx(context.actualDb, i));
+      const txs = times(totalCount, (i: number) => makeBloatedProcessedTxWithVKRoot(context.actualDb, i));
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 

@@ -16,7 +16,7 @@ import {
   UnencryptedTxL2Logs,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-  makeProcessedTx,
+  makeProcessedTxFromPrivateOnlyTx,
   mockEpochProofQuote,
   mockTxForRollup,
   unprocessedToNumTxsEffects,
@@ -145,7 +145,9 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [
-        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs()))),
+        await Promise.all(
+          txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, block.header.globalVariables)),
+        ),
         [],
         [],
       ],

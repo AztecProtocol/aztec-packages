@@ -1,14 +1,22 @@
 import { toNumTxsEffects } from '@aztec/circuit-types';
+import { makeEmptyProcessedTx } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
-import { makeBloatedProcessedTx, makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
+import { makeBloatedProcessedTxWithVKRoot } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 const logger = createDebugLogger('aztec:orchestrator-errors');
 
 describe('prover/orchestrator/errors', () => {
   let context: TestContext;
+
+  const makeEmptyProcessedTestTx = () => {
+    const header = context.actualDb.getInitialHeader();
+    return makeEmptyProcessedTx(header, Fr.ZERO, Fr.ZERO, getVKTreeRoot(), protocolContractTreeRoot);
+  };
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -23,10 +31,10 @@ describe('prover/orchestrator/errors', () => {
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
       const txs = [
-        makeBloatedProcessedTx(context.actualDb, 1),
-        makeBloatedProcessedTx(context.actualDb, 2),
-        makeBloatedProcessedTx(context.actualDb, 3),
-        makeBloatedProcessedTx(context.actualDb, 4),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 2),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 3),
+        makeBloatedProcessedTxWithVKRoot(context.actualDb, 4),
       ];
 
       context.orchestrator.startNewEpoch(1, 1);
@@ -41,9 +49,9 @@ describe('prover/orchestrator/errors', () => {
         await context.orchestrator.addNewTx(tx);
       }
 
-      await expect(
-        async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
-      ).rejects.toThrow('Rollup not accepting further transactions');
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+        'Rollup not accepting further transactions',
+      );
 
       const block = await context.orchestrator.setBlockCompleted();
       expect(block.number).toEqual(context.blockNumber);
@@ -61,16 +69,16 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
-      await expect(
-        async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
-      ).rejects.toThrow(`Invalid proving state, call startNewBlock before adding transactions`);
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+        `Invalid proving state, call startNewBlock before adding transactions`,
+      );
     });
 
     it('throws if adding a transaction before starting block', async () => {
       context.orchestrator.startNewEpoch(1, 1);
-      await expect(
-        async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
-      ).rejects.toThrow(`Invalid proving state, call startNewBlock before adding transactions`);
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+        `Invalid proving state, call startNewBlock before adding transactions`,
+      );
     });
 
     it('throws if completing a block before start', async () => {
@@ -93,9 +101,9 @@ describe('prover/orchestrator/errors', () => {
       await context.orchestrator.startNewBlock(2, 1, context.globalVariables, []);
       context.orchestrator.cancel();
 
-      await expect(
-        async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
-      ).rejects.toThrow('Invalid proving state when adding a tx');
+      await expect(async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx())).rejects.toThrow(
+        'Invalid proving state when adding a tx',
+      );
     });
 
     it.each([[-4], [0], [1], [8.1]] as const)(
