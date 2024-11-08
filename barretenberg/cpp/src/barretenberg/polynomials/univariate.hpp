@@ -77,6 +77,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
         result.evaluations[0] = evaluations[0];
         result.evaluations[1] = evaluations[1] - evaluations[0];
+        result.midpoint = evaluations[1];
         // std::cout << "evaluations[1] = " << result.evaluations[1] << std::endl;
         // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
         return result;
@@ -709,6 +710,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         UnivariateMonomial<Fr, 2, 0, 0> result;
         result.evaluations[0] = evaluations[0];
         result.evaluations[1] = evaluations[1] - evaluations[0];
+        result.midpoint = evaluations[1];
         // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
         return result;
     }

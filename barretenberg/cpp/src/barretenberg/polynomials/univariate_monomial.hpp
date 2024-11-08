@@ -35,7 +35,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
     std::array<Fr, LENGTH> evaluations;
-
+    Fr midpoint;
     UnivariateMonomial() = default;
 
     explicit UnivariateMonomial(std::array<Fr, LENGTH> _evaluations)
@@ -60,6 +60,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         for (size_t i = other_domain_end; i < domain_end; ++i) {
             evaluations[i] = 0;
         }
+        midpoint = other.midpoint;
     };
 
     /**
@@ -211,8 +212,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         UnivariateMonomial<Fr, domain_end + 1, domain_start, skip_count> result;
         result.evaluations[0] = evaluations[0] * other.evaluations[0];
         result.evaluations[2] = evaluations[1] * other.evaluations[1];
-        result.evaluations[1] = (evaluations[0] + evaluations[1]) * (other.evaluations[0] + other.evaluations[1]) -
-                                (result.evaluations[0] + result.evaluations[2]);
+        result.evaluations[1] = (midpoint) * (other.midpoint) - (result.evaluations[0] + result.evaluations[2]);
         return result;
     }
 
@@ -257,12 +257,10 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         result.evaluations[0] = evaluations[0].sqr();
         result.evaluations[2] = evaluations[1].sqr();
         // a0a0 a1a1 a0a1a1a0
-        result.evaluations[1] = (evaluations[0] * evaluations[1]);
+        result.evaluations[1] = (midpoint);
         result.evaluations[1] += result.evaluations[1];
 
-        UnivariateMonomial res(*this);
-        res.self_sqr();
-        return res;
+        return result;
     }
 
     // Operations between Univariate and scalar
