@@ -11,6 +11,16 @@ validator:
     - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   validator:
     disabled: false
+  sequencer:
+    maxSecondsBetweenBlocks: 0
+    minTxsPerBlock: 1
+    maxTxsPerBlock: 8
+    enforceTimeTable: false
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+  storage: "128Gi"
 
 bootNode:
   realProofs: true
@@ -19,9 +29,14 @@ bootNode:
 
 proverNode:
   realProofs: true
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+  storage: "128Gi"
 
 proverAgent:
-  replicas: 30
+  replicas: 120
   realProofs: true
   bb:
     hardwareConcurrency: 31
@@ -37,15 +52,17 @@ pxe:
   proverEnabled: true
 
 bot:
-  replicas: 10
+  replicas: 8
   enabled: true
   pxeProverEnabled: true
   txIntervalSeconds: 1
   proverRealProofs: true
   botPrivateKey: ""
   privateTransfersPerTx: 1
+  publicTransfersPerTx: 1
+  followChain: "PENDING"
   bb:
-    hardwareConcurrency: 7
+    hardwareConcurrency: 8
   resources:
     requests:
       memory: "8Gi"
