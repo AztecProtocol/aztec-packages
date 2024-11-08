@@ -8,6 +8,7 @@ import {
 } from '@aztec/bb-prover';
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -227,7 +228,7 @@ const proveAvmTestContract = async (
     );
   }
 
-  const pxResult = trace.toPublicExecutionResult(
+  const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
     /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
@@ -241,6 +242,7 @@ const proveAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

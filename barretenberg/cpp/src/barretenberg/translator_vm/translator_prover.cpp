@@ -154,11 +154,16 @@ void TranslatorProver::execute_relation_check_rounds()
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges);
+
+    // create masking polynomials for sumcheck round univariates and auxiliary data
+    auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, commitment_key);
+
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
 
 /**
@@ -180,8 +185,11 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->commitment_key,
                                        transcript,
+                                       zk_sumcheck_data.libra_univariates_monomial,
+                                       sumcheck_output.claimed_libra_evaluations,
                                        key->polynomials.get_concatenated(),
                                        key->polynomials.get_groups_to_be_concatenated());
+
     PCS::compute_opening_proof(key->commitment_key, prover_opening_claim, transcript);
 }
 

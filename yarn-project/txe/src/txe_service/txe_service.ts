@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, PublicDataWrite, SimulationError } from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
   Fr,
   FunctionSelector,
@@ -151,14 +151,14 @@ export class TXEService {
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      publicDataWrites.map(write => write.toBuffer()),
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
-    return toForeignCallResult([toArray(publicDataWrites.map(write => write.newValue))]);
+    return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
   async createAccount() {
@@ -608,11 +608,9 @@ export class TXEService {
     return toForeignCallResult([toArray(secret.toFields())]);
   }
 
-  async getAppTaggingSecretsForSenders(recipient: ForeignCallSingle) {
-    const secrets = await this.typedOracle.getAppTaggingSecretsForSenders(
-      AztecAddress.fromField(fromSingle(recipient)),
-    );
-    return toForeignCallResult([toArray(secrets.flatMap(secret => secret.toFields()))]);
+  async syncNotes(recipient: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(AztecAddress.fromField(fromSingle(recipient)));
+    return toForeignCallResult([]);
   }
 
   // AVM opcodes
@@ -743,7 +741,6 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          result.returnValues,
           (this.typedOracle as TXE).getContractDataOracle(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
@@ -774,7 +771,6 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          result.returnValues,
           (this.typedOracle as TXE).getContractDataOracle(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,

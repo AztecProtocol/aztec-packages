@@ -22,7 +22,7 @@ import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 
@@ -47,7 +47,7 @@ contract RollupTest is DecoderBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   IProofCommitmentEscrow internal proofCommitmentEscrow;
-  Sysstia internal sysstia;
+  RewardDistributor internal rewardDistributor;
   SignatureLib.Signature[] internal signatures;
 
   EpochProofQuoteLib.EpochProofQuote internal quote;
@@ -76,11 +76,12 @@ contract RollupTest is DecoderBase {
     );
     testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
-    sysstia = new Sysstia(testERC20, registry, address(this));
-    testERC20.mint(address(sysstia), 1e6 ether);
+    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    testERC20.mint(address(rewardDistributor), 1e6 ether);
 
-    rollup =
-      new Rollup(feeJuicePortal, sysstia, bytes32(0), bytes32(0), address(this), new address[](0));
+    rollup = new Rollup(
+      feeJuicePortal, rewardDistributor, bytes32(0), bytes32(0), address(this), new address[](0)
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
     proofCommitmentEscrow = IProofCommitmentEscrow(address(rollup.PROOF_COMMITMENT_ESCROW()));
@@ -265,16 +266,18 @@ contract RollupTest is DecoderBase {
     );
   }
 
-  function testMissingProofSlashesBond(uint256 slotsToJump) public setUpFor("mixed_block_1") {
-    // @note, this gives a an overflow if bounding to type(uint256).max
-    // Tracked by https://github.com/AztecProtocol/aztec-packages/issues/9362
-    slotsToJump =
-      bound(slotsToJump, 2 * Constants.AZTEC_EPOCH_DURATION, 1e20 * Constants.AZTEC_EPOCH_DURATION);
+  function testMissingProofSlashesBond(uint256 _slotToHit) public setUpFor("mixed_block_1") {
+    Slot lower = rollup.getCurrentSlot() + Slot.wrap(2 * Constants.AZTEC_EPOCH_DURATION);
+    Slot upper = Slot.wrap(
+      (type(uint256).max - Timestamp.unwrap(rollup.GENESIS_TIME())) / rollup.SLOT_DURATION()
+    );
+    Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
+
     _testBlock("mixed_block_1", false, 1);
     rollup.claimEpochProofRight(signedQuote);
-    warpToL2Slot(slotsToJump);
+    warpToL2Slot(slotToHit.unwrap());
     rollup.prune();
-    _testBlock("mixed_block_1", true, slotsToJump);
+    _testBlock("mixed_block_1", true, slotToHit.unwrap());
 
     assertEq(
       proofCommitmentEscrow.deposits(quote.prover), 9 * quote.bondAmount, "Invalid escrow balance"
@@ -415,9 +418,7 @@ contract RollupTest is DecoderBase {
     (bytes32 preArchive, bytes32 preBlockHash,) = rollup.blocks(0);
     _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, archive, preArchive)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 2));
     _submitEpochProof(rollup, 1, preArchive, archive, preBlockHash, blockHash, proverId);
   }
 
@@ -644,7 +645,7 @@ contract RollupTest is DecoderBase {
         feeAmount
       );
 
-      uint256 expectedReward = sysstia.BLOCK_REWARD() + feeAmount;
+      uint256 expectedReward = rewardDistributor.BLOCK_REWARD() + feeAmount;
       uint256 expectedProverReward = Math.mulDiv(expectedReward, quote.basisPointFee, 10_000);
       uint256 expectedSequencerReward = expectedReward - expectedProverReward;
 

@@ -16,7 +16,7 @@ comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
 /// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
 /// whether the field is nullable or not.
-comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
+pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
 /// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash

@@ -51,7 +51,7 @@ impl Serialize<PUBLIC_VALIDATION_REQUESTS_LENGTH> for PublicValidationRequests {
 
         assert_eq(fields.len(), PUBLIC_VALIDATION_REQUESTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -180,7 +180,7 @@ impl Serialize<NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS> for PublicValidationRequest
         fields.push(self.l1_to_l2_msg_read_requests as Field);
         fields.push(self.public_data_reads as Field);
 
-        fields.storage
+        fields.storage()
     }
 }
 

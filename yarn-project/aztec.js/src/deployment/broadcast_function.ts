@@ -44,7 +44,7 @@ export async function broadcastPrivateFunction(
     privateFunctionTreeLeafIndex,
   } = createPrivateFunctionMembershipProof(selector, artifact);
 
-  const vkHash = computeVerificationKeyHash(privateFunctionArtifact.verificationKey!);
+  const vkHash = computeVerificationKeyHash(privateFunctionArtifact);
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,

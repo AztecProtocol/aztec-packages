@@ -1,4 +1,10 @@
-import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  GasFees,
+  GlobalVariables,
+  type PublicFunction,
+  PublicKeys,
+  SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
@@ -20,7 +26,9 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
+  getAvmTestContractArtifact,
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
@@ -105,7 +113,70 @@ describe('AVM simulator: injected bytecode', () => {
   });
 });
 
+const TIMESTAMP = new Fr(99833);
+
 describe('AVM simulator: transpiled Noir contracts', () => {
+  it('bulk testing', async () => {
+    const functionName = 'bulk_testing';
+    const functionSelector = getAvmTestContractFunctionSelector(functionName);
+    const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const calldata = [functionSelector.toField(), ...args];
+    const globals = GlobalVariables.empty();
+    globals.timestamp = TIMESTAMP;
+
+    const bytecode = getAvmTestContractBytecode('public_dispatch');
+    const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
+    const publicFn: PublicFunction = { bytecode, selector: fnSelector };
+    const contractClass = makeContractClassPublic(0, publicFn);
+    const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+
+    // The values here should match those in `avm_simulator.test.ts`
+    const instanceGet = new SerializableContractInstance({
+      version: 1,
+      salt: new Fr(0x123),
+      deployer: new Fr(0x456),
+      contractClassId: new Fr(0x789),
+      initializationHash: new Fr(0x101112),
+      publicKeys: new PublicKeys(
+        new Point(new Fr(0x131415), new Fr(0x161718), false),
+        new Point(new Fr(0x192021), new Fr(0x222324), false),
+        new Point(new Fr(0x252627), new Fr(0x282930), false),
+        new Point(new Fr(0x313233), new Fr(0x343536), false),
+      ),
+    }).withAddress(contractInstance.address);
+    const worldStateDB = mock<WorldStateDB>();
+    worldStateDB.getContractInstance
+      .mockResolvedValueOnce(contractInstance)
+      .mockResolvedValueOnce(instanceGet) // test gets deployer
+      .mockResolvedValueOnce(instanceGet) // test gets class id
+      .mockResolvedValueOnce(instanceGet) // test gets init hash
+      .mockResolvedValue(contractInstance);
+    worldStateDB.getContractClass.mockResolvedValue(contractClass);
+
+    const storageValue = new Fr(5);
+    mockStorageRead(worldStateDB, storageValue);
+
+    const trace = mock<PublicSideEffectTraceInterface>();
+    const persistableState = initPersistableStateManager({ worldStateDB, trace });
+    const environment = initExecutionEnvironment({
+      functionSelector,
+      calldata,
+      globals,
+      address: contractInstance.address,
+      sender: new Fr(42),
+    });
+    const context = initContext({ env: environment, persistableState });
+
+    const nestedTrace = mock<PublicSideEffectTraceInterface>();
+    mockTraceFork(trace, nestedTrace);
+    mockGetBytecode(worldStateDB, bytecode);
+
+    // First we simulate (though it's not needed in this simple case).
+    const simulator = new AvmSimulator(context);
+    const results = await simulator.execute();
+
+    expect(results.reverted).toBe(false);
+  });
   it('addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -321,10 +392,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason).toBeDefined();
+    expect(results.output).toHaveLength(1); // Error selector for static string error
     expect(
       resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!, results.output),
     ).toMatch("Nullifier doesn't exist!");
-    expect(results.output).toHaveLength(1); // Error selector for static string error
   });
 
   describe.each([
@@ -929,14 +1000,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
-        const calldata: Fr[] = [value0, value1, ...gas];
+        const targetFunctionSelector = FunctionSelector.fromSignature(
+          'nested_call_to_add_with_gas(Field,Field,Field,Field)',
+        );
+        const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
-        const callBytecode = getAvmTestContractBytecode('nested_call_to_add_with_gas');
-        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        mockGetBytecode(worldStateDB, nestedBytecode);
+        const artifact = getAvmTestContractArtifact('public_dispatch');
+        mockGetBytecode(worldStateDB, artifact.bytecode);
 
         const contractClass = makeContractClassPublic(0, {
-          bytecode: nestedBytecode,
+          bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
@@ -945,16 +1018,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         mockTraceFork(trace);
 
-        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-        // TODO(7141): change this once we don't force rethrowing of exceptions.
-        // Outer frame should not revert, but inner should, so the forwarded return value is 0
-        // expect(results.revertReason).toBeUndefined();
-        // expect(results.reverted).toBe(false);
+        const results = await new AvmSimulator(context).executeBytecode(artifact.bytecode);
         expect(results.reverted).toBe(true);
-        expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
+        expect(results.revertReason?.message).toMatch('Not enough L2GAS gas left');
 
-        // Nested call should NOT have been made and therefore should not be traced
-        expect(trace.traceNestedCall).toHaveBeenCalledTimes(0);
+        // Nested call should have been made (and failed).
+        expect(trace.traceNestedCall).toHaveBeenCalledTimes(1);
       });
 
       it(`Nested static call which modifies storage (expect failure)`, async () => {
@@ -971,7 +1040,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const contractInstance = makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
 
-        mockTraceFork(trace);
+        const nestedTrace = mock<PublicSideEffectTraceInterface>();
+        mockTraceFork(trace, nestedTrace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
@@ -980,9 +1050,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           'Static call cannot update the state, emit L2->L1 messages or generate logs',
         );
 
-        // TODO(7141): external call doesn't recover from nested exception until
-        // we support recoverability of reverts (here and in kernel)
-        //expectTracedNestedCall(context.environment, results, nestedTrace, /*isStaticCall=*/true);
+        expectTracedNestedCall(context.environment, nestedTrace, /*isStaticCall=*/ true);
 
         // Nested call should NOT have been able to write storage
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(0);

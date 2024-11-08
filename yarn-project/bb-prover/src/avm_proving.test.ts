@@ -1,5 +1,6 @@
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -136,7 +137,7 @@ const proveAndVerifyAvmTestContract = async (
     );
   }
 
-  const pxResult = trace.toPublicExecutionResult(
+  const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
     /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
@@ -150,6 +151,7 @@ const proveAndVerifyAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    /*output*/ AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

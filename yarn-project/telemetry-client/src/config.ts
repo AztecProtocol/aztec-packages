@@ -6,6 +6,8 @@ export interface TelemetryClientConfig {
   logsCollectorUrl?: URL;
   serviceName: string;
   networkName: string;
+  otelCollectIntervalMs: number;
+  otelExportTimeoutMs: number;
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -26,13 +28,25 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   },
   serviceName: {
     env: 'OTEL_SERVICE_NAME',
-    description: 'The URL of the telemetry collector',
+    description: 'The name of the service (attached as metadata to collected metrics)',
     defaultValue: 'aztec',
   },
   networkName: {
     env: 'NETWORK_NAME',
     description: 'The network ID of the telemetry service',
     defaultValue: 'local',
+  },
+  otelCollectIntervalMs: {
+    env: 'OTEL_COLLECT_INTERVAL_MS',
+    description: 'The interval at which to collect metrics',
+    defaultValue: 60000, // Default extracted from otel client
+    parseEnv: (val: string) => parseInt(val),
+  },
+  otelExportTimeoutMs: {
+    env: 'OTEL_EXPORT_TIMEOUT_MS',
+    description: 'The timeout for exporting metrics',
+    defaultValue: 30000, // Default extracted from otel client
+    parseEnv: (val: string) => parseInt(val),
   },
 };
 

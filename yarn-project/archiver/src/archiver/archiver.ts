@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -15,6 +14,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedEncryptedL2NoteLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -23,6 +23,7 @@ import {
   type ContractDataSource,
   ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
+  ETHEREUM_SLOT_DURATION,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
@@ -246,6 +247,12 @@ export class Archiver implements ArchiveSource {
     // ********** Events that are processed per L1 block **********
     await this.handleL1ToL2Messages(blockUntilSynced, messagesSynchedTo, currentL1BlockNumber);
 
+    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
+    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
+      this.l1Timestamp = (await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber })).timestamp;
+      this.l1BlockNumber = currentL1BlockNumber;
+    }
+
     // ********** Events that are processed per L2 block **********
     if (currentL1BlockNumber > blocksSynchedTo) {
       // First we retrieve new L2 blocks
@@ -257,21 +264,17 @@ export class Archiver implements ArchiveSource {
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
     }
-
-    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
-    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
-      this.l1Timestamp = await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber }).then(b => b.timestamp);
-      this.l1BlockNumber = currentL1BlockNumber;
-    }
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
   private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
 
+    const time = (this.l1Timestamp ?? 0n) + BigInt(ETHEREUM_SLOT_DURATION);
+
     const canPrune =
       localPendingBlockNumber > provenBlockNumber &&
-      (await this.rollup.read.canPrune({ blockNumber: currentL1BlockNumber }));
+      (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));
 
     if (canPrune) {
       this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
@@ -634,7 +637,7 @@ export class Archiver implements ArchiveSource {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     return this.store.getLogsByTags(tags);
   }
 
@@ -934,7 +937,7 @@ class ArchiverStoreHelper
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
   }
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     return this.store.getLogsByTags(tags);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {

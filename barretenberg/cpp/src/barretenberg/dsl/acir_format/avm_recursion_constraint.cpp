@@ -149,10 +149,11 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @param input_aggregation_object_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  */
-AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
-                                                          const RecursionConstraint& input,
-                                                          AggregationObjectIndices input_aggregation_object_indices,
-                                                          bool has_valid_witness_assignments)
+PairingPointAccumulatorIndices create_avm_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    bool has_valid_witness_assignments)
 {
     using Flavor = AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;

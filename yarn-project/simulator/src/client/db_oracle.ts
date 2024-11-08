@@ -4,6 +4,7 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
+  type TxScopedEncryptedL2NoteLog,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
@@ -197,7 +198,7 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
-   * Includes the last known index used for tagging with this secret.
+   * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
@@ -222,13 +223,18 @@ export interface DBOracle extends CommitmentsDB {
   ): Promise<void>;
 
   /**
-   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
-   * @param contractAddress - The contract address to silo the secret for
-   * @param recipient - The address receiving the notes
-   * @returns A list of siloed tagging secrets
+   * Synchronizes the logs tagged with the recipient's address and all the senders in the addressbook.
+   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * @param contractAddress - The address of the contract that the logs are tagged for
+   * @param recipient - The address of the recipient
+   * @returns A list of encrypted logs tagged with the recipient's address
    */
-  getAppTaggingSecretsForSenders(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret[]>;
+  syncTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<TxScopedEncryptedL2NoteLog[]>;
+
+  /**
+   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param logs - The logs to process.
+   * @param recipient - The recipient of the logs.
+   */
+  processTaggedLogs(logs: TxScopedEncryptedL2NoteLog[], recipient: AztecAddress): Promise<void>;
 }

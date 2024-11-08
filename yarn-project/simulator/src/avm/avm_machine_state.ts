@@ -2,7 +2,7 @@ import { type Fr } from '@aztec/circuits.js';
 
 import { GAS_DIMENSIONS, type Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
-import { OutOfGasError } from './errors.js';
+import { type AvmRevertReason, OutOfGasError } from './errors.js';
 
 /**
  * A few fields of machine state are initialized from AVM session inputs or call instruction arguments
@@ -10,6 +10,16 @@ import { OutOfGasError } from './errors.js';
 export type InitialAvmMachineState = {
   l2GasLeft: number;
   daGasLeft: number;
+};
+
+/**
+ * Used to track the call stack and revert data of nested calls.
+ * This is used to provide a more detailed revert reason when a contract call reverts.
+ * It is only a heuristic and may not always provide the correct revert reason.
+ */
+type TrackedRevertInfo = {
+  revertDataRepresentative: Fr[];
+  recursiveRevertReason: AvmRevertReason;
 };
 
 type CallStackEntry = {
@@ -30,6 +40,12 @@ export class AvmMachineState {
   public nextPc: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
+  /**
+   * Used to track the call stack and revert data of nested calls.
+   * This is used to provide a more detailed revert reason when a contract call reverts.
+   * It is only a heuristic and may not always provide the correct revert reason.
+   */
+  public collectedRevertInfo: TrackedRevertInfo | undefined;
 
   /**
    * On INTERNALCALL, internal call stack is pushed to with the current pc and the return pc.

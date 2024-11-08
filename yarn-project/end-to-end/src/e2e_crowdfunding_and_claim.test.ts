@@ -346,7 +346,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     donorWallets[1].setScopes([donorWallets[1].getAddress(), crowdfundingContract.address]);
 
     await expect(donorWallets[1].simulateTx(request, true, operatorWallet.getAddress())).rejects.toThrow(
-      'Assertion failed: Users cannot set msg_sender in first call',
+      'Circuit execution failed: Users cannot set msg_sender in first call',
     );
   });
 

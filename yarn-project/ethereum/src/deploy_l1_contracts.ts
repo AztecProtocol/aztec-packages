@@ -3,25 +3,25 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import {
-  ApellaAbi,
-  ApellaBytecode,
+  CoinIssuerAbi,
+  CoinIssuerBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
-  GerousiaAbi,
-  GerousiaBytecode,
+  GovernanceAbi,
+  GovernanceBytecode,
+  GovernanceProposerAbi,
+  GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
-  NomismatokopioAbi,
-  NomismatokopioBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegistryAbi,
   RegistryBytecode,
+  RewardDistributorAbi,
+  RewardDistributorBytecode,
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
-  SysstiaAbi,
-  SysstiaBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   TxsDecoderAbi,
@@ -133,21 +133,21 @@ export interface L1ContractArtifactsForDeployment {
    */
   feeJuicePortal: ContractArtifacts;
   /**
-   * Nomismatokopio contract artifacts.
+   * CoinIssuer contract artifacts.
    */
-  nomismatokopio: ContractArtifacts;
+  coinIssuer: ContractArtifacts;
   /**
-   * Sysstia contract artifacts.
+   * RewardDistributor contract artifacts.
    */
-  sysstia: ContractArtifacts;
+  rewardDistributor: ContractArtifacts;
   /**
-   * Gerousia contract artifacts.
+   * GovernanceProposer contract artifacts.
    */
-  gerousia: ContractArtifacts;
+  governanceProposer: ContractArtifacts;
   /**
-   * Apella contract artifacts.
+   * Governance contract artifacts.
    */
-  apella: ContractArtifacts;
+  governance: ContractArtifacts;
 }
 
 export const l1Artifacts: L1ContractArtifactsForDeployment = {
@@ -184,21 +184,21 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractAbi: FeeJuicePortalAbi,
     contractBytecode: FeeJuicePortalBytecode,
   },
-  sysstia: {
-    contractAbi: SysstiaAbi,
-    contractBytecode: SysstiaBytecode,
+  rewardDistributor: {
+    contractAbi: RewardDistributorAbi,
+    contractBytecode: RewardDistributorBytecode,
   },
-  nomismatokopio: {
-    contractAbi: NomismatokopioAbi,
-    contractBytecode: NomismatokopioBytecode,
+  coinIssuer: {
+    contractAbi: CoinIssuerAbi,
+    contractBytecode: CoinIssuerBytecode,
   },
-  gerousia: {
-    contractAbi: GerousiaAbi,
-    contractBytecode: GerousiaBytecode,
+  governanceProposer: {
+    contractAbi: GovernanceProposerAbi,
+    contractBytecode: GovernanceProposerBytecode,
   },
-  apella: {
-    contractAbi: ApellaAbi,
-    contractBytecode: ApellaBytecode,
+  governance: {
+    contractAbi: GovernanceAbi,
+    contractBytecode: GovernanceBytecode,
   },
 };
 
@@ -320,32 +320,32 @@ export const deployL1Contracts = async (
   // @note These numbers are just chosen to make testing simple.
   const quorumSize = 6n;
   const roundSize = 10n;
-  const gerousiaAddress = await govDeployer.deploy(l1Artifacts.gerousia, [
+  const governanceProposerAddress = await govDeployer.deploy(l1Artifacts.governanceProposer, [
     registryAddress.toString(),
     quorumSize,
     roundSize,
   ]);
-  logger.info(`Deployed Gerousia at ${gerousiaAddress}`);
+  logger.info(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
-  const apellaAddress = await govDeployer.deploy(l1Artifacts.apella, [
+  const governanceAddress = await govDeployer.deploy(l1Artifacts.governance, [
     feeJuiceAddress.toString(),
-    gerousiaAddress.toString(),
+    governanceProposerAddress.toString(),
   ]);
-  logger.info(`Deployed Apella at ${apellaAddress}`);
+  logger.info(`Deployed Governance at ${governanceAddress}`);
 
-  const nomismatokopioAddress = await govDeployer.deploy(l1Artifacts.nomismatokopio, [
+  const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
     feeJuiceAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
-    apellaAddress.toString(),
+    governanceAddress.toString(),
   ]);
-  logger.info(`Deployed Nomismatokopio at ${nomismatokopioAddress}`);
+  logger.info(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
-  const sysstiaAddress = await govDeployer.deploy(l1Artifacts.sysstia, [
+  const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
     feeJuiceAddress.toString(),
     registryAddress.toString(),
-    apellaAddress.toString(),
+    governanceAddress.toString(),
   ]);
-  logger.info(`Deployed Sysstia at ${sysstiaAddress}`);
+  logger.info(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
 
   await govDeployer.waitForDeployments();
   logger.info(`All governance contracts deployed`);
@@ -361,7 +361,7 @@ export const deployL1Contracts = async (
 
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, [
     feeJuicePortalAddress.toString(),
-    sysstiaAddress.toString(),
+    rewardDistributorAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
@@ -469,16 +469,16 @@ export const deployL1Contracts = async (
     logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
   }
 
-  // If the owner is not the Apella contract, transfer ownership to the Apella contract
-  if ((await registryContract.read.owner([])) !== getAddress(apellaAddress.toString())) {
+  // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  if ((await registryContract.read.owner([])) !== getAddress(governanceAddress.toString())) {
     const transferOwnershipTxHash = await registryContract.write.transferOwnership(
-      [getAddress(apellaAddress.toString())],
+      [getAddress(governanceAddress.toString())],
       {
         account,
       },
     );
     logger.verbose(
-      `Transferring the ownership of the registry contract at ${registryAddress} to the Apella ${apellaAddress} in tx ${transferOwnershipTxHash}`,
+      `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
   }
@@ -494,10 +494,10 @@ export const deployL1Contracts = async (
     outboxAddress,
     feeJuiceAddress,
     feeJuicePortalAddress,
-    nomismatokopioAddress,
-    sysstiaAddress,
-    gerousiaAddress,
-    apellaAddress,
+    coinIssuerAddress,
+    rewardDistributorAddress,
+    governanceProposerAddress,
+    governanceAddress,
   };
 
   return {
