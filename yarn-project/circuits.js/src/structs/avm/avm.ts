@@ -8,6 +8,7 @@ import { PublicKeys } from '../../types/public_keys.js';
 import { Gas } from '../gas.js';
 import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
+import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 
 export class AvmEnqueuedCallHint {
   public readonly contractAddress: Fr;
@@ -587,6 +588,7 @@ export class AvmCircuitInputs {
     public readonly calldata: Fr[],
     public readonly publicInputs: PublicCircuitPublicInputs,
     public readonly avmHints: AvmExecutionHints,
+    public output: AvmCircuitPublicInputs, // This should replace the above `publicInputs` eventually.
   ) {}
 
   /**
@@ -602,6 +604,7 @@ export class AvmCircuitInputs {
       this.calldata,
       this.publicInputs.toBuffer(),
       this.avmHints.toBuffer(),
+      this.output,
     );
   }
 
@@ -613,21 +616,14 @@ export class AvmCircuitInputs {
     return this.toBuffer().toString('hex');
   }
 
-  /**
-   * Is the struct empty?
-   * @returns whether all members are empty.
-   */
-  isEmpty(): boolean {
-    return (
-      this.functionName.length == 0 &&
-      this.calldata.length == 0 &&
-      this.publicInputs.isEmpty() &&
-      this.avmHints.isEmpty()
-    );
-  }
-
   static empty(): AvmCircuitInputs {
-    return new AvmCircuitInputs('', [], PublicCircuitPublicInputs.empty(), AvmExecutionHints.empty());
+    return new AvmCircuitInputs(
+      '',
+      [],
+      PublicCircuitPublicInputs.empty(),
+      AvmExecutionHints.empty(),
+      AvmCircuitPublicInputs.empty(),
+    );
   }
 
   /**
@@ -645,7 +641,7 @@ export class AvmCircuitInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmCircuitInputs>) {
-    return [fields.functionName, fields.calldata, fields.publicInputs, fields.avmHints] as const;
+    return [fields.functionName, fields.calldata, fields.publicInputs, fields.avmHints, fields.output] as const;
   }
 
   /**
@@ -660,6 +656,7 @@ export class AvmCircuitInputs {
       /*calldata=*/ reader.readVector(Fr),
       PublicCircuitPublicInputs.fromBuffer(reader),
       AvmExecutionHints.fromBuffer(reader),
+      AvmCircuitPublicInputs.fromBuffer(reader),
     );
   }
 

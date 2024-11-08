@@ -43,7 +43,7 @@ class CircuitSimulatorBN254 {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr std::string_view NAME_STRING = "SIMULATOR";
-    bool contains_recursive_proof = false;
+    bool contains_pairing_point_accumulator = false;
     static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
@@ -52,17 +52,17 @@ class CircuitSimulatorBN254 {
     static constexpr uint32_t zero_idx = 0; // Ditto?
     std::vector<FF> public_inputs;
 
-    void add_recursive_proof(const AggregationObjectIndices& proof_element_limbs)
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
     {
 
-        if (contains_recursive_proof) {
+        if (contains_pairing_point_accumulator) {
             failure("added recursive proof when one already exists");
         }
-        contains_recursive_proof = true;
+        contains_pairing_point_accumulator = true;
 
         for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
             set_public_input(proof_element_limbs[idx]);
-            recursive_proof_public_input_indices[idx] = static_cast<uint32_t>(public_inputs.size() - 1);
+            pairing_point_accumulator_public_input_indices[idx] = static_cast<uint32_t>(public_inputs.size() - 1);
         }
     }
 
@@ -191,7 +191,7 @@ class CircuitSimulatorBN254 {
     [[nodiscard]] bool check_circuit() const { return !_failed; }
 
     // Public input indices which contain recursive proof information
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    PairingPointAccumPubInputIndices pairing_point_accumulator_public_input_indices;
 };
 
 class SimulatorCircuitChecker {

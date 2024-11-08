@@ -34,7 +34,8 @@ describe('DoubleSpendTxValidator', () => {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
     });
-    badTx.data.forPublic!.end.nullifiers[0] = badTx.data.forPublic!.endNonRevertibleData.nullifiers[0];
+    badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] =
+      badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
     await expect(txValidator.validateTxs([badTx])).resolves.toEqual([[], [badTx]]);
   });
 

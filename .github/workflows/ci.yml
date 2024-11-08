@@ -120,7 +120,7 @@ jobs:
     if: github.event.pull_request.draft == false
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ needs.configure.outputs.username }}-x86
+      username: ${{ needs.configure.outputs.username }}
       runner_type: builder-x86
     secrets: inherit
 

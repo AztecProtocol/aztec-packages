@@ -45,11 +45,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   #isValidForBlockNumber(tx: T): boolean {
-    const target =
-      tx instanceof Tx
-        ? tx.data.forRollup?.rollupValidationRequests || tx.data.forPublic!.validationRequests.forRollup
-        : tx.data.rollupValidationRequests;
-    const maxBlockNumber = target.maxBlockNumber;
+    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
 
     if (maxBlockNumber.isSome && maxBlockNumber.value < this.blockNumber) {
       this.#log.warn(

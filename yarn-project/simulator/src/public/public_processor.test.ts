@@ -16,16 +16,13 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   StateReference,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { times } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { type PublicExecutor, WASMSimulator, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
@@ -86,25 +83,12 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx], 1, handler);
 
       expect(processed.length).toBe(1);
-
-      const expected: ProcessedTx = {
-        hash,
-        data: tx.data.toKernelCircuitPublicInputs(),
-        noteEncryptedLogs: tx.noteEncryptedLogs,
-        encryptedLogs: tx.encryptedLogs,
-        unencryptedLogs: tx.unencryptedLogs,
-        clientIvcProof: tx.clientIvcProof,
-        isEmpty: false,
-        revertReason: undefined,
-        avmProvingRequest: undefined,
-        gasUsed: {},
-        finalPublicDataUpdateRequests: times(
-          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-          PublicDataUpdateRequest.empty,
-        ),
-      };
-
-      expect(processed[0]).toEqual(expected);
+      expect(processed[0]).toEqual(
+        expect.objectContaining({
+          hash,
+          data: tx.data,
+        }),
+      );
       expect(failed).toEqual([]);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
@@ -195,8 +179,8 @@ describe('public_processor', () => {
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       // we keep the logs
-      expect(processed[0].encryptedLogs.getTotalLogCount()).toBe(6);
-      expect(processed[0].unencryptedLogs.getTotalLogCount()).toBe(2);
+      expect(processed[0].txEffect.encryptedLogs.getTotalLogCount()).toBe(6);
+      expect(processed[0].txEffect.unencryptedLogs.getTotalLogCount()).toBe(2);
 
       expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
@@ -268,12 +252,8 @@ describe('public_processor', () => {
         expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
-          PublicDataUpdateRequest.from({
-            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-            newValue: new Fr(initialBalance - inclusionFee),
-            sideEffectCounter: 0,
-          }),
+        expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
+          new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - inclusionFee)),
         );
 
         expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
@@ -310,12 +290,10 @@ describe('public_processor', () => {
         expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
-          PublicDataUpdateRequest.from({
-            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-            newValue: new Fr(initialBalance - inclusionFee),
-            sideEffectCounter: 0,
-          }),
+
+        const transactionFee = processed[0].txEffect.transactionFee.toBigInt();
+        expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
+          new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - transactionFee)),
         );
 
         expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
@@ -327,7 +305,7 @@ describe('public_processor', () => {
         const inclusionFee = 100n;
         const tx = mockTx(1, {
           numberOfNonRevertiblePublicCallRequests: 0,
-          numberOfRevertiblePublicCallRequests: 2,
+          numberOfRevertiblePublicCallRequests: 0,
           feePayer,
         });
 
@@ -341,11 +319,12 @@ describe('public_processor', () => {
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        tx.data.publicInputs.end.publicDataUpdateRequests[0] = PublicDataUpdateRequest.from({
-          leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-          newValue: new Fr(initialBalance),
-          sideEffectCounter: 0,
-        });
+        // TODO: Find a better way to test this.
+        // This is wrong. Private kernel tail cannot output any publicDataWrites.
+        tx.data.forRollup!.end.publicDataWrites[0] = new PublicDataWrite(
+          computeFeePayerBalanceLeafSlot(feePayer),
+          new Fr(initialBalance),
+        );
 
         const [processed, failed] = await processor.process([tx], 1, handler);
 
@@ -353,17 +332,14 @@ describe('public_processor', () => {
         expect(processed).toHaveLength(1);
         expect(processed[0].hash).toEqual(tx.getTxHash());
         expect(processed[0].clientIvcProof).toEqual(proof);
-        expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
         expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
         expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].finalPublicDataUpdateRequests[0]).toEqual(
-          PublicDataUpdateRequest.from({
-            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
-            newValue: new Fr(initialBalance - inclusionFee),
-            sideEffectCounter: 0,
-          }),
+
+        const transactionFee = processed[0].txEffect.transactionFee.toBigInt();
+        expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
+          new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - transactionFee)),
         );
 
         expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);

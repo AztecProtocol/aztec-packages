@@ -202,9 +202,7 @@ export class EpochProvingJob {
       NULLIFIER_SUBTREE_HEIGHT,
     );
     const allPublicDataWrites = padArrayEnd(
-      emptyKernelOutput.end.publicDataUpdateRequests.map(
-        ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
-      ),
+      emptyKernelOutput.end.publicDataWrites.map(({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value)),
       PublicDataTreeLeaf.empty(),
       MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );

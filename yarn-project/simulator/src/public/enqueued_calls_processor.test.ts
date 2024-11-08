@@ -1,4 +1,10 @@
-import { type MerkleTreeWriteOperations, SimulationError, type TreeInfo, mockTx } from '@aztec/circuit-types';
+import {
+  type MerkleTreeWriteOperations,
+  PublicKernelPhase,
+  SimulationError,
+  type TreeInfo,
+  mockTx,
+} from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
@@ -10,9 +16,9 @@ import {
   Header,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicAccumulatedDataBuilder,
+  PrivateToPublicAccumulatedDataBuilder,
   PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   RevertCode,
   StateReference,
 } from '@aztec/circuits.js';
@@ -111,17 +117,15 @@ describe('enqueued_calls_processor', () => {
 
     expect(txResult.processedPhases).toHaveLength(1);
     expect(txResult.processedPhases[0]).toEqual(expect.objectContaining({ revertReason: undefined }));
+    expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.revertReason).toBe(undefined);
 
     expect(tailSpy).toHaveBeenCalledTimes(1);
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
 
-    const outputs = txResult.tailKernelOutput.end;
+    const outputs = txResult.avmProvingRequest!.inputs.output.accumulatedData;
     // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.encryptedLogsHashes, l => l.logHash.isEmpty())).toBe(6);
     expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(2);
-
-    expect(txResult.tailKernelOutput.revertCode).toEqual(RevertCode.OK);
   });
 
   it('includes a transaction that reverts in teardown', async function () {
@@ -196,28 +200,19 @@ describe('enqueued_calls_processor', () => {
     expect(tailSpy).toHaveBeenCalledTimes(1);
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
 
-    const outputs = txResult.tailKernelOutput.end;
+    const outputs = txResult.avmProvingRequest!.inputs.output.accumulatedData;
     const numPublicDataWrites = 3;
-    expect(arrayNonEmptyLength(outputs.publicDataUpdateRequests, PublicDataUpdateRequest.isEmpty)).toBe(
-      numPublicDataWrites,
-    );
-    expect(outputs.publicDataUpdateRequests.slice(0, numPublicDataWrites)).toEqual([
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
-        newValue: fr(0x101),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA),
-        newValue: fr(0x102),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB),
-        newValue: fr(0x151),
-      }),
+    expect(arrayNonEmptyLength(outputs.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
+    expect(outputs.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
+      new PublicDataWrite(
+        computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
+        fr(0x101),
+      ),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
     ]);
 
     // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.encryptedLogsHashes, l => l.logHash.isEmpty())).toBe(3);
     expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(1);
   });
 
@@ -281,6 +276,7 @@ describe('enqueued_calls_processor', () => {
     expect(tailSpy).toHaveBeenCalledTimes(0);
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
   });
+
   it('rolls back app logic db updates on failed public execution, but persists setup', async function () {
     const tx = mockTx(1, {
       hasLogs: true,
@@ -360,36 +356,21 @@ describe('enqueued_calls_processor', () => {
     expect(tailSpy).toHaveBeenCalledTimes(1);
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
 
-    const outputs = txResult.tailKernelOutput.end;
+    const outputs = txResult.avmProvingRequest!.inputs.output.accumulatedData;
     const numPublicDataWrites = 5;
-    expect(arrayNonEmptyLength(outputs.publicDataUpdateRequests, PublicDataUpdateRequest.isEmpty)).toBe(
-      numPublicDataWrites,
-    );
-    expect(outputs.publicDataUpdateRequests.slice(0, numPublicDataWrites)).toEqual([
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
-        newValue: fr(0x101),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC),
-        newValue: fr(0x201),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotD),
-        newValue: fr(0x251),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE),
-        newValue: fr(0x301),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF),
-        newValue: fr(0x351),
-      }),
+    expect(arrayNonEmptyLength(outputs.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
+    expect(outputs.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
+      new PublicDataWrite(
+        computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
+        fr(0x101),
+      ),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotD), fr(0x251)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
     ]);
 
     // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.encryptedLogsHashes, l => l.logHash.isEmpty())).toBe(3);
     expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(1);
   });
 
@@ -462,38 +443,29 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.processedPhases[0]).toEqual(expect.objectContaining({ revertReason: undefined }));
     expect(txResult.processedPhases[1]).toEqual(expect.objectContaining({ revertReason: appLogicFailure }));
     expect(txResult.processedPhases[2]).toEqual(expect.objectContaining({ revertReason: teardownFailure }));
+    expect(txResult.revertCode).toEqual(RevertCode.BOTH_REVERTED);
     // tx reports app logic failure
     expect(txResult.revertReason).toBe(appLogicFailure);
 
     expect(tailSpy).toHaveBeenCalledTimes(1);
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
 
-    const outputs = txResult.tailKernelOutput.end;
+    const outputs = txResult.avmProvingRequest!.inputs.output.accumulatedData;
     const numPublicDataWrites = 3;
-    expect(arrayNonEmptyLength(outputs.publicDataUpdateRequests, PublicDataUpdateRequest.isEmpty)).toBe(
-      numPublicDataWrites,
-    );
-    expect(outputs.publicDataUpdateRequests.slice(0, numPublicDataWrites)).toEqual([
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
-        newValue: fr(0x101),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA),
-        newValue: fr(0x102),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB),
-        newValue: fr(0x151),
-      }),
+    expect(arrayNonEmptyLength(outputs.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
+    expect(outputs.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
+      new PublicDataWrite(
+        computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.contractAddress, contractSlotA),
+        fr(0x101),
+      ),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
     ]);
 
     // we keep the non-revertible logs
-    expect(arrayNonEmptyLength(outputs.encryptedLogsHashes, l => l.logHash.isEmpty())).toBe(3);
     expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(1);
-
-    expect(txResult.tailKernelOutput.revertCode).toEqual(RevertCode.BOTH_REVERTED);
   });
+
   it('runs a tx with all phases', async function () {
     const tx = mockTx(1, {
       numberOfNonRevertiblePublicCallRequests: 1,
@@ -505,22 +477,25 @@ describe('enqueued_calls_processor', () => {
 
     // Keep gas numbers MAX_L2_GAS_PER_ENQUEUED_CALL or the logic below has to get weird
     const gasLimits = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
-    const teardownGas = Gas.from({ l2Gas: 1e5, daGas: 1e5 });
+    const teardownGasLimits = Gas.from({ l2Gas: 1e5, daGas: 1e5 });
     tx.data.constants.txContext.gasSettings = GasSettings.from({
       gasLimits: gasLimits,
-      teardownGasLimits: teardownGas,
+      teardownGasLimits,
       inclusionFee: new Fr(1e4),
       maxFeesPerGas: { feePerDaGas: new Fr(10), feePerL2Gas: new Fr(10) },
     });
 
-    // Private kernel tail to public pushes teardown gas allocation into revertible gas used
-    tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
-      .withGasUsed(teardownGas)
-      .build();
-    tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
-      tx.data.forPublic!.endNonRevertibleData,
+    const privateNonRevertibleGasUsed = Gas.from({ l2Gas: 20 });
+    const privateRevertibleGasUsed = Gas.from({ l2Gas: 30 });
+    tx.data.forPublic!.revertibleAccumulatedData = PrivateToPublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+      tx.data.forPublic!.revertibleAccumulatedData,
     )
-      .withGasUsed(Gas.empty())
+      .withGasUsed(privateRevertibleGasUsed)
+      .build();
+    tx.data.forPublic!.nonRevertibleAccumulatedData = PrivateToPublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+      tx.data.forPublic!.nonRevertibleAccumulatedData,
+    )
+      .withGasUsed(privateNonRevertibleGasUsed)
       .build();
 
     const contractAddress = revertibleRequests[0].callContext.contractAddress;
@@ -532,23 +507,25 @@ describe('enqueued_calls_processor', () => {
     // Keep gas numbers below MAX_L2_GAS_PER_ENQUEUED_CALL or we need
     // to separately compute available start gas and "effective" start gas
     // for each enqueued call after applying that max.
-    const initialGas = gasLimits.sub(teardownGas);
+    const privateGasUsed = tx.data.forPublic!.nonRevertibleAccumulatedData.gasUsed.add(
+      tx.data.forPublic!.revertibleAccumulatedData.gasUsed,
+    );
+    const initialGas = gasLimits.sub(privateGasUsed);
     const setupGasUsed = Gas.from({ l2Gas: 1e4 });
     const appGasUsed = Gas.from({ l2Gas: 2e4, daGas: 2e4 });
     const teardownGasUsed = Gas.from({ l2Gas: 3e4, daGas: 3e4 });
     const afterSetupGas = initialGas.sub(setupGasUsed);
     const afterAppGas = afterSetupGas.sub(appGasUsed);
-    const afterTeardownGas = teardownGas.sub(teardownGasUsed);
+    const afterTeardownGas = teardownGasLimits.sub(teardownGasUsed);
 
-    // Total gas used is the sum of teardown gas allocation plus all expenditures along the way,
-    // without including the gas used in the teardown phase (since that's consumed entirely up front).
-    const expectedTotalGasUsed = teardownGas.add(setupGasUsed).add(appGasUsed);
-
-    // Inclusion fee plus block gas fees times total gas used
+    // Gas used for computing fees is different to the total gas consumed.
+    // For computing fees, the teardownGasLimits specified in the gasSettings is used instead of the actual gas in the teardown phase.
+    const feeGasUsed = privateGasUsed.add(setupGasUsed).add(appGasUsed).add(teardownGasLimits);
+    // Inclusion fee plus block gas fees times fee gas used
     const expectedTxFee =
       tx.data.constants.txContext.gasSettings.inclusionFee.toNumber() +
-      expectedTotalGasUsed.l2Gas * 1 +
-      expectedTotalGasUsed.daGas * 1;
+      feeGasUsed.l2Gas * GasFees.default().feePerL2Gas.toNumber() +
+      feeGasUsed.daGas * GasFees.default().feePerDaGas.toNumber();
 
     const simulatorResults: EnqueuedPublicCallExecutionResult[] = [
       // Setup
@@ -612,6 +589,11 @@ describe('enqueued_calls_processor', () => {
     expect(txResult.processedPhases[0]).toEqual(expect.objectContaining({ revertReason: undefined }));
     expect(txResult.processedPhases[1]).toEqual(expect.objectContaining({ revertReason: undefined }));
     expect(txResult.processedPhases[2]).toEqual(expect.objectContaining({ revertReason: undefined }));
+    expect(txResult.gasUsed).toEqual({
+      [PublicKernelPhase.SETUP]: setupGasUsed,
+      [PublicKernelPhase.APP_LOGIC]: appGasUsed,
+      [PublicKernelPhase.TEARDOWN]: teardownGasUsed,
+    });
     expect(txResult.revertReason).toBe(undefined);
 
     expect(tailSpy).toHaveBeenCalledTimes(1);
@@ -628,37 +610,30 @@ describe('enqueued_calls_processor', () => {
     expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
     expect(publicExecutor.simulate).toHaveBeenNthCalledWith(1, ...expectedSimulateCall(initialGas, 0));
     expect(publicExecutor.simulate).toHaveBeenNthCalledWith(2, ...expectedSimulateCall(afterSetupGas, 0));
-    expect(publicExecutor.simulate).toHaveBeenNthCalledWith(3, ...expectedSimulateCall(teardownGas, expectedTxFee));
+    expect(publicExecutor.simulate).toHaveBeenNthCalledWith(
+      3,
+      ...expectedSimulateCall(teardownGasLimits, expectedTxFee),
+    );
 
-    const outputs = txResult.tailKernelOutput.end;
-    expect(outputs.gasUsed).toEqual(Gas.from(expectedTotalGasUsed));
+    const output = txResult.avmProvingRequest!.inputs.output;
+    expect(output.transactionFee.toNumber()).toEqual(expectedTxFee);
 
     const numPublicDataWrites = 3;
-    expect(arrayNonEmptyLength(outputs.publicDataUpdateRequests, PublicDataUpdateRequest.isEmpty)).toBe(
+    expect(arrayNonEmptyLength(output.accumulatedData.publicDataWrites, PublicDataWrite.isEmpty)).toBe(
       numPublicDataWrites,
     );
-    expect(outputs.publicDataUpdateRequests.slice(0, numPublicDataWrites)).toEqual([
+    expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
       // squashed
-      //expect.objectContaining({ leafSlot: computePublicDataTreeLeafSlot(contractAddress, contractSlotA), newValue: fr(0x101), }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(contractAddress, contractSlotB),
-        newValue: fr(0x151),
-      }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(contractAddress, contractSlotA),
-        newValue: fr(0x103),
-      }),
+      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x101)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)),
       // squashed
-      //expect.objectContaining({ leafSlot: computePublicDataTreeLeafSlot(contractAddress, contractSlotC), newValue: fr(0x201), }),
-      //expect.objectContaining({ leafSlot: computePublicDataTreeLeafSlot(contractAddress, contractSlotC), newValue: fr(0x102), }),
-      expect.objectContaining({
-        leafSlot: computePublicDataTreeLeafSlot(contractAddress, contractSlotC),
-        newValue: fr(0x152),
-      }),
+      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x201)),
+      // new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x102)),
+      new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)),
     ]);
 
-    expect(arrayNonEmptyLength(outputs.encryptedLogsHashes, l => l.logHash.isEmpty())).toBe(0);
-    expect(arrayNonEmptyLength(outputs.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(0);
+    expect(arrayNonEmptyLength(output.accumulatedData.unencryptedLogsHashes, l => l.logHash.isEmpty())).toBe(0);
   });
 
   it('runs a tx with only teardown', async function () {
@@ -676,16 +651,6 @@ describe('enqueued_calls_processor', () => {
       inclusionFee: new Fr(1e4),
       maxFeesPerGas: { feePerDaGas: new Fr(10), feePerL2Gas: new Fr(10) },
     });
-
-    // Private kernel tail to public pushes teardown gas allocation into revertible gas used
-    tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
-      .withGasUsed(teardownGas)
-      .build();
-    tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
-      tx.data.forPublic!.endNonRevertibleData,
-    )
-      .withGasUsed(Gas.empty())
-      .build();
 
     const teardownGasUsed = Gas.from({ l2Gas: 1e6, daGas: 1e6 });
 
@@ -705,6 +670,9 @@ describe('enqueued_calls_processor', () => {
 
     expect(txResult.processedPhases).toHaveLength(1);
     expect(txResult.processedPhases[0]).toEqual(expect.objectContaining({ revertReason: undefined }));
+    expect(txResult.gasUsed).toEqual({
+      [PublicKernelPhase.TEARDOWN]: teardownGasUsed,
+    });
     expect(txResult.revertReason).toBe(undefined);
 
     expect(tailSpy).toHaveBeenCalledTimes(1);

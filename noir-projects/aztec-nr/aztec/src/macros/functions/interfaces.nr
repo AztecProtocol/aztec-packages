@@ -8,7 +8,7 @@ use std::{
     meta::{type_of, unquote},
 };
 
-comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
+pub comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {

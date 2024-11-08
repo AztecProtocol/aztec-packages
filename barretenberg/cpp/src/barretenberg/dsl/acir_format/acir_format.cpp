@@ -239,7 +239,7 @@ void build_constraints(Builder& builder,
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-        AggregationObjectIndices current_aggregation_object =
+        PairingPointAccumulatorIndices current_aggregation_object =
             stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
         current_aggregation_object = process_honk_recursion_constraints(
             builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
@@ -253,11 +253,11 @@ void build_constraints(Builder& builder,
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
             ASSERT(honk_recursion);
-            builder.add_recursive_proof(current_aggregation_object);
+            builder.add_pairing_point_accumulator(current_aggregation_object);
         } else if (honk_recursion && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
-            builder.add_recursive_proof(current_aggregation_object);
+            builder.add_pairing_point_accumulator(current_aggregation_object);
         }
     }
 }
@@ -275,8 +275,12 @@ void process_plonk_recursion_constraints(Builder& builder,
     // TODO(maxim): input_aggregation_object to be non-zero.
     // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
     // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
-    AggregationObjectIndices current_input_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    AggregationObjectIndices current_output_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    PairingPointAccumulatorIndices current_input_aggregation_object = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    PairingPointAccumulatorIndices current_output_aggregation_object = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
 
     // Get the size of proof with no public inputs prepended to it
     // This is used while processing recursion constraints to determine whether
@@ -294,21 +298,21 @@ void process_plonk_recursion_constraints(Builder& builder,
         // they want these constants set by keeping the nested aggregation object attached to
         // the proof as public inputs. As this is the only object that can prepended to the
         // proof if the proof is above the expected size (with public inputs stripped)
-        AggregationObjectPubInputIndices nested_aggregation_object = {};
+        PairingPointAccumPubInputIndices nested_aggregation_object = {};
         // If the proof has public inputs attached to it, we should handle setting the nested
         // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
             // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::AGGREGATION_OBJECT_SIZE) {
+            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINT_ACCUMULATOR_SIZE) {
                 auto error_string = format("Public inputs are always stripped from proofs "
                                            "unless we have a recursive proof.\n"
                                            "Thus, public inputs attached to a proof must match "
                                            "the recursive aggregation object in size "
                                            "which is ",
-                                           bb::AGGREGATION_OBJECT_SIZE);
+                                           bb::PAIRING_POINT_ACCUMULATOR_SIZE);
                 throw_or_abort(error_string);
             }
-            for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+            for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
                 // Set the nested aggregation object indices to the current size of the public
                 // inputs This way we know that the nested aggregation object indices will
                 // always be the last indices of the public inputs
@@ -320,7 +324,8 @@ void process_plonk_recursion_constraints(Builder& builder,
             // Remove the aggregation object so that they can be handled as normal public inputs
             // in the way that the recursion constraint expects
             constraint.proof.erase(constraint.proof.begin(),
-                                   constraint.proof.begin() + static_cast<std::ptrdiff_t>(bb::AGGREGATION_OBJECT_SIZE));
+                                   constraint.proof.begin() +
+                                       static_cast<std::ptrdiff_t>(bb::PAIRING_POINT_ACCUMULATOR_SIZE));
         }
 
         current_output_aggregation_object = create_recursion_constraints(builder,
@@ -346,15 +351,16 @@ void process_plonk_recursion_constraints(Builder& builder,
 
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.set_recursive_proof(current_output_aggregation_object);
+        builder.set_pairing_point_accumulator(current_output_aggregation_object);
     }
 }
 
-AggregationObjectIndices process_honk_recursion_constraints(Builder& builder,
-                                                            AcirFormat& constraint_system,
-                                                            bool has_valid_witness_assignments,
-                                                            GateCounter<Builder>& gate_counter,
-                                                            AggregationObjectIndices current_aggregation_object)
+PairingPointAccumulatorIndices process_honk_recursion_constraints(
+    Builder& builder,
+    AcirFormat& constraint_system,
+    bool has_valid_witness_assignments,
+    GateCounter<Builder>& gate_counter,
+    PairingPointAccumulatorIndices current_aggregation_object)
 {
     // Add recursion constraints
     size_t idx = 0;
@@ -369,11 +375,12 @@ AggregationObjectIndices process_honk_recursion_constraints(Builder& builder,
 }
 
 #ifndef DISABLE_AZTEC_VM
-AggregationObjectIndices process_avm_recursion_constraints(Builder& builder,
-                                                           AcirFormat& constraint_system,
-                                                           bool has_valid_witness_assignments,
-                                                           GateCounter<Builder>& gate_counter,
-                                                           AggregationObjectIndices current_aggregation_object)
+PairingPointAccumulatorIndices process_avm_recursion_constraints(
+    Builder& builder,
+    AcirFormat& constraint_system,
+    bool has_valid_witness_assignments,
+    GateCounter<Builder>& gate_counter,
+    PairingPointAccumulatorIndices current_aggregation_object)
 {
     // Add recursion constraints
     size_t idx = 0;

@@ -100,7 +100,9 @@ void ECCVMProver::execute_relation_check_rounds()
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key);
+
+    auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
@@ -127,8 +129,6 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
-                         /* concatenated_polynomials = */ {},
-                         /* groups_to_be_concatenated = */ {},
                          zk_sumcheck_data.libra_univariates_monomial,
                          sumcheck_output.claimed_libra_evaluations);
 
