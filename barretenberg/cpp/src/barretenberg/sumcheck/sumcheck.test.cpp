@@ -6,6 +6,7 @@
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
@@ -346,13 +347,13 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
-using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK, MegaZKFlavor>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
 #define SKIP_IF_ZK()                                                                                                   \
-    if (std::is_same<TypeParam, UltraFlavorWithZK>::value) {                                                           \
-        GTEST_SKIP() << "Skipping test for UltraFlavorWithZK";                                                         \
+    if (std::is_same<TypeParam, UltraFlavorWithZK>::value || std::is_same<TypeParam, MegaZKFlavor>::value) {           \
+        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";                                                        \
     }
 
 TYPED_TEST(SumcheckTests, PolynomialNormalization)

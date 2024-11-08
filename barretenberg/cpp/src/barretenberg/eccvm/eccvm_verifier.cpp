@@ -78,8 +78,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
-                                               /* concatenation_group_commitments = */ {},
-                                               /* concatenated_evaluations = */ {},
                                                RefVector(libra_commitments),
                                                libra_evaluations);
 
