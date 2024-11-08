@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - release/testnet*
       - "*/release-master*"
   workflow_dispatch:
     inputs:
