@@ -27,13 +27,13 @@ contract FPC {
     }
 
     #[private]
-    fn fee_entrypoint_private(amount: Field, asset: AztecAddress) {
+    fn fee_entrypoint_private(amount: Field, asset: AztecAddress, nonce: Field) {
         // TODO(PR #8022): Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let settings = storage.settings.read_private();
 
         assert(asset == settings.other_asset);
 
-        Token::at(asset).setup_refund(settings.admin, context.msg_sender(), amount).call(
+        Token::at(asset).setup_refund(settings.admin, context.msg_sender(), amount, nonce).call(
             &mut context,
         );
         context.set_as_fee_payer();
