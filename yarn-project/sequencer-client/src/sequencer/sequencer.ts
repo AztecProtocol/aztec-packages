@@ -506,40 +506,43 @@ export class Sequencer {
 
     // Sync to the previous block at least
     await this.worldState.syncImmediate(newGlobalVariables.blockNumber.toNumber() - 1);
+    this.log.verbose(`Synced to previous block ${newGlobalVariables.blockNumber.toNumber() - 1}`);
 
     // NB: separating the dbs because both should update the state
     const publicProcessorFork = await this.worldState.fork();
     const orchestratorFork = await this.worldState.fork();
 
-    // We create a fresh processor each time to reset any cached state (eg storage writes)
-    const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
-    const blockBuildingTimer = new Timer();
-    const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-    await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+    try {
+      const processor = this.publicProcessorFactory.create(publicProcessorFork, historicalHeader, newGlobalVariables);
+      const blockBuildingTimer = new Timer();
+      const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
+      await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
-    const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(
-        validTxs,
-        blockSize,
-        blockBuilder,
-        this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
-      ),
-    );
-    if (failedTxs.length > 0) {
-      const failedTxData = failedTxs.map(fail => fail.tx);
-      this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
-      await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+        processor.process(
+          validTxs,
+          blockSize,
+          blockBuilder,
+          this.txValidatorFactory.validatorForProcessedTxs(publicProcessorFork),
+        ),
+      );
+      if (failedTxs.length > 0) {
+        const failedTxData = failedTxs.map(fail => fail.tx);
+        this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
+        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+      }
+
+      await interrupt?.(processedTxs);
+
+      // All real transactions have been added, set the block as full and complete the proving.
+      const block = await blockBuilder.setBlockCompleted();
+
+      return { block, publicProcessorDuration, numProcessedTxs: processedTxs.length, blockBuildingTimer };
+    } finally {
+      // We create a fresh processor each time to reset any cached state (eg storage writes)
+      await publicProcessorFork.close();
+      await orchestratorFork.close();
     }
-
-    await interrupt?.(processedTxs);
-
-    // All real transactions have been added, set the block as full and complete the proving.
-    const block = await blockBuilder.setBlockCompleted();
-
-    await publicProcessorFork.close();
-    await orchestratorFork.close();
-
-    return { block, publicProcessorDuration, numProcessedTxs: processedTxs.length, blockBuildingTimer };
   }
 
   /**

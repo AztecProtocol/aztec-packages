@@ -61,6 +61,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
 
+  // Callback registered to: sequencer.buildBlock
   private blockBuilder?: BlockBuilderCallback = undefined;
 
   constructor(
@@ -168,10 +169,6 @@ export class ValidatorClient extends WithTracer implements Validator {
       throw new BlockBuilderNotProvidedError();
     }
 
-    // We sync the state to the previous block as the public processor will not process the current block
-    const targetBlockNumber = header.globalVariables.blockNumber.toNumber() - 1;
-    this.log.verbose(`Re-ex: Syncing state to block number ${targetBlockNumber}`);
-
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
     const { block } = await this.blockBuilder(txs, header.globalVariables);
@@ -180,6 +177,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose(`Re-ex: Re-execution complete`);
 
     // This function will throw an error if state updates do not match
+    console.log('block arvhive:', block.archive.root.toString());
+    console.log('proposal archive:', proposal.archive.toString());
     if (!block.archive.root.equals(proposal.archive)) {
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();

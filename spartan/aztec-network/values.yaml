@@ -36,7 +36,6 @@ bootNode:
     minTxsPerBlock: 1
   validator:
     disabled: true
-    reEx: true
   p2p:
     enabled: "true"
   resources:
@@ -79,6 +78,7 @@ validator:
     enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
