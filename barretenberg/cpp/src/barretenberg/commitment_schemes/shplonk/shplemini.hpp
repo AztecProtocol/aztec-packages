@@ -146,10 +146,12 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
-        if (!libra_univariate_evaluations.empty()) {
-            Commitment hiding_polynomial_commitment =
-                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly");
-            Fr hiding_polynomial_eval = transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
+        const bool HasZK = !libra_univariate_evaluations.empty();
+        Fr batched_evaluation = Fr{ 0 };
+        Commitment hiding_polynomial_commitment;
+        if (HasZK) {
+            hiding_polynomial_commitment = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly");
+            batched_evaluation += transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
         }
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
@@ -231,9 +233,13 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
         }
 
+        if (HasZK) {
+            commitments.emplace_back(hiding_polynomial_commitment);
+            scalars.emplace_back(-unshifted_scalar); // corresponds to \rho^0
+        }
+
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
-        Fr batched_evaluation = Fr(0);
         batch_multivariate_opening_claims(unshifted_commitments,
                                           shifted_commitments,
                                           unshifted_evaluations,
@@ -244,6 +250,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                           commitments,
                                           scalars,
                                           batched_evaluation,
+                                          HasZK,
                                           concatenation_scalars,
                                           concatenation_group_commitments,
                                           concatenated_evaluations);
@@ -278,7 +285,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
-        if (!libra_univariate_commitments.empty()) {
+        if (HasZK) {
             add_zk_data(commitments,
                         scalars,
                         libra_univariate_commitments,
@@ -352,11 +359,16 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Commitment>& commitments,
         std::vector<Fr>& scalars,
         Fr& batched_evaluation,
+        const bool HasZK = false,
         std::vector<Fr> concatenated_scalars = {},
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
     {
         Fr current_batching_challenge = Fr(1);
+
+        if (HasZK) {
+            current_batching_challenge *= multivariate_batching_challenge;
+        }
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector

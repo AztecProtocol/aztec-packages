@@ -50,7 +50,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     RefSpan<Polynomial> concatenated_polynomials,
     const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated,
-    const bool HasZK)
+    bool HasZK)
 
 {
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
@@ -63,7 +63,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     if (HasZK) {
         batched_unshifted = Polynomial::random(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
-        transcript->send_to_verifier("Gemini:masking_poly_eval", batched_unshifted.evaluate(multilinear_challenge));
+        transcript->send_to_verifier("Gemini:masking_poly_eval", batched_unshifted.evaluate_mle(multilinear_challenge));
     }
 
     const Fr rho = transcript->template get_challenge<Fr>("rho");
