@@ -254,12 +254,12 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
             result += size;
         }
 
-        // databus
-        for (const auto& bus_vector : databus) {
-            const uint64_t size((bus_vector.read_counts.capacity() + bus_vector.data.capacity()) * sizeof(uint32_t));
-            vinfo("size: ", size >> 10, " KiB");
-            result += size;
-        }
+        // // databus
+        // for (const auto& bus_vector : databus) {
+        //     const uint64_t size((bus_vector.read_counts.capacity() + bus_vector.data.capacity()) * sizeof(uint32_t));
+        //     vinfo("size: ", size >> 10, " KiB");
+        //     result += size;
+        // }
         return result;
     }
 };
