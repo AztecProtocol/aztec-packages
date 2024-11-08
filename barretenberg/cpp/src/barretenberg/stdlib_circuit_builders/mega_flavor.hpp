@@ -412,6 +412,17 @@ class MegaFlavor {
                 shifted = to_be_shifted.shifted();
             }
         }
+
+        uint64_t estimate_memory()
+        {
+            uint64_t result(0);
+            for (auto [polynomial, label] : zip_view(get_all(), get_labels())) {
+                uint64_t size = polynomial.size();
+                vinfo("label: ", label, " num elts: ", size);
+                result += size;
+            }
+            return result * sizeof(FF);
+        }
     };
 
     /**

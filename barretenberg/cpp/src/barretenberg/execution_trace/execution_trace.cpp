@@ -9,7 +9,6 @@ namespace bb {
 template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
 {
     PROFILE_THIS_NAME("populate_public_inputs_block");
-    info("populating public inputs block");
 
     // Update the public inputs block
     for (const auto& idx : builder.public_inputs) {
