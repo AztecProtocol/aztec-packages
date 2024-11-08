@@ -255,7 +255,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
  */
 TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 {
-    using Flavor = MegaFlavor;
+    using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
 
     TraceSettings trace_settings{ TraceStructure::TINY_TEST };
