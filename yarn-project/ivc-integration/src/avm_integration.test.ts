@@ -8,6 +8,7 @@ import {
 } from '@aztec/bb-prover';
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -241,6 +242,7 @@ const proveAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

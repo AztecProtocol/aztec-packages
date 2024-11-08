@@ -31,7 +31,7 @@ impl Serialize<FEE_PAYLOAD_SIZE> for FeePayload {
         }
         fields.push(self.nonce);
         fields.push(self.is_fee_payer as Field);
-        fields.storage
+        fields.storage()
     }
 }
 

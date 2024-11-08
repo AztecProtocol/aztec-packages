@@ -32,11 +32,20 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");
-
-        sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
-                                         proving_key->relation_parameters,
-                                         proving_key->alphas,
-                                         proving_key->gate_challenges);
+        if constexpr (Flavor::HasZK) {
+            auto commitment_key = std::make_shared<CommitmentKey>(Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+            zk_sumcheck_data = ZKSumcheckData<Flavor>(numeric::get_msb(polynomial_size), transcript, commitment_key);
+            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                             proving_key->relation_parameters,
+                                             proving_key->alphas,
+                                             proving_key->gate_challenges,
+                                             zk_sumcheck_data);
+        } else {
+            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                             proving_key->relation_parameters,
+                                             proving_key->alphas,
+                                             proving_key->gate_challenges);
+        }
     }
 }
 
@@ -55,13 +64,24 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
     vinfo("made commitment key");
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    const OpeningClaim prover_opening_claim =
-        ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                       proving_key->proving_key.polynomials.get_unshifted(),
-                                       proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                       sumcheck_output.challenge,
-                                       proving_key->proving_key.commitment_key,
-                                       transcript);
+    OpeningClaim prover_opening_claim;
+    if constexpr (!Flavor::HasZK) {
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                                              proving_key->proving_key.polynomials.get_unshifted(),
+                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              sumcheck_output.challenge,
+                                                              proving_key->proving_key.commitment_key,
+                                                              transcript);
+    } else {
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                                              proving_key->proving_key.polynomials.get_unshifted(),
+                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              sumcheck_output.challenge,
+                                                              proving_key->proving_key.commitment_key,
+                                                              transcript,
+                                                              zk_sumcheck_data.libra_univariates_monomial,
+                                                              sumcheck_output.claimed_libra_evaluations);
+    }
     vinfo("executed multivariate-to-univarite reduction");
     PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
     vinfo("computed opening proof");
@@ -92,5 +112,6 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 template class DeciderProver_<UltraFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
 template class DeciderProver_<MegaFlavor>;
+template class DeciderProver_<MegaZKFlavor>;
 
 } // namespace bb

@@ -155,8 +155,8 @@ export class Sequencer {
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
-    if (config.gerousiaPayload) {
-      this.publisher.setPayload(config.gerousiaPayload);
+    if (config.governanceProposerPayload) {
+      this.publisher.setPayload(config.governanceProposerPayload);
     }
     this.enforceTimeTable = config.enforceTimeTable === true;
 

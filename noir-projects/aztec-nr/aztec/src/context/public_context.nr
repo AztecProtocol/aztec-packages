@@ -4,7 +4,7 @@ use crate::hash::{
 };
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::constants::{MAX_FIELD_VALUE, PUBLIC_DISPATCH_SELECTOR};
+use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Deserialize, Empty, Serialize};
 
 pub struct PublicContext {
@@ -32,11 +32,11 @@ impl PublicContext {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
 
-    fn nullifier_exists(_self: Self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
+    pub fn nullifier_exists(_self: Self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
         nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
-    fn consume_l1_to_l2_message(
+    pub fn consume_l1_to_l2_message(
         &mut self,
         content: Field,
         secret: Field,
@@ -68,7 +68,7 @@ impl PublicContext {
         self.push_nullifier(nullifier);
     }
 
-    fn message_portal(_self: &mut Self, recipient: EthAddress, content: Field) {
+    pub fn message_portal(_self: &mut Self, recipient: EthAddress, content: Field) {
         send_l2_to_l1_msg(recipient, content);
     }
 
@@ -108,45 +108,45 @@ impl PublicContext {
         result_data
     }
 
-    fn push_note_hash(_self: &mut Self, note_hash: Field) {
+    pub fn push_note_hash(_self: &mut Self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
-    fn push_nullifier(_self: &mut Self, nullifier: Field) {
+    pub fn push_nullifier(_self: &mut Self, nullifier: Field) {
         emit_nullifier(nullifier);
     }
 
-    fn this_address(_self: Self) -> AztecAddress {
+    pub fn this_address(_self: Self) -> AztecAddress {
         address()
     }
-    fn msg_sender(_self: Self) -> AztecAddress {
+    pub fn msg_sender(_self: Self) -> AztecAddress {
         sender()
     }
-    fn selector(_self: Self) -> FunctionSelector {
+    pub fn selector(_self: Self) -> FunctionSelector {
         // The selector is the first element of the calldata when calling a public function through dispatch.
         let raw_selector: [Field; 1] = calldata_copy(0, 1);
         FunctionSelector::from_field(raw_selector[0])
     }
-    fn get_args_hash(mut self) -> Field {
+    pub fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
             self.args_hash = Option::some((self.compute_args_hash)());
         }
 
         self.args_hash.unwrap_unchecked()
     }
-    fn transaction_fee(_self: Self) -> Field {
+    pub fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
     }
 
-    fn chain_id(_self: Self) -> Field {
+    pub fn chain_id(_self: Self) -> Field {
         chain_id()
     }
-    fn version(_self: Self) -> Field {
+    pub fn version(_self: Self) -> Field {
         version()
     }
-    fn block_number(_self: Self) -> Field {
+    pub fn block_number(_self: Self) -> Field {
         block_number()
     }
-    fn timestamp(_self: Self) -> u64 {
+    pub fn timestamp(_self: Self) -> u64 {
         timestamp()
     }
     pub fn fee_per_l2_gas(_self: Self) -> Field {
@@ -156,17 +156,17 @@ impl PublicContext {
         fee_per_da_gas()
     }
 
-    fn l2_gas_left(_self: Self) -> Field {
+    pub fn l2_gas_left(_self: Self) -> Field {
         l2_gas_left()
     }
-    fn da_gas_left(_self: Self) -> Field {
+    pub fn da_gas_left(_self: Self) -> Field {
         da_gas_left()
     }
-    fn is_static_call(_self: Self) -> bool {
+    pub fn is_static_call(_self: Self) -> bool {
         is_static_call() == 1
     }
 
-    fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
+    pub fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
         let mut out = [0; N];
         for i in 0..N {
             out[i] = storage_read(storage_slot + i as Field);
@@ -174,20 +174,20 @@ impl PublicContext {
         out
     }
 
-    fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
     where
         T: Deserialize<N>,
     {
         T::deserialize(self.raw_storage_read(storage_slot))
     }
 
-    fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
+    pub fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
         for i in 0..N {
             storage_write(storage_slot + i as Field, values[i]);
         }
     }
 
-    fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
+    pub fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
     where
         T: Serialize<N>,
     {

@@ -60,8 +60,8 @@ library BlakeUltraVerificationKey {
             mstore(add(_vk, 0x5e0), 0x1bfda6b7d38472e9418a8eb55f4c1d372642b5819fde074d4fe62c29f843b566) // vk.ID3.y
             mstore(add(_vk, 0x600), 0x1dab0d03d72afa6328933a39b05c764bc713f67606fa016ebf532deb2b4bc105) // vk.ID4.x
             mstore(add(_vk, 0x620), 0x24bef3bbfed9cfcedabed6d61d289ae44ce360aa38fd022886fd22bc75fd5980) // vk.ID4.y
-            mstore(add(_vk, 0x640), 0x00) // vk.contains_recursive_proof
-            mstore(add(_vk, 0x660), 0) // vk.recursive_proof_public_input_indices
+            mstore(add(_vk, 0x640), 0x00) // vk.contains_pairing_point_accumulator
+            mstore(add(_vk, 0x660), 0) // vk.pairing_point_accumulator_public_input_indices
             mstore(add(_vk, 0x680), 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1) // vk.g2_x.X.c1
             mstore(add(_vk, 0x6a0), 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0) // vk.g2_x.X.c0
             mstore(add(_vk, 0x6c0), 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4) // vk.g2_x.Y.c1

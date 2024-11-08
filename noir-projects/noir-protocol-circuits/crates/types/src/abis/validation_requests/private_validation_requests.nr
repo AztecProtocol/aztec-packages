@@ -46,7 +46,7 @@ impl Serialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationRequests
 
         assert_eq(fields.len(), PRIVATE_VALIDATION_REQUESTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

@@ -21,7 +21,7 @@ import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
-import {ISysstia} from "@aztec/governance/interfaces/ISysstia.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -64,7 +64,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-  ISysstia public immutable SYSSTIA;
+  IRewardDistributor public immutable REWARD_DISTRIBUTOR;
   IERC20 public immutable ASSET;
   IVerifier public epochProofVerifier;
 
@@ -87,7 +87,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
-    ISysstia _sysstia,
+    IRewardDistributor _rewardDistributor,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
@@ -95,7 +95,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
-    SYSSTIA = _sysstia;
+    REWARD_DISTRIBUTOR = _rewardDistributor;
     ASSET = _fpcJuicePortal.UNDERLYING();
     PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(ASSET, address(this));
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
@@ -227,8 +227,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
+    if (canPrune()) {
+      _prune();
+    }
+
     uint256 previousBlockNumber = tips.provenBlockNumber;
     uint256 endBlockNumber = previousBlockNumber + _epochSize;
+
+    // @note The getEpochForBlock is expected to revert if the block is beyond pending.
+    //       If this changes you are gonna get so rekt you won't believe it.
+    //       I mean proving blocks that have been pruned rekt.
+    Epoch epochToProve = getEpochForBlock(endBlockNumber);
 
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
@@ -240,11 +249,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // @note  Only if the rollup is the canonical will it be able to meaningfully claim fees
     //        Otherwise, the fees are unbacked #7938.
     bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-    bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
+    bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
     uint256 totalProverReward = 0;
 
-    if (isFeeCanonical || isSysstiaCanonical) {
+    if (isFeeCanonical || isRewardDistributorCanonical) {
       for (uint256 i = 0; i < _epochSize; i++) {
         address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
         uint256 reward = 0;
@@ -258,8 +267,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
           }
         }
 
-        if (isSysstiaCanonical) {
-          reward += SYSSTIA.claim(address(this));
+        if (isRewardDistributorCanonical) {
+          reward += REWARD_DISTRIBUTOR.claim(address(this));
         }
 
         if (coinbase == address(0)) {
@@ -287,7 +296,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       }
     }
 
-    if (proofClaim.epochToProve == getEpochForBlock(endBlockNumber)) {
+    if (proofClaim.epochToProve == epochToProve) {
       PROOF_COMMITMENT_ESCROW.unstakeBond(proofClaim.bondProvider, proofClaim.bondAmount);
     }
 
@@ -336,7 +345,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     // Consider if a prune will hit in this slot
     uint256 pendingBlockNumber =
-      _canPruneAtTime(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+      canPruneAtTime(_ts) ? tips.provenBlockNumber : tips.pendingBlockNumber;
 
     Slot lastSlot = blocks[pendingBlockNumber].slotNumber;
 
@@ -498,7 +507,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       _fakeBlockNumberAsProven(blockNumber);
 
       bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-      bool isSysstiaCanonical = address(this) == SYSSTIA.canonicalRollup();
+      bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
 
       if (isFeeCanonical && header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
@@ -506,8 +515,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
         //        Consider allowing a failure. See #7938.
         FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
       }
-      if (isSysstiaCanonical && header.globalVariables.coinbase != address(0)) {
-        SYSSTIA.claim(header.globalVariables.coinbase);
+      if (isRewardDistributorCanonical && header.globalVariables.coinbase != address(0)) {
+        REWARD_DISTRIBUTOR.claim(header.globalVariables.coinbase);
       }
 
       emit L2ProofVerified(blockNumber, "CHEAT");
@@ -772,25 +781,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   }
 
   function canPrune() public view override(IRollup) returns (bool) {
-    return _canPruneAtTime(Timestamp.wrap(block.timestamp));
+    return canPruneAtTime(Timestamp.wrap(block.timestamp));
   }
 
-  function _prune() internal {
-    // TODO #8656
-    delete proofClaim;
-
-    uint256 pending = tips.pendingBlockNumber;
-
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
-    //        We can do because any new block proposed will overwrite a previous block in the block log,
-    //        so no values should "survive".
-    //        People must therefore read the chain using the pendingTip as a boundary.
-    tips.pendingBlockNumber = tips.provenBlockNumber;
-
-    emit PrunedPending(tips.provenBlockNumber, pending);
-  }
-
-  function _canPruneAtTime(Timestamp _ts) internal view returns (bool) {
+  function canPruneAtTime(Timestamp _ts) public view override(IRollup) returns (bool) {
     if (
       tips.pendingBlockNumber == tips.provenBlockNumber
         || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
@@ -819,6 +813,21 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     return true;
   }
 
+  function _prune() internal {
+    // TODO #8656
+    delete proofClaim;
+
+    uint256 pending = tips.pendingBlockNumber;
+
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    //        We can do because any new block proposed will overwrite a previous block in the block log,
+    //        so no values should "survive".
+    //        People must therefore read the chain using the pendingTip as a boundary.
+    tips.pendingBlockNumber = tips.provenBlockNumber;
+
+    emit PrunedPending(tips.provenBlockNumber, pending);
+  }
+
   /**
    * @notice  Validates the header for submission
    *
@@ -838,7 +847,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber =
-      _canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
+      canPruneAtTime(_currentTime) ? tips.provenBlockNumber : tips.pendingBlockNumber;
     _validateHeaderForSubmissionBase(
       _header, _currentTime, _txEffectsHash, pendingBlockNumber, _flags
     );

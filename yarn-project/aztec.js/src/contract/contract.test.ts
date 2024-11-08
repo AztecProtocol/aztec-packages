@@ -41,10 +41,10 @@ describe('Contract Class', () => {
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
-    apellaAddress: EthAddress.random(),
-    nomismatokopioAddress: EthAddress.random(),
-    sysstiaAddress: EthAddress.random(),
-    gerousiaAddress: EthAddress.random(),
+    governanceAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
+    rewardDistributorAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
