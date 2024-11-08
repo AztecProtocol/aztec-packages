@@ -11,7 +11,7 @@ import { ZodError } from 'zod';
 import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
-import { jsonStringify, tryJsonStringify } from '../convert.js';
+import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
 export class SafeJsonRpcServer {
