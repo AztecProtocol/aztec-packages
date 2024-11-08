@@ -513,10 +513,17 @@ contract Token {
         let note_randomness = unsafe { random() };
         let note_setup_payload = UintNote::setup_payload().new(to, note_randomness, to_note_slot);
 
-        // We set the ovpk to the message sender's ovpk and we encrypt the log.
-        let from_ovpk = get_public_keys(context.msg_sender()).ovpk_m;
-        let setup_log =
-            note_setup_payload.encrypt_log(context, from_ovpk, to, context.msg_sender());
+        // We set the ovpk to (whose OVPK? issue below) ovpk and we encrypt the log.
+        // TODO(benesjan): I've stumbled upon an escrowing issue. Ideally we would set `from` to `msg_sender` here
+        // this typically doesn't work because this msg_sender is typically for example a token bridge contract that
+        // does not have keys registered and hence cannot receive an outgoing. We could allow passing a `from` argument
+        // to `prapare_transfer_to_private` but then it would allow the party to set arbitrary `from` and hence
+        // it could confuse the recipient of the outgoing (why am I receiving outgoing from this contract?). I am
+        // temporarily setting this to `to` to unblock myself.
+        // let from = context.msg_sender();
+        let from = to;
+        let from_ovpk = get_public_keys(from).ovpk_m;
+        let setup_log = note_setup_payload.encrypt_log(context, from_ovpk, to, from);
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
         // we have a guarantee that the public functions of the transaction are executed right after the private ones
