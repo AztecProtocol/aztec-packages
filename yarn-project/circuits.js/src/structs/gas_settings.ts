@@ -5,7 +5,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   DEFAULT_GAS_LIMIT,
-  DEFAULT_INCLUSION_FEE,
   DEFAULT_MAX_FEE_PER_GAS,
   DEFAULT_TEARDOWN_GAS_LIMIT,
   GAS_SETTINGS_LENGTH,
@@ -19,34 +18,22 @@ export class GasSettings {
     public readonly gasLimits: Gas,
     public readonly teardownGasLimits: Gas,
     public readonly maxFeesPerGas: GasFees,
-    public readonly inclusionFee: Fr,
   ) {}
 
   getSize(): number {
     return this.toBuffer().length;
   }
 
-  static from(args: {
-    gasLimits: FieldsOf<Gas>;
-    teardownGasLimits: FieldsOf<Gas>;
-    maxFeesPerGas: FieldsOf<GasFees>;
-    inclusionFee: Fr;
-  }) {
+  static from(args: { gasLimits: FieldsOf<Gas>; teardownGasLimits: FieldsOf<Gas>; maxFeesPerGas: FieldsOf<GasFees> }) {
     return new GasSettings(
       Gas.from(args.gasLimits),
       Gas.from(args.teardownGasLimits),
       GasFees.from(args.maxFeesPerGas),
-      args.inclusionFee,
     );
   }
 
   clone() {
-    return new GasSettings(
-      this.gasLimits.clone(),
-      this.teardownGasLimits.clone(),
-      this.maxFeesPerGas.clone(),
-      this.inclusionFee,
-    );
+    return new GasSettings(this.gasLimits.clone(), this.teardownGasLimits.clone(), this.maxFeesPerGas.clone());
   }
 
   /** Returns the maximum fee to be paid according to gas limits and max fees set. */
@@ -58,12 +45,12 @@ export class GasSettings {
           .mul(new Fr(this.gasLimits.get(dimension)))
           .add(acc),
       Fr.ZERO,
-    ).add(this.inclusionFee);
+    );
   }
 
   /** Zero-value gas settings. */
   static empty() {
-    return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), Fr.ZERO);
+    return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty());
   }
 
   /** Default gas settings to use when user has not provided them. */
@@ -72,7 +59,6 @@ export class GasSettings {
       gasLimits: { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
       teardownGasLimits: { l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT, daGas: DEFAULT_TEARDOWN_GAS_LIMIT },
       maxFeesPerGas: { feePerL2Gas: new Fr(DEFAULT_MAX_FEE_PER_GAS), feePerDaGas: new Fr(DEFAULT_MAX_FEE_PER_GAS) },
-      inclusionFee: new Fr(DEFAULT_INCLUSION_FEE),
       ...compact(overrides),
     });
   }
@@ -88,31 +74,20 @@ export class GasSettings {
   }
 
   isEmpty() {
-    return (
-      this.gasLimits.isEmpty() &&
-      this.teardownGasLimits.isEmpty() &&
-      this.maxFeesPerGas.isEmpty() &&
-      this.inclusionFee.isZero()
-    );
+    return this.gasLimits.isEmpty() && this.teardownGasLimits.isEmpty() && this.maxFeesPerGas.isEmpty();
   }
 
   equals(other: GasSettings) {
     return (
       this.gasLimits.equals(other.gasLimits) &&
       this.teardownGasLimits.equals(other.teardownGasLimits) &&
-      this.maxFeesPerGas.equals(other.maxFeesPerGas) &&
-      this.inclusionFee.equals(other.inclusionFee)
+      this.maxFeesPerGas.equals(other.maxFeesPerGas)
     );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GasSettings {
     const reader = BufferReader.asReader(buffer);
-    return new GasSettings(
-      reader.readObject(Gas),
-      reader.readObject(Gas),
-      reader.readObject(GasFees),
-      reader.readObject(Fr),
-    );
+    return new GasSettings(reader.readObject(Gas), reader.readObject(Gas), reader.readObject(GasFees));
   }
 
   toBuffer() {
@@ -121,12 +96,7 @@ export class GasSettings {
 
   static fromFields(fields: Fr[] | FieldReader): GasSettings {
     const reader = FieldReader.asReader(fields);
-    return new GasSettings(
-      reader.readObject(Gas),
-      reader.readObject(Gas),
-      reader.readObject(GasFees),
-      reader.readField(),
-    );
+    return new GasSettings(reader.readObject(Gas), reader.readObject(Gas), reader.readObject(GasFees));
   }
 
   toFields(): Fr[] {

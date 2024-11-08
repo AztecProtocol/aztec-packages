@@ -13,7 +13,6 @@ import {
   BaseParityInputs,
   BlockRootRollupInputs,
   Fr,
-  GasSettings,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -182,13 +181,11 @@ describe('LightBlockBuilder', () => {
     expect(header).toEqual(expectedHeader);
   });
 
-  // Makes a tx with a non-zero inclusion fee for testing
   const makeTx = (i: number) =>
     makeBloatedProcessedTx({
       header: fork.getInitialHeader(),
       chainId: globals.chainId,
       version: globals.version,
-      gasSettings: GasSettings.default({ inclusionFee: new Fr(i + 1) }),
       vkTreeRoot,
       protocolContractTreeRoot,
       seed: i + 1,

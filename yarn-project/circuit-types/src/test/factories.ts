@@ -9,6 +9,8 @@ import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
   Fr,
   Gas,
   GasSettings,
@@ -81,9 +83,9 @@ export function makeBloatedProcessedTx({
     // Private-only tx has no public data writes.
     data.publicDataWrites.forEach((_, i) => (data.publicDataWrites[i] = PublicDataWrite.empty()));
 
-    // Make the gasUsed empty so that transaction fee is simply the inclusion fee.
-    data.gasUsed = Gas.empty();
-    const transactionFee = gasSettings.inclusionFee;
+    // No side effects were created in mockTx. The default gasUsed is the tx overhead.
+    data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
+    const transactionFee = data.gasUsed.computeFee(globalVariables.gasFees);
 
     clearLogs(data);
 

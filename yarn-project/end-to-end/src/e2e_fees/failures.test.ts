@@ -262,7 +262,6 @@ describe('e2e_fees failures', () => {
 
     const badGas = GasSettings.from({
       gasLimits: gasSettings.gasLimits,
-      inclusionFee: gasSettings.inclusionFee,
       maxFeesPerGas: gasSettings.maxFeesPerGas,
       teardownGasLimits: Gas.empty(),
     });

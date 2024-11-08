@@ -1445,7 +1445,7 @@ mod tests {
         builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(1);
 
         // Set values for computing exact tx_fee
-        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+        builder.transaction_fee = tx_fee;
 
         // Set expected protocol data update
         builder.protocol_public_data_writes.push((

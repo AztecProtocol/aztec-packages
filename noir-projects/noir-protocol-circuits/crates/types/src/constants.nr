@@ -179,7 +179,6 @@ pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
 pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = 12_000_000;
 pub global MAX_L2_GAS_PER_ENQUEUED_CALL: u32 = 12_000_000;
 pub global DEFAULT_MAX_FEE_PER_GAS: Field = 10;
-pub global DEFAULT_INCLUSION_FEE: Field = 0;
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -253,7 +252,7 @@ pub global DEFAULT_TPK_M_Y = 0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec2
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
 pub global GAS_FEES_LENGTH: u32 = 2;
 pub global GAS_LENGTH: u32 = 2;
-pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH + /* inclusion_fee */ 1;
+pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
 pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;

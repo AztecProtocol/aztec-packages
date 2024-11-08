@@ -42,8 +42,7 @@ impl PrivateBaseRollupInputs {
     fn compute_transaction_fee(self) -> Field {
         let gas_fees = self.constants.global_variables.gas_fees;
         let data = self.tube_data.public_inputs;
-        let inclusion_fee = data.constants.tx_context.gas_settings.inclusion_fee;
-        inclusion_fee + data.end.gas_used.compute_fee(gas_fees)
+        data.end.gas_used.compute_fee(gas_fees)
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {

@@ -117,9 +117,7 @@ impl EnqueuedCallDataValidator {
                 + previous_kernel.end_non_revertible.gas_used
                 + teardown_gas;
             let block_gas_fees = self.enqueued_call.data.constants.global_variables.gas_fees;
-            let inclusion_fee = previous_kernel.constants.tx_context.gas_settings.inclusion_fee;
-            let computed_transaction_fee =
-                total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
+            let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees);
             assert(
                 transaction_fee == computed_transaction_fee,
                 "Transaction fee on teardown phase does not match expected value",

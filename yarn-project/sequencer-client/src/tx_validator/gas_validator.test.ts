@@ -26,20 +26,15 @@ describe('GasTxValidator', () => {
   let tx: Tx;
   let payer: AztecAddress;
   let expectedBalanceSlot: Fr;
-
-  const TX_FEE = 100n;
+  let feeLimit = 0n;
 
   beforeEach(() => {
     tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = AztecAddress.random();
-    tx.data.constants.txContext.gasSettings = GasSettings.from({
-      ...GasSettings.empty(),
-      inclusionFee: new Fr(TX_FEE),
-    });
+    tx.data.constants.txContext.gasSettings = GasSettings.default();
     payer = tx.data.feePayer;
     expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
-
-    expect(tx.data.constants.txContext.gasSettings.getFeeLimit()).toEqual(new Fr(TX_FEE));
+    feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
   });
 
   const mockBalance = (balance: bigint) => {
@@ -61,12 +56,12 @@ describe('GasTxValidator', () => {
   };
 
   it('allows fee paying txs if fee payer has enough balance', async () => {
-    mockBalance(TX_FEE);
+    mockBalance(feeLimit);
     await expectValidateSuccess(tx);
   });
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
-    mockBalance(TX_FEE - 1n);
+    mockBalance(feeLimit - 1n);
     const selector = FunctionSelector.fromSignature('_increase_public_balance((Field),Field)');
     patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
@@ -78,7 +73,7 @@ describe('GasTxValidator', () => {
   });
 
   it('rejects txs if fee payer has not enough balance', async () => {
-    mockBalance(TX_FEE - 1n);
+    mockBalance(feeLimit - 1n);
     await expectValidateFail(tx);
   });
 
@@ -87,7 +82,7 @@ describe('GasTxValidator', () => {
   });
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
-    mockBalance(TX_FEE - 1n);
+    mockBalance(feeLimit - 1n);
     patchRevertibleFn(tx, 0, {
       selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
       args: [payer, new Fr(1n)],

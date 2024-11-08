@@ -25,7 +25,7 @@ export async function cancelTx(
     gasSettings,
   };
 
-  gasSettings.inclusionFee.mul(new Fr(2));
+  // TODO(#9805): Increase max_priority_fee_per_gas.
 
   const txRequest = await wallet.createTxExecutionRequest({
     calls: [],
