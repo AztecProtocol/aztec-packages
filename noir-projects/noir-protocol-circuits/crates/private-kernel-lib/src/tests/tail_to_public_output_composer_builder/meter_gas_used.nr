@@ -13,7 +13,7 @@ use dep::types::{
 #[test]
 fn meter_gas_used_non_revertible_empty_succeeds() {
     let builder = FixtureBuilder::new();
-    let data = builder.to_public_accumulated_data();
+    let data = builder.to_private_to_public_accumulated_data();
     let gas = meter_gas_used_non_revertible(data);
     assert_eq(gas, Gas::tx_overhead());
 }
@@ -34,7 +34,7 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
     builder.append_public_call_requests(2);
     builder.end_setup();
 
-    let data = builder.to_public_accumulated_data();
+    let data = builder.to_private_to_public_accumulated_data();
     let gas = meter_gas_used_non_revertible(data);
 
     let total_num_side_effects = 4 + 3 + 1;
@@ -57,10 +57,9 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
 #[test]
 fn meter_gas_used_revertible_empty_succeeds() {
     let builder = FixtureBuilder::new();
-    let data = builder.to_public_accumulated_data();
-    let teardown_gas = Gas::new(42, 17);
-    let gas = meter_gas_used_revertible(data, teardown_gas);
-    assert_eq(gas, teardown_gas);
+    let data = builder.to_private_to_public_accumulated_data();
+    let gas = meter_gas_used_revertible(data);
+    assert_eq(gas, Gas::empty());
 }
 
 #[test]
@@ -79,9 +78,8 @@ fn meter_gas_used_revertible_everything_succeeds() {
     builder.append_public_call_requests(2);
     builder.end_setup();
 
-    let data = builder.to_public_accumulated_data();
-    let teardown_gas = Gas::new(42, 17);
-    let gas = meter_gas_used_revertible(data, teardown_gas);
+    let data = builder.to_private_to_public_accumulated_data();
+    let gas = meter_gas_used_revertible(data);
 
     let total_num_side_effects = 4 + 3 + 1;
     let total_log_length = 12
@@ -97,5 +95,5 @@ fn meter_gas_used_revertible_everything_succeeds() {
         + total_log_length * L2_GAS_PER_LOG_BYTE
         + 2 * FIXED_AVM_STARTUP_L2_GAS;
 
-    assert_eq(gas, Gas::new(computed_da_gas, computed_l2_gas) + teardown_gas);
+    assert_eq(gas, Gas::new(computed_da_gas, computed_l2_gas));
 }

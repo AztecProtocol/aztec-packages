@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_BYTES},
-    hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    hash::poseidon2_hash_with_separator,
     point::Point,
     public_keys::{AddressPoint, OvpkM},
     scalar::Scalar,

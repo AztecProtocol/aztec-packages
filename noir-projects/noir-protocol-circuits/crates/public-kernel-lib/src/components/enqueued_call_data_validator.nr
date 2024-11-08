@@ -123,9 +123,11 @@ impl EnqueuedCallDataValidator {
         if self.phase != PublicKernelPhase.TEARDOWN {
             assert_eq(transaction_fee, 0, "Transaction fee must be zero on setup and app phases");
         } else {
-            // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
-            let total_gas_used =
-                previous_kernel.end.gas_used + previous_kernel.end_non_revertible.gas_used;
+            let teardown_gas =
+                previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
+            let total_gas_used = previous_kernel.end.gas_used
+                + previous_kernel.end_non_revertible.gas_used
+                + teardown_gas;
             let block_gas_fees = self.enqueued_call.data.constants.global_variables.gas_fees;
             let inclusion_fee = previous_kernel.constants.tx_context.gas_settings.inclusion_fee;
             let computed_transaction_fee =

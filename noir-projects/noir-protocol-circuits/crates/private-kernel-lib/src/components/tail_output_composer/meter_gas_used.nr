@@ -1,8 +1,5 @@
 use dep::types::{
-    abis::{
-        accumulated_data::combined_accumulated_data::CombinedAccumulatedData, gas::Gas,
-        gas_settings::GasSettings,
-    },
+    abis::{accumulated_data::combined_accumulated_data::CombinedAccumulatedData, gas::Gas},
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
         L2_GAS_PER_NULLIFIER,
@@ -10,7 +7,7 @@ use dep::types::{
     utils::arrays::array_length,
 };
 
-pub fn meter_gas_used(data: CombinedAccumulatedData, gas_settings: GasSettings) -> Gas {
+pub fn meter_gas_used(data: CombinedAccumulatedData) -> Gas {
     let mut metered_da_bytes = 0;
     let mut metered_l2_gas = 0;
 
@@ -34,6 +31,5 @@ pub fn meter_gas_used(data: CombinedAccumulatedData, gas_settings: GasSettings) 
     metered_da_bytes += data.unencrypted_log_preimages_length as u32;
     metered_l2_gas += data.unencrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
-    let teardown_gas = gas_settings.teardown_gas_limits;
-    Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas) + Gas::tx_overhead() + teardown_gas
+    Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas) + Gas::tx_overhead()
 }

@@ -7,5 +7,5 @@
 
 namespace bb {
 template class ECCVMTranscriptRelationImpl<grumpkin::fr>;
-DEFINE_ZK_SUMCHECK_RELATION_CLASS(ECCVMTranscriptRelationImpl, ECCVMFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMTranscriptRelationImpl, ECCVMFlavor);
 } // namespace bb

@@ -39,6 +39,7 @@ import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 import { type SetupOptions, getPrivateKeyFromIndex, startAnvil } from './utils.js';
+import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -344,16 +345,16 @@ async function setupFromFresh(
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
-  if (opts.fundSysstia) {
-    // Mints block rewards for 10000 blocks to the sysstia contract
+  if (opts.fundRewardDistributor) {
+    // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-    const sysstia = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.sysstiaAddress.toString(),
-      abi: l1Artifacts.sysstia.contractAbi,
+    const rewardDistributor = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
       client: deployL1ContractsValues.publicClient,
     });
 
-    const blockReward = await sysstia.read.BLOCK_REWARD([]);
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD([]);
     const mintAmount = 10_000n * (blockReward as bigint);
 
     const feeJuice = getContract({
@@ -362,9 +363,9 @@ async function setupFromFresh(
       client: deployL1ContractsValues.walletClient,
     });
 
-    const sysstiaMintTxHash = await feeJuice.write.mint([sysstia.address, mintAmount], {} as any);
-    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: sysstiaMintTxHash });
-    logger.info(`Funding sysstia in ${sysstiaMintTxHash}`);
+    const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+    logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
 
   const watcher = new AnvilTestWatcher(
@@ -386,7 +387,8 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort, /*serviceName*/ 'basenode');
+
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 

@@ -62,10 +62,10 @@ export class AvmPersistableStateManager {
   /**
    * Create a new state manager forked from this one
    */
-  public fork() {
+  public fork(incrementSideEffectCounter: boolean = false) {
     return new AvmPersistableStateManager(
       this.worldStateDB,
-      this.trace.fork(),
+      this.trace.fork(incrementSideEffectCounter),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
     );
@@ -242,7 +242,7 @@ export class AvmPersistableStateManager {
   /**
    * Accept nested world state modifications
    */
-  public mergeForkedState(forkedState: AvmPersistableStateManager) {
+  public acceptForkedState(forkedState: AvmPersistableStateManager) {
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
   }
@@ -298,7 +298,7 @@ export class AvmPersistableStateManager {
     avmCallResults: AvmContractCallResult,
   ) {
     if (!avmCallResults.reverted) {
-      this.mergeForkedState(forkedState);
+      this.acceptForkedState(forkedState);
     }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
@@ -307,7 +307,7 @@ export class AvmPersistableStateManager {
       nestedEnvironment.calldata,
     );
 
-    this.log.verbose(`[AVM] State manager is processing & tracing results of nested call ${functionName}`);
+    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
 
     this.trace.traceNestedCall(
       forkedState.trace,
@@ -330,16 +330,16 @@ export class AvmPersistableStateManager {
     reverted: boolean,
   ) {
     if (!reverted) {
-      this.mergeForkedState(forkedState);
+      this.acceptForkedState(forkedState);
     }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
-      publicCallRequest.callContext.contractAddress,
-      publicCallRequest.callContext.functionSelector,
+      publicCallRequest.contractAddress,
+      publicCallRequest.functionSelector,
       calldata,
     );
 
-    this.log.verbose(`[AVM] State manager is processing & tracing results of enqueued call ${functionName}`);
+    this.log.verbose(`[AVM] Encountered enqueued public call starting with function ${functionName}`);
 
     this.trace.traceEnqueuedCall(forkedState.trace, publicCallRequest, calldata, reverted);
   }
@@ -355,10 +355,10 @@ export class AvmPersistableStateManager {
     reverted: boolean,
   ) {
     if (!reverted) {
-      this.mergeForkedState(forkedState);
+      this.acceptForkedState(forkedState);
     }
 
-    this.log.verbose(`[AVM] State manager is processing & tracing results of an execution phase`);
+    this.log.verbose(`[AVM] Encountered app logic phase`);
 
     this.trace.traceExecutionPhase(forkedState.trace, publicCallRequests, calldatas, reverted);
   }

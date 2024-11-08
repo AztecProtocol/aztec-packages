@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, PublicDataWrite, SimulationError } from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
   Fr,
   FunctionSelector,
@@ -151,14 +151,14 @@ export class TXEService {
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      publicDataWrites.map(write => write.toBuffer()),
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
-    return toForeignCallResult([toArray(publicDataWrites.map(write => write.newValue))]);
+    return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
   async createAccount() {

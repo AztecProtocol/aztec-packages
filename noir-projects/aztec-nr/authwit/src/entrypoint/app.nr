@@ -30,7 +30,7 @@ impl Serialize<APP_PAYLOAD_SIZE> for AppPayload {
             fields.extend_from_array(call.serialize());
         }
         fields.push(self.nonce);
-        fields.storage
+        fields.storage()
     }
 }
 

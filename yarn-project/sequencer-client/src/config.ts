@@ -91,7 +91,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => parseSequencerAllowList(val),
     defaultValue: getDefaultAllowedTeardownFunctions(),
     description: 'The list of functions calls allowed to run teardown',
-    printDefault: () => 'FPC.pay_refund, FPC.pay_refund_with_shielded_rebate',
+    printDefault: () => 'FPC.pay_refund',
   },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
@@ -109,9 +109,9 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     ...booleanConfigHelper(),
     defaultValue: false,
   },
-  gerousiaPayload: {
-    env: 'GEROUSIA_PAYLOAD_ADDRESS',
-    description: 'The address of the payload for the gerousia',
+  governanceProposerPayload: {
+    env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
   },
@@ -222,10 +222,6 @@ function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
       selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
     },
   ];
 }
