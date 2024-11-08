@@ -41,7 +41,7 @@ describe('ValidationService', () => {
       attestationPollingIntervalMs: 1000,
       attestationWaitTimeoutMs: 1000,
       disableValidator: false,
-      validatorReEx: false,
+      validatorReexecute: false,
     };
     validatorClient = ValidatorClient.new(config, p2pClient, new NoopTelemetryClient());
   });
@@ -54,7 +54,7 @@ describe('ValidationService', () => {
   });
 
   it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
-    config.validatorReEx = true;
+    config.validatorReexecute = true;
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
     const val = ValidatorClient.new(config, p2pClient);
     await expect(val.reExecuteTransactions(makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);

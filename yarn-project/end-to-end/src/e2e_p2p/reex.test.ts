@@ -1,15 +1,15 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, sleep } from '@aztec/aztec.js';
 
-import { beforeAll, describe, it } from '@jest/globals';
+import { beforeAll, describe, it , jest } from '@jest/globals';
 import fs from 'fs';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
-import { BlockProposal, getHashedSignaturePayload } from '@aztec/circuit-types';
 
-import { jest } from '@jest/globals';
+/* eslint-disable-next-line no-restricted-imports */
+import { BlockProposal, getHashedSignaturePayload } from '@aztec/circuit-types';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
@@ -24,7 +24,11 @@ describe('e2e_p2p_reex', () => {
   beforeAll(async () => {
     nodes = [];
 
-    t = await P2PNetworkTest.create('e2e_p2p_reex', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_reex',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+    });
 
     t.logger.verbose('Setup account');
     await t.setupAccount();
@@ -54,7 +58,7 @@ describe('e2e_p2p_reex', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReEx = true;
+    t.ctx.aztecNodeConfig.validatorReexecute = true;
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -84,8 +88,6 @@ describe('e2e_p2p_reex', () => {
           proposal.payload,
           await signer.signMessage(getHashedSignaturePayload(proposal.payload)),
         );
-
-        console.log(newProposal);
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
       });

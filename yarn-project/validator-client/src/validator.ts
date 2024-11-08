@@ -126,7 +126,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     try {
       await this.ensureTransactionsAreAvailable(proposal);
 
-      if (this.config.validatorReEx) {
+      if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
         await this.reExecuteTransactions(proposal);
       }
