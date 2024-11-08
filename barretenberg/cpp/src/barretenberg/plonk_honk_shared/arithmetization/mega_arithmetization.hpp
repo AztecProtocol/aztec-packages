@@ -38,7 +38,7 @@ template <typename FF_> class MegaArith {
         T lookup;
         T overflow; // block gates of arbitrary type that overflow their designated block
 
-        std::vector<std::string_view> get_labels()
+        std::vector<std::string_view> get_labels() const
         {
             return { "ecc_op",     "pub_inputs",         "busread",
                      "arithmetic", "delta_range",        "elliptic",

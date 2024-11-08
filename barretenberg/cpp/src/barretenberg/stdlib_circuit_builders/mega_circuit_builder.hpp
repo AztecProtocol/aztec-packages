@@ -236,6 +236,32 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    uint64_t estimate_memory() const
+    {
+        vinfo("ESTIMATING BUILDER MEMORY");
+        uint64_t result{ 0 };
+
+        // gates:
+        for (auto [block, label] : zip_view(this->blocks.get(), this->blocks.get_labels())) {
+            uint64_t size{ 0 };
+            for (const auto& wire : block.wires) {
+                size += wire.capacity() * sizeof(uint32_t);
+            }
+            for (const auto& selector : block.selectors) {
+                size += selector.capacity() * sizeof(FF);
+            }
+            vinfo(label, " size ", size >> 10, " KiB");
+            result += size;
+        }
+
+        // databus
+        for (const auto& bus_vector : databus) {
+            const uint64_t size((bus_vector.read_counts.capacity() + bus_vector.data.capacity()) * sizeof(uint32_t));
+            vinfo("size: ", size >> 10, " KiB");
+            result += size;
+        }
+        return result;
+    }
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb
