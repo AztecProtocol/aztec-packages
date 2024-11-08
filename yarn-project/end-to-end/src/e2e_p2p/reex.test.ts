@@ -1,15 +1,15 @@
 import { type AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, sleep } from '@aztec/aztec.js';
 
-import { beforeAll, describe, it , jest } from '@jest/globals';
+/* eslint-disable-next-line no-restricted-imports */
+import { BlockProposal, getHashedSignaturePayload } from '@aztec/circuit-types';
+
+import { beforeAll, describe, it, jest } from '@jest/globals';
 import fs from 'fs';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
-
-/* eslint-disable-next-line no-restricted-imports */
-import { BlockProposal, getHashedSignaturePayload } from '@aztec/circuit-types';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
@@ -69,7 +69,7 @@ describe('e2e_p2p_reex', () => {
     );
 
     // Hook into the node and intercept re-execution logic, ensuring that it was infact called
-    const reExecutionSpies = []
+    const reExecutionSpies = [];
     for (const node of nodes) {
       // Make sure the nodes submit faulty proposals, in this case a faulty proposal is one where we remove one of the transactions
       // Such that the calculated archive will be different!
@@ -130,9 +130,8 @@ describe('e2e_p2p_reex', () => {
     // Expect that all of the re-execution attempts failed with an invalid root
     for (const spy of reExecutionSpies) {
       for (const result of spy.mock.results) {
-        await expect(result.value).rejects.toThrow("Validator Error: Re-execution state mismatch");
+        await expect(result.value).rejects.toThrow('Validator Error: Re-execution state mismatch');
       }
     }
-
   });
 });
