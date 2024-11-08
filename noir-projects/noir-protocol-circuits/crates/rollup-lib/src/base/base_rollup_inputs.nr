@@ -10,7 +10,8 @@ use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+        sponge_blob::SpongeBlob,
     },
     address::AztecAddress,
     constants::{
@@ -505,7 +506,8 @@ mod tests {
         abis::{
             accumulated_data::CombinedAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
+            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+            sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -707,7 +709,7 @@ mod tests {
 
         fn build_pre_existing_tx_effects(
             self,
-        ) -> (CombinedAccumulatedData, [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
+        ) -> (CombinedAccumulatedData, [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
             let mut res = CombinedAccumulatedData::empty();
             res.note_hashes = self.pre_existing_notes;
             res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
@@ -715,11 +717,7 @@ mod tests {
             });
             let all_public_data_update_requests = self.pre_existing_public_data.map(
                 |leaf_preimage: PublicDataTreeLeafPreimage| {
-                    PublicDataUpdateRequest {
-                        leaf_slot: leaf_preimage.slot,
-                        new_value: leaf_preimage.value,
-                        counter: 0,
-                    }
+                    PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 },
             );
 
@@ -1185,9 +1183,9 @@ mod tests {
         let NUM_UNENC_LOGS = 6;
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
+        let tx_fee = 100_000;
         let mut builder = BaseRollupInputsBuilder::new();
-        builder.constants.global_variables.gas_fees = types::abis::gas_fees::GasFees::default();
-        builder.kernel_data.set_gas_used(10, 12);
+        builder.transaction_fee = tx_fee;
         builder.kernel_data.append_note_hashes_with_logs(NUM_NOTES);
         // Copied from nullifier tests above:
         builder.pre_existing_nullifiers[0] =
@@ -1222,8 +1220,6 @@ mod tests {
             true,
         );
         // tx fee
-        let tx_fee =
-            builder.kernel_data.gas_used.compute_fee(builder.constants.global_variables.gas_fees);
         reconstructed_tx_effects[1] = field_from_bytes(
             array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
             true,

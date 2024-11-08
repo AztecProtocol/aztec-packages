@@ -8,7 +8,6 @@ import {
   type TxHash,
   type TxValidator,
   type WorldStateSynchronizer,
-  unprocessedToNumTxsEffects,
 } from '@aztec/circuit-types';
 import type { AllowedElement, Signature, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
@@ -527,7 +526,7 @@ export class Sequencer {
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
       await blockBuilder.startNewBlock(
         blockSize,
-        unprocessedToNumTxsEffects(validTxs),
+        0, // this is updated later
         newGlobalVariables,
         l1ToL2Messages,
       );

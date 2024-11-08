@@ -224,19 +224,12 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyL2toL1Msgs() {
     const msgs = this.forPublic
-      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.l2ToL1Msgs, this.forPublic.end.l2ToL1Msgs)
+      ? mergeAccumulatedData(
+          this.forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs,
+          this.forPublic.revertibleAccumulatedData.l2ToL1Msgs,
+        )
       : this.forRollup!.end.l2ToL1Msgs;
     return msgs.filter(n => !n.isEmpty());
-  }
-
-  getNonEmptyPublicDataUpdateRequests() {
-    const reqs = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.endNonRevertibleData.publicDataUpdateRequests,
-          this.forPublic.end.publicDataUpdateRequests,
-        )
-      : this.forRollup!.end.publicDataUpdateRequests;
-    return reqs.filter(n => !n.isEmpty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

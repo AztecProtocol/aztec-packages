@@ -8,9 +8,9 @@ import {
   PublicKernelPhase,
   Tx,
   type TxValidator,
-  toNumTxsEffects,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
+  toNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   ContractClassRegisteredEvent,
@@ -242,7 +242,7 @@ export class PublicProcessor {
         typeof processedTxHandler.reInitSpongeBlob == 'function' &&
         result.length
       ) {
-        processedTxHandler.reInitSpongeBlob(toNumTxsEffects(result, result[0].data.constants.globalVariables.gasFees));
+        processedTxHandler.reInitSpongeBlob(toNumTxsEffects(result));
       }
       for (const processedTx of result) {
         // if we were given a handler then send the transaction to it for block building or proving

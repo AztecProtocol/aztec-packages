@@ -19,7 +19,6 @@ import {
   makeProcessedTxFromPrivateOnlyTx,
   mockEpochProofQuote,
   mockTxForRollup,
-  unprocessedToNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   AZTEC_EPOCH_DURATION,
@@ -215,7 +214,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      tx.toNumTxEffects(),
+      0, // See sequencer.ts -> startNewBlock
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -287,7 +286,7 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      tx.toNumTxEffects(),
+      0, // See sequencer.ts -> startNewBlock,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -323,7 +322,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      unprocessedToNumTxsEffects(validTxs),
+      0, // See sequencer.ts -> startNewBlock,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -354,7 +353,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      unprocessedToNumTxsEffects(validTxs),
+      0, // See sequencer.ts -> startNewBlock
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -387,7 +386,7 @@ describe('sequencer', () => {
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
-      unprocessedToNumTxsEffects(validTxs),
+      0, // See sequencer.ts -> startNewBlock
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -430,7 +429,7 @@ describe('sequencer', () => {
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       4,
-      unprocessedToNumTxsEffects(validTxs),
+      0, // See sequencer.ts -> startNewBlock,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -516,7 +515,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       3,
-      unprocessedToNumTxsEffects(postFlushTxs),
+      0, // See sequencer.ts -> startNewBlock
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

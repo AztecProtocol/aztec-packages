@@ -5,7 +5,6 @@ import {
   type ProcessedTx,
   TxEffect,
   getTreeHeight,
-  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
@@ -173,7 +172,7 @@ export async function buildBaseRollupHints(
 
   // Append new data to startSpongeBlob
   const inputSpongeBlob = startSpongeBlob.clone();
-  startSpongeBlob.absorb(toTxEffect(tx, globalVariables.gasFees).toFields());
+  startSpongeBlob.absorb(tx.txEffect.toFields());
 
   return BaseRollupHints.from({
     start,

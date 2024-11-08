@@ -41,7 +41,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const vkTreeRoot = getVKTreeRoot();
 
     const tx = makeEmptyProcessedTx(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
-    const numTxsEffects = toNumTxEffects(tx, context.globalVariables.gasFees);
+    const numTxsEffects = toNumTxEffects(tx);
     const startSpongeBlob = SpongeBlob.init(numTxsEffects);
 
     logger.verbose('Building empty private proof');

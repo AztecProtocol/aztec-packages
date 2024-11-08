@@ -38,7 +38,7 @@ describe('prover/orchestrator/multi-block', () => {
         const globals = makeGlobals(blockNum);
 
         // This will need to be a 2 tx block
-        await context.orchestrator.startNewBlock(2, toNumTxEffects(tx, globals.gasFees), globals, []);
+        await context.orchestrator.startNewBlock(2, toNumTxEffects(tx), globals, []);
 
         await context.orchestrator.addNewTx(tx);
 

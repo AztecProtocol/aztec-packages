@@ -3,7 +3,6 @@ import {
   EncryptedL2NoteLog,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
-  PublicDataWrite,
   TxHash,
   type TxL2Logs,
   type UnencryptedL2Log,
@@ -21,8 +20,8 @@ import {
   NOTE_ENCRYPTED_LOGS_PREFIX,
   NULLIFIERS_PREFIX,
   PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-  REVERT_CODE_PREFIX,
   PublicDataWrite,
+  REVERT_CODE_PREFIX,
   RevertCode,
   TX_FEE_PREFIX,
   TX_START_PREFIX,
@@ -371,7 +370,7 @@ export class TxEffect {
     }
     if (this.publicDataWrites.length) {
       flattened.push(this.toPrefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, this.publicDataWrites.length * 2));
-      flattened.push(...this.publicDataWrites.map(w => [w.leafIndex, w.newValue]).flat());
+      flattened.push(...this.publicDataWrites.map(w => [w.leafSlot, w.value]).flat());
     }
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution

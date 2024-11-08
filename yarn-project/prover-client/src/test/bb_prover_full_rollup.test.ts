@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { mockTx, unprocessedToNumTxsEffects } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -54,7 +54,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Starting new block #${blockNum}`);
 
-        await context.orchestrator.startNewBlock(totalTxs, unprocessedToNumTxsEffects(txs), globals, l1ToL2Messages);
+        await context.orchestrator.startNewBlock(totalTxs, 0, globals, l1ToL2Messages);
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.epochProver);
         expect(processed.length).toBe(nonEmptyTxs);
@@ -100,12 +100,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1);
 
-    await context.orchestrator.startNewBlock(
-      numTransactions,
-      unprocessedToNumTxsEffects(txs),
-      context.globalVariables,
-      l1ToL2Messages,
-    );
+    await context.orchestrator.startNewBlock(numTransactions, 0, context.globalVariables, l1ToL2Messages);
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
 

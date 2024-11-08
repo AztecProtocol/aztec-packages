@@ -85,8 +85,11 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1);
-        const txs = [makeBloatedProcessedTxWithVKRoot(context.actualDb, 1), makeBloatedProcessedTxWithVKRoot(actualDb, 2)];
-        await orchestrator.startNewBlock(2, toNumTxsEffects(txs, context.globalVariables.gasFees), globalVariables, []);
+        const txs = [
+          makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
+          makeBloatedProcessedTxWithVKRoot(actualDb, 2),
+        ];
+        await orchestrator.startNewBlock(2, toNumTxsEffects(txs), globalVariables, []);
         await orchestrator.addNewTx(txs[0]);
         await orchestrator.addNewTx(txs[1]);
 

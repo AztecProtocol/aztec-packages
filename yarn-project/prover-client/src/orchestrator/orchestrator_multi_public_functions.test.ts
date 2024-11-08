@@ -1,4 +1,4 @@
-import { EmptyTxValidator, mockTx, toNumTxsEffects, unprocessedToNumTxsEffects } from '@aztec/circuit-types';
+import { EmptyTxValidator, mockTx, toNumTxsEffects } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -43,7 +43,7 @@ describe('prover/orchestrator/public-functions', () => {
         context.orchestrator.startNewEpoch(1, 1);
         await context.orchestrator.startNewBlock(
           numTransactions,
-          unprocessedToNumTxsEffects(txs),
+          0, // This is updated later
           context.globalVariables,
           [],
         );
@@ -57,7 +57,7 @@ describe('prover/orchestrator/public-functions', () => {
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        context.orchestrator.reInitSpongeBlob(toNumTxsEffects(processed, context.globalVariables.gasFees));
+        context.orchestrator.reInitSpongeBlob(toNumTxsEffects(processed));
 
         for (const tx of processed) {
           await context.orchestrator.addNewTx(tx);

@@ -187,13 +187,13 @@ export function makeProcessedTxFromPrivateOnlyTx(
   };
 }
 
-export function toNumTxEffects(tx: ProcessedTx, gasFees: GasFees): number {
-  return toTxEffect(tx, gasFees).toFields().length;
+export function toNumTxEffects(tx: ProcessedTx): number {
+  return tx.txEffect.toFields().length;
 }
 
-export function toNumTxsEffects(txs: ProcessedTx[], gasFees: GasFees): number {
+export function toNumTxsEffects(txs: ProcessedTx[]): number {
   return txs.reduce((acc, tx) => {
-    return acc + toNumTxEffects(tx, gasFees);
+    return acc + toNumTxEffects(tx);
   }, 0);
 }
 

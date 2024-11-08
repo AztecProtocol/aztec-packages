@@ -36,12 +36,7 @@ describe('prover/orchestrator/blocks', () => {
 
       // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(
-        2,
-        toNumTxsEffects(txs, context.globalVariables.gasFees),
-        context.globalVariables,
-        [],
-      );
+      await context.orchestrator.startNewBlock(2, toNumTxsEffects(txs), context.globalVariables, []);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -65,7 +60,7 @@ describe('prover/orchestrator/blocks', () => {
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(
         txs.length,
-        toNumTxsEffects(txs, context.globalVariables.gasFees),
+        toNumTxsEffects(txs),
         context.globalVariables,
         l1ToL2Messages,
       );

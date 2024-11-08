@@ -38,12 +38,7 @@ describe('prover/orchestrator/errors', () => {
       ];
 
       context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(
-        txs.length,
-        toNumTxsEffects(txs, context.globalVariables.gasFees),
-        context.globalVariables,
-        [],
-      );
+      await context.orchestrator.startNewBlock(txs.length, toNumTxsEffects(txs), context.globalVariables, []);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);

@@ -6,7 +6,6 @@ import {
   type ServerCircuitProver,
   makeEmptyProcessedTx,
   toNumTxsEffects,
-  toTxEffect,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
@@ -209,7 +208,7 @@ describe('LightBlockBuilder', () => {
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     const txCount = Math.max(2, txs.length);
-    const numTxsEffects = toNumTxsEffects(txs, globals.gasFees);
+    const numTxsEffects = toNumTxsEffects(txs);
     await builder.startNewBlock(txCount, numTxsEffects, globals, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
@@ -278,7 +277,7 @@ describe('LightBlockBuilder', () => {
 
   const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
-    const spongeBlobState = SpongeBlob.init(toNumTxsEffects(txs, globals.gasFees));
+    const spongeBlobState = SpongeBlob.init(toNumTxsEffects(txs));
     for (const tx of txs) {
       const vkIndex = TUBE_VK_INDEX;
       const vkPath = getVKSiblingPath(vkIndex);
@@ -341,7 +340,7 @@ describe('LightBlockBuilder', () => {
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const previousBlockHashLeafIndex = BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1);
     const previousBlockHash = (await expectsFork.getLeafValue(MerkleTreeId.ARCHIVE, previousBlockHashLeafIndex))!;
-    const txEffectsFields = txs.map(tx => toTxEffect(tx, left.constants.globalVariables.gasFees).toFields()).flat();
+    const txEffectsFields = txs.map(tx => tx.txEffect.toFields()).flat();
     const blob = new Blob(txEffectsFields);
     const rootParityVk = ProtocolCircuitVks['RootParityArtifact'].keyAsFields;
     const rootParityVkWitness = getVkMembershipWitness(rootParityVk);

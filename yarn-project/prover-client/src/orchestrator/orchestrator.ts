@@ -578,9 +578,8 @@ export class ProvingOrchestrator implements EpochProver {
     if (!provingState.finalRootParityInput?.publicInputs.shaRoot) {
       throw new Error(`Invalid proving state, a block must be ready to be proven before its effects can be extracted.`);
     }
-    const gasFees = provingState.globalVariables.gasFees;
     const nonEmptyTxEffects: TxEffect[] = provingState.allTxs
-      .map(txProvingState => toTxEffect(txProvingState.processedTx, gasFees))
+      .map(txProvingState => txProvingState.processedTx.txEffect)
       .filter(txEffect => !txEffect.isEmpty());
 
     return nonEmptyTxEffects;
