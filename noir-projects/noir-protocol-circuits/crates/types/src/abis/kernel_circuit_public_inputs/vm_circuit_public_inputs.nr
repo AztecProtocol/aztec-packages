@@ -13,21 +13,21 @@ use crate::{
 };
 
 pub struct VMCircuitPublicInputs {
-    constants: CombinedConstantData,
-    call_request: PublicCallRequest,
+    pub constants: CombinedConstantData,
+    pub call_request: PublicCallRequest,
 
     // TODO(#7124): To be deprecated.
-    public_call_stack: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub public_call_stack: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
 
-    previous_validation_request_array_lengths: PublicValidationRequestArrayLengths, // Lengths of the validation requests before the enqueued call.
-    validation_requests: PublicValidationRequests, // Validation requests emitted throughout the enqueued call.
-    previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths, // Lengths of the accumulated data before the enqueued call.
-    accumulated_data: PublicAccumulatedData, // Data emitted throughout the enqueued call.
-    start_side_effect_counter: u32,
-    end_side_effect_counter: u32,
-    start_gas_left: Gas,
-    transaction_fee: Field,
-    reverted: bool,
+    pub previous_validation_request_array_lengths: PublicValidationRequestArrayLengths, // Lengths of the validation requests before the enqueued call.
+    pub validation_requests: PublicValidationRequests, // Validation requests emitted throughout the enqueued call.
+    pub previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths, // Lengths of the accumulated data before the enqueued call.
+    pub accumulated_data: PublicAccumulatedData, // Data emitted throughout the enqueued call.
+    pub start_side_effect_counter: u32,
+    pub end_side_effect_counter: u32,
+    pub start_gas_left: Gas,
+    pub transaction_fee: Field,
+    pub reverted: bool,
 }
 
 impl Empty for VMCircuitPublicInputs {

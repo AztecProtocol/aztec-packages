@@ -86,7 +86,7 @@ pub unconstrained fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
 
     // Sort the data by original index.
     let mut leaves = [OverridablePublicDataTreeLeaf::empty(); NUM_HINTS];
-    let sorted_result = get_sorted_result(data_with_unique_slot.storage, compare_by_index);
+    let sorted_result = get_sorted_result(data_with_unique_slot.storage(), compare_by_index);
     for i in 0..data_with_unique_slot.len() {
         let sorted = sorted_result.sorted_array[i];
         // The provided hints should've been sorted.

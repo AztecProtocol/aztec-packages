@@ -50,7 +50,7 @@ impl AppPayload {
         }
         bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
 
-        bytes.storage
+        bytes.storage()
     }
 
     // Executes all private and public calls

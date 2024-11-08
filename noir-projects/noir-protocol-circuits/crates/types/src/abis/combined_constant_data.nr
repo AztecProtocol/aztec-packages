@@ -6,17 +6,17 @@ use crate::transaction::tx_context::TxContext;
 use crate::utils::reader::Reader;
 
 pub struct CombinedConstantData {
-    historical_header: Header,
+    pub historical_header: Header,
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
     // self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such
     // a situation we could be using header from a block before the upgrade took place but be using the updated
     // protocol to execute and prove the transaction.
-    tx_context: TxContext,
-    vk_tree_root: Field,
-    protocol_contract_tree_root: Field,
+    pub tx_context: TxContext,
+    pub vk_tree_root: Field,
+    pub protocol_contract_tree_root: Field,
 
     // Should be empty for private-only txs. This is filled in by the sequencer for txs with public calls.
-    global_variables: GlobalVariables,
+    pub global_variables: GlobalVariables,
 }
 
 impl CombinedConstantData {

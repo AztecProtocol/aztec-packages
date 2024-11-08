@@ -9,9 +9,9 @@ use dep::types::{
 };
 
 pub struct NoteHashSettledReadHint {
-    read_request_index: u32,
-    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
-    leaf_preimage: NoteHashLeafPreimage,
+    pub read_request_index: u32,
+    pub membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
+    pub leaf_preimage: NoteHashLeafPreimage,
 }
 
 impl ReadValueHint for NoteHashSettledReadHint {
@@ -39,9 +39,9 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
 }
 
 pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
-    read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
-    settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
+    pub read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
+    pub settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
 }
 
 mod tests {

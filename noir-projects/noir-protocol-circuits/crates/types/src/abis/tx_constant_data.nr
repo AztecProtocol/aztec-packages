@@ -8,14 +8,14 @@ use crate::{
 
 // Constants used throughout the executions of both private and public.
 pub struct TxConstantData {
-    historical_header: Header,
+    pub historical_header: Header,
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
     // self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such
     // a situation we could be using header from a block before the upgrade took place but be using the updated
     // protocol to execute and prove the transaction.
-    tx_context: TxContext,
-    vk_tree_root: Field,
-    protocol_contract_tree_root: Field,
+    pub tx_context: TxContext,
+    pub vk_tree_root: Field,
+    pub protocol_contract_tree_root: Field,
 }
 
 impl Empty for TxConstantData {

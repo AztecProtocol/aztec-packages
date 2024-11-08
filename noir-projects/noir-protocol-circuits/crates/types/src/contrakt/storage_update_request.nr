@@ -4,9 +4,9 @@ use crate::{
 };
 
 pub struct StorageUpdateRequest {
-    storage_slot: Field,
-    new_value: Field,
-    counter: u32,
+    pub storage_slot: Field,
+    pub new_value: Field,
+    pub counter: u32,
 }
 
 impl Eq for StorageUpdateRequest {

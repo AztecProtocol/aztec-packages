@@ -16,11 +16,11 @@ use crate::{
 
 // docs:start:header
 pub struct Header {
-    last_archive: AppendOnlyTreeSnapshot,
-    content_commitment: ContentCommitment,
-    state: StateReference,
-    global_variables: GlobalVariables,
-    total_fees: Field,
+    pub last_archive: AppendOnlyTreeSnapshot,
+    pub content_commitment: ContentCommitment,
+    pub state: StateReference,
+    pub global_variables: GlobalVariables,
+    pub total_fees: Field,
 }
 // docs:end:header
 

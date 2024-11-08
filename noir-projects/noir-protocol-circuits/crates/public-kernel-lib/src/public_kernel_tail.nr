@@ -281,8 +281,8 @@ mod tests {
 
         fn set_nullifiers_for_non_existent_read_request_hints(&mut self) {
             let nullifiers = array_merge(
-                self.previous_kernel.nullifiers.storage,
-                self.previous_revertible.nullifiers.storage,
+                self.previous_kernel.nullifiers.storage(),
+                self.previous_revertible.nullifiers.storage(),
             )
                 .map(|n: ScopedNullifier| n.nullifier);
             self.nullifier_non_existent_read_request_hints_builder.set_nullifiers(nullifiers);
@@ -360,7 +360,7 @@ mod tests {
                 }
             }
 
-            public_data_hints.storage
+            public_data_hints.storage()
         }
 
         fn sync_counters(&mut self) {
@@ -389,10 +389,10 @@ mod tests {
 
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
-                note_hash_read_request_hints: self.note_hash_read_request_hints.storage,
+                note_hash_read_request_hints: self.note_hash_read_request_hints.storage(),
                 nullifier_read_request_hints,
                 nullifier_non_existent_read_request_hints,
-                l1_to_l2_msg_read_request_hints: self.l1_to_l2_msg_read_request_hints.storage,
+                l1_to_l2_msg_read_request_hints: self.l1_to_l2_msg_read_request_hints.storage(),
                 public_data_hints,
                 start_state: self.start_state,
             };
@@ -453,7 +453,7 @@ mod tests {
 
         assert_eq(
             public_inputs.end.unencrypted_logs_hashes,
-            builder.previous_revertible.unencrypted_logs_hashes.storage,
+            builder.previous_revertible.unencrypted_logs_hashes.storage(),
         );
     }
 

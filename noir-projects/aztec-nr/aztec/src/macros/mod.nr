@@ -68,7 +68,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     };
 
     quote {
-        struct $module_name {
+        pub struct $module_name {
             target_contract: dep::aztec::protocol_types::address::AztecAddress
         }
 
