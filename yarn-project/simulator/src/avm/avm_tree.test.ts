@@ -30,6 +30,10 @@ let slots: Fr[];
 let values: Fr[];
 let getSiblingIndex = 21n;
 
+/****************************************************/
+/*************** Test Helper Functions **************/
+/****************************************************/
+
 // Helper to check the equality of the insertion results (low witness, insertion path)
 const checkEqualityOfInsertionResults = <Tree_Height extends number>(
   containerResults: IndexedInsertionResult<IndexedTreeLeafPreimage>[],
@@ -41,162 +45,286 @@ const checkEqualityOfInsertionResults = <Tree_Height extends number>(
   for (let i = 0; i < containerResults.length; i++) {
     const containerResult = containerResults[i];
     const wsResult = wsResults[i];
-    expect(containerResult.lowWitness.lowSiblingPath).toEqual(wsResult.lowLeavesWitnessData![0].siblingPath.toFields());
+    expect(containerResult.lowWitness.siblingPath).toEqual(wsResult.lowLeavesWitnessData![0].siblingPath.toFields());
     expect(containerResult.lowWitness.index).toEqual(wsResult.lowLeavesWitnessData![0].index);
     expect(containerResult.lowWitness.preimage).toEqual(wsResult.lowLeavesWitnessData![0].leafPreimage);
     expect(containerResult.insertionPath).toEqual(wsResult.newSubtreeSiblingPath.toFields());
   }
 };
 
+const getWorldStateRoot = async (treeId: MerkleTreeId) => {
+  return (await worldStateTrees.getTreeInfo(treeId, /*includeUncommitted=*/ true)).root;
+};
+
+const getWorldStateSiblingPath = (treeId: MerkleTreeId, index: bigint) => {
+  return worldStateTrees.getSiblingPath(treeId, index, /*includeUncommitted=*/ true);
+};
+
+const publicDataInsertWorldState = <Tree_Height extends number>(
+  slot: Fr,
+  value: Fr,
+): Promise<BatchInsertionResult<Tree_Height, 0>> => {
+  return worldStateTrees.batchInsert(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    [new PublicDataTreeLeaf(slot, value).toBuffer()],
+    0,
+  );
+};
+
+const nullifierInsertWorldState = <Tree_Height extends number>(
+  nullifier: Fr,
+): Promise<BatchInsertionResult<Tree_Height, 0>> => {
+  return worldStateTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()], 0);
+};
+
+// Set up some recurring state for the tests
 beforeEach(async () => {
   const store = openTmpStore(true);
   worldStateTrees = await MerkleTrees.new(store, new NoopTelemetryClient());
   copyState = await worldStateTrees.fork();
 
   noteHashes = Array.from({ length: 64 }, (_, i) => new Fr(i));
-  // We add 128 since the first 128 leaves are already filled in the indexed trees (nullifier, public data)
+  // We do + 128 since the first 128 leaves are already filled in the indexed trees (nullifier, public data)
   indexedHashes = Array.from({ length: 64 }, (_, i) => new Fr(i + 128));
 
   slots = Array.from({ length: 64 }, (_, i) => new Fr(i + 128));
   values = Array.from({ length: 64 }, (_, i) => new Fr(i + 256));
 });
 
+/****************************************************/
+/*************** Test Cases *************************/
+/****************************************************/
+/**
+ * Each test follows a similar structure with an extra test specific to the  public data tree
+ * For each test, we perform a consistency check by comparing the roots and sibling paths (from a random index) or from the insertion results
+ * between the ephemeral container and the world state trees.
+ * NOTE HASH TREE TESTS
+ * 1. Given an empty state, we can append some leaves and remain consistent
+ * 2. Given a prefilled worldStateDB, we can fork the worldStateDB into the ephemeral container and append some leaves
+ *
+ * PUBLIC DATA TREE TESTS
+ * 1. Given an empty state, we can append some leaves and remain consistent
+ * 2. Given a prefilled worldStateDB, we can fork the worldStateDB into the ephemeral container and append some leaves
+ * 3. Given an state with a single leaf, we can update the leaf and append new leaves and remain consistent.
+ *
+ * NULLIFIER TREE TEST
+ * 1. Given an empty state, we can append some leaves and remain consistent
+ * 2. Given a prefilled worldStateDB, we can fork the worldStateDB into the ephemeral container and append some leaves
+ * 3. Given an state with a single leaf, we can update the leaf and append new leaves and remain consistent.
+ *
+ * FORKING AND MERGING TEST
+ * 1. Appending to a forked ephemeral container should continue to remain consistent with the world state trees
+ * 2. Forking, rolling back and forking again should remain consistent with the world state trees
+ */
+
 describe('Simple Note Hash Consistency', () => {
+  const treeId = MerkleTreeId.NOTE_HASH_TREE;
   it('Should do a simple append and check the root starting with empty', async () => {
-    const treeId = MerkleTreeId.NOTE_HASH_TREE;
     const treeContainer = await AvmEphemeralForest.create(copyState);
-    for (let i = 0; i < noteHashes.length; i++) {
-      await treeContainer.appendNoteHash(noteHashes[i]);
+    for (const noteHash of noteHashes) {
+      treeContainer.appendNoteHash(noteHash);
     }
     await worldStateTrees.appendLeaves(treeId, noteHashes);
 
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+    // Check that the roots are consistent
+    const wsRoot = await getWorldStateRoot(treeId);
     const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
-    const wsSiblingPath = await worldStateTrees.getSiblingPath(treeId, getSiblingIndex, true);
+    // Check a sibling path from a random index is consistent
+    const wsSiblingPath = await getWorldStateSiblingPath(treeId, getSiblingIndex);
     const siblingPath = await treeContainer.getSiblingPath(treeId, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
   });
+
   it('Should fork a prefilled tree and check consistency', async () => {
-    const treeId = MerkleTreeId.NOTE_HASH_TREE;
+    // Insert half of our note hashes into the copyState (forked from worldStateDB)
     const preInserted = noteHashes.slice(0, 32);
-    const postInserted = noteHashes.slice(32);
     await copyState.appendLeaves(treeId, preInserted);
+    // The tree container has a DB with the first 32 note hashes
     const treeContainer = await AvmEphemeralForest.create(copyState);
 
-    for (let i = 0; i < postInserted.length; i++) {
-      await treeContainer.appendNoteHash(postInserted[i]);
+    // Append the remaining note hashes within the container
+    const postInserted = noteHashes.slice(32);
+    for (const noteHash of postInserted) {
+      treeContainer.appendNoteHash(noteHash);
     }
+
+    // Build a worldstateDB with all the note hashes
     await worldStateTrees.appendLeaves(treeId, preInserted.concat(postInserted));
 
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+    // Check that the roots are consistent
+    const wsRoot = await getWorldStateRoot(treeId);
     const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
-    // Pre inserted leaves sibling Path
-    let wsSiblingPath = await worldStateTrees.getSiblingPath(treeId, getSiblingIndex, true);
+    // Check the sibling path from an index before the fork
+    let wsSiblingPath = await getWorldStateSiblingPath(treeId, getSiblingIndex);
     let siblingPath = await treeContainer.getSiblingPath(treeId, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
 
-    // Post inserted leaves sibling Path
+    // Check the sibling path that we inserted in the container
     getSiblingIndex = 42n;
-    wsSiblingPath = await worldStateTrees.getSiblingPath(treeId, getSiblingIndex, true);
+    wsSiblingPath = await getWorldStateSiblingPath(treeId, getSiblingIndex);
     siblingPath = await treeContainer.getSiblingPath(treeId, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
   });
 });
 
 describe('Simple Public Data Consistency', () => {
+  const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
+  let containerInsertionResults: IndexedInsertionResult<PublicDataTreeLeafPreimage>[] = [];
+  let worldStateInsertionResults: BatchInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT, 0>[] = [];
+
+  // We need to zero out between tests
+  afterEach(() => {
+    containerInsertionResults = [];
+    worldStateInsertionResults = [];
+  });
+
   it('Should do a simple append and check the root starting with empty', async () => {
-    const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
     const treeContainer = await AvmEphemeralForest.create(copyState);
 
-    const containerInsertionResults: IndexedInsertionResult<PublicDataTreeLeafPreimage>[] = [];
-    const worldStateInsertionResults: BatchInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT, 0>[] = [];
+    // Store the insertion results for comparison
+    // Append all the leaves to the container and the world state trees
     for (let i = 0; i < slots.length; i++) {
       containerInsertionResults.push(await treeContainer.writePublicStorage(slots[i], values[i]));
-      worldStateInsertionResults.push(
-        await worldStateTrees.batchInsert(treeId, [new PublicDataTreeLeaf(slots[i], values[i]).toBuffer()], 0),
-      );
+      worldStateInsertionResults.push(await publicDataInsertWorldState(slots[i], values[i]));
     }
 
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+    // Compare the roots of the container and the world state trees
+    const wsRoot = await getWorldStateRoot(treeId);
     const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
     // Check that all the accumulated insertion results match
     checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
-
-    const wsSiblingPath = await worldStateTrees.getSiblingPath(treeId, getSiblingIndex, true);
-    const siblingPath = await treeContainer.getSiblingPath(treeId, getSiblingIndex);
-    expect(siblingPath).toEqual(wsSiblingPath.toFields());
   });
+
   it('Should fork a prefilled tree and check consistency', async () => {
     const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
     const preInsertIndex = 32;
+
+    // Insert the first half of the leaves into the copyState
     for (let i = 0; i < preInsertIndex; i++) {
       await copyState.batchInsert(treeId, [new PublicDataTreeLeaf(slots[i], values[i]).toBuffer()], 0);
     }
     const treeContainer = await AvmEphemeralForest.create(copyState);
+
+    // Insert the second half of the leaves into the container
     for (let i = preInsertIndex; i < slots.length; i++) {
       await treeContainer.writePublicStorage(slots[i], values[i]);
     }
+
+    // Insert all the leaves into the world state trees
     for (let i = 0; i < slots.length; i++) {
-      await worldStateTrees.batchInsert(treeId, [new PublicDataTreeLeaf(slots[i], values[i]).toBuffer()], 0);
+      await publicDataInsertWorldState(slots[i], values[i]);
     }
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+
+    // Compare the roots of the container and the world state trees
+    const wsRoot = await getWorldStateRoot(treeId);
     const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
+
+    // Get a sibling path from a random index and check it is consistent
+    const wsSiblingPath = await getWorldStateSiblingPath(treeId, getSiblingIndex);
+    const siblingPath = await treeContainer.getSiblingPath(treeId, getSiblingIndex);
+    expect(siblingPath).toEqual(wsSiblingPath.toFields());
+  });
+
+  it('Should update a leaf and check consistency', async () => {
+    // This test does the following:
+    // 1. Create a tree with the leaf (slot = 128, value = 256)
+    // 2. Update the leaf to (slot = 128, value = 258)
+    // 3. Append a new leaf (slot = 129, value = 257)
+    // 4. Update the new leaf to (slot = 129, value = 259)
+    // 5. Check that the roots and resulting sibling paths are consistent after each operation
+
+    // Step 1
+    const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
+    // Add a single element of (slot = 128, value = 256) to the tree before forking into our ephemeral state
+    await copyState.batchInsert(treeId, [new PublicDataTreeLeaf(new Fr(128), new Fr(256)).toBuffer()], 0);
+    const treeContainer = await AvmEphemeralForest.create(copyState);
+
+    await publicDataInsertWorldState(new Fr(128), new Fr(256));
+
+    // Step 2
+    containerInsertionResults.push(await treeContainer.writePublicStorage(new Fr(128), new Fr(258)));
+    worldStateInsertionResults.push(await publicDataInsertWorldState(new Fr(128), new Fr(258)));
+
+    // Step 3
+    containerInsertionResults.push(await treeContainer.writePublicStorage(new Fr(129), new Fr(257)));
+    worldStateInsertionResults.push(await publicDataInsertWorldState(new Fr(129), new Fr(257)));
+
+    // Step 4
+    containerInsertionResults.push(await treeContainer.writePublicStorage(new Fr(129), new Fr(259)));
+    worldStateInsertionResults.push(await publicDataInsertWorldState(new Fr(129), new Fr(259)));
+
+    // Check the roots are consistent
+    const wsRoot = await getWorldStateRoot(treeId);
+    const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
+    expect(computedRoot.toBuffer()).toEqual(wsRoot);
+
+    // Check the insertion results match
+    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
   });
 });
 
 describe('Simple Nullifier Consistency', () => {
+  const treeId = MerkleTreeId.NULLIFIER_TREE as IndexedTreeId;
+  let containerInsertionResults: IndexedInsertionResult<NullifierLeafPreimage>[] = [];
+  let worldStateInsertionResults: BatchInsertionResult<typeof NULLIFIER_TREE_HEIGHT, 0>[] = [];
+
+  // We need to zero out between tests
+  afterEach(() => {
+    containerInsertionResults = [];
+    worldStateInsertionResults = [];
+  });
+
   it('Should do a simple append and check the root starting with empty', async () => {
-    const treeId = MerkleTreeId.NULLIFIER_TREE as IndexedTreeId;
     const treeContainer = await AvmEphemeralForest.create(copyState);
 
-    const containerInsertionResults: IndexedInsertionResult<NullifierLeafPreimage>[] = [];
-    const worldStateInsertionResults: BatchInsertionResult<typeof NULLIFIER_TREE_HEIGHT, 0>[] = [];
+    // Insert all the leaves to the container and the world state trees
     for (let i = 0; i < indexedHashes.length; i++) {
       containerInsertionResults.push(await treeContainer.appendNullifier(indexedHashes[i]));
-      worldStateInsertionResults.push(await worldStateTrees.batchInsert(treeId, [indexedHashes[i].toBuffer()], 0));
+      worldStateInsertionResults.push(await nullifierInsertWorldState(indexedHashes[i]));
     }
 
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+    // Compare the roots of the container and the world state
+    const wsRoot = await getWorldStateRoot(treeId);
     const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
 
     // Check that all the accumulated insertion results match
     checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
 
-    const wsSiblingPath = await worldStateTrees.getSiblingPath(treeId, getSiblingIndex, true);
+    // Check a sibling path from a random index is consistent
+    const wsSiblingPath = await getWorldStateSiblingPath(treeId, getSiblingIndex);
     const siblingPath = await treeContainer.getSiblingPath(treeId, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
   });
 
   it('Should fork a prefilled tree and check consistency', async () => {
-    const treeId = MerkleTreeId.NULLIFIER_TREE as IndexedTreeId;
     const preInsertIndex = 32;
     for (let i = 0; i < preInsertIndex; i++) {
       await copyState.batchInsert(treeId, [indexedHashes[i].toBuffer()], 0);
     }
     const treeContainer = await AvmEphemeralForest.create(copyState);
 
-    const containerInsertionResults: IndexedInsertionResult<NullifierLeafPreimage>[] = [];
-    let worldStateInsertionResults: BatchInsertionResult<typeof NULLIFIER_TREE_HEIGHT, 0>[] = [];
     for (let i = preInsertIndex; i < indexedHashes.length; i++) {
       containerInsertionResults.push(await treeContainer.appendNullifier(indexedHashes[i]));
     }
     for (let i = 0; i < indexedHashes.length; i++) {
-      worldStateInsertionResults.push(await worldStateTrees.batchInsert(treeId, [indexedHashes[i].toBuffer()], 0));
+      worldStateInsertionResults.push(await nullifierInsertWorldState(indexedHashes[i]));
     }
-    worldStateInsertionResults = worldStateInsertionResults.slice(preInsertIndex);
-    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults);
 
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+    // Compare the roots of the container and the world state
+    const wsRoot = await getWorldStateRoot(treeId);
     const computedRoot = treeContainer.treeMap.get(treeId)!.getRoot();
     expect(computedRoot.toBuffer()).toEqual(wsRoot);
+
+    // Check insertion results - note we can only compare against the post-insertion results
+    checkEqualityOfInsertionResults(containerInsertionResults, worldStateInsertionResults.slice(preInsertIndex));
   });
 });
 
@@ -221,15 +349,13 @@ describe('Big Random Avm Ephemeral Container Test', () => {
     const treeContainer = await AvmEphemeralForest.create(copyState);
 
     // Insert values ino merkleTrees
+    // Note Hash
     await worldStateTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes.slice(0, ENTRY_COUNT));
+    // Everything else
     for (let i = 0; i < ENTRY_COUNT; i++) {
-      await worldStateTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [indexedHashes[i].toBuffer()], 0);
-      await worldStateTrees.batchInsert(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        [new PublicDataTreeLeaf(slots[i], values[i]).toBuffer()],
-        0,
-      );
-      await treeContainer.appendNoteHash(noteHashes[i]);
+      await nullifierInsertWorldState(indexedHashes[i]);
+      await publicDataInsertWorldState(slots[i], values[i]);
+      treeContainer.appendNoteHash(noteHashes[i]);
       await treeContainer.appendNullifier(indexedHashes[i]);
       await treeContainer.writePublicStorage(slots[i], values[i]);
     }
@@ -237,30 +363,34 @@ describe('Big Random Avm Ephemeral Container Test', () => {
     const wsRoots = [];
     const computedRoots = [];
     for (const treeId of [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE]) {
-      wsRoots.push((await worldStateTrees.getTreeInfo(treeId, true)).root);
+      wsRoots.push(await getWorldStateRoot(treeId));
       computedRoots.push(treeContainer.treeMap.get(treeId)!.getRoot().toBuffer());
     }
+
+    // All the roots should match
     for (let i = 0; i < wsRoots.length; i++) {
       expect(computedRoots[i]).toEqual(wsRoots[i]);
     }
-    // Get a sibling path
-    let wsSiblingPath = await worldStateTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, getSiblingIndex, true);
+
+    // Get a sibling path from each tree and check it is consistent
+    let wsSiblingPath = await getWorldStateSiblingPath(MerkleTreeId.NOTE_HASH_TREE, getSiblingIndex);
     let siblingPath = await treeContainer.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
 
-    wsSiblingPath = await worldStateTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, getSiblingIndex, true);
+    wsSiblingPath = await getWorldStateSiblingPath(MerkleTreeId.NULLIFIER_TREE, getSiblingIndex);
     siblingPath = await treeContainer.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
 
-    wsSiblingPath = await worldStateTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, getSiblingIndex, true);
+    wsSiblingPath = await getWorldStateSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, getSiblingIndex);
     siblingPath = await treeContainer.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, getSiblingIndex);
     expect(siblingPath).toEqual(wsSiblingPath.toFields());
   });
 });
 
 describe('Checking forking and merging', () => {
+  const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
+
   it('Should check forked results are eventually consistent', async () => {
-    const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
     const treeContainer = await AvmEphemeralForest.create(copyState);
     // Write all but the last value to the container
     for (let i = 0; i < slots.length - 1; i++) {
@@ -268,51 +398,62 @@ describe('Checking forking and merging', () => {
     }
     // Fork the ephemeral container
     const forkedContainer = treeContainer.fork();
+
     // Write the last element to the forked container
     await forkedContainer.writePublicStorage(slots[slots.length - 1], values[slots.length - 1]);
     const forkedRoot = forkedContainer.treeMap.get(treeId)!.getRoot();
     let originalRoot = treeContainer.treeMap.get(treeId)!.getRoot();
-    // The roots should NOT match
+
+    // The roots should NOT match since we have an extra element
     expect(forkedRoot.toBuffer()).not.toEqual(originalRoot.toBuffer());
-    // write the last element to original container
+
+    // Write the last element to original container
     await treeContainer.writePublicStorage(slots[slots.length - 1], values[slots.length - 1]);
     originalRoot = treeContainer.treeMap.get(treeId)!.getRoot();
+
+    // We should be consistent now
     expect(forkedRoot.toBuffer()).toEqual(originalRoot.toBuffer());
   });
 
   it('Fork-Rollback-Fork-Merge should be consistent', async () => {
-    const treeId = MerkleTreeId.PUBLIC_DATA_TREE as IndexedTreeId;
-    const treeContainer = await AvmEphemeralForest.create(copyState);
-    await treeContainer.writePublicStorage(slots[0], values[0]);
-    // Fork the ephemeral container (simulaing a nested call)
-    const forkedInsertionResults = [];
-    const forkedContainer = treeContainer.fork();
-    forkedInsertionResults.push(await forkedContainer.writePublicStorage(slots[1], values[1]));
-    // We add to this fork but we check it doesnt impact other forks (i.e. Rollback)
-    const nestedCallFork = forkedContainer.fork();
-    nestedCallFork.writePublicStorage(slots[2], values[2]);
-    // We add to the fork
-    forkedInsertionResults.push(await forkedContainer.writePublicStorage(slots[3], values[3]));
-
-    // Append to the original state tree
+    // To store results
     const wsInsertionResults: BatchInsertionResult<typeof PUBLIC_DATA_TREE_HEIGHT, 0>[] = [];
-    await worldStateTrees.batchInsert(treeId, [new PublicDataTreeLeaf(slots[0], values[0]).toBuffer()], 0);
-    wsInsertionResults.push(
-      await worldStateTrees.batchInsert(treeId, [new PublicDataTreeLeaf(slots[1], values[1]).toBuffer()], 0),
-    );
-    wsInsertionResults.push(
-      await worldStateTrees.batchInsert(treeId, [new PublicDataTreeLeaf(slots[3], values[3]).toBuffer()], 0),
-    );
+    const containerInsertionResults = [];
+
+    const treeContainer = await AvmEphemeralForest.create(copyState);
+    // Write the first element to the container
+    containerInsertionResults.push(await treeContainer.writePublicStorage(slots[0], values[0]));
+
+    // Fork the ephemeral container (simulating a nested call)
+    const forkedContainer = treeContainer.fork();
+    // Write to the fork
+    containerInsertionResults.push(await forkedContainer.writePublicStorage(slots[1], values[1]));
+
+    // We add to this fork but we check it doesnt impact the initial fork (i.e. Rollback)
+    const nestedCallFork = forkedContainer.fork();
+    await nestedCallFork.writePublicStorage(slots[2], values[2]);
+
+    // We write to the original fork (i.e. the parent of nestedCallFork), e.g. if nestedCallFork reverts
+    containerInsertionResults.push(await forkedContainer.writePublicStorage(slots[3], values[3]));
+
+    // Build the original worldState with elements of inde 0, 1 and 3 (note that we skip 2)
+    wsInsertionResults.push(await publicDataInsertWorldState(slots[0], values[0]));
+    wsInsertionResults.push(await publicDataInsertWorldState(slots[1], values[1]));
+    wsInsertionResults.push(await publicDataInsertWorldState(slots[3], values[3]));
 
     const containerRoot = forkedContainer.treeMap.get(treeId)!.getRoot();
-    const wsRoot = (await worldStateTrees.getTreeInfo(treeId, true)).root;
+    const wsRoot = await getWorldStateRoot(treeId);
     expect(containerRoot.toBuffer()).toEqual(wsRoot);
 
     // Check that all the accumulated insertion results
-    checkEqualityOfInsertionResults(forkedInsertionResults, wsInsertionResults);
+    checkEqualityOfInsertionResults(containerInsertionResults, wsInsertionResults);
   });
 });
 
+/**
+ * This is a small test that acts like a sanity check that the inner Tree class is working as expected.
+ * This is a good canary if things are going wrong, whether the problem is in the Tree class or the EphemeralForest class.
+ */
 describe('AVM Ephemeral Tree Sanity Test', () => {
   it('Should calculate the frontier correctly', async () => {
     const store = openTmpStore(true);
@@ -324,7 +465,7 @@ describe('AVM Ephemeral Tree Sanity Test', () => {
       leaves.push(leaf);
     }
     const copyState = await worldStateTrees.fork();
-    copyState.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
+    await copyState.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
     const tree = await EphemeralAvmTree.create(
       BigInt(numLeaves),
       NOTE_HASH_TREE_HEIGHT,
