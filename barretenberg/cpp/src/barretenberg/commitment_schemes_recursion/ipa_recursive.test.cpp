@@ -83,6 +83,11 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
+    /**
+     * @brief Checks the the IPA Recursive Verifier circuit is fixed no matter the ECCVM trace size.
+     * @details Compares the builder blocks and locates which index in which block is different. Also compares the vks
+     * to find which commitment is different.
+     */
     void test_fixed_ipa_recursive_verifier()
     {
 
@@ -106,9 +111,11 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             }
         };
 
+        // Compares block by block to find which gate is different.
         size_t block_idx = 0;
         for (auto [b_10, b_11] : zip_view(builder_1.blocks.get(), builder_2.blocks.get())) {
             info("block index: ", block_idx);
+            EXPECT_TRUE(b_10.q_1().size() == b_11.q_1().size());
             EXPECT_TRUE(b_10.selectors.size() == 13);
             EXPECT_TRUE(b_11.selectors.size() == 13);
             for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
@@ -117,6 +124,10 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             block_idx++;
         }
 
+        EXPECT_TRUE(verification_key_1.circuit_size == verification_key_2.circuit_size);
+        EXPECT_TRUE(verification_key_1.num_public_inputs == verification_key_2.num_public_inputs);
+
+        // Compares the VKs to find which commitment is different.
         UltraFlavor::CommitmentLabels labels;
         for (auto [vk_10, vk_11, label] :
              zip_view(verification_key_1.get_all(), verification_key_2.get_all(), labels.get_precomputed())) {
@@ -125,9 +136,6 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
                 info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
             }
         }
-
-        EXPECT_TRUE(verification_key_1.circuit_size == verification_key_2.circuit_size);
-        EXPECT_TRUE(verification_key_1.num_public_inputs == verification_key_2.num_public_inputs);
 
         EXPECT_FALSE(broke);
     }

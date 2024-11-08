@@ -453,8 +453,8 @@ template <typename Curve_> class IPA {
                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
                                        // Grumpkin
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
-        info("IPA poly length: ", poly_length);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator

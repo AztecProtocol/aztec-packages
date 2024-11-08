@@ -22,7 +22,6 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
 
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
-    info("size of ECCVM polynomials: ", key->circuit_size);
 
     key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
 }
