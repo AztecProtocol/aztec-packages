@@ -5,6 +5,7 @@ import {
   type L2Block,
   type TxHash,
   getHashedSignaturePayload,
+  SignatureDomainSeperator,
 } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import {
@@ -464,7 +465,7 @@ export class L1Publisher {
 
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeperator.blockAttestation);
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),

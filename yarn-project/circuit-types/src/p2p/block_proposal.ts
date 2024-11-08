@@ -7,7 +7,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import { getHashedSignaturePayload, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import { getHashedSignaturePayload, getHashedSignaturePayloadEthSignedMessage, SignatureDomainSeperator } from './signature_utils.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockProposalHash extends Buffer32 {
@@ -49,7 +49,7 @@ export class BlockProposal extends Gossipable {
     payload: ConsensusPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
-    const hashed = getHashedSignaturePayload(payload);
+    const hashed = getHashedSignaturePayload(payload, SignatureDomainSeperator.blockProposal);
     const sig = await payloadSigner(hashed);
 
     return new BlockProposal(payload, sig);
@@ -60,7 +60,7 @@ export class BlockProposal extends Gossipable {
    */
   getSender() {
     if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeperator.blockProposal);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
@@ -69,7 +69,7 @@ export class BlockProposal extends Gossipable {
   }
 
   getPayload() {
-    return this.payload.getPayloadToSign();
+    return this.payload.getPayloadToSign(SignatureDomainSeperator.blockProposal);
   }
 
   toBuffer(): Buffer {
