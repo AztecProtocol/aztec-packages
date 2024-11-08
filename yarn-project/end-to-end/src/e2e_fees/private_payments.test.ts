@@ -368,4 +368,23 @@ describe('e2e_fees private_payment', () => {
         .wait(),
     ).rejects.toThrow('Tx dropped by P2P node.');
   });
+
+  // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
+  it('insufficient funded amount is correctly handled', async () => {
+    // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
+    await expect(
+      bananaCoin.methods.private_get_name().prove({
+        fee: {
+          gasSettings: t.gasSettings,
+          paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
+            bananaFPC.address,
+            aliceWallet,
+            sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
+            true, // We set max fee/funded amount to 1 to trigger the error.
+          ),
+        },
+      }),
+    ).rejects.toThrow('funded amount not enough to cover tx fee');
+  });
 });
