@@ -361,7 +361,7 @@ describe('e2e_fees private_payment', () => {
               bananaCoin.address,
               bankruptFPC.address,
               aliceWallet,
-              sequencerAddress,
+              aliceAddress,
             ),
           },
         })
