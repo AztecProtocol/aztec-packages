@@ -26,10 +26,12 @@ export async function setupCanonicalL2FeeJuice(
       .prove({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } });
 
     await provenTx.send().wait(waitOpts);
+    log('setupCanonicalL2FeeJuice: Fee juice contract initialized');
   } catch (e: any) {
-    if (e instanceof Error) {
-      log(e.message);
+    if (e instanceof Error && e.message.includes('(method pxe_simulateTx) (code 400) Assertion failed')) {
+      log('setupCanonicalL2FeeJuice: Fee juice contract already initialized');
+    } else {
+      throw e;
     }
-    log('setupCanonicalL2FeeJuice: Fee juice contract already initialized');
   }
 }
