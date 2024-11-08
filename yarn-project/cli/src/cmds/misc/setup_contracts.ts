@@ -31,6 +31,7 @@ export async function setupCanonicalL2FeeJuice(
     if (e instanceof Error && e.message.includes('(method pxe_simulateTx) (code 400) Assertion failed')) {
       log('setupCanonicalL2FeeJuice: Fee juice contract already initialized');
     } else {
+      log('setupCanonicalL2FeeJuice: Error initializing fee juice contract', e);
       throw e;
     }
   }
