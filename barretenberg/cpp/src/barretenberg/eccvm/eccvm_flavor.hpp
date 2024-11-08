@@ -952,6 +952,7 @@ class ECCVMFlavor {
         uint32_t ipa_poly_degree;
         std::vector<Commitment> ipa_l_comms;
         std::vector<Commitment> ipa_r_comms;
+        Commitment ipa_G_0_eval;
         FF ipa_a_0_eval;
 
         Transcript() = default;
@@ -1191,7 +1192,8 @@ class ECCVMFlavor {
                 ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read));
             }
-
+            ipa_G_0_eval = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
+                                                                                          num_frs_read);
             ipa_a_0_eval =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
         }
@@ -1340,6 +1342,7 @@ class ECCVMFlavor {
                 NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
+            serialize_to_buffer(ipa_G_0_eval, proof_data);
             serialize_to_buffer(ipa_a_0_eval, proof_data);
 
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
