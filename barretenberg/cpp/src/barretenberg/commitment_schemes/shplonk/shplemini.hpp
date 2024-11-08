@@ -32,6 +32,7 @@ template <typename Curve> class ShpleminiProver_ {
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
+        // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool HasZK = !libra_evaluations.empty();
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
@@ -53,7 +54,7 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims.push_back(new_claim);
             idx++;
         }
-        OpeningClaim batched_claim =
+        const OpeningClaim batched_claim =
             ShplonkProver::prove(commitment_key, opening_claims, transcript, libra_opening_claims);
         return batched_claim;
     };
@@ -146,14 +147,17 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
-        const bool HasZK = !libra_univariate_evaluations.empty();
         Fr batched_evaluation = Fr{ 0 };
+
+        // While Shplemini is not templated on Flavor, we derive ZK flag this way
+        const bool HasZK = !libra_univariate_evaluations.empty();
         Commitment hiding_polynomial_commitment;
         if (HasZK) {
             hiding_polynomial_commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
             batched_evaluation += transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
         }
+
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
 
@@ -236,7 +240,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         if (HasZK) {
             commitments.emplace_back(hiding_polynomial_commitment);
-            scalars.emplace_back(-unshifted_scalar); // corresponds to \rho^0
+            scalars.emplace_back(-unshifted_scalar); // corresponds to ρ⁰
         }
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
@@ -368,8 +372,10 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr current_batching_challenge = Fr(1);
 
         if (HasZK) {
+            // ρ⁰ is used to batch the hiding polynomial
             current_batching_challenge *= multivariate_batching_challenge;
         }
+
         for (auto [unshifted_commitment, unshifted_evaluation] :
              zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector

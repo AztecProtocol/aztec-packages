@@ -193,6 +193,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
             for (size_t i = 0; i < log_circuit_size; ++i) {
                 NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
             }
+
             serialize_to_buffer(sumcheck_evaluations, proof_data);
             serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
             serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);

@@ -58,23 +58,26 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
 
+    // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
     if (HasZK) {
         batched_unshifted = Polynomial::random(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
+        // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
+        // hiding polynomial as multilinear in log_n variables
         std::vector<Fr> multilinear_challenge_resized(multilinear_challenge.begin(), multilinear_challenge.end());
         multilinear_challenge_resized.resize(log_n);
         transcript->send_to_verifier("Gemini:masking_poly_eval",
                                      batched_unshifted.evaluate_mle(multilinear_challenge_resized));
     }
 
+    // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
     Fr rho_challenge{ 1 };
     if (HasZK) {
-        // The masking polynomials is already in the batched_unshifted, need to use the next power of the batching
-        // challenge
+        // ρ⁰ is used to batch the hiding polynomial
         rho_challenge *= rho;
     }
     for (size_t i = 0; i < f_polynomials.size(); i++) {
