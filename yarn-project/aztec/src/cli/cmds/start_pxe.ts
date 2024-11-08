@@ -5,9 +5,8 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
-import { type AztecNode, AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types';
+import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
-import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
@@ -77,7 +76,7 @@ export async function addPXE(
     process.exit(1);
   }
 
-  const node = deps.node ?? createSafeJsonRpcClient<AztecNode>(nodeUrl!, AztecNodeApiSchema);
+  const node = deps.node ?? createAztecNodeClient(nodeUrl!);
   const pxe = await createPXEService(node, pxeConfig as PXEServiceConfig);
 
   // register basic contracts
