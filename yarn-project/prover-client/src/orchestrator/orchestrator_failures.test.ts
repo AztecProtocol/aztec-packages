@@ -1,4 +1,4 @@
-import { type ServerCircuitProver, toNumTxsEffects } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
@@ -56,15 +56,13 @@ describe('prover/orchestrator/failures', () => {
         const msgs = [new Fr(i + 100)];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(txs.length, toNumTxsEffects(txs), globalVariables, msgs);
+          await orchestrator.startNewBlock(globalVariables, msgs);
           let allTxsAdded = true;
-          for (const tx of txs) {
-            try {
-              await orchestrator.addNewTx(tx);
-            } catch (err) {
-              allTxsAdded = false;
-              break;
-            }
+          try {
+            await orchestrator.addTxs(txs);
+          } catch (err) {
+            allTxsAdded = false;
+            break;
           }
 
           if (!allTxsAdded) {

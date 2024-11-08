@@ -207,12 +207,8 @@ describe('LightBlockBuilder', () => {
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const txCount = Math.max(2, txs.length);
-    const numTxsEffects = toNumTxsEffects(txs);
-    await builder.startNewBlock(txCount, numTxsEffects, globals, l1ToL2Messages);
-    for (const tx of txs) {
-      await builder.addNewTx(tx);
-    }
+    await builder.startNewBlock(globals, l1ToL2Messages);
+    await builder.addTxs(txs);
     const { header } = await builder.setBlockCompleted();
     return header;
   };

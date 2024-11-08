@@ -23,19 +23,14 @@ export class OrchestratorBlockBuilder implements BlockBuilder {
     this.orchestrator = new ProvingOrchestrator(db, testProver, telemetry);
   }
 
-  startNewBlock(
-    numTxs: number,
-    numTxsEffects: number,
-    globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-  ): Promise<void> {
-    return this.orchestrator.startNewBlock(numTxs, numTxsEffects, globalVariables, l1ToL2Messages);
+  startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
+    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages);
   }
   setBlockCompleted(): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted();
   }
-  addNewTx(tx: ProcessedTx): Promise<void> {
-    return this.orchestrator.addNewTx(tx);
+  addTxs(txs: ProcessedTx[]): Promise<void> {
+    return this.orchestrator.addTxs(txs);
   }
 }
 

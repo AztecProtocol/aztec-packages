@@ -101,8 +101,6 @@ export class EpochProvingState {
   // Adds a block to the proving state, returns its index
   // Will update the proving life cycle if this is the last block
   public startNewBlock(
-    numTxs: number,
-    numTxsEffects: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     messageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -114,8 +112,6 @@ export class EpochProvingState {
   ) {
     const block = new BlockProvingState(
       this.blocks.length,
-      numTxs,
-      numTxsEffects,
       globalVariables,
       padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
       messageTreeSnapshot,

@@ -1,4 +1,4 @@
-import { type ServerCircuitProver, toNumTxsEffects } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import {
   Fr,
   type GlobalVariables,
@@ -56,7 +56,7 @@ describe('prover/orchestrator', () => {
         });
 
         orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, 1, globalVariables, [message]);
+        await orchestrator.startNewBlock(globalVariables, [message]);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -89,9 +89,8 @@ describe('prover/orchestrator', () => {
           makeBloatedProcessedTxWithVKRoot(context.actualDb, 1),
           makeBloatedProcessedTxWithVKRoot(actualDb, 2),
         ];
-        await orchestrator.startNewBlock(2, toNumTxsEffects(txs), globalVariables, []);
-        await orchestrator.addNewTx(txs[0]);
-        await orchestrator.addNewTx(txs[1]);
+        await orchestrator.startNewBlock(globalVariables, []);
+        await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);

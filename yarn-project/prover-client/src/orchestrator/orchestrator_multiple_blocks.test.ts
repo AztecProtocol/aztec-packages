@@ -1,4 +1,3 @@
-import { toNumTxEffects } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -37,12 +36,11 @@ describe('prover/orchestrator/multi-block', () => {
         const blockNum = i + 1000;
         const globals = makeGlobals(blockNum);
 
-        // This will need to be a 2 tx block
-        await context.orchestrator.startNewBlock(2, toNumTxEffects(tx), globals, []);
+        await context.orchestrator.startNewBlock(globals, []);
 
-        await context.orchestrator.addNewTx(tx);
+        await context.orchestrator.addTxs([tx]);
 
-        //  we need to complete the block as we have not added a full set of txs
+        // Completing the block will set off padding tx logic, as we only have 1 tx
         const block = await context.orchestrator.setBlockCompleted();
         header = block!.header;
       }

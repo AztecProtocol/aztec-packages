@@ -1,7 +1,6 @@
 import {
   type MerkleTreeWriteOperations,
   type ProcessedTx,
-  type ProcessedTxHandler,
   SimulationError,
   type TreeInfo,
   type TxValidator,
@@ -40,7 +39,6 @@ describe('public_processor', () => {
   let db: MockProxy<MerkleTreeWriteOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
   let worldStateDB: MockProxy<WorldStateDB>;
-  let handler: MockProxy<ProcessedTxHandler>;
 
   let proof: ClientIvcProof;
   let root: Buffer;
@@ -51,7 +49,6 @@ describe('public_processor', () => {
     db = mock<MerkleTreeWriteOperations>();
     publicExecutor = mock<PublicExecutor>();
     worldStateDB = mock<WorldStateDB>();
-    handler = mock<ProcessedTxHandler>();
 
     proof = ClientIvcProof.empty();
     root = Buffer.alloc(32, 5);
@@ -80,7 +77,7 @@ describe('public_processor', () => {
       const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
       const hash = tx.getTxHash();
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed.length).toBe(1);
       expect(processed[0]).toEqual(
@@ -90,22 +87,19 @@ describe('public_processor', () => {
         }),
       );
       expect(failed).toEqual([]);
-
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
       publicExecutor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(processed).toEqual([]);
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
       expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
-      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
   });
 
@@ -168,7 +162,7 @@ describe('public_processor', () => {
         hasLogs: true,
       });
 
-      const [processed, failed] = await processor.process([tx], 1, handler);
+      const [processed, failed] = await processor.process([tx], 1);
 
       expect(failed.map(f => f.error)).toEqual([]);
       expect(processed).toHaveLength(1);
@@ -181,8 +175,6 @@ describe('public_processor', () => {
       // we keep the logs
       expect(processed[0].txEffect.encryptedLogs.getTotalLogCount()).toBe(6);
       expect(processed[0].txEffect.unencryptedLogs.getTotalLogCount()).toBe(2);
-
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -191,7 +183,7 @@ describe('public_processor', () => {
       );
 
       // We are passing 3 txs but only 2 can fit in the block
-      const [processed, failed] = await processor.process(txs, 2, handler);
+      const [processed, failed] = await processor.process(txs, 2);
 
       expect(processed).toHaveLength(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
@@ -202,9 +194,6 @@ describe('public_processor', () => {
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
       expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
-
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
-      expect(handler.addNewTx).toHaveBeenCalledWith(processed[1]);
     });
 
     it('does not send a transaction to the prover if validation fails', async function () {
@@ -213,13 +202,11 @@ describe('public_processor', () => {
       const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
       txValidator.validateTxs.mockRejectedValue([[], [tx]]);
 
-      const [processed, failed] = await processor.process([tx], 1, handler, txValidator);
+      const [processed, failed] = await processor.process([tx], 1, txValidator);
 
       expect(processed).toHaveLength(0);
       expect(failed).toHaveLength(1);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
-
-      expect(handler.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     describe('with fee payer', () => {
@@ -243,7 +230,7 @@ describe('public_processor', () => {
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, handler);
+        const [processed, failed] = await processor.process([tx], 1);
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
@@ -255,8 +242,6 @@ describe('public_processor', () => {
         expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
           new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - inclusionFee)),
         );
-
-        expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
       });
 
       it('injects balance update with public enqueued call', async function () {
@@ -279,7 +264,7 @@ describe('public_processor', () => {
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, handler);
+        const [processed, failed] = await processor.process([tx], 1);
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
@@ -295,8 +280,6 @@ describe('public_processor', () => {
         expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
           new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - transactionFee)),
         );
-
-        expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
       });
 
       it('tweaks existing balance update from claim', async function () {
@@ -326,7 +309,7 @@ describe('public_processor', () => {
           new Fr(initialBalance),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, handler);
+        const [processed, failed] = await processor.process([tx], 1);
 
         expect(failed.map(f => f.error)).toEqual([]);
         expect(processed).toHaveLength(1);
@@ -341,8 +324,6 @@ describe('public_processor', () => {
         expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
           new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), new Fr(initialBalance - transactionFee)),
         );
-
-        expect(handler.addNewTx).toHaveBeenCalledWith(processed[0]);
       });
 
       it('rejects tx if fee payer has not enough balance', async function () {
@@ -365,7 +346,7 @@ describe('public_processor', () => {
           Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
         );
 
-        const [processed, failed] = await processor.process([tx], 1, handler);
+        const [processed, failed] = await processor.process([tx], 1);
 
         expect(processed).toHaveLength(0);
         expect(failed).toHaveLength(1);

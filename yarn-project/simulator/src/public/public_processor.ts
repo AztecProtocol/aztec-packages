@@ -4,13 +4,11 @@ import {
   type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
-  type ProcessedTxHandler,
   PublicKernelPhase,
   Tx,
   type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
-  toNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   ContractClassRegisteredEvent,
@@ -144,7 +142,6 @@ export class PublicProcessor {
   public async process(
     txs: Tx[],
     maxTransactions = txs.length,
-    processedTxHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
@@ -230,23 +227,6 @@ export class PublicProcessor {
           error: err instanceof Error ? err : new Error(errorMessage),
         });
         returns.push(new NestedProcessReturnValues([]));
-      }
-    }
-    // TODO(Miranda): Moved tx handling outside of the above loop
-    // This is because we cannot predict the number of tx effects a tx will have before processing
-    // BUT the rollup must know to initialise the blob state and start accepting txs...
-    if (processedTxHandler) {
-      // ...hence this messy call below, which will break if the handler has accepted any txs already
-      if (
-        'reInitSpongeBlob' in processedTxHandler &&
-        typeof processedTxHandler.reInitSpongeBlob == 'function' &&
-        result.length
-      ) {
-        processedTxHandler.reInitSpongeBlob(toNumTxsEffects(result));
-      }
-      for (const processedTx of result) {
-        // if we were given a handler then send the transaction to it for block building or proving
-        await processedTxHandler.addNewTx(processedTx);
       }
     }
 

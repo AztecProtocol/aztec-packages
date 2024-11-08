@@ -1,4 +1,4 @@
-import { mockTx, toNumTxsEffects } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -39,15 +39,13 @@ describe('prover/orchestrator/public-functions', () => {
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
         tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
-        const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
+        const [processed, _] = await context.processPublicFunctions([tx], 1);
 
         // This will need to be a 2 tx block
         context.orchestrator.startNewEpoch(1, 1);
-        await context.orchestrator.startNewBlock(2, toNumTxsEffects(processed), context.globalVariables, []);
+        await context.orchestrator.startNewBlock(context.globalVariables, []);
 
-        for (const processedTx of processed) {
-          await context.orchestrator.addNewTx(processedTx);
-        }
+        await context.orchestrator.addTxs(processed);
 
         const block = await context.orchestrator.setBlockCompleted();
         await context.orchestrator.finaliseEpoch();

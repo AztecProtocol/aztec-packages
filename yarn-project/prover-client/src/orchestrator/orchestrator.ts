@@ -6,6 +6,7 @@ import {
   type ServerCircuitProver,
   type TxEffect,
   makeEmptyProcessedTx,
+  toNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   type EpochProver,
@@ -148,26 +149,16 @@ export class ProvingOrchestrator implements EpochProver {
    * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
-  @trackSpan('ProvingOrchestrator.startNewBlock', (numTxs, _, globalVariables) => ({
-    [Attributes.BLOCK_SIZE]: numTxs,
+  @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
     [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
   }))
-  public async startNewBlock(
-    numTxs: number,
-    numTxsEffects: number,
-    globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-  ) {
+  public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]) {
     if (!this.provingState) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting a block`);
     }
 
     if (!this.provingState?.isAcceptingBlocks()) {
       throw new Error(`Epoch not accepting further blocks`);
-    }
-
-    if (!Number.isInteger(numTxs) || numTxs < 2) {
-      throw new Error(`Invalid number of txs for block (got ${numTxs})`);
     }
 
     if (this.provingState.currentBlock && !this.provingState.currentBlock.block) {
@@ -184,9 +175,7 @@ export class ProvingOrchestrator implements EpochProver {
       );
     }
 
-    logger.info(
-      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions and ${numTxsEffects} effects`,
-    );
+    logger.info(`Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber}`);
 
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
@@ -228,8 +217,6 @@ export class ProvingOrchestrator implements EpochProver {
     );
 
     this.provingState!.startNewBlock(
-      numTxs,
-      numTxsEffects,
       globalVariables,
       l1ToL2MessagesPadded,
       messageTreeSnapshot,
@@ -247,38 +234,41 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   /**
-   * The interface to add a simulated transaction to the scheduler
-   * @param tx - The transaction to be proven
+   * The interface to add simulated transactions to the scheduler
+   * @param txs - The transactions to be proven
    */
-  @trackSpan('ProvingOrchestrator.addNewTx', tx => ({
-    [Attributes.TX_HASH]: tx.hash.toString(),
+  @trackSpan('ProvingOrchestrator.addTxs', txs => ({
+    [Attributes.BLOCK_TXS_COUNT]: txs.length,
   }))
-  public async addNewTx(tx: ProcessedTx): Promise<void> {
+  public async addTxs(txs: ProcessedTx[]): Promise<void> {
     const provingState = this?.provingState?.currentBlock;
-    if (!provingState || !provingState.spongeBlobState) {
+    if (!provingState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
 
-    if (!provingState.isAcceptingTransactions()) {
-      throw new Error(`Rollup not accepting further transactions`);
+    const numTxsEffects = toNumTxsEffects(txs);
+    provingState.startNewBlock(Math.max(2, txs.length), numTxsEffects);
+
+    logger.info(
+      `Adding ${txs.length} transactions with ${numTxsEffects} effects to block ${provingState?.blockNumber}`,
+    );
+    for (const tx of txs) {
+      if (!provingState.verifyState()) {
+        throw new Error(`Invalid proving state when adding a tx`);
+      }
+
+      validateTx(tx);
+
+      logger.info(`Received transaction: ${tx.hash}`);
+
+      if (tx.isEmpty) {
+        logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
+        return;
+      }
+
+      const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
+      this.enqueueFirstProofs(hints, treeSnapshots, tx, provingState);
     }
-
-    if (!provingState.verifyState()) {
-      throw new Error(`Invalid proving state when adding a tx`);
-    }
-
-    validateTx(tx);
-
-    logger.info(`Received transaction: ${tx.hash}`);
-
-    if (tx.isEmpty) {
-      logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
-      return;
-    }
-
-    const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
-    this.enqueueFirstProofs(hints, treeSnapshots, tx, provingState);
-
     if (provingState.transactionsReceived === provingState.totalNumTxs) {
       logger.verbose(`All transactions received for block ${provingState.globalVariables.blockNumber}.`);
     }
@@ -289,7 +279,7 @@ export class ProvingOrchestrator implements EpochProver {
    * Computes the block header and updates the archive tree.
    */
   @trackSpan('ProvingOrchestrator.setBlockCompleted', function () {
-    const block = this.provingState?.currentBlock;
+    const block: BlockProvingState | undefined = this.provingState?.currentBlock;
     if (!block) {
       return {};
     }
@@ -301,7 +291,7 @@ export class ProvingOrchestrator implements EpochProver {
   })
   public async setBlockCompleted(expectedHeader?: Header): Promise<L2Block> {
     const provingState = this.provingState?.currentBlock;
-    if (!provingState) {
+    if (!provingState || !provingState.totalNumTxs) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
@@ -525,14 +515,6 @@ export class ProvingOrchestrator implements EpochProver {
       const txIndex = provingState.addNewTx(txProvingState);
       this.enqueueBaseRollup(provingState, txIndex);
     }
-  }
-
-  /**
-   * Reinitialises the blob state if more tx effects are required
-   */
-  public reInitSpongeBlob(totalNumTxsEffects: number) {
-    const provingState = this?.provingState?.currentBlock;
-    provingState?.reInitSpongeBlob(totalNumTxsEffects);
   }
 
   /**

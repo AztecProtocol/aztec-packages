@@ -46,13 +46,13 @@ export class BlockProvingState {
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   public spongeBlobState: SpongeBlob | undefined = undefined;
+  public totalNumTxs: number | undefined;
+  public totalNumTxsEffects: number | undefined;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
 
   constructor(
     public readonly index: number,
-    public readonly totalNumTxs: number,
-    public readonly totalNumTxsEffects: number,
     public readonly globalVariables: GlobalVariables,
     public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -64,9 +64,6 @@ export class BlockProvingState {
     private readonly parentEpoch: EpochProvingState,
   ) {
     this.rootParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
-    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
-    // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
-    this.spongeBlobState = SpongeBlob.init(totalNumTxsEffects);
   }
 
   public get blockNumber() {
@@ -75,7 +72,7 @@ export class BlockProvingState {
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
+    return BigInt(Math.ceil(Math.log2(this.totalNumTxs!)) - 1);
   }
 
   // Calculates the index and level of the parent rollup circuit
@@ -89,7 +86,7 @@ export class BlockProvingState {
       index >>= 1n;
       return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
     };
-    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
+    let [thisLevelSize, shiftUp] = this.totalNumTxs! & 1 ? [this.totalNumTxs! - 1, true] : [this.totalNumTxs!, false];
     const maxLevel = this.numMergeLevels + 1n;
     let placeholder = currentIndex;
     for (let i = 0; i < maxLevel - currentLevel; i++) {
@@ -104,21 +101,23 @@ export class BlockProvingState {
     return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
   }
 
-  // Adds a transaction to the proving state, returns it's index
-  public addNewTx(tx: TxProvingState) {
-    this.txs.push(tx);
-    return this.txs.length - 1;
+  public startNewBlock(numTxs: number, numTxsEffects: number) {
+    if (this.spongeBlobState) {
+      throw new Error(`Must end previous block before starting a new one`);
+    }
+    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
+    // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
+    this.spongeBlobState = SpongeBlob.init(numTxsEffects);
+    this.totalNumTxs = numTxs;
   }
 
-  // Reinitialises the blob state if more tx effects are required
-  // See public_processor.ts for use case
-  public reInitSpongeBlob(totalNumTxsEffects: number) {
-    if (this.spongeBlobState!.fields > 0) {
-      throw new Error(
-        'Cannot reinitialise blob state after txs have been added. Ensure the correct number of tx effects has been passed to BlockProvingState constructor.',
-      );
+  // Adds a transaction to the proving state, returns it's index
+  public addNewTx(tx: TxProvingState) {
+    if (!this.spongeBlobState) {
+      throw new Error(`Invalid block proving state, call startNewBlock before adding transactions.`);
     }
-    this.spongeBlobState = SpongeBlob.init(totalNumTxsEffects);
+    this.txs.push(tx);
+    return this.txs.length - 1;
   }
 
   // Returns the number of received transactions
@@ -214,11 +213,6 @@ export class BlockProvingState {
   // Returns true if we have sufficient root parity inputs to execute the root parity circuit
   public areRootParityInputsReady() {
     return this.rootParityInputs.findIndex(p => !p) === -1;
-  }
-
-  // Returns true if we are still able to accept transactions, false otherwise
-  public isAcceptingTransactions() {
-    return this.totalNumTxs > this.txs.length;
   }
 
   // Returns whether the proving state is still valid

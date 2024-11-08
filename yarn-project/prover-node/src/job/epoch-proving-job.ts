@@ -93,7 +93,6 @@ export class EpochProvingJob {
         const globalVariables = block.header.globalVariables;
         const txHashes = block.body.txEffects.map(tx => tx.txHash);
         const txCount = block.body.numberOfTxsIncludingPadded;
-        const txEffectsCount = block.body.toFields().length;
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
         const txs = await this.getTxs(txHashes);
 
@@ -109,11 +108,12 @@ export class EpochProvingJob {
           ...globalVariables,
         });
         // Start block proving
-        await this.prover.startNewBlock(txCount, txEffectsCount, globalVariables, l1ToL2Messages);
+        await this.prover.startNewBlock(globalVariables, l1ToL2Messages);
 
         // Process public fns
         const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
-        await this.processTxs(publicProcessor, txs, txCount);
+        const processed = await this.processTxs(publicProcessor, txs, txCount);
+        await this.prover.addTxs(processed);
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,
           blockHash: block.hash().toString(),
@@ -177,12 +177,7 @@ export class EpochProvingJob {
     txs: Tx[],
     totalNumberOfTxs: number,
   ): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(
-      txs,
-      totalNumberOfTxs,
-      this.prover,
-      new EmptyTxValidator(),
-    );
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, totalNumberOfTxs, new EmptyTxValidator());
 
     if (failedTxs.length) {
       throw new Error(

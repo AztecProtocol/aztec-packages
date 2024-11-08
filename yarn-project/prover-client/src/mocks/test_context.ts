@@ -2,7 +2,6 @@ import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type MerkleTreeWriteOperations,
   type ProcessedTx,
-  type ProcessedTxHandler,
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
@@ -149,12 +148,7 @@ export class TestContext {
     }
   }
 
-  public async processPublicFunctions(
-    txs: Tx[],
-    maxTransactions: number,
-    txHandler?: ProcessedTxHandler,
-    txValidator?: TxValidator<ProcessedTx>,
-  ) {
+  public async processPublicFunctions(txs: Tx[], maxTransactions: number, txValidator?: TxValidator<ProcessedTx>) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
       execution: PublicExecutionRequest,
@@ -180,7 +174,6 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
-      txHandler,
       txValidator,
       defaultExecutorImplementation,
     );
@@ -189,7 +182,6 @@ export class TestContext {
   public async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
-    txHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
@@ -202,6 +194,6 @@ export class TestContext {
     if (executorMock) {
       this.publicExecutor.simulate.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
+    return await this.publicProcessor.process(txs, maxTransactions, txValidator);
   }
 }

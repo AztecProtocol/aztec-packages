@@ -7,7 +7,6 @@ import {
   type MerkleTreeWriteOperations,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  toNumTxsEffects,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
@@ -302,10 +301,8 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    await builder.startNewBlock(txs.length, toNumTxsEffects(txs), globalVariables, l1ToL2Messages);
-    for (const tx of txs) {
-      await builder.addNewTx(tx);
-    }
+    await builder.startNewBlock(globalVariables, l1ToL2Messages);
+    await builder.addTxs(txs);
     return builder.setBlockCompleted();
   };
 
