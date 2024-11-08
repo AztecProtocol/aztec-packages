@@ -39,16 +39,10 @@ echo "BOOTSTRAP_NODES: $BOOTSTRAP_NODES"
 
 # Generate a private key for the validator only if not already set
 if [ -z "${VALIDATOR_PRIVATE_KEY:-}" ] || [ -z "${ADDRESS:-}" ]; then
-  echo ""
-  echo ""
-  echo "Generating L1 Validator account..."
-  echo ""
-  echo ""
+  echo "Generating new L1 Validator account..."
   json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
   export ADDRESS=$(echo $json_account | jq -r '.address')
   export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
-  echo "Validator address: $ADDRESS"
-  echo "Validator private key: $VALIDATOR_PRIVATE_KEY"
 fi
 
 export PRIVATE_KEY=${PRIVATE_KEY:-}
