@@ -45,7 +45,7 @@ impl Serialize<PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> for PrivateToAvmAccumulat
 
         assert_eq(fields.len(), PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -107,7 +107,7 @@ impl Serialize<NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS> for PrivateToAvmAccum
         fields.push(self.nullifiers as Field);
         fields.push(self.l2_to_l1_msgs as Field);
 
-        fields.storage
+        fields.storage()
     }
 }
 

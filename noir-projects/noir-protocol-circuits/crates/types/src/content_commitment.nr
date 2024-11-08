@@ -14,7 +14,7 @@ impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
         fields.push(self.in_hash);
         fields.push(self.out_hash);
 
-        fields.storage
+        fields.storage()
     }
 }
 

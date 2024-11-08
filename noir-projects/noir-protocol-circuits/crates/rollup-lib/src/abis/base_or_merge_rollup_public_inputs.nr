@@ -80,7 +80,7 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
 
         assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

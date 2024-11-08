@@ -22,12 +22,12 @@ To make objects serializable as a map-like format, define the `msgpack` method i
 
 ```cpp
 void msgpack(auto ar) {
-    ar(NVP(circuit_type, circuit_size, num_public_inputs, commitments, contains_recursive_proof,
-recursive_proof_public_input_indices));
+    ar(NVP(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
+pairing_point_accumulator_public_input_indices));
 }
 or
-MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_recursive_proof,
-recursive_proof_public_input_indices);
+MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
+pairing_point_accumulator_public_input_indices);
 ```
 
 This approach assumes 1. all members are default constructible 2. you give it all members 3. all members are writable

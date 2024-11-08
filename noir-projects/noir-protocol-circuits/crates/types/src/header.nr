@@ -44,7 +44,7 @@ impl Serialize<HEADER_LENGTH> for Header {
         fields.extend_from_array(self.global_variables.serialize());
         fields.push(self.total_fees);
 
-        fields.storage
+        fields.storage()
     }
 }
 
