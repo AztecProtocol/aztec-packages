@@ -1,13 +1,7 @@
-import { BB_RESULT, executeBbClientIvcProof, verifyClientIvcProof } from '@aztec/bb-prover';
-import { ClientIvcProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { encode } from '@msgpack/msgpack';
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { ungzip } from 'pako';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -32,69 +26,72 @@ const logger = createDebugLogger('aztec:clientivc-integration');
 jest.setTimeout(120_000);
 
 describe('Client IVC Integration', () => {
-  let bbWorkingDirectory: string;
-  let bbBinaryPath: string;
+  beforeEach(async () => {});
 
-  beforeEach(async () => {
-    // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-client-ivc-integration-'));
-    bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-  });
-
-  async function createClientIvcProof(witnessStack: Uint8Array[], bytecodes: string[]): Promise<ClientIvcProof> {
-    await fs.writeFile(
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
-    );
-
-    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
-    const provingResult = await executeBbClientIvcProof(
-      bbBinaryPath,
-      bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      path.join(bbWorkingDirectory, 'witnesses.msgpack'),
-      logger.info,
-    );
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      throw new Error(provingResult.reason);
+  function base64ToUint8Array(base64: string) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
+    return bytes;
+  }
 
-    return ClientIvcProof.readFromOutputDirectory(bbWorkingDirectory);
+  async function proveAndVerifyAztecClient(
+    witnessStack: Uint8Array[],
+    bytecodes: string[],
+    threads?: number,
+  ): Promise<boolean> {
+    const { AztecClientBackend } = await import('@aztec/bb.js');
+    const backend = new AztecClientBackend(
+      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+      { threads },
+    );
+
+    const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+    logger.debug(`finished running proveAndVerify ${verified}`);
+    await backend.destroy();
+    return verified;
   }
 
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
     const tx = {
       number_of_calls: '0x1',
     };
     // Witness gen app and kernels
     const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
+    logger.debug('generated app mock circuit witness');
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
     });
+    logger.debug('generated mock private kernel init witness');
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     });
+    logger.debug('generated mock private kernel tail witness');
+
     // Create client IVC proof
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
     ];
+    logger.debug('built bytecode array');
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+    logger.debug('built witness stack');
 
-    const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await proof.writeToOutputDirectory(bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
+    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
+    logger.debug(`generated and verified proof. result: ${verifyResult}`);
 
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+    expect(verifyResult).toEqual(true);
   });
 
   // This test will verify a client IVC proof of a more complex tx:
@@ -153,10 +150,9 @@ describe('Client IVC Integration', () => {
       tailWitnessGenResult.witness,
     ];
 
-    const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await proof.writeToOutputDirectory(bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
+    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
+    logger.debug(`generated and verified proof. result: ${verifyResult}`);
 
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+    expect(verifyResult).toEqual(true);
   });
 });

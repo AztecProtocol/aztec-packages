@@ -9,6 +9,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <cstdint>
 #include <memory>
@@ -216,6 +217,60 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
 
     *out_vkey = to_heap_buffer(vkey_as_fields);
     write(out_key_hash, vk_hash);
+}
+
+WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
+                                                    uint8_t const* witness_stack,
+                                                    bool* verified)
+{
+    using Program = acir_format::AcirProgram;
+
+    std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
+    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    std::vector<Program> folding_stack;
+
+    for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/false);
+        folding_stack.push_back(Program{ constraints, witness });
+    }
+    // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
+    ClientIVC ivc;
+    ivc.auto_verify_mode = true;
+    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+
+    // Accumulate the entire program stack into the IVC
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
+    // has been integrated into noir kernel programs
+    bool is_kernel = false;
+    auto start = std::chrono::steady_clock::now();
+    for (Program& program : folding_stack) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        vinfo("constructing circuit...");
+        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(
+            program.constraints, false, 0, program.witness, false, ivc.goblin.op_queue);
+
+        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
+        if (!circuit.databus_propagation_data.is_kernel) {
+            circuit.databus_propagation_data.is_kernel = is_kernel;
+        }
+        is_kernel = !is_kernel;
+
+        vinfo("done constructing circuit. calling ivc.accumulate...");
+        ivc.accumulate(circuit);
+        vinfo("done accumulating.");
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    vinfo("time to construct and accumulate all circuits: ", diff);
+
+    vinfo("calling ivc.prove_and_verify...");
+    bool result = ivc.prove_and_verify();
+    info("verified?: ", result);
+
+    *verified = result;
 }
 
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,

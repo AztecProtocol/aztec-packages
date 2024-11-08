@@ -216,6 +216,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         }
 
         round++;
+        manifest_expected.add_entry(round, "IPA:G_0", frs_per_G);
         manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fr);
         manifest_expected.add_challenge(round, "Translation:batching_challenge");
 
