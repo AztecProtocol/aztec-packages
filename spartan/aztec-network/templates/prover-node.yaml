@@ -26,7 +26,7 @@ spec:
             - |
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
