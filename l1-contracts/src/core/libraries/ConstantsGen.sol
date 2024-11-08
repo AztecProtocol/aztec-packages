@@ -213,7 +213,6 @@ library Constants {
   uint256 internal constant HEADER_LENGTH_BYTES = 584;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 499;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 865;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 502;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 37;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
@@ -240,7 +239,7 @@ library Constants {
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 600;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 51;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 156;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 154;
   uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 140;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;

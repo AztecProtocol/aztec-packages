@@ -513,11 +513,12 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* previous_block_hash */
     + 1 /* end_block_hash */
     + 2 * GLOBAL_VARIABLES_LENGTH
+    + 1 /* out_hash */
     + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */;
+    + 1 /* prover_id */
+    + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
 // + 8 for previous_block_hash, end_block_hash, end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 8
@@ -759,16 +760,16 @@ pub global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
-global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
-global REVERT_CODE_PREFIX: u8 = 1;
-global TX_FEE_PREFIX: u8 = 2;
-global NOTES_PREFIX: u8 = 3;
-global NULLIFIERS_PREFIX: u8 = 4;
-global L2_L1_MSGS_PREFIX: u8 = 5;
-global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
-global NOTE_ENCRYPTED_LOGS_PREFIX: u8 = 7;
-global ENCRYPTED_LOGS_PREFIX: u8 = 8;
-global UNENCRYPTED_LOGS_PREFIX: u8 = 9;
+pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
+pub global REVERT_CODE_PREFIX: u8 = 1;
+pub global TX_FEE_PREFIX: u8 = 2;
+pub global NOTES_PREFIX: u8 = 3;
+pub global NULLIFIERS_PREFIX: u8 = 4;
+pub global L2_L1_MSGS_PREFIX: u8 = 5;
+pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
+pub global NOTE_ENCRYPTED_LOGS_PREFIX: u8 = 7;
+pub global ENCRYPTED_LOGS_PREFIX: u8 = 8;
+pub global UNENCRYPTED_LOGS_PREFIX: u8 = 9;
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
