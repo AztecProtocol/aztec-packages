@@ -318,6 +318,8 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
                                                        mle_opening_point,
                                                        this->vk()->get_g1_identity(),
                                                        verifier_transcript,
+                                                       /* libra commitments = */ {},
+                                                       /* libra evaluations = */ {},
                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                        RefVector(c_evaluations));
     const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
