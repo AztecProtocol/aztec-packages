@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -19,6 +20,7 @@ import {
   type Header,
   L2ToL1Message,
   LogHash,
+  MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_L2_GAS_PER_ENQUEUED_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -27,7 +29,6 @@ import {
   MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
@@ -66,7 +67,13 @@ function emptyAvmProvingRequest(): AvmProvingRequest {
 function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: PublicFunctionCallResult): AvmProvingRequest {
   return {
     type: ProvingRequestType.PUBLIC_VM,
-    inputs: new AvmCircuitInputs(result.functionName, result.calldata, inputs, result.avmCircuitHints),
+    inputs: new AvmCircuitInputs(
+      result.functionName,
+      result.calldata,
+      inputs,
+      result.avmCircuitHints,
+      AvmCircuitPublicInputs.empty(),
+    ),
   };
 }
 
@@ -280,8 +287,8 @@ export class EnqueuedCallSimulator {
       publicCallRequests: padArrayEnd(
         result.publicCallRequests,
         PublicInnerCallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        `Too many public call requests. Got ${result.publicCallRequests.length} with max being ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}`,
+        MAX_ENQUEUED_CALLS_PER_CALL,
+        `Too many public call requests. Got ${result.publicCallRequests.length} with max being ${MAX_ENQUEUED_CALLS_PER_CALL}`,
       ),
       unencryptedLogsHashes: padArrayEnd(
         result.unencryptedLogsHashes,

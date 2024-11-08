@@ -17,15 +17,15 @@ use dep::types::{
         note_hash::ScopedNoteHash,
         nullifier::Nullifier,
         public_data_update_request::PublicDataUpdateRequest,
-        public_data_write::OverridablePublicDataWrite,
+        public_data_write::{OverridablePublicDataWrite, PublicDataWrite},
     },
     data::PublicDataLeafHint,
     hash::silo_note_hash,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
+    traits::is_empty,
     utils::arrays::{
         assert_combined_sorted_transformed_value_array_asc, assert_combined_transformed_array,
-        assert_deduped_array,
     },
 };
 
@@ -214,10 +214,35 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
         );
 
         // Check that the output contains the last write in each linked list.
-        assert_deduped_array(
-            self.hints.public_data_writes,
-            self.output.end.public_data_update_requests,
-        );
+        let original_array = self.hints.public_data_writes;
+        let deduped_array = self.output.end.public_data_writes;
+
+        let mut num_added = 0;
+        for i in 0..original_array.len() {
+            let original = original_array[i];
+            if original.override_counter() == 0 {
+                let update_request = original.inner();
+                assert_eq(
+                    deduped_array[num_added],
+                    PublicDataWrite {
+                        leaf_slot: update_request.leaf_slot,
+                        value: update_request.new_value,
+                    },
+                    "mismatch deduped item",
+                );
+                num_added += 1;
+            }
+        }
+        let mut should_be_empty = false;
+        for i in 0..original_array.len() {
+            should_be_empty |= i == num_added;
+            if should_be_empty {
+                assert(
+                    is_empty(deduped_array[i]),
+                    "empty items must be padded to the deduped array",
+                );
+            }
+        }
     }
 
     fn validate_gas(self) {

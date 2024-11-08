@@ -6,7 +6,7 @@
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
@@ -301,8 +301,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
 
         // Set the recursive proof indices
-        proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
-        proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
+        proving_key.pairing_point_accumulator_public_input_indices =
+            circuit.pairing_point_accumulator_public_input_indices;
+        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
         if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;

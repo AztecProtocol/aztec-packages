@@ -127,10 +127,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                Commitment::one(),
                                                transcript,
-                                               commitments.get_groups_to_be_concatenated(),
-                                               claimed_evaluations.get_concatenated(),
                                                RefVector(libra_commitments),
-                                               libra_evaluations);
+                                               libra_evaluations,
+                                               commitments.get_groups_to_be_concatenated(),
+                                               claimed_evaluations.get_concatenated());
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

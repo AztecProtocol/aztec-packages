@@ -168,7 +168,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
     // verifier.
-    circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
+    circuit.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key;
@@ -238,7 +238,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
     vinfo("num_public_inputs of the last folding proof BEFORE SUBTRACTION", num_public_inputs);
-    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE;             // exclude aggregation object
+    num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     vinfo("num_public_inputs of the last folding proof ", num_public_inputs);
     for (size_t i = 0; i < num_public_inputs; i++) {
@@ -266,7 +266,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     decider.verify_proof(decider_proof);
 
-    builder.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
+    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
 
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);

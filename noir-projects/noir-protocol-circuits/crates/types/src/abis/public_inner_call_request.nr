@@ -38,7 +38,7 @@ impl Serialize<PUBLIC_INNER_CALL_REQUEST_LENGTH> for PublicInnerCallRequest {
 
         assert_eq(fields.len(), PUBLIC_INNER_CALL_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

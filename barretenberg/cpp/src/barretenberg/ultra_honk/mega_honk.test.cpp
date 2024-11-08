@@ -14,19 +14,24 @@
 
 using namespace bb;
 
-namespace {
 auto& engine = numeric::get_debug_randomness();
 
-class MegaHonkTests : public ::testing::Test {
-  protected:
+using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
+
+template <typename Flavor> class MegaHonkTests : public ::testing::Test {
+  public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using MergeProver = MergeProver_<MegaFlavor>;
-    using MergeVerifier = MergeVerifier_<MegaFlavor>;
+    using MergeProver = MergeProver_<Flavor>;
+    using MergeVerifier = MergeVerifier_<Flavor>;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
 
     /**
      * @brief Construct and a verify a Honk proof
@@ -34,10 +39,27 @@ class MegaHonkTests : public ::testing::Test {
      */
     bool construct_and_verify_honk_proof(auto& builder)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
-        MegaProver prover(proving_key);
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
-        MegaVerifier verifier(verification_key);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        Prover prover(proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Verifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+
+        return verified;
+    }
+
+    /**
+     * @brief Construct and a verify a Honk proof
+     *
+     */
+    bool construct_and_verify_honk_proof_with_structured_trace(auto& builder, TraceSettings& trace_settings)
+    {
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+
+        Prover prover(proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
@@ -58,21 +80,23 @@ class MegaHonkTests : public ::testing::Test {
         return verified;
     }
 };
-} // namespace
+
+TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 
 /**
  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
  * gates
  *
  */
-TEST_F(MegaHonkTests, Basic)
+TYPED_TEST(MegaHonkTests, Basic)
 {
-    MegaCircuitBuilder builder;
+    using Flavor = TypeParam;
+    typename Flavor::CircuitBuilder builder;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof
-    bool honk_verified = construct_and_verify_honk_proof(builder);
+    bool honk_verified = this->construct_and_verify_honk_proof(builder);
     EXPECT_TRUE(honk_verified);
 }
 
@@ -80,18 +104,21 @@ TEST_F(MegaHonkTests, Basic)
  * @brief Test proof construction/verification for a structured execution trace
  *
  */
-TEST_F(MegaHonkTests, BasicStructured)
+TYPED_TEST(MegaHonkTests, BasicStructured)
 {
-    MegaCircuitBuilder builder;
+    using Flavor = TypeParam;
+    typename Flavor::CircuitBuilder builder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
-    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_settings);
-    MegaProver prover(proving_key);
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
-    MegaVerifier verifier(verification_key);
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
+    Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));
 }
@@ -103,21 +130,22 @@ TEST_F(MegaHonkTests, BasicStructured)
  * with non-empty 'previous' data. This avoid complications with zero-commitments etc.
  *
  */
-TEST_F(MegaHonkTests, SingleCircuit)
+TYPED_TEST(MegaHonkTests, SingleCircuit)
 {
+    using Flavor = TypeParam;
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
     GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-    auto builder = MegaCircuitBuilder{ op_queue };
+    auto builder = typename Flavor::CircuitBuilder{ op_queue };
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof
-    bool honk_verified = construct_and_verify_honk_proof(builder);
+    bool honk_verified = this->construct_and_verify_honk_proof(builder);
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = construct_and_verify_merge_proof(op_queue);
+    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -126,8 +154,9 @@ TEST_F(MegaHonkTests, SingleCircuit)
  * basic arithmetic gates
  *
  */
-TEST_F(MegaHonkTests, MultipleCircuitsMergeOnly)
+TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
 {
+    using Flavor = TypeParam;
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
@@ -136,12 +165,12 @@ TEST_F(MegaHonkTests, MultipleCircuitsMergeOnly)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = MegaCircuitBuilder{ op_queue };
+        auto builder = typename Flavor::CircuitBuilder{ op_queue };
 
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = construct_and_verify_merge_proof(op_queue);
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
 }
@@ -151,8 +180,10 @@ TEST_F(MegaHonkTests, MultipleCircuitsMergeOnly)
  * basic arithmetic gates
  *
  */
-TEST_F(MegaHonkTests, MultipleCircuitsHonkOnly)
+TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkOnly)
 {
+    using Flavor = TypeParam;
+
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
@@ -161,12 +192,12 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkOnly)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = MegaCircuitBuilder{ op_queue };
+        auto builder = typename Flavor::CircuitBuilder{ op_queue };
 
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct and verify Honk proof
-        bool honk_verified = construct_and_verify_honk_proof(builder);
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
     }
 }
@@ -176,8 +207,10 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkOnly)
  * and basic arithmetic gates
  *
  */
-TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
+TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 {
+    using Flavor = TypeParam;
+
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
@@ -186,16 +219,16 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = MegaCircuitBuilder{ op_queue };
+        auto builder = typename Flavor::CircuitBuilder{ op_queue };
 
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct and verify Honk proof
-        bool honk_verified = construct_and_verify_honk_proof(builder);
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = construct_and_verify_merge_proof(op_queue);
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
 
@@ -203,7 +236,7 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
     // iteratively during transcript aggregation by the provers and stored in the op queue.
     size_t aggregate_op_queue_size = op_queue->get_current_size();
     auto ultra_ops = op_queue->get_aggregate_transcript();
-    auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size);
+    auto commitment_key = std::make_shared<typename Flavor::CommitmentKey>(aggregate_op_queue_size);
     size_t idx = 0;
     for (const auto& result : op_queue->get_ultra_ops_commitments()) {
         auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
@@ -215,25 +248,10 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
  * @brief Test the structured trace overflow mechanism for various circuits which overflow in different ways
  *
  */
-TEST_F(MegaHonkTests, StructuredTraceOverflow)
+TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 {
-    using ProvingKey = DeciderProvingKey_<MegaFlavor>;
-    using VerificationKey = MegaFlavor::VerificationKey;
-    using Builder = MegaCircuitBuilder;
-
-    // Construct and verify a MegaHonk proof using a structured trace
-    auto construct_and_verify_proof_with_structured_trace = [](Builder& builder, TraceSettings& trace_settings) {
-        auto proving_key = std::make_shared<ProvingKey>(builder, trace_settings);
-
-        // We expect that the circuit has overflowed the provided structured trace
-        EXPECT_TRUE(builder.blocks.has_overflow);
-
-        MegaProver prover(proving_key);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-        MegaVerifier verifier(verification_key);
-        auto proof = prover.construct_proof();
-        EXPECT_TRUE(verifier.verify_proof(proof));
-    };
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
 
     TraceSettings trace_settings{ TraceStructure::TINY_TEST };
 
@@ -243,7 +261,11 @@ TEST_F(MegaHonkTests, StructuredTraceOverflow)
         GoblinMockCircuits::construct_simple_circuit(builder);
         MockCircuits::add_arithmetic_gates(builder, 1 << 15);
 
-        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
+        EXPECT_TRUE(verified);
+
+        // We expect that the circuit has overflowed the provided structured trace
+        EXPECT_TRUE(builder.blocks.has_overflow);
     }
 
     { // Overflow in Aux block (RAM gates; uses memory records which requires specific logic in overflow mechanism)
@@ -252,7 +274,11 @@ TEST_F(MegaHonkTests, StructuredTraceOverflow)
         GoblinMockCircuits::construct_simple_circuit(builder);
         MockCircuits::add_RAM_gates(builder);
 
-        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
+        EXPECT_TRUE(verified);
+
+        // We expect that the circuit has overflowed the provided structured trace
+        EXPECT_TRUE(builder.blocks.has_overflow);
     }
 
     { // Overflow in Lookup block only
@@ -261,7 +287,11 @@ TEST_F(MegaHonkTests, StructuredTraceOverflow)
         GoblinMockCircuits::construct_simple_circuit(builder);
         MockCircuits::add_lookup_gates(builder, /*num_iterations=*/8);
 
-        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
+        EXPECT_TRUE(verified);
+
+        // We expect that the circuit has overflowed the provided structured trace
+        EXPECT_TRUE(builder.blocks.has_overflow);
     }
 
     { // Overflow in Multiple blocks simultaneously
@@ -272,6 +302,10 @@ TEST_F(MegaHonkTests, StructuredTraceOverflow)
         MockCircuits::add_RAM_gates(builder);
         MockCircuits::add_lookup_gates(builder, /*num_iterations=*/8);
 
-        construct_and_verify_proof_with_structured_trace(builder, trace_settings);
+        bool verified = this->construct_and_verify_honk_proof_with_structured_trace(builder, trace_settings);
+        EXPECT_TRUE(verified);
+
+        // We expect that the circuit has overflowed the provided structured trace
+        EXPECT_TRUE(builder.blocks.has_overflow);
     }
 }
