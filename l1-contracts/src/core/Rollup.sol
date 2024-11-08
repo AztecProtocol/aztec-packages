@@ -1022,7 +1022,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
       Errors.Rollup__UnavailableTxs(_header.contentCommitment.blobHash)
     );
 
-    // If not canonical rollup, require that the fees are zerox
+    // If not canonical rollup, require that the fees are zero
     if (address(this) != FEE_JUICE_PORTAL.canonicalRollup()) {
       require(_header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
       require(_header.globalVariables.gasFees.feePerL2Gas == 0, Errors.Rollup__NonZeroL2Fee());

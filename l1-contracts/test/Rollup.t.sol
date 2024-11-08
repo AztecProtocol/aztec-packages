@@ -53,13 +53,6 @@ contract RollupTest is DecoderBase {
   EpochProofQuoteLib.EpochProofQuote internal quote;
   EpochProofQuoteLib.SignedEpochProofQuote internal signedQuote;
 
-  // The horrific blob input here and below is just a random set of passing blob precompile inputs
-  bytes public constant BLOB_INPUT =
-    hex"010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c4440140ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb0000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-  // The below is the first 32 bytes of the above. We can't slice the above e.g. BLOB_INPUT[0:32] because it's not calldata
-  // and we can't use assembly because it cannot access bytes constants.
-  bytes32 public constant BLOB_HASH =
-    bytes32(0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014);
   uint256 internal privateKey;
   address internal signer;
 
@@ -468,8 +461,8 @@ contract RollupTest is DecoderBase {
     }
   }
 
-  function testInvalidBlobHash() public setUpFor("empty_block_1") {
-    DecoderBase.Data memory data = load("empty_block_1").block;
+  function testInvalidBlobHash() public setUpFor("mixed_block_1") {
+    DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
     bytes32[] memory txHashes = new bytes32[](0);
 
@@ -480,22 +473,22 @@ contract RollupTest is DecoderBase {
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
     rollup.propose(
-      header, data.archive, data.blockHash, txHashes, signatures, data.body, BLOB_INPUT
+      header, data.archive, data.blockHash, txHashes, signatures, data.body, data.blobPublicInputs
     );
   }
 
-  function testInvalidBlobProof() public setUpFor("empty_block_1") {
-    DecoderBase.Data memory data = load("empty_block_1").block;
+  function testInvalidBlobProof() public setUpFor("mixed_block_1") {
+    DecoderBase.Data memory data = load("mixed_block_1").block;
     bytes memory header = data.header;
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We set the blobHash to the correct value
     bytes32[] memory blobHashes = new bytes32[](1);
-    blobHashes[0] = bytes32(BLOB_HASH);
+    blobHashes[0] = bytes32(data.blobPublicInputs);
     vm.blobhashes(blobHashes);
 
     // We mess with the blob input bytes
-    bytes memory badBlobInput = BLOB_INPUT;
+    bytes memory badBlobInput = data.blobPublicInputs;
     badBlobInput[100] = 0x01;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
