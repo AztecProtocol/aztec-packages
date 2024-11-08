@@ -730,7 +730,6 @@ comptime fn generate_finalization_payload(
                 // We append the public value to the log and emit it as unencrypted log
                 let mut finalization_log = [0; $finalization_log_byte_length];
 
-
                 // Iterate over the partial log and copy it to the final log
                 for i in 0..setup_log.len() {
                     finalization_log[i + 1] = setup_log[i];

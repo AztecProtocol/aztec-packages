@@ -119,7 +119,7 @@ describe('e2e_state_vars', () => {
     });
   });
 
-  describe.only('PrivateMutable', () => {
+  describe('PrivateMutable', () => {
     it('fail to read uninitialized PrivateMutable', async () => {
       expect(await contract.methods.is_legendary_initialized().simulate()).toEqual(false);
       await expect(contract.methods.get_legendary_card().simulate()).rejects.toThrow();

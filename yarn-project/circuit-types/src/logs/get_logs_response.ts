@@ -1,7 +1,7 @@
-import { Fr } from '@aztec/circuits.js';
-import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
+import { Fr, fromBuffer } from '@aztec/circuits.js';
+import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { EncryptedL2NoteLog, TxHash } from '../index.js';
+import { TxHash } from '../index.js';
 import { type ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
 /**
@@ -19,7 +19,7 @@ export type GetUnencryptedLogsResponse = {
   maxLogsHit: boolean;
 };
 
-export class TxScopedEncryptedL2NoteLog {
+export class TxScopedL2Log {
   constructor(
     /*
      * Hash of the tx where the log is included
@@ -35,9 +35,13 @@ export class TxScopedEncryptedL2NoteLog {
      */
     public blockNumber: number,
     /*
-     * The encrypted note log
+     * Indicates if the log comes from the unencrypted logs stream (partial note)
      */
-    public log: EncryptedL2NoteLog,
+    public isFromPublic: boolean,
+    /*
+     * The log data
+     */
+    public logData: Buffer,
   ) {}
 
   toBuffer() {
@@ -45,17 +49,19 @@ export class TxScopedEncryptedL2NoteLog {
       this.txHash.toBuffer(),
       numToUInt32BE(this.dataStartIndexForTx),
       numToUInt32BE(this.blockNumber),
-      this.log.toBuffer(),
+      boolToBuffer(this.isFromPublic),
+      this.logData,
     ]);
   }
 
   static fromBuffer(buffer: Buffer) {
     const reader = BufferReader.asReader(buffer);
-    return new TxScopedEncryptedL2NoteLog(
+    return new TxScopedL2Log(
       TxHash.fromField(reader.readObject(Fr)),
       reader.readNumber(),
       reader.readNumber(),
-      EncryptedL2NoteLog.fromBuffer(reader.readToEnd()),
+      reader.readBoolean(),
+      reader.readToEnd(),
     );
   }
 }

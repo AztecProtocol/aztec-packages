@@ -1,4 +1,5 @@
 import {
+  Body,
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -9,7 +10,8 @@ import {
   type LogFilter,
   LogId,
   LogType,
-  TxScopedEncryptedL2NoteLog,
+  TxHash,
+  TxScopedL2Log,
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -25,9 +27,9 @@ import { type BlockStore } from './block_store.js';
  */
 export class LogStore {
   #noteEncryptedLogsByBlock: AztecMap<number, Buffer>;
-  #noteEncryptedLogsByHash: AztecMap<string, Buffer>;
-  #noteEncryptedLogHashesByTag: AztecMultiMap<string, string>;
-  #noteEncryptedLogTagsByBlock: AztecMultiMap<number, string>;
+  #logsByHash: AztecMap<string, Buffer>;
+  #logHashesByTag: AztecMultiMap<string, string>;
+  #logTagsByBlock: AztecMultiMap<number, string>;
   #encryptedLogsByBlock: AztecMap<number, Buffer>;
   #unencryptedLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
@@ -35,13 +37,73 @@ export class LogStore {
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#noteEncryptedLogsByBlock = db.openMap('archiver_note_encrypted_logs_by_block');
-    this.#noteEncryptedLogsByHash = db.openMap('archiver_note_encrypted_logs_by_hash');
-    this.#noteEncryptedLogHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_log_hashes_by_tag');
-    this.#noteEncryptedLogTagsByBlock = db.openMultiMap('archiver_note_encrypted_log_tags_by_block');
+    this.#logsByHash = db.openMap('archiver_note_encrypted_logs_by_hash');
+    this.#logHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_log_hashes_by_tag');
+    this.#logTagsByBlock = db.openMultiMap('archiver_note_encrypted_log_tags_by_block');
     this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs_by_block');
     this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs_by_block');
 
     this.#logsMaxPageSize = logsMaxPageSize;
+  }
+
+  #storeTaggedLogs(block: L2Block, logType: keyof Pick<Body, 'noteEncryptedLogs' | 'unencryptedLogs'>): void {
+    const dataStartIndexForBlock =
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+    block.body[logType].txLogs.forEach((txLogs, txIndex) => {
+      const txHash = block.body.txEffects[txIndex].txHash;
+      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+      const logs = txLogs.unrollLogs();
+      logs.forEach(log => {
+        if (
+          (logType == 'noteEncryptedLogs' && log.data.length < 32) ||
+          // TODO remove when #9835 and #9836 are fixed
+          (logType === 'unencryptedLogs' && log.data.length < 32 * 33)
+        ) {
+          this.#log.warn(`Skipping log (${logType}) with invalid data length: ${log.data.length}`);
+          return;
+        }
+        try {
+          let tag = Fr.ZERO;
+          // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
+          // This means that for every 32 bytes of payload, we only have 1 byte of data.
+          // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
+          if (logType === 'unencryptedLogs') {
+            const correctedBuffer = Buffer.alloc(32);
+            const initialOffset = 32;
+            for (let i = 0; i < 32; i++) {
+              const byte = Fr.fromBuffer(
+                log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset),
+              ).toNumber();
+              correctedBuffer.writeUInt8(byte, i);
+            }
+            tag = new Fr(correctedBuffer);
+          } else {
+            tag = new Fr(log.data.subarray(0, 32));
+          }
+          this.#log.verbose(`Storing tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
+          const hexHash = log.hash().toString('hex');
+          // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't
+          // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
+          // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
+          // instead the hashes of the logs.
+          void this.#logHashesByTag.set(tag.toString(), hexHash);
+          void this.#logsByHash.set(
+            hexHash,
+            new TxScopedL2Log(
+              txHash,
+              dataStartIndexForTx,
+              block.number,
+              logType === 'unencryptedLogs',
+              log.data,
+            ).toBuffer(),
+          );
+          void this.#logTagsByBlock.set(block.number, tag.toString());
+        } catch (err) {
+          this.#log.warn(`Failed to add tagged log to store: ${err}`);
+        }
+      });
+    });
   }
 
   /**
@@ -52,36 +114,8 @@ export class LogStore {
   addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transaction(() => {
       blocks.forEach(block => {
-        const dataStartIndexForBlock =
-          block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-          block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
-        block.body.noteEncryptedLogs.txLogs.forEach((txLogs, txIndex) => {
-          const txHash = block.body.txEffects[txIndex].txHash;
-          const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
-          const noteLogs = txLogs.unrollLogs();
-          noteLogs.forEach(noteLog => {
-            if (noteLog.data.length < 32) {
-              this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
-              return;
-            }
-            try {
-              const tag = new Fr(noteLog.data.subarray(0, 32));
-              const hexHash = noteLog.hash().toString('hex');
-              // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't
-              // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
-              // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
-              // instead the hashes of the logs.
-              void this.#noteEncryptedLogHashesByTag.set(tag.toString(), hexHash);
-              void this.#noteEncryptedLogsByHash.set(
-                hexHash,
-                new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, block.number, noteLog).toBuffer(),
-              );
-              void this.#noteEncryptedLogTagsByBlock.set(block.number, tag.toString());
-            } catch (err) {
-              this.#log.warn(`Failed to add tagged note log to store: ${err}`);
-            }
-          });
-        });
+        void this.#storeTaggedLogs(block, 'noteEncryptedLogs');
+        void this.#storeTaggedLogs(block, 'unencryptedLogs');
         void this.#noteEncryptedLogsByBlock.set(block.number, block.body.noteEncryptedLogs.toBuffer());
         void this.#encryptedLogsByBlock.set(block.number, block.body.encryptedLogs.toBuffer());
         void this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
@@ -92,26 +126,26 @@ export class LogStore {
   }
 
   async deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const noteTagsToDelete = await this.db.transaction(() => {
-      return blocks.flatMap(block => Array.from(this.#noteEncryptedLogTagsByBlock.getValues(block.number)));
+    const tagsToDelete = await this.db.transaction(() => {
+      return blocks.flatMap(block => Array.from(this.#logTagsByBlock.getValues(block.number)));
     });
-    const noteLogHashesToDelete = await this.db.transaction(() => {
-      return noteTagsToDelete.flatMap(tag => Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag)));
+    const logHashesToDelete = await this.db.transaction(() => {
+      return tagsToDelete.flatMap(tag => Array.from(this.#logHashesByTag.getValues(tag)));
     });
     return this.db.transaction(() => {
       blocks.forEach(block => {
         void this.#noteEncryptedLogsByBlock.delete(block.number);
         void this.#encryptedLogsByBlock.delete(block.number);
         void this.#unencryptedLogsByBlock.delete(block.number);
-        void this.#noteEncryptedLogTagsByBlock.delete(block.number);
+        void this.#logTagsByBlock.delete(block.number);
       });
 
-      noteTagsToDelete.forEach(tag => {
-        void this.#noteEncryptedLogHashesByTag.delete(tag.toString());
+      tagsToDelete.forEach(tag => {
+        void this.#logHashesByTag.delete(tag.toString());
       });
 
-      noteLogHashesToDelete.forEach(hash => {
-        void this.#noteEncryptedLogsByHash.delete(hash);
+      logHashesToDelete.forEach(hash => {
+        void this.#logsByHash.delete(hash);
       });
 
       return true;
@@ -164,17 +198,17 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.db.transaction(() => {
       return tags.map(tag => {
-        const logHashes = Array.from(this.#noteEncryptedLogHashesByTag.getValues(tag.toString()));
+        const logHashes = Array.from(this.#logHashesByTag.getValues(tag.toString()));
         return (
           logHashes
-            .map(hash => this.#noteEncryptedLogsByHash.get(hash))
+            .map(hash => this.#logsByHash.get(hash))
             // addLogs should ensure that we never have undefined logs, but we filter them out regardless to protect
             // ourselves from database corruption
             .filter(noteLogBuffer => noteLogBuffer != undefined)
-            .map(noteLogBuffer => TxScopedEncryptedL2NoteLog.fromBuffer(noteLogBuffer!))
+            .map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer!))
         );
       });
     });

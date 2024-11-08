@@ -6,7 +6,7 @@ import {
   Note,
   type TxEffect,
   TxHash,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -146,7 +146,7 @@ describe('Simulator oracle', () => {
     let senders: { completeAddress: CompleteAddress; ivsk: Fq }[];
 
     function generateMockLogs(senderOffset: number) {
-      const logs: { [k: string]: TxScopedEncryptedL2NoteLog[] } = {};
+      const logs: { [k: string]: TxScopedL2Log[] } = {};
 
       // Add a random note from every address in the address book for our account with index senderOffset
       // Compute the tag as sender (knowledge of preaddress and ivsk)
@@ -161,7 +161,7 @@ describe('Simulator oracle', () => {
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, blockNumber, randomNote.encrypt());
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt().data);
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -170,7 +170,7 @@ describe('Simulator oracle', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = computeTagForIndex(firstSender, recipient.address, contractAddress, senderOffset);
-      const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 1, 0, EncryptedL2NoteLog.random(tag));
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, EncryptedL2NoteLog.random(tag).data);
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -188,7 +188,7 @@ describe('Simulator oracle', () => {
           recipient.address,
           recipientOvKeys,
         );
-        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, blockNumber, randomNote.encrypt());
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt().data);
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -212,7 +212,7 @@ describe('Simulator oracle', () => {
             computeOvskApp(keys.masterOutgoingViewingSecretKey, contractAddress),
           ),
         );
-        const log = new TxScopedEncryptedL2NoteLog(TxHash.random(), 0, blockNumber, randomNote.encrypt());
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, randomNote.encrypt().data);
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -359,7 +359,7 @@ describe('Simulator oracle', () => {
 
     function mockTaggedLogs(requests: MockNoteRequest[], nullifiers: number = 0) {
       const txEffectsMap: { [k: string]: { noteHashes: Fr[]; txHash: TxHash } } = {};
-      const taggedLogs: TxScopedEncryptedL2NoteLog[] = [];
+      const taggedLogs: TxScopedL2Log[] = [];
       const groupedByTx = requests.reduce<{ [i: number]: { [j: number]: MockNoteRequest[] } }>((acc, request) => {
         if (!acc[request.blockNumber]) {
           acc[request.blockNumber] = {};
@@ -388,7 +388,7 @@ describe('Simulator oracle', () => {
             }
             const dataStartIndex =
               (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
-            const taggedLog = new TxScopedEncryptedL2NoteLog(txHash, dataStartIndex, blockNumber, request.encrypt());
+            const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, request.encrypt().data);
             const note = request.snippetOfNoteDao.note;
             const noteHash = pedersenHash(note.items);
             txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;
@@ -646,7 +646,7 @@ describe('Simulator oracle', () => {
 
       expect(addNotesSpy).toHaveBeenCalledTimes(1);
       expect(addNotesSpy).toHaveBeenCalledWith(
-        // Incoming should contain notes from requests 0, 2, 4 because in those requests we set owner address point.
+        // Incoming should contain notes from requests 0, 1, 2 because in those requests we set owner address point.
         [
           expect.objectContaining({
             ...requests[0].snippetOfNoteDao,
@@ -661,7 +661,7 @@ describe('Simulator oracle', () => {
             index: requests[2].indexWithinNoteHashTree,
           }),
         ],
-        // Outgoing should contain notes from requests 0, 1, 4 because in those requests we set owner ovKeys.
+        // Outgoing should contain notes from requests 0, 1, 2 because in those requests we set owner ovKeys.
         [
           expect.objectContaining(requests[0].snippetOfNoteDao),
           expect.objectContaining(requests[1].snippetOfNoteDao),

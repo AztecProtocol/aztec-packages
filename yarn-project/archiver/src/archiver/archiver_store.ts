@@ -9,7 +9,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -142,7 +142,7 @@ export interface ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

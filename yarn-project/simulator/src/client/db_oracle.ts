@@ -5,7 +5,7 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type CompleteAddress,
@@ -234,12 +234,12 @@ export interface DBOracle extends CommitmentsDB {
     contractAddress: AztecAddress,
     maxBlockNumber: number,
     scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedEncryptedL2NoteLog[]>>;
+  ): Promise<Map<string, TxScopedL2Log[]>>;
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
    * @param logs - The logs to process.
    * @param recipient - The recipient of the logs.
    */
-  processTaggedLogs(logs: TxScopedEncryptedL2NoteLog[], recipient: AztecAddress): Promise<void>;
+  processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 }

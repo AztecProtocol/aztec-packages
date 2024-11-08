@@ -17,7 +17,6 @@ export async function produceNoteDaosForKey<T>(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
   logger: Logger,
-  unencryptedLogs: UnencryptedTxL2Logs,
   daoConstructor: (
     note: Note,
     payload: L1NotePayload,

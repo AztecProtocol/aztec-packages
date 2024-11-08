@@ -1,5 +1,7 @@
 import {
   type AztecNode,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
   L1NotePayload,
   type L2Block,
   L2BlockNumber,
@@ -7,7 +9,9 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type TxScopedEncryptedL2NoteLog,
+  TxEffect,
+  type TxScopedL2Log,
+  UnencryptedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
@@ -339,14 +343,14 @@ export class SimulatorOracle implements DBOracle {
     contractAddress: AztecAddress,
     maxBlockNumber: number,
     scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedEncryptedL2NoteLog[]>> {
+  ): Promise<Map<string, TxScopedL2Log[]>> {
     const recipients = scopes
       ? scopes
       : (await this.db.getCompleteAddresses()).map(completeAddress => completeAddress.address);
-    const result = new Map<string, TxScopedEncryptedL2NoteLog[]>();
+    const result = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
-      const logs: TxScopedEncryptedL2NoteLog[] = [];
+      const logs: TxScopedL2Log[] = [];
       // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
       // However it is impossible at the moment due to the language not supporting nested slices.
       // This nesting is necessary because for a given set of tags we don't
@@ -428,11 +432,7 @@ export class SimulatorOracle implements DBOracle {
    * @param simulator - The simulator to use for decryption.
    * @returns The decrypted notes.
    */
-  async #decryptTaggedLogs(
-    scopedLogs: TxScopedEncryptedL2NoteLog[],
-    recipient: AztecAddress,
-    simulator?: AcirSimulator,
-  ) {
+  async #decryptTaggedLogs(scopedLogs: TxScopedL2Log[], recipient: AztecAddress, simulator?: AcirSimulator) {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
@@ -446,9 +446,16 @@ export class SimulatorOracle implements DBOracle {
     const excludedIndices: Map<string, Set<number>> = new Map();
     const incomingNotes: IncomingNoteDao[] = [];
     const outgoingNotes: OutgoingNoteDao[] = [];
+
+    const txEffectsCache = new Map<string, TxEffect | undefined>();
+
     for (const scopedLog of scopedLogs) {
-      const incomingNotePayload = L1NotePayload.decryptAsIncoming(scopedLog.log.data, addressSecret);
-      const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.log.data, ovskM);
+      const incomingNotePayload = L1NotePayload.decryptAsIncoming(
+        scopedLog.logData,
+        addressSecret,
+        scopedLog.isFromPublic,
+      );
+      const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.logData, ovskM, scopedLog.isFromPublic);
 
       if (incomingNotePayload || outgoingNotePayload) {
         if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
@@ -461,12 +468,17 @@ export class SimulatorOracle implements DBOracle {
         }
 
         const payload = incomingNotePayload || outgoingNotePayload;
-        const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+
+        const txEffect =
+          txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
 
         if (!txEffect) {
           this.log.warn(`No tx effect found for ${scopedLog.txHash} while decrypting tagged logs`);
           continue;
         }
+
+        txEffectsCache.set(scopedLog.txHash.toString(), txEffect);
+
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
@@ -504,7 +516,7 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The recipient of the logs.
    */
   public async processTaggedLogs(
-    logs: TxScopedEncryptedL2NoteLog[],
+    logs: TxScopedL2Log[],
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {

@@ -1,5 +1,7 @@
 import {
+  Body,
   type EncryptedL2BlockL2Logs,
+  EncryptedL2NoteLog,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -13,8 +15,9 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
-  TxScopedEncryptedL2NoteLog,
+  TxScopedL2Log,
   type UnencryptedL2BlockL2Logs,
+  UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -52,9 +55,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
 
-  private taggedNoteEncryptedLogs: Map<string, TxScopedEncryptedL2NoteLog[]> = new Map();
+  private taggedLogs: Map<string, TxScopedL2Log[]> = new Map();
 
-  private noteEncryptedLogTagsPerBlock: Map<number, Fr[]> = new Map();
+  private logTagsPerBlock: Map<number, Fr[]> = new Map();
 
   private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
 
@@ -207,6 +210,56 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
+  #storeTaggedLogs(block: L2Block, logType: keyof Pick<Body, 'noteEncryptedLogs' | 'unencryptedLogs'>): void {
+    const dataStartIndexForBlock =
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+    block.body[logType].txLogs.forEach((txLogs, txIndex) => {
+      const txHash = block.body.txEffects[txIndex].txHash;
+      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+      const logs = txLogs.unrollLogs();
+      logs.forEach(log => {
+        if (
+          (logType == 'noteEncryptedLogs' && log.data.length < 32) ||
+          // TODO remove when #9835 and #9836 are fixed
+          (logType === 'unencryptedLogs' && log.data.length < 32 * 33)
+        ) {
+          this.#log.warn(`Skipping log (${logType}) with invalid data length: ${log.data.length}`);
+          return;
+        }
+        try {
+          let tag = Fr.ZERO;
+          // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
+          // This means that for every 32 bytes of payload, we only have 1 byte of data.
+          // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
+          if (logType === 'unencryptedLogs') {
+            const correctedBuffer = Buffer.alloc(32);
+            const initialOffset = 32;
+            for (let i = 0; i < 32; i++) {
+              const byte = Fr.fromBuffer(
+                log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset),
+              ).toNumber();
+              correctedBuffer.writeUInt8(byte, i);
+            }
+            tag = new Fr(correctedBuffer);
+          } else {
+            tag = new Fr(log.data.subarray(0, 32));
+          }
+          this.#log.verbose(`Storing tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
+          const currentLogs = this.taggedLogs.get(tag.toString()) || [];
+          this.taggedLogs.set(tag.toString(), [
+            ...currentLogs,
+            new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, logType === 'unencryptedLogs', log.data),
+          ]);
+          const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
+          this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+        } catch (err) {
+          this.#log.warn(`Failed to add tagged log to store: ${err}`);
+        }
+      });
+    });
+  }
+
   /**
    * Append new logs to the store's list.
    * @param block - The block for which to add the logs.
@@ -214,32 +267,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
-      const dataStartIndexForBlock =
-        block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-        block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
-      block.body.noteEncryptedLogs.txLogs.forEach((txLogs, txIndex) => {
-        const txHash = block.body.txEffects[txIndex].txHash;
-        const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
-        const noteLogs = txLogs.unrollLogs();
-        noteLogs.forEach(noteLog => {
-          if (noteLog.data.length < 32) {
-            this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
-            return;
-          }
-          try {
-            const tag = new Fr(noteLog.data.subarray(0, 32));
-            const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
-            this.taggedNoteEncryptedLogs.set(tag.toString(), [
-              ...currentNoteLogs,
-              new TxScopedEncryptedL2NoteLog(txHash, dataStartIndexForTx, block.number, noteLog),
-            ]);
-            const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
-            this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
-          } catch (err) {
-            this.#log.warn(`Failed to add tagged note log to store: ${err}`);
-          }
-        });
-      });
+      void this.#storeTaggedLogs(block, 'noteEncryptedLogs');
+      void this.#storeTaggedLogs(block, 'unencryptedLogs');
       this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
       this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
       this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
@@ -248,18 +277,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const noteTagsToDelete = blocks.flatMap(block => this.noteEncryptedLogTagsPerBlock.get(block.number));
-    noteTagsToDelete
+    const tagsToDelete = blocks.flatMap(block => this.logTagsPerBlock.get(block.number));
+    tagsToDelete
       .filter(tag => tag != undefined)
       .forEach(tag => {
-        this.taggedNoteEncryptedLogs.delete(tag!.toString());
+        this.taggedLogs.delete(tag!.toString());
       });
 
     blocks.forEach(block => {
       this.encryptedLogsPerBlock.delete(block.number);
       this.noteEncryptedLogsPerBlock.delete(block.number);
       this.unencryptedLogsPerBlock.delete(block.number);
-      this.noteEncryptedLogTagsPerBlock.delete(block.number);
+      this.logTagsPerBlock.delete(block.number);
     });
 
     return Promise.resolve(true);
@@ -428,8 +457,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
-    const noteLogs = tags.map(tag => this.taggedNoteEncryptedLogs.get(tag.toString()) || []);
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const noteLogs = tags.map(tag => this.taggedLogs.get(tag.toString()) || []);
     return Promise.resolve(noteLogs);
   }
 

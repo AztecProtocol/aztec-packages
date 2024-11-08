@@ -620,7 +620,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.historicalHeader.globalVariables.blockNumber.toNumber(),
       this.scopes,
     );
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries())
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
   }
 }

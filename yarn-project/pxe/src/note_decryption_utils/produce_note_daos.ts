@@ -62,7 +62,6 @@ export async function produceNoteDaos(
       dataStartIndexForTx,
       excludedIndices,
       logger,
-      unencryptedLogs,
       IncomingNoteDao.fromPayloadAndNoteInfo,
     );
   }
@@ -93,7 +92,6 @@ export async function produceNoteDaos(
         dataStartIndexForTx,
         excludedIndices,
         logger,
-        unencryptedLogs,
         OutgoingNoteDao.fromPayloadAndNoteInfo,
       );
     }

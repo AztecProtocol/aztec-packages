@@ -26,7 +26,7 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
-  type TxScopedEncryptedL2NoteLog,
+  type TxScopedL2Log,
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
@@ -313,7 +313,7 @@ export class AztecNodeService implements AztecNode {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
+  public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.encryptedLogsSource.getLogsByTags(tags);
   }
 
