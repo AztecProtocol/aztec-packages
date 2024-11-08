@@ -9,7 +9,6 @@ use crate::{
         combined_constant_data::CombinedConstantData,
         enqueued_call_data::{EnqueuedCallData, Proof},
         function_data::FunctionData,
-        function_selector::FunctionSelector,
         gas::Gas,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
@@ -26,7 +25,6 @@ use crate::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         private_kernel_data::PrivateKernelData,
-        public_call_data::{Proof as PublicCallDataProof, PublicCallData},
         public_call_request::PublicCallRequest,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         public_data_read::PublicDataRead,
@@ -628,14 +626,6 @@ impl FixtureBuilder {
             start_gas_left: self.start_gas_left,
             end_gas_left: self.end_gas_left,
             transaction_fee: self.transaction_fee,
-        }
-    }
-
-    pub fn to_public_call_data(self) -> PublicCallData {
-        PublicCallData {
-            public_inputs: self.to_public_circuit_public_inputs(),
-            proof: PublicCallDataProof {},
-            bytecode_hash: self.bytecode_hash,
         }
     }
 

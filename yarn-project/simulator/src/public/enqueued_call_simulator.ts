@@ -35,7 +35,6 @@ import {
   NoteHash,
   Nullifier,
   PublicAccumulatedDataArrayLengths,
-  PublicCallData,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
@@ -44,7 +43,6 @@ import {
   RevertCode,
   TreeLeafReadRequest,
   type VMCircuitPublicInputs,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -155,8 +153,8 @@ export class EnqueuedCallSimulator {
         avmCallResult,
         fnName,
       );
-      const callData = await this.getPublicCallData(deprecatedFunctionCallResult);
-      avmProvingRequest = makeAvmProvingRequest(callData.publicInputs, deprecatedFunctionCallResult);
+      const publicInputs = await this.getPublicCircuitPublicInputs(deprecatedFunctionCallResult);
+      avmProvingRequest = makeAvmProvingRequest(publicInputs, deprecatedFunctionCallResult);
     } else {
       avmProvingRequest = emptyAvmProvingRequest();
     }
@@ -205,18 +203,6 @@ export class EnqueuedCallSimulator {
   /** Returns all pending private and public nullifiers. */
   private getSiloedPendingNullifiers(ko: PublicKernelCircuitPublicInputs) {
     return [...ko.end.nullifiers, ...ko.endNonRevertibleData.nullifiers].filter(n => !n.isEmpty());
-  }
-
-  /**
-   * Calculates the PublicCircuitOutput for this execution result along with its proof,
-   * and assembles a PublicCallData object from it.
-   * @param result - The execution result.
-   * @returns A corresponding PublicCallData object.
-   */
-  private async getPublicCallData(result: PublicFunctionCallResult) {
-    const bytecodeHash = await this.getBytecodeHash(result);
-    const publicInputs = await this.getPublicCircuitPublicInputs(result);
-    return new PublicCallData(publicInputs, makeEmptyProof(), bytecodeHash);
   }
 
   private async getPublicCircuitPublicInputs(result: PublicFunctionCallResult) {

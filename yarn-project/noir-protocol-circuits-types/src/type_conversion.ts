@@ -103,7 +103,6 @@ import {
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   type PublicBaseRollupInputs,
-  type PublicCallData,
   PublicCallRequest,
   PublicCallStackItemCompressed,
   type PublicCircuitPublicInputs,
@@ -118,8 +117,6 @@ import {
   type PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   type PublicKernelData,
-  type PublicKernelInnerCircuitPrivateInputs,
-  type PublicKernelInnerData,
   type PublicKernelTailCircuitPrivateInputs,
   type PublicKeys,
   type PublicTubeData,
@@ -240,7 +237,6 @@ import type {
   PublicAccumulatedDataArrayLengths as PublicAccumulatedDataArrayLengthsNoir,
   PublicAccumulatedData as PublicAccumulatedDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
-  PublicCallData as PublicCallDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicCallStackItemCompressed as PublicCallStackItemCompressedNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
@@ -254,8 +250,6 @@ import type {
   PublicInnerCallRequest as PublicInnerCallRequestNoir,
   PublicKernelCircuitPublicInputs as PublicKernelCircuitPublicInputsNoir,
   PublicKernelData as PublicKernelDataNoir,
-  PublicKernelInnerCircuitPrivateInputs as PublicKernelInnerCircuitPrivateInputsNoir,
-  PublicKernelInnerData as PublicKernelInnerDataNoir,
   PublicKernelMergeCircuitPrivateInputs as PublicKernelMergeCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
   PublicKeys as PublicKeysNoir,
@@ -1760,14 +1754,6 @@ function mapPublicKernelDataToNoir(publicKernelData: PublicKernelData): PublicKe
   };
 }
 
-function mapPublicKernelInnerDataToNoir(publicKernelData: PublicKernelInnerData): PublicKernelInnerDataNoir {
-  return {
-    public_inputs: mapVMCircuitPublicInputsToNoir(publicKernelData.publicInputs),
-    proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(publicKernelData.proof),
-    vk: mapVerificationKeyToNoir(publicKernelData.vk.keyAsFields, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-  };
-}
-
 export function mapVerificationKeyToNoir<N extends number>(
   key: VerificationKeyAsFields,
   length: N,
@@ -1902,15 +1888,6 @@ export function mapPrivateKernelResetHintsToNoir<
       NUM_TRANSIENT_DATA_HINTS
     >,
     validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
-  };
-}
-
-export function mapPublicKernelInnerCircuitPrivateInputsToNoir(
-  inputs: PublicKernelInnerCircuitPrivateInputs,
-): PublicKernelInnerCircuitPrivateInputsNoir {
-  return {
-    previous_kernel: mapPublicKernelInnerDataToNoir(inputs.previousKernel),
-    public_call: mapPublicCallDataToNoir(inputs.publicCall),
   };
 }
 
@@ -2149,19 +2126,6 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
-  };
-}
-
-/**
- * Maps a public call data to noir.
- * @param publicCall - The public call data.
- * @returns The noir public call data.
- */
-function mapPublicCallDataToNoir(publicCall: PublicCallData): PublicCallDataNoir {
-  return {
-    public_inputs: mapPublicCircuitPublicInputsToNoir(publicCall.publicInputs),
-    proof: {},
-    bytecode_hash: mapFieldToNoir(publicCall.bytecodeHash),
   };
 }
 

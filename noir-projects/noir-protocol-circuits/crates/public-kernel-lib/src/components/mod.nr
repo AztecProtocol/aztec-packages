@@ -4,4 +4,3 @@ mod public_kernel_output_composer;
 mod public_kernel_output_validator;
 mod public_tail_output_composer;
 mod public_tail_output_validator;
-mod vm_circuit_output_composer;
