@@ -415,10 +415,14 @@ class MegaFlavor {
 
         uint64_t estimate_memory()
         {
-            uint64_t result(0);
             for (auto [polynomial, label] : zip_view(get_all(), get_labels())) {
                 uint64_t size = polynomial.size();
-                vinfo("label: ", label, " num elts: ", size);
+                vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");
+            }
+
+            uint64_t result(0);
+            for (auto& polynomial : get_unshifted()) {
+                uint64_t size = polynomial.size();
                 result += size;
             }
             return result * sizeof(FF);

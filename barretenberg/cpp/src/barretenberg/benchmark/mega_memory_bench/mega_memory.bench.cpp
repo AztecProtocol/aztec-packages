@@ -307,14 +307,13 @@ void fill_trace(State& state, TraceStructure structure)
         auto builder_copy = builder;
         DeciderProvingKey::Trace::populate_public_inputs_block(builder_copy);
 
-        for (size_t idx = 0; const auto& block : builder_copy.blocks.get()) {
+        for (const auto [label, block] : zip_view(builder_copy.blocks.get_labels(), builder_copy.blocks.get())) {
             bool overfilled = block.size() >= block.get_fixed_size();
             if (overfilled) {
-                vinfo("block overfilled at index ", idx);
+                vinfo(label, " overfilled");
             }
             ASSERT(!overfilled);
-            vinfo(block.size(), " / ", block.get_fixed_size());
-            idx++;
+            vinfo(label, ": ", block.size(), " / ", block.get_fixed_size());
         }
     }
 
@@ -338,7 +337,7 @@ void fill_trace_e2e_full_test(State& state)
 
 // BenchmarkMemoryManager memory_manager;
 
-static void construct_pk(State& state, void (*test_circuit_function)(State&)) noexcept
+static void pk_mem(State& state, void (*test_circuit_function)(State&)) noexcept
 {
     // BenchmarkMemoryManager memory_manager;
     // benchmark::RegisterMemoryManager(&memory_manager);
@@ -347,9 +346,9 @@ static void construct_pk(State& state, void (*test_circuit_function)(State&)) no
     // benchmark::RegisterMemoryManager(nullptr);
 }
 
-BENCHMARK_CAPTURE(construct_pk, TraceStructure::E2E_FULL_TEST, &fill_trace_e2e_full_test)->Unit(kMillisecond);
+BENCHMARK_CAPTURE(pk_mem, E2E_FULL_TEST, &fill_trace_e2e_full_test)->Unit(kMillisecond)->Iterations(1);
 
-BENCHMARK_CAPTURE(construct_pk, TraceStructure::CLIENT_IVC_BENCH, &fill_trace_client_ivc_bench)->Unit(kMillisecond);
+BENCHMARK_CAPTURE(pk_mem, CLIENT_IVC_BENCH, &fill_trace_client_ivc_bench)->Unit(kMillisecond)->Iterations(1);
 
 BENCHMARK_MAIN();
 

@@ -38,6 +38,14 @@ template <typename FF_> class MegaArith {
         T lookup;
         T overflow; // block gates of arbitrary type that overflow their designated block
 
+        std::vector<std::string_view> get_labels()
+        {
+            return { "ecc_op",     "pub_inputs",         "busread",
+                     "arithmetic", "delta_range",        "elliptic",
+                     "aux",        "poseidon2_external", "poseidon2_internal",
+                     "lookup" };
+        }
+
         auto get()
         {
             return RefArray{ ecc_op,
@@ -52,6 +60,7 @@ template <typename FF_> class MegaArith {
                              lookup,
                              overflow };
         }
+
         auto get() const
         {
             return RefArray{ ecc_op,
