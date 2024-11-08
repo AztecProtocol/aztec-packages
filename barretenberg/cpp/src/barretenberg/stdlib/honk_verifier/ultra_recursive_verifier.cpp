@@ -89,18 +89,36 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments = {};
+    if constexpr (Flavor::HasZK) {
+        for (size_t idx = 0; idx < log_circuit_size; idx++) {
+            Commitment libra_commitment =
+                transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+            libra_commitments.push_back(libra_commitment);
+        };
+    }
+    SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
 
+    // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
+    std::vector<FF> libra_evaluations = {};
+    if constexpr (Flavor::HasZK) {
+        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
+    }
+
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
-    auto opening_claim = Shplemini::compute_batch_opening_claim(key->circuit_size,
-                                                                commitments.get_unshifted(),
-                                                                commitments.get_to_be_shifted(),
-                                                                claimed_evaluations.get_unshifted(),
-                                                                claimed_evaluations.get_shifted(),
-                                                                multivariate_challenge,
-                                                                Commitment::one(builder),
-                                                                transcript);
+    const BatchOpeningClaim<Curve> opening_claim =
+        Shplemini::compute_batch_opening_claim(key->circuit_size,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               sumcheck_output.challenge,
+                                               Commitment::one(builder),
+                                               transcript,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();
@@ -114,6 +132,8 @@ template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBui
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 } // namespace bb::stdlib::recursion::honk
