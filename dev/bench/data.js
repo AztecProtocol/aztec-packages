@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731065657341,
+  "lastUpdate": 1731088159476,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a67d0e2122945998119a8643a4fb4e74fccc7f34",
-          "message": "chore(avm): Allocate memory for unshifted polynomials according to their trace col size (#9345)\n\nSome measurements on bulk test showed that resident memory during\r\nproving went from 33.1 GB to 28.4 GB.",
-          "timestamp": "2024-10-25T20:12:45+02:00",
-          "tree_id": "30e462f146708fab2680cc20bd1656dd762dde12",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a67d0e2122945998119a8643a4fb4e74fccc7f34"
-        },
-        "date": 1729881445642,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30837.070517,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29067.204898 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5345.56532500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5017.449989 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91926.988729,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91926991000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15167.119286,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15167119000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2699587404,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2699587404 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126754976,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126754976 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 143518782,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143518782 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9bc5a2f02852d6187a597612e8459ee305f3e198",
+          "message": "feat: send G_0 in proof to reduce tube size (#9766)\n\nRemoves the G^0 MSM computation from the recursive verifier and instead\r\nincludes it in the proof.\r\n\r\nAdds test to ensure that IPA recursive verifier is a fixed circuit no\r\nmatter the ECCVM size.\r\n\r\nFor the command: `FLOW=prove_then_verify_tube ./run_acir_tests.sh\r\nfold_basic`, which has 6 circuits:\r\nTube gates before constification and before MSM removal: 7104756\r\nTube gates after: 4172057\r\n\r\nFor the ClientTubeBase test with 8 circuits, we see:\r\nTube before: 10047313\r\nTube gates after: 4172057",
+          "timestamp": "2024-11-08T17:19:56Z",
+          "tree_id": "07cf9d21739c6b59f9ada7f035a7212c4a667a17",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9bc5a2f02852d6187a597612e8459ee305f3e198"
+        },
+        "date": 1731088151813,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29085.58440500002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27432.566016000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5362.79236,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5051.22747 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84704.85629000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84704858000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15168.484659000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15168484000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3061653904,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3061653904 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143607197,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143607197 ns\nthreads: 1"
           }
         ]
       }
