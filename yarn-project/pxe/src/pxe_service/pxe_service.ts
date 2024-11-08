@@ -520,10 +520,19 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
-    return this.jobQueue.put(async () => {
-      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
-      return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
-    });
+    return this.jobQueue
+      .put(async () => {
+        const { publicInputs, clientIvcProof } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+        );
+        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
+      })
+      .catch(err => {
+        this.log.error(err);
+        throw err;
+      });
   }
 
   // TODO(#7456) Prevent msgSender being defined here for the first call
@@ -589,7 +598,10 @@ export class PXEService implements PXE {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.info(`Sending transaction ${txHash}`);
-    await this.node.sendTx(tx);
+    await this.node.sendTx(tx).catch(err => {
+      this.log.error(err);
+      throw err;
+    });
     this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
@@ -602,14 +614,19 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
     // all simulations must be serialized w.r.t. the synchronizer
-    return await this.jobQueue.put(async () => {
-      // TODO - Should check if `from` has the permission to call the view function.
-      const functionCall = await this.#getFunctionCall(functionName, args, to);
-      const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
+    return await this.jobQueue
+      .put(async () => {
+        // TODO - Should check if `from` has the permission to call the view function.
+        const functionCall = await this.#getFunctionCall(functionName, args, to);
+        const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
 
-      // TODO - Return typed result based on the function artifact.
-      return executionResult;
-    });
+        // TODO - Return typed result based on the function artifact.
+        return executionResult;
+      })
+      .catch(err => {
+        this.log.error(err);
+        throw err;
+      });
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
