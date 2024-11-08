@@ -1,19 +1,29 @@
-# to get built nargo binary
+# Stage 1: Get built nargo binary
 FROM aztecprotocol/noir AS built-noir
 
-# to get built avm-transpiler binary
+# Stage 2: Get built avm-transpiler binary
 FROM aztecprotocol/avm-transpiler AS built-transpiler
 
-
+# Stage 3: Final image
 FROM ubuntu:noble
-# Install Tini as nargo doesn't handle signals properly.
-# Install git as nargo needs it to clone.
-RUN apt-get update && apt-get install -y git tini && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# Copy binaries to /usr/bin
-COPY --from=built-noir /usr/src/noir/noir-repo/target/release/nargo /usr/bin/nargo
-COPY --from=built-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler /usr/bin/avm-transpiler
-# Copy in script that calls both binaries
-COPY ./avm-transpiler/scripts/compile_then_transpile.sh /usr/src/avm-transpiler/scripts/compile_then_transpile.sh
+# Install required packages
+RUN apt-get update \
+    && apt-get install -y \
+        git \
+        tini \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# Set up binary paths
+ENV NARGO_BIN=/usr/bin/nargo \
+    TRANSPILER_BIN=/usr/bin/avm-transpiler \
+    SCRIPT_PATH=/usr/src/avm-transpiler/scripts
+
+# Copy binaries and script
+COPY --from=built-noir /usr/src/noir/noir-repo/target/release/nargo ${NARGO_BIN}
+COPY --from=built-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler ${TRANSPILER_BIN}
+COPY ./avm-transpiler/scripts/compile_then_transpile.sh ${SCRIPT_PATH}/compile_then_transpile.sh
+
+# Use tini as init process
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/compile_then_transpile.sh"]
