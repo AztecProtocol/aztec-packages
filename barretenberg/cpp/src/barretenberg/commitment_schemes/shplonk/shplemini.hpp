@@ -32,6 +32,7 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::vector<bb::Univariate<FF, LENGTH>>& libra_univariates = {},
                               const std::vector<FF>& libra_evaluations = {})
     {
+        const bool HasZK = !libra_evaluations.empty();
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -39,7 +40,8 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        commitment_key,
                                                                        transcript,
                                                                        concatenated_polynomials,
-                                                                       groups_to_be_concatenated);
+                                                                       groups_to_be_concatenated,
+                                                                       HasZK);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
         size_t idx = 0;
@@ -144,6 +146,11 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
+        if (!libra_univariate_evaluations.empty()) {
+            Commitment hiding_polynomial_commitment =
+                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly");
+            Fr hiding_polynomial_eval = transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
+        }
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
 
@@ -271,7 +278,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
-        if (!libra_univariate_evaluations.empty()) {
+        if (!libra_univariate_commitments.empty()) {
             add_zk_data(commitments,
                         scalars,
                         libra_univariate_commitments,

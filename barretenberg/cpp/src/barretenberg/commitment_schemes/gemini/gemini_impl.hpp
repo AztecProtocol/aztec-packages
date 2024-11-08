@@ -49,19 +49,31 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
     RefSpan<Polynomial> concatenated_polynomials,
-    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated)
+    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated,
+    const bool HasZK)
 
 {
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     size_t n = 1 << log_n;
 
-    Fr rho = transcript->template get_challenge<Fr>("rho");
-
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
     Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
 
+    if (HasZK) {
+        batched_unshifted = Polynomial::random(n);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
+        transcript->send_to_verifier("Gemini:masking_poly_eval", batched_unshifted.evaluate(multilinear_challenge));
+    }
+
+    const Fr rho = transcript->template get_challenge<Fr>("rho");
+
     Fr rho_challenge{ 1 };
+    if (HasZK) {
+        // The masking polynomials is already in the batched_unshifted, need to use the next power of the batching
+        // challenge
+        rho_challenge *= rho;
+    }
     for (size_t i = 0; i < f_polynomials.size(); i++) {
         batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
         rho_challenge *= rho;
