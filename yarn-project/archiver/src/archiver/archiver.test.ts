@@ -6,7 +6,7 @@ import {
   LogType,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -60,7 +60,7 @@ describe('Archiver', () => {
     now = +new Date();
     publicClient = mock<PublicClient<HttpTransport, Chain>>({
       getBlock: ((args: any) => ({
-        timestamp: args.blockNumber * 1000n + BigInt(now),
+        timestamp: args.blockNumber * BigInt(ETHEREUM_SLOT_DURATION) + BigInt(now),
       })) as any,
     });
 
@@ -98,7 +98,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    blocks.forEach((b, i) => (b.header.globalVariables.timestamp = new Fr(now + 1000 * (i + 1))));
+    blocks.forEach((b, i) => (b.header.globalVariables.timestamp = new Fr(now + ETHEREUM_SLOT_DURATION * (i + 1))));
     const rollupTxs = blocks.map(makeRollupTx);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);

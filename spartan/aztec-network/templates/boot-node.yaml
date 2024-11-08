@@ -192,6 +192,7 @@ data:
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
 ---
+# Headless service for StatefulSet DNS entries
 apiVersion: v1
 kind: Service
 metadata:
@@ -199,7 +200,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node

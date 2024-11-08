@@ -35,5 +35,5 @@ interface IRegistry {
 
   function isRollupRegistered(address _rollup) external view returns (bool);
 
-  function getApella() external view returns (address);
+  function getGovernance() external view returns (address);
 }
