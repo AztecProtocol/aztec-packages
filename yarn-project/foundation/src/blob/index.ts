@@ -71,13 +71,22 @@ export class Blob {
     this.evaluationY = Buffer.from(res[1]);
   }
 
+  // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
   commitmentToFields(): [Fr, Fr] {
     return [new Fr(this.commitment.subarray(0, 31)), new Fr(this.commitment.subarray(31, 48))];
   }
 
+  // Returns ethereum's blob hash WITHOUT the prefixed version
+  // We use this in the circuit since it can fit in a field.
+  getEthBlobHash(): Buffer {
+    const hash = sha256(this.commitment);
+    hash[0] = 0;
+    return hash;
+  }
+
   // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
   getEthVersionedBlobHash(): Buffer {
-    const hash = sha256(this.commitment);
+    const hash = this.getEthBlobHash();
     hash[0] = VERSIONED_HASH_VERSION_KZG;
     return hash;
   }

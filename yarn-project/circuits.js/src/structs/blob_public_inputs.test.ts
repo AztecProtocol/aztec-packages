@@ -25,6 +25,7 @@ describe('BlobPublicInputs', () => {
     expect(converted.z).toEqual(blob.challengeZ);
     expect(Buffer.from(converted.y.toString(16), 'hex')).toEqual(blob.evaluationY);
     expect(converted.kzgCommitment).toEqual(blob.commitmentToFields());
+    expect(converted.commitmentToBuffer()).toEqual(blob.commitment);
   });
 
   it('serializes to field array and deserializes it back', () => {

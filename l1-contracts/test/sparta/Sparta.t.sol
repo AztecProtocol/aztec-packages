@@ -167,7 +167,6 @@ contract SpartaTest is DecoderBase {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
-    bytes memory body = full.block.body;
 
     StructToAvoidDeepStacks memory ree;
 
@@ -219,19 +218,35 @@ contract SpartaTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
-      // We mock a successful call to the blob evaluation precompile
-      vm.mockCall(address(0x0a), new bytes(144), abi.encode(true));
+      // 20 is the slot of checkBlob. We force it to be false (=0):
+      vm.store(address(rollup), bytes32(uint256(20)), 0);
       vm.prank(ree.proposer);
-      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body, new bytes(144));
+      rollup.propose(
+        header,
+        archive,
+        bytes32(0),
+        txHashes,
+        signatures,
+        full.block.body,
+        full.block.blobPublicInputs
+      );
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
-      // We mock a successful call to the blob evaluation precompile
-      vm.mockCall(address(0x0a), new bytes(144), abi.encode(true));
-      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body, new bytes(144));
+      // 20 is the slot of checkBlob. We force it to be false (=0):
+      vm.store(address(rollup), bytes32(uint256(20)), 0);
+      rollup.propose(
+        header,
+        archive,
+        bytes32(0),
+        txHashes,
+        signatures,
+        full.block.body,
+        full.block.blobPublicInputs
+      );
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

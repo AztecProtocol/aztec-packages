@@ -35,6 +35,7 @@ contract DecoderBase is TestBase {
 
   struct Data {
     bytes32 archive;
+    bytes blobPublicInputs;
     bytes32 blockHash;
     bytes body;
     DecodedHeader decodedHeader;
@@ -74,6 +75,7 @@ contract DecoderBase is TestBase {
   }
 
   struct ContentCommitment {
+    bytes32 blobHash;
     bytes32 inHash;
     uint256 numTxs;
     bytes32 outHash;

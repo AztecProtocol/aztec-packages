@@ -65,6 +65,11 @@ export class BlockRootRollupInputs {
      * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
      */
     public blobCommitment: Tuple<Fr, 2>,
+    /**
+     * The eth blob hash for this block (= last 31 bytes of sha256(blobCommitment))
+     * See yarn-project/foundation/src/blob/index.ts for calculation
+     */
+    public blobHash: Fr,
   ) {}
 
   /**
@@ -110,6 +115,7 @@ export class BlockRootRollupInputs {
       fields.proverId,
       fields.txEffects,
       fields.blobCommitment,
+      fields.blobHash,
     ] as const;
   }
 
@@ -134,6 +140,7 @@ export class BlockRootRollupInputs {
       // reader.readArray(FIELDS_PER_BLOB, Fr),
       Array.from({ length: FIELDS_PER_BLOB }, () => Fr.fromBuffer(reader)),
       reader.readArray(2, Fr),
+      Fr.fromBuffer(reader),
     );
   }
 

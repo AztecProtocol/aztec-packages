@@ -2497,6 +2497,7 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     tx_effects: mapTuple(rootRollupInputs.txEffects, mapFieldToNoir),
     blob_commitment: mapTuple(rootRollupInputs.blobCommitment, mapFieldToNoir),
+    blob_hash: mapFieldToNoir(rootRollupInputs.blobHash),
   };
 }
 
@@ -2629,6 +2630,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
     num_txs: mapFieldToNoir(contentCommitment.numTxs),
+    blob_hash: mapSha256HashToNoir(contentCommitment.blobHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
   };
@@ -2641,6 +2643,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
     mapFieldFromNoir(contentCommitment.num_txs),
+    mapSha256HashFromNoir(contentCommitment.blob_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),
   );

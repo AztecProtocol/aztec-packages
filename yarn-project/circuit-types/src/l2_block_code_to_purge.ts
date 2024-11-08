@@ -52,6 +52,7 @@ function makeContentCommitment(
 ): ContentCommitment {
   return new ContentCommitment(
     numTxs ? new Fr(numTxs) : new Fr(seed),
+    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
     inHash ?? toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
   );

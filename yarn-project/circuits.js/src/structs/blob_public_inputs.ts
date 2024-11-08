@@ -61,6 +61,15 @@ export class BlobPublicInputs {
     return new BlobPublicInputs(input.challengeZ, toBigIntBE(input.evaluationY), input.commitmentToFields());
   }
 
+  // Performs the reverse conversion of blob.commitmentToFields()
+  // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
+  commitmentToBuffer(): Buffer {
+    return Buffer.concat([
+      this.kzgCommitment[0].toBuffer().subarray(1),
+      this.kzgCommitment[1].toBuffer().subarray(-17),
+    ]);
+  }
+
   equals(other: BlobPublicInputs) {
     return (
       this.z.equals(other.z) &&

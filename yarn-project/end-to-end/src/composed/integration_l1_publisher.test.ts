@@ -215,6 +215,7 @@ describe('L1Publisher integration', () => {
     fileName: string,
     block: L2Block,
     l1ToL2Content: Fr[],
+    blob: Blob,
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
   ): void => {
@@ -243,6 +244,7 @@ describe('L1Publisher integration', () => {
         body: `0x${block.body.toBuffer().toString('hex')}`,
         decodedHeader: {
           contentCommitment: {
+            blobHash: `0x${block.header.contentCommitment.blobHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             numTxs: Number(block.header.contentCommitment.numTxs),
@@ -290,6 +292,7 @@ describe('L1Publisher integration', () => {
         },
         header: `0x${block.header.toBuffer().toString('hex')}`,
         publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        blobPublicInputs: blob.getEthBlobEvaluationInputs(),
         numTxs: block.body.txEffects.length,
       },
     };
@@ -364,7 +367,10 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
+        const blob = new Blob(block.body.toFields());
+        expect(block.header.contentCommitment.blobHash).toEqual(blob.getEthBlobHash());
+
+        writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, blob, recipientAddress, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
 
@@ -383,11 +389,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const blob = new Blob(block.body.toFields());
-
-        const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
         const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
-        expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
         expect(z).toEqual(blob.challengeZ.toString());
         expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
 
@@ -471,7 +473,10 @@ describe('L1Publisher integration', () => {
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
         blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-        writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+        const blob = new Blob(block.body.toFields());
+        expect(block.header.contentCommitment.blobHash).toEqual(blob.getEthBlobHash());
+
+        writeJson(`empty_block_${block.number}`, block, [], blob, AztecAddress.ZERO, deployerAccount.address);
 
         await publisher.proposeL2Block(block);
 
@@ -490,11 +495,7 @@ describe('L1Publisher integration', () => {
           hash: logs[i].transactionHash!,
         });
 
-        const blob = new Blob(block.body.toFields());
-
-        const [, , blobHash] = await rollup.read.blocks([BigInt(i + 1)]);
         const [z, y] = await rollup.read.blobPublicInputs([BigInt(i + 1)]);
-        expect(blobHash).toEqual(`0x${blob.getEthVersionedBlobHash().toString('hex')}`);
         expect(z).toEqual(blob.challengeZ.toString());
         expect(y).toEqual(`0x${blob.evaluationY.toString('hex')}`);
 

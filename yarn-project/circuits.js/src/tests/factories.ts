@@ -1116,6 +1116,7 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     makeTuple(FIELDS_PER_BLOB, fr, 0x2400),
     makeTuple(2, fr, 0x2500),
+    fr(seed + 0x2600),
   );
 }
 
@@ -1202,6 +1203,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
 export function makeContentCommitment(seed = 0): ContentCommitment {
   return new ContentCommitment(
     new Fr(seed),
+    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
     toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
   );

@@ -24,33 +24,34 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
  *  |                                                                                  |              |   ContentCommitment {
  *  | 0x0024                                                                           | 0x20         |     numTxs
- *  | 0x0044                                                                           | 0x20         |     inHash
- *  | 0x0064                                                                           | 0x20         |     outHash
+ *  | 0x0044                                                                           | 0x20         |     blobHash
+ *  | 0x0064                                                                           | 0x20         |     inHash
+ *  | 0x0084                                                                           | 0x20         |     outHash
  *  |                                                                                  |              |   StateReference {
- *  | 0x0084                                                                           | 0x20         |     l1ToL2MessageTree.root
- *  | 0x00a4                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
+ *  | 0x00a4                                                                           | 0x20         |     l1ToL2MessageTree.root
+ *  | 0x00c4                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     PartialStateReference {
- *  | 0x00a8                                                                           | 0x20         |       noteHashTree.root
- *  | 0x00c8                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
- *  | 0x00cc                                                                           | 0x20         |       nullifierTree.root
- *  | 0x00ec                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
- *  | 0x00f0                                                                           | 0x20         |       publicDataTree.root
- *  | 0x0110                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
+ *  | 0x00c8                                                                           | 0x20         |       noteHashTree.root
+ *  | 0x00e8                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
+ *  | 0x00ec                                                                           | 0x20         |       nullifierTree.root
+ *  | 0x010c                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
+ *  | 0x0110                                                                           | 0x20         |       publicDataTree.root
+ *  | 0x0130                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     }
  *  |                                                                                  |              |   }
  *  |                                                                                  |              |   GlobalVariables {
- *  | 0x0114                                                                           | 0x20         |     chainId
- *  | 0x0134                                                                           | 0x20         |     version
- *  | 0x0154                                                                           | 0x20         |     blockNumber
- *  | 0x0174                                                                           | 0x20         |     slotNumber
- *  | 0x0194                                                                           | 0x20         |     timestamp
- *  | 0x01b4                                                                           | 0x14         |     coinbase
- *  | 0x01c8                                                                           | 0x20         |     feeRecipient
- *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
- *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
+ *  | 0x0134                                                                           | 0x20         |     chainId
+ *  | 0x0154                                                                           | 0x20         |     version
+ *  | 0x0174                                                                           | 0x20         |     blockNumber
+ *  | 0x0194                                                                           | 0x20         |     slotNumber
+ *  | 0x01b4                                                                           | 0x20         |     timestamp
+ *  | 0x01d4                                                                           | 0x14         |     coinbase
+ *  | 0x01e8                                                                           | 0x20         |     feeRecipient
+ *  | 0x0208                                                                           | 0x20         |     gasFees.feePerDaGas
+ *  | 0x0228                                                                           | 0x20         |     gasFees.feePerL2Gas
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
- *  | 0x0228                                                                           | 0x20         | total_fees
+ *  | 0x0248                                                                           | 0x20         | total_fees
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -90,6 +91,7 @@ library HeaderLib {
 
   struct ContentCommitment {
     uint256 numTxs;
+    bytes32 blobHash;
     bytes32 inHash;
     bytes32 outHash;
   }
@@ -121,38 +123,40 @@ library HeaderLib {
     header.lastArchive = AppendOnlyTreeSnapshot(
       bytes32(_header[0x0000:0x0020]), uint32(bytes4(_header[0x0020:0x0024]))
     );
+
     // Reading ContentCommitment
     header.contentCommitment.numTxs = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.inHash = bytes32(_header[0x0044:0x0064]);
-    header.contentCommitment.outHash = bytes32(_header[0x0064:0x0084]);
+    header.contentCommitment.blobHash = bytes32(_header[0x0044:0x0064]);
+    header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
+    header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
 
     // Reading StateReference
     header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x0084:0x00a4]), uint32(bytes4(_header[0x00a4:0x00a8]))
+      bytes32(_header[0x00a4:0x00c4]), uint32(bytes4(_header[0x00c4:0x00c8]))
     );
     header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00a8:0x00c8]), uint32(bytes4(_header[0x00c8:0x00cc]))
+      bytes32(_header[0x00c8:0x00e8]), uint32(bytes4(_header[0x00e8:0x00ec]))
     );
     header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00cc:0x00ec]), uint32(bytes4(_header[0x00ec:0x00f0]))
+      bytes32(_header[0x00ec:0x010c]), uint32(bytes4(_header[0x010c:0x0110]))
     );
     header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00f0:0x0110]), uint32(bytes4(_header[0x0110:0x0114]))
+      bytes32(_header[0x0110:0x0130]), uint32(bytes4(_header[0x0130:0x0134]))
     );
 
     // Reading GlobalVariables
-    header.globalVariables.chainId = uint256(bytes32(_header[0x0114:0x0134]));
-    header.globalVariables.version = uint256(bytes32(_header[0x0134:0x0154]));
-    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0154:0x0174]));
-    header.globalVariables.slotNumber = uint256(bytes32(_header[0x0174:0x0194]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x0194:0x01b4]));
-    header.globalVariables.coinbase = address(bytes20(_header[0x01b4:0x01c8]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
-    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
-    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
+    header.globalVariables.chainId = uint256(bytes32(_header[0x0134:0x0154]));
+    header.globalVariables.version = uint256(bytes32(_header[0x0154:0x0174]));
+    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
+    header.globalVariables.slotNumber = uint256(bytes32(_header[0x0194:0x01b4]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b4:0x01d4]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x01d4:0x01e8]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01e8:0x0208]);
+    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x0208:0x0228]));
+    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0228:0x0248]));
 
     // Reading totalFees
-    header.totalFees = uint256(bytes32(_header[0x0228:0x0248]));
+    header.totalFees = uint256(bytes32(_header[0x0248:0x0268]));
 
     return header;
   }
