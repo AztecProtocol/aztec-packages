@@ -177,8 +177,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose(`Re-ex: Re-execution complete`);
 
     // This function will throw an error if state updates do not match
-    console.log('block arvhive:', block.archive.root.toString());
-    console.log('proposal archive:', proposal.archive.toString());
     if (!block.archive.root.equals(proposal.archive)) {
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
