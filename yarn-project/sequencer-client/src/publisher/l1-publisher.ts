@@ -17,7 +17,7 @@ import {
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
+import { GasUtils, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -161,6 +161,8 @@ export class L1Publisher {
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
+  private readonly gasUtils: GasUtils;
+
   constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
@@ -195,6 +197,23 @@ export class L1Publisher {
         client: this.walletClient,
       });
     }
+
+    this.gasUtils = new GasUtils(
+      this.publicClient,
+      this.log,
+      {
+        bufferPercentage: 20n,
+        maxGwei: 500n,
+        minGwei: 1n,
+        priorityFeeGwei: 15n / 10n,
+      },
+      {
+        maxAttempts: 5,
+        checkIntervalMs: 30_000,
+        stallTimeMs: 120_000,
+        gasPriceIncrease: 75n,
+      },
+    );
   }
 
   public getPayLoad() {
@@ -693,8 +712,33 @@ export class L1Publisher {
       const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
       const txArgs = [...this.getSubmitEpochProofArgs(args), proofHex] as const;
       this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
-      await this.rollupContract.simulate.submitEpochRootProof(txArgs, { account: this.account });
-      return await this.rollupContract.write.submitEpochRootProof(txArgs, { account: this.account });
+
+      // Estimate gas and get price
+      const gasLimit = await this.gasUtils.estimateGas(() =>
+        this.rollupContract.estimateGas.submitEpochRootProof(txArgs, { account: this.account }),
+      );
+      const maxFeePerGas = await this.gasUtils.getGasPrice();
+
+      const txHash = await this.rollupContract.write.submitEpochRootProof(txArgs, {
+        account: this.account,
+        gas: gasLimit,
+        maxFeePerGas,
+      });
+
+      // Monitor transaction
+      await this.gasUtils.monitorTransaction(txHash, this.walletClient, {
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: this.rollupContract.abi,
+          functionName: 'submitEpochRootProof',
+          args: txArgs,
+        }),
+        nonce: await this.publicClient.getTransactionCount({ address: this.account.address }),
+        gasLimit,
+        maxFeePerGas,
+      });
+
+      return txHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
       return undefined;
@@ -703,14 +747,16 @@ export class L1Publisher {
 
   private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
     // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-    const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
-      to: this.rollupContract.address,
-      data: encodeFunctionData({
-        abi: this.rollupContract.abi,
-        functionName: 'computeTxsEffectsHash',
-        args: [`0x${encodedData.body.toString('hex')}`],
+    const computeTxsEffectsHashGas = await this.gasUtils.estimateGas(() =>
+      this.publicClient.estimateGas({
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: this.rollupContract.abi,
+          functionName: 'computeTxsEffectsHash',
+          args: [`0x${encodedData.body.toString('hex')}`],
+        }),
       }),
-    });
+    );
 
     // @note  We perform this guesstimate instead of the usual `gasEstimate` since
     //        viem will use the current state to simulate against, which means that
@@ -718,6 +764,7 @@ export class L1Publisher {
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
     const gasGuesstimate = computeTxsEffectsHashGas + gasGuess;
+    const maxFeePerGas = await this.gasUtils.getGasPrice();
 
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
@@ -732,7 +779,7 @@ export class L1Publisher {
       `0x${encodedData.body.toString('hex')}`,
     ] as const;
 
-    return { args, gasGuesstimate };
+    return { args, gasGuesstimate, maxFeePerGas };
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -768,13 +815,32 @@ export class L1Publisher {
       return undefined;
     }
     try {
-      const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
+      const { args, gasGuesstimate, maxFeePerGas } = await this.prepareProposeTx(
+        encodedData,
+        L1Publisher.PROPOSE_GAS_GUESS,
+      );
+
+      const txHash = await this.rollupContract.write.propose(args, {
+        account: this.account,
+        gas: gasGuesstimate,
+        maxFeePerGas,
+      });
+
+      // Monitor the transaction and speed it up if needed
+      const receipt = await this.gasUtils.monitorTransaction(txHash, this.walletClient, {
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: this.rollupContract.abi,
+          functionName: 'propose',
+          args,
+        }),
+        nonce: await this.publicClient.getTransactionCount({ address: this.account.address }),
+        gasLimit: gasGuesstimate,
+        maxFeePerGas,
+      });
 
       return {
-        hash: await this.rollupContract.write.propose(args, {
-          account: this.account,
-          gas: gasGuesstimate,
-        }),
+        hash: receipt.transactionHash,
         args,
         functionName: 'propose',
         gasLimit: gasGuesstimate,
@@ -794,7 +860,7 @@ export class L1Publisher {
       return undefined;
     }
     try {
-      const { args, gasGuesstimate } = await this.prepareProposeTx(
+      const { args, gasGuesstimate, maxFeePerGas } = await this.prepareProposeTx(
         encodedData,
         L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
       );
@@ -805,6 +871,7 @@ export class L1Publisher {
         hash: await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
           account: this.account,
           gas: gasGuesstimate,
+          maxFeePerGas,
         }),
         functionName: 'proposeAndClaim',
         args,

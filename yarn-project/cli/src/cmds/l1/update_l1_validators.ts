@@ -1,6 +1,6 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION, type EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain, isAnvilTestChain } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
@@ -53,9 +53,11 @@ export async function addL1Validator({
   const txHash = await rollup.write.addValidator([validatorAddress.toString()]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
-  dualLog(`Funding validator on L1`);
-  const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  if (isAnvilTestChain(chainId)) {
+    dualLog(`Funding validator on L1`);
+    const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
+    await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  }
 }
 
 export async function removeL1Validator({

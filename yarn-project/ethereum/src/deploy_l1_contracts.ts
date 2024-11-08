@@ -51,6 +51,7 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './ethereum_chain.js';
+import { GasUtils } from './gas_utils.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
@@ -656,15 +657,63 @@ export async function deployL1Contract(
     const existing = await publicClient.getBytecode({ address });
 
     if (existing === undefined || existing === '0x') {
-      txHash = await walletClient.sendTransaction({ to: deployer, data: concatHex([salt, calldata]) });
-      logger?.verbose(`Deploying contract with salt ${salt} to address ${address} in tx ${txHash}`);
+      // Add gas estimation and price buffering for CREATE2 deployment
+      const deployData = encodeDeployData({ abi, bytecode, args });
+      const gasUtils = new GasUtils(publicClient, logger);
+      const gasEstimate = await gasUtils.estimateGas(() =>
+        publicClient.estimateGas({
+          account: walletClient.account?.address,
+          data: deployData,
+        }),
+      );
+      const gasPrice = await gasUtils.getGasPrice();
+
+      txHash = await walletClient.sendTransaction({
+        to: deployer,
+        data: concatHex([salt, calldata]),
+        gas: gasEstimate,
+        maxFeePerGas: gasPrice,
+      });
+      logger?.verbose(
+        `Deploying contract with salt ${salt} to address ${address} in tx ${txHash} (gas: ${gasEstimate}, price: ${gasPrice})`,
+      );
     } else {
       logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
     }
   } else {
-    txHash = await walletClient.deployContract({ abi, bytecode, args });
-    logger?.verbose(`Deploying contract in tx ${txHash}`);
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, pollingInterval: 100 });
+    // Regular deployment path
+    const deployData = encodeDeployData({ abi, bytecode, args });
+    const gasUtils = new GasUtils(publicClient, logger);
+    const gasEstimate = await gasUtils.estimateGas(() =>
+      publicClient.estimateGas({
+        account: walletClient.account?.address,
+        data: deployData,
+      }),
+    );
+    const gasPrice = await gasUtils.getGasPrice();
+
+    txHash = await walletClient.deployContract({
+      abi,
+      bytecode,
+      args,
+      gas: gasEstimate,
+      maxFeePerGas: gasPrice,
+    });
+
+    // Monitor deployment transaction
+    await gasUtils.monitorTransaction(txHash, walletClient, {
+      to: '0x', // Contract creation
+      data: deployData,
+      nonce: await publicClient.getTransactionCount({ address: walletClient.account!.address }),
+      gasLimit: gasEstimate,
+      maxFeePerGas: gasPrice,
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      pollingInterval: 100,
+      timeout: 60_000, // 1min
+    });
     address = receipt.contractAddress;
     if (!address) {
       throw new Error(

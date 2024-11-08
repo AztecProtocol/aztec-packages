@@ -1,8 +1,13 @@
-import { createCompatibleClient } from '@aztec/aztec.js';
+import { type AztecNode, type PXE, createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log: LogFn) {
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
+export async function getNodeInfo(rpcUrl: string, pxeRequest: boolean, debugLogger: DebugLogger, log: LogFn) {
+  let client: AztecNode | PXE;
+  if (pxeRequest) {
+    client = await createCompatibleClient(rpcUrl, debugLogger);
+  } else {
+    client = createAztecNodeClient(rpcUrl);
+  }
   const info = await client.getNodeInfo();
   log(`Node Version: ${info.nodeVersion}`);
   log(`Chain Id: ${info.l1ChainId}`);

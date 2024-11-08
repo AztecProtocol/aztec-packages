@@ -15,14 +15,14 @@ P2P_PORT="$2"
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."
-until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ] ; do
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do
   sleep 1
 done
 
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
 
 echo "Waiting for Aztec Node..."
-until curl -s http://127.0.0.1:8080/status >/dev/null ; do
+until curl -s http://127.0.0.1:8080/status >/dev/null; do
   sleep 1
 done
 echo "Done waiting."
@@ -37,15 +37,26 @@ output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js get-nod
 export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 echo "BOOTSTRAP_NODES: $BOOTSTRAP_NODES"
 
-# Generate a private key for the validator
-json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
-export ADDRESS=$(echo $json_account | jq -r '.address')
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
-export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
+# Generate a private key for the validator only if not already set
+if [ -z "${VALIDATOR_PRIVATE_KEY:-}" ] || [ -z "${ADDRESS:-}" ]; then
+  echo ""
+  echo ""
+  echo "Generating L1 Validator account..."
+  echo ""
+  echo ""
+  json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
+  export ADDRESS=$(echo $json_account | jq -r '.address')
+  export VALIDATOR_PRIVATE_KEY=$(echo $json_account | jq -r '.privateKey')
+  echo "Validator address: $ADDRESS"
+  echo "Validator private key: $VALIDATOR_PRIVATE_KEY"
+fi
+
+export PRIVATE_KEY=${PRIVATE_KEY:-}
 export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
-export ETHEREUM_HOST="http://127.0.0.1:8545"
+export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export IS_ANVIL=${IS_ANVIL:-"true"}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
 export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
@@ -59,15 +70,24 @@ export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOIN
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}"
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 
-# Add L1 validator
-# this may fail, so try 3 times
-for i in {1..3}; do
-  node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
-  sleep 1
-done
+# Check if validator is already registered
+echo "Checking if validator is already registered..."
+debug_output=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js debug-rollup --rollup $ROLLUP_CONTRACT_ADDRESS)
+if echo "$debug_output" | grep -q "Validators:.*$ADDRESS"; then
+  echo "Validator $ADDRESS is already registered"
+else
+  # Add L1 validator
+  # this may fail, so try 3 times
+  echo "Adding validator $ADDRESS..."
+  for i in {1..3}; do
+    node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $ADDRESS --rollup $ROLLUP_CONTRACT_ADDRESS && break
+    sleep 1
+  done
+fi
 
-# Fast forward epochs
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+# Fast forward epochs if we're on an anvil chain
+if [ "$IS_ANVIL" = "true" ]; then
+  node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js fast-forward-epochs --rollup $ROLLUP_CONTRACT_ADDRESS --count 1
+fi
 # Start the Validator Node with the sequencer and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer
-

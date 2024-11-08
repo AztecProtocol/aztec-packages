@@ -6,6 +6,7 @@ import type {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  NodeInfo,
   PUBLIC_DATA_TREE_HEIGHT,
   ProtocolContractAddresses,
 } from '@aztec/circuits.js';
@@ -187,6 +188,13 @@ export interface AztecNode extends ProverCoordination {
    * @returns - Flag indicating the readiness for tx submission.
    */
   isReady(): Promise<boolean>;
+
+  /**
+   * Returns the information about the server's node. Includes current Node version, compatible Noir version,
+   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * @returns - The node information.
+   */
+  getNodeInfo(): Promise<NodeInfo>;
 
   /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
