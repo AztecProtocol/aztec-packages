@@ -73,6 +73,8 @@ impl Deserialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationReques
             split_counter: if reader.read_bool() {
                 Option::some(reader.read_u32())
             } else {
+                 // We need to read the final reader value even if we don't use it in order to flush the reader.
+                let _ = reader.read_u32();
                 Option::none()
             },
         };
