@@ -264,7 +264,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     }
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to construct and accumulate all circuits: ", diff);
+    vinfo("time to construct and accumulate all circuits: ", diff.count());
 
     vinfo("calling ivc.prove_and_verify...");
     bool result = ivc.prove_and_verify();

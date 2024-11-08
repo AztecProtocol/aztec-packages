@@ -295,7 +295,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        vinfo("time to construct proving key: ", diff, " ms.");
+        vinfo("time to construct proving key: ", diff.count(), " ms.");
     }
 
     DeciderProvingKey_() = default;
