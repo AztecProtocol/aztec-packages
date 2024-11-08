@@ -285,14 +285,8 @@ export class L1ToL2TokenPortalManager {
   ): Promise<L2AmountClaimWithRecipient> {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
-    const redeemSecret = Fr.random();
-    const redeemSecretHash = computeSecretHash(redeemSecret);
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
-    const { request } = await this.portal.simulate.depositToAztecPrivate([
-      redeemSecretHash.toString(),
-      amount,
-      claimSecretHash.toString(),
-    ]);
+    const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
 
     const txReceipt = await this.publicClient.waitForTransactionReceipt({
       hash: await this.walletClient.writeContract(request),
@@ -307,7 +301,9 @@ export class L1ToL2TokenPortalManager {
       this.logger,
     );
 
-    this.logger.info(`Redeem shield secret: ${redeemSecret.toString()}, secret hash: ${redeemSecretHash.toString()}`);
+    this.logger.info(
+      `Claim message secret: ${claimSecret.toString()}, claim message secret hash: ${claimSecretHash.toString()}`,
+    );
 
     return {
       claimAmount: new Fr(amount),
@@ -328,7 +324,7 @@ export class L1ToL2TokenPortalManager {
   }
 }
 
-/** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and briding to L2. */
+/** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and bridging to L2. */
 export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
   private readonly outbox: GetContractReturnType<typeof OutboxAbi, WalletClient<HttpTransport, Chain, Account>>;
 
