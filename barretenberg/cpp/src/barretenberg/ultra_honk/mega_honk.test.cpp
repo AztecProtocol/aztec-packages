@@ -50,11 +50,16 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     }
 
     /**
-     * @brief Construct and a verify a Honk proof
+     * @brief Construct and a verify a Honk proof using a specified structured trace
      *
      */
     bool construct_and_verify_honk_proof_with_structured_trace(auto& builder, TraceSettings& trace_settings)
     {
+        // no ZK flavor for now
+        using Prover = UltraProver_<MegaFlavor>;
+        using Verifier = UltraVerifier_<MegaFlavor>;
+        using VerificationKey = typename MegaFlavor::VerificationKey;
+        using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
         auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
 
         Prover prover(proving_key);
