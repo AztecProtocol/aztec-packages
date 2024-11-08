@@ -16,7 +16,7 @@ describe('ArtifactHash', () => {
       notes: {},
     };
     expect(computeArtifactHash(emptyArtifact).toString()).toMatchInlineSnapshot(
-      `"0x0dea64e7fa0688017f77bcb7075485485afb4a5f1f8508483398869439f82fdf"`,
+      `"0x0c6fd9b48570721c5d36f978d084d77cacbfd2814f1344985f40e62bea6e61be"`,
     );
   });
 });

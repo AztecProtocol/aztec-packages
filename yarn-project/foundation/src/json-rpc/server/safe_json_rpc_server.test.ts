@@ -21,8 +21,8 @@ describe('SafeJsonRpcServer', () => {
   const send = (body: any) => request(server.getApp().callback()).post('/').send(body);
 
   const expectError = (response: request.Response, httpCode: number, message: string) => {
-    expect(response.status).toBe(httpCode);
     expect(JSON.parse(response.text)).toMatchObject({ error: { message } });
+    expect(response.status).toBe(httpCode);
   };
 
   describe('single', () => {

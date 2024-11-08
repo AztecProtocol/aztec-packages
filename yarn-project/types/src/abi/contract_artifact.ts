@@ -179,10 +179,10 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
     parameters,
     returnTypes,
     bytecode: Buffer.from(fn.bytecode, 'base64'),
-    verificationKey: fn.verification_key,
     debugSymbols: fn.debug_symbols,
     errorTypes: fn.abi.error_types,
     ...(fn.assert_messages ? { assertMessages: fn.assert_messages } : undefined),
+    ...(fn.verification_key ? { verificationKey: fn.verification_key } : undefined),
   };
 }
 

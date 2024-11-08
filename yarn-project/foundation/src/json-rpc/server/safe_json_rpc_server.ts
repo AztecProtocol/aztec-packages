@@ -46,7 +46,8 @@ export class SafeJsonRpcServer {
       try {
         await next();
       } catch (err: any) {
-        this.log.warn(`Error in JSON RPC server call ${(ctx.request.body as any).method}: ${inspect(err)}`);
+        const method = (ctx.request.body as any)?.method ?? 'unknown';
+        this.log.warn(`Error in JSON RPC server call ${method}: ${inspect(err)}`);
         if (err instanceof SyntaxError) {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
