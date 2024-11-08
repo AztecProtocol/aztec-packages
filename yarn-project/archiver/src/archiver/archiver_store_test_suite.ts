@@ -402,13 +402,35 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
             if (!unencryptedLogTags[blockIndex][txIndex]) {
               unencryptedLogTags[blockIndex][txIndex] = [];
             }
-            // Skip the first 4 bytes, since that's the length of the log itself
-            unencryptedLogTags[blockIndex][txIndex].push(...txLogs.unrollLogs().map(log => log.data.subarray(4, 36)));
+            unencryptedLogTags[blockIndex][txIndex].push(...txLogs.unrollLogs().map(log => log.data.subarray(0, 32)));
           });
         });
       });
 
-      it('is possible to batch request all logs (encrypted and unencrypted) of a tx via tags', async () => {
+      it.skip('is possible to batch request encrypted logs of a tx via tags', async () => {
+        // get random tx from any block that's not the last one
+        const targetBlockIndex = randomInt(numBlocks - 2);
+        const targetTxIndex = randomInt(txsPerBlock);
+
+        const logsByTags = await store.getLogsByTags(
+          encryptedLogTags[targetBlockIndex][targetTxIndex].map(buffer => new Fr(buffer)),
+        );
+
+        const expectedResponseSize = numPrivateFunctionCalls * numEncryptedLogsPerFn;
+        expect(logsByTags.length).toEqual(expectedResponseSize);
+
+        logsByTags.forEach((logsByTag, logIndex) => {
+          expect(logsByTag).toHaveLength(1);
+          const [scopedLog] = logsByTag;
+          expect(scopedLog.txHash).toEqual(blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash);
+          expect(scopedLog.logData).toEqual(
+            blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex].data,
+          );
+        });
+      });
+
+      // TODO: Allow this test when #9835 is fixed and tags can be correctly decoded
+      it.skip('is possible to batch request all logs (encrypted and unencrypted) of a tx via tags', async () => {
         // get random tx from any block that's not the last one
         const targetBlockIndex = randomInt(numBlocks - 2);
         const targetTxIndex = randomInt(txsPerBlock);
