@@ -718,9 +718,11 @@ std::vector<Row> Execution::gen_trace(std::vector<FF> const& calldata,
 
             // Misc
         case OpCode::DEBUGLOG:
-            // We want a noop, but we need to execute something that both advances the PC,
-            // and adds a valid row to the trace.
-            trace_builder.op_jump(pc + Deserialization::get_pc_increment(OpCode::DEBUGLOG));
+            trace_builder.op_debug_log(std::get<uint8_t>(inst.operands.at(0)),
+                                       std::get<uint16_t>(inst.operands.at(1)),
+                                       std::get<uint16_t>(inst.operands.at(2)),
+                                       std::get<uint16_t>(inst.operands.at(3)),
+                                       std::get<uint16_t>(inst.operands.at(4)));
             break;
 
             // Gadgets

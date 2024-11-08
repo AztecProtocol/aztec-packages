@@ -166,6 +166,13 @@ class AvmTraceBuilder {
     // REVERT Opcode (that just call return under the hood for now)
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset);
 
+    // Misc
+    void op_debug_log(uint8_t indirect,
+                      uint32_t message_offset,
+                      uint32_t message_size,
+                      uint32_t fields_offset,
+                      uint32_t fields_size_offset);
+
     // Gadgets
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
     void op_ec_add(uint16_t indirect,

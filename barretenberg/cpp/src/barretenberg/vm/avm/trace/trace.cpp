@@ -3106,6 +3106,53 @@ std::vector<FF> AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 }
 
 /**************************************************************************************************
+ *                                   MISC
+ **************************************************************************************************/
+
+void AvmTraceBuilder::op_debug_log(uint8_t indirect,
+                                   uint32_t message_offset,
+                                   uint32_t message_size,
+                                   uint32_t fields_offset,
+                                   uint32_t fields_size_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto [resolved_message_offset, resolved_fields_offset, resolved_fields_size_offset] =
+        Addressing<3>::fromWire(indirect, call_ptr)
+            .resolve({ message_offset, fields_offset, fields_size_offset }, mem_trace_builder);
+
+    // Tags checking
+    bool op_valid = unconstrained_get_memory_tag(resolved_fields_size_offset) == AvmMemoryTag::U32;
+
+    const uint32_t fields_size =
+        op_valid ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_fields_size_offset)) : 0;
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
+
+    if (op_valid) {
+        for (uint32_t i = 0; i < message_size; i++) {
+            op_valid = op_valid && unconstrained_get_memory_tag(resolved_message_offset + i) == AvmMemoryTag::U8;
+        }
+
+        for (uint32_t i = 0; i < fields_size; i++) {
+            op_valid = op_valid && unconstrained_get_memory_tag(resolved_fields_offset + i) == AvmMemoryTag::FF;
+        }
+    }
+
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_call_ptr = call_ptr,
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
+        .main_pc = FF(pc),
+        .main_sel_op_debug_log = FF(1),
+    });
+
+    pc += Deserialization::get_pc_increment(OpCode::DEBUGLOG);
+}
+
+/**************************************************************************************************
  *                                   GADGETS
  **************************************************************************************************/
 
@@ -3239,6 +3286,9 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
                                             uint32_t state_offset,
                                             uint32_t inputs_offset)
 {
+    const uint32_t STATE_SIZE = 8;
+    const uint32_t INPUTS_SIZE = 16;
+
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -3253,6 +3303,15 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     auto read_b = constrained_read_from_memory(
         call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
+
+    bool op_valid = true;
+    for (uint32_t i = 0; i < STATE_SIZE; i++) {
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_state_offset + i) == AvmMemoryTag::U32;
+    }
+
+    for (uint32_t i = 0; i < INPUTS_SIZE; i++) {
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_inputs_offset + i) == AvmMemoryTag::U32;
+    }
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
@@ -3274,6 +3333,7 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(read_a.direct_address),
         .main_mem_addr_b = FF(read_b.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
         .main_sel_mem_op_a = FF(1),
@@ -3283,6 +3343,12 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
+
+    if (!op_valid) {
+        pc = UINT32_MAX;
+        return;
+    }
+
     // We store the current clk this main trace row occurred so that we can line up the sha256 gadget operation at
     // the same clk later.
     auto sha_op_clk = clk;
@@ -3332,31 +3398,35 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offset, u
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ output_offset, input_offset }, mem_trace_builder);
     auto input_read = constrained_read_from_memory(
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
-    auto output_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_output_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IC);
-    bool tag_match = input_read.tag_match && output_read.tag_match;
+    bool tag_match = input_read.tag_match;
+
+    bool op_valid = true;
+    for (uint32_t i = 0; i < KECCAKF1600_INPUT_SIZE; i++) {
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_input_offset + i) == AvmMemoryTag::U64;
+    }
 
     // Constrain gas cost
     gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
 
     main_trace.push_back(Row{
         .main_clk = clk,
-        .main_ia = input_read.val,  // First element of input
-        .main_ic = output_read.val, // First element of output
+        .main_ia = input_read.val, // First element of input
         .main_ind_addr_a = FF(input_read.indirect_address),
-        .main_ind_addr_c = FF(output_read.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = FF(input_read.direct_address),
-        .main_mem_addr_c = FF(output_read.direct_address),
+        .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U64)),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_mem_op_c = FF(1),
         .main_sel_op_keccak = FF(1),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(input_read.is_indirect)),
-        .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(output_read.is_indirect)),
         .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
     });
+
+    if (!op_valid) {
+        pc = UINT32_MAX;
+        return;
+    }
 
     // Array input is fixed to 1600 bits
     std::vector<uint64_t> input_vec;
@@ -3402,6 +3472,32 @@ void AvmTraceBuilder::op_ec_add(uint16_t indirect,
                                                    output_offset },
                                                  mem_trace_builder);
 
+    // Tag checking
+    const auto lhs_x_tag = unconstrained_get_memory_tag(resolved_lhs_x_offset);
+    const auto lhs_y_tag = unconstrained_get_memory_tag(resolved_lhs_y_offset);
+    const auto lhs_is_inf_tag = unconstrained_get_memory_tag(resolved_lhs_is_inf_offset);
+    const auto rhs_x_tag = unconstrained_get_memory_tag(resolved_rhs_x_offset);
+    const auto rhs_y_tag = unconstrained_get_memory_tag(resolved_rhs_y_offset);
+    const auto rhs_is_inf_tag = unconstrained_get_memory_tag(resolved_rhs_is_inf_offset);
+
+    bool op_valid = lhs_x_tag == AvmMemoryTag::FF && lhs_y_tag == AvmMemoryTag::FF &&
+                    lhs_is_inf_tag == AvmMemoryTag::U1 && rhs_x_tag == AvmMemoryTag::FF &&
+                    rhs_y_tag == AvmMemoryTag::FF && rhs_is_inf_tag == AvmMemoryTag::U1;
+
+    gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
+
+    if (!op_valid) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = FF(1),
+            .main_pc = FF(pc),
+            .main_sel_op_ecadd = 1,
+        });
+        pc = UINT32_MAX;
+        return;
+    }
+
     // Load lhs point
     auto lhs_x_read = unconstrained_read_from_memory(resolved_lhs_x_offset);
     auto lhs_y_read = unconstrained_read_from_memory(resolved_lhs_y_offset);
@@ -3428,8 +3524,6 @@ void AvmTraceBuilder::op_ec_add(uint16_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
-
     pc += Deserialization::get_pc_increment(OpCode::ECADD);
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
@@ -3437,7 +3531,7 @@ void AvmTraceBuilder::op_ec_add(uint16_t indirect,
     // Write point coordinates
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
+    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U1);
 }
 
 void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
@@ -3451,14 +3545,45 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         Addressing<4>::fromWire(indirect, call_ptr)
             .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
 
-    auto points_length = unconstrained_read_from_memory(resolved_point_length_offset);
+    bool op_valid = unconstrained_get_memory_tag(resolved_point_length_offset) == AvmMemoryTag::U32;
+    const FF points_length = op_valid ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
 
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
-    uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
+    const uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
     // We need to split up the reads due to the memory tags,
     std::vector<FF> points_coords_vec;
     std::vector<FF> points_inf_vec;
     std::vector<FF> scalars_vec;
+
+    for (uint32_t i = 0; i < num_points; i++) {
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_points_offset + 3 * i) == AvmMemoryTag::FF;
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_points_offset + 3 * i + 1) == AvmMemoryTag::FF;
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_points_offset + 3 * i + 2) == AvmMemoryTag::U1;
+    }
+
+    // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
+    uint32_t scalar_read_length = num_points * 2;
+
+    for (uint32_t i = 0; i < scalar_read_length; i++) {
+        op_valid = op_valid && unconstrained_get_memory_tag(resolved_scalars_offset + i) == AvmMemoryTag::FF;
+    }
+
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
+
+    if (!op_valid) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = FF(static_cast<uint32_t>(!op_valid)),
+            .main_pc = FF(pc),
+            .main_sel_op_msm = 1,
+        });
+
+        pc = UINT32_MAX;
+        return;
+    }
 
     // Loading the points is a bit more complex since we need to read the coordinates and the infinity flags
     // separately The current circuit constraints does not allow for multiple memory tags to be loaded from within
@@ -3474,8 +3599,7 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         points_coords_vec.insert(points_coords_vec.end(), { point_x1, point_y1 });
         points_inf_vec.emplace_back(infty);
     }
-    // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
-    uint32_t scalar_read_length = num_points * 2;
+
     // Scalars are easy to read since they are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF,FF,
     // ...]
     read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
@@ -3513,10 +3637,6 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
-    // run out of gas. Casting/truncating here is not secure.
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
-
     pc += Deserialization::get_pc_increment(OpCode::MSM);
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
@@ -3524,7 +3644,7 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U8);
+    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U1);
 }
 
 /**************************************************************************************************
@@ -3559,12 +3679,18 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
         Addressing<3>::fromWire(indirect, call_ptr)
             .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
+
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
     // TODO(8603): once instructions can have multiple different tags for reads, constrain the radix's read
     // TODO(9497): if simulator fails tag check here, witgen will not. Raise error flag!
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
+
+    bool op_valid = unconstrained_get_memory_tag(resolved_radix_offset) == AvmMemoryTag::U32;
+
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 
     FF input = read_src.val;
@@ -3573,16 +3699,13 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
     bool radix_out_of_bounds = radix > 256;
-    bool error = radix_out_of_bounds || !read_src.tag_match; // || !read_radix.tag_match;
+    bool error = !op_valid || radix_out_of_bounds || !read_src.tag_match; // || !read_radix.tag_match;
 
     // In case of an error, we do not perform the computation.
     // Therefore, we do not create any entry in gadget table and we return a vector of 0.
     std::vector<uint8_t> res = error
                                    ? std::vector<uint8_t>(num_limbs, 0)
                                    : conversion_trace_builder.op_to_radix_be(input, radix, num_limbs, output_bits, clk);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
 
     // This is the row that contains the selector to trigger the sel_op_radix_be
     // In this row, we read the input value and the destination address into register A and B respectively
@@ -3600,7 +3723,7 @@ void AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
         .main_mem_addr_a = read_src.direct_address,
         // TODO(8603): uncomment
         //.main_mem_addr_b = read_radix.direct_address,
-        .main_op_err = error ? FF(1) : FF(0),
+        .main_op_err = FF(static_cast<uint32_t>(error)),
         .main_pc = FF(pc),
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .main_sel_mem_op_a = FF(1),
