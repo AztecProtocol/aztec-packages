@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731097477701,
+  "lastUpdate": 1731109324412,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "29b692f9e81e1ee809e37274cf6ac2ab0ca526ce",
-          "message": "feat!: getcontractinstance instruction returns only a specified member (#9300)\n\n`GETCONTRACTINSTANCE` now takes member enum as immediate operand and\r\nwrites/returns a single field from the contract instance. Also\r\nwrites/returns a u1/bool for \"exists\".\r\n\r\nChanged the trace to accept (separately) address, exists,\r\ncontractInstance since the trace generally operates on lower-level\r\ntypes, not structs.\r\n\r\nNoir has a different oracle for each enum value (similar to the `GETENV`\r\nvariations).",
-          "timestamp": "2024-10-27T17:49:52Z",
-          "tree_id": "69a14d67e1ace06d7ce342a0e15e9de6b1e95f95",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/29b692f9e81e1ee809e37274cf6ac2ab0ca526ce"
-        },
-        "date": 1730053034899,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30826.452797,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29056.790563 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5341.396951999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4997.648776 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91744.004195,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91744007000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15110.163371,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15110162000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2707414199,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2707414199 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 124794973,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 124794973 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 145279080,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 145279080 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "23c122d36091b3b756084584ecba59b800196d58",
+          "message": "fix: tree heights that last past 3 days (#9760)\n\nThe L1-L2 message tree height was a bottleneck running \r\n```\r\npost-mortem of 1-validator network (bot set to 0.05 TPS, 1 private / 2 public transfers per tx)\r\nLasted long, got to block 4091, last tried to propose block 4097\r\nHit issues and did not reorg past them\r\nRoot issue (guess):\r\n2024-11-05 08:32:53.148\tError assembling block: 'Error: Failed to append leaves: Tree is full'\r\n```\r\nAlso updated tree heights with constants proposed by @iAmMichaelConnor\r\nhere (https://github.com/AztecProtocol/aztec-packages/issues/9451)\r\n(thanks for the thoughtful analysis I could lazily steal!\r\nAutomated test is a bit awkward here or I'd write one. It'd either\r\ntrivially pass or have to go through 3-days worth of transactions.",
+          "timestamp": "2024-11-08T18:07:54-05:00",
+          "tree_id": "717c13b8c0bf4ff4d68f3ea9a779308514765576",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/23c122d36091b3b756084584ecba59b800196d58"
+        },
+        "date": 1731109316584,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29099.553415000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27115.808192000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5365.781077999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5025.194563999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84549.91017500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84549912000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15084.447399000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15084448000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3111354952,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3111354952 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143330783,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143330783 ns\nthreads: 1"
           }
         ]
       }
