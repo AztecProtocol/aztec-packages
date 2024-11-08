@@ -92,8 +92,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
                                                multivariate_challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
-                                               /* concatenation_group_commitments = */ {},
-                                               /* concatenated_evaluations = */ {},
                                                RefVector(libra_commitments),
                                                libra_evaluations);
     // Reduce the accumulator to a single opening claim
@@ -142,8 +140,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     const typename PCS::VerifierAccumulator batched_opening_accumulator =
-        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
-
+        PCS::reduce_verify(batch_opening_claim, transcript);
     ASSERT(sumcheck_verified);
 }
 

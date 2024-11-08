@@ -47,7 +47,7 @@ describe('benchmarks/tx_size_fees', () => {
   beforeAll(async () => {
     feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
-    fpc = await FPCContract.deploy(aliceWallet, token.address).send().deployed();
+    fpc = await FPCContract.deploy(aliceWallet, token.address, sequencerAddress).send().deployed();
   });
 
   // mint tokens
@@ -94,7 +94,7 @@ describe('benchmarks/tx_size_fees', () => {
     ],
     [
       'private fee',
-      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet),
+      () => new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet, sequencerAddress),
       // DA:
       // non-rev: 3 nullifiers, overhead; rev: 2 note hashes, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:

@@ -188,7 +188,8 @@ contract SpartaTest is DecoderBase {
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
-      bytes32 digest = keccak256(abi.encode(archive, txHashes));
+      uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
+      bytes32 digest = keccak256(abi.encode(domainSeperator, archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
         signatures[i] = createSignature(validators[i], digest);
       }

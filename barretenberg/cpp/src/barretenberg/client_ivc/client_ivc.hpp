@@ -155,7 +155,7 @@ class ClientIVC {
     HonkProof construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof,
-                       const std::shared_ptr<VerificationKey>& ultra_vk,
+                       const std::shared_ptr<VerificationKey>& mega_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 

@@ -326,10 +326,12 @@ class UltraFlavorWithZK;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
+class MegaZKFlavor;
 class TranslatorFlavor;
 class AvmFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
+template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
@@ -361,15 +363,18 @@ template <typename T>
 concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T>
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
+concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                    MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                    MegaRecursiveFlavor_<MegaCircuitBuilder>,
+MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T>
 concept HasDataBus = IsGoblinFlavor<T>;
@@ -381,6 +386,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
 MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
 TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
 TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
 TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
@@ -397,11 +404,15 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            UltraKeccakFlavor,
                                                            UltraFlavorWithZK,
                                                            MegaFlavor,
+                                                           MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
+MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T>
 concept FlavorHasZK =  T::HasZK;
 

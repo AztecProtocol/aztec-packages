@@ -496,7 +496,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
 
-    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
+    uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
+    bytes32 digest = keccak256(abi.encode(domainSeperator, _archive, _txHashes));
     setupEpoch();
     _validateHeader({
       _header: header,
