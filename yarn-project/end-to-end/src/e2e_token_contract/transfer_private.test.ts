@@ -35,9 +35,6 @@ describe('e2e_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    // We give wallets[0] access to wallets[1]'s notes to be able to transfer the notes.
-    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
-
     const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
@@ -111,9 +108,6 @@ describe('e2e_token_contract transfer private', () => {
       .methods.transfer_from(accounts[0].address, accounts[1].address, amount, nonce)
       .send();
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-
-    // We let wallets[0] see wallets[1]'s notes because the check uses wallets[0]'s wallet to interact with the contracts to "get" state.
-    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   describe('failure cases', () => {

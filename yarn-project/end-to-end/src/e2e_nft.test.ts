@@ -61,6 +61,8 @@ describe('NFT', () => {
     // In a simple "shield" flow the sender and recipient are the same. In the "AMM swap to private" flow
     // the sender would be the AMM contract.
     const recipient = user2Wallet.getAddress();
+    // The recipient has to register the original owner to be able to receive notes
+    await user2Wallet.registerContact(user1Wallet.getAddress());
 
     await nftContractAsUser1.methods.transfer_to_private(recipient, TOKEN_ID).send().wait();
 
@@ -100,6 +102,9 @@ describe('NFT', () => {
 
   it('transfers in private', async () => {
     const nftContractAsUser2 = await NFTContract.at(nftContractAddress, user2Wallet);
+
+    // The recipient has to register the original owner to be able to receive notes
+    await user1Wallet.registerContact(user2Wallet.getAddress());
 
     await nftContractAsUser2.methods
       .transfer_in_private(user2Wallet.getAddress(), user1Wallet.getAddress(), TOKEN_ID, 0)
