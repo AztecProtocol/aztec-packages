@@ -63,8 +63,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPrivately(claim);
-    // tokens were minted privately in a TransparentNote which the owner (person who knows the secret) must redeem:
-    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, claim.redeemSecret);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
@@ -140,19 +138,12 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
-    const consumptionReceipt = await l2Bridge
+    await l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_private(claim.redeemSecretHash, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
+      .methods.claim_private(ownerAddress, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
       .send()
       .wait();
 
-    // Now user1 can claim the notes that user2 minted on their behalf.
-    await crossChainTestHarness.addPendingShieldNoteToPXE(
-      bridgeAmount,
-      claim.redeemSecretHash,
-      consumptionReceipt.txHash,
-    );
-    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, claim.redeemSecret);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
   }),
     90_000;

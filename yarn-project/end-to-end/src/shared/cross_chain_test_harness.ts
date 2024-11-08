@@ -256,16 +256,14 @@ export class CrossChainTestHarness {
   }
 
   async consumeMessageOnAztecAndMintPrivately(
-    claim: Pick<L2RedeemableAmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'redeemSecretHash'>,
+    claim: Pick<L2RedeemableAmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'recipient'>,
   ) {
     this.logger.info('Consuming messages on L2 privately');
-    const { claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex, redeemSecretHash } = claim;
-    const consumptionReceipt = await this.l2Bridge.methods
-      .claim_private(redeemSecretHash, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
+    const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
+    await this.l2Bridge.methods
+      .claim_private(recipient, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
       .send()
       .wait();
-
-    await this.addPendingShieldNoteToPXE(claimAmount.toBigInt(), redeemSecretHash, consumptionReceipt.txHash);
   }
 
   async consumeMessageOnAztecAndMintPublicly(
@@ -340,14 +338,9 @@ export class CrossChainTestHarness {
     );
   }
 
-  async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
-    this.logger.info('Shielding funds on L2');
-    const shieldReceipt = await this.l2Token.methods
-      .shield(this.ownerAddress, shieldAmount, secretHash, 0)
-      .send()
-      .wait();
-
-    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
+  async transferToPrivateOnL2(shieldAmount: bigint) {
+    this.logger.info('Transferring to private on L2');
+    await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
   }
 
   async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
@@ -362,11 +355,6 @@ export class CrossChainTestHarness {
       txHash,
     );
     await this.ownerWallet.addNote(extendedNote);
-  }
-
-  async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
-    this.logger.info('Spending note in private call');
-    await this.l2Token.methods.redeem_shield(this.ownerAddress, shieldAmount, secret).send().wait();
   }
 
   async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {

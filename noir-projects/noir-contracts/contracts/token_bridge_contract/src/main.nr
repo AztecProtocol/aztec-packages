@@ -9,7 +9,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract TokenBridge {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, SharedImmutable};
 
     use dep::token_portal_content_hash_lib::{
         get_mint_private_content_hash, get_mint_public_content_hash, get_withdraw_content_hash,
@@ -27,7 +27,7 @@ contract TokenBridge {
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
-        token: PublicMutable<AztecAddress, Context>,
+        token: SharedImmutable<AztecAddress, Context>,
         portal_address: SharedImmutable<EthAddress, Context>,
     }
 
@@ -35,7 +35,7 @@ contract TokenBridge {
     #[public]
     #[initializer]
     fn constructor(token: AztecAddress, portal_address: EthAddress) {
-        storage.token.write(token);
+        storage.token.initialize(token);
         storage.portal_address.initialize(portal_address);
     }
     // docs:end:token_bridge_storage_and_constructor
@@ -65,7 +65,7 @@ contract TokenBridge {
         );
 
         // Mint tokens
-        Token::at(storage.token.read()).mint_public(to, amount).call(&mut context);
+        Token::at(storage.token.read_public()).mint_public(to, amount).call(&mut context);
     }
     // docs:end:claim_public
 
@@ -84,25 +84,26 @@ contract TokenBridge {
         context.message_portal(storage.portal_address.read_public(), content);
 
         // Burn tokens
-        Token::at(storage.token.read()).burn_public(context.msg_sender(), amount, nonce).call(
-            &mut context,
-        );
+        Token::at(storage.token.read_public())
+            .burn_public(context.msg_sender(), amount, nonce)
+            .call(&mut context);
     }
     // docs:end:exit_to_l1_public
+
     // docs:start:claim_private
-    // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
-    // User needs to call token.redeem_shield() to get the private assets
-    // TODO(#8416): Consider creating a truly private claim flow.
+    /// Claims the bridged tokens and makes them accessible in private. Note that recipient's address is not revealed
+    /// but the amount is. Hence it's most likely possible to determine to which L1 deposit this claim corresponds to
+    /// (unless there are multiple pending deposits of the same amount).
+    /// TODO(#8416): Consider creating a truly private claim flow.
     #[private]
     fn claim_private(
-        secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
+        recipient: AztecAddress, // recipient of the bridged tokens
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
         message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash =
-            get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
+        let content_hash = get_mint_private_content_hash(amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
@@ -110,15 +111,36 @@ contract TokenBridge {
             message_leaf_index,
         );
 
-        // Mint tokens on L2
-        // `mint_private` on token is public. So we call an internal public function
-        // which then calls the public method on the token contract.
-        // Since the secret_hash is passed, no secret is leaked.
+        // Read the token address from storage
+        let token_address = storage.token.read_private();
+
+        // Prepare the partial note for the minted tokens
+        let note_hiding_point_slot =
+            Token::at(token_address).prepare_transfer_to_private(recipient).call(&mut context);
+
+        // We enqueue a public call in which we finalize the claim
+        // We pass the token address as an argument in order to not have to read it from public storage again.
         TokenBridge::at(context.this_address())
-            ._call_mint_on_token(amount, secret_hash_for_redeeming_minted_notes)
+            ._finalize_private_claim(token_address, amount, note_hiding_point_slot)
             .enqueue(&mut context);
     }
     // docs:end:claim_private
+
+    #[public]
+    #[internal]
+    fn _finalize_private_claim(
+        token_address: AztecAddress,
+        amount: Field,
+        note_hiding_point_slot: Field,
+    ) {
+        let token = Token::at(token_address);
+
+        // Mint the amount to this contract
+        token.mint_public(context.this_address(), amount).call(&mut context);
+
+        // Transfer the publicly minted tokens to the partial note
+        token.finalize_transfer_to_private(amount, note_hiding_point_slot).call(&mut context);
+    }
 
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
@@ -147,26 +169,18 @@ contract TokenBridge {
     #[public]
     #[view]
     fn get_token() -> AztecAddress {
-        storage.token.read()
+        storage.token.read_public()
     }
     // docs:end:get_token
-
-    // docs:start:call_mint_on_token
-    // This is a public call as we need to read from public storage.
-    // Also, note that user hashes their secret in private and only sends the hash in public
-    // meaning only user can `redeem_shield` at a later time with their secret.
-    #[public]
-    #[internal]
-    fn _call_mint_on_token(amount: Field, secret_hash: Field) {
-        Token::at(storage.token.read()).mint_private_old(amount, secret_hash).call(&mut context);
-    }
-    // docs:end:call_mint_on_token
 
     // docs:start:assert_token_is_same
     #[public]
     #[internal]
     fn _assert_token_is_same(token: AztecAddress) {
-        assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
+        assert(
+            storage.token.read_public().eq(token),
+            "Token address is not the same as seen in storage",
+        );
     }
     // docs:end:assert_token_is_same
 }

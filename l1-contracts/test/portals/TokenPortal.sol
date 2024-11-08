@@ -22,11 +22,7 @@ contract TokenPortal {
   );
 
   event DepositToAztecPrivate(
-    bytes32 secretHashForRedeemingMintedNotes,
-    uint256 amount,
-    bytes32 secretHashForL2MessageConsumption,
-    bytes32 key,
-    uint256 index
+    uint256 amount, bytes32 secretHashForL2MessageConsumption, bytes32 key, uint256 index
   );
 
   IRegistry public registry;
@@ -76,26 +72,21 @@ contract TokenPortal {
   // docs:start:deposit_private
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed privately on Aztec
-   * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
    * @param _amount - The amount to deposit
    * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be 254 bits (so it can fit in a Field element)
    * @return The key of the entry in the Inbox and its leaf index
    */
-  function depositToAztecPrivate(
-    bytes32 _secretHashForRedeemingMintedNotes,
-    uint256 _amount,
-    bytes32 _secretHashForL2MessageConsumption
-  ) external returns (bytes32, uint256) {
+  function depositToAztecPrivate(uint256 _amount, bytes32 _secretHashForL2MessageConsumption)
+    external
+    returns (bytes32, uint256)
+  {
     // Preamble
     IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
-    bytes32 contentHash = Hash.sha256ToField(
-      abi.encodeWithSignature(
-        "mint_private(bytes32,uint256)", _secretHashForRedeemingMintedNotes, _amount
-      )
-    );
+    bytes32 contentHash =
+      Hash.sha256ToField(abi.encodeWithSignature("mint_private(uint256)", _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
@@ -105,9 +96,7 @@ contract TokenPortal {
       inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
 
     // Emit event
-    emit DepositToAztecPrivate(
-      _secretHashForRedeemingMintedNotes, _amount, _secretHashForL2MessageConsumption, key, index
-    );
+    emit DepositToAztecPrivate(_amount, _secretHashForL2MessageConsumption, key, index);
 
     return (key, index);
   }

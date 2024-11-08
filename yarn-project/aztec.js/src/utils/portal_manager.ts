@@ -38,10 +38,9 @@ export type L2Claim = {
 /** L1 to L2 message info that corresponds to an amount to claim. */
 export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: Fr };
 
-/** L1 to L2 message info that corresponds to an amount to claim with associated notes to be redeemed. */
-export type L2RedeemableAmountClaim = L2AmountClaim & {
-  /** Secret for redeeming the minted notes */ redeemSecret: Fr;
-  /** Hash of the redeem secret*/ redeemSecretHash: Fr;
+/** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
+export type L2AmountClaimWithRecipient = L2AmountClaim & {
+  /** Address that will receive the newly minted notes. */ recipient: AztecAddress;
 };
 
 /** Stringifies an eth address for logging. */
@@ -279,7 +278,11 @@ export class L1ToL2TokenPortalManager {
    * @param amount - Amount of tokens to send.
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
-  public async bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint = false): Promise<L2RedeemableAmountClaim> {
+  public async bridgeTokensPrivate(
+    to: AztecAddress,
+    amount: bigint,
+    mint = false,
+  ): Promise<L2AmountClaimWithRecipient> {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     const redeemSecret = Fr.random();
@@ -300,10 +303,7 @@ export class L1ToL2TokenPortalManager {
       this.portal.address,
       this.portal.abi,
       'DepositToAztecPrivate',
-      log =>
-        log.args.secretHashForRedeemingMintedNotes === redeemSecretHash.toString() &&
-        log.args.amount === amount &&
-        log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
+      log => log.args.amount === amount && log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
       this.logger,
     );
 
@@ -313,8 +313,7 @@ export class L1ToL2TokenPortalManager {
       claimAmount: new Fr(amount),
       claimSecret,
       claimSecretHash,
-      redeemSecret,
-      redeemSecretHash,
+      recipient: to,
       messageHash: log.args.key,
       messageLeafIndex: log.args.index,
     };

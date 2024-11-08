@@ -44,7 +44,6 @@ contract UniswapPortalTest is Test {
   uint24 internal uniswapFeePool = 3000; // 0.3% fee
   uint256 internal amountOutMinimum = 0;
   bytes32 internal aztecRecipient = bytes32(uint256(0x3));
-  bytes32 internal secretHashForRedeemingMintedNotes = bytes32(uint256(0x4));
 
   uint256 internal l2BlockNumber = 69;
 
@@ -140,26 +139,21 @@ contract UniswapPortalTest is Test {
 
   /**
    * L2 to L1 message to be added to the outbox -
-   * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec
    * @param _caller - designated caller on L1 that will call the swap function - typically address(this)
    * Set to address(0) if anyone can call.
    */
-  function _createUniswapSwapMessagePrivate(
-    bytes32 _secretHashForRedeemingMintedNotes,
-    address _caller
-  ) internal view returns (bytes32) {
+  function _createUniswapSwapMessagePrivate(address _caller) internal view returns (bytes32) {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2UniswapAddress, 1),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
+          "swap_private(address,uint256,uint24,address,uint256,bytes32,address)",
           address(daiTokenPortal),
           amount,
           uniswapFeePool,
           address(wethTokenPortal),
           amountOutMinimum,
-          _secretHashForRedeemingMintedNotes,
           secretHash,
           _caller
         )
@@ -572,8 +566,7 @@ contract UniswapPortalTest is Test {
       })
     ];
 
-    bytes32 messageHashPortalChecksAgainst =
-      _createUniswapSwapMessagePrivate(secretHashForRedeemingMintedNotes, address(this));
+    bytes32 messageHashPortalChecksAgainst = _createUniswapSwapMessagePrivate(address(this));
 
     bytes32 actualRoot;
     bytes32 consumedRoot;
@@ -607,7 +600,6 @@ contract UniswapPortalTest is Test {
       uniswapFeePool,
       address(wethTokenPortal),
       amountOutMinimum,
-      secretHashForRedeemingMintedNotes,
       secretHash,
       true,
       outboxMessageMetadata
