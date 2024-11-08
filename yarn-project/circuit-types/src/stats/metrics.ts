@@ -140,12 +140,6 @@ export const Metrics = [
     events: ['node-synced-chain-history'],
   },
   {
-    name: 'pxe_database_size_in_bytes',
-    groupBy: 'chain-length',
-    description: 'Estimated size in memory of a PXE database after syncing all notes that belong to it in the chain.',
-    events: ['note-processor-caught-up'],
-  },
-  {
     name: 'protocol_circuit_simulation_time_in_ms',
     groupBy: 'protocol-circuit-name',
     description: 'Time to run a circuit simulation.',

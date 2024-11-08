@@ -4,7 +4,7 @@ import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   Header,
-  IndexedTaggingSecret,
+  type IndexedTaggingSecret,
   type PublicKey,
   SerializableContractInstance,
   computePoint,
@@ -22,7 +22,6 @@ import {
 } from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
 
-import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
 import { OutgoingNoteDao } from './outgoing_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
@@ -45,8 +44,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #nullifiedNotesByStorageSlot: AztecMultiMap<string, string>;
   #nullifiedNotesByTxHash: AztecMultiMap<string, string>;
   #nullifiedNotesByAddressPoint: AztecMultiMap<string, string>;
-  #deferredNotes: AztecArray<Buffer | null>;
-  #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
   #contractArtifacts: AztecMap<string, Buffer>;
   #contractInstances: AztecMap<string, Buffer>;
@@ -95,9 +92,6 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#nullifiedNotesByStorageSlot = db.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByTxHash = db.openMultiMap('nullified_notes_by_tx_hash');
     this.#nullifiedNotesByAddressPoint = db.openMultiMap('nullified_notes_by_address_point');
-
-    this.#deferredNotes = db.openArray('deferred_notes');
-    this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
 
     this.#outgoingNotes = db.openMap('outgoing_notes');
     this.#outgoingNotesByContract = db.openMultiMap('outgoing_notes_by_contract');
@@ -217,56 +211,6 @@ export class KVPxeDatabase implements PxeDatabase {
         void this.#outgoingNotesByTxHash.set(dao.txHash.toString(), noteIndex);
         void this.#outgoingNotesByOvpkM.set(dao.ovpkM.toString(), noteIndex);
       }
-    });
-  }
-
-  async addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void> {
-    const newLength = await this.#deferredNotes.push(...deferredNotes.map(note => note.toBuffer()));
-    for (const [index, note] of deferredNotes.entries()) {
-      const noteId = newLength - deferredNotes.length + index;
-      await this.#deferredNotesByContract.set(note.payload.contractAddress.toString(), noteId);
-    }
-  }
-
-  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
-    const noteIds = this.#deferredNotesByContract.getValues(contractAddress.toString());
-    const notes: DeferredNoteDao[] = [];
-    for (const noteId of noteIds) {
-      const serializedNote = this.#deferredNotes.at(noteId);
-      if (!serializedNote) {
-        continue;
-      }
-
-      const note = DeferredNoteDao.fromBuffer(serializedNote);
-      notes.push(note);
-    }
-
-    return Promise.resolve(notes);
-  }
-
-  /**
-   * Removes all deferred notes for a given contract address.
-   * @param contractAddress - the contract address to remove deferred notes for
-   * @returns an array of the removed deferred notes
-   */
-  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
-    return this.#db.transaction(() => {
-      const deferredNotes: DeferredNoteDao[] = [];
-      const indices = Array.from(this.#deferredNotesByContract.getValues(contractAddress.toString()));
-
-      for (const index of indices) {
-        const deferredNoteBuffer = this.#deferredNotes.at(index);
-        if (!deferredNoteBuffer) {
-          continue;
-        } else {
-          deferredNotes.push(DeferredNoteDao.fromBuffer(deferredNoteBuffer));
-        }
-
-        void this.#deferredNotesByContract.deleteValue(contractAddress.toString(), index);
-        void this.#deferredNotes.setAt(index, null);
-      }
-
-      return deferredNotes;
     });
   }
 

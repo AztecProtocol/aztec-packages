@@ -3,7 +3,7 @@ import {
   type CompleteAddress,
   type ContractInstanceWithAddress,
   type Header,
-  IndexedTaggingSecret,
+  type IndexedTaggingSecret,
   type PublicKey,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -12,7 +12,6 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type DeferredNoteDao } from './deferred_note_dao.js';
 import { type IncomingNoteDao } from './incoming_note_dao.js';
 import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
@@ -89,25 +88,6 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @remark - Will create a database for the scope if it does not already exist.
    */
   addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], scope?: AztecAddress): Promise<void>;
-
-  /**
-   * Add notes to the database that are intended for us, but we don't yet have the contract.
-   * @param deferredNotes - An array of deferred notes.
-   */
-  addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
-
-  /**
-   * Get deferred notes for a given contract address.
-   * @param contractAddress - The contract address to get the deferred notes for.
-   */
-  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
-
-  /**
-   * Remove deferred notes for a given contract address.
-   * @param contractAddress - The contract address to remove the deferred notes for.
-   * @returns an array of the removed deferred notes
-   */
-  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.

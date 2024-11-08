@@ -1,4 +1,4 @@
-import { type L1NotePayload, type Note, type TxHash, type UnencryptedTxL2Logs } from '@aztec/circuit-types';
+import { type L1NotePayload, type Note, type TxHash } from '@aztec/circuit-types';
 import { type Fr, type PublicKey } from '@aztec/circuits.js';
 import { type Logger } from '@aztec/foundation/log';
 import { type AcirSimulator } from '@aztec/simulator';

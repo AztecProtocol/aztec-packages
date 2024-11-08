@@ -1,7 +1,6 @@
 import {
-  Body,
+  type Body,
   type EncryptedL2BlockL2Logs,
-  EncryptedL2NoteLog,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -17,7 +16,6 @@ import {
   TxReceipt,
   TxScopedL2Log,
   type UnencryptedL2BlockL2Logs,
-  UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,

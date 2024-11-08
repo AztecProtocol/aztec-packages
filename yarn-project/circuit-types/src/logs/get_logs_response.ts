@@ -1,4 +1,4 @@
-import { Fr, fromBuffer } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { TxHash } from '../index.js';

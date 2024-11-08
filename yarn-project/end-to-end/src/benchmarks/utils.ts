@@ -1,15 +1,5 @@
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AztecNode,
-  BatchCall,
-  type Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type PXE,
-  type PartialAddress,
-  type SentTx,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';

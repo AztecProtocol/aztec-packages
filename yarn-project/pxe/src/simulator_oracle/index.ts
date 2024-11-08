@@ -1,17 +1,14 @@
 import {
   type AztecNode,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
   L1NotePayload,
   type L2Block,
-  L2BlockNumber,
+  type L2BlockNumber,
   MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  TxEffect,
+  type TxEffect,
   type TxScopedL2Log,
-  UnencryptedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
@@ -33,8 +30,6 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
-
-import { access } from 'fs';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -166,7 +161,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return this.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return await this.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
@@ -175,7 +170,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return await this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
   public async findLeafIndex(
@@ -383,7 +378,7 @@ export class SimulatorOracle implements DBOracle {
         // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
         const currentTags = appTaggingSecrets.map(taggingSecret => taggingSecret.computeTag(recipient));
         const logsByTags = await this.aztecNode.getLogsByTags(currentTags);
-        let newTaggingSecrets: IndexedTaggingSecret[] = [];
+        const newTaggingSecrets: IndexedTaggingSecret[] = [];
         logsByTags.forEach((logsByTag, logIndex) => {
           const { secret: currentSecret, index: currentIndex } = appTaggingSecrets[logIndex];
           const currentSecretAsStr = currentSecret.toString();
@@ -496,7 +491,6 @@ export class SimulatorOracle implements DBOracle {
           scopedLog.dataStartIndexForTx,
           excludedIndices.get(scopedLog.txHash.toString())!,
           this.log,
-          txEffect.unencryptedLogs,
         );
 
         if (incomingNote) {

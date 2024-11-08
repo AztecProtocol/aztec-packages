@@ -1,5 +1,5 @@
 import {
-  Body,
+  type Body,
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -10,7 +10,6 @@ import {
   type LogFilter,
   LogId,
   LogType,
-  TxHash,
   TxScopedL2Log,
   UnencryptedL2BlockL2Logs,
   type UnencryptedL2Log,

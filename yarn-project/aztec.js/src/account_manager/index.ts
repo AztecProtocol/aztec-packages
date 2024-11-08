@@ -104,7 +104,7 @@ export class AccountManager {
    * @param opts - Options to wait for the account to be synched.
    * @returns A Wallet instance.
    */
-  public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+  public async register(): Promise<AccountWalletWithSecretKey> {
     await this.pxe.registerContract({
       artifact: this.accountContract.getContractArtifact(),
       instance: this.getInstance(),

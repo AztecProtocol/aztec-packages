@@ -1,4 +1,4 @@
-import { type AztecAddress, type DebugLogger, type Wallet, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, type DebugLogger, type Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: DebugLogger) {

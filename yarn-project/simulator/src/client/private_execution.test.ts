@@ -259,7 +259,7 @@ describe('Private Execution test suite', () => {
     });
 
     oracle.getAppTaggingSecretAsSender.mockImplementation(
-      (_contractAddress: AztecAddress, _sender: AztecAddress, recipient: AztecAddress) => {
+      (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
         const secret = Fr.random();
         return Promise.resolve(new IndexedTaggingSecret(secret, 0));
       },
