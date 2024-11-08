@@ -296,8 +296,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
 
         // Set the recursive proof indices
-        proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
-        proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
+        proving_key.pairing_point_accumulator_public_input_indices =
+            circuit.pairing_point_accumulator_public_input_indices;
+        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
         if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;

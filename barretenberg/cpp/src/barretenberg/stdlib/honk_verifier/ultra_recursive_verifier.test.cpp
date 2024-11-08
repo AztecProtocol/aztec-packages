@@ -69,8 +69,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        AggregationObjectIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
-        builder.add_recursive_proof(agg_obj_indices);
+        PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
+        builder.add_pairing_point_accumulator(agg_obj_indices);
         return builder;
     };
 
