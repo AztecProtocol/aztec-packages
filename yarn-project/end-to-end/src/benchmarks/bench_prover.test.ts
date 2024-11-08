@@ -37,6 +37,7 @@ describe('benchmarks/proving', () => {
   let schnorrWalletAddress: CompleteAddress;
 
   let recipient: CompleteAddress;
+  let feeRecipient: CompleteAddress; // The address that receives the fees from the fee refund flow.
 
   let initialGasContract: FeeJuiceContract;
   let initialTestContract: TestContract;
@@ -89,7 +90,9 @@ describe('benchmarks/proving', () => {
       .send()
       .deployed();
     initialGasContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, initialSchnorrWallet);
-    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address).send().deployed();
+    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address, feeRecipient)
+      .send()
+      .deployed();
 
     const feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: ctx.aztecNode,
@@ -112,6 +115,7 @@ describe('benchmarks/proving', () => {
     ]);
 
     recipient = CompleteAddress.random();
+    feeRecipient = CompleteAddress.random();
   });
 
   // remove the fake prover and setup the real one
