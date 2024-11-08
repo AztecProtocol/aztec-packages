@@ -166,7 +166,7 @@ jobs:
               echo "START OF RUN $i"
               NAMESPACE="${test%.test.ts}" FRESH_INSTALL=true VALUES_FILE=${{ matrix.config.values }}.yaml ./scripts/network_test.sh ./src/spartan/$test
               echo "END OF RUN $i"
-            fi
+            done
       - name: Copy Network Logs
         if: always() # Run on failure too
         run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/yarn-project/end-to-end/scripts/network-test.log network-test.log
