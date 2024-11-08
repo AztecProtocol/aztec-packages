@@ -33,7 +33,7 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool HasZK = !libra_evaluations.empty();
+        const bool has_zk = !libra_evaluations.empty();
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -42,7 +42,7 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        transcript,
                                                                        concatenated_polynomials,
                                                                        groups_to_be_concatenated,
-                                                                       HasZK);
+                                                                       has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
         size_t idx = 0;
@@ -150,9 +150,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr batched_evaluation = Fr{ 0 };
 
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
-        const bool HasZK = !libra_univariate_evaluations.empty();
+        const bool has_zk = !libra_univariate_evaluations.empty();
         Commitment hiding_polynomial_commitment;
-        if (HasZK) {
+        if (has_zk) {
             hiding_polynomial_commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
             batched_evaluation += transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
@@ -238,7 +238,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
         }
 
-        if (HasZK) {
+        if (has_zk) {
             commitments.emplace_back(hiding_polynomial_commitment);
             scalars.emplace_back(-unshifted_scalar); // corresponds to ρ⁰
         }
@@ -255,7 +255,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                           commitments,
                                           scalars,
                                           batched_evaluation,
-                                          HasZK,
+                                          has_zk,
                                           concatenation_scalars,
                                           concatenation_group_commitments,
                                           concatenated_evaluations);
@@ -290,7 +290,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
-        if (HasZK) {
+        if (has_zk) {
             add_zk_data(commitments,
                         scalars,
                         libra_univariate_commitments,
@@ -364,14 +364,14 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Commitment>& commitments,
         std::vector<Fr>& scalars,
         Fr& batched_evaluation,
-        const bool HasZK = false,
+        const bool has_zk = false,
         std::vector<Fr> concatenated_scalars = {},
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
     {
         Fr current_batching_challenge = Fr(1);
 
-        if (HasZK) {
+        if (has_zk) {
             // ρ⁰ is used to batch the hiding polynomial
             current_batching_challenge *= multivariate_batching_challenge;
         }

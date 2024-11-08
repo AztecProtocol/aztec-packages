@@ -50,7 +50,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     RefSpan<Polynomial> concatenated_polynomials,
     const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated,
-    bool HasZK)
+    bool has_zk)
 
 {
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
@@ -61,7 +61,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
 
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
-    if (HasZK) {
+    if (has_zk) {
         batched_unshifted = Polynomial::random(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
@@ -76,7 +76,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
     Fr rho_challenge{ 1 };
-    if (HasZK) {
+    if (has_zk) {
         // ρ⁰ is used to batch the hiding polynomial
         rho_challenge *= rho;
     }
