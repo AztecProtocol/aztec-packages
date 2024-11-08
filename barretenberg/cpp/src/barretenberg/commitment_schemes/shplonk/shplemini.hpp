@@ -150,7 +150,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr batched_evaluation = Fr{ 0 };
         Commitment hiding_polynomial_commitment;
         if (HasZK) {
-            hiding_polynomial_commitment = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly");
+            hiding_polynomial_commitment =
+                transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
             batched_evaluation += transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
         }
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts

@@ -133,6 +133,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
                     NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
             }
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
+            hiding_polynomial_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
                 gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
@@ -191,9 +193,9 @@ class MegaZKFlavor : public bb::MegaFlavor {
             for (size_t i = 0; i < log_circuit_size; ++i) {
                 NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
             }
-            serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
-
             serialize_to_buffer(sumcheck_evaluations, proof_data);
+            serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
+            serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
                 serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
