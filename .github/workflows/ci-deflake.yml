@@ -72,9 +72,6 @@ jobs:
     needs: [setup, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
     if: needs.configure.outputs.yarn-project == 'true'
-    outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.list }}
-      bench_list: ${{ steps.bench_list.outputs.list }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
