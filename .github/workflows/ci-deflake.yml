@@ -57,7 +57,7 @@ jobs:
     needs: [configure]
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: ${{ needs.configure.outputs.username }}-x86
+      username: ${{ needs.configure.outputs.username }}
       runner_type: builder-x86
     secrets: inherit
 
