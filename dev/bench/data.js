@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731042423333,
+  "lastUpdate": 1731065657341,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1bbd724eab39c193c1db1d89570eab9358563fe2",
-          "message": "feat(avm/brillig)!: revert/rethrow oracle (#9408)\n\nThis PR introduces a revert oracle to be used when (and only when) rethrowing revertdata in public. The major difference with just doing `assert(false, data)` is that the latter will also add an error selector to the revertdata, which is not something we want when rethrowing.\n\n* Creates a revert oracle to be used for rethrowing.\n* Changes TRAP/REVERT to have a runtime size.",
-          "timestamp": "2024-10-25T17:49:12+01:00",
-          "tree_id": "a8b966ca306aeb646254cf62ceac303f6e24ed2f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1bbd724eab39c193c1db1d89570eab9358563fe2"
-        },
-        "date": 1729877432315,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30762.430378999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28925.057473 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5337.910193999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4996.069336 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92085.686835,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92085688000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15183.141846,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15183141000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2704906561,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2704906561 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126613305,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126613305 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 144531751,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144531751 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2096dc236c627cfd802ca05e0c9cb0ea6c441458",
+          "message": "feat: mega zk features (#9774)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-11-08T11:02:04Z",
+          "tree_id": "a888823ffdf63573a624ef8b4da9fa01c7708dcd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2096dc236c627cfd802ca05e0c9cb0ea6c441458"
+        },
+        "date": 1731065650306,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 28950.799380000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27114.458366000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5326.826313999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5027.111476 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83631.167586,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83631169000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15102.462676,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15102463000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3031255832,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3031255832 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143518782,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143518782 ns\nthreads: 1"
           }
         ]
       }
