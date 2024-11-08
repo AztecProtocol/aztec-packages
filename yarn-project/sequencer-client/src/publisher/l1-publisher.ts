@@ -10,15 +10,14 @@ import {
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
-  AZTEC_EPOCH_DURATION,
-  ETHEREUM_SLOT_DURATION,
+  AZTEC_MAX_EPOCH_DURATION,
   EthAddress,
   type FeeRecipient,
   type Header,
   type Proof,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractsConfig, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, compactArray, times } from '@aztec/foundation/collection';
 import { type Signature } from '@aztec/foundation/eth-signature';
@@ -123,7 +122,7 @@ export type L1SubmitEpochProofArgs = {
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
-  fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>;
+  fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>;
   proof: Proof;
 };
 
@@ -158,12 +157,17 @@ export class L1Publisher {
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private walletClient: WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>;
   private account: PrivateKeyAccount;
+  private ethereumSlotDuration: bigint;
 
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
   public static PROPOSE_AND_CLAIM_GAS_GUESS: bigint = this.PROPOSE_GAS_GUESS + 100_000n;
 
-  constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
+  constructor(
+    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    client: TelemetryClient,
+  ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
+    this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
@@ -240,7 +244,7 @@ export class L1Publisher {
     // FIXME: This should not throw if unable to propose but return a falsey value, so
     // we can differentiate between errors when hitting the L1 rollup contract (eg RPC error)
     // which may require a retry, vs actually not being the turn for proposing.
-    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
       timeOfNextL1Slot,
       `0x${archive.toString('hex')}`,
@@ -306,7 +310,7 @@ export class L1Publisher {
   }
 
   public async validateProofQuote(quote: EpochProofQuote): Promise<EpochProofQuote | undefined> {
-    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const timeOfNextL1Slot = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
     const args = [timeOfNextL1Slot, quote.toViemArgs()] as const;
     try {
       await this.rollupContract.read.validateEpochProofRightClaimAtTime(args, { account: this.account });
@@ -334,7 +338,7 @@ export class L1Publisher {
       signatures: [],
     },
   ): Promise<void> {
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
@@ -756,7 +760,7 @@ export class L1Publisher {
         args.publicInputs.outHash.toString(),
         args.publicInputs.proverId.toString(),
       ],
-      makeTuple(AZTEC_EPOCH_DURATION * 2, i =>
+      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),

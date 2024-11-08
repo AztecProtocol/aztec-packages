@@ -8,7 +8,7 @@ import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
+import {Rollup} from "../harnesses/Rollup.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";

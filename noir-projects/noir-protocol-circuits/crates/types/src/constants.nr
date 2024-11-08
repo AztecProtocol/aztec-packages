@@ -135,13 +135,7 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
 pub global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
-pub global ETHEREUM_SLOT_DURATION: u32 = 12;
-// AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
-pub global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
-pub global AZTEC_EPOCH_DURATION: u32 = 16;
-pub global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
-// The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
-pub global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
+pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 pub global GENESIS_ARCHIVE_ROOT: Field =
@@ -503,12 +497,12 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* end_block_hash */
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
-    + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 =
-    2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
+    2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 8 + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH;
 
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;

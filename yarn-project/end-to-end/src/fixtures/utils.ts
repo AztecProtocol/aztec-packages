@@ -30,7 +30,7 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { type EthAddress, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { NULL_KEY, isAnvilTestChain, l1Artifacts } from '@aztec/ethereum';
+import { NULL_KEY, getL1ContractsConfigEnvVars, isAnvilTestChain, l1Artifacts } from '@aztec/ethereum';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -103,6 +103,7 @@ export const setupL1Contracts = async (
     salt: args.salt,
     initialValidators: args.initialValidators,
     assumeProvenThrough: args.assumeProvenThrough,
+    ...getL1ContractsConfigEnvVars(),
   });
 
   return l1Data;
