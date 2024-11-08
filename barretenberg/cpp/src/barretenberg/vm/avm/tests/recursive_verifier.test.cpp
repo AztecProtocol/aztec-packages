@@ -53,7 +53,8 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
         trace_builder.op_add(0, 1, 2, 3);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 
         inject_end_gas_values(public_inputs, trace);
