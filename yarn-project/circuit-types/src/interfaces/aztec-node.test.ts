@@ -324,7 +324,10 @@ class MockAztecNode implements AztecNode {
     expect(leafIndex).toBe(1n);
     return Promise.resolve(SiblingPath.random(NULLIFIER_TREE_HEIGHT));
   }
-  getNoteHashSiblingPath(blockNumber: number | 'latest', leafIndex: bigint): Promise<SiblingPath<32>> {
+  getNoteHashSiblingPath(
+    blockNumber: number | 'latest',
+    leafIndex: bigint,
+  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
     expect(leafIndex).toBe(1n);
     return Promise.resolve(SiblingPath.random(NOTE_HASH_TREE_HEIGHT));
   }
