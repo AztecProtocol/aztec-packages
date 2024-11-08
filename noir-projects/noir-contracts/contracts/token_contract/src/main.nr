@@ -675,7 +675,7 @@ contract Token {
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
         user: AztecAddress, // A user for which we are setting up the fee refund.
         funded_amount: Field, // The amount the user funded the fee payer with (represents fee limit).
-        nonce: Field // A nonce to make authwitness unique.
+        nonce: Field, // A nonce to make authwitness unique.
     ) {
         // 1. This function is called by fee paying contract (fee_payer) when setting up a refund so we need to support
         // the authwit flow here and check that the user really permitted fee_payer to set up a refund on their behalf.
