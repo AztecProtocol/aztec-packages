@@ -39,7 +39,7 @@ async function pollSpotStatus(
 }
 
 async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
-  // subaction is 'start' or 'restart'estart'
+  // subaction is 'start' or 'restart'
   const ec2Client = new Ec2Instance(config);
 
   let ec2SpotStrategies: string[];
@@ -137,7 +137,7 @@ async function startWithGithubRunners(config: ActionConfig) {
   } else if (config.subaction !== "start") {
     throw new Error("Unexpected subaction: " + config.subaction);
   }
-  // subaction is 'start' or 'restart'estart'
+  // subaction is 'start' or 'restart'
   const ec2Client = new Ec2Instance(config);
   const ghClient = new GithubClient(config);
   let spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
