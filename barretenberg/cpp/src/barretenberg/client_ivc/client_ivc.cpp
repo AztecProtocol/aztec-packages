@@ -355,7 +355,7 @@ bool ClientIVC::prove_and_verify()
     auto proof = prove();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to call ClientIVC::prove: ", diff, " ms.");
+    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
     return verify(proof);
 }
 
