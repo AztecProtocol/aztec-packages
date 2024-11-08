@@ -73,7 +73,7 @@ resource "aws_cloudwatch_log_group" "aztec-prover-node-log-group" {
 
 resource "aws_service_discovery_service" "aztec-prover-node" {
   count = local.node_count
-  name  = "${var.DEPLOY_TAG}aztecprovernode${count.index + 1}"
+  name  = "${var.DEPLOY_TAG}-aztec-prover-node-${count.index + 1}"
 
   health_check_custom_config {
     failure_threshold = 1
