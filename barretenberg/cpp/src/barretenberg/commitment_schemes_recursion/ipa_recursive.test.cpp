@@ -64,10 +64,9 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     Builder build_ipa_recursive_verifier_circuit(const size_t POLY_LENGTH)
     {
         Builder builder;
-        auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
         auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
-        RecursiveIPA::reduce_verify(recursive_verifier_ck, stdlib_claim, stdlib_transcript);
+        RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         return builder;
     }
@@ -145,15 +144,13 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
         // contain the commitment and an opening claim.
         Builder builder;
-        auto recursive_verifier_ck = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
 
         auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH);
         auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH);
 
         // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
         // polynomial.
-        auto [output_claim, challenge_poly] =
-            RecursiveIPA::accumulate(recursive_verifier_ck, transcript_1, claim_1, transcript_2, claim_2);
+        auto [output_claim, challenge_poly] = RecursiveIPA::accumulate(transcript_1, claim_1, transcript_2, claim_2);
         builder.finalize_circuit(/*ensure_nonzero=*/false);
         info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
              builder.get_num_finalized_gates());

@@ -584,8 +584,7 @@ template <typename Curve_> class IPA {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
     // implemented
-    static VerifierAccumulator reduce_verify([[maybe_unused]] const std::shared_ptr<VK>& vk,
-                                             const OpeningClaim<Curve>& opening_claim,
+    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(Curve::is_stdlib_type)
     {
@@ -760,13 +759,13 @@ template <typename Curve_> class IPA {
      * @param claim_2 
      * @return std::pair<OpeningClaim<Curve>, Polynomial<bb::fq>> 
      */
-    static std::pair<OpeningClaim<Curve>, Polynomial<bb::fq>> accumulate(const std::shared_ptr<VK>& verifier_ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
+    static std::pair<OpeningClaim<Curve>, Polynomial<bb::fq>> accumulate(auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
     requires Curve::is_stdlib_type
     {
         using Builder = typename Curve::Builder;
         // Step 1: Run the verifier for each IPA instance
-        VerifierAccumulator pair_1 = reduce_verify(verifier_ck, claim_1, transcript_1);
-        VerifierAccumulator pair_2 = reduce_verify(verifier_ck, claim_2, transcript_2);
+        VerifierAccumulator pair_1 = reduce_verify(claim_1, transcript_1);
+        VerifierAccumulator pair_2 = reduce_verify(claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
