@@ -2,7 +2,7 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, sleep } from '@aztec/aztec.js';
 
 /* eslint-disable-next-line no-restricted-imports */
-import { BlockProposal, getHashedSignaturePayload } from '@aztec/circuit-types';
+import { BlockProposal, getHashedSignaturePayload, SignatureDomainSeperator } from '@aztec/circuit-types';
 
 import { beforeAll, describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -86,7 +86,7 @@ describe('e2e_p2p_reex', () => {
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
           proposal.payload,
-          await signer.signMessage(getHashedSignaturePayload(proposal.payload)),
+          await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeperator.blockProposal)),
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
