@@ -7,7 +7,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import { getHashedSignaturePayloadEthSignedMessage, SignatureDomainSeperator } from './signature_utils.js';
+import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockAttestationHash extends Buffer32 {

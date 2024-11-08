@@ -6,7 +6,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { SignatureDomainSeperator, type Signable } from './signature_utils.js';
+import { type Signable, type SignatureDomainSeperator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
   private size: number | undefined;

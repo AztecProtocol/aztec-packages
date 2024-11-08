@@ -3,9 +3,9 @@ import {
   type EpochProofClaim,
   type EpochProofQuote,
   type L2Block,
+  SignatureDomainSeperator,
   type TxHash,
   getHashedSignaturePayload,
-  SignatureDomainSeperator,
 } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import {

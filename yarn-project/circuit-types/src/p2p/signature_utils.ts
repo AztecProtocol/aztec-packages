@@ -3,7 +3,7 @@ import { keccak256, makeEthSignDigest } from '@aztec/foundation/crypto';
 
 export enum SignatureDomainSeperator {
   blockProposal = 0,
-  blockAttestation = 1
+  blockAttestation = 1,
 }
 
 export interface Signable {
@@ -24,7 +24,10 @@ export function getHashedSignaturePayload(s: Signable, domainSeperator: Signatur
  * @param s - the `Signable` to sign
  * @returns The hashed payload for the signature of the `Signable` as an Ethereum signed message
  */
-export function getHashedSignaturePayloadEthSignedMessage(s: Signable, domainSeperator: SignatureDomainSeperator): Buffer32 {
+export function getHashedSignaturePayloadEthSignedMessage(
+  s: Signable,
+  domainSeperator: SignatureDomainSeperator,
+): Buffer32 {
   const payload = getHashedSignaturePayload(s, domainSeperator);
   return makeEthSignDigest(payload);
 }

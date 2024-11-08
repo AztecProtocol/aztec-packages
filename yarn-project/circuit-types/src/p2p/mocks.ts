@@ -7,7 +7,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
-import { getHashedSignaturePayloadEthSignedMessage, SignatureDomainSeperator } from './signature_utils.js';
+import { SignatureDomainSeperator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 
 export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
@@ -46,9 +46,6 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { payload, signature } = makeAndSignConsensusPayload(
-    SignatureDomainSeperator.blockAttestation,
-    options,
-  );
+  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeperator.blockAttestation, options);
   return new BlockAttestation(payload, signature);
 };
