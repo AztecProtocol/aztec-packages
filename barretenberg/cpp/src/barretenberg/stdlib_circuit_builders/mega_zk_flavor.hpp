@@ -52,6 +52,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::vector<FF> libra_evaluations;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        Commitment hiding_polynomial_commitment;
+        FF hiding_polynomial_eval;
         std::vector<Commitment> gemini_fold_comms;
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
@@ -189,6 +191,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
             for (size_t i = 0; i < log_circuit_size; ++i) {
                 NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
             }
+            serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
 
             serialize_to_buffer(sumcheck_evaluations, proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {

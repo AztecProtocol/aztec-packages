@@ -194,6 +194,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = TestFixture::construct_mega_honk_manifest(proving_key->proving_key.circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
+    prover_manifest.print();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {

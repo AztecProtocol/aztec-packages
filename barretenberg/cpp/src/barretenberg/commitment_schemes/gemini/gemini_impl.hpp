@@ -63,7 +63,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     if (HasZK) {
         batched_unshifted = Polynomial::random(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
-        transcript->send_to_verifier("Gemini:masking_poly_eval", batched_unshifted.evaluate_mle(multilinear_challenge));
+        std::vector<Fr> multilinear_challenge_resized(multilinear_challenge.begin(), multilinear_challenge.end());
+        multilinear_challenge_resized.resize(log_n);
+        transcript->send_to_verifier("Gemini:masking_poly_eval",
+                                     batched_unshifted.evaluate_mle(multilinear_challenge_resized));
     }
 
     const Fr rho = transcript->template get_challenge<Fr>("rho");
