@@ -51,12 +51,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         : is_structured(trace_structure != TraceStructure::NONE)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
-        vinfo("DeciderProvingKey(Circuit&)");
-        vinfo("creating decider proving key");
+        vinfo("Constructing DeciderProvingKey");
+        auto start = std::chrono::steady_clock::now();
 
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
-
-        info("Finalized circuit size: ", circuit.num_gates);
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
@@ -67,7 +65,10 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         }
 
-        info("Log dyadic circuit size: ", numeric::get_msb(dyadic_circuit_size));
+        info("Finalized circuit size: ",
+             circuit.num_gates,
+             "\nLog dyadic circuit size: ",
+             numeric::get_msb(dyadic_circuit_size));
 
         // Complete the public inputs execution trace block from circuit.public_inputs
         Trace::populate_public_inputs_block(circuit);
@@ -82,7 +83,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         {
 
             PROFILE_THIS_NAME("constructing proving key");
-            vinfo("constructing proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             if (IsGoblinFlavor<Flavor> && !is_structured) {
@@ -92,7 +92,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 // Allocate the wires and selectors polynomials
                 {
                     PROFILE_THIS_NAME("allocating wires");
-                    vinfo("allocating wires");
 
                     for (auto& wire : proving_key.polynomials.get_wires()) {
                         wire = Polynomial::shiftable(proving_key.circuit_size);
@@ -100,7 +99,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating gate selectors");
-                    vinfo("allocating gate selectors");
 
                     // Define gate selectors over the block they are isolated to
                     for (auto [selector, block] :
@@ -122,7 +120,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating non-gate selectors");
-                    vinfo("allocating non-gate selectors");
 
                     // Set the other non-gate selector polynomials to full size
                     for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
@@ -131,7 +128,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 if constexpr (IsGoblinFlavor<Flavor>) {
                     PROFILE_THIS_NAME("allocating ecc op wires and selector");
-                    vinfo("allocating ecc op wires and selector");
 
                     // Allocate the ecc op wires and selector
                     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
@@ -170,7 +166,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 size_t table_offset = dyadic_circuit_size - max_tables_size;
                 {
                     PROFILE_THIS_NAME("allocating table polynomials");
-                    vinfo("allocating table polynomials");
 
                     ASSERT(dyadic_circuit_size > max_tables_size);
 
@@ -183,7 +178,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("allocating sigmas and ids");
-                    vinfo("allocating sigmas and ids");
 
                     for (auto& sigma : proving_key.polynomials.get_sigmas()) {
                         sigma = typename Flavor::Polynomial(proving_key.circuit_size);
@@ -195,7 +189,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 {
                     ZoneScopedN("allocating lookup read counts and tags");
                     // Allocate the read counts and tags polynomials
-                    vinfo("allocating lookup read counts and tags");
                     proving_key.polynomials.lookup_read_counts =
                         typename Flavor::Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
                     proving_key.polynomials.lookup_read_tags =
@@ -204,7 +197,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 {
                     ZoneScopedN("allocating lookup and databus inverses");
                     // Allocate the lookup_inverses polynomial
-                    vinfo("allocating lookup and databus inverses");
                     const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
                     // at top of trace
@@ -232,15 +224,15 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 }
                 {
                     PROFILE_THIS_NAME("constructing z_perm");
-                    vinfo("constructing z_perm");
 
                     // Allocate the z_perm polynomial
+                    vinfo("constructing z_perm...");
                     proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
+                    vinfo("done constructing z_perm.");
                 }
 
                 {
                     PROFILE_THIS_NAME("allocating lagrange polynomials");
-                    vinfo("allocating lagrange polynomials");
 
                     // First and last lagrange polynomials (in the full circuit size)
                     proving_key.polynomials.lagrange_first = Polynomial(1, dyadic_circuit_size, 0);
@@ -253,16 +245,16 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
+        vinfo("populating trace...");
         Trace::populate(circuit, proving_key, is_structured);
+        vinfo("done populating trace.");
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
-            vinfo("constructing prover instance after trace populate");
 
             // If Goblin, construct the databus polynomials
             if constexpr (IsGoblinFlavor<Flavor>) {
                 PROFILE_THIS_NAME("constructing databus polynomials");
-                vinfo("constructing databus polynomials");
 
                 construct_databus_polynomials(circuit);
             }
@@ -273,7 +265,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
-            vinfo("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
                 proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
@@ -281,7 +272,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         {
             PROFILE_THIS_NAME("constructing lookup read counts");
-            vinfo("constructing lookup read counts");
 
             construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
                                                  proving_key.polynomials.lookup_read_tags,
@@ -303,6 +293,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
+        auto end = std::chrono::steady_clock::now();
+        auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        vinfo("time to construct proving key: ", diff, " ms.");
     }
 
     DeciderProvingKey_() = default;

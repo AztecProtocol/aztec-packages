@@ -29,7 +29,6 @@ allow_list=(
   "e2e_fees_failures"
   "e2e_fees_gas_estimation"
   "e2e_fees_private_payments"
-  "e2e_fees_private_refunds"
   "e2e_max_block_number"
   "e2e_nested_contract"
   "e2e_ordering"

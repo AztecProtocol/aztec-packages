@@ -11,7 +11,6 @@ import {
   PublicFeePaymentMethod,
   Schnorr,
   type Wallet,
-  computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
 import { type AztecAddress, type CompleteAddress, Fq, type GasSettings } from '@aztec/circuits.js';
@@ -41,7 +40,6 @@ describe('e2e_fees account_init', () => {
   let logger: DebugLogger;
   let pxe: PXE;
   let gasSettings: GasSettings;
-  let maxFee: bigint;
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
 
@@ -60,11 +58,13 @@ describe('e2e_fees account_init', () => {
   // Seeded by initBalances below in a beforeEach hook
   let fpcsInitialGas: bigint;
   let fpcsInitialPublicBananas: bigint;
+  let sequencerInitialPrivateBananas: bigint;
 
   async function initBalances() {
-    [[fpcsInitialGas], [fpcsInitialPublicBananas]] = await Promise.all([
+    [[fpcsInitialGas], [fpcsInitialPublicBananas], [sequencerInitialPrivateBananas]] = await Promise.all([
       t.getGasBalanceFn(bananaFPC.address),
       t.getBananaPublicBalanceFn(bananaFPC.address),
+      t.getBananaPrivateBalanceFn(t.sequencerAddress),
     ]);
   }
 
@@ -77,7 +77,6 @@ describe('e2e_fees account_init', () => {
     bobsWallet = await bobsAccountManager.getWallet();
 
     gasSettings = t.gasSettings;
-    maxFee = gasSettings.getFeeLimit().toBigInt();
 
     await bobsAccountManager.register();
     await initBalances();
@@ -110,39 +109,27 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       // Bob deploys his account through the private FPC
-      const rebateSecret = Fr.random();
       const paymentMethod = new PrivateFeePaymentMethod(
         bananaCoin.address,
         bananaFPC.address,
         await bobsAccountManager.getWallet(),
-        rebateSecret,
+        t.sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
       );
 
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       const actualFee = tx.transactionFee!;
       expect(actualFee).toBeGreaterThan(0n);
 
-      // the new account should have paid the full fee to the FPC
-      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
+      // We have gotten a refund note so our balance should have decreased by the actual fee and not by the max fee
+      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
 
-      // the FPC got paid through "transfer_to_public", so it's got a new public balance
-      await expect(t.getBananaPublicBalanceFn(bananaFPC.address)).resolves.toEqual([
-        fpcsInitialPublicBananas + actualFee,
+      // the FPC admin (set to sequencer) got the banana fee note so his private balance should have increased by the actual fee
+      await expect(t.getBananaPrivateBalanceFn(t.sequencerAddress)).resolves.toEqual([
+        sequencerInitialPrivateBananas + actualFee,
       ]);
 
       // the FPC should have been the fee payer
       await expect(t.getGasBalanceFn(bananaFPC.address)).resolves.toEqual([fpcsInitialGas - actualFee]);
-
-      // the new account should have received a refund
-      await t.addPendingShieldNoteToPXE(aliceAddress, maxFee - actualFee, computeSecretHash(rebateSecret), tx.txHash);
-
-      // and it can redeem the refund
-      await bananaCoin.methods
-        .redeem_shield(bobsAddress, maxFee - actualFee, rebateSecret)
-        .send()
-        .wait();
-
-      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
     });
 
     it('pays publicly through an FPC', async () => {

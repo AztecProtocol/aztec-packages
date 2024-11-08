@@ -948,6 +948,7 @@ jobs:
   merge-check:
     runs-on: ubuntu-20.04
     needs:
+      # must be kept in sync with rerun-check
       - setup
       - configure
       - build
@@ -985,22 +986,7 @@ jobs:
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
     if: always()
-    outputs:
-      failure: ${{ steps.set_failed_jobs.outputs.failure }}
-      failed_jobs: ${{ steps.set_failed_jobs.outputs.failed_jobs }}
     steps:
-      - name: Check for Failures and Set Output
-        id: set_failed_jobs
-        env:
-          # Collect needed jobs
-          NEEDS_JOBS_JSON: ${{ toJson(needs) }}
-        run: |
-          echo "Processing failed jobs..."
-          failed_jobs=$(echo "$NEEDS_JOBS_JSON" | jq -r 'to_entries[] | select(.value.result == "failure") | .key' | paste -sd "," -)
-          echo "$failed_jobs" > .failed
-          echo "failure=${{contains(needs.*.result, 'failure')}}" >> $GITHUB_OUTPUT
-          echo "failed_jobs=$failed_jobs" >> $GITHUB_OUTPUT
-
       - name: Report overall success (non-draft)
         if: github.event.pull_request.draft == false
         env:
@@ -1008,7 +994,7 @@ jobs:
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
           if [[ $FAIL == true ]]; then
-              echo "Jobs failed: $(cat .failed), merging not allowed."
+              echo "At least one job failed (or cancelled), merging not allowed."
               exit 1
           else
               echo "All jobs succeeded, merge allowed."
@@ -1023,44 +1009,69 @@ jobs:
     permissions:
       actions: write
     needs:
-      - merge-check
+      # must be kept in sync with merge-check
+      - setup
+      - configure
+      - build
+      - e2e
+      # - bench-e2e # non-blocking
+      # - acir-bench # non-blocking
+      # - bench-summary # non-blocking
+      - bb-gcc
+      - bb-native-tests
+      - bb-js-test
+      - noir-build-acir-tests
+      - bb-acir-tests-bb
+      - bb-acir-tests-bb-ultra-plonk
+      - bb-acir-tests-bb-ultra-honk
+      - bb-acir-tests-bb-mega-honk
+      - bb-acir-tests-sol
+      - bb-acir-tests-sol-honk
+      - bb-acir-tests-bb-js
+      - noir-format
+      - noir-test
+      - noir-examples
+      - noir-packages-test
+      - noir-projects
+      - avm-format
+      - yarn-project-formatting
+      - yarn-project-test
+      - prover-client-test
+      - network-test
+      - kind-network-test
+      - l1-contracts-test
+      - docs-preview
+      # - bb-bench # non-blocking
+      - boxes
+      - boxes-test
+      # - protocol-circuits-gates-report # non-blocking
     if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
+          HAD_FAILURE: ${{ contains(needs.*.result, 'failure') }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ ${{ needs.merge-check.outputs.failure }} == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
+          if [[ $HAD_FAILURE == true ]] && [[ $RUN_ATTEMPT -lt 2 ]] ; then
             echo "Retrying first workflow failure. This is a stop-gap until things are more stable."
             gh workflow run rerun.yml -F run_id=${{ github.run_id }}
           fi
 
+  # NOTE: we only notify failures after a rerun has occurred
   notify:
-    runs-on: ubuntu-20.04
     needs:
       - merge-check
+    runs-on: ubuntu-20.04
     if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Get Authors of Recent Commit
-        id: get_authors
-        run: |
-          git fetch --depth=1 origin ${{ github.sha }}
-          authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
-          echo "authors=${authors}" >> $GITHUB_OUTPUT
-
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
             {
-              "text": "Master Github Actions failure",
-              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-              "authors": "${{ steps.get_authors.outputs.authors }}",
-              "failed_jobs": "${{ needs.merge-check.outputs.failed_jobs }}"
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
