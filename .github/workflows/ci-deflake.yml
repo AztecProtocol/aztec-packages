@@ -36,7 +36,6 @@ jobs:
     # Set username to a value derived from our github username.
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
-      yarn-project: ${{ steps.filter.outputs.yarn-project }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -53,12 +52,6 @@ jobs:
           GIT_HASH_MODULO_8=$((GIT_HASH_LAST8_DEC % 8))
           echo "username=master-${GIT_HASH_MODULO_8}"
           echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
-        id: filter
-        with:
-          filters: |
-            yarn-project:
-              - 'yarn-project/**'
 
   setup:
     needs: [configure]
@@ -71,7 +64,6 @@ jobs:
   build:
     needs: [setup, configure]
     runs-on: ${{ needs.configure.outputs.username }}-x86
-    if: needs.configure.outputs.yarn-project == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -87,7 +79,6 @@ jobs:
   # run specific end to end tests to deflake
   e2e:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || contains(${{ github.ref_name }}, 'deflake')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -133,7 +124,6 @@ jobs:
   # note: proving disabled
   kind-network-test:
     needs: [build, configure]
-    if: needs.configure.outputs.yarn-project == 'true' || contains(${{ github.ref_name }}, 'deflake')
     runs-on: ${{ needs.configure.outputs.username }}-x86
     strategy:
       fail-fast: false
