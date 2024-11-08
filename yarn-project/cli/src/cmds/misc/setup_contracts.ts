@@ -17,9 +17,19 @@ export async function setupCanonicalL2FeeJuice(
   const { FeeJuiceContract } = await import('@aztec/noir-contracts.js');
 
   const feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, deployer);
+
   log('setupCanonicalL2FeeJuice: Calling initialize on fee juice contract...');
-  await feeJuiceContract.methods
-    .initialize(feeJuicePortalAddress)
-    .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
-    .wait(waitOpts);
+
+  try {
+    const provenTx = await feeJuiceContract.methods
+      .initialize(feeJuicePortalAddress)
+      .prove({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } });
+
+    await provenTx.send().wait(waitOpts);
+  } catch (e: any) {
+    if (e instanceof Error) {
+      log(e.message);
+    }
+    log('setupCanonicalL2FeeJuice: Fee juice contract already initialized');
+  }
 }
