@@ -1,17 +1,91 @@
 {
   "files.associations": {
+    // Build and Infrastructure
     "*.tf": "terraform",
     "*.tfvars": "terraform",
     "Makefile.*": "makefile",
-    "type_traits": "cpp",
+    
+    // C++ Standard Library Containers
+    "array": "cpp",
+    "deque": "cpp",
+    "forward_list": "cpp",
+    "hash_map": "cpp",
+    "hash_set": "cpp",
+    "list": "cpp",
+    "map": "cpp",
+    "queue": "cpp",
+    "set": "cpp",
+    "stack": "cpp",
+    "unordered_map": "cpp",
+    "unordered_set": "cpp",
+    "vector": "cpp",
+    
+    // C++ Standard Library Components
     "algorithm": "cpp",
+    "atomic": "cpp",
+    "bitset": "cpp",
+    "chrono": "cpp",
+    "complex": "cpp",
+    "functional": "cpp",
+    "memory": "cpp",
+    "memory_resource": "cpp",
+    "optional": "cpp",
+    "ratio": "cpp",
+    "regex": "cpp",
+    "string": "cpp",
+    "string_view": "cpp",
+    "tuple": "cpp",
+    "type_traits": "cpp",
+    "variant": "cpp",
+    
+    // I/O and Streams
+    "fstream": "cpp",
+    "iomanip": "cpp",
+    "ios": "cpp",
+    "iosfwd": "cpp",
+    "iostream": "cpp",
+    "istream": "cpp",
+    "ostream": "cpp",
+    "sstream": "cpp",
+    "streambuf": "cpp",
+    "strstream": "cpp",
+
+    // System and Threading
+    "condition_variable": "cpp",
+    "filesystem": "cpp",
+    "mutex": "cpp",
+    "semaphore": "cpp",
+    "shared_mutex": "cpp",
+    "thread": "cpp",
+    
+    // C Standard Library
+    "cctype": "cpp",
+    "cfenv": "cpp",
+    "cinttypes": "cpp",
+    "clocale": "cpp",
+    "cmath": "cpp",
+    "cstdarg": "cpp",
+    "cstddef": "cpp",
+    "cstdint": "cpp",
+    "cstdio": "cpp",
+    "cstdlib": "cpp",
+    "cstring": "cpp",
+    "ctime": "cpp",
+    "cuchar": "cpp",
+    "cwchar": "cpp",
+    "cwctype": "cpp",
+    
+    // Implementation Details
     "__bit_reference": "cpp",
+    "__bits": "cpp",
     "__config": "cpp",
     "__debug": "cpp",
     "__errc": "cpp",
     "__functional_base": "cpp",
+    "__hash": "cpp",
     "__hash_table": "cpp",
     "__locale": "cpp",
+    "__memory": "cpp",
     "__mutex_base": "cpp",
     "__node_handle": "cpp",
     "__nullptr": "cpp",
@@ -20,101 +94,45 @@
     "__threading_support": "cpp",
     "__tree": "cpp",
     "__tuple": "cpp",
-    "array": "cpp",
-    "atomic": "cpp",
+    
+    // Modern C++ Features
     "bit": "cpp",
-    "bitset": "cpp",
-    "cctype": "cpp",
-    "chrono": "cpp",
-    "cinttypes": "cpp",
-    "clocale": "cpp",
-    "cmath": "cpp",
+    "charconv": "cpp",
     "codecvt": "cpp",
-    "complex": "cpp",
-    "condition_variable": "cpp",
-    "cstdarg": "cpp",
-    "cstddef": "cpp",
-    "cstdint": "cpp",
-    "cstdio": "cpp",
-    "cstdlib": "cpp",
-    "cstring": "cpp",
-    "ctime": "cpp",
-    "cwchar": "cpp",
-    "cwctype": "cpp",
-    "deque": "cpp",
-    "exception": "cpp",
-    "forward_list": "cpp",
-    "fstream": "cpp",
-    "functional": "cpp",
-    "initializer_list": "cpp",
-    "iomanip": "cpp",
-    "ios": "cpp",
-    "iosfwd": "cpp",
-    "iostream": "cpp",
-    "istream": "cpp",
-    "iterator": "cpp",
-    "limits": "cpp",
-    "list": "cpp",
-    "locale": "cpp",
-    "map": "cpp",
-    "memory": "cpp",
-    "mutex": "cpp",
-    "new": "cpp",
-    "numeric": "cpp",
-    "optional": "cpp",
-    "ostream": "cpp",
-    "queue": "cpp",
-    "random": "cpp",
-    "ratio": "cpp",
-    "regex": "cpp",
-    "set": "cpp",
-    "shared_mutex": "cpp",
-    "sstream": "cpp",
-    "stack": "cpp",
-    "stdexcept": "cpp",
-    "streambuf": "cpp",
-    "string": "cpp",
-    "string_view": "cpp",
-    "strstream": "cpp",
-    "system_error": "cpp",
-    "thread": "cpp",
-    "tuple": "cpp",
-    "typeindex": "cpp",
-    "typeinfo": "cpp",
-    "unordered_map": "cpp",
-    "unordered_set": "cpp",
-    "utility": "cpp",
-    "variant": "cpp",
-    "vector": "cpp",
-    "hash_map": "cpp",
-    "hash_set": "cpp",
-    "*.tcc": "cpp",
-    "memory_resource": "cpp",
-    "cfenv": "cpp",
-    "filesystem": "cpp",
-    "version": "cpp",
     "compare": "cpp",
     "concepts": "cpp",
-    "semaphore": "cpp",
+    "exception": "cpp",
+    "initializer_list": "cpp",
+    "limits": "cpp",
+    "locale": "cpp",
+    "new": "cpp",
+    "numeric": "cpp",
+    "random": "cpp",
     "ranges": "cpp",
-    "stop_token": "cpp",
-    "__hash": "cpp",
-    "__memory": "cpp",
-    "__bits": "cpp",
-    "charconv": "cpp",
     "span": "cpp",
+    "stop_token": "cpp",
+    "system_error": "cpp",
+    "typeindex": "cpp",
+    "typeinfo": "cpp",
+    "version": "cpp",
+    
+    // Project Specific
     "*.inc": "cpp",
     "*.macros": "cpp",
-    "*.tpp": "cpp"
+    "*.tcc": "cpp"
   },
-  "solidity.compileUsingRemoteVersion": "v0.8.27",
-  "solidity.formatter": "forge",
+
   "search.exclude": {
     "**/.yarn": true,
-    "**/.yalc": true,
-    "**/node_modules": true,
     "**/.pnp.*": true,
     "**/msgpack-c/**": true
+  },
+
+  "solidity.compileUsingRemoteVersion": "v0.6.10+commit.00c0fcaf",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
   },
   "[terraform]": {
     "editor.defaultFormatter": "hashicorp.terraform"
@@ -125,52 +143,6 @@
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  ///////////////////////////////////////
-  // C++/Circuits settings
-  ///////////////////////////////////////
-  "[cpp]": {
-    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
-    "editor.formatOnSave": true
-  },
-  //
-  // Clangd. Note that this setting may be overridden by user settings
-  // to the default value "clangd".
-  //
-  "clangd.path": "clangd-16",
-  //
-  // C/C++ (should be disabled)
-  //
-  // Make sure all C++ IntelliSense features are disabled
-  // and don't interfere with clangd
-  "C_Cpp.intelliSenseEngine": "disabled",
-  "C_Cpp.autocomplete": "disabled",
-  "C_Cpp.codeAnalysis.clangTidy.codeAction.formatFixes": false,
-  "C_Cpp.codeAnalysis.runAutomatically": false,
-  "C_Cpp.configurationWarnings": "disabled",
-  "C_Cpp.debugShortcut": false,
-  "C_Cpp.default.enableConfigurationSquiggles": false,
-  "C_Cpp.formatting": "disabled",
-  "C_Cpp.vcpkg.enabled": false,
-  "C_Cpp.default.includePath": ["barretenberg/cpp/src"],
-  "rust-analyzer.linkedProjects": [
-    "noir/noir-repo/Cargo.toml",
-    "noir/noir-repo/acvm-repo/acvm_js/Cargo.toml",
-    "avm-transpiler/Cargo.toml",
-    "bb-pilcom/Cargo.toml"
-  ],
-  "files.watcherExclude": {
-    "**/.git/**": true,
-    "**/node_modules/**": true,
-    "**/.hg/store/**": true,
-    "**/target/**": true,
-    "**/l1-contracts/lib/**": true,
-    "**/barretenberg/cpp/build*/**": true,
-    "**/barretenberg/cpp/src/wasi-sdk*/**": true,
-    "**/dest/**": true,
-    "**/noir/noir-repo/docs/versioned_docs/**": true
-  },
-  "files.trimTrailingWhitespace": true,
-  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
-  "typescript.tsserver.maxTsServerMemory": 4096,
-  "markdown.extension.toc.levels": "2..6"
+  
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp"
 }
