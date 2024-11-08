@@ -1,10 +1,8 @@
 name: release-please
 
-# Trigger on merges to 'master' branch
 on:
   push:
-    branches:
-      - master
+    branches: [master]
 
 permissions:
   contents: write
@@ -14,6 +12,9 @@ jobs:
   release-please:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag_name }}
+      created: ${{ steps.release.outputs.releases_created }}
     steps:
       - name: Run Release Please
         id: release
@@ -22,29 +23,25 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
 
-      - name: Dispatch to publish Aztec packages workflow
+      - name: Trigger publish workflows
+        if: ${{ steps.release.outputs.releases_created }}
         uses: benc-uk/workflow-dispatch@v1
-        if: ${{ steps.release.outputs.tag_name }}
+        strategy:
+          matrix:
+            workflow: [publish-aztec-packages.yml, publish-bb.yml, publish-docs.yml]
+            include:
+              - workflow: publish-aztec-packages.yml
+                publish: true
+              - workflow: publish-bb.yml
+                publish: true
+              - workflow: publish-docs.yml
+                publish: false
         with:
-          workflow: publish-aztec-packages.yml
+          workflow: ${{ matrix.workflow }}
           ref: master
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}", "publish": true }'
-
-      - name: Dispatch to publish BB workflow
-        uses: benc-uk/workflow-dispatch@v1
-        if: ${{ steps.release.outputs.tag_name }}
-        with:
-          workflow: publish-bb.yml
-          ref: master
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}", "publish": true }'
-
-      - name: Dispatch to publish docs workflow
-        uses: benc-uk/workflow-dispatch@v1
-        if: ${{ steps.release.outputs.tag_name }}
-        with:
-          workflow: publish-docs.yml
-          ref: master
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}" }'
+          inputs: >-
+            {
+              "tag": "${{ steps.release.outputs.tag_name }}"
+              ${{ matrix.publish && ', "publish": true' || '' }}
+            }
