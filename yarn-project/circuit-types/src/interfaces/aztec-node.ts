@@ -17,7 +17,7 @@ import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
-import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
+import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -482,11 +482,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
-  getHeader: z.function().args(L2BlockNumberSchema.optional()).returns(Header.schema),
+  getHeader: z.function().args(optional(L2BlockNumberSchema)).returns(Header.schema),
 
   simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, z.boolean().optional()).returns(z.boolean()),
+  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(z.boolean()),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 

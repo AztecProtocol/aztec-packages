@@ -6,7 +6,7 @@ import {
   PublicFunctionSchema,
 } from '@aztec/circuits.js';
 import { ContractArtifactSchema } from '@aztec/foundation/abi';
-import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
+import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -40,7 +40,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(Header.schema.optional()),
   getBlocks: z
     .function()
-    .args(schemas.Integer, schemas.Integer, z.boolean().optional())
+    .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
   getTxEffect: z.function().args(TxHash.schema).returns(TxEffect.schema.optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),

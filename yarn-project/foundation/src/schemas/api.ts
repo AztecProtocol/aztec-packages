@@ -1,6 +1,13 @@
 import { type z } from 'zod';
 
-type ZodFor<T> = z.ZodType<T, z.ZodTypeDef, any>;
+import { type ZodNullableOptional } from './utils.js';
+
+// Forces usage of ZodNullableOptional in parameters schemas so we properly accept nulls for optional parameters.
+type ZodParameterTypeFor<T> = undefined extends T
+  ? ZodNullableOptional<z.ZodType<T, z.ZodTypeDef, any>>
+  : z.ZodType<T, z.ZodTypeDef, any>;
+
+type ZodReturnTypeFor<T> = z.ZodType<T, z.ZodTypeDef, any>;
 
 // This monstruosity is used for mapping function arguments to their schema representation.
 // The complexity is required to satisfy ZodTuple which requires a fixed length tuple and
@@ -9,18 +16,18 @@ type ZodFor<T> = z.ZodType<T, z.ZodTypeDef, any>;
 // with optional arguments (ie optional items in the tuple), and ts does not really like them
 // during a recursion and fails with infinite stack depth.
 // This type appears to satisfy everyone. Everyone but me.
-type ZodMapTypes<T> = T extends []
+type ZodMapParameterTypes<T> = T extends []
   ? []
   : T extends [item: infer Head, ...infer Rest]
-  ? [ZodFor<Head>, ...{ [K in keyof Rest]: ZodFor<Rest[K]> }]
+  ? [ZodParameterTypeFor<Head>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
   : T extends [item?: infer Head, ...infer Rest]
-  ? [z.ZodOptional<ZodFor<Head>>, ...{ [K in keyof Rest]: ZodFor<Rest[K]> }]
+  ? [ZodNullableOptional<ZodParameterTypeFor<Head>>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
   : never;
 
 /** Maps all functions in an interface to their schema representation. */
 export type ApiSchemaFor<T> = {
   [K in keyof T]: T[K] extends (...args: infer Args) => Promise<infer Ret>
-    ? z.ZodFunction<z.ZodTuple<ZodMapTypes<Args>, z.ZodUnknown>, ZodFor<Ret>>
+    ? z.ZodFunction<z.ZodTuple<ZodMapParameterTypes<Args>, z.ZodUnknown>, ZodReturnTypeFor<Ret>>
     : never;
 };
 
