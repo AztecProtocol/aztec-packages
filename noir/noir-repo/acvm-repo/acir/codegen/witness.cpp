@@ -14,7 +14,7 @@ namespace WitnessStack {
     };
 
     struct WitnessMap {
-        std::map<WitnessStack::Witness, std::string> value;
+        std::map<WitnessStack::Witness, std::vector<uint8_t>> value;
 
         friend bool operator==(const WitnessMap&, const WitnessMap&);
         std::vector<uint8_t> bincodeSerialize() const;

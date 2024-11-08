@@ -612,7 +612,7 @@ namespace Program {
         struct Const {
             Program::MemoryAddress destination;
             Program::BitSize bit_size;
-            std::string value;
+            std::vector<uint8_t> value;
 
             friend bool operator==(const Const&, const Const&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -622,7 +622,7 @@ namespace Program {
         struct IndirectConst {
             Program::MemoryAddress destination_pointer;
             Program::BitSize bit_size;
-            std::string value;
+            std::vector<uint8_t> value;
 
             friend bool operator==(const IndirectConst&, const IndirectConst&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -728,7 +728,7 @@ namespace Program {
     struct ConstantOrWitnessEnum {
 
         struct Constant {
-            std::string value;
+            std::vector<uint8_t> value;
 
             friend bool operator==(const Constant&, const Constant&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -1019,9 +1019,9 @@ namespace Program {
     };
 
     struct Expression {
-        std::vector<std::tuple<std::string, Program::Witness, Program::Witness>> mul_terms;
-        std::vector<std::tuple<std::string, Program::Witness>> linear_combinations;
-        std::string q_c;
+        std::vector<std::tuple<std::vector<uint8_t>, Program::Witness, Program::Witness>> mul_terms;
+        std::vector<std::tuple<std::vector<uint8_t>, Program::Witness>> linear_combinations;
+        std::vector<uint8_t> q_c;
 
         friend bool operator==(const Expression&, const Expression&);
         std::vector<uint8_t> bincodeSerialize() const;
