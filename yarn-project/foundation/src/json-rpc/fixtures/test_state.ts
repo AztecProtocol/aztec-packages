@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type ApiSchemaFor, schemas } from '../../schemas/index.js';
+import { type ApiSchemaFor, optional, schemas } from '../../schemas/index.js';
 import { sleep } from '../../sleep/index.js';
 
 /**
@@ -35,14 +35,16 @@ export class TestNote {
 }
 
 export interface TestStateApi {
-  getNote: (index: number) => Promise<TestNote>;
+  getNote: (index: number) => Promise<TestNote | undefined>;
   getNotes: (limit?: number) => Promise<TestNote[]>;
-  getBigNotes: (limit: bigint) => Promise<TestNote[]>;
+  getNotes2: (limit: bigint | undefined) => Promise<TestNote[]>;
+  getNotes3: (limit?: number) => Promise<TestNote[]>;
   clear: () => Promise<void>;
   addNotes: (notes: TestNote[]) => Promise<TestNote[]>;
   fail: () => Promise<void>;
   count: () => Promise<number>;
   getStatus: () => Promise<{ status: string; count: bigint }>;
+  getTuple(): Promise<[string, string | undefined, number]>;
 }
 
 /**
@@ -79,7 +81,12 @@ export class TestState implements TestStateApi {
     return limit ? this.notes.slice(0, limit) : this.notes;
   }
 
-  async getBigNotes(limit: bigint): Promise<TestNote[]> {
+  async getNotes2(limit: bigint | undefined): Promise<TestNote[]> {
+    await sleep(0.1);
+    return limit ? this.notes.slice(0, Number(limit)) : this.notes;
+  }
+
+  async getNotes3(limit = 1): Promise<TestNote[]> {
     await sleep(0.1);
     return limit ? this.notes.slice(0, Number(limit)) : this.notes;
   }
@@ -115,15 +122,22 @@ export class TestState implements TestStateApi {
     await sleep(0.1);
     return { status: 'ok', count: BigInt(this.notes.length) };
   }
+
+  async getTuple(): Promise<[string, string | undefined, number]> {
+    await sleep(0.1);
+    return ['a', undefined, 1];
+  }
 }
 
 export const TestStateSchema: ApiSchemaFor<TestStateApi> = {
-  getNote: z.function().args(z.number()).returns(TestNote.schema),
-  getNotes: z.function().args(schemas.Integer.optional()).returns(z.array(TestNote.schema)),
-  getBigNotes: z.function().args(schemas.BigInt).returns(z.array(TestNote.schema)),
+  getNote: z.function().args(z.number()).returns(TestNote.schema.optional()),
+  getNotes: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
+  getNotes2: z.function().args(optional(schemas.BigInt)).returns(z.array(TestNote.schema)),
+  getNotes3: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
   clear: z.function().returns(z.void()),
   addNotes: z.function().args(z.array(TestNote.schema)).returns(z.array(TestNote.schema)),
   fail: z.function().returns(z.void()),
   count: z.function().returns(z.number()),
   getStatus: z.function().returns(z.object({ status: z.string(), count: schemas.BigInt })),
+  getTuple: z.function().returns(z.tuple([z.string(), optional(z.string()), z.number()])),
 };

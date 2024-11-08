@@ -22,7 +22,7 @@ import {
   ContractArtifactSchema,
   type EventSelector,
 } from '@aztec/foundation/abi';
-import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -500,10 +500,10 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .args(
       TxExecutionRequest.schema,
       z.boolean(),
-      z.optional(schemas.AztecAddress),
-      z.optional(z.boolean()),
-      z.optional(z.boolean()),
-      z.optional(z.array(schemas.AztecAddress)),
+      optional(schemas.AztecAddress),
+      optional(z.boolean()),
+      optional(z.boolean()),
+      optional(z.array(schemas.AztecAddress)),
     )
     .returns(TxSimulationResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
@@ -519,7 +519,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
   getOutgoingNotes: z.function().args(OutgoingNotesFilterSchema).returns(z.array(UniqueNote.schema)),
-  addNote: z.function().args(ExtendedNote.schema, z.optional(schemas.AztecAddress)).returns(z.void()),
+  addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
   addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
   getBlock: z
     .function()
@@ -531,8 +531,8 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       z.string(),
       z.array(z.any()),
       schemas.AztecAddress,
-      z.optional(schemas.AztecAddress),
-      z.optional(z.array(schemas.AztecAddress)),
+      optional(schemas.AztecAddress),
+      optional(z.array(schemas.AztecAddress)),
     )
     .returns(AbiDecodedSchema),
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),

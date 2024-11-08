@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { jsonStringify } from '../json-rpc/convert.js';
 import { parseWithOptionals } from './parse.js';
+import { optional } from './utils.js';
 
 describe('parse', () => {
   it('parses arguments without optionals', () => {
@@ -50,5 +52,11 @@ describe('parse', () => {
   it('fails on missing coerced required bigint', () => {
     const schema = z.tuple([z.coerce.bigint()]);
     expect(() => parseWithOptionals([], schema)).toThrow();
+  });
+
+  it('handles explicit undefined values', () => {
+    const schema = z.tuple([z.number(), optional(z.number())]);
+    const parsed = JSON.parse(jsonStringify([3, undefined]));
+    expect(parseWithOptionals(parsed, schema)).toEqual([3, undefined]);
   });
 });

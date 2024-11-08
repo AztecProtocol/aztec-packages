@@ -50,8 +50,32 @@ describe('JsonRpc integration', () => {
     });
 
     it('calls an RPC function with a bigint parameter', async () => {
-      const notes = await client.getBigNotes(1n);
+      const notes = await client.getNotes2(1n);
       expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with an undefined parameter', async () => {
+      const notes = await client.getNotes2(undefined);
+      expect(notes).toEqual(testNotes);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with a default parameter', async () => {
+      const notes = await client.getNotes3();
+      expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function with a default parameter with explicit undefined', async () => {
+      const notes = await client.getNotes3(undefined);
+      expect(notes).toEqual([testNotes[0]]);
+      expect(notes.every(note => note instanceof TestNote)).toBe(true);
+    });
+
+    it('calls an RPC function overriding the default parameter', async () => {
+      const notes = await client.getNotes3(5);
+      expect(notes).toEqual(testNotes);
       expect(notes.every(note => note instanceof TestNote)).toBe(true);
     });
 
@@ -75,9 +99,19 @@ describe('JsonRpc integration', () => {
       expect(testState.notes).toEqual([]);
     });
 
-    it('calls an RPC function that returns a primitive object and a bigint', async () => {
+    it('calls an RPC function that returns a primitive object with a bigint', async () => {
       const status = await client.getStatus();
       expect(status).toEqual({ status: 'ok', count: 2n });
+    });
+
+    it('calls an RPC function that returns a tuple', async () => {
+      const status = await client.getTuple();
+      expect(status).toEqual(['a', undefined, 1]);
+    });
+
+    it('calls an RPC function that returns undefined', async () => {
+      const note = await client.getNote(10);
+      expect(note).toBeUndefined();
     });
 
     it('calls an RPC function that throws an error', async () => {

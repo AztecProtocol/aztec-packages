@@ -143,8 +143,25 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(TxProvingResult);
   });
 
-  it('simulateTx', async () => {
+  it('simulateTx(all)', async () => {
     const result = await context.client.simulateTx(TxExecutionRequest.random(), true, address, false, false, []);
+    expect(result).toBeInstanceOf(TxSimulationResult);
+  });
+
+  it('simulateTx(required)', async () => {
+    const result = await context.client.simulateTx(TxExecutionRequest.random(), true);
+    expect(result).toBeInstanceOf(TxSimulationResult);
+  });
+
+  it('simulateTx(undefined)', async () => {
+    const result = await context.client.simulateTx(
+      TxExecutionRequest.random(),
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -369,8 +386,12 @@ class MockPXE implements PXE {
     scopes?: AztecAddress[] | undefined,
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    expect(msgSender).toBeInstanceOf(AztecAddress);
-    expect(scopes).toEqual([]);
+    if (msgSender) {
+      expect(msgSender).toBeInstanceOf(AztecAddress);
+    }
+    if (scopes) {
+      expect(scopes).toEqual([]);
+    }
     return Promise.resolve(
       new TxSimulationResult(PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty()),
     );
