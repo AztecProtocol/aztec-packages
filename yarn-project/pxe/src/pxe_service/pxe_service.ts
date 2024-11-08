@@ -535,47 +535,52 @@ export class PXEService implements PXE {
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
-    return await this.jobQueue.put(async () => {
-      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
+    return await this.jobQueue
+      .put(async () => {
+        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-      let publicInputs: PrivateKernelTailCircuitPublicInputs;
-      let profileResult;
-      if (profile) {
-        ({ publicInputs, profileResult } = await this.#profileKernelProver(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-        ));
-      } else {
-        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
-      }
-
-      const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-      const simulatedTx = privateSimulationResult.toSimulatedTx();
-      let publicOutput: PublicSimulationOutput | undefined;
-      if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx);
-      }
-
-      if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx, true))) {
-          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+        let publicInputs: PrivateKernelTailCircuitPublicInputs;
+        let profileResult;
+        if (profile) {
+          ({ publicInputs, profileResult } = await this.#profileKernelProver(
+            txRequest,
+            this.proofCreator,
+            privateExecutionResult,
+          ));
+        } else {
+          publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
         }
-      }
 
-      // We log only if the msgSender is undefined, as simulating with a different msgSender
-      // is unlikely to be a real transaction, and likely to be only used to read data.
-      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
-      // If we log, the `getTxHash` function will throw.
-      if (!msgSender) {
-        this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
-      }
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
-        privateSimulationResult,
-        publicOutput,
-        profileResult,
-      );
-    });
+        const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
+        const simulatedTx = privateSimulationResult.toSimulatedTx();
+        let publicOutput: PublicSimulationOutput | undefined;
+        if (simulatePublic) {
+          publicOutput = await this.#simulatePublicCalls(simulatedTx);
+        }
+
+        if (!skipTxValidation) {
+          if (!(await this.node.isValidTx(simulatedTx, true))) {
+            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+          }
+        }
+
+        // We log only if the msgSender is undefined, as simulating with a different msgSender
+        // is unlikely to be a real transaction, and likely to be only used to read data.
+        // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+        // If we log, the `getTxHash` function will throw.
+        if (!msgSender) {
+          this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
+        }
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+          privateSimulationResult,
+          publicOutput,
+          profileResult,
+        );
+      })
+      .catch(err => {
+        this.log.error(err);
+        throw err;
+      });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
