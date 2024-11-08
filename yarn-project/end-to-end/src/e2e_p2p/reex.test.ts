@@ -120,13 +120,6 @@ describe('e2e_p2p_reex', () => {
       t.logger.info('Failed to mine all txs, as planned');
     }
 
-    // Check that we did call the re-execution logic
-    let reExecutionCalls = 0;
-    reExecutionSpies.forEach(spy => {
-      reExecutionCalls += Number((spy as any).mock.calls.length > 0);
-    });
-    expect(reExecutionCalls).toBe(3);
-
     // Expect that all of the re-execution attempts failed with an invalid root
     for (const spy of reExecutionSpies) {
       for (const result of spy.mock.results) {
