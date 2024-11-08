@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/polynomials/univariate_monomial.hpp"
 #include <span>
 
 namespace bb {
@@ -30,6 +31,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     static constexpr size_t LENGTH = domain_end - domain_start;
     static constexpr size_t SKIP_COUNT = skip_count;
     using View = UnivariateView<Fr, domain_end, domain_start, skip_count>;
+    static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
+    using MonomialAccumulator = UnivariateMonomial<Fr, MONOMIAL_LENGTH, 0, 0>;
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
@@ -47,6 +50,90 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
 
+    explicit operator UnivariateMonomial<Fr, 1, 0, 0>() const
+        requires(LENGTH == 1)
+    {
+        static_assert(domain_start == 0);
+        // (1 - X)a0 + Xa1
+        // a0
+        UnivariateMonomial<Fr, 1, 0, 0> result;
+        result.evaluations[0] = evaluations[0];
+        return result;
+    }
+
+    explicit operator UnivariateMonomial<Fr, 2, 0, 0>() const
+        requires(LENGTH > 1)
+    {
+        //       static std::mutex g_pages_mutex;
+        static_assert(domain_end >= 2);
+        static_assert(domain_start == 0);
+        // (1 - X)a0 + Xa1
+        // a0
+
+        UnivariateMonomial<Fr, 2, 0, 0> result;
+        // std::lock_guard<std::mutex> guard(g_pages_mutex);
+        // std::cout << "evaluations[0] = " << evaluations[0] << std::endl;
+        // std::cout << "evaluations[1] = " << evaluations[1] << std::endl;
+
+        result.evaluations[0] = evaluations[0];
+        result.evaluations[1] = evaluations[1] - evaluations[0];
+        // std::cout << "evaluations[1] = " << result.evaluations[1] << std::endl;
+        // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
+        return result;
+    }
+
+    Univariate(UnivariateMonomial<Fr, 2, 0, 0> monomial)
+    {
+        static_assert(domain_start == 0);
+        Fr to_add = monomial.evaluations[1];
+        evaluations[0] = monomial.evaluations[0];
+        auto prev = evaluations[0];
+        for (size_t i = 1; i < skip_count + 1; ++i) {
+            evaluations[i] = 0;
+            prev = prev + to_add;
+        }
+
+        for (size_t i = skip_count + 1; i < domain_end; ++i) {
+            prev = prev + to_add;
+            evaluations[i] = prev;
+        }
+    }
+
+    Univariate(UnivariateMonomial<Fr, 3, 0, 0> monomial)
+    {
+        static_assert(domain_start == 0);
+        Fr to_add = monomial.evaluations[1] + monomial.evaluations[2];
+        Fr derivative = monomial.evaluations[2] + monomial.evaluations[2];
+        evaluations[0] = monomial.evaluations[0];
+        auto prev = evaluations[0];
+        for (size_t i = 1; i < skip_count + 1; ++i) {
+            evaluations[i] = 0;
+            prev = prev + to_add;
+            to_add += derivative;
+        }
+
+        for (size_t i = skip_count + 1; i < domain_end; ++i) {
+            prev = prev + to_add;
+            evaluations[i] = prev;
+            to_add += derivative;
+        }
+    }
+
+    // explicit operator UnivariateMonomial<Fr, 2, 0, 0>() const
+    // {
+    //     static_assert(domain_end >= 2);
+    //     static_assert(domain_start == 0);
+    //     // (1 - X)a0 + Xa1
+    //     // a0
+    //     if constexpr (skip_count > 0) {
+    //         UnivariateMonomial<Fr, 2, 0, 0> result{ .evaluations = { evaluations[0], 0 } };
+    //         return result;
+    //     } else {
+    //         UnivariateMonomial<Fr, 2, 0, 0> result{ .evaluations = { evaluations[0],
+    //                                                                  evaluations[1] - evaluations[0] } };
+    //         return result;
+    //     }
+    // }
     /**
      * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
      * locations)
@@ -576,14 +663,55 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
   public:
     static constexpr size_t LENGTH = domain_end - domain_start;
     std::span<const Fr, LENGTH> evaluations;
+    static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
+    using MonomialAccumulator = UnivariateMonomial<Fr, MONOMIAL_LENGTH, 0, 0>;
 
     UnivariateView() = default;
+
+    bool operator==(const UnivariateView& other) const
+    {
+        bool r = true;
+        r = r && (evaluations[0] == other.evaluations[0]);
+        // a view might have nonzero terms in its skip_count if accessing an original monomial
+        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
+            //  for (size_t i = 1; i < LENGTH; ++i) {
+
+            r = r && (evaluations[i] == other.evaluations[i]);
+        }
+        return r;
+    };
 
     const Fr& value_at(size_t i) const { return evaluations[i]; };
 
     template <size_t full_domain_end, size_t full_domain_start = 0>
     explicit UnivariateView(const Univariate<Fr, full_domain_end, full_domain_start, skip_count>& univariate_in)
         : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH)){};
+
+    explicit operator UnivariateMonomial<Fr, 1, 0, 0>() const
+        requires(LENGTH == 1)
+    {
+        static_assert(domain_start == 0);
+        // (1 - X)a0 + Xa1
+        // a0
+        UnivariateMonomial<Fr, 1, 0, 0> result;
+        result.evaluations[0] = evaluations[0];
+        return result;
+    }
+
+    explicit operator UnivariateMonomial<Fr, 2, 0, 0>() const
+        requires(LENGTH > 1)
+    {
+        static_assert(domain_end >= 2);
+        static_assert(domain_start == 0);
+        // (1 - X)a0 + Xa1
+        // a0
+
+        UnivariateMonomial<Fr, 2, 0, 0> result;
+        result.evaluations[0] = evaluations[0];
+        result.evaluations[1] = evaluations[1] - evaluations[0];
+        // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
+        return result;
+    }
 
     Univariate<Fr, domain_end, domain_start, skip_count> operator+(const UnivariateView& other) const
     {

@@ -15,6 +15,7 @@ template <typename Builder, typename T> class bigfield {
 
   public:
     using View = bigfield;
+    using MonomialAccumulator = bigfield;
     using TParams = T;
     using native = bb::field<T>;
 
