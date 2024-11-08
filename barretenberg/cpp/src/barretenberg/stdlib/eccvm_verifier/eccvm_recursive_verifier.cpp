@@ -132,7 +132,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     info("pre-finalized size before IPA opening: ", builder->num_gates);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1142): Handle this return value correctly.
     const typename PCS::VerifierAccumulator batched_opening_accumulator =
-        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
+        PCS::reduce_verify(batch_opening_claim, transcript);
     info("pre-finalized size after IPA opening: ", builder->num_gates);
     auto end = std::chrono::steady_clock::now();
     std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
