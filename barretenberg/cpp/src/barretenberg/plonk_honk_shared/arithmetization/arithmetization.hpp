@@ -34,7 +34,9 @@ enum class TraceStructure { NONE, TINY_TEST, SMALL_TEST, CLIENT_IVC_BENCH, E2E_F
 
 struct TraceSettings {
     TraceStructure structure = TraceStructure::NONE;
-    uint32_t overflow_capacity = 0; // the size of the overflow block
+    // The size of the overflow block. Specified separately because it is allowed to be determined at runtime in the
+    // context of VK computation
+    uint32_t overflow_capacity = 0;
 };
 
 /**
