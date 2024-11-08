@@ -84,7 +84,8 @@ contract TokenPortal {
     IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
-    // Hash the message content to be reconstructed in the receiving contract
+    // Hash the message content to be reconstructed in the receiving contract - the signature below does not correspond
+    // to a real function. It's just an identifier of an action.
     bytes32 contentHash =
       Hash.sha256ToField(abi.encodeWithSignature("mint_private(uint256)", _amount));
 
