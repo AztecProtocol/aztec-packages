@@ -21,7 +21,7 @@ export async function startProverAgent(
   const proverConfig = extractRelevantOptions<ProverClientConfig>(options, proverClientConfigMappings, 'prover');
   const proverJobSourceUrl = proverConfig.proverJobSourceUrl ?? proverConfig.nodeUrl;
   if (!proverJobSourceUrl) {
-    throw new Error('Starting prover without PROVER_JOB_PROVIDER_URL is not supported');
+    throw new Error('Starting prover without PROVER_JOB_SOURCE_URL is not supported');
   }
 
   logger(`Connecting to prover at ${proverJobSourceUrl}`);

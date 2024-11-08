@@ -14,7 +14,8 @@ export function parse<T extends [] | [z.ZodTypeAny, ...z.ZodTypeAny[]]>(args: IA
 export function parseWithOptionals<T extends z.AnyZodTuple>(args: any[], schema: T): T['_output'] {
   const missingCount = schema.items.length - args.length;
   const optionalCount = schema.items.filter(isOptional).length;
-  const toParse = missingCount <= optionalCount ? args.concat(times(missingCount, () => undefined)) : args;
+  const toParse =
+    missingCount > 0 && missingCount <= optionalCount ? args.concat(times(missingCount, () => undefined)) : args;
   return schema.parse(toParse);
 }
 
