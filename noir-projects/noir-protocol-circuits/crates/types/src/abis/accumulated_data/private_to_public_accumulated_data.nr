@@ -75,7 +75,7 @@ impl Serialize<PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH> for PrivateToPublicAcc
 
         assert_eq(fields.len(), PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

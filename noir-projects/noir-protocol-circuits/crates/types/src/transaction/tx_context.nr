@@ -7,9 +7,9 @@ use crate::{
 
 // docs:start:tx-context
 pub struct TxContext {
-    chain_id: Field,
-    version: Field,
-    gas_settings: GasSettings,
+    pub chain_id: Field,
+    pub version: Field,
+    pub gas_settings: GasSettings,
 }
 // docs:end:tx-context
 
@@ -43,7 +43,7 @@ impl Serialize<TX_CONTEXT_LENGTH> for TxContext {
 
         assert_eq(fields.len(), TX_CONTEXT_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

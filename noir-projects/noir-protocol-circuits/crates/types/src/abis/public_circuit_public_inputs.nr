@@ -118,7 +118,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         fields.extend_from_array(self.start_gas_left.serialize());
         fields.extend_from_array(self.end_gas_left.serialize());
         fields.push(self.transaction_fee);
-        fields.storage
+        fields.storage()
     }
 }
 

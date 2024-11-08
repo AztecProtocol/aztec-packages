@@ -52,7 +52,7 @@ impl Serialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
 
         assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

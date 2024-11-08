@@ -1,9 +1,9 @@
-mod dispatch;
-mod functions;
-mod utils;
-mod notes;
-mod storage;
-mod events;
+pub mod dispatch;
+pub mod functions;
+pub mod utils;
+pub mod notes;
+pub mod storage;
+pub mod events;
 
 use functions::interfaces::STUBS;
 use notes::{generate_note_export, NOTES};

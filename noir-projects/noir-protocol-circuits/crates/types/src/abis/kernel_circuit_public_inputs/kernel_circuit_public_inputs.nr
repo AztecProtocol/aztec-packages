@@ -57,7 +57,7 @@ impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInput
 
         assert_eq(fields.len(), KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

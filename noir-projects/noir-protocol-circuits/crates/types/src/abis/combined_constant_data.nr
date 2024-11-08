@@ -58,7 +58,7 @@ impl Serialize<COMBINED_CONSTANT_DATA_LENGTH> for CombinedConstantData {
 
         assert_eq(fields.len(), COMBINED_CONSTANT_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
