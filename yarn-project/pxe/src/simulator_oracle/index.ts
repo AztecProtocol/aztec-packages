@@ -333,7 +333,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Synchronizes the logs tagged with scopes addresses and all the senders in the addressbook.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the addressbook.
    * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param recipient - The address of the recipient
