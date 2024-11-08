@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731090065779,
+  "lastUpdate": 1731096050614,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ebe3611ad3826443b31e5626a4e08cdd90f0f2a",
-          "message": "feat: derive address and class id in avm (#8897)\n\nthis PR adds tracing of the class id and contract instance when\r\n`getBytecode` (indicating a new context execution is happening in the\r\nsimulator) is executed.\r\n\r\nWe now derive the class id and the contract address in witgen, plus\r\nbuild the (unconstrained) circuit for:\r\n\r\n1. the raw bytecode bytes, \r\n2. the field encoded version\r\n3. the bytecode hash derivation\r\n\r\nThe circuit elements of the contract class id and address will be done\r\nin a follow up based on how we tackle nullifier request",
-          "timestamp": "2024-10-26T18:26:04-04:00",
-          "tree_id": "f4513cd797fd8196c605a219cff91b00a1e98364",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2ebe3611ad3826443b31e5626a4e08cdd90f0f2a"
-        },
-        "date": 1729983285888,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30830.65084100002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28893.521361 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5360.253768999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5060.213106 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 92563.331494,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 92563333000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15140.094836,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15140095000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2710663305,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2710663305 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127831682,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127831682 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 144145031,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144145031 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "23ff5186a4c8905bd35753c1e6536d3b5504a5f0",
+          "message": "feat: zk shplemini (#9830)\n\nWe achieve ZK in Shplemini as follows. Before batching the multilinear\r\nevaluation claims obtained as the sumcheck output, the Gemini prover\r\n* creates a random polynomial M of the circuit size;\r\n* commits to M using KZG/IPA, sends the commitment to the verifier;\r\n* evaluates M at the sumcheck challenge, sends the evaluation to the\r\nverifier.\r\n\r\nThe verifier simply adds this new commitment and the appropriate scalar\r\nmultiplier to the BatchOpeningClaim.",
+          "timestamp": "2024-11-08T19:27:30Z",
+          "tree_id": "b5a588d61a6a359ca110cade852f5bbac1c781cd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/23ff5186a4c8905bd35753c1e6536d3b5504a5f0"
+        },
+        "date": 1731096043211,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29338.99260800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27494.75631 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5394.35410900002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4997.728759000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85229.531745,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85229533000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15295.763227,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15295765000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3143603202,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3143603202 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146374702,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146374702 ns\nthreads: 1"
           }
         ]
       }
