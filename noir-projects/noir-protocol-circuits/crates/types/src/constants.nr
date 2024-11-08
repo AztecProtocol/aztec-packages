@@ -43,14 +43,14 @@ pub global MAX_ENCRYPTED_LOGS_PER_CALL: u32 = 4;
 pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
 
 // TREES RELATED CONSTANTS
-pub global ARCHIVE_HEIGHT: u32 = 16;
+pub global ARCHIVE_HEIGHT: u32 = 29;
 pub global VK_TREE_HEIGHT: u32 = 6;
 pub global PROTOCOL_CONTRACT_TREE_HEIGHT: u32 = 3;
 pub global FUNCTION_TREE_HEIGHT: u32 = 5;
-pub global NOTE_HASH_TREE_HEIGHT: u32 = 32;
+pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
-pub global NULLIFIER_TREE_HEIGHT: u32 = 20;
-pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 16;
+pub global NULLIFIER_TREE_HEIGHT: u32 = 40;
+pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 39;
 pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = 5;
 pub global NULLIFIER_TREE_ID = 0;
 pub global NOTE_HASH_TREE_ID = 1;
@@ -145,7 +145,7 @@ pub global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
+    0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 pub global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
