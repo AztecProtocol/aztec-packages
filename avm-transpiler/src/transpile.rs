@@ -340,7 +340,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 handle_black_box_function(&mut avm_instrs, operation);
             }
             _ => panic!(
-                "Transpiler doesn't know how to process {:?} brillig instruction",
+                "Transpiler doesn't know how to process a {:?} brillig instruction",
                 brillig_instr
             ),
         }
@@ -585,7 +585,7 @@ fn handle_emit_unencrypted_log(
     }
 
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
-    // The length field is redundant and we skipt it.
+    // The length field is redundant and we skip it.
     let (message_offset, message_size_offset) = match &inputs[1] {
         ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
         _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
@@ -1113,7 +1113,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             ],
             ..Default::default()
         }),
-        // Temporary while we dont have efficient noir implementations
+        // Temporary while we don't have efficient noir implementations
         BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
             // The length of the scalars vector is 2x the length of the points vector due to limb
             // decomposition
@@ -1163,7 +1163,7 @@ fn handle_debug_log(
         _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
     };
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
-    // The length field is redundant and we skipt it.
+    // The length field is redundant and we skip it.
     let (fields_offset_ptr, fields_size_ptr) = match &inputs[2] {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("List of fields for ForeignCall::DEBUGLOG should be a HeapVector (slice)."),
@@ -1285,7 +1285,7 @@ fn handle_returndata_copy(
     };
 
     avm_instrs.extend([
-        // First we write the return data.
+        // First, we write the return data.
         AvmInstruction {
             opcode: AvmOpcode::RETURNDATACOPY,
             indirect: Some(
@@ -1302,7 +1302,7 @@ fn handle_returndata_copy(
             ],
             ..Default::default()
         },
-        // Then we set the size of the slice, using the input size.
+        // Then, we set the size of the slice, using the input size.
         generate_mov_instruction(
             Some(
                 AddressingModeBuilder::default()
