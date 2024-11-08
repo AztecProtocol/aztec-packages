@@ -330,8 +330,11 @@ export class EnqueuedCallsProcessor {
         phase !== PublicKernelPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, publicKernelOutput);
 
       const enqueuedCallStateManager = txStateManager.fork();
-      // each enqueued call starts with an incremented side effect counter
-      enqueuedCallStateManager.trace.incrementSideEffectCounter();
+      // Each enqueued call starts with an incremented side effect counter,
+      // except for the very first enqueued call which can start at 0.
+      if (phase !== PublicKernelPhase.SETUP || i !== callRequests.length - 1) {
+        enqueuedCallStateManager.trace.incrementSideEffectCounter();
+      }
 
       const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
         callRequest,
