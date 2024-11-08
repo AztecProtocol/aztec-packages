@@ -1,5 +1,8 @@
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 namespace bb {
 
@@ -158,5 +161,6 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
 template class OinkVerifier<MegaFlavor>;
+template class OinkVerifier<MegaZKFlavor>;
 
 } // namespace bb

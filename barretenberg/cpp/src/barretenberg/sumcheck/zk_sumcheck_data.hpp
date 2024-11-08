@@ -27,6 +27,7 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
+    // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
     // Container for the Libra Univariates. Their number depends on the size of the circuit.
     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
@@ -43,43 +44,21 @@ template <typename Flavor> struct ZKSumcheckData {
     // Default constructor
     ZKSumcheckData() = default;
 
-    // Constructor
+    // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript,
-                   std::shared_ptr<typename Flavor::ProvingKey> proving_key = nullptr)
-    {
-        setup_zk_sumcheck_data(multivariate_d, transcript, proving_key);
-    }
+                   std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+        : libra_univariates(generate_libra_univariates(multivariate_d))        // Created in Lagrange basis for Sumcheck
+        , libra_univariates_monomial(transform_to_monomial(libra_univariates)) // Required for commiting and by Shplonk
 
-  public:
-    /**
-     * @brief Create and populate the structure required for the ZK Sumcheck.
-     *
-     * @details This method creates an array of random field elements \f$ \rho_1,\ldots, \rho_{N_w}\f$ aimed to mask
-     * the evaluations of witness polynomials, these are contained in \f$ \texttt{eval_masking_scalars} \f$. In order to
-     * optimize the computation of Sumcheck Round Univariates, it populates a table of univariates \f$
-     * \texttt{masking_terms_evaluations} \f$ which contains at the beginning the evaluations of polynomials \f$ \rho_j
-     * \cdot (1-X)\cdot X \f$ at \f$ 0,\ldots, \text{MAX_PARTIAL_RELATION_LENGTH} - 1\f$. This method also creates Libra
-     * univariates, computes the Libra total sum and adds it to the transcript, and sets up all auxiliary objects.
-     *
-     * @param zk_sumcheck_data
-     */
-    void setup_zk_sumcheck_data(const size_t multivariate_d,
-                                std::shared_ptr<typename Flavor::Transcript> transcript,
-                                std::shared_ptr<typename Flavor::ProvingKey> proving_key = nullptr)
     {
-
-        // Generate random Libra polynomials in the Lagrange basis
-        libra_univariates = generate_libra_univariates(multivariate_d);
-        // To commit to libra_univariates and open them later, need to get their coefficients in the monomial basis
-        libra_univariates_monomial = transform_to_monomial(libra_univariates);
 
         // If proving_key is provided, commit to libra_univariates
-        if (proving_key != nullptr) {
+        if (commitment_key != nullptr) {
             size_t idx = 0;
             for (auto& libra_univariate_monomial : libra_univariates_monomial) {
-                auto libra_commitment = proving_key->commitment_key->commit(Polynomial<FF>(libra_univariate_monomial));
-                transcript->send_to_verifier("Libra:commitment_" + std::to_string(idx), libra_commitment);
+                auto libra_commitment = commitment_key->commit(Polynomial<FF>(libra_univariate_monomial));
+                transcript->template send_to_verifier("Libra:commitment_" + std::to_string(idx), libra_commitment);
                 idx++;
             }
         }
@@ -102,7 +81,7 @@ template <typename Flavor> struct ZKSumcheckData {
 
     /**
      * @brief Given number of univariate polynomials and the number of their evaluations meant to be hidden, this method
-     * produces a vector of univariate polynomials of degree \ref ZK_BATCHED_LENGTH "ZK_BATCHED_LENGTH - 1" with
+     * produces a vector of univariate polynomials of length Flavor::BATCHED_RELATION_PARTIAL_LENGTH with
      * independent uniformly random coefficients.
      *
      */

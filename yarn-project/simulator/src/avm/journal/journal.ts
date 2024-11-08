@@ -334,8 +334,8 @@ export class AvmPersistableStateManager {
     }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
-      publicCallRequest.callContext.contractAddress,
-      publicCallRequest.callContext.functionSelector,
+      publicCallRequest.contractAddress,
+      publicCallRequest.functionSelector,
       calldata,
     );
 

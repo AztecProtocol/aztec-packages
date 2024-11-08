@@ -302,8 +302,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
                                                 mle_opening_point,
                                                 this->ck(),
                                                 prover_transcript,
-                                                /* concatenated_polynomials = */ {},
-                                                /* groups_to_be_concatenated = */ {},
                                                 libra_univariates,
                                                 libra_evaluations);
     if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
@@ -318,19 +316,16 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithMaskingLibraUnivariates)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                       RefVector(unshifted_commitments),
-                                                       RefVector(shifted_commitments),
-                                                       RefArray{ eval1, eval2, eval3, eval4 },
-                                                       RefArray{ eval2_shift, eval3_shift },
-                                                       mle_opening_point,
-                                                       this->vk()->get_g1_identity(),
-                                                       verifier_transcript,
-                                                       /* concatenation_group_commitments = */ {},
-                                                       /* concatenated_evaluations = */ {},
-                                                       RefVector(libra_commitments),
-                                                       libra_evaluations);
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
+                                                                              RefVector(unshifted_commitments),
+                                                                              RefVector(shifted_commitments),
+                                                                              RefArray{ eval1, eval2, eval3, eval4 },
+                                                                              RefArray{ eval2_shift, eval3_shift },
+                                                                              mle_opening_point,
+                                                                              this->vk()->get_g1_identity(),
+                                                                              verifier_transcript,
+                                                                              RefVector(libra_commitments),
+                                                                              libra_evaluations);
 
     if constexpr (std::is_same_v<TypeParam, curve::Grumpkin>) {
         auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);

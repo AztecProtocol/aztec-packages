@@ -1,6 +1,6 @@
 mod utils;
 mod address;
-mod debug_log;
+pub mod debug_log;
 pub mod public_keys;
 mod point;
 mod scalar;
