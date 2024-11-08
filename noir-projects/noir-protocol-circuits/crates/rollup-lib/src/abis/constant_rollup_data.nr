@@ -44,7 +44,7 @@ impl Serialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
 
         assert_eq(fields.len(), CONSTANT_ROLLUP_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

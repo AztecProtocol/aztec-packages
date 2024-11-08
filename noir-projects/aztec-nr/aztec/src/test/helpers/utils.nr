@@ -1,23 +1,18 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector,
     address::AztecAddress,
     contract_instance::ContractInstance,
     public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
     traits::{Deserialize, Serialize},
 };
 
-use crate::context::call_interfaces::{CallInterface, PublicCallInterface};
-use crate::context::{
-    inputs::PrivateContextInputs, PrivateContext, PublicContext, UnconstrainedContext,
-};
+use crate::context::call_interfaces::CallInterface;
+use crate::context::{PrivateContext, PublicContext};
 use crate::test::helpers::cheatcodes;
 
-use crate::context::call_interfaces::PublicVoidCallInterface;
 use crate::context::gas::GasOpts;
 use crate::hash::hash_args;
 use crate::oracle::arguments::pack_arguments;
-use crate::oracle::execution::{get_block_number, get_contract_address};
-use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
+use crate::oracle::execution::get_block_number;
 
 pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,

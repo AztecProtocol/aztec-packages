@@ -61,7 +61,7 @@ impl Serialize<AVM_ACCUMULATED_DATA_LENGTH> for AvmAccumulatedData {
 
         assert_eq(fields.len(), AVM_ACCUMULATED_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
