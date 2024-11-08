@@ -58,10 +58,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Fourth key field is the whether the proof contains an aggregation object.
     builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
     uint32_t offset = 4;
-    size_t num_inner_public_inputs = public_inputs_size - bb::AGGREGATION_OBJECT_SIZE;
+    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
 
     // We are making the assumption that the aggregation object are behind all the inner public inputs
-    for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; i++) {
+    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
         builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
         offset++;
     }
@@ -88,7 +88,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
     // The aggregation object
-    AggregationObjectIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
+    PairingPointAccumulatorIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
     for (auto idx : agg_obj) {
         builder.assert_equal(idx, proof_fields[offset].witness_index);
         offset++;
@@ -156,14 +156,15 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @param input_aggregation_object_indices. The aggregation object coming from previous Honk recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  *
- * @note We currently only support HonkRecursionConstraint where inner_proof_contains_recursive_proof = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
+ * @note We currently only support HonkRecursionConstraint where inner_proof_contains_pairing_point_accumulator = false.
+ *       We would either need a separate ACIR opcode where inner_proof_contains_pairing_point_accumulator = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
-                                                           const RecursionConstraint& input,
-                                                           AggregationObjectIndices input_aggregation_object_indices,
-                                                           bool has_valid_witness_assignments)
+PairingPointAccumulatorIndices create_honk_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    bool has_valid_witness_assignments)
 {
     using Flavor = UltraRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
@@ -196,8 +197,8 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::AGGREGATION_OBJECT_SIZE;
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::AGGREGATION_OBJECT_SIZE;
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
         create_dummy_vkey_and_proof(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }

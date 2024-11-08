@@ -20,7 +20,11 @@ describe('e2e_p2p_reqresp_tx', () => {
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_reqresp_tx', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_reqresp_tx',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+    });
     await t.applyBaseSnapshots();
     await t.setup();
   });

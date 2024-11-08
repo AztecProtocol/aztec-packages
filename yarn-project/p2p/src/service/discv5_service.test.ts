@@ -1,4 +1,5 @@
 import { sleep } from '@aztec/foundation/sleep';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -42,7 +43,8 @@ describe('Discv5Service', () => {
   };
 
   beforeEach(async () => {
-    bootNode = new BootstrapNode();
+    const telemetryClient = new NoopTelemetryClient();
+    bootNode = new BootstrapNode(telemetryClient);
     await bootNode.start(baseConfig);
     bootNodePeerId = bootNode.getPeerId();
   });
@@ -138,6 +140,6 @@ describe('Discv5Service', () => {
       keepProvenTxsInPoolFor: 0,
       l1ChainId: 31337,
     };
-    return new DiscV5Service(peerId, config);
+    return new DiscV5Service(peerId, config, new NoopTelemetryClient());
   };
 });

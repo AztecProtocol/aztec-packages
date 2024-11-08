@@ -15,7 +15,7 @@ import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
+import { makeBloatedProcessedTxWithVKRoot } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
@@ -86,8 +86,8 @@ describe('prover/orchestrator', () => {
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1);
         await orchestrator.startNewBlock(2, globalVariables, []);
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 1));
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 2));
+        await orchestrator.addNewTx(makeBloatedProcessedTxWithVKRoot(actualDb, 1));
+        await orchestrator.addNewTx(makeBloatedProcessedTxWithVKRoot(actualDb, 2));
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);

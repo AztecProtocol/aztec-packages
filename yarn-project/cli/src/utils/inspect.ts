@@ -78,7 +78,7 @@ export async function inspectTx(
   if (writes.length > 0) {
     log(' Public data writes:');
     for (const write of writes) {
-      log(`  Leaf ${write.leafIndex.toString()} = ${write.newValue.toString()}`);
+      log(`  Leaf ${write.leafSlot.toString()} = ${write.value.toString()}`);
     }
   }
 

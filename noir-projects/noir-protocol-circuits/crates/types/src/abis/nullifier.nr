@@ -8,9 +8,9 @@ use crate::{
 };
 
 pub struct Nullifier {
-    value: Field,
-    counter: u32,
-    note_hash: Field,
+    pub value: Field,
+    pub counter: u32,
+    pub note_hash: Field,
 }
 
 impl Ordered for Nullifier {

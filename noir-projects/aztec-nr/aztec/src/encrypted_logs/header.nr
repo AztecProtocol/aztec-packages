@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::AztecAddress,
     point::Point,
-    public_keys::{IvpkM, PublicKeys, ToPoint},
+    public_keys::{IvpkM, ToPoint},
     scalar::Scalar,
 };
 

@@ -14,6 +14,7 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -22,7 +23,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -443,9 +443,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
     this.enqueuedCalls.push(publicCallRequest);
 
-    this.avmCircuitHints.enqueuedCalls.items.push(
-      new AvmEnqueuedCallHint(publicCallRequest.callContext.contractAddress, calldata),
-    );
+    this.avmCircuitHints.enqueuedCalls.items.push(new AvmEnqueuedCallHint(publicCallRequest.contractAddress, calldata));
   }
 
   /**
@@ -475,7 +473,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       this.enqueuedCalls.push(publicCallRequests[i]);
 
       this.avmCircuitHints.enqueuedCalls.items.push(
-        new AvmEnqueuedCallHint(publicCallRequests[i].callContext.contractAddress, calldatas[i]),
+        new AvmEnqueuedCallHint(publicCallRequests[i].contractAddress, calldatas[i]),
       );
     }
   }
@@ -581,7 +579,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     return new VMCircuitPublicInputs(
       /*constants=*/ constants,
       /*callRequest=*/ callRequest,
-      /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty),
+      /*publicCallStack=*/ makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicInnerCallRequest.empty),
       /*previousValidationRequestArrayLengths=*/ this.previousValidationRequestArrayLengths,
       /*validationRequests=*/ this.getValidationRequests(),
       /*previousAccumulatedDataArrayLengths=*/ this.previousAccumulatedDataArrayLengths,
@@ -643,7 +641,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       /*encryptedLogsHashes=*/ makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.publicDataWrites, PublicDataUpdateRequest.empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
-      /*publicCallStack=*/ makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
+      /*publicCallStack=*/ makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       /*gasUsed=*/ gasUsed,
     );
   }

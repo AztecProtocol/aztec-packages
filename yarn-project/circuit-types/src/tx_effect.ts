@@ -1,16 +1,11 @@
-import {
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  PublicDataWrite,
-  TxHash,
-  UnencryptedTxL2Logs,
-} from '@aztec/circuit-types';
+import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import {
   Fr,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -220,7 +215,7 @@ export class TxEffect {
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
-      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       new Fr(noteEncryptedLogs.getKernelLength()),
       new Fr(encryptedLogs.getKernelLength()),
       new Fr(unencryptedLogs.getKernelLength()),
