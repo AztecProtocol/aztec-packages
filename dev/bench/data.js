@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731008474000,
+  "lastUpdate": 1731042423333,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "84205d872067345239913914a84b708d05d8364c",
-          "message": "feat(avm): trace contract class and contract instance (#8840)\n\nThis PR is centred around tracing and passing contract class & instance\r\nduring simulator execution and passing it to circuit. We store each\r\ncontract class & instance whenever the `simulator` calls `getBytecode`.\r\n\r\nThis changes the input interface to the bb binary - we no longer take in\r\na specific bytecode to execute. Instead we get a vector of\r\n`{contract_class, contract_instance, bytecode}` which define all the\r\n(deduplicated) contract bytecode that will be executed during this\r\n\"one-enqueued call\" (actual implementation of 1-enqueued call tbd).\r\n\r\nThis doesnt do any derivation of id or address yet",
-          "timestamp": "2024-10-25T15:53:25+01:00",
-          "tree_id": "b2cb91e82c38f735658e88c9d312338fdd07b567",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/84205d872067345239913914a84b708d05d8364c"
-        },
-        "date": 1729870683281,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30824.063572999876,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 28977.064539 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5357.160063000038,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5041.958132999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 90897.220161,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 90897222000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15185.878856999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15185879000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2702632818,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2702632818 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 126158558,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 126158558 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 146405492,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 146405492 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0ebd52e5dd326fcbebe38869908dfcb4c2ba2c03",
+          "message": "chore: rename aggregation object to pairing point accumulator (#9817)\n\nRenames aggregation object/recursive proof to pairing point accumulator,\r\nso its not confusing with introduction of the IPA accumulator.",
+          "timestamp": "2024-11-07T23:39:38-05:00",
+          "tree_id": "53ef72e4d45e268458f2ada63576e77c7ff87c00",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ebd52e5dd326fcbebe38869908dfcb4c2ba2c03"
+        },
+        "date": 1731042416321,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29056.599215000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27452.107747 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5378.682103999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4964.83385 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 84033.011787,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 84033013000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15202.014919999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15202015000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3055229967,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3055229967 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 144531751,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 144531751 ns\nthreads: 1"
           }
         ]
       }
