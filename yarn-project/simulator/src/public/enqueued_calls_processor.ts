@@ -19,6 +19,11 @@ import {
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateToAvmAccumulatedData,
@@ -27,20 +32,25 @@ import {
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
+  PublicDataWrite,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   RevertCode,
+  type StateReference,
   TreeSnapshots,
   type VMCircuitPublicInputs,
   VerificationKeyData,
   countAccumulatedItems,
   makeEmptyProof,
   makeEmptyRecursiveProof,
+  mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { assertLength } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
@@ -84,6 +94,7 @@ export type ProcessedPhase = {
   phase: TxExecutionPhase;
   durationMs: number;
   returnValues: NestedProcessReturnValues[];
+  reverted: boolean;
   revertReason?: SimulationError;
 };
 
@@ -101,6 +112,7 @@ export class EnqueuedCallsProcessor {
   private log: DebugLogger;
 
   constructor(
+    private db: MerkleTreeReadOperations,
     private publicKernelSimulator: PublicKernelCircuitSimulator,
     private globalVariables: GlobalVariables,
     private worldStateDB: WorldStateDB,
@@ -131,6 +143,7 @@ export class EnqueuedCallsProcessor {
     const publicKernelTailSimulator = PublicKernelTailSimulator.create(db, publicKernelSimulator);
 
     return new EnqueuedCallsProcessor(
+      db,
       publicKernelSimulator,
       globalVariables,
       worldStateDB,
@@ -181,8 +194,23 @@ export class EnqueuedCallsProcessor {
       [TxExecutionPhase.TEARDOWN]: Gas.empty(),
     };
     let avmProvingRequest: AvmProvingRequest;
-    let publicKernelOutput = this.getPublicKernelCircuitPublicInputs(tx.data);
+    const firstPublicKernelOutput = this.getPublicKernelCircuitPublicInputs(tx.data);
+    let publicKernelOutput = firstPublicKernelOutput;
+    let revertCode: RevertCode = RevertCode.OK;
+    let reverted = false;
     let revertReason: SimulationError | undefined;
+    const startStateReference = await this.db.getStateReference();
+    /*
+     * Don't need to fork at all during setup because it's non-revertible.
+     * Fork at start of app phase (if app logic exists).
+     * Don't fork for any app subsequent enqueued calls because if any one fails, all of app logic reverts.
+     * If app logic reverts, rollback to end of setup and fork again for teardown.
+     * If app logic succeeds, don't fork for teardown.
+     * If teardown reverts, rollback to end of setup.
+     * If teardown succeeds, accept/merge all state changes from app logic.
+     *
+     */
+    // rename merge to rollback/merge
 
     const nonRevertibleNullifiersFromPrivate = publicKernelOutput.endNonRevertibleData.nullifiers
       .filter(n => !n.isEmpty())
@@ -212,22 +240,24 @@ export class EnqueuedCallsProcessor {
       trace,
       nonRevertibleNullifiersFromPrivate,
     );
+    let currentlyActiveStateManager = txStateManager;
+    let forkedForAppLogic = false;
     // TODO(dbanks12): insert all non-revertible side effects from private here.
 
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
-      let stateManagerForPhase: AvmPersistableStateManager;
-      if (phase === TxExecutionPhase.SETUP) {
-        // don't need to fork for setup since it's non-revertible
-        // (if setup fails, transaction is thrown out)
-        stateManagerForPhase = txStateManager;
-      } else {
-        // Fork the state manager so that we can rollback state if a revertible phase reverts.
-        stateManagerForPhase = txStateManager.fork();
-        // NOTE: Teardown is revertible, but will run even if app logic reverts!
-      }
+
       const callRequests = EnqueuedCallsProcessor.getCallRequestsByPhase(tx, phase);
       if (callRequests.length) {
+        if (phase === TxExecutionPhase.APP_LOGIC) {
+          // Fork the state manager so that we can rollback state if app logic or teardown reverts.
+          //// Always fork at the start of app logic even if app logic has no enqueued calls, in which case it'll
+          //// serve as a fork for teardown.
+          // Don't need to fork for setup since it's non-revertible (if setup fails, transaction is thrown out).
+          currentlyActiveStateManager = txStateManager.fork();
+          forkedForAppLogic = true;
+        }
+
         const allocatedGas = this.getAllocatedGasForPhase(phase, tx, phaseGasUsed);
         const transactionFee = phase !== TxExecutionPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, phaseGasUsed);
 
@@ -241,7 +271,7 @@ export class EnqueuedCallsProcessor {
           publicKernelOutput,
           allocatedGas,
           transactionFee,
-          stateManagerForPhase,
+          currentlyActiveStateManager,
         ).catch(async err => {
           await this.worldStateDB.rollbackToCommit();
           throw err;
@@ -253,9 +283,38 @@ export class EnqueuedCallsProcessor {
         // Eventually this will be the proof for the entire public call stack.
         avmProvingRequest = result.avmProvingRequest;
 
-        if (phase !== TxExecutionPhase.SETUP) {
-          txStateManager.mergeStateForPhase(
-            stateManagerForPhase,
+        if (result.reverted) {
+          if (phase === TxExecutionPhase.APP_LOGIC) {
+            revertCode = RevertCode.APP_LOGIC_REVERTED;
+
+            // Trace app logic phase
+            txStateManager.trace.traceExecutionPhase(
+              currentlyActiveStateManager.trace,
+              callRequests,
+              executionRequests.map(req => req.args),
+              /*reverted=*/ true,
+            );
+            // Drop the currently active forked state manager and rollback to end of setup.
+            // Fork again for teardown so that if teardown fails we can again rollback to end of setup.
+            currentlyActiveStateManager = txStateManager.fork();
+          } else if (phase === TxExecutionPhase.TEARDOWN) {
+            if (revertCode === RevertCode.APP_LOGIC_REVERTED) {
+              revertCode = RevertCode.BOTH_REVERTED;
+            } else {
+              revertCode = RevertCode.TEARDOWN_REVERTED;
+            }
+          }
+        }
+
+        if (phase === TxExecutionPhase.TEARDOWN) {
+          // merge all state changes from app logic (if successful) and teardown into tx state
+          // or, on revert, rollback to end of setup
+          if (!result.reverted) {
+            txStateManager.mergeForkedState(currentlyActiveStateManager);
+          }
+          // trace teardown phase
+          txStateManager.trace.traceExecutionPhase(
+            currentlyActiveStateManager.trace,
             callRequests,
             executionRequests.map(req => req.args),
             /*reverted=*/ result.revertReason ? true : false,
@@ -266,6 +325,7 @@ export class EnqueuedCallsProcessor {
           phase,
           durationMs: result.durationMs,
           returnValues: result.returnValues,
+          reverted: result.reverted,
           revertReason: result.revertReason,
         });
 
@@ -274,7 +334,18 @@ export class EnqueuedCallsProcessor {
           [phase]: result.gasUsed,
         };
 
+        reverted = reverted || result.reverted;
         revertReason ??= result.revertReason;
+      } else if (phase == TxExecutionPhase.TEARDOWN && forkedForAppLogic) {
+        // There is no teardown!
+        // Need to merge app logic's forked state as would normally happen after teardown.
+        // trace teardown phase
+        txStateManager.trace.traceExecutionPhase(
+          currentlyActiveStateManager.trace,
+          callRequests, // ????
+          [], // ????
+          /*reverted=*/ false,
+        );
       }
     }
 
@@ -287,7 +358,20 @@ export class EnqueuedCallsProcessor {
     );
 
     const transactionFee = this.getTransactionFee(tx, phaseGasUsed);
-    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(tx, tailKernelOutput, transactionFee);
+    //avmProvingRequest!.inputs.output =
+    this.generateAvmCircuitPublicInputsOld(tx, tailKernelOutput, transactionFee);
+
+    const endStateReference = await this.db.getStateReference();
+
+    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(
+      tx,
+      trace.enqueuedCallTrace,
+      startStateReference,
+      endStateReference,
+      transactionFee,
+      revertCode,
+      firstPublicKernelOutput,
+    );
 
     const gasUsed = {
       totalGas: this.getActualGasUsed(tx, phaseGasUsed),
@@ -298,7 +382,7 @@ export class EnqueuedCallsProcessor {
       avmProvingRequest: avmProvingRequest!,
       gasUsed,
       processedPhases,
-      revertCode: tailKernelOutput.revertCode,
+      revertCode,
       revertReason,
     };
   }
@@ -340,6 +424,8 @@ export class EnqueuedCallsProcessor {
       await this.worldStateDB.addNewContracts(tx);
 
       // each enqueued call starts with an incremented side effect counter
+      // FIXME: should be able to stop forking here and just trace the enqueued call (for hinting)
+      // and proceed with the same state manager for the entire phase
       const enqueuedCallStateManager = txStateManager.fork(/*incrementSideEffectCounter=*/ true);
       const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
         callRequest,
@@ -356,8 +442,11 @@ export class EnqueuedCallsProcessor {
         );
         throw enqueuedCallResult.revertReason;
       }
-      await txStateManager.mergeStateForEnqueuedCall(
-        enqueuedCallStateManager,
+      if (!enqueuedCallResult.reverted) {
+        txStateManager.mergeForkedState(enqueuedCallStateManager);
+      } // else rollback!
+      txStateManager.trace.traceEnqueuedCall(
+        enqueuedCallStateManager.trace,
         callRequest,
         executionRequest.args,
         enqueuedCallResult.reverted!,
@@ -487,8 +576,142 @@ export class EnqueuedCallsProcessor {
     );
   }
 
+  private generateAvmCircuitPublicInputs(
+    tx: Tx,
+    trace: PublicEnqueuedCallSideEffectTrace,
+    startStateReference: StateReference,
+    endStateReference: StateReference,
+    transactionFee: Fr,
+    revertCode: RevertCode,
+    firstPublicKernelOutput: PublicKernelCircuitPublicInputs,
+  ): AvmCircuitPublicInputs {
+    const startTreeSnapshots = new TreeSnapshots(
+      startStateReference.l1ToL2MessageTree,
+      startStateReference.partial.noteHashTree,
+      startStateReference.partial.nullifierTree,
+      startStateReference.partial.publicDataTree,
+    );
+    const endTreeSnapshots = new TreeSnapshots(
+      endStateReference.l1ToL2MessageTree,
+      endStateReference.partial.noteHashTree,
+      endStateReference.partial.nullifierTree,
+      endStateReference.partial.publicDataTree,
+    );
+
+    const avmCircuitPublicInputs = trace.toAvmCircuitPublicInputs(
+      this.globalVariables,
+      startTreeSnapshots,
+      tx.data.gasUsed,
+      tx.data.constants.txContext.gasSettings,
+      tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests,
+      tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests,
+      tx.data.forPublic!.publicTeardownCallRequest,
+      endTreeSnapshots,
+      transactionFee,
+      !revertCode.isOK(),
+    );
+
+    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedDataArrayLengths(
+        countAccumulatedItems(from.noteHashes),
+        countAccumulatedItems(from.nullifiers),
+        countAccumulatedItems(from.l2ToL1Msgs),
+      );
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
+    // Temporary overrides as these entries aren't yet populated in trace
+    avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths = getArrayLengths(
+      tx.data.forPublic!.nonRevertibleAccumulatedData,
+    );
+    avmCircuitPublicInputs.previousRevertibleAccumulatedDataArrayLengths = getArrayLengths(
+      tx.data.forPublic!.revertibleAccumulatedData,
+    );
+    avmCircuitPublicInputs.previousNonRevertibleAccumulatedData = convertAccumulatedData(
+      tx.data.forPublic!.nonRevertibleAccumulatedData,
+    );
+    avmCircuitPublicInputs.previousRevertibleAccumulatedData = convertAccumulatedData(
+      tx.data.forPublic!.revertibleAccumulatedData,
+    );
+
+    // merge all revertible & non-revertible side effects into output accumulated data
+    const noteHashesFromPrivate = revertCode.isOK()
+      ? mergeAccumulatedData(
+          avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes,
+          avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes,
+        )
+      : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes;
+    avmCircuitPublicInputs.accumulatedData.noteHashes = assertLength(
+      mergeAccumulatedData(noteHashesFromPrivate, avmCircuitPublicInputs.accumulatedData.noteHashes),
+      MAX_NOTE_HASHES_PER_TX,
+    );
+    const nullifiersFromPrivate = revertCode.isOK()
+      ? mergeAccumulatedData(
+          avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers,
+          avmCircuitPublicInputs.previousRevertibleAccumulatedData.nullifiers,
+        )
+      : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers;
+    avmCircuitPublicInputs.accumulatedData.nullifiers = assertLength(
+      mergeAccumulatedData(nullifiersFromPrivate, avmCircuitPublicInputs.accumulatedData.nullifiers),
+      MAX_NULLIFIERS_PER_TX,
+    );
+    const msgsFromPrivate = revertCode.isOK()
+      ? mergeAccumulatedData(
+          avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs,
+          avmCircuitPublicInputs.previousRevertibleAccumulatedData.l2ToL1Msgs,
+        )
+      : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs;
+    avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs = assertLength(
+      mergeAccumulatedData(msgsFromPrivate, avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs),
+      MAX_L2_TO_L1_MSGS_PER_TX,
+    );
+    const ulogsFromPrivate = revertCode.isOK()
+      ? mergeAccumulatedData(
+          firstPublicKernelOutput.endNonRevertibleData.unencryptedLogsHashes,
+          firstPublicKernelOutput.end.unencryptedLogsHashes,
+        )
+      : firstPublicKernelOutput.endNonRevertibleData.unencryptedLogsHashes;
+    avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes = assertLength(
+      mergeAccumulatedData(ulogsFromPrivate, avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes),
+      MAX_UNENCRYPTED_LOGS_PER_TX,
+    );
+
+    const dedupedPublicDataWrites: Array<PublicDataWrite> = [];
+    const leafSlotOccurences: Map<bigint, number> = new Map();
+    for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
+      this.log.debug(`Public data write: ${JSON.stringify(publicDataWrite)}`);
+      const slot = publicDataWrite.leafSlot.toBigInt();
+      const prevOccurrences = leafSlotOccurences.get(slot) || 0;
+      leafSlotOccurences.set(slot, prevOccurrences + 1);
+    }
+
+    for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
+      const slot = publicDataWrite.leafSlot.toBigInt();
+      const prevOccurrences = leafSlotOccurences.get(slot) || 0;
+      if (prevOccurrences === 1) {
+        dedupedPublicDataWrites.push(publicDataWrite);
+      } else {
+        leafSlotOccurences.set(slot, prevOccurrences - 1);
+      }
+    }
+
+    avmCircuitPublicInputs.accumulatedData.publicDataWrites = padArrayEnd(
+      dedupedPublicDataWrites,
+      PublicDataWrite.empty(),
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
+    this.log.debug(`New AVM circuit nullifiers: ${JSON.stringify(avmCircuitPublicInputs.accumulatedData.nullifiers)}`);
+    this.log.debug(`New AVM circuit note hashes: ${JSON.stringify(avmCircuitPublicInputs.accumulatedData.noteHashes)}`);
+    this.log.debug(
+      `New AVM circuit public writes: ${JSON.stringify(avmCircuitPublicInputs.accumulatedData.publicDataWrites)}`,
+    );
+    this.log.debug(`New AVM: ${inspect(avmCircuitPublicInputs, { depth: 5 })}`);
+
+    return avmCircuitPublicInputs;
+  }
+
   // Temporary hack to create the AvmCircuitPublicInputs from public tail's public inputs.
-  private generateAvmCircuitPublicInputs(tx: Tx, tailOutput: KernelCircuitPublicInputs, transactionFee: Fr) {
+  private generateAvmCircuitPublicInputsOld(tx: Tx, tailOutput: KernelCircuitPublicInputs, transactionFee: Fr) {
     const startTreeSnapshots = new TreeSnapshots(
       tailOutput.constants.historicalHeader.state.l1ToL2MessageTree,
       tailOutput.startState.noteHashTree,
@@ -519,7 +742,7 @@ export class EnqueuedCallsProcessor {
     // Should fetch the updated roots from db.
     const endTreeSnapshots = startTreeSnapshots;
 
-    return new AvmCircuitPublicInputs(
+    const old = new AvmCircuitPublicInputs(
       tailOutput.constants.globalVariables,
       startTreeSnapshots,
       tx.data.gasUsed,
@@ -536,5 +759,13 @@ export class EnqueuedCallsProcessor {
       transactionFee,
       !tailOutput.revertCode.equals(RevertCode.OK),
     );
+
+    this.log.debug(`Old AVM circuit nullifiers: ${JSON.stringify(old.accumulatedData.nullifiers)}`);
+    this.log.debug(`Old AVM circuit note hashes: ${JSON.stringify(old.accumulatedData.noteHashes)}`);
+    this.log.debug(`Old AVM circuit public writes: ${JSON.stringify(old.accumulatedData.publicDataWrites)}`);
+
+    this.log.debug(`Old AVM: ${inspect(old, { depth: 5 })}`);
+
+    return old;
   }
 }

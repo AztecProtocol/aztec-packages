@@ -491,17 +491,16 @@ describe('Enqueued-call Side Effect Trace', () => {
       // parent absorbs child's side effects
       const parentSideEffects = trace.getSideEffects();
       const childSideEffects = nestedTrace.getSideEffects();
+      // TODO(dbanks12): confirm that all hints were merged from child
       if (callResults.reverted) {
-        expect(parentSideEffects.publicDataReads).toEqual(childSideEffects.publicDataReads);
-        expect(parentSideEffects.publicDataWrites).toEqual(childSideEffects.publicDataWrites);
-        expect(parentSideEffects.noteHashReadRequests).toEqual(childSideEffects.noteHashReadRequests);
+        expect(parentSideEffects.publicDataReads).toEqual([]);
+        expect(parentSideEffects.publicDataWrites).toEqual([]);
+        expect(parentSideEffects.noteHashReadRequests).toEqual([]);
         expect(parentSideEffects.noteHashes).toEqual([]);
-        expect(parentSideEffects.nullifierReadRequests).toEqual(childSideEffects.nullifierReadRequests);
-        expect(parentSideEffects.nullifierNonExistentReadRequests).toEqual(
-          childSideEffects.nullifierNonExistentReadRequests,
-        );
-        expect(parentSideEffects.nullifiers).toEqual(childSideEffects.nullifiers);
-        expect(parentSideEffects.l1ToL2MsgReadRequests).toEqual(childSideEffects.l1ToL2MsgReadRequests);
+        expect(parentSideEffects.nullifierReadRequests).toEqual([]);
+        expect(parentSideEffects.nullifierNonExistentReadRequests).toEqual([]);
+        expect(parentSideEffects.nullifiers).toEqual([]);
+        expect(parentSideEffects.l1ToL2MsgReadRequests).toEqual([]);
         expect(parentSideEffects.l2ToL1Msgs).toEqual([]);
         expect(parentSideEffects.unencryptedLogs).toEqual([]);
         expect(parentSideEffects.unencryptedLogsHashes).toEqual([]);
