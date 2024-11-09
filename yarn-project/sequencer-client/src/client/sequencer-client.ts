@@ -48,6 +48,12 @@ export class SequencerClient {
 
     const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, simulationProvider, telemetryClient);
 
+    const rollup = publisher.getRollupContract();
+    const [l1GenesisTime, slotDuration] = await Promise.all([
+      rollup.read.GENESIS_TIME(),
+      rollup.read.SLOT_DURATION(),
+    ] as const);
+
     const sequencer = new Sequencer(
       publisher,
       validatorClient,
@@ -59,6 +65,8 @@ export class SequencerClient {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(worldStateSynchronizer.getCommitted(), contractDataSource, !!config.enforceFees),
+      Number(l1GenesisTime),
+      Number(slotDuration),
       telemetryClient,
       config,
     );

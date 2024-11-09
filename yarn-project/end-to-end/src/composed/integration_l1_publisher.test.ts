@@ -10,7 +10,6 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  ETHEREUM_SLOT_DURATION,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
@@ -160,6 +159,7 @@ describe('L1Publisher integration', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: config.ethereumSlotDuration,
       },
       new NoopTelemetryClient(),
     );
@@ -340,7 +340,7 @@ describe('L1Publisher integration', () => {
         ];
 
         const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -445,7 +445,7 @@ describe('L1Publisher integration', () => {
         const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
         const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -515,7 +515,7 @@ describe('L1Publisher integration', () => {
 
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
       const ts = (await publicClient.getBlock()).timestamp;
-      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+      const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
