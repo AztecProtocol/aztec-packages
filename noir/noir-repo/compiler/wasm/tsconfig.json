@@ -15,7 +15,7 @@
     "target": "ESNext",
     "module": "CommonJS",
     "moduleResolution": "Node",
-    "allowJs": true,
+    "allowJs": true
   },
   "exclude": ["node_modules"]
 }
