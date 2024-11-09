@@ -3,8 +3,7 @@ mod generate_output_hints;
 mod generate_overridable_public_data_writes;
 mod generate_public_data_leaves;
 
-pub use generate_output_hints::{OutputHints, SiloedNoteHashHint};
-pub use generate_overridable_public_data_writes::LinkedIndexHint;
+pub use generate_output_hints::OutputHints;
 
 use crate::components::public_tail_output_composer::{
     combine_data::combine_data, generate_output_hints::generate_output_hints,
