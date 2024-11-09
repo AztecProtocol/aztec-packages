@@ -58,7 +58,6 @@ export async function deployAztecContracts(
   mnemonic: string,
   salt: number | undefined,
   initialValidators: EthAddress[],
-  realChain: boolean,
   config: L1ContractsConfig,
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
