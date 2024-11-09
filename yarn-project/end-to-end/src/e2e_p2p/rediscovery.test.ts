@@ -19,7 +19,11 @@ describe('e2e_p2p_rediscovery', () => {
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_rediscovery', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_rediscovery',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+    });
     await t.applyBaseSnapshots();
     await t.setup();
   });
@@ -32,7 +36,7 @@ describe('e2e_p2p_rediscovery', () => {
     }
   });
 
-  it.skip('should re-discover stored peers without bootstrap node', async () => {
+  it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,

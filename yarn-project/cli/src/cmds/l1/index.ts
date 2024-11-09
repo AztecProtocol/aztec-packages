@@ -35,7 +35,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(l1ChainIdOption)
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
-    .option('--real-chain', 'Using a chain without cheatcodes', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -49,7 +48,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.salt,
         options.json,
         initialValidators,
-        options.realChain,
         log,
         debugLogger,
       );

@@ -102,9 +102,10 @@ template <typename OuterBuilder> class RecursiveCircuit {
         return { output, verification_key };
     };
 
-    static bool check_recursive_proof_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
+    static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
-        if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() == 16) {
+        if (builder.contains_pairing_point_accumulator &&
+            builder.pairing_point_accumulator_public_input_indices.size() == 16) {
             const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
                 [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
@@ -119,22 +120,22 @@ template <typename OuterBuilder> class RecursiveCircuit {
                     return outer_scalar_field(limb);
                 };
 
-            const auto x0 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[0],
-                                                          builder.recursive_proof_public_input_indices[1],
-                                                          builder.recursive_proof_public_input_indices[2],
-                                                          builder.recursive_proof_public_input_indices[3]);
-            const auto y0 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[4],
-                                                          builder.recursive_proof_public_input_indices[5],
-                                                          builder.recursive_proof_public_input_indices[6],
-                                                          builder.recursive_proof_public_input_indices[7]);
-            const auto x1 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[8],
-                                                          builder.recursive_proof_public_input_indices[9],
-                                                          builder.recursive_proof_public_input_indices[10],
-                                                          builder.recursive_proof_public_input_indices[11]);
-            const auto y1 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[12],
-                                                          builder.recursive_proof_public_input_indices[13],
-                                                          builder.recursive_proof_public_input_indices[14],
-                                                          builder.recursive_proof_public_input_indices[15]);
+            const auto x0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[0],
+                                                          builder.pairing_point_accumulator_public_input_indices[1],
+                                                          builder.pairing_point_accumulator_public_input_indices[2],
+                                                          builder.pairing_point_accumulator_public_input_indices[3]);
+            const auto y0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[4],
+                                                          builder.pairing_point_accumulator_public_input_indices[5],
+                                                          builder.pairing_point_accumulator_public_input_indices[6],
+                                                          builder.pairing_point_accumulator_public_input_indices[7]);
+            const auto x1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[8],
+                                                          builder.pairing_point_accumulator_public_input_indices[9],
+                                                          builder.pairing_point_accumulator_public_input_indices[10],
+                                                          builder.pairing_point_accumulator_public_input_indices[11]);
+            const auto y1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[12],
+                                                          builder.pairing_point_accumulator_public_input_indices[13],
+                                                          builder.pairing_point_accumulator_public_input_indices[14],
+                                                          builder.pairing_point_accumulator_public_input_indices[15]);
             g1::affine_element P_affine[2]{
                 { x0, y0 },
                 { x1, y1 },
@@ -144,7 +145,8 @@ template <typename OuterBuilder> class RecursiveCircuit {
 
             return (result == pairing_target_field::one());
         }
-        if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() != 16) {
+        if (builder.contains_pairing_point_accumulator &&
+            builder.pairing_point_accumulator_public_input_indices.size() != 16) {
             return false;
         }
         return true;

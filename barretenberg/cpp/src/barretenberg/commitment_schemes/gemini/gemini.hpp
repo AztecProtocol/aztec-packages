@@ -120,7 +120,8 @@ template <typename Curve> class GeminiProver_ {
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,
                                     RefSpan<Polynomial> concatenated_polynomials = {},
-                                    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {});
+                                    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {},
+                                    bool has_zk = false);
 
 }; // namespace bb
 

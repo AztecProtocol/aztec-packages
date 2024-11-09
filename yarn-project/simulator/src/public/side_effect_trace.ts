@@ -88,15 +88,15 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
 
-  public fork() {
-    return new PublicSideEffectTrace(this.sideEffectCounter);
+  public fork(incrementSideEffectCounter: boolean = false) {
+    return new PublicSideEffectTrace(incrementSideEffectCounter ? this.sideEffectCounter + 1 : this.sideEffectCounter);
   }
 
   public getCounter() {
     return this.sideEffectCounter;
   }
 
-  public incrementSideEffectCounter() {
+  private incrementSideEffectCounter() {
     this.sideEffectCounter++;
   }
 

@@ -82,7 +82,7 @@ impl Hash for ContractInstance {
 }
 
 impl ContractInstance {
-    fn to_address(self) -> AztecAddress {
+    pub fn to_address(self) -> AztecAddress {
         AztecAddress::compute(
             self.public_keys,
             PartialAddress::compute(

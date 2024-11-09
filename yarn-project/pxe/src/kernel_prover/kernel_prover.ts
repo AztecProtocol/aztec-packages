@@ -23,7 +23,9 @@ import {
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { hashVK } from '@aztec/circuits.js/hash';
 import { makeTuple } from '@aztec/foundation/array';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -143,8 +145,7 @@ export class KernelProver {
         await addGateCount(functionName as string, currentExecution.acir);
       }
 
-      const appVk = await this.proofCreator.computeAppCircuitVerificationKey(currentExecution.acir, functionName);
-      const privateCallData = await this.createPrivateCallData(currentExecution, appVk.verificationKey);
+      const privateCallData = await this.createPrivateCallData(currentExecution);
 
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
@@ -241,8 +242,11 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ publicInputs }: PrivateExecutionResult, vk: VerificationKeyAsFields) {
+  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
+
+    const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
+    const vk = new VerificationKeyAsFields(vkAsFields, hashVK(vkAsFields));
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,

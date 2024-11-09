@@ -9,7 +9,7 @@ import {
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
-  isAnvilTestChain,
+  getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
@@ -86,7 +86,7 @@ export async function deployContractsToL1(
       protocolContractTreeRoot,
       assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
-      realChain: isAnvilTestChain(aztecNodeConfig.l1ChainId),
+      ...getL1ContractsConfigEnvVars(),
     }),
   );
 

@@ -1,6 +1,6 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type PXE } from '@aztec/circuit-types';
-import { type DeployL1Contracts } from '@aztec/ethereum';
+import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
@@ -59,6 +59,7 @@ export async function deployAztecContracts(
   salt: number | undefined,
   initialValidators: EthAddress[],
   realChain: boolean,
+  config: L1ContractsConfig,
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -77,7 +78,7 @@ export async function deployAztecContracts(
     protocolContractTreeRoot,
     salt,
     initialValidators,
-    realChain,
+    ...config,
   });
 }
 

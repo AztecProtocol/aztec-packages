@@ -19,7 +19,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
-  AZTEC_EPOCH_DURATION,
+  AZTEC_MAX_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   AvmContractInstanceHint,
@@ -48,6 +48,8 @@ import {
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_CALL,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
@@ -66,8 +68,6 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_HINTS,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -151,16 +151,24 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  AvmAccumulatedData,
+  AvmCircuitPublicInputs,
   AvmContractBytecodeHints,
   AvmEnqueuedCallHint,
   AvmProofData,
   BaseRollupHints,
+  CountedPublicCallRequest,
   EnqueuedCallData,
   PrivateBaseRollupInputs,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
   PrivateTubeData,
   PublicAccumulatedDataArrayLengths,
   PublicBaseRollupInputs,
   PublicDataLeafHint,
+  PublicDataWrite,
   PublicInnerCallRequest,
   PublicKernelCircuitPrivateInputs,
   PublicKernelInnerCircuitPrivateInputs,
@@ -172,6 +180,8 @@ import {
   ScopedNoteHash,
   TreeLeafReadRequest,
   TreeLeafReadRequestHint,
+  TreeSnapshots,
+  TxConstantData,
   VMCircuitPublicInputs,
   VkWitnessData,
 } from '../structs/index.js';
@@ -296,6 +306,10 @@ export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(fr(0), fr(0), 0);
 }
 
+function makePublicDataWrite(seed = 1) {
+  return new PublicDataWrite(fr(seed), fr(seed + 1));
+}
+
 /**
  * Creates arbitrary public data read.
  * @param seed - The seed to use for generating the public data read.
@@ -350,6 +364,10 @@ export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
 
+function makeTxConstantData(seed = 1) {
+  return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
+}
+
 export function makeCombinedConstantData(seed = 1): CombinedConstantData {
   return new CombinedConstantData(
     makeHeader(seed),
@@ -378,13 +396,43 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     fr(seed + 0xa00), // note_encrypted_log_preimages_length
     fr(seed + 0xb00), // encrypted_log_preimages_length
     fr(seed + 0xc00), // unencrypted_log_preimages_length
-    tupleGenerator(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataUpdateRequest,
-      seed + 0xd00,
-      PublicDataUpdateRequest.empty,
-    ),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0xd00, PublicDataWrite.empty),
     makeGas(seed + 0xe00),
+  );
+}
+
+export function makePrivateToPublicAccumulatedData(seed = 1) {
+  return new PrivateToPublicAccumulatedData(
+    makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
+    makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
+    makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
+    makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700),
+    makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800),
+    makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900),
+    makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500),
+    makeGas(seed + 0x600),
+  );
+}
+
+function makePrivateToAvmAccumulatedData(seed = 1) {
+  return new PrivateToAvmAccumulatedData(
+    makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
+    makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
+    makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
+  );
+}
+
+function makePrivateToAvmAccumulatedDataArrayLengths(seed = 1) {
+  return new PrivateToAvmAccumulatedDataArrayLengths(seed, seed + 1, seed + 2);
+}
+
+function makeAvmAccumulatedData(seed = 1) {
+  return new AvmAccumulatedData(
+    makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
+    makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
+    makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
+    makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
+    makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
 }
 
@@ -413,7 +461,7 @@ function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedDat
       seed + 0xd00,
       PublicDataUpdateRequest.empty,
     ),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest, seed + 0x500, PublicCallRequest.empty),
+    tupleGenerator(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500, PublicCallRequest.empty),
     makeGas(seed + 0x600),
   );
 }
@@ -484,12 +532,7 @@ export function makePublicCircuitPublicInputs(
       ContractStorageUpdateRequest.empty,
     ),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.empty),
-    tupleGenerator(
-      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-      makePublicInnerCallRequest,
-      seed + 0x600,
-      PublicInnerCallRequest.empty,
-    ),
+    tupleGenerator(MAX_ENQUEUED_CALLS_PER_CALL, makePublicInnerCallRequest, seed + 0x600, PublicInnerCallRequest.empty),
     tupleGenerator(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x700, NoteHash.empty),
     tupleGenerator(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x800, Nullifier.empty),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
@@ -538,24 +581,31 @@ export function makePrivateKernelTailCircuitPublicInputs(
 ): PrivateKernelTailCircuitPublicInputs {
   const forPublic = isForPublic
     ? new PartialPrivateTailPublicInputsForPublic(
-        PublicValidationRequests.empty(),
-        makePublicAccumulatedData(seed + 0x100, false),
-        makePublicAccumulatedData(seed + 0x200, false),
+        makePrivateToPublicAccumulatedData(seed + 0x100),
+        makePrivateToPublicAccumulatedData(seed + 0x200),
         makePublicCallRequest(seed + 0x400),
       )
     : undefined;
   const forRollup = !isForPublic
-    ? new PartialPrivateTailPublicInputsForRollup(
-        makeRollupValidationRequests(seed),
-        makeCombinedAccumulatedData(seed + 0x100),
-      )
+    ? new PartialPrivateTailPublicInputsForRollup(makeCombinedAccumulatedData(seed + 0x100))
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
-    makeCombinedConstantData(seed + 0x300),
-    RevertCode.OK,
+    makeTxConstantData(seed + 0x300),
+    makeRollupValidationRequests(seed + 0x500),
     makeAztecAddress(seed + 0x700),
     forPublic,
     forRollup,
+  );
+}
+
+function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
+  return new PrivateToPublicKernelCircuitPublicInputs(
+    makeTxConstantData(seed),
+    makeRollupValidationRequests(seed + 0x100),
+    makePrivateToPublicAccumulatedData(seed + 0x200),
+    makePrivateToPublicAccumulatedData(seed + 0x300),
+    makePublicCallRequest(seed + 0x400),
+    makeAztecAddress(seed + 0x500),
   );
 }
 
@@ -579,7 +629,7 @@ export function makeVMCircuitPublicInputs(seed = 1) {
   return new VMCircuitPublicInputs(
     makeCombinedConstantData(seed),
     makePublicCallRequest(seed + 0x100),
-    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicInnerCallRequest, seed + 0x200),
+    makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicInnerCallRequest, seed + 0x200),
     makePublicValidationRequestArrayLengths(seed + 0x300),
     makePublicValidationRequests(seed + 0x310),
     makePublicAccumulatedDataArrayLengths(seed + 0x400),
@@ -587,6 +637,25 @@ export function makeVMCircuitPublicInputs(seed = 1) {
     seed + 0x500,
     seed + 0x501,
     makeGas(seed + 0x600),
+    fr(seed + 0x700),
+    false,
+  );
+}
+
+function makeAvmCircuitPublicInputs(seed = 1) {
+  return new AvmCircuitPublicInputs(
+    makeGlobalVariables(seed),
+    makeTreeSnapshots(seed + 0x10),
+    makeGasSettings(),
+    makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
+    makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
+    makePublicCallRequest(seed + 0x300),
+    makePrivateToAvmAccumulatedDataArrayLengths(seed + 0x400),
+    makePrivateToAvmAccumulatedDataArrayLengths(seed + 0x410),
+    makePrivateToAvmAccumulatedData(seed + 0x500),
+    makePrivateToAvmAccumulatedData(seed + 0x600),
+    makeTreeSnapshots(seed + 0x700),
+    makeAvmAccumulatedData(seed + 0x800),
     fr(seed + 0x700),
     false,
   );
@@ -682,9 +751,18 @@ function makePublicCallStackItemCompressed(seed = 1): PublicCallStackItemCompres
   );
 }
 
-export function makePublicCallRequest(seed = 1): PublicCallRequest {
-  const callContext = makeCallContext(seed);
-  return new PublicCallRequest(callContext, fr(seed + 0x20), seed + 0x60);
+export function makePublicCallRequest(seed = 1) {
+  return new PublicCallRequest(
+    makeAztecAddress(seed),
+    makeAztecAddress(seed + 1),
+    makeSelector(seed + 2),
+    false,
+    fr(seed + 0x3),
+  );
+}
+
+function makeCountedPublicCallRequest(seed = 1) {
+  return new CountedPublicCallRequest(makePublicCallRequest(seed), seed + 0x100);
 }
 
 function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
@@ -792,7 +870,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     noteHashes: makeTuple(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
     nullifiers: makeTuple(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
-    publicCallRequests: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallRequest, seed + 0x700),
+    publicCallRequests: makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
     l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     startSideEffectCounter: fr(seed + 0x849),
@@ -936,7 +1014,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x501),
     globalVariables ?? makeGlobalVariables(seed + 0x502),
     fr(seed + 0x600),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
     fr(seed + 0x801),
     fr(seed + 0x900),
@@ -1081,7 +1159,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x600),
     fr(seed + 0x700),
     fr(seed + 0x800),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
     fr(seed + 0x101),
     fr(seed + 0x200),
@@ -1128,6 +1206,15 @@ export function makeHeader(
  */
 export function makeStateReference(seed = 0): StateReference {
   return new StateReference(makeAppendOnlyTreeSnapshot(seed), makePartialStateReference(seed + 1));
+}
+
+function makeTreeSnapshots(seed = 0) {
+  return new TreeSnapshots(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 0x10),
+    makeAppendOnlyTreeSnapshot(seed + 0x20),
+    makeAppendOnlyTreeSnapshot(seed + 0x30),
+  );
 }
 
 /**
@@ -1296,9 +1383,9 @@ export function makePrivateBaseRollupInputs(seed = 0) {
   });
 }
 
-function makePublicTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs) {
+function makePublicTubeData(seed = 1) {
   return new PublicTubeData(
-    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
+    makePrivateToPublicKernelCircuitPublicInputs(seed),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
     makeVkWitnessData(seed + 0x200),
   );
@@ -1306,7 +1393,7 @@ function makePublicTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicIn
 
 function makeAvmProofData(seed = 1) {
   return new AvmProofData(
-    makeVMCircuitPublicInputs(seed),
+    makeAvmCircuitPublicInputs(seed),
     makeRecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>(AVM_PROOF_LENGTH_IN_FIELDS, seed + 0x100),
     makeVkWitnessData(seed + 0x200),
   );
@@ -1535,6 +1622,7 @@ export function makeAvmCircuitInputs(seed = 0, overrides: Partial<FieldsOf<AvmCi
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     publicInputs: makePublicCircuitPublicInputs(seed + 0x2000),
     avmHints: makeAvmExecutionHints(seed + 0x3000),
+    output: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   });
 }

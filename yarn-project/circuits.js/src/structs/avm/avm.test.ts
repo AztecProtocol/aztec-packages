@@ -9,6 +9,5 @@ describe('Avm circuit inputs', () => {
     const buffer = avmCircuitInputs.toBuffer();
     const res = AvmCircuitInputs.fromBuffer(buffer);
     expect(res).toEqual(avmCircuitInputs);
-    expect(res.isEmpty()).toBe(false);
   });
 });

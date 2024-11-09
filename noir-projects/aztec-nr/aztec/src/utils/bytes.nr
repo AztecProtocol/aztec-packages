@@ -1,5 +1,3 @@
-use std::static_assert;
-
 // Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 bytes.
 //
 // Each 31 byte chunk is converted into a Field as if the chunk was the Field's big endian representation. If the last chunk

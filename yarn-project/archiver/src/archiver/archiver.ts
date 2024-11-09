@@ -160,6 +160,8 @@ export class Archiver implements ArchiveSource {
       rollup.read.GENESIS_TIME(),
     ] as const);
 
+    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
@@ -168,7 +170,7 @@ export class Archiver implements ArchiveSource {
       archiverStore,
       config.archiverPollingIntervalMS ?? 10_000,
       new ArchiverInstrumentation(telemetry),
-      { l1StartBlock, l1GenesisTime },
+      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -246,6 +248,12 @@ export class Archiver implements ArchiveSource {
     // ********** Events that are processed per L1 block **********
     await this.handleL1ToL2Messages(blockUntilSynced, messagesSynchedTo, currentL1BlockNumber);
 
+    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
+    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
+      this.l1Timestamp = (await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber })).timestamp;
+      this.l1BlockNumber = currentL1BlockNumber;
+    }
+
     // ********** Events that are processed per L2 block **********
     if (currentL1BlockNumber > blocksSynchedTo) {
       // First we retrieve new L2 blocks
@@ -257,21 +265,17 @@ export class Archiver implements ArchiveSource {
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
     }
-
-    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
-    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
-      this.l1Timestamp = await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber }).then(b => b.timestamp);
-      this.l1BlockNumber = currentL1BlockNumber;
-    }
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
   private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
 
+    const time = (this.l1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
+
     const canPrune =
       localPendingBlockNumber > provenBlockNumber &&
-      (await this.rollup.read.canPrune({ blockNumber: currentL1BlockNumber }));
+      (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));
 
     if (canPrune) {
       this.log.verbose(`L2 prune will occur on next submission. Rolling back to last proven block.`);
@@ -499,7 +503,7 @@ export class Archiver implements ArchiveSource {
   }
 
   public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
-    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     const blocks: L2Block[] = [];
 
     // Walk the list of blocks backwards and filter by slots matching the requested epoch.
@@ -520,7 +524,7 @@ export class Archiver implements ArchiveSource {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');
     const slot = header?.globalVariables.slotNumber.toBigInt();
-    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber);
+    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     if (slot && slot >= endSlot) {
       return true;
     }
@@ -987,9 +991,15 @@ class ArchiverStoreHelper
 type L1RollupConstants = {
   l1StartBlock: bigint;
   l1GenesisTime: bigint;
+  slotDuration: number;
+  epochDuration: number;
+  ethereumSlotDuration: number;
 };
 
 const EmptyL1RollupConstants: L1RollupConstants = {
   l1StartBlock: 0n,
   l1GenesisTime: 0n,
+  epochDuration: 0,
+  slotDuration: 0,
+  ethereumSlotDuration: 0,
 };

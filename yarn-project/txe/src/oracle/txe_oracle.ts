@@ -6,7 +6,6 @@ import {
   type NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
-  PublicDataWrite,
   PublicExecutionRequest,
   SimulationError,
   type UnencryptedL2Log,
@@ -21,6 +20,7 @@ import {
   Header,
   IndexedTaggingSecret,
   type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
@@ -466,7 +466,7 @@ export class TXE implements TypedOracle {
     _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
-  ): Promise<MessageLoadOracleInputs<16>> {
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new Error('Method not implemented.');
   }
 
@@ -504,14 +504,14 @@ export class TXE implements TypedOracle {
     const publicDataWrites = values.map((value, i) => {
       const storageSlot = startStorageSlot.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      publicDataWrites.map(write => write.toBuffer()),
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
-    return publicDataWrites.map(write => write.newValue);
+    return publicDataWrites.map(write => write.value);
   }
 
   emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, counter: number): void {

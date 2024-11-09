@@ -1,3 +1,4 @@
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
@@ -11,10 +12,11 @@ export async function deployL1Contracts(
   salt: number | undefined,
   json: boolean,
   initialValidators: EthAddress[],
-  realChain: boolean,
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
+  const config = getL1ContractsConfigEnvVars();
+
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrl,
     chainId,
@@ -22,7 +24,7 @@ export async function deployL1Contracts(
     mnemonic,
     salt,
     initialValidators,
-    realChain,
+    config,
     debugLogger,
   );
 
@@ -41,9 +43,9 @@ export async function deployL1Contracts(
     log(`L2 -> L1 Outbox Address: ${l1ContractAddresses.outboxAddress.toString()}`);
     log(`Fee Juice Address: ${l1ContractAddresses.feeJuiceAddress.toString()}`);
     log(`Fee Juice Portal Address: ${l1ContractAddresses.feeJuicePortalAddress.toString()}`);
-    log(`Nomismatokopio Address: ${l1ContractAddresses.nomismatokopioAddress.toString()}`);
-    log(`Sysstia Address: ${l1ContractAddresses.sysstiaAddress.toString()}`);
-    log(`Gerousia Address: ${l1ContractAddresses.gerousiaAddress.toString()}`);
-    log(`Apella Address: ${l1ContractAddresses.apellaAddress.toString()}`);
+    log(`CoinIssuer Address: ${l1ContractAddresses.coinIssuerAddress.toString()}`);
+    log(`RewardDistributor Address: ${l1ContractAddresses.rewardDistributorAddress.toString()}`);
+    log(`GovernanceProposer Address: ${l1ContractAddresses.governanceProposerAddress.toString()}`);
+    log(`Governance Address: ${l1ContractAddresses.governanceAddress.toString()}`);
   }
 }
