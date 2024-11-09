@@ -4,7 +4,7 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
-  PublicKernelPhase,
+  type PublicKernelPhase,
   type SimulationError,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
@@ -34,7 +34,6 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
-  PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
@@ -174,18 +173,6 @@ export class EnqueuedCallSimulator {
       transactionFee,
       avmCallResult,
     );
-    // FIXME(dbanks12): For now, override this because there is a disconnect with how the TS/simulator
-    // tracks "previous lengths" versus the kernel. The kernel uses "non revertible lengths" in SETUP
-    // and "revertible lengths" otherwise. TS also uses "non revertible lengths" in SETUP, but then
-    // uses _total_/combined lengths otherwise.
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
-    vmCircuitPublicInputs.previousAccumulatedDataArrayLengths = previousAccumulatedDataArrayLengths;
-    // END TEMPORARY
-    ///////////////////////////////////////////////////////////////////////////
 
     const gasUsed = allocatedGas.sub(Gas.from(result.endGasLeft));
 
