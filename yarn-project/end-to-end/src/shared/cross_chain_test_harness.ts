@@ -4,17 +4,14 @@ import {
   type AztecNode,
   type DebugLogger,
   EthAddress,
-  ExtendedNote,
   type FieldsOf,
   Fr,
   type L1TokenManager,
   L1TokenPortalManager,
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
-  Note,
   type PXE,
   type SiblingPath,
-  type TxHash,
   type TxReceipt,
   type Wallet,
   deployL1Contract,
@@ -341,20 +338,6 @@ export class CrossChainTestHarness {
   async transferToPrivateOnL2(shieldAmount: bigint) {
     this.logger.info('Transferring to private on L2');
     await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
-  }
-
-  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
-    this.logger.info('Adding note to PXE');
-    const note = new Note([new Fr(shieldAmount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.ownerAddress,
-      this.l2Token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.ownerWallet.addNote(extendedNote);
   }
 
   async transferToPublicOnL2(amount: bigint, nonce = Fr.ZERO) {

@@ -207,20 +207,7 @@ contract Token {
         storage.total_supply.write(supply);
     }
     // docs:end:mint_public
-    // docs:start:mint_private
-    // TODO(benesjan): To be nuked in a followup PR.
-    #[public]
-    fn mint_private_old(amount: Field, secret_hash: Field) {
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
-        let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount, secret_hash);
-        let supply = storage.total_supply.read().add(U128::from_integer(amount));
-        storage.total_supply.write(supply);
-        // docs:start:insert_from_public
-        pending_shields.insert_from_public(&mut note);
-        // docs:end:insert_from_public
-    }
-    // docs:end:mint_private
+
     // docs:start:shield
     #[public]
     fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
