@@ -318,12 +318,13 @@ export async function startHttpRpcServer(
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
   const httpServer = http.createServer(app.callback());
-  const { promise, resolve } = promiseWithResolvers<void>();
-  const listenPort = options.port ? (typeof options.port === 'string' ? parseInt(options.port) : options.port) : 0;
-  httpServer.listen(listenPort, options.host ?? '0.0.0.0', () => resolve());
   if (options.timeoutMs) {
     httpServer.timeout = options.timeoutMs;
   }
+
+  const { promise, resolve } = promiseWithResolvers<void>();
+  const listenPort = options.port ? (typeof options.port === 'string' ? parseInt(options.port) : options.port) : 0;
+  httpServer.listen(listenPort, options.host, () => resolve());
 
   // Wait until listen callback is called
   if (!options.noWait) {
