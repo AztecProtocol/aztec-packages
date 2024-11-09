@@ -170,7 +170,7 @@ export class EthCheatCodes {
    * @param timestamp - The timestamp to set the next block to
    */
   public async warp(timestamp: number | bigint): Promise<void> {
-    const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
+    const res = await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
     if (res.error) {
       throw new Error(`Error warping: ${res.error.message}`);
     }
