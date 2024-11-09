@@ -114,33 +114,12 @@ contract TokenBridge {
         // Read the token address from storage
         let token_address = storage.token.read_private();
 
-        // Prepare the partial note for the minted tokens
-        let note_hiding_point_slot =
-            Token::at(token_address).prepare_transfer_to_private(recipient).call(&mut context);
-
-        // We enqueue a public call in which we finalize the claim
-        // We pass the token address as an argument in order to not have to read it from public storage again.
-        TokenBridge::at(context.this_address())
-            ._finalize_private_claim(token_address, amount, note_hiding_point_slot)
-            .enqueue(&mut context);
+        // At last we mint the tokens
+        // docs:start:call_mint_on_token
+        Token::at(token_address).mint_to_private(recipient, amount).call(&mut context);
+        // docs:end:call_mint_on_token
     }
     // docs:end:claim_private
-
-    #[public]
-    #[internal]
-    fn _finalize_private_claim(
-        token_address: AztecAddress,
-        amount: Field,
-        note_hiding_point_slot: Field,
-    ) {
-        let token = Token::at(token_address);
-
-        // Mint the amount to this contract
-        token.mint_public(context.this_address(), amount).call(&mut context);
-
-        // Transfer the publicly minted tokens to the partial note
-        token.finalize_transfer_to_private(amount, note_hiding_point_slot).call(&mut context);
-    }
 
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
