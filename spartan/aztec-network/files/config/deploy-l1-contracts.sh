@@ -12,9 +12,9 @@ export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4
 output=""
 # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
 if [ "$INIT_VALIDATORS" = "true" ]; then
-  output=$(aztec deploy-l1-contracts --validators $2 --real-chain --l1-chain-id $CHAIN_ID)
+  output=$(aztec deploy-l1-contracts --validators $2 --l1-chain-id $CHAIN_ID)
 else
-  output=$(aztec deploy-l1-contracts --real-chain --l1-chain-id $CHAIN_ID)
+  output=$(aztec deploy-l1-contracts --l1-chain-id $CHAIN_ID)
 fi
 
 echo "$output"
