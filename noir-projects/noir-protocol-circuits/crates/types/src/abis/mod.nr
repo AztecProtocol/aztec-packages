@@ -42,7 +42,6 @@ pub mod call_context;
 
 pub mod enqueued_call_data;
 
-pub mod public_circuit_public_inputs;
 pub mod private_circuit_public_inputs;
 
 pub mod gas_fees;

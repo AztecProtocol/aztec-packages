@@ -26,7 +26,6 @@ use crate::{
         private_kernel::private_call_data::PrivateCallData,
         private_kernel_data::PrivateKernelData,
         public_call_request::PublicCallRequest,
-        public_circuit_public_inputs::PublicCircuitPublicInputs,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
         public_data_write::PublicDataWrite,
@@ -50,13 +49,11 @@ use crate::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
         PRIVATE_CALL_REQUEST_LENGTH, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
         VK_TREE_HEIGHT,
     },
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_tx_logs_hash,
         mask_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash,
@@ -129,7 +126,6 @@ pub struct FixtureBuilder {
     unencrypted_log_preimages_length: Field,
     public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
     private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     public_inner_call_requests: BoundedVec<PublicInnerCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
@@ -145,7 +141,6 @@ pub struct FixtureBuilder {
     l1_to_l2_msg_read_requests: BoundedVec<TreeLeafReadRequest, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
     scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
-    contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     validation_requests_split_counter: Option<u32>,
 
     // Function.
@@ -586,49 +581,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_public_circuit_public_inputs(self) -> PublicCircuitPublicInputs {
-        PublicCircuitPublicInputs {
-            call_context: self.build_call_context(),
-            args_hash: self.args_hash,
-            returns_hash: self.returns_hash,
-            note_hash_read_requests: subarray(self.note_hash_tree_leaf_read_requests.storage),
-            nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(
-                |r: ScopedReadRequest| r.read_request,
-            )),
-            nullifier_non_existent_read_requests: subarray(self
-                .nullifier_non_existent_read_requests
-                .storage
-                .map(|r: ScopedReadRequest| r.read_request)),
-            l1_to_l2_msg_read_requests: subarray(self.l1_to_l2_msg_read_requests.storage),
-            contract_storage_update_requests: subarray(
-                self.contract_storage_update_requests.storage,
-            ),
-            contract_storage_reads: self.contract_storage_reads.storage,
-            public_call_requests: subarray(self.public_inner_call_requests.storage),
-            note_hashes: subarray(
-                self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
-            ),
-            nullifiers: subarray(
-                self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
-            ),
-            l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| {
-                m.message
-            })),
-            start_side_effect_counter: self.counter_start,
-            end_side_effect_counter: self.counter,
-            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(
-                |l: ScopedLogHash| l.log_hash,
-            )),
-            historical_header: self.historical_header,
-            global_variables: self.global_variables,
-            prover_address: self.prover_address,
-            revert_code: self.revert_code,
-            start_gas_left: self.start_gas_left,
-            end_gas_left: self.end_gas_left,
-            transaction_fee: self.transaction_fee,
-        }
-    }
-
     pub fn to_public_validation_requests(self) -> PublicValidationRequests {
         PublicValidationRequests {
             for_rollup: self.to_rollup_validation_requests(),
@@ -861,38 +813,6 @@ impl FixtureBuilder {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
                 self.add_exposed_l2_to_l1_message(content, recipient);
-            }
-        }
-    }
-
-    pub fn add_contract_storage_read_request(&mut self, storage_slot: Field, value: Field) {
-        self.contract_storage_reads.push(
-            StorageRead { storage_slot, current_value: value, counter: self.next_counter() },
-        );
-    }
-
-    pub fn append_contract_storage_read_requests(&mut self, num: u32) {
-        let index_offset = self.contract_storage_reads.len();
-        for i in 0..self.contract_storage_reads.max_len() {
-            if i < num {
-                let (storage_slot, value) = self.mock_contract_storage_read(index_offset + i);
-                self.add_contract_storage_read_request(storage_slot, value);
-            }
-        }
-    }
-
-    pub fn add_contract_storage_update_request(&mut self, storage_slot: Field, value: Field) {
-        let update_request =
-            StorageUpdateRequest { storage_slot, new_value: value, counter: self.next_counter() };
-        self.contract_storage_update_requests.push(update_request);
-    }
-
-    pub fn append_contract_storage_update_requests(&mut self, num: u32) {
-        let index_offset = self.contract_storage_update_requests.len();
-        for i in 0..self.contract_storage_update_requests.max_len() {
-            if i < num {
-                let (storage_slot, value) = self.mock_contract_storage_write(index_offset + i);
-                self.add_contract_storage_update_request(storage_slot, value);
             }
         }
     }
@@ -1350,7 +1270,6 @@ impl Empty for FixtureBuilder {
             unencrypted_log_preimages_length: 0,
             public_data_writes: BoundedVec::new(),
             public_data_update_requests: BoundedVec::new(),
-            contract_storage_update_requests: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
             public_inner_call_requests: BoundedVec::new(),
@@ -1362,7 +1281,6 @@ impl Empty for FixtureBuilder {
             l1_to_l2_msg_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
-            contract_storage_reads: BoundedVec::new(),
             validation_requests_split_counter: Option::none(),
             function_data: FunctionData::empty(),
             args_hash: 0,
