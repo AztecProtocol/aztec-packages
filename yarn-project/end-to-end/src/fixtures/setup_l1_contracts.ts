@@ -19,7 +19,6 @@ export const setupL1Contracts = async (
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: undefined,
-    realChain: false,
     ...args,
   });
 
