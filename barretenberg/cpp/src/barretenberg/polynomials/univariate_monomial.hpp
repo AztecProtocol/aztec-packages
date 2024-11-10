@@ -327,17 +327,20 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
 
     // Operations between Univariate and scalar
     UnivariateMonomial& operator+=(const Fr& scalar)
+        requires(!has_a0_plus_a1)
     {
         coefficients[0] += scalar;
         return *this;
     }
 
     UnivariateMonomial& operator-=(const Fr& scalar)
+        requires(!has_a0_plus_a1)
     {
         coefficients[0] -= scalar;
         return *this;
     }
     UnivariateMonomial<Fr, domain_end, false>& operator*=(const Fr& scalar)
+        requires(!has_a0_plus_a1)
     {
         coefficients[0] *= scalar;
         coefficients[1] *= scalar;
@@ -347,23 +350,23 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMono
         return *this;
     }
 
-    UnivariateMonomial operator+(const Fr& scalar) const
+    UnivariateMonomial<Fr, domain_end, false> operator+(const Fr& scalar) const
     {
-        UnivariateMonomial res(*this);
+        UnivariateMonomial<Fr, domain_end, false> res(*this);
         res += scalar;
         return res;
     }
 
-    UnivariateMonomial operator-(const Fr& scalar) const
+    UnivariateMonomial<Fr, domain_end, false> operator-(const Fr& scalar) const
     {
-        UnivariateMonomial res(*this);
+        UnivariateMonomial<Fr, domain_end, false> res(*this);
         res -= scalar;
         return res;
     }
 
     UnivariateMonomial<Fr, domain_end, false> operator*(const Fr& scalar) const
     {
-        UnivariateMonomial res(*this);
+        UnivariateMonomial<Fr, domain_end, false> res(*this);
         res.coefficients[0] *= scalar;
         res.coefficients[1] *= scalar;
         if constexpr (domain_end == 3) {
