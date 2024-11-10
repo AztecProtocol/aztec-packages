@@ -59,160 +59,52 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
-    // 0x000000000000000000000000000000000000000000000000c000000000000000
-    // 0x30644e72e131a029b85045b68181571da92cbfcf419ffeb1d9192544cc247a81
-    // 0x30644e72e131a029b85045b68181571da92cbfcf419ffeb1d9192544cc247a8d
+
     template <typename Accumulator, typename AllEntities, typename Parameters>
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
-        // static std::mutex g_pages_mutex;
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
-        //  std::lock_guard<std::mutex> guard(g_pages_mutex);
-        //  if constexpr (std::same_as<decltype(r), bool>) {
-        //      if (!r) {
-        //          std::cout << result << " vs " << expected << std::endl;
-        //      }
-        //      ASSERT(r);
-        //  } else {
-        //      ASSERT(r.get_value());
-        //  }
-        //      std::cout << "baz " << baz << std::endl;
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
+        auto id_1 = View(in.id_1);
+        auto id_2 = View(in.id_2);
+        auto id_3 = View(in.id_3);
+        auto id_4 = View(in.id_4);
 
-        MonomialAccumulator w_1_m(in.w_l);
-        MonomialAccumulator w_2_m(in.w_r);
-        MonomialAccumulator w_3_m(in.w_o);
-        MonomialAccumulator w_4_m(in.w_4);
-        MonomialAccumulator id_1_m(in.id_1);
-        MonomialAccumulator id_2_m(in.id_2);
-        MonomialAccumulator id_3_m(in.id_3);
-        MonomialAccumulator id_4_m(in.id_4);
+        const auto& beta = ParameterView(params.beta);
+        const auto& gamma = ParameterView(params.gamma);
 
-        ParameterMonomialAccumulator gamma_m(params.gamma);
-        ParameterMonomialAccumulator beta_m(params.beta);
-
-        auto t0_m = (id_1_m * beta_m);
-        t0_m += (w_1_m + gamma_m);
-        auto t1_m = (id_2_m * beta_m);
-        t1_m += (w_2_m + gamma_m);
-        auto t2_m = (id_3_m * beta_m);
-        t2_m += (w_3_m + gamma_m);
-        auto t3_m = (id_4_m * beta_m);
-        t3_m += (w_4_m + gamma_m);
-
-        Accumulator t0(t0_m);
-        Accumulator t1(t1_m);
-        Accumulator t2(t2_m);
-        Accumulator t3(t3_m);
-
-        return t0 * t1 * t2 * t3;
-        // (1 - X)a0 +
-        // auto expected_2_a = (w_1 + id_1 * beta + gamma) * (w_2 + id_2 * beta + gamma) * (w_3 + id_3 * beta + gamma) *
-        //                     (w_4 + id_4 * beta + gamma);
-        // View expected_2(expected_2_a);
-        // // witness degree 4; full degree 8
-        // auto result_2_a = t0 * t1 * t2 * t3;
-        // View result_2(result_2_a);
-        // std::lock_guard<std::mutex> guard(g_pages_mutex);
-        // auto r = result_2 == expected_2;
-        // if constexpr (std::same_as<decltype(r), bool>) {
-        //     if (!r) {
-        //         if constexpr (!std::same_as<decltype(w_1), FF>) {
-        //             std::cout << "diff = " << in.w_l.evaluations[1] - in.w_l.evaluations[0] << std::endl;
-        //         }
-        //         // auto foo = (id_1_m * beta_m);
-        //         Accumulator id1a(id_1_m);
-        //         auto foo = id_1_m.test(beta_m);
-        //         std::cout << "beta_m = " << beta_m << std::endl;
-        //         std::cout << "id1_m in monomial form " << id_1_m << std::endl;
-        //         std::cout << "mul result in monomial form " << foo << std::endl;
-        //         Accumulator bar(foo);
-        //         std::cout << "mul result in acc form " << bar << std::endl;
-        //         std::cout << "versus " << (id_1 * beta) << std::endl;
-        //         std::cout << "id_1 m" << id1a << std::endl;
-        //         std::cout << "versus " << id_1 << std::endl;
-        //         // std::cout << "mul result " << baz << std::endl;
-        //         // std::cout << "versus " << (id_1 * beta) << std::endl;
-        //         // std::cout << "alternate mform = " << bar << std::endl;
-        //         // (1 - X)beta + Xbeta
-        //         // 0 = beta
-        //         // 1 = beta
-        //         // beta + (beta - beta)X
-        //         //
-        //         // std::cout << "term result " << t0 << std::endl;
-        //         // std::cout << "vs " << (w_1 + id_1 * beta + gamma) << std::endl;
-        //         // std::cout << "w_1 =   " << in.w_l << std::endl;
-        //         // std::cout << "w_1_m =   " << w_1_m << std::endl;
-        //         // std::cout << "params gamma   " << params.gamma << std::endl;
-        //         // std::cout << "params gamma_m " << gamma_m << std::endl;
-        //         // std::cout << result_2 << " vs " << expected_2 << std::endl;
-        //     }
-        //     ASSERT(r);
-        // } else {
-        //     ASSERT(r.get_value());
-        // }
-
-        // return result_2_a;
+        // witness degree 4; full degree 8
+        return (w_1 + id_1 * beta + gamma) * (w_2 + id_2 * beta + gamma) * (w_3 + id_3 * beta + gamma) *
+               (w_4 + id_4 * beta + gamma);
     }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
         using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
-        MonomialAccumulator w_1_m(in.w_l);
-        MonomialAccumulator w_2_m(in.w_r);
-        MonomialAccumulator w_3_m(in.w_o);
-        MonomialAccumulator w_4_m(in.w_4);
-        MonomialAccumulator sigma_1_m(in.sigma_1);
-        MonomialAccumulator sigma_2_m(in.sigma_2);
-        MonomialAccumulator sigma_3_m(in.sigma_3);
-        MonomialAccumulator sigma_4_m(in.sigma_4);
 
-        ParameterMonomialAccumulator gamma_m(params.gamma);
-        ParameterMonomialAccumulator beta_m(params.beta);
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
 
-        auto t0_m = (sigma_1_m * beta_m);
-        t0_m += (w_1_m + gamma_m);
-        auto t1_m = (sigma_2_m * beta_m);
-        t1_m += (w_2_m + gamma_m);
-        auto t2_m = (sigma_3_m * beta_m);
-        t2_m += (w_3_m + gamma_m);
-        auto t3_m = (sigma_4_m * beta_m);
-        t3_m += (w_4_m + gamma_m);
+        auto sigma_1 = View(in.sigma_1);
+        auto sigma_2 = View(in.sigma_2);
+        auto sigma_3 = View(in.sigma_3);
+        auto sigma_4 = View(in.sigma_4);
 
-        Accumulator t0(t0_m);
-        Accumulator t1(t1_m);
-        Accumulator t2(t2_m);
-        Accumulator t3(t3_m);
+        const auto& beta = ParameterView(params.beta);
+        const auto& gamma = ParameterView(params.gamma);
 
-        return t0 * t1 * t2 * t3;
-        // using View = typename Accumulator::View;
-        // using ParameterView = GetParameterView<Parameters, View>;
-        // // TODO. to use UnivariateMonomial... we want something that does not require us to propagate the type across
-        // // ContainerOverSubrelations
-
-        // auto w_1 = View(in.w_l);
-        // auto w_2 = View(in.w_r);
-        // auto w_3 = View(in.w_o);
-        // auto w_4 = View(in.w_4);
-
-        // auto sigma_1 = View(in.sigma_1);
-        // auto sigma_2 = View(in.sigma_2);
-        // auto sigma_3 = View(in.sigma_3);
-        // auto sigma_4 = View(in.sigma_4);
-
-        // const auto& beta = ParameterView(params.beta);
-        // const auto& gamma = ParameterView(params.gamma);
-
-        // // witness degree 4; full degree 8
-        // return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
-        //        (w_4 + sigma_4 * beta + gamma);
+        // witness degree 4; full degree 8
+        return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
+               (w_4 + sigma_4 * beta + gamma);
     }
 
     /**
@@ -288,25 +180,35 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
         // however we no longer need to construct accumulators out of sigmas and ids. 8 polynomials = 8 degree-11
         // adds however we do these automatically atm? in theory we could remove about 80 additions-
-        auto t1 = (id_1_m * beta_m) + w_1_plus_gamma;
+        auto t1 = (id_1_m * beta_m);
+        t1 += w_1_plus_gamma;
+        t1 *= scaling_factor;
         auto t2 = id_2_m * beta_m;
+        t2 += w_2_plus_gamma;
         auto t3 = id_3_m * beta_m;
+        t3 += w_3_plus_gamma;
         auto t4 = id_4_m * beta_m;
+        t4 += w_4_plus_gamma;
 
         auto t5 = sigma_1_m * beta_m;
+        t5 += w_1_plus_gamma;
+        t5 *= scaling_factor;
         auto t6 = sigma_2_m * beta_m;
+        t6 += w_2_plus_gamma;
         auto t7 = sigma_3_m * beta_m;
+        t7 += w_3_plus_gamma;
         auto t8 = sigma_4_m * beta_m;
+        t8 += w_4_plus_gamma;
 
-        const Accumulator numerator_1((t1));
-        const Accumulator numerator_2((t2) + w_2_plus_gamma);
-        const Accumulator numerator_3((t3) + w_3_plus_gamma);
-        const Accumulator numerator_4((t4) + w_4_plus_gamma);
+        const Accumulator numerator_1(t1);
+        const Accumulator numerator_2(t2);
+        const Accumulator numerator_3(t3);
+        const Accumulator numerator_4(t4);
 
-        const Accumulator denominator_1((t5) + w_1_plus_gamma);
-        const Accumulator denominator_2((t6) + w_2_plus_gamma);
-        const Accumulator denominator_3((t7) + w_3_plus_gamma);
-        const Accumulator denominator_4((t8) + w_4_plus_gamma);
+        const Accumulator denominator_1(t5);
+        const Accumulator denominator_2(t6);
+        const Accumulator denominator_3(t7);
+        const Accumulator denominator_4(t8);
 
         const auto numerator = numerator_1 * numerator_2 * numerator_3 * numerator_4;
         const auto denominator = denominator_1 * denominator_2 * denominator_3 * denominator_4;
@@ -322,8 +224,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const Accumulator public_input_term(public_input_term_m);
         // witness degree: deg 5 - deg 5 = deg 5
         // total degree: deg 9 - deg 10 = deg 10
-        std::get<0>(accumulators) +=
-            (((z_perm + lagrange_first) * numerator) - (public_input_term * denominator)) * scaling_factor;
+        std::get<0>(accumulators) += (((z_perm + lagrange_first) * numerator) - (public_input_term * denominator));
 
         // Contribution (2)
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
