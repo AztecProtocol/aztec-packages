@@ -200,18 +200,15 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto t8 = sigma_4_m * beta_m;
         t8 += w_4_plus_gamma;
 
-        const Accumulator numerator_1(t1);
-        const Accumulator numerator_2(t2);
-        const Accumulator numerator_3(t3);
-        const Accumulator numerator_4(t4);
+        const Accumulator numerator(t1);
+        numerator *= Accumulator(t2);
+        numerator *= Accumulator(t3);
+        numerator *= Accumulator(t4);
 
-        const Accumulator denominator_1(t5);
-        const Accumulator denominator_2(t6);
-        const Accumulator denominator_3(t7);
-        const Accumulator denominator_4(t8);
-
-        const auto numerator = numerator_1 * numerator_2 * numerator_3 * numerator_4;
-        const auto denominator = denominator_1 * denominator_2 * denominator_3 * denominator_4;
+        const Accumulator denominator(t5);
+        denominator *= Accumulator(t6);
+        denominator *= Accumulator(t7);
+        denominator *= Accumulator(t8);
 
         const ParameterMonomialAccumulator public_input_delta_m(params.public_input_delta);
         const auto z_perm = View(in.z_perm);
