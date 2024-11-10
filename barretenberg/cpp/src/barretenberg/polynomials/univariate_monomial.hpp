@@ -185,6 +185,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         for (size_t i = 0; i < other_domain_end; ++i) {
             evaluations[i] += other.evaluations[i];
         }
+        midpoint += other.midpoint;
         return *this;
     }
     UnivariateMonomial& operator+=(const UnivariateMonomial& other)
@@ -194,6 +195,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         for (size_t i = 1; i < LENGTH; ++i) {
             evaluations[i] += other.evaluations[i];
         }
+        // TODO remove with dirty/clean flag
+        midpoint += other.midpoint;
         return *this;
     }
     UnivariateMonomial& operator-=(const UnivariateMonomial& other)
@@ -203,6 +206,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
             evaluations[i] -= other.evaluations[i];
         }
+        midpoint -= other.midpoint;
         return *this;
     }
 
@@ -240,13 +244,10 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     UnivariateMonomial operator-() const
     {
         UnivariateMonomial res(*this);
-        size_t i = 0;
-        for (auto& eval : res.evaluations) {
-            if (i == 0 || i >= (skip_count + 1)) {
-                eval = -eval;
-            }
-            i++;
+        for (size_t i = 0; i < LENGTH; ++i) {
+            res.evaluations[i] = -res.evaluations[i];
         }
+        res.midpoint = -res.midpoint;
         return res;
     }
 
@@ -257,7 +258,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         result.evaluations[0] = evaluations[0].sqr();
         result.evaluations[2] = evaluations[1].sqr();
         // a0a0 a1a1 a0a1a1a0
-        result.evaluations[1] = (midpoint);
+        result.evaluations[1] = evaluations[0] * evaluations[1];
         result.evaluations[1] += result.evaluations[1];
 
         return result;
@@ -267,12 +268,14 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     UnivariateMonomial& operator+=(const Fr& scalar)
     {
         evaluations[0] += scalar;
+        midpoint += scalar; // TODO remove with clean/dirty flags
         return *this;
     }
 
     UnivariateMonomial& operator-=(const Fr& scalar)
     {
         evaluations[0] -= scalar;
+        midpoint -= scalar; // TODO remove with clean/dirty flags
         return *this;
     }
     UnivariateMonomial& operator*=(const Fr& scalar)
@@ -280,6 +283,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] *= scalar;
         }
+        midpoint *= scalar; // TODO remove with clean/dirty flags
         return *this;
     }
 

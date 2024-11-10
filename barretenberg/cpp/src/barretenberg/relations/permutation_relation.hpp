@@ -67,8 +67,9 @@ template <typename FF_> class UltraPermutationRelationImpl {
     {
         // static std::mutex g_pages_mutex;
         using View = typename Accumulator::View;
-        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
         using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
         //  std::lock_guard<std::mutex> guard(g_pages_mutex);
         //  if constexpr (std::same_as<decltype(r), bool>) {
@@ -81,7 +82,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
         //  }
         //      std::cout << "baz " << baz << std::endl;
 
-        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
         MonomialAccumulator w_1_m(in.w_l);
         MonomialAccumulator w_2_m(in.w_r);
         MonomialAccumulator w_3_m(in.w_o);
@@ -289,7 +289,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
             // however we no longer need to construct accumulators out of sigmas and ids. 8 polynomials = 8 degree-11
             // adds however we do these automatically atm? in theory we could remove about 80 additions-
-            auto t1 = id_1_m * beta_m;
+            auto t1 = (id_1_m * beta_m) + w_1_plus_gamma;
             auto t2 = id_2_m * beta_m;
             auto t3 = id_3_m * beta_m;
             auto t4 = id_4_m * beta_m;
@@ -299,7 +299,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
             auto t7 = sigma_3_m * beta_m;
             auto t8 = sigma_4_m * beta_m;
 
-            const Accumulator numerator_1((t1) + w_1_plus_gamma);
+            const Accumulator numerator_1((t1));
             const Accumulator numerator_2((t2) + w_2_plus_gamma);
             const Accumulator numerator_3((t3) + w_3_plus_gamma);
             const Accumulator numerator_4((t4) + w_4_plus_gamma);

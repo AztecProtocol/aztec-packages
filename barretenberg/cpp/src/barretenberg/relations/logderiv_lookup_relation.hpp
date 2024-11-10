@@ -89,20 +89,25 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
         static_assert(write_index < WRITE_TERMS);
 
-        const auto& gamma = ParameterView(params.gamma);
-        const auto& eta = ParameterView(params.eta);
-        const auto& eta_two = ParameterView(params.eta_two);
-        const auto& eta_three = ParameterView(params.eta_three);
+        const auto gamma = ParameterMonomialAccumulator(params.gamma);
+        const auto eta = ParameterMonomialAccumulator(params.eta);
+        const auto eta_two = ParameterMonomialAccumulator(params.eta_two);
+        const auto eta_three = ParameterMonomialAccumulator(params.eta_three);
 
-        auto table_1 = View(in.table_1);
-        auto table_2 = View(in.table_2);
-        auto table_3 = View(in.table_3);
-        auto table_4 = View(in.table_4);
+        auto table_1 = MonomialAccumulator(in.table_1);
+        auto table_2 = MonomialAccumulator(in.table_2);
+        auto table_3 = MonomialAccumulator(in.table_3);
+        auto table_4 = MonomialAccumulator(in.table_4);
 
-        return table_1 + gamma + table_2 * eta + table_3 * eta_two + table_4 * eta_three;
+        auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
+        result += table_1;
+        result += gamma;
+        return Accumulator(result);
     }
 
     template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
@@ -110,36 +115,43 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
 
-        const auto& gamma = ParameterView(params.gamma);
-        const auto& eta = ParameterView(params.eta);
-        const auto& eta_two = ParameterView(params.eta_two);
-        const auto& eta_three = ParameterView(params.eta_three);
+        const auto gamma = ParameterMonomialAccumulator(params.gamma);
+        const auto eta = ParameterMonomialAccumulator(params.eta);
+        const auto eta_two = ParameterMonomialAccumulator(params.eta_two);
+        const auto eta_three = ParameterMonomialAccumulator(params.eta_three);
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
+        auto w_1 = MonomialAccumulator(in.w_l);
+        auto w_2 = MonomialAccumulator(in.w_r);
+        auto w_3 = MonomialAccumulator(in.w_o);
 
-        auto w_1_shift = View(in.w_l_shift);
-        auto w_2_shift = View(in.w_r_shift);
-        auto w_3_shift = View(in.w_o_shift);
+        auto w_1_shift = MonomialAccumulator(in.w_l_shift);
+        auto w_2_shift = MonomialAccumulator(in.w_r_shift);
+        auto w_3_shift = MonomialAccumulator(in.w_o_shift);
 
-        auto table_index = View(in.q_o);
-        auto negative_column_1_step_size = View(in.q_r);
-        auto negative_column_2_step_size = View(in.q_m);
-        auto negative_column_3_step_size = View(in.q_c);
+        auto table_index = MonomialAccumulator(in.q_o);
+        auto negative_column_1_step_size = MonomialAccumulator(in.q_r);
+        auto negative_column_2_step_size = MonomialAccumulator(in.q_m);
+        auto negative_column_3_step_size = MonomialAccumulator(in.q_c);
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
         // method get_lookup_accumulators() in  for a detailed explanation.
-        auto derived_table_entry_1 = w_1 + gamma + negative_column_1_step_size * w_1_shift;
-        auto derived_table_entry_2 = w_2 + negative_column_2_step_size * w_2_shift;
-        auto derived_table_entry_3 = w_3 + negative_column_3_step_size * w_3_shift;
+        auto derived_table_entry_1 = (negative_column_1_step_size * w_1_shift) + (w_1 + gamma);
+        auto derived_table_entry_2 = (negative_column_2_step_size * w_2_shift) + w_2;
+        auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
+        auto table_index_entry = table_index * eta_three;
 
+        auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
+        result += Accumulator(derived_table_entry_1 + table_index_entry);
+        return result;
         // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
-        return derived_table_entry_1 + derived_table_entry_2 * eta + derived_table_entry_3 * eta_two +
-               table_index * eta_three;
+        // auto result = derived_table_entry_2 * eta + derived_table_entry_3 * eta_two + table_index * eta_three;
+        // result += derived_table_entry_1;
+        // return Accumulator(result);
     }
 
     /**

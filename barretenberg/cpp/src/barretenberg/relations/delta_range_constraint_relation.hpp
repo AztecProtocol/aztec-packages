@@ -95,6 +95,11 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
+        // (d4 - 1)^2 - 1 = d4d4 - 2d4
+        // (d4 - 2)^2 - 1 = d4d4 - 4d4 + 3
+
+        // (d4 - 1)^2
+        // d4 + d4 + 3
         // Contribution (4)
         auto tmp_4 = (delta_4 + minus_one).sqr() + minus_one;
         tmp_4 *= (delta_4 + minus_two).sqr() + minus_one;

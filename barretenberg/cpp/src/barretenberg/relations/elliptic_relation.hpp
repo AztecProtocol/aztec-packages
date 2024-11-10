@@ -63,56 +63,98 @@ template <typename FF_> class EllipticRelationImpl {
         // remove endomorphism coefficient in ecc add gate(not used))
 
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
         using View = typename Accumulator::View;
         auto x_1 = View(in.w_r);
-        auto y_1 = View(in.w_o);
+        // auto y_1 = View(in.w_o);
 
         auto x_2 = View(in.w_l_shift);
-        auto y_2 = View(in.w_4_shift);
-        auto y_3 = View(in.w_o_shift);
+        // auto y_2 = View(in.w_4_shift);
+        //   auto y_3 = View(in.w_o_shift);
         auto x_3 = View(in.w_r_shift);
+        auto y_1 = View(in.w_o);
+        auto y_1_m = MonomialAccumulator(in.w_o);
+        auto y_2_m = MonomialAccumulator(in.w_4_shift);
 
-        auto q_sign = View(in.q_l);
-        auto q_elliptic = View(in.q_elliptic);
-        auto q_is_double = View(in.q_m);
+        auto x_1_m = MonomialAccumulator(in.w_r);
+        auto x_2_m = MonomialAccumulator(in.w_l_shift);
+        auto y_3_m = MonomialAccumulator(in.w_o_shift);
+        // auto x_3_m = MonomialAccumulator(in.w_r_shift);
+        // 20 muls
+        // auto q_sign = View(in.q_l);
+        //  auto q_elliptic = View(in.q_elliptic);
+        //  auto q_is_double = View(in.q_m);
+
+        auto q_elliptic_m = MonomialAccumulator(in.q_elliptic);
+        auto q_is_double_m = MonomialAccumulator(in.q_m);
+        auto q_sign_m = MonomialAccumulator(in.q_l);
+
+        // we need to efficiently construct the following:
+        // 1. (x2 - x1)
+        // 2. (x3 - x1)
+        // 3. (x3 + x2 + x1)
+        // 4. (x1 + x1 + x1)
+        auto x2_sub_x1 = (x_2 - x_1);
+        auto x1_mul_3 = (x_1 + x_1 + x_1);
+        auto x3_sub_x1 = x_3 - x_1;
+        auto x3_plus_two_x1 = x3_sub_x1 + x1_mul_3;
+        auto x3_plus_x2_plus_x1 = x3_plus_two_x1 + x2_sub_x1;
 
         // Contribution (1) point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-        auto x_diff = (x_2 - x_1);
-        auto y2_sqr = y_2.sqr();
-        auto y1_sqr = y_1.sqr();
-        auto y1y2 = y_1 * y_2 * q_sign;
-        auto x_add_identity = (x_3 + x_2 + x_1) * x_diff * x_diff - y2_sqr - y1_sqr + y1y2 + y1y2;
+        auto x2_sub_x1_m = (x_2_m - x_1_m);
+        auto y2_sqr_m = y_2_m.sqr();
+        auto y1_sqr_m = y_1_m.sqr();
+        // auto y1y2_m = y_1_m * y_2_m;
+        auto y2_mul_q_sign_m = y_2_m * q_sign_m;
+        auto x_add_identity = x3_plus_x2_plus_x1 * Accumulator(x2_sub_x1_m.sqr()) - Accumulator(y2_sqr_m + y1_sqr_m) +
+                              Accumulator(y2_mul_q_sign_m + y2_mul_q_sign_m) * y_1;
 
-        auto q_elliptic_by_scaling = q_elliptic * scaling_factor;
-        auto q_elliptic_q_double_scaling = q_elliptic_by_scaling * q_is_double;
-        auto q_elliptic_not_double_scaling = q_elliptic_by_scaling - q_elliptic_q_double_scaling;
-        std::get<0>(accumulators) += x_add_identity * q_elliptic_not_double_scaling;
+        // q_elliptic - q_elliptic * q_double
+        // (q_elliptic - 1) * q_double
+        auto q_elliptic_by_scaling_m = q_elliptic_m * scaling_factor;
+        auto q_elliptic_q_double_scaling_m = (q_elliptic_by_scaling_m * q_is_double_m);
+        Accumulator q_elliptic_q_double_scaling(q_elliptic_q_double_scaling_m);
+        auto neg_q_elliptic_not_double_scaling = Accumulator(q_elliptic_q_double_scaling_m - q_elliptic_by_scaling_m);
+
+        // qecc * qdouble * scaling
+        // qecc * (q_double - 1) * scaling
+        // auto qecc_qscaling = q_elliptic_m * scaling_factor; // degree 1
+        // auto q_elliptic_q_double_scaling = qecc_qscaling * q_double_m;
+        // auto q_elliptic_not_double_scaling = q_elliptic_q_double_scaling - qecc_qscaling;
+        // auto q_elliptic_not_double_scaling_partial_m = (q_elliptic_m - FF(1)) * q_is_double_m;
+        // auto q_elliptic_not_double_scaling = Accumulator((q_elliptic_not_double_scaling_partial_m)*scaling_factor);
+        // auto q_elliptic_q_double_scaling =
+        //     Accumulator((q_elliptic_not_double_scaling_partial_m + q_is_double_m) * scaling_factor);
+        // auto q_elliptic_by_scaling = q_elliptic * scaling_factor;
+        // auto q_elliptic_q_double_scaling = q_elliptic_by_scaling * q_is_double;
+        // auto q_elliptic_not_double_scaling = q_elliptic_by_scaling - q_elliptic_q_double_scaling;
+        std::get<0>(accumulators) -= x_add_identity * neg_q_elliptic_not_double_scaling;
 
         // Contribution (2) point addition, x-coordinate check
         // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
-        auto y1_plus_y3 = y_1 + y_3;
-        auto y_diff = y_2 * q_sign - y_1;
-        auto y_add_identity = y1_plus_y3 * x_diff + (x_3 - x_1) * y_diff;
-        std::get<1>(accumulators) += y_add_identity * q_elliptic_not_double_scaling;
+        auto y1_plus_y3_m = y_1_m + y_3_m;
+        auto y_diff_m = y2_mul_q_sign_m - y_1_m;
+        auto y_diff = Accumulator(y_diff_m);
+        auto y_add_identity = Accumulator(y1_plus_y3_m * x2_sub_x1_m) + (x3_sub_x1)*y_diff;
+        std::get<1>(accumulators) -= y_add_identity * neg_q_elliptic_not_double_scaling;
 
         // Contribution (3) point doubling, x-coordinate check
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
         // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         const auto curve_b = get_curve_b();
-        auto x1_mul_3 = (x_1 + x_1 + x_1);
-        auto x_pow_4_mul_3 = (y1_sqr - curve_b) * x1_mul_3;
-        auto y1_sqr_mul_4 = y1_sqr + y1_sqr;
-        y1_sqr_mul_4 += y1_sqr_mul_4;
+        auto x_pow_4_mul_3 = (Accumulator(y1_sqr_m - curve_b)) * x1_mul_3;
+        auto y1_sqr_mul_4_m = y1_sqr_m + y1_sqr_m;
+        y1_sqr_mul_4_m += y1_sqr_mul_4_m;
         auto x1_pow_4_mul_9 = x_pow_4_mul_3 + x_pow_4_mul_3 + x_pow_4_mul_3;
-        auto x_double_identity = (x_3 + x_1 + x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+        auto x_double_identity = x3_plus_two_x1 * Accumulator(y1_sqr_mul_4_m) - x1_pow_4_mul_9;
         std::get<0>(accumulators) += x_double_identity * q_elliptic_q_double_scaling;
 
         // Contribution (4) point doubling, y-coordinate check
         // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
-        auto x1_sqr_mul_3 = x1_mul_3 * x_1;
-        auto y_double_identity = x1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y1_plus_y3);
-        std::get<1>(accumulators) += y_double_identity * q_elliptic_q_double_scaling;
+        auto x1_sqr_mul_3 = Accumulator((x_1_m + x_1_m + x_1_m) * x_1_m);
+        auto neg_y_double_identity = x1_sqr_mul_3 * (x3_sub_x1) + Accumulator((y_1_m + y_1_m) * (y1_plus_y3_m));
+        std::get<1>(accumulators) -= neg_y_double_identity * q_elliptic_q_double_scaling;
     };
 };
 
