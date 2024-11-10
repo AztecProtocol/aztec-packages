@@ -32,7 +32,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     static constexpr size_t SKIP_COUNT = skip_count;
     using View = UnivariateView<Fr, domain_end, domain_start, skip_count>;
     static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
-    using MonomialAccumulator = UnivariateMonomial<Fr, MONOMIAL_LENGTH, 0, 0>;
+    using MonomialAccumulator = UnivariateMonomial<Fr, MONOMIAL_LENGTH, true>;
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
@@ -50,18 +50,18 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
 
-    explicit operator UnivariateMonomial<Fr, 1, 0, 0>() const
-        requires(LENGTH == 1)
-    {
-        static_assert(domain_start == 0);
-        // (1 - X)a0 + Xa1
-        // a0
-        UnivariateMonomial<Fr, 1, 0, 0> result;
-        result.evaluations[0] = evaluations[0];
-        return result;
-    }
+    // explicit operator UnivariateMonomial<Fr, 1, true>() const
+    //     requires(LENGTH == 1)
+    // {
+    //     static_assert(domain_start == 0);
+    //     // (1 - X)a0 + Xa1
+    //     // a0
+    //     UnivariateMonomial<Fr, 1, 0, 0> result;
+    //     result.evaluations[0] = evaluations[0];
+    //     return result;
+    // }
 
-    explicit operator UnivariateMonomial<Fr, 2, 0, 0>() const
+    explicit operator UnivariateMonomial<Fr, 2, true>() const
         requires(LENGTH > 1)
     {
         //       static std::mutex g_pages_mutex;
@@ -70,24 +70,24 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         // (1 - X)a0 + Xa1
         // a0
 
-        UnivariateMonomial<Fr, 2, 0, 0> result;
+        UnivariateMonomial<Fr, 2, true> result;
         // std::lock_guard<std::mutex> guard(g_pages_mutex);
         // std::cout << "evaluations[0] = " << evaluations[0] << std::endl;
         // std::cout << "evaluations[1] = " << evaluations[1] << std::endl;
 
-        result.evaluations[0] = evaluations[0];
-        result.evaluations[1] = evaluations[1] - evaluations[0];
-        result.midpoint = evaluations[1];
+        result.coefficients[0] = evaluations[0];
+        result.coefficients[1] = evaluations[1] - evaluations[0];
+        result.coefficients[2] = evaluations[1];
         // std::cout << "evaluations[1] = " << result.evaluations[1] << std::endl;
         // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
         return result;
     }
 
-    Univariate(UnivariateMonomial<Fr, 2, 0, 0> monomial)
+    template <bool has_a0_plus_a1> Univariate(UnivariateMonomial<Fr, 2, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
-        Fr to_add = monomial.evaluations[1];
-        evaluations[0] = monomial.evaluations[0];
+        Fr to_add = monomial.coefficients[1];
+        evaluations[0] = monomial.coefficients[0];
         auto prev = evaluations[0];
         for (size_t i = 1; i < skip_count + 1; ++i) {
             evaluations[i] = 0;
@@ -100,12 +100,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
 
-    Univariate(UnivariateMonomial<Fr, 3, 0, 0> monomial)
+    template <bool has_a0_plus_a1> Univariate(UnivariateMonomial<Fr, 3, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
-        Fr to_add = monomial.evaluations[1] + monomial.evaluations[2];
-        Fr derivative = monomial.evaluations[2] + monomial.evaluations[2];
-        evaluations[0] = monomial.evaluations[0];
+        Fr to_add = monomial.coefficients[1];                                // a1 + a2
+        Fr derivative = monomial.coefficients[2] + monomial.coefficients[2]; // 2a2
+        evaluations[0] = monomial.coefficients[0];
         auto prev = evaluations[0];
         for (size_t i = 1; i < skip_count + 1; ++i) {
             evaluations[i] = 0;
@@ -665,7 +665,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     static constexpr size_t LENGTH = domain_end - domain_start;
     std::span<const Fr, LENGTH> evaluations;
     static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
-    using MonomialAccumulator = UnivariateMonomial<Fr, MONOMIAL_LENGTH, 0, 0>;
+    using MonomialAccumulator = UnivariateMonomial<Fr, MONOMIAL_LENGTH, true>;
 
     UnivariateView() = default;
 
@@ -688,29 +688,24 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     explicit UnivariateView(const Univariate<Fr, full_domain_end, full_domain_start, skip_count>& univariate_in)
         : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH)){};
 
-    explicit operator UnivariateMonomial<Fr, 1, 0, 0>() const
-        requires(LENGTH == 1)
-    {
-        static_assert(domain_start == 0);
-        // (1 - X)a0 + Xa1
-        // a0
-        UnivariateMonomial<Fr, 1, 0, 0> result;
-        result.evaluations[0] = evaluations[0];
-        return result;
-    }
-
-    explicit operator UnivariateMonomial<Fr, 2, 0, 0>() const
+    explicit operator UnivariateMonomial<Fr, 2, true>() const
         requires(LENGTH > 1)
     {
+        //       static std::mutex g_pages_mutex;
         static_assert(domain_end >= 2);
         static_assert(domain_start == 0);
         // (1 - X)a0 + Xa1
         // a0
 
-        UnivariateMonomial<Fr, 2, 0, 0> result;
-        result.evaluations[0] = evaluations[0];
-        result.evaluations[1] = evaluations[1] - evaluations[0];
-        result.midpoint = evaluations[1];
+        UnivariateMonomial<Fr, 2, true> result;
+        // std::lock_guard<std::mutex> guard(g_pages_mutex);
+        // std::cout << "evaluations[0] = " << evaluations[0] << std::endl;
+        // std::cout << "evaluations[1] = " << evaluations[1] << std::endl;
+
+        result.coefficients[0] = evaluations[0];
+        result.coefficients[1] = evaluations[1] - evaluations[0];
+        result.coefficients[2] = evaluations[1];
+        // std::cout << "evaluations[1] = " << result.evaluations[1] << std::endl;
         // { .evaluations = { evaluations[0], evaluations[1] - evaluations[0] } };
         return result;
     }

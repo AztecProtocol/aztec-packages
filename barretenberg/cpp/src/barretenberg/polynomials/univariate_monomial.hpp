@@ -13,36 +13,61 @@ namespace bb {
  * of the data in those univariates. We do that by taking a view of those elements and then, as needed, using this to
  * populate new containers.
  */
-template <class Fr, size_t view_domain_end, size_t view_domain_start, size_t skip_count> class UnivariateView;
 
 /**
  * @brief A univariate polynomial represented by its values on {domain_start, domain_start + 1,..., domain_end - 1}. For
- * memory efficiency purposes, we store the evaluations in an array starting from 0 and make the mapping to the right
+ * memory efficiency purposes, we store the coefficients in an array starting from 0 and make the mapping to the right
  * domain under the hood.
  *
- * @tparam skip_count Skip computing the values of elements [domain_start+1,..,domain_start+skip_count]. Used for
- * optimising computation in protogalaxy. The value at [domain_start] is the value from the accumulator, while the
- * values in [domain_start+1, ... domain_start + skip_count] in the accumulator should be zero if the original if the
- * skip_count-many keys to be folded are all valid
  */
-template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0> class UnivariateMonomial {
+template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateMonomial {
   public:
-    static constexpr size_t LENGTH = domain_end - domain_start;
-    static_assert(LENGTH <= 3);
-    static constexpr size_t SKIP_COUNT = skip_count;
-
+    static constexpr size_t LENGTH = domain_end;
+    static_assert(LENGTH == 2 || LENGTH == 3);
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
+    // a0 + a1.X + a2.XX
+    // we need...
+
+    // a0
+    // a1 + a2
+    // a2
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
-    std::array<Fr, LENGTH> evaluations;
-    Fr midpoint;
+
+    // struct Degree1Coefficients {
+    //     Fr a0;
+    //     Fr a1;
+    //     Fr a0_plus_a1;
+    // };
+    // struct Degree2Coefficients {
+    //     Fr a0;
+    //     Fr a1_plus_a2;
+    //     Fr a2;
+    // };
+    // union Coefficients {
+    //     Degree1Coefficients d1;
+    //     Degree2Coefficients d2;
+    // };
+    // Coefficients coefficients;
+    std::array<Fr, 3> coefficients;
+
     UnivariateMonomial() = default;
 
-    explicit UnivariateMonomial(std::array<Fr, LENGTH> _evaluations)
+    // explicit UnivariateMonomial(std::array<Fr, LENGTH> _coefficients)
+    // {
+    //     coefficients[0] = _coefficients[0];
+    //     if constexpr (LENGTH > 1) {
+    //         coefficients[1] = _coefficients[1] - _coefficients[0];
+    //     }
+    // }
+
+    UnivariateMonomial(const UnivariateMonomial<Fr, domain_end, true>& other)
+        requires(!has_a0_plus_a1)
     {
-        evaluations[0] = _evaluations[0];
-        if constexpr (LENGTH > 1) {
-            evaluations[1] = _evaluations[1] - _evaluations[0];
+        coefficients[0] = other.coefficients[0];
+        coefficients[1] = other.coefficients[1];
+        if constexpr (domain_end == 3) {
+            coefficients[2] = other.coefficients[2];
         }
     }
 
@@ -52,35 +77,24 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     UnivariateMonomial& operator=(const UnivariateMonomial& other) = default;
     UnivariateMonomial& operator=(UnivariateMonomial&& other) noexcept = default;
 
-    template <size_t other_domain_end>
-    UnivariateMonomial(const UnivariateMonomial<Fr, other_domain_end, domain_start>& other)
+    template <size_t other_domain_end, bool other_has_a0_plus_a1 = true>
+    UnivariateMonomial(const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
         requires(domain_end > other_domain_end)
     {
-        std::copy(other.evaluations.begin(), other.evaluations.end(), evaluations.begin());
-        for (size_t i = other_domain_end; i < domain_end; ++i) {
-            evaluations[i] = 0;
+        // (*this) as a0, a1+a2, a2
+        // (other) has a0, a1 and maybe a0+a1
+        coefficients[0] = other.coefficients[0];
+        coefficients[1] = other.coefficients[1];
+        if constexpr (domain_end == 3) {
+            coefficients[2] = 0;
         }
-        midpoint = other.midpoint;
+        // std::copy(other.coefficients.begin(), other.coefficients.end(), coefficients.begin());
+        // for (size_t i = other_domain_end; i < domain_end; ++i) {
+        //     coefficients[i] = 0;
+        // }
+        // midpoint = other.midpoint;
     };
 
-    /**
-     * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
-     * locations)
-     *
-     * @return Univariate<Fr, domain_end, domain_start>
-     */
-    UnivariateMonomial<Fr, domain_end, domain_start> convert() const noexcept
-    {
-        UnivariateMonomial<Fr, domain_end, domain_start, 0> result;
-        result.evaluations[0] = evaluations[0];
-        for (size_t i = 1; i < skip_count + 1; i++) {
-            result.evaluations[i] = Fr::zero();
-        }
-        for (size_t i = skip_count + 1; i < LENGTH; i++) {
-            result.evaluations[i] = evaluations[i];
-        }
-        return result;
-    }
     // v0 = u
     // v1 = v + 12
     // 0x30644e72e131a029b85045b68181571da92cbfcf419ffeb1d9192544cc247a81
@@ -92,58 +106,58 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     // a1 = 12
     // Construct constant Univariate from scalar which represents the value that all the points in the domain
     // evaluate to
-    explicit UnivariateMonomial(Fr value)
-        : evaluations{}
-    {
-        static_assert(LENGTH == 1);
-        evaluations[0] = value;
-        for (size_t i = 1; i < LENGTH; ++i) {
-            evaluations[i] = 0;
-        }
-    }
+    // explicit UnivariateMonomial(Fr value)
+    //     : coefficients{}
+    // {
+    //     static_assert(LENGTH == 1);
+    //     coefficients[0] = value;
+    //     for (size_t i = 1; i < LENGTH; ++i) {
+    //         coefficients[i] = 0;
+    //     }
+    // }
     // // Construct UnivariateMonomial from UnivariateMonomialView
     // explicit UnivariateMonomial(UnivariateView<Fr, domain_end, domain_start, skip_count> in)
-    //     : evaluations{}
+    //     : coefficients{}
     // {
-    //     for (size_t i = 0; i < in.evaluations.size(); ++i) {
-    //         evaluations[i] = in.evaluations[i];
+    //     for (size_t i = 0; i < in.coefficients.size(); ++i) {
+    //         coefficients[i] = in.coefficients[i];
     //     }
     // }
 
-    Fr& value_at(size_t i)
-    {
-        if constexpr (domain_start == 0) {
-            return evaluations[i];
-        } else {
-            return evaluations[i - domain_start];
-        }
-    };
-    const Fr& value_at(size_t i) const
-    {
-        if constexpr (domain_start == 0) {
-            return evaluations[i];
-        } else {
-            return evaluations[i - domain_start];
-        }
-    };
-    size_t size() { return evaluations.size(); };
+    // Fr& value_at(size_t i)
+    // {
+    //     if constexpr (domain_start == 0) {
+    //         return coefficients[i];
+    //     } else {
+    //         return coefficients[i - domain_start];
+    //     }
+    // };
+    // const Fr& value_at(size_t i) const
+    // {
+    //     if constexpr (domain_start == 0) {
+    //         return coefficients[i];
+    //     } else {
+    //         return coefficients[i - domain_start];
+    //     }
+    // };
+    size_t size() { return coefficients.size(); };
 
     // Check if the univariate is identically zero
-    bool is_zero() const
-    {
-        if (!evaluations[0].is_zero()) {
-            return false;
-        }
-        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-            if (!evaluations[i].is_zero()) {
-                return false;
-            }
-        }
-        return true;
-    }
+    // bool is_zero() const
+    // {
+    //     if (!coefficients[0].is_zero()) {
+    //         return false;
+    //     }
+    //     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
+    //         if (!coefficients[i].is_zero()) {
+    //             return false;
+    //         }
+    //     }
+    //     return true;
+    // }
 
-    // Write the Univariate evaluations to a buffer
-    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(evaluations); }
+    // Write the Univariate coefficients to a buffer
+    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(coefficients); }
 
     // Static method for creating a Univariate from a buffer
     // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses
@@ -151,14 +165,14 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     static UnivariateMonomial serialize_from_buffer(uint8_t const* buffer)
     {
         UnivariateMonomial result;
-        std::read(buffer, result.evaluations);
+        std::read(buffer, result.coefficients);
         return result;
     }
 
     static UnivariateMonomial get_random()
     {
-        auto output = UnivariateMonomial<Fr, domain_end, domain_start, skip_count>();
-        for (size_t i = 0; i != LENGTH; ++i) {
+        auto output = UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>();
+        for (size_t i = 0; i < LENGTH; ++i) {
             output.value_at(i) = Fr::random_element();
         }
         return output;
@@ -166,9 +180,9 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     static UnivariateMonomial zero()
     {
-        auto output = UnivariateMonomial<Fr, domain_end, domain_start, skip_count>();
+        auto output = UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>();
         for (size_t i = 0; i != LENGTH; ++i) {
-            output.value_at(i) = Fr::zero();
+            output.coefficients[i] = Fr::zero();
         }
         return output;
     }
@@ -178,112 +192,158 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     // Operations between UnivariateMonomial and other UnivariateMonomial
     bool operator==(const UnivariateMonomial& other) const = default;
 
-    template <size_t other_domain_end>
-    UnivariateMonomial& operator+=(const UnivariateMonomial<Fr, other_domain_end, domain_start, skip_count>& other)
-        requires(other_domain_end < domain_end)
+    template <size_t other_domain_end, bool other_has_a0_plus_a1>
+    UnivariateMonomial<Fr, domain_end, false>& operator+=(
+        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
     {
-        for (size_t i = 0; i < other_domain_end; ++i) {
-            evaluations[i] += other.evaluations[i];
+        // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
+        // the output object therefore must have `other_has_a0_plus_a1` set to false.
+        // i.e. the input also requires `other_has_a0_plus_a1`, otherwise use `operator+
+        coefficients[0] += other.coefficients[0];
+        coefficients[1] += other.coefficients[1];
+        if constexpr (other_domain_end == 3 && domain_end == 3) {
+            coefficients[2] += other.coefficients[2];
         }
-        midpoint += other.midpoint;
-        return *this;
-    }
-    UnivariateMonomial& operator+=(const UnivariateMonomial& other)
-    {
-        static_assert(skip_count == 0);
-        evaluations[0] += other.evaluations[0];
-        for (size_t i = 1; i < LENGTH; ++i) {
-            evaluations[i] += other.evaluations[i];
-        }
-        // TODO remove with dirty/clean flag
-        midpoint += other.midpoint;
-        return *this;
-    }
-    UnivariateMonomial& operator-=(const UnivariateMonomial& other)
-    {
-        evaluations[0] -= other.evaluations[0];
-        for (size_t i = 1; i < LENGTH; ++i) {
-
-            evaluations[i] -= other.evaluations[i];
-        }
-        midpoint -= other.midpoint;
         return *this;
     }
 
-    UnivariateMonomial<Fr, domain_end + 1, domain_start, skip_count> operator*(const UnivariateMonomial& other) const
+    template <size_t other_domain_end, bool other_has_a0_plus_a1>
+    UnivariateMonomial<Fr, domain_end, false>& operator-=(
+        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other)
+    {
+        // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
+        // the output object therefore must have `other_has_a0_plus_a1` set to false.
+        // i.e. the input also requires `other_has_a0_plus_a1`, otherwise use `operator+
+        coefficients[0] -= other.coefficients[0];
+        coefficients[1] -= other.coefficients[1];
+        if constexpr (other_domain_end == 3 && domain_end == 3) {
+            coefficients[2] -= other.coefficients[2];
+        }
+        return *this;
+    }
+
+    template <bool other_has_a0_plus_a1>
+    UnivariateMonomial<Fr, 3, false> operator*(
+        const UnivariateMonomial<Fr, domain_end, other_has_a0_plus_a1>& other) const
         requires(LENGTH == 2)
     {
-        UnivariateMonomial<Fr, domain_end + 1, domain_start, skip_count> result;
-        result.evaluations[0] = evaluations[0] * other.evaluations[0];
-        result.evaluations[2] = evaluations[1] * other.evaluations[1];
-        result.evaluations[1] = (midpoint) * (other.midpoint) - (result.evaluations[0] + result.evaluations[2]);
+        UnivariateMonomial<Fr, 3, false> result;
+        // result.coefficients[0] = a0 * a0;
+        // result.coefficients[1] = a1 * a1
+        result.coefficients[0] = coefficients[0] * other.coefficients[0];
+        result.coefficients[2] = coefficients[1] * other.coefficients[1];
+
+        // the reason we've been tracking this variable all this time.
+        // coefficients[1] = sum of X^2 and X coefficients
+        // (a0 + a1X) * (b0 + b1X) = a0b0 + (a0b1 + a1b0)X + a1b1XX
+        // coefficients[1] = a0b1 + a1b0 + a1b1
+        // which represented as (a0 + a1) * (b0 + b1) - a0b0
+        // if we have a1_plus_a0
+        if constexpr (has_a0_plus_a1 && other_has_a0_plus_a1) {
+            result.coefficients[1] = (coefficients[2] * other.coefficients[2] - result.coefficients[0]);
+        } else if constexpr (has_a0_plus_a1 && !other_has_a0_plus_a1) {
+            result.coefficients[1] =
+                coefficients[2] * (other.coefficients[0] + other.coefficients[1]) - result.coefficients[0];
+        } else if constexpr (!has_a0_plus_a1 && other_has_a0_plus_a1) {
+            result.coefficients[1] =
+                (coefficients[0] + coefficients[1]) * other.coefficients[2] - result.coefficients[0];
+        } else {
+            result.coefficients[1] =
+                (coefficients[0] + coefficients[1]) * (other.coefficients[0] + other.coefficients[1]) -
+                result.coefficients[0];
+        }
         return result;
     }
 
     // UnivariateMonomial& self_sqr()
     // {
-    //     evaluations[0].self_sqr();
+    //     coefficients[0].self_sqr();
     //     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-    //         evaluations[i].self_sqr();
+    //         coefficients[i].self_sqr();
     //     }
     //     return *this;
     // }
-    UnivariateMonomial operator+(const UnivariateMonomial& other) const
+    template <size_t other_domain_end, bool other_has_a0_plus_a1>
+    UnivariateMonomial<Fr, domain_end, false> operator+(
+        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
     {
-        UnivariateMonomial res(*this);
-        res += other;
-        return res;
-    }
-
-    UnivariateMonomial operator-(const UnivariateMonomial& other) const
-    {
-        UnivariateMonomial res(*this);
-        res -= other;
-        return res;
-    }
-    UnivariateMonomial operator-() const
-    {
-        UnivariateMonomial res(*this);
-        for (size_t i = 0; i < LENGTH; ++i) {
-            res.evaluations[i] = -res.evaluations[i];
+        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
+        // the output object therefore must have `other_has_a0_plus_a1` set to false.
+        // i.e. the input also requires `other_has_a0_plus_a1`, otherwise use `operator+
+        res.coefficients[0] += other.coefficients[0];
+        res.coefficients[1] += other.coefficients[1];
+        if constexpr (other_domain_end == 3 && domain_end == 3) {
+            res.coefficients[2] += other.coefficients[2];
         }
-        res.midpoint = -res.midpoint;
         return res;
     }
 
-    UnivariateMonomial<Fr, domain_end + 1, domain_start, skip_count> sqr() const
+    template <size_t other_domain_end, bool other_has_a0_plus_a1>
+    UnivariateMonomial<Fr, domain_end, false> operator-(
+        const UnivariateMonomial<Fr, other_domain_end, other_has_a0_plus_a1>& other) const
+    {
+        UnivariateMonomial<Fr, domain_end, false> res(*this);
+        // if both operands are degree-1, then we do not update coefficients[2], which represents `a1 + a0`
+        // the output object therefore must have `other_has_a0_plus_a1` set to false.
+        // i.e. the input also requires `other_has_a0_plus_a1`, otherwise use `operator+
+        res.coefficients[0] -= other.coefficients[0];
+        res.coefficients[1] -= other.coefficients[1];
+        if constexpr (other_domain_end == 3 && domain_end == 3) {
+            res.coefficients[2] -= other.coefficients[2];
+        }
+        return res;
+    }
+
+    UnivariateMonomial<Fr, domain_end, false> operator-() const
+    {
+        UnivariateMonomial res;
+        res.coefficients[0] = -coefficients[0];
+        res.coefficients[1] = -coefficients[1];
+        return res;
+    }
+
+    UnivariateMonomial<Fr, 3, false> sqr() const
         requires(LENGTH == 2)
     {
-        UnivariateMonomial<Fr, domain_end + 1, domain_start, skip_count> result;
-        result.evaluations[0] = evaluations[0].sqr();
-        result.evaluations[2] = evaluations[1].sqr();
-        // a0a0 a1a1 a0a1a1a0
-        result.evaluations[1] = evaluations[0] * evaluations[1];
-        result.evaluations[1] += result.evaluations[1];
+        UnivariateMonomial<Fr, 3, false> result;
+        result.coefficients[0] = coefficients[0].sqr();
+        result.coefficients[2] = coefficients[1].sqr();
 
+        // (a0 + a1.X)^2 = a0a0 + 2a0a1.X + a1a1.XX
+        // coefficients[0] = a0a0
+        // coefficients[1] = 2a0a1 + a1a1 = (a0 + a0 + a1).a1
+        // coefficients[2] = a1a1
+        // a0a0 a1a1 a0a1a1a0
+        if constexpr (has_a0_plus_a1) {
+            result.coefficients[1] = (coefficients[2] + coefficients[0]) * coefficients[1];
+        } else {
+            result.coefficients[1] = coefficients[0] * coefficients[1];
+            result.coefficients[1] += result.coefficients[1];
+            result.coefficients[1] += result.coefficients[2];
+        }
         return result;
     }
 
     // Operations between Univariate and scalar
     UnivariateMonomial& operator+=(const Fr& scalar)
     {
-        evaluations[0] += scalar;
-        midpoint += scalar; // TODO remove with clean/dirty flags
+        coefficients[0] += scalar;
         return *this;
     }
 
     UnivariateMonomial& operator-=(const Fr& scalar)
     {
-        evaluations[0] -= scalar;
-        midpoint -= scalar; // TODO remove with clean/dirty flags
+        coefficients[0] -= scalar;
         return *this;
     }
-    UnivariateMonomial& operator*=(const Fr& scalar)
+    UnivariateMonomial<Fr, domain_end, false>& operator*=(const Fr& scalar)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] *= scalar;
+        coefficients[0] *= scalar;
+        coefficients[1] *= scalar;
+        if constexpr (domain_end == 3) {
+            coefficients[2] *= scalar;
         }
-        midpoint *= scalar; // TODO remove with clean/dirty flags
         return *this;
     }
 
@@ -301,37 +361,41 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return res;
     }
 
-    UnivariateMonomial operator*(const Fr& scalar) const
+    UnivariateMonomial<Fr, domain_end, false> operator*(const Fr& scalar) const
     {
         UnivariateMonomial res(*this);
-        res *= scalar;
+        res.coefficients[0] *= scalar;
+        res.coefficients[1] *= scalar;
+        if constexpr (domain_end == 3) {
+            res.coefficients[2] *= scalar;
+        }
         return res;
     }
 
     // // Operations between Univariate and UnivariateView
     // Univariate& operator+=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
     // {
-    //     evaluations[0] += view.evaluations[0];
+    //     coefficients[0] += view.coefficients[0];
     //     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-    //         evaluations[i] += view.evaluations[i];
+    //         coefficients[i] += view.coefficients[i];
     //     }
     //     return *this;
     // }
 
     // Univariate& operator-=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
     // {
-    //     evaluations[0] -= view.evaluations[0];
+    //     coefficients[0] -= view.coefficients[0];
     //     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-    //         evaluations[i] -= view.evaluations[i];
+    //         coefficients[i] -= view.coefficients[i];
     //     }
     //     return *this;
     // }
 
     // Univariate& operator*=(const UnivariateView<Fr, domain_end, domain_start, skip_count>& view)
     // {
-    //     evaluations[0] *= view.evaluations[0];
+    //     coefficients[0] *= view.coefficients[0];
     //     for (size_t i = skip_count + 1; i < LENGTH; ++i) {
-    //         evaluations[i] *= view.evaluations[i];
+    //         coefficients[i] *= view.coefficients[i];
     //     }
     //     return *this;
     // }
@@ -361,10 +425,10 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     friend std::ostream& operator<<(std::ostream& os, const UnivariateMonomial& u)
     {
         os << "[";
-        os << u.evaluations[0] << "," << std::endl;
-        for (size_t i = 1; i < u.evaluations.size(); i++) {
-            os << " " << u.evaluations[i];
-            if (i + 1 < u.evaluations.size()) {
+        os << u.coefficients[0] << "," << std::endl;
+        for (size_t i = 1; i < u.coefficients.size(); i++) {
+            os << " " << u.coefficients[i];
+            if (i + 1 < u.coefficients.size()) {
                 os << "," << std::endl;
             } else {
                 os << "]";
@@ -375,7 +439,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     /**
      * @brief Given a univariate f represented by {f(domain_start), ..., f(domain_end - 1)}, compute the
-     * evaluations {f(domain_end),..., f(extended_domain_end -1)} and return the Univariate represented by
+     * coefficients {f(domain_end),..., f(extended_domain_end -1)} and return the Univariate represented by
      * {f(domain_start),..., f(extended_domain_end -1)}
      *
      * @details Write v_i = f(x_i) on a the domain {x_{domain_start}, ..., x_{domain_end-1}}. To efficiently
@@ -400,7 +464,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     //     Univariate<Fr, EXTENDED_LENGTH, 0, NUM_SKIPPED_INDICES> result;
 
-    //     std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
+    //     std::copy(coefficients.begin(), coefficients.end(), result.coefficients.begin());
 
     //     static constexpr Fr inverse_two = Fr(2).invert();
     //     static_assert(NUM_SKIPPED_INDICES < LENGTH);
@@ -504,17 +568,17 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     //     return result;
     // }
 
-    template <size_t INITIAL_LENGTH> void self_extend_from()
-    {
-        if constexpr (INITIAL_LENGTH == 2) {
-            const Fr delta = value_at(1) - value_at(0);
-            Fr next = value_at(1);
-            for (size_t idx = 2; idx < LENGTH; idx++) {
-                next += delta;
-                value_at(idx) = next;
-            }
-        }
-    }
+    // template <size_t INITIAL_LENGTH> void self_extend_from()
+    // {
+    //     if constexpr (INITIAL_LENGTH == 2) {
+    //         const Fr delta = value_at(1) - value_at(0);
+    //         Fr next = value_at(1);
+    //         for (size_t idx = 2; idx < LENGTH; idx++) {
+    //             next += delta;
+    //             value_at(idx) = next;
+    //         }
+    //     }
+    // }
 
     /**
      * @brief Evaluate a univariate at a point u not known at compile time
@@ -522,83 +586,83 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
      * @param f
      * @return Fr
      */
-    Fr evaluate(const Fr& u) const
-    {
-        using Data = BarycentricData<Fr, domain_end, LENGTH, domain_start>;
-        Fr full_numerator_value = 1;
-        for (size_t i = domain_start; i != domain_end; ++i) {
-            full_numerator_value *= u - i;
-        }
+    // Fr evaluate(const Fr& u) const
+    // {
+    //     using Data = BarycentricData<Fr, domain_end, LENGTH, domain_start>;
+    //     Fr full_numerator_value = 1;
+    //     for (size_t i = domain_start; i != domain_end; ++i) {
+    //         full_numerator_value *= u - i;
+    //     }
 
-        // build set of domain size-many denominator inverses 1/(d_i*(x_k - x_j)). will multiply against
-        // each of these (rather than to divide by something) for each barycentric evaluation
-        std::array<Fr, LENGTH> denominator_inverses;
-        for (size_t i = 0; i != LENGTH; ++i) {
-            Fr inv = Data::lagrange_denominators[i];
-            inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
-            inv = Fr(1) / inv;
-            denominator_inverses[i] = inv;
-        }
+    //     // build set of domain size-many denominator inverses 1/(d_i*(x_k - x_j)). will multiply against
+    //     // each of these (rather than to divide by something) for each barycentric evaluation
+    //     std::array<Fr, LENGTH> denominator_inverses;
+    //     for (size_t i = 0; i != LENGTH; ++i) {
+    //         Fr inv = Data::lagrange_denominators[i];
+    //         inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
+    //         inv = Fr(1) / inv;
+    //         denominator_inverses[i] = inv;
+    //     }
 
-        Fr result = 0;
-        // compute each term v_j / (d_j*(x-x_j)) of the sum
-        for (size_t i = domain_start; i != domain_end; ++i) {
-            Fr term = value_at(i);
-            term *= denominator_inverses[i - domain_start];
-            result += term;
-        }
-        // scale the sum by the value of of B(x)
-        result *= full_numerator_value;
-        return result;
-    };
+    //     Fr result = 0;
+    //     // compute each term v_j / (d_j*(x-x_j)) of the sum
+    //     for (size_t i = domain_start; i != domain_end; ++i) {
+    //         Fr term = value_at(i);
+    //         term *= denominator_inverses[i - domain_start];
+    //         result += term;
+    //     }
+    //     // scale the sum by the value of of B(x)
+    //     result *= full_numerator_value;
+    //     return result;
+    // };
 
     // Begin iterators
-    auto begin() { return evaluations.begin(); }
-    auto begin() const { return evaluations.begin(); }
+    auto begin() { return coefficients.begin(); }
+    auto begin() const { return coefficients.begin(); }
     // End iterators
-    auto end() { return evaluations.end(); }
-    auto end() const { return evaluations.end(); }
+    auto end() { return coefficients.end(); }
+    auto end() const { return coefficients.end(); }
 };
 
-template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
-inline void read(B& it, UnivariateMonomial<Fr, domain_end, domain_start>& univariate)
+template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>
+inline void read(B& it, UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>& univariate)
 {
     using serialize::read;
-    read(it, univariate.evaluations);
+    read(it, univariate.coefficients);
 }
 
-template <typename B, class Fr, size_t domain_end, size_t domain_start = 0>
-inline void write(B& it, UnivariateMonomial<Fr, domain_end, domain_start> const& univariate)
+template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>
+inline void write(B& it, UnivariateMonomial<Fr, domain_end, has_a0_plus_a1> const& univariate)
 {
     using serialize::write;
-    write(it, univariate.evaluations);
+    write(it, univariate.coefficients);
 }
 
-template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
-UnivariateMonomial<Fr, domain_end, domain_start, skip_count> operator+(
-    const Fr& ff, const UnivariateMonomial<Fr, domain_end, domain_start, skip_count>& uv)
-{
-    return uv + ff;
-}
+// template <class Fr, size_t domain_end, bool has_a0_plus_a1>
+// UnivariateMonomial<Fr, domain_end, has_a0_plus_a1> operator+(
+//     const Fr& ff, const UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>& uv)
+// {
+//     return uv + ff;
+// }
 
-template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
-UnivariateMonomial<Fr, domain_end, domain_start, skip_count> operator-(
-    const Fr& ff, const UnivariateMonomial<Fr, domain_end, domain_start, skip_count>& uv)
-{
-    return -uv + ff;
-}
+// template <class Fr, size_t domain_end, bool has_a0_plus_a1>
+// UnivariateMonomial<Fr, domain_end, has_a0_plus_a1> operator-(
+//     const Fr& ff, const UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>& uv)
+// {
+//     return -uv + ff;
+// }
 
-template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
-UnivariateMonomial<Fr, domain_end, domain_start, skip_count> operator*(
-    const Fr& ff, const UnivariateMonomial<Fr, domain_end, domain_start, skip_count>& uv)
-{
-    return uv * ff;
-}
+// template <class Fr, size_t domain_end, bool has_a0_plus_a1>
+// UnivariateMonomial<Fr, domain_end, has_a0_plus_a1> operator*(
+//     const Fr& ff, const UnivariateMonomial<Fr, domain_end, has_a0_plus_a1>& uv)
+// {
+//     return uv * ff;
+// }
 
 } // namespace bb
 
 namespace std {
-template <typename T, size_t N>
-struct tuple_size<bb::UnivariateMonomial<T, N>> : std::integral_constant<std::size_t, N> {};
+template <typename T, size_t N, bool X>
+struct tuple_size<bb::UnivariateMonomial<T, N, X>> : std::integral_constant<std::size_t, N> {};
 
 } // namespace std
