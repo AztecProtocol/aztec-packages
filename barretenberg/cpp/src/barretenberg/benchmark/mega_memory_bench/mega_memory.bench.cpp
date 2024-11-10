@@ -321,7 +321,7 @@ void fill_trace(State& state, TraceStructure structure)
     uint64_t builder_estimate = builder.estimate_memory();
     for (auto _ : state) {
         DeciderProvingKey proving_key(builder, structure);
-        uint64_t memory_estimate = proving_key.proving_key.polynomials.estimate_memory();
+        uint64_t memory_estimate = proving_key.proving_key.estimate_memory();
         state.counters["poly_mem_est"] = static_cast<double>(memory_estimate);
         state.counters["builder_mem_est"] = static_cast<double>(builder_estimate);
         benchmark::DoNotOptimize(proving_key);

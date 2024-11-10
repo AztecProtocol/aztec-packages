@@ -412,21 +412,6 @@ class MegaFlavor {
                 shifted = to_be_shifted.shifted();
             }
         }
-
-        uint64_t estimate_memory()
-        {
-            for (auto [polynomial, label] : zip_view(get_all(), get_labels())) {
-                uint64_t size = polynomial.size();
-                vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");
-            }
-
-            uint64_t result(0);
-            for (auto& polynomial : get_unshifted()) {
-                uint64_t size = polynomial.size();
-                result += size;
-            }
-            return result * sizeof(FF);
-        }
     };
 
     /**
@@ -524,6 +509,23 @@ class MegaFlavor {
 
             // Compute permutation and lookup grand product polynomials
             compute_grand_products<MegaFlavor>(this->polynomials, relation_parameters);
+        }
+
+        uint64_t estimate_memory()
+        {
+            for (auto [polynomial, label] : zip_view(polynomials.get_all(), polynomials.get_labels())) {
+                uint64_t size = polynomial.size();
+                vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");
+            }
+
+            uint64_t result(0);
+            for (auto& polynomial : polynomials.get_unshifted()) {
+                result += polynomial.size() * sizeof(FF);
+            }
+
+            result += public_inputs.capacity() * sizeof(FF);
+
+            return result;
         }
     };
 
