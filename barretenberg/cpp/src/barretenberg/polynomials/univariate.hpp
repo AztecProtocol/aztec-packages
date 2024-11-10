@@ -109,15 +109,17 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         auto prev = evaluations[0];
         for (size_t i = 1; i < skip_count + 1; ++i) {
             evaluations[i] = 0;
-            prev = prev + to_add;
+            prev += to_add;
             to_add += derivative;
         }
 
-        for (size_t i = skip_count + 1; i < domain_end; ++i) {
-            prev = prev + to_add;
+        for (size_t i = skip_count + 1; i < domain_end - 1; ++i) {
+            prev += to_add;
             evaluations[i] = prev;
             to_add += derivative;
         }
+        prev += to_add;
+        evaluations[domain_end - 1] = prev;
     }
 
     // explicit operator UnivariateMonomial<Fr, 2, 0, 0>() const
