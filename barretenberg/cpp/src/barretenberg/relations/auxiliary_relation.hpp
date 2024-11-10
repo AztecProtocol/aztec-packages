@@ -149,7 +149,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto q_4 = View(in.q_4);
         auto q_m = View(in.q_m);
         auto q_arith = View(in.q_arith);
-        auto q_aux = View(in.q_aux);
+        auto q_aux_m = MonomialAccumulator(in.q_aux);
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
@@ -286,7 +286,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto adjacent_values_match_if_adjacent_indices_match =
             ShortAccumulator(index_delta_is_zero_m * record_delta_m); // deg 2
 
-        auto q_aux_by_scaling = q_aux * scaling_factor;
+        auto q_aux_by_scaling = Accumulator(q_aux_m * scaling_factor);
         auto q_one_by_two_m = q_1_m * q_2_m;
         auto q_one_by_two = ShortAccumulator(q_one_by_two_m);
         auto q_one_by_two_by_aux_by_scaling = q_one_by_two * q_aux_by_scaling;

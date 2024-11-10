@@ -239,103 +239,99 @@ template <typename FF_> class UltraPermutationRelationImpl {
     {
         PROFILE_THIS_NAME("Permutation::accumulate");
         // Contribution (1)
-        [&]() {
-            using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
-            using ParameterView = GetParameterView<Parameters, View>;
-            using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+        using MonomialAccumulator = typename Accumulator::MonomialAccumulator;
+        using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterMonomialAccumulator = typename ParameterView::MonomialAccumulator;
 
-            const MonomialAccumulator w_1_m(in.w_l);
-            const MonomialAccumulator w_2_m(in.w_r);
-            const MonomialAccumulator w_3_m(in.w_o);
-            const MonomialAccumulator w_4_m(in.w_4);
-            const MonomialAccumulator id_1_m(in.id_1);
-            const MonomialAccumulator id_2_m(in.id_2);
-            const MonomialAccumulator id_3_m(in.id_3);
-            const MonomialAccumulator id_4_m(in.id_4);
-            const MonomialAccumulator sigma_1_m(in.sigma_1);
-            const MonomialAccumulator sigma_2_m(in.sigma_2);
-            const MonomialAccumulator sigma_3_m(in.sigma_3);
-            const MonomialAccumulator sigma_4_m(in.sigma_4);
+        const MonomialAccumulator w_1_m(in.w_l);
+        const MonomialAccumulator w_2_m(in.w_r);
+        const MonomialAccumulator w_3_m(in.w_o);
+        const MonomialAccumulator w_4_m(in.w_4);
+        const MonomialAccumulator id_1_m(in.id_1);
+        const MonomialAccumulator id_2_m(in.id_2);
+        const MonomialAccumulator id_3_m(in.id_3);
+        const MonomialAccumulator id_4_m(in.id_4);
+        const MonomialAccumulator sigma_1_m(in.sigma_1);
+        const MonomialAccumulator sigma_2_m(in.sigma_2);
+        const MonomialAccumulator sigma_3_m(in.sigma_3);
+        const MonomialAccumulator sigma_4_m(in.sigma_4);
 
-            const ParameterMonomialAccumulator gamma_m(params.gamma);
-            const ParameterMonomialAccumulator beta_m(params.beta);
+        const ParameterMonomialAccumulator gamma_m(params.gamma);
+        const ParameterMonomialAccumulator beta_m(params.beta);
 
-            const auto w_1_plus_gamma = w_1_m + gamma_m;
-            const auto w_2_plus_gamma = w_2_m + gamma_m;
-            const auto w_3_plus_gamma = w_3_m + gamma_m;
-            const auto w_4_plus_gamma = w_4_m + gamma_m;
+        const auto w_1_plus_gamma = w_1_m + gamma_m;
+        const auto w_2_plus_gamma = w_2_m + gamma_m;
+        const auto w_3_plus_gamma = w_3_m + gamma_m;
+        const auto w_4_plus_gamma = w_4_m + gamma_m;
 
-            // improvements... when multiplying, `(a0 + a1) * (b0 + b1)` can be done without additions
-            // because a0 + a1 is equivalent to `evaluations[1]` of an Accumlulator or View object
-            // would save 32 additions
+        // improvements... when multiplying, `(a0 + a1) * (b0 + b1)` can be done without additions
+        // because a0 + a1 is equivalent to `evaluations[1]` of an Accumlulator or View object
+        // would save 32 additions
 
-            // 24 adds
-            // karatsuba = 2 * 8 = 16 adds
-            // converting 14 entities into monomial accs = 14 adds
-            // 54 adds
-            // equiv of 5 degree-11 adds
-            // previously we had 16 degree-11 adds
+        // 24 adds
+        // karatsuba = 2 * 8 = 16 adds
+        // converting 14 entities into monomial accs = 14 adds
+        // 54 adds
+        // equiv of 5 degree-11 adds
+        // previously we had 16 degree-11 adds
 
-            // we convert 8 acumulators
-            // each accumulator conversion requires degree * 2 adds which is 22 adds
-            // equivalent to 16 degree-11 adds
+        // we convert 8 acumulators
+        // each accumulator conversion requires degree * 2 adds which is 22 adds
+        // equivalent to 16 degree-11 adds
 
-            // so in terms of additions we're down by 5 degree-11 adds
-            // previously we had 8 degree-11 muls
-            // new version we have 8 karatsuba muls which is 3 * 8 = 24 muls
-            // 8 * 11 = 88 (actually 80). diff = 56 muls
+        // so in terms of additions we're down by 5 degree-11 adds
+        // previously we had 8 degree-11 muls
+        // new version we have 8 karatsuba muls which is 3 * 8 = 24 muls
+        // 8 * 11 = 88 (actually 80). diff = 56 muls
 
-            // however we no longer need to construct accumulators out of sigmas and ids. 8 polynomials = 8 degree-11
-            // adds however we do these automatically atm? in theory we could remove about 80 additions-
-            auto t1 = (id_1_m * beta_m) + w_1_plus_gamma;
-            auto t2 = id_2_m * beta_m;
-            auto t3 = id_3_m * beta_m;
-            auto t4 = id_4_m * beta_m;
+        // however we no longer need to construct accumulators out of sigmas and ids. 8 polynomials = 8 degree-11
+        // adds however we do these automatically atm? in theory we could remove about 80 additions-
+        auto t1 = (id_1_m * beta_m) + w_1_plus_gamma;
+        auto t2 = id_2_m * beta_m;
+        auto t3 = id_3_m * beta_m;
+        auto t4 = id_4_m * beta_m;
 
-            auto t5 = sigma_1_m * beta_m;
-            auto t6 = sigma_2_m * beta_m;
-            auto t7 = sigma_3_m * beta_m;
-            auto t8 = sigma_4_m * beta_m;
+        auto t5 = sigma_1_m * beta_m;
+        auto t6 = sigma_2_m * beta_m;
+        auto t7 = sigma_3_m * beta_m;
+        auto t8 = sigma_4_m * beta_m;
 
-            const Accumulator numerator_1((t1));
-            const Accumulator numerator_2((t2) + w_2_plus_gamma);
-            const Accumulator numerator_3((t3) + w_3_plus_gamma);
-            const Accumulator numerator_4((t4) + w_4_plus_gamma);
+        const Accumulator numerator_1((t1));
+        const Accumulator numerator_2((t2) + w_2_plus_gamma);
+        const Accumulator numerator_3((t3) + w_3_plus_gamma);
+        const Accumulator numerator_4((t4) + w_4_plus_gamma);
 
-            const Accumulator denominator_1((t5) + w_1_plus_gamma);
-            const Accumulator denominator_2((t6) + w_2_plus_gamma);
-            const Accumulator denominator_3((t7) + w_3_plus_gamma);
-            const Accumulator denominator_4((t8) + w_4_plus_gamma);
+        const Accumulator denominator_1((t5) + w_1_plus_gamma);
+        const Accumulator denominator_2((t6) + w_2_plus_gamma);
+        const Accumulator denominator_3((t7) + w_3_plus_gamma);
+        const Accumulator denominator_4((t8) + w_4_plus_gamma);
 
-            const auto numerator = numerator_1 * numerator_2 * numerator_3 * numerator_4;
-            const auto denominator = denominator_1 * denominator_2 * denominator_3 * denominator_4;
+        const auto numerator = numerator_1 * numerator_2 * numerator_3 * numerator_4;
+        const auto denominator = denominator_1 * denominator_2 * denominator_3 * denominator_4;
 
-            const ParameterMonomialAccumulator public_input_delta_m(params.public_input_delta);
-            const auto z_perm = View(in.z_perm);
-            const MonomialAccumulator z_perm_shift_m(in.z_perm_shift);
-            const auto lagrange_first = View(in.lagrange_first);
-            const MonomialAccumulator lagrange_last_m(in.lagrange_last);
+        const ParameterMonomialAccumulator public_input_delta_m(params.public_input_delta);
+        const auto z_perm = View(in.z_perm);
+        const MonomialAccumulator z_perm_shift_m(in.z_perm_shift);
+        const auto lagrange_first = View(in.lagrange_first);
+        const MonomialAccumulator lagrange_last_m(in.lagrange_last);
 
-            auto public_input_term_m = lagrange_last_m * public_input_delta_m;
-            public_input_term_m += z_perm_shift_m;
-            const Accumulator public_input_term(public_input_term_m);
-            // witness degree: deg 5 - deg 5 = deg 5
-            // total degree: deg 9 - deg 10 = deg 10
-            std::get<0>(accumulators) +=
-                (((z_perm + lagrange_first) * numerator) - (public_input_term * denominator)) * scaling_factor;
-        }();
+        auto public_input_term_m = lagrange_last_m * public_input_delta_m;
+        public_input_term_m += z_perm_shift_m;
+        const Accumulator public_input_term(public_input_term_m);
+        // witness degree: deg 5 - deg 5 = deg 5
+        // total degree: deg 9 - deg 10 = deg 10
+        std::get<0>(accumulators) +=
+            (((z_perm + lagrange_first) * numerator) - (public_input_term * denominator)) * scaling_factor;
 
         // Contribution (2)
-        [&]() {
-            using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            auto z_perm_shift = View(in.z_perm_shift);
-            auto lagrange_last = View(in.lagrange_last);
+        using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
+        using ShortView = typename ShortAccumulator::View;
+        auto z_perm_shift_short = ShortView(in.z_perm_shift);
+        auto lagrange_last_short = ShortView(in.lagrange_last);
 
-            std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
-        }();
+        std::get<1>(accumulators) += (lagrange_last_short * z_perm_shift_short) * scaling_factor;
     };
 };
 

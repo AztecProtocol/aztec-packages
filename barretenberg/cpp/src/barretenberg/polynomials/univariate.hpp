@@ -438,13 +438,21 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return os;
     }
 
+    template <size_t EXTENDED_DOMAIN_END, size_t NUM_SKIPPED_INDICES = 0>
+    explicit operator Univariate<Fr, EXTENDED_DOMAIN_END, 0, NUM_SKIPPED_INDICES>()
+        requires(domain_start == 0 && domain_end == 2)
+    {
+        return extend_to<EXTENDED_DOMAIN_END, NUM_SKIPPED_INDICES>();
+    }
+
     /**
      * @brief Given a univariate f represented by {f(domain_start), ..., f(domain_end - 1)}, compute the
      * evaluations {f(domain_end),..., f(extended_domain_end -1)} and return the Univariate represented by
      * {f(domain_start),..., f(extended_domain_end -1)}
      *
      * @details Write v_i = f(x_i) on a the domain {x_{domain_start}, ..., x_{domain_end-1}}. To efficiently
-     * compute the needed values of f, we use the barycentric formula
+     * compute the needed values of f, we use the barycentric
+     * formula/mnt/user-data/zac/aztec-packages/barretenberg/cpp/src/barretenberg/protogalaxy
      *      - f(x) = B(x) Σ_{i=domain_start}^{domain_end-1} v_i / (d_i*(x-x_i))
      * where
      *      - B(x) = Π_{i=domain_start}^{domain_end-1} (x-x_i)
