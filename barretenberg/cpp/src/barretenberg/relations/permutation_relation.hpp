@@ -200,12 +200,12 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto t8 = sigma_4_m * beta_m;
         t8 += w_4_plus_gamma;
 
-        const Accumulator numerator(t1);
+        Accumulator numerator(t1);
         numerator *= Accumulator(t2);
         numerator *= Accumulator(t3);
         numerator *= Accumulator(t4);
 
-        const Accumulator denominator(t5);
+        Accumulator denominator(t5);
         denominator *= Accumulator(t6);
         denominator *= Accumulator(t7);
         denominator *= Accumulator(t8);
