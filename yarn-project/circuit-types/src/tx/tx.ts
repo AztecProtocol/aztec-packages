@@ -6,7 +6,10 @@ import {
 } from '@aztec/circuits.js';
 import { type Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { hexSchema } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { z } from 'zod';
 
 import { type GetUnencryptedLogsResponse } from '../logs/get_logs_response.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
@@ -121,6 +124,21 @@ export class Tx extends Gossipable {
     ]);
   }
 
+  static get schema() {
+    // TODO(palla/schemas): Use the nested objects schemas as opposed to the toBuffers
+    return z
+      .object({
+        data: hexSchema, // PrivateKernelTailCircuitPublicInputs.schema,
+        clientIvcProof: hexSchema, // ClientIvcProof.schema,
+        noteEncryptedLogs: hexSchema, // EncryptedNoteTxL2Logs.schema,
+        encryptedLogs: hexSchema, // EncryptedTxL2Logs.schema,
+        unencryptedLogs: hexSchema, // UnencryptedTxL2Logs.schema,
+        enqueuedPublicFunctionCalls: z.array(hexSchema), // z.array(PublicExecutionRequest.schema),
+        publicTeardownFunctionCall: hexSchema, // PublicExecutionRequest.schema,
+      })
+      .transform(Tx.fromJSON);
+  }
+
   /**
    * Convert a Tx class object to a plain JSON object.
    * @returns A plain object with Tx properties.
@@ -132,18 +150,9 @@ export class Tx extends Gossipable {
       encryptedLogs: this.encryptedLogs.toBuffer().toString('hex'),
       unencryptedLogs: this.unencryptedLogs.toBuffer().toString('hex'),
       clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
-      enqueuedPublicFunctions: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
+      enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
       publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
     };
-  }
-
-  /**
-   * Gets unencrypted logs emitted by this tx.
-   * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
-   * @returns The requested logs.
-   */
-  public getUnencryptedLogs(logsSource: L2LogsSource): Promise<GetUnencryptedLogsResponse> {
-    return logsSource.getUnencryptedLogs({ txHash: this.getTxHash() });
   }
 
   /**
@@ -157,8 +166,8 @@ export class Tx extends Gossipable {
     const encryptedLogs = EncryptedTxL2Logs.fromBuffer(Buffer.from(obj.encryptedLogs, 'hex'));
     const unencryptedLogs = UnencryptedTxL2Logs.fromBuffer(Buffer.from(obj.unencryptedLogs, 'hex'));
     const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
-    const enqueuedPublicFunctions = obj.enqueuedPublicFunctions
-      ? obj.enqueuedPublicFunctions.map((x: string) => PublicExecutionRequest.fromBuffer(Buffer.from(x, 'hex')))
+    const enqueuedPublicFunctionCalls = obj.enqueuedPublicFunctionCalls
+      ? obj.enqueuedPublicFunctionCalls.map((x: string) => PublicExecutionRequest.fromBuffer(Buffer.from(x, 'hex')))
       : [];
     const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(
       Buffer.from(obj.publicTeardownFunctionCall, 'hex'),
@@ -169,9 +178,18 @@ export class Tx extends Gossipable {
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
-      enqueuedPublicFunctions,
+      enqueuedPublicFunctionCalls,
       publicTeardownFunctionCall,
     );
+  }
+
+  /**
+   * Gets unencrypted logs emitted by this tx.
+   * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
+   * @returns The requested logs.
+   */
+  public getUnencryptedLogs(logsSource: L2LogsSource): Promise<GetUnencryptedLogsResponse> {
+    return logsSource.getUnencryptedLogs({ txHash: this.getTxHash() });
   }
 
   /**
@@ -275,6 +293,18 @@ export class Tx extends Gossipable {
       unencryptedLogs,
       enqueuedPublicFunctionCalls,
       publicTeardownFunctionCall,
+    );
+  }
+
+  static random() {
+    return new Tx(
+      PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
+      ClientIvcProof.empty(),
+      EncryptedNoteTxL2Logs.random(1, 1),
+      EncryptedTxL2Logs.random(1, 1),
+      UnencryptedTxL2Logs.random(1, 1),
+      [PublicExecutionRequest.random()],
+      PublicExecutionRequest.random(),
     );
   }
 

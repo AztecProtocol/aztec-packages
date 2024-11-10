@@ -1,4 +1,5 @@
 import {
+  AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
@@ -64,7 +65,10 @@ function computeContractLeaf(artifact: NoirCompiledContract) {
 }
 
 function computeRoot(names: string[], leaves: Fr[]) {
-  const data = names.map((name, i) => ({ address: new Fr(contractAddressMapping[name]), leaf: leaves[i] }));
+  const data = names.map((name, i) => ({
+    address: new AztecAddress(new Fr(contractAddressMapping[name])),
+    leaf: leaves[i],
+  }));
   const tree = buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
@@ -177,7 +181,7 @@ async function main() {
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    leaves.push(computeContractLeaf(artifact));
+    leaves.push(computeContractLeaf(artifact).toField());
   }
 
   await generateOutputFile(destNames, leaves);
