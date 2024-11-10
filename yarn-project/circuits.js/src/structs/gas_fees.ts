@@ -1,8 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { type GasDimensions } from './gas.js';
 
@@ -14,6 +16,15 @@ export class GasFees {
   constructor(feePerDaGas: Fr | number | bigint, feePerL2Gas: Fr | number | bigint) {
     this.feePerDaGas = new Fr(feePerDaGas);
     this.feePerL2Gas = new Fr(feePerL2Gas);
+  }
+
+  static get schema() {
+    return z
+      .object({
+        feePerDaGas: schemas.Fr,
+        feePerL2Gas: schemas.Fr,
+      })
+      .transform(GasFees.from);
   }
 
   clone(): GasFees {

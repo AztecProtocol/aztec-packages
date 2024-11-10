@@ -1,10 +1,13 @@
 import { type TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 import { type EpochProver } from './epoch-prover.js';
 import { type MerkleTreeReadOperations } from './merkle_tree_operations.js';
-import { type ProvingJobSource } from './proving-job.js';
+import { type ProvingJobSource } from './proving-job-source.js';
 
 /**
  * The prover configuration.
@@ -29,6 +32,18 @@ export type ProverConfig = {
   /** Identifier of the prover */
   proverId?: Fr;
 };
+
+export const ProverConfigSchema = z.object({
+  nodeUrl: z.string().optional(),
+  realProofs: z.boolean(),
+  proverAgentEnabled: z.boolean(),
+  proverAgentPollInterval: z.number(),
+  proverAgentConcurrency: z.number(),
+  proverJobTimeoutMs: z.number(),
+  proverJobPollIntervalMs: z.number(),
+  proverId: schemas.Fr.optional(),
+  proverTestDelayMs: z.number(),
+}) satisfies ZodFor<ProverConfig>;
 
 export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   nodeUrl: {

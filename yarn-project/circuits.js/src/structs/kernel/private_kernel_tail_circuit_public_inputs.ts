@@ -1,4 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
@@ -120,6 +122,14 @@ export class PrivateKernelTailCircuitPublicInputs {
         'Cannot create PrivateKernelTailCircuitPublicInputs that is for both public kernel circuit and rollup circuit.',
       );
     }
+  }
+
+  static get schema() {
+    return hexSchemaFor(PrivateKernelTailCircuitPublicInputs);
+  }
+
+  toJSON() {
+    return '0x' + this.toBuffer().toString('hex');
   }
 
   getSize() {
@@ -252,6 +262,23 @@ export class PrivateKernelTailCircuitPublicInputs {
       AztecAddress.ZERO,
       undefined,
       PartialPrivateTailPublicInputsForRollup.empty(),
+    );
+  }
+
+  /**
+   * Creates an empty instance except for a nullifier in the combined accumulated data.
+   * Useful for populating a tx, which relies on that nullifier for extracting its tx hash.
+   * TODO(#9269): Remove this method as we move away from 1st nullifier as hash.
+   */
+  static emptyWithNullifier() {
+    const data = CombinedAccumulatedData.empty();
+    data.nullifiers[0] = Fr.random();
+    return new PrivateKernelTailCircuitPublicInputs(
+      TxConstantData.empty(),
+      RollupValidationRequests.empty(),
+      AztecAddress.ZERO,
+      undefined,
+      new PartialPrivateTailPublicInputsForRollup(data),
     );
   }
 }
