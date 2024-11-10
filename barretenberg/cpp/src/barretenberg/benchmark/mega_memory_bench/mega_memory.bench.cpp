@@ -317,6 +317,7 @@ void fill_trace(State& state, TraceStructure structure)
         }
     }
 
+    builder.finalize_circuit(/* ensure_nonzero */ true);
     uint64_t builder_estimate = builder.estimate_memory();
     for (auto _ : state) {
         DeciderProvingKey proving_key(builder, structure);

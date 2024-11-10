@@ -254,6 +254,18 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
             result += size;
         }
 
+        // variables
+        result += this->variables.capacity() * sizeof(FF);
+
+        // public inputs
+        result += this->public_inputs.capacity() * sizeof(uint32_t);
+
+        // other variable indices
+        result += this->next_var_index.capacity() * sizeof(uint32_t);
+        result += this->prev_var_index.capacity() * sizeof(uint32_t);
+        result += this->real_variable_index.capacity() * sizeof(uint32_t);
+        result += this->real_variable_tags.capacity() * sizeof(uint32_t);
+
         // // databus
         // for (const auto& bus_vector : databus) {
         //     const uint64_t size((bus_vector.read_counts.capacity() + bus_vector.data.capacity()) * sizeof(uint32_t));
