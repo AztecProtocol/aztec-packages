@@ -1,14 +1,16 @@
 use crate::{
-    abis::{side_effect::{Ordered, OrderedValue, Readable, Scoped}, read_request::ScopedReadRequest},
-    address::AztecAddress, constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
-    hash::compute_siloed_nullifier, traits::{Empty, Serialize, Deserialize},
+    abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
+    address::AztecAddress,
+    constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
+    hash::compute_siloed_nullifier,
+    traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct Nullifier {
-    value: Field,
-    counter: u32,
-    note_hash: Field,
+    pub value: Field,
+    pub counter: u32,
+    pub note_hash: Field,
 }
 
 impl Ordered for Nullifier {
@@ -77,8 +79,8 @@ impl Nullifier {
 }
 
 pub struct ScopedNullifier {
-    nullifier: Nullifier,
-    contract_address: AztecAddress,
+    pub nullifier: Nullifier,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<Nullifier> for ScopedNullifier {

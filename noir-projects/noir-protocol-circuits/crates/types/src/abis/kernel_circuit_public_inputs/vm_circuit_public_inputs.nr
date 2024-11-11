@@ -1,29 +1,33 @@
 use crate::{
     abis::{
         accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
-        combined_constant_data::CombinedConstantData, gas::Gas,
-        public_call_request::PublicCallRequest, public_inner_call_request::PublicInnerCallRequest,
-        validation_requests::{PublicValidationRequests, PublicValidationRequestArrayLengths},
-    }, constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, VM_CIRCUIT_PUBLIC_INPUTS_LENGTH},
-    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader,
+        combined_constant_data::CombinedConstantData,
+        gas::Gas,
+        public_call_request::PublicCallRequest,
+        public_inner_call_request::PublicInnerCallRequest,
+        validation_requests::{PublicValidationRequestArrayLengths, PublicValidationRequests},
+    },
+    constants::{MAX_ENQUEUED_CALLS_PER_TX, VM_CIRCUIT_PUBLIC_INPUTS_LENGTH},
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
+// TODO(#9594): To be deprecated.
 pub struct VMCircuitPublicInputs {
-    constants: CombinedConstantData,
-    call_request: PublicCallRequest,
+    pub constants: CombinedConstantData,
+    pub call_request: PublicCallRequest,
 
-    // TODO(#7124): To be deprecated.
-    public_call_stack: [PublicInnerCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    pub public_call_stack: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
 
-    previous_validation_request_array_lengths: PublicValidationRequestArrayLengths, // Lengths of the validation requests before the enqueued call.
-    validation_requests: PublicValidationRequests, // Validation requests emitted throughout the enqueued call.
-    previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths, // Lengths of the accumulated data before the enqueued call.
-    accumulated_data: PublicAccumulatedData, // Data emitted throughout the enqueued call.
-    start_side_effect_counter: u32,
-    end_side_effect_counter: u32,
-    start_gas_left: Gas,
-    transaction_fee: Field,
-    reverted: bool,
+    pub previous_validation_request_array_lengths: PublicValidationRequestArrayLengths, // Lengths of the validation requests before the enqueued call.
+    pub validation_requests: PublicValidationRequests, // Validation requests emitted throughout the enqueued call.
+    pub previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths, // Lengths of the accumulated data before the enqueued call.
+    pub accumulated_data: PublicAccumulatedData, // Data emitted throughout the enqueued call.
+    pub start_side_effect_counter: u32,
+    pub end_side_effect_counter: u32,
+    pub start_gas_left: Gas,
+    pub transaction_fee: Field,
+    pub reverted: bool,
 }
 
 impl Empty for VMCircuitPublicInputs {
@@ -31,9 +35,7 @@ impl Empty for VMCircuitPublicInputs {
         VMCircuitPublicInputs {
             constants: CombinedConstantData::empty(),
             call_request: PublicCallRequest::empty(),
-            public_call_stack: [
-                PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
-            ],
+            public_call_stack: [PublicInnerCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
             validation_requests: PublicValidationRequests::empty(),
             previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
@@ -76,7 +78,7 @@ impl Serialize<VM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for VMCircuitPublicInputs {
 
         fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.call_request.serialize());
-        for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
+        for i in 0..MAX_ENQUEUED_CALLS_PER_TX {
             fields.extend_from_array(self.public_call_stack[i].serialize());
         }
         fields.extend_from_array(self.previous_validation_request_array_lengths.serialize());
@@ -91,7 +93,7 @@ impl Serialize<VM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for VMCircuitPublicInputs {
 
         assert_eq(fields.len(), VM_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -103,7 +105,7 @@ impl Deserialize<VM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for VMCircuitPublicInputs {
             call_request: reader.read_struct(PublicCallRequest::deserialize),
             public_call_stack: reader.read_struct_array(
                 PublicInnerCallRequest::deserialize,
-                [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+                [PublicInnerCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             ),
             previous_validation_request_array_lengths: reader.read_struct(
                 PublicValidationRequestArrayLengths::deserialize,

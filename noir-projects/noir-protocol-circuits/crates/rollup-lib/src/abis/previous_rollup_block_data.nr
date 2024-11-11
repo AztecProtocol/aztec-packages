@@ -1,11 +1,14 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
     constants::VK_TREE_HEIGHT,
-    recursion::{
-        proof::NestedRecursiveProof, verification_key::{HonkVerificationKey, VerificationKey},
+    merkle_tree::{membership::assert_check_membership, MembershipWitness},
+    proof::{
+        recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
-    }, traits::Empty, merkle_tree::MembershipWitness,
-    merkle_tree::membership::assert_check_membership, utils::arrays::find_index_hint,
+        verification_key::{HonkVerificationKey, VerificationKey},
+    },
+    traits::Empty,
+    utils::arrays::find_index_hint,
 };
 
 pub struct PreviousRollupBlockData {

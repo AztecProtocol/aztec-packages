@@ -17,7 +17,11 @@ session_name=$1
 tmux kill-session -t "$session_name" 2>/dev/null || true
 
 # Start a new tmux session with log level set
-tmux new-session -d -s "$session_name" -e LOG_LEVEL=${LOG_LEVEL:-"debug"}
+tmux new-session -d -s "$session_name" -e LOG_LEVEL=${LOG_LEVEL:-"debug"} \
+  -e OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-} \
+  -e OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-} \
+  -e OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-} \
+  -e LOG_JSON=${LOG_JSON:-}
 
 shift 1
 commands=("$@")

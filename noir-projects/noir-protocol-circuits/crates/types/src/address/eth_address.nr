@@ -1,4 +1,4 @@
-use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
+use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Deserialize, Empty, Serialize, ToField}, utils};
 
 pub struct EthAddress {
     inner: Field,

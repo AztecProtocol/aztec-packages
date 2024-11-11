@@ -2,19 +2,24 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract ContractInstanceDeployer {
-    use dep::aztec::protocol_types::{
-        address::{AztecAddress, PublicKeysHash, PartialAddress}, public_keys::PublicKeys,
-        contract_class_id::ContractClassId,
-        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, abis::log_hash::LogHash,
-        traits::Serialize,
-    };
     use dep::aztec::{
-        hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private,
-        macros::{events::event, functions::private}, utils::to_bytes::arr_to_be_bytes_arr,
+        hash::compute_unencrypted_log_hash,
+        macros::{events::event, functions::private},
+        oracle::logs::emit_unencrypted_log_private,
+        utils::to_bytes::arr_to_be_bytes_arr,
+    };
+    use dep::aztec::protocol_types::{
+        abis::log_hash::LogHash,
+        address::{AztecAddress, PartialAddress, PublicKeysHash},
+        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+        contract_class_id::ContractClassId,
+        public_keys::PublicKeys,
+        traits::Serialize,
     };
     use std::meta::derive;
 
     #[event]
+    #[derive(Serialize)]
     struct ContractInstanceDeployed {
         DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field,
         address: AztecAddress,
@@ -94,7 +99,7 @@ contract ContractInstanceDeployer {
         let partial_address =
             PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
-        let address = AztecAddress::compute(public_keys.hash(), partial_address);
+        let address = AztecAddress::compute(public_keys, partial_address);
 
         // Emit the address as a nullifier to be able to prove that this instance has been (not) deployed
         context.push_nullifier(address.to_field());

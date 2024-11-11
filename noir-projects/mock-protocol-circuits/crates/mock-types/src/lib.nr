@@ -92,8 +92,8 @@ impl PrivateKernelPublicInputsBuilder {
     fn finish(self) -> PrivateKernelPublicInputs {
         PrivateKernelPublicInputs {
             remaining_calls: self.remaining_calls,
-            commitments: self.commitments.storage,
-            read_requests: self.read_requests.storage,
+            commitments: self.commitments.storage(),
+            read_requests: self.read_requests.storage(),
         }
     }
 }

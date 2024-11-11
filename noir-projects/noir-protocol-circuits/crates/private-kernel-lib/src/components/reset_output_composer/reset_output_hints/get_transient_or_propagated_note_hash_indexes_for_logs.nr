@@ -1,6 +1,7 @@
 use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::{
-    abis::{log_hash::NoteLogHash, note_hash::ScopedNoteHash}, utils::arrays::find_index_hint,
+    abis::{log_hash::NoteLogHash, note_hash::ScopedNoteHash},
+    utils::arrays::find_index_hint,
 };
 
 pub unconstrained fn get_transient_or_propagated_note_hash_indexes_for_logs<let NUM_LOGS: u32, let NUM_NOTE_HASHES: u32, let NUM_INDEX_HINTS: u32>(

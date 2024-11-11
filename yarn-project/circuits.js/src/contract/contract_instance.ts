@@ -80,14 +80,14 @@ export class SerializableContractInstance {
     });
   }
 
-  static empty() {
+  static default() {
     return new SerializableContractInstance({
       version: VERSION,
       salt: Fr.zero(),
       deployer: AztecAddress.zero(),
       contractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
-      publicKeys: PublicKeys.empty(),
+      publicKeys: PublicKeys.default(),
     });
   }
 }
@@ -122,7 +122,7 @@ export function getContractInstanceFromDeployParams(
           args,
         )
       : computeInitializationHash(constructorArtifact, args);
-  const publicKeys = opts.publicKeys ?? PublicKeys.empty();
+  const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {
     contractClassId,

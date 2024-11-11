@@ -1,12 +1,14 @@
 use crate::nullifier_non_existent_read_request_reset::{
-    NullifierNonMembershipHint, NullifierNonExistentReadRequestHints,
+    NullifierNonExistentReadRequestHints, NullifierNonMembershipHint,
 };
 use dep::types::{
     abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage},
     constants::{
-        MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-        NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT,
-    }, merkle_tree::MembershipWitness, tests::merkle_tree_utils::NonEmptyMerkleTree,
+        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
+        NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+    },
+    merkle_tree::MembershipWitness,
+    tests::merkle_tree_utils::NonEmptyMerkleTree,
     utils::arrays::{find_index_hint, get_sorted_result},
 };
 
@@ -75,7 +77,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         }
 
         NullifierNonExistentReadRequestHints {
-            non_membership_hints: self.non_membership_hints.storage,
+            non_membership_hints: self.non_membership_hints.storage(),
             sorted_pending_values,
             sorted_pending_value_index_hints,
             next_pending_value_indices,

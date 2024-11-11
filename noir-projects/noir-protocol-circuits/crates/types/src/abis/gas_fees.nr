@@ -1,8 +1,8 @@
-use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Serialize, Empty}};
+use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct GasFees {
-    fee_per_da_gas: Field,
-    fee_per_l2_gas: Field,
+    pub fee_per_da_gas: Field,
+    pub fee_per_l2_gas: Field,
 }
 
 impl GasFees {

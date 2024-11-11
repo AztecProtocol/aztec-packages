@@ -7,7 +7,12 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type ContractInstance, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
+import {
+  type ContractInstance,
+  type Header,
+  type IndexedTaggingSecret,
+  type KeyValidationRequest,
+} from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -287,5 +292,20 @@ export class ViewDataOracle extends TypedOracle {
   public override debugLog(message: string, fields: Fr[]): void {
     const formattedStr = applyStringFormatting(message, fields);
     this.log.verbose(`debug_log ${formattedStr}`);
+  }
+
+  /**
+   * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
+   * Includes the next index to be used used for tagging with this secret.
+   * For this to work, the ivpsk_m of the sender must be known.
+   * @param sender - The address sending the note
+   * @param recipient - The address receiving the note
+   * @returns A tagging secret that can be used to tag notes.
+   */
+  public override async getAppTaggingSecret(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret> {
+    return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
   }
 }

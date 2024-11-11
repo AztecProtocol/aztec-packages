@@ -37,7 +37,7 @@ export async function deploy(
     );
   }
 
-  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.empty(), initializer);
+  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
 
   let args = [];
   if (rawArgs.length > 0) {

@@ -102,6 +102,13 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 {{- end -}}
 
+{{- define "aztec-network.otelCollectorLogsEndpoint" -}}
+{{- if .Values.telemetry.enabled -}}
+{{- if .Values.telemetry.otelCollectorEndpoint -}}
+{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/logs
+{{- end -}}
+{{- end -}}
+{{- end -}}
 
 {{- define "helpers.flag" -}}
 {{- $name := index . 0 -}}

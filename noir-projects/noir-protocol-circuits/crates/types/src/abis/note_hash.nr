@@ -1,13 +1,14 @@
 use crate::{
-    abis::read_request::ScopedReadRequest, address::AztecAddress,
-    abis::side_effect::{Ordered, OrderedValue, Readable, Scoped},
-    constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH}, traits::{Empty, Serialize, Deserialize},
+    abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
+    address::AztecAddress,
+    constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
+    traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct NoteHash {
-    value: Field,
-    counter: u32,
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for NoteHash {
@@ -47,8 +48,8 @@ impl NoteHash {
 }
 
 pub struct ScopedNoteHash {
-    note_hash: NoteHash,
-    contract_address: AztecAddress,
+    pub note_hash: NoteHash,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<NoteHash> for ScopedNoteHash {

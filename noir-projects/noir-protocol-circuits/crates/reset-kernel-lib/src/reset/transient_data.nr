@@ -1,11 +1,11 @@
 use dep::types::{
-    abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash},
+    abis::{log_hash::NoteLogHash, note_hash::ScopedNoteHash, nullifier::ScopedNullifier},
     traits::is_empty,
 };
 
 pub struct TransientDataIndexHint {
-    nullifier_index: u32,
-    note_hash_index: u32,
+    pub nullifier_index: u32,
+    pub note_hash_index: u32,
 }
 
 impl TransientDataIndexHint {
@@ -198,9 +198,11 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
             log_hash::NoteLogHash,
-        }, address::AztecAddress,
+            note_hash::{NoteHash, ScopedNoteHash},
+            nullifier::{Nullifier, ScopedNullifier},
+        },
+        address::AztecAddress,
     };
 
     global contract_address = AztecAddress::from_field(987654);

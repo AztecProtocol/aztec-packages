@@ -1,10 +1,11 @@
-use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 use crate::{
     note::{
-        note_getter_options::{NoteGetterOptions, SortOrder, PropertySelector},
         note_getter::constrain_get_notes_internal,
-    }, oracle::execution::get_contract_address,
+        note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
+    },
+    oracle::execution::get_contract_address,
 };
+use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use crate::utils::comparison::Comparator;

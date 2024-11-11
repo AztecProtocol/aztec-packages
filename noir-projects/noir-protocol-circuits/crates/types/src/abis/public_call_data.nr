@@ -5,7 +5,7 @@ pub struct Proof {}
 
 // TODO(#7124): To be deprecated.
 pub struct PublicCallData {
-    public_inputs: PublicCircuitPublicInputs,
-    proof: Proof,
-    bytecode_hash: Field,
+    pub public_inputs: PublicCircuitPublicInputs,
+    pub proof: Proof,
+    pub bytecode_hash: Field,
 }

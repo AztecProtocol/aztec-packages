@@ -13,7 +13,6 @@ import {
   type DeployL1Contracts,
   EncryptedNoteL2BlockL2Logs,
   EthCheatCodes,
-  type L1ContractArtifactsForDeployment,
   LogType,
   NoFeePaymentMethod,
   type PXE,
@@ -31,22 +30,8 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { type EthAddress, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
+import { NULL_KEY, getL1ContractsConfigEnvVars, isAnvilTestChain, l1Artifacts } from '@aztec/ethereum';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
-import {
-  FeeJuicePortalAbi,
-  FeeJuicePortalBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-  TestERC20Abi,
-  TestERC20Bytecode,
-} from '@aztec/l1-artifacts';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -65,6 +50,7 @@ import {
   type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
+  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -110,40 +96,14 @@ export const setupL1Contracts = async (
   },
   chain: Chain = foundry,
 ) => {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: TestERC20Abi,
-      contractBytecode: TestERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
-
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: args.salt,
     initialValidators: args.initialValidators,
     assumeProvenThrough: args.assumeProvenThrough,
+    ...getL1ContractsConfigEnvVars(),
   });
 
   return l1Data;
@@ -271,6 +231,8 @@ async function setupWithRemoteEnvironment(
 export type SetupOptions = {
   /** State load */
   stateLoad?: string;
+  /** Whether to enable metrics collection, if undefined, metrics collection is disabled */
+  metricsPort?: number | undefined;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
@@ -289,6 +251,8 @@ export type SetupOptions = {
   assumeProvenThrough?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
+  /** Whether to fund the rewardDistributor */
+  fundRewardDistributor?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -401,6 +365,29 @@ export async function setup(
     ));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  if (opts.fundRewardDistributor) {
+    // Mints block rewards for 10000 blocks to the rewardDistributor contract
+
+    const rewardDistributor = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
+      client: deployL1ContractsValues.publicClient,
+    });
+
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD([]);
+    const mintAmount = 10_000n * (blockReward as bigint);
+
+    const feeJuice = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
+      abi: l1Artifacts.feeJuice.contractAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
+
+    const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+    logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
+  }
 
   if (opts.l2StartTime) {
     // This should only be used in synching test or when you need to have a stable

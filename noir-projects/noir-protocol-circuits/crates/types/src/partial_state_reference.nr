@@ -1,12 +1,13 @@
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    constants::PARTIAL_STATE_REFERENCE_LENGTH, traits::{Deserialize, Empty, Serialize},
+    constants::PARTIAL_STATE_REFERENCE_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
 };
 
 pub struct PartialStateReference {
-    note_hash_tree: AppendOnlyTreeSnapshot,
-    nullifier_tree: AppendOnlyTreeSnapshot,
-    public_data_tree: AppendOnlyTreeSnapshot,
+    pub note_hash_tree: AppendOnlyTreeSnapshot,
+    pub nullifier_tree: AppendOnlyTreeSnapshot,
+    pub public_data_tree: AppendOnlyTreeSnapshot,
 }
 
 impl Eq for PartialStateReference {

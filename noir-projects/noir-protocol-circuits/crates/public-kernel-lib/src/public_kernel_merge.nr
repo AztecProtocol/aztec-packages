@@ -1,20 +1,15 @@
 use crate::{
     components::{
         enqueued_call_data_validator::EnqueuedCallDataValidator,
-        previous_kernel_validator::PreviousKernelValidator,
         public_kernel_output_composer::PublicKernelOutputComposer,
-        public_kernel_output_validator::PublicKernelOutputValidator,
-    }, public_kernel_phase::PublicKernelPhase,
+    },
+    public_kernel_phase::PublicKernelPhase,
 };
-use dep::types::{
-    abis::{
-        enqueued_call_data::EnqueuedCallData,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        public_kernel_data::PublicKernelData,
-    }, constants::{TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX},
+use dep::types::abis::{
+    enqueued_call_data::EnqueuedCallData,
+    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    public_kernel_data::PublicKernelData,
 };
-
-global ALLOWED_PREVIOUS_CIRCUITS = [TUBE_INDEX, PUBLIC_KERNEL_MERGE_INDEX];
 
 pub struct PublicKernelMergeCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -22,22 +17,11 @@ pub struct PublicKernelMergeCircuitPrivateInputs {
 }
 
 impl PublicKernelMergeCircuitPrivateInputs {
-    unconstrained fn generate_output(self, phase: u8) -> PublicKernelCircuitPublicInputs {
-        // noir-fmt:ignore
-        PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
-            .remove_top_call_request(phase)
-            .propagate_from_enqueued_call(self.enqueued_call.data, phase)
-            .finish()
-    }
-
     fn get_phase(self) -> u8 {
         let public_inputs = self.previous_kernel.public_inputs;
-        let needs_setup = !public_inputs.end_non_revertible.public_call_stack[0]
-            .call_context
-            .contract_address
-            .is_zero();
-        let needs_app_logic =
-            !public_inputs.end.public_call_stack[0].call_context.contract_address.is_zero();
+        let needs_setup =
+            !public_inputs.end_non_revertible.public_call_stack[0].contract_address.is_zero();
+        let needs_app_logic = !public_inputs.end.public_call_stack[0].contract_address.is_zero();
         if needs_setup {
             PublicKernelPhase.SETUP
         } else if needs_app_logic {
@@ -50,38 +34,23 @@ impl PublicKernelMergeCircuitPrivateInputs {
     fn execute(self) -> PublicKernelCircuitPublicInputs {
         let phase = self.get_phase();
 
-        let output = unsafe { self.generate_output(phase) };
-
-        let output_validator = PublicKernelOutputValidator::new(
-            output,
-            self.previous_kernel.public_inputs,
-            self.enqueued_call.data,
-            phase,
-        );
-
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-
         let enqueued_call_data_validator =
             EnqueuedCallDataValidator::new(self.enqueued_call, phase);
-        enqueued_call_data_validator.validate_proof();
         enqueued_call_data_validator.validate_against_previous_kernel(
             self.previous_kernel.public_inputs,
-            output_validator.previous_validation_request_array_lengths,
-            output_validator.previous_non_revertible_data_array_lengths,
-            output_validator.previous_revertible_data_array_lengths,
         );
 
-        output_validator.validate();
-
-        output
+        PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
+            .remove_top_call_request(phase)
+            .propagate_from_enqueued_call(self.enqueued_call.data, phase)
+            .finish()
     }
 }
 
 mod tests {
     use crate::{
+        public_kernel_merge::PublicKernelMergeCircuitPrivateInputs,
         public_kernel_phase::PublicKernelPhase,
-        public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs},
     };
     use dep::types::{
         abis::{
@@ -89,7 +58,7 @@ mod tests {
             kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
             validation_requests::PublicValidationRequestArrayLengths,
-        }, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
+        },
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
@@ -102,9 +71,7 @@ mod tests {
 
     impl PublicKernelMergeCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(
-                PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-            );
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let mut previous_revertible = FixtureBuilder::new();
             let mut enqueued_call = FixtureBuilder::new().is_public_function();
             // Add an offset so that the mock data won't be the same as the values in previous_kernel.
@@ -217,7 +184,7 @@ mod tests {
 
         assert_array_eq(
             public_inputs.end_non_revertible.public_call_stack,
-            [prev_calls[0]], // Public call requests can only be propagated from previous kernel.
+            [prev_calls[0].inner], // Public call requests can only be propagated from previous kernel.
         );
     }
 
@@ -249,22 +216,5 @@ mod tests {
         // gas_used is propagated even when reverts.
         assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
         assert_eq(output.end.gas_used, Gas::new(350, 350));
-    }
-
-    #[test]
-    fn valid_previous_kernel() {
-        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
-            let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-            builder.previous_kernel =
-                builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
-            builder.succeeded();
-        }
-    }
-
-    #[test(should_fail_with = "Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-        let _res = builder.execute();
     }
 }

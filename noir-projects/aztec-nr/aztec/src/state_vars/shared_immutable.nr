@@ -1,8 +1,10 @@
 use crate::{
-    context::{PrivateContext, PublicContext, UnconstrainedContext}, state_vars::storage::Storage,
+    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    state_vars::storage::Storage,
 };
 use dep::protocol_types::{
-    constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize},
+    constants::INITIALIZATION_SLOT_SEPARATOR,
+    traits::{Deserialize, Serialize},
 };
 
 // Just like PublicImmutable but with the ability to read from private functions.
@@ -11,7 +13,10 @@ pub struct SharedImmutable<T, Context> {
     storage_slot: Field,
 }
 
-impl<T, Context> Storage<T> for SharedImmutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for SharedImmutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<T, Context> SharedImmutable<T, Context> {
     pub fn new(

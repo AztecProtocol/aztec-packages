@@ -1,14 +1,17 @@
 use crate::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::CALL_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    constants::CALL_CONTEXT_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // docs:start:call-context
 pub struct CallContext {
-    msg_sender: AztecAddress,
-    contract_address: AztecAddress,
-    function_selector: FunctionSelector,
-    is_static_call: bool,
+    pub msg_sender: AztecAddress,
+    pub contract_address: AztecAddress,
+    pub function_selector: FunctionSelector,
+    pub is_static_call: bool,
 }
 // docs:end:call-context
 
@@ -30,7 +33,7 @@ impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
         serialized.push(self.function_selector.to_field());
         serialized.push(self.is_static_call as Field);
 
-        serialized.storage
+        serialized.storage()
     }
 }
 

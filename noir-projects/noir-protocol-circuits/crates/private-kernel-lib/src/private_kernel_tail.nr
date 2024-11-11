@@ -4,8 +4,8 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
@@ -52,18 +52,21 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_tail::{
-        PrivateKernelTailCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS,
-    };
-    use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX,
+        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelTailCircuitPrivateInputs,
     };
     use dep::types::{
         abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber, gas::Gas, log_hash::ScopedLogHash,
-        }, address::{AztecAddress, EthAddress}, tests::fixture_builder::FixtureBuilder,
-        traits::is_empty, point::Point,
+            gas::Gas, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            log_hash::ScopedLogHash, max_block_number::MaxBlockNumber,
+        },
+        address::{AztecAddress, EthAddress},
+        point::Point,
+        tests::fixture_builder::FixtureBuilder,
+        traits::is_empty,
+    };
+    use dep::types::constants::{
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, GENERATOR_INDEX__IVSK_M,
+        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -232,17 +235,15 @@ mod tests {
     }
 
     #[test]
-    fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
+    fn empty_tx_consumes_fixed_gas() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
 
         // addition follows the form:
-        // teardown gas
         // tx overhead
         // tx nullifier (which has DA and L2 gas)
-        let expected_gas_consumed = Gas::new(300, 300)
-            + Gas::tx_overhead()
+        let expected_gas_consumed = Gas::tx_overhead()
             + Gas::new(
                 DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1,
                 L2_GAS_PER_NULLIFIER * 1,
@@ -330,7 +331,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
         let _res = builder.execute();
     }
 }

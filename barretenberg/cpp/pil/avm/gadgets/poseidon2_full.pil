@@ -87,3 +87,5 @@ namespace poseidon2_full(256);
         { poseidon2.clk, poseidon2.a_0, poseidon2.a_1, poseidon2.a_2, poseidon2.a_3,
           poseidon2.b_0, poseidon2.b_1, poseidon2.b_2, poseidon2.b_3 };
 
+    // ======== Merkle Tree Selector ======================
+    pol commit sel_merkle_tree;

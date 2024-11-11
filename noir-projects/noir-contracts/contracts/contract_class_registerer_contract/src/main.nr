@@ -6,33 +6,35 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
-        contract_class_id::ContractClassId,
+        abis::log_hash::LogHash,
         constants::{
             ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
             MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-        }, abis::log_hash::LogHash,
+        },
+        contract_class_id::ContractClassId,
     };
 
     use dep::aztec::{
-        context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private,
-        macros::functions::private,
+        context::PrivateContext, macros::functions::private,
+        oracle::logs::emit_contract_class_unencrypted_log_private,
     };
 
     use crate::events::{
         class_registered::ContractClassRegistered,
         private_function_broadcasted::{
-            ClassPrivateFunctionBroadcasted, PrivateFunction, InnerPrivateFunction,
+            ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
         },
         unconstrained_function_broadcasted::{
-            ClassUnconstrainedFunctionBroadcasted, UnconstrainedFunction,
-            InnerUnconstrainedFunction,
+            ClassUnconstrainedFunctionBroadcasted, InnerUnconstrainedFunction,
+            UnconstrainedFunction,
         },
     };
 
     // docs:start:import_pop_capsule
     use crate::capsule::pop_capsule;
+
     // docs:end:import_pop_capsule
 
     #[private]
@@ -42,11 +44,35 @@ contract ContractClassRegisterer {
         public_bytecode_commitment: Field,
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
-        // TODO: Validate packed_public_bytecode is legit public bytecode
+        // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
         // docs:start:pop_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
             pop_capsule();
         // docs:end:pop_capsule
+        // First field element contains the length of the bytecode
+        let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
+        let bytecode_length_in_fields: u32 =
+            (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
+        assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+
+        let mut computed_public_bytecode_commitment = 0;
+        // We can hash up to MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1, since the first element is the length
+        for i in 0..(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1) {
+            // While we are forced to run the hash MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS times in the circuit,
+            // we want the bytecode commitment to be based on the actual length
+            if (i < bytecode_length_in_fields) {
+                // We skip the first element when hashing since it is the length
+                computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash(
+                    [packed_public_bytecode[i + 1], computed_public_bytecode_commitment],
+                    2,
+                );
+            } else {
+                // Any bytes after the bytecode length must be 0
+                assert_eq(packed_public_bytecode[i + 1], 0);
+            }
+        }
+        assert_eq(computed_public_bytecode_commitment, public_bytecode_commitment);
+
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(
             artifact_hash,

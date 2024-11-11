@@ -1,13 +1,15 @@
 // This file is copied from the token contract.
-use dep::aztec::prelude::{
-    NoteGetterOptions, NoteViewerOptions, NoteInterface, NullifiableNote, PrivateSet,
-};
+use crate::types::token_note::OwnedNote;
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
-    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM},
     note::note_emission::OuterNoteEmission,
+    protocol_types::{
+        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM,
+    },
 };
-use crate::types::token_note::OwnedNote;
+use dep::aztec::prelude::{
+    NoteGetterOptions, NoteInterface, NoteViewerOptions, NullifiableNote, PrivateSet,
+};
 
 pub struct BalanceSet<T, Context> {
     set: PrivateSet<T, Context>,
@@ -56,7 +58,7 @@ impl<T> BalanceSet<T, UnconstrainedContext> {
 impl<T> BalanceSet<T, &mut PrivateContext> {
     pub fn add<let T_SERIALIZED_LEN: u32>(
         self: Self,
-        owner_npk_m: NpkM,
+        owner: AztecAddress,
         addend: U128,
     ) -> OuterNoteEmission<T>
     where
@@ -65,8 +67,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
-            // We fetch the nullifier public key hash from the registry / from our PXE
-            let mut addend_note = T::new(addend, owner_npk_m.hash());
+            let mut addend_note = T::new(addend, owner);
 
             // docs:start:insert
             OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
@@ -76,7 +77,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
 
     pub fn sub<let T_SERIALIZED_LEN: u32>(
         self: Self,
-        owner_npk_m: NpkM,
+        owner: AztecAddress,
         amount: U128,
     ) -> OuterNoteEmission<T>
     where
@@ -87,7 +88,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
         // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
-        self.add(owner_npk_m, subtracted - amount)
+        self.add(owner, subtracted - amount)
     }
 
     // Attempts to remove 'target_amount' from the owner's balance. try_sub returns how much was actually subtracted

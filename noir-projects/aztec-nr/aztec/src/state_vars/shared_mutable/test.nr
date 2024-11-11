@@ -1,12 +1,13 @@
 use crate::{
-    context::{PublicContext, PrivateContext, UnconstrainedContext},
+    context::{PrivateContext, PublicContext, UnconstrainedContext},
     state_vars::shared_mutable::{
-        shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
-        scheduled_delay_change::ScheduledDelayChange,
-    }, test::helpers::test_environment::TestEnvironment,
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        shared_mutable::SharedMutable,
+    },
+    test::helpers::test_environment::TestEnvironment,
 };
 
-use dep::std::{test::OracleMock, mem::zeroed};
+use dep::std::{mem::zeroed, test::OracleMock};
 
 global new_value = 17;
 

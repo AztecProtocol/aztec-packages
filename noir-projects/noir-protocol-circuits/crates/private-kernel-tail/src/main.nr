@@ -1,7 +1,7 @@
 use dep::private_kernel_lib::PrivateKernelTailCircuitPrivateInputs;
 use dep::types::KernelCircuitPublicInputs;
-use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 use types::abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs;
+use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,

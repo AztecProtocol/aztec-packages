@@ -1,30 +1,38 @@
 use crate::{
     abis::{
-        gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
-        note_hash::ScopedNoteHash, nullifier::Nullifier, public_call_request::PublicCallRequest,
-        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+        accumulated_data::public_accumulated_data::PublicAccumulatedData,
+        gas::Gas,
+        log_hash::{LogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
+        nullifier::Nullifier,
+        public_call_request::PublicCallRequest,
+        public_data_update_request::PublicDataUpdateRequest,
+    },
     constants::{
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    }, traits::Empty, utils::arrays::array_to_bounded_vec,
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::Empty,
+    utils::arrays::array_to_bounded_vec,
 };
 
+// TODO(#9594): To be deprecated.
 pub struct PublicAccumulatedDataBuilder {
-    note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
-    nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
-    l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    pub nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
+    pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
 
-    note_encrypted_logs_hashes: BoundedVec<LogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    pub note_encrypted_logs_hashes: BoundedVec<LogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    pub encrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    pub unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
-    public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    pub public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 
-    public_call_stack: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    pub public_call_stack: BoundedVec<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
 
-    gas_used: Gas,
+    pub gas_used: Gas,
 }
 
 impl PublicAccumulatedDataBuilder {
@@ -44,14 +52,14 @@ impl PublicAccumulatedDataBuilder {
 
     pub fn finish(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
-            note_hashes: self.note_hashes.storage,
-            nullifiers: self.nullifiers.storage,
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            public_data_update_requests: self.public_data_update_requests.storage,
-            public_call_stack: self.public_call_stack.storage,
+            note_hashes: self.note_hashes.storage(),
+            nullifiers: self.nullifiers.storage(),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage(),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_update_requests: self.public_data_update_requests.storage(),
+            public_call_stack: self.public_call_stack.storage(),
             gas_used: self.gas_used,
         }
     }

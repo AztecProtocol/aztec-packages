@@ -1,24 +1,26 @@
 use crate::{
-    address::{AztecAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress},
-    contract_class_id::ContractClassId, hash::private_functions_root_from_siblings,
-    tests::fixtures::contract_functions::get_protocol_contract_function, public_keys::PublicKeys,
+    address::{AztecAddress, PartialAddress, SaltedInitializationHash},
+    contract_class_id::ContractClassId,
+    hash::private_functions_root_from_siblings,
+    public_keys::PublicKeys,
+    tests::fixtures::contract_functions::get_protocol_contract_function,
 };
 
 pub struct ContractData {
-    address: AztecAddress,
-    artifact_hash: Field,
-    contract_address_salt: Field,
-    contract_class_id: ContractClassId,
-    private_functions_root: Field,
-    public_bytecode_commitment: Field,
-    public_keys: PublicKeys,
-    salted_initialization_hash: SaltedInitializationHash,
-    partial_address: PartialAddress,
-    deployer: AztecAddress,
+    pub address: AztecAddress,
+    pub artifact_hash: Field,
+    pub contract_address_salt: Field,
+    pub contract_class_id: ContractClassId,
+    pub private_functions_root: Field,
+    pub public_bytecode_commitment: Field,
+    pub public_keys: PublicKeys,
+    pub salted_initialization_hash: SaltedInitializationHash,
+    pub partial_address: PartialAddress,
+    pub deployer: AztecAddress,
 }
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-global default_contract = ContractData {
+pub global default_contract = ContractData {
     contract_address_salt: 0x000000000000000000000000000000000000000000000000000000000000ddd5,
     artifact_hash: 0x0000000000000000000000000000000000000000000000000000000000003039,
     public_bytecode_commitment: 0x0000000000000000000000000000000000000000000000000000000000000005,
@@ -32,7 +34,7 @@ global default_contract = ContractData {
     contract_class_id: ContractClassId {
         inner: 0x28e91aaf764bc6083e2796ff884079ad895d4b948d6ce8f37f01b29d0bc95a21,
     },
-    public_keys: PublicKeys::empty(),
+    public_keys: PublicKeys::default(),
     salted_initialization_hash: SaltedInitializationHash {
         inner: 0x13a939daa511233e5446905ed2cadbee14948fa75df183b53b5c14b612bffe88,
     },
@@ -42,7 +44,7 @@ global default_contract = ContractData {
 };
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-global parent_contract = ContractData {
+pub global parent_contract = ContractData {
     contract_address_salt: 0x0000000000000000000000000000000000000000000000000000000000001618,
     artifact_hash: 0x00000000000000000000000000000000000000000000000000000000000004bc,
     public_bytecode_commitment: 0x0000000000000000000000000000000000000000000000000000000000000005,
@@ -56,7 +58,7 @@ global parent_contract = ContractData {
     contract_class_id: ContractClassId {
         inner: 0x00236b0dc6c537d5106543053c5b85c4cbe95b0474f8238b094bae63f1cbcfee,
     },
-    public_keys: PublicKeys::empty(),
+    public_keys: PublicKeys::default(),
     salted_initialization_hash: SaltedInitializationHash {
         inner: 0x24bd6ac7a182e2cf25e437c72f53544ef81dfd97d9afee23abb07a638e7be749,
     },
@@ -70,7 +72,8 @@ pub fn get_protocol_contract(index: u32) -> ContractData {
     let artifact_hash = 576576 + seed;
     let salted_initialization_hash = SaltedInitializationHash { inner: 281972 + seed };
     let public_bytecode_commitment = 38383 + seed;
-    let public_keys = PublicKeys::empty();
+    // Empty public keys here will throw an error when doing ec ops
+    let public_keys = PublicKeys::default();
 
     let function = get_protocol_contract_function(index);
     let private_functions_root = private_functions_root_from_siblings(
@@ -91,7 +94,7 @@ pub fn get_protocol_contract(index: u32) -> ContractData {
         salted_initialization_hash,
     );
 
-    let address = AztecAddress::compute(public_keys.hash(), partial_address);
+    let address = AztecAddress::compute(public_keys, partial_address);
 
     ContractData {
         contract_address_salt: 1,

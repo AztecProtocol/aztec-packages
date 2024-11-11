@@ -34,13 +34,15 @@ where
             deduped.push(original.inner());
         }
     }
-    deduped.storage
+    deduped.storage()
 }
 
 mod tests {
     use crate::{
-        abis::side_effect::{Inner, Overridable}, tests::{types::TestValue, utils::pad_end},
-        traits::Empty, utils::arrays::assert_deduped_array::{assert_deduped_array, dedupe_array},
+        abis::side_effect::{Inner, Overridable},
+        tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
+        utils::arrays::assert_deduped_array::{assert_deduped_array, dedupe_array},
     };
 
     struct TestItem {

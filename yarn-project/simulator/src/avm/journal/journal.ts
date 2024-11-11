@@ -1,10 +1,17 @@
-import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  type Gas,
+  type PublicCallRequest,
+  SerializableContractInstance,
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import assert from 'assert';
+
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -27,12 +34,12 @@ export class AvmPersistableStateManager {
     /** Reference to node storage */
     private readonly worldStateDB: WorldStateDB,
     /** Side effect trace */
-    private readonly trace: PublicSideEffectTraceInterface,
-    /** Public storage, including cached writes */
     // TODO(5818): make private once no longer accessed in executor
-    public readonly publicStorage: PublicStorage,
+    public readonly trace: PublicSideEffectTraceInterface,
+    /** Public storage, including cached writes */
+    private readonly publicStorage: PublicStorage = new PublicStorage(worldStateDB),
     /** Nullifier set, including cached/recently-emitted nullifiers */
-    private readonly nullifiers: NullifierManager,
+    private readonly nullifiers: NullifierManager = new NullifierManager(worldStateDB),
   ) {}
 
   /**
@@ -55,10 +62,10 @@ export class AvmPersistableStateManager {
   /**
    * Create a new state manager forked from this one
    */
-  public fork() {
+  public fork(incrementSideEffectCounter: boolean = false) {
     return new AvmPersistableStateManager(
       this.worldStateDB,
-      this.trace.fork(),
+      this.trace.fork(incrementSideEffectCounter),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
     );
@@ -210,44 +217,80 @@ export class AvmPersistableStateManager {
   /**
    * Get a contract instance.
    * @param contractAddress - address of the contract instance to retrieve.
-   * @returns the contract instance with an "exists" flag
+   * @returns the contract instance or undefined if it does not exist.
    */
-  public async getContractInstance(contractAddress: Fr): Promise<TracedContractInstance> {
-    let exists = true;
-    const aztecAddress = AztecAddress.fromField(contractAddress);
-    let instance = await this.worldStateDB.getContractInstance(aztecAddress);
-    if (instance === undefined) {
-      instance = SerializableContractInstance.empty().withAddress(aztecAddress);
-      exists = false;
+  public async getContractInstance(contractAddress: Fr): Promise<SerializableContractInstance | undefined> {
+    this.log.debug(`Getting contract instance for address ${contractAddress}`);
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(AztecAddress.fromField(contractAddress));
+    const exists = instanceWithAddress !== undefined;
+
+    if (exists) {
+      const instance = new SerializableContractInstance(instanceWithAddress);
+      this.log.debug(
+        `Got contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
+      );
+      this.trace.traceGetContractInstance(contractAddress, exists, instance);
+
+      return Promise.resolve(instance);
+    } else {
+      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
+      this.trace.traceGetContractInstance(contractAddress, exists);
+      return Promise.resolve(undefined);
     }
-    this.log.debug(
-      `Get Contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
-    );
-    const tracedInstance = { ...instance, exists };
-    this.trace.traceGetContractInstance(tracedInstance);
-    return Promise.resolve(tracedInstance);
   }
 
   /**
    * Accept nested world state modifications
    */
-  public acceptNestedCallState(nestedState: AvmPersistableStateManager) {
-    this.publicStorage.acceptAndMerge(nestedState.publicStorage);
-    this.nullifiers.acceptAndMerge(nestedState.nullifiers);
+  public acceptForkedState(forkedState: AvmPersistableStateManager) {
+    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
+    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
   }
 
   /**
-   * Get a contract's bytecode from the contracts DB
+   * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
-  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return await this.worldStateDB.getBytecode(contractAddress, selector);
-  }
+  public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
+    this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
+    const exists = instanceWithAddress !== undefined;
 
+    if (exists) {
+      const instance = new SerializableContractInstance(instanceWithAddress);
+
+      const contractClass = await this.worldStateDB.getContractClass(instance.contractClassId);
+      assert(
+        contractClass,
+        `Contract class not found in DB, but a contract instance was found with this class ID (${instance.contractClassId}). This should not happen!`,
+      );
+
+      const contractClassPreimage = {
+        artifactHash: contractClass.artifactHash,
+        privateFunctionsRoot: contractClass.privateFunctionsRoot,
+        publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+      };
+
+      this.trace.traceGetBytecode(
+        contractAddress,
+        exists,
+        contractClass.packedBytecode,
+        instance,
+        contractClassPreimage,
+      );
+      return contractClass.packedBytecode;
+    } else {
+      // If the contract instance is not found, we assume it has not been deployed.
+      // It doesnt matter what the values of the contract instance are in this case, as long as we tag it with exists=false.
+      // This will hint to the avm circuit to just perform the non-membership check on the address and disregard the bytecode hash
+      this.trace.traceGetBytecode(contractAddress, exists); // bytecode, instance, class undefined
+      return undefined;
+    }
+  }
   /**
    * Accept the nested call's state and trace the nested call
    */
   public async processNestedCall(
-    nestedState: AvmPersistableStateManager,
+    forkedState: AvmPersistableStateManager,
     nestedEnvironment: AvmExecutionEnvironment,
     startGasLeft: Gas,
     endGasLeft: Gas,
@@ -255,7 +298,7 @@ export class AvmPersistableStateManager {
     avmCallResults: AvmContractCallResult,
   ) {
     if (!avmCallResults.reverted) {
-      this.acceptNestedCallState(nestedState);
+      this.acceptForkedState(forkedState);
     }
     const functionName = await getPublicFunctionDebugName(
       this.worldStateDB,
@@ -267,7 +310,7 @@ export class AvmPersistableStateManager {
     this.log.verbose(`[AVM] Calling nested function ${functionName}`);
 
     this.trace.traceNestedCall(
-      nestedState.trace,
+      forkedState.trace,
       nestedEnvironment,
       startGasLeft,
       endGasLeft,
@@ -275,5 +318,48 @@ export class AvmPersistableStateManager {
       avmCallResults,
       functionName,
     );
+  }
+
+  public async mergeStateForEnqueuedCall(
+    forkedState: AvmPersistableStateManager,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ) {
+    if (!reverted) {
+      this.acceptForkedState(forkedState);
+    }
+    const functionName = await getPublicFunctionDebugName(
+      this.worldStateDB,
+      publicCallRequest.contractAddress,
+      publicCallRequest.functionSelector,
+      calldata,
+    );
+
+    this.log.verbose(`[AVM] Encountered enqueued public call starting with function ${functionName}`);
+
+    this.trace.traceEnqueuedCall(forkedState.trace, publicCallRequest, calldata, reverted);
+  }
+
+  public mergeStateForPhase(
+    /** The forked state manager used by app logic */
+    forkedState: AvmPersistableStateManager,
+    /** The call requests for each enqueued call in app logic. */
+    publicCallRequests: PublicCallRequest[],
+    /** The calldatas for each enqueued call in app logic */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ) {
+    if (!reverted) {
+      this.acceptForkedState(forkedState);
+    }
+
+    this.log.verbose(`[AVM] Encountered app logic phase`);
+
+    this.trace.traceExecutionPhase(forkedState.trace, publicCallRequests, calldatas, reverted);
   }
 }

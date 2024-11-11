@@ -52,6 +52,7 @@ import {
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
+  computeGateCountForCircuit,
   computeVerificationKey,
   executeBbClientIvcProof,
   verifyProof,
@@ -189,7 +190,11 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   ): Promise<AppCircuitSimulateOutput> {
     const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
-      return await this.computeVerificationKey(directory, bytecode, 'App', appCircuitName);
+      // App circuits are always recursive; the #[recursive] attribute used to be applied automatically
+      // by the `private` comptime macro in noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr
+      // Yet, inside `computeVerificationKey` the `mega_honk` flavor is used, which doesn't use the recursive flag.
+      const recursive = true;
+      return await this.computeVerificationKey(directory, bytecode, recursive, 'App', appCircuitName);
     };
 
     return await this.runInDirectory(operation);
@@ -222,6 +227,21 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     }
 
     this.log.info(`Successfully verified ${circuitType} proof in ${Math.ceil(result.durationMs)} ms`);
+  }
+
+  public async computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number> {
+    const result = await computeGateCountForCircuit(
+      this.bbBinaryPath,
+      this.bbWorkingDirectory,
+      circuitName,
+      bytecode,
+      'mega_honk',
+    );
+    if (result.status === BB_RESULT.FAILURE) {
+      throw new Error(result.reason);
+    }
+
+    return result.circuitSize as number;
   }
 
   private async verifyProofFromKey(
@@ -293,6 +313,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private async computeVerificationKey(
     directory: string,
     bytecode: Buffer,
+    recursive: boolean,
     circuitType: ClientProtocolArtifact | 'App',
     appCircuitName?: string,
   ): Promise<{
@@ -308,6 +329,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       directory,
       circuitType,
       bytecode,
+      recursive,
       circuitType === 'App' ? 'mega_honk' : getUltraHonkFlavorForCircuit(circuitType),
       this.log.debug,
     );
@@ -376,6 +398,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       fieldsWithoutPublicInputs,
       new Proof(binaryProof, vkData.numPublicInputs),
       true,
+      fieldsWithoutPublicInputs.length,
     );
     return proof;
   }

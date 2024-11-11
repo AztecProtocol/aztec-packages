@@ -1,15 +1,18 @@
 use crate::{
-    abis::side_effect::{Ordered, OrderedValue, Scoped}, address::AztecAddress,
+    abis::side_effect::{Ordered, OrderedValue, Scoped},
+    address::AztecAddress,
     constants::{
-        LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
-        SCOPED_ENCRYPTED_LOG_HASH_LENGTH,
-    }, traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader},
+        ENCRYPTED_LOG_HASH_LENGTH, LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH,
+        SCOPED_ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
+    },
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct LogHash {
-    value: Field,
-    counter: u32,
-    length: Field,
+    pub value: Field,
+    pub counter: u32,
+    pub length: Field,
 }
 
 impl Ordered for LogHash {
@@ -60,8 +63,8 @@ impl LogHash {
 }
 
 pub struct ScopedLogHash {
-    log_hash: LogHash,
-    contract_address: AztecAddress,
+    pub log_hash: LogHash,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<LogHash> for ScopedLogHash {
@@ -136,10 +139,10 @@ impl ScopedLogHash {
 }
 
 pub struct EncryptedLogHash {
-    value: Field,
-    counter: u32,
-    length: Field,
-    randomness: Field,
+    pub value: Field,
+    pub counter: u32,
+    pub length: Field,
+    pub randomness: Field,
 }
 
 impl Ordered for EncryptedLogHash {
@@ -196,8 +199,8 @@ impl EncryptedLogHash {
 }
 
 pub struct ScopedEncryptedLogHash {
-    log_hash: EncryptedLogHash,
-    contract_address: AztecAddress,
+    pub log_hash: EncryptedLogHash,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<EncryptedLogHash> for ScopedEncryptedLogHash {
@@ -276,10 +279,10 @@ impl Deserialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
 }
 
 pub struct NoteLogHash {
-    value: Field,
-    counter: u32,
-    length: Field,
-    note_hash_counter: u32,
+    pub value: Field,
+    pub counter: u32,
+    pub length: Field,
+    pub note_hash_counter: u32,
 }
 
 impl NoteLogHash {

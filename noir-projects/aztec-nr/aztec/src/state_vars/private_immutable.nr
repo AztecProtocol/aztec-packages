@@ -1,12 +1,16 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Serialize},
 };
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
-    lifecycle::create_note, note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
+    lifecycle::create_note,
     note_emission::NoteEmission,
+    note_getter::{get_note, view_notes},
+    note_interface::{NoteInterface, NullifiableNote},
+    note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
@@ -18,7 +22,10 @@ pub struct PrivateImmutable<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context> Storage<T> for PrivateImmutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for PrivateImmutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<Note, Context> PrivateImmutable<Note, Context> {
     // docs:start:new

@@ -34,8 +34,8 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
-    // Indicates that this flavor runs with non-ZK Sumcheck.
-    static constexpr bool HasZK = false;
+    // Indicates that this flavor runs with ZK Sumcheck.
+    static constexpr bool HasZK = true;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
@@ -90,7 +90,8 @@ class TranslatorFlavor {
                                   TranslatorOpcodeConstraintRelation<FF>,
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>>;
+                                  TranslatorNonNativeFieldRelation<FF>,
+                                  TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -109,7 +110,8 @@ class TranslatorFlavor {
                    typename TranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename TranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
+                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename TranslatorZeroConstraintsRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
@@ -279,7 +281,7 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
+        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         auto get_unshifted_without_concatenated()
         {

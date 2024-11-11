@@ -1,10 +1,11 @@
 use crate::{
     abis::{public_call_stack_item_compressed::PublicCallStackItemCompressed, side_effect::Ordered},
-    constants::PUBLIC_INNER_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
+    constants::PUBLIC_INNER_CALL_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
-// TODO(#7124): To be deprecated.
+// TODO(#9594): To be deprecated.
 pub struct PublicInnerCallRequest {
     item: PublicCallStackItemCompressed,
     counter: u32,
@@ -37,7 +38,7 @@ impl Serialize<PUBLIC_INNER_CALL_REQUEST_LENGTH> for PublicInnerCallRequest {
 
         assert_eq(fields.len(), PUBLIC_INNER_CALL_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

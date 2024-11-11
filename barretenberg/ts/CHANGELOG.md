@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.61.0...barretenberg.js-v0.62.0) (2024-11-01)
+
+
+### Features
+
+* Faster square roots ([#2694](https://github.com/AztecProtocol/aztec-packages/issues/2694)) ([722ec5c](https://github.com/AztecProtocol/aztec-packages/commit/722ec5c3dfdc2a5e467528ed94a25677f8800087))
+
+## [0.61.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.60.0...barretenberg.js-v0.61.0) (2024-10-30)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.60.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.59.0...barretenberg.js-v0.60.0) (2024-10-24)
+
+
+### Features
+
+* Eccvm translator zk sumcheck ([#9199](https://github.com/AztecProtocol/aztec-packages/issues/9199)) ([c7d4572](https://github.com/AztecProtocol/aztec-packages/commit/c7d4572b49b33ee309f9238f3cec245878e6c295))
+
+
+### Miscellaneous
+
+* Remove noir_js_backend_barretenberg ([#9338](https://github.com/AztecProtocol/aztec-packages/issues/9338)) ([cefe3d9](https://github.com/AztecProtocol/aztec-packages/commit/cefe3d901731d3b05de503ce93c97a3badf91363))
+
 ## [0.59.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.58.0...barretenberg.js-v0.59.0) (2024-10-21)
 
 

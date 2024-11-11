@@ -1,10 +1,10 @@
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::header::Header;
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     context::PrivateContext,
+    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
-    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote}},
 };
 
 trait ProveNullifierInclusion {

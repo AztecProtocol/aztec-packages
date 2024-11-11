@@ -65,3 +65,39 @@ variable "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
 output "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
   value = var.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 }
+
+variable "COIN_ISSUER_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "COIN_ISSUER_CONTRACT_ADDRESS" {
+  value = var.COIN_ISSUER_CONTRACT_ADDRESS
+}
+
+variable "REWARD_DISTRIBUTOR_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "REWARD_DISTRIBUTOR_CONTRACT_ADDRESS" {
+  value = var.REWARD_DISTRIBUTOR_CONTRACT_ADDRESS
+}
+
+variable "GOVERNANCE_PROPOSER_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "GOVERNANCE_PROPOSER_CONTRACT_ADDRESS" {
+  value = var.GOVERNANCE_PROPOSER_CONTRACT_ADDRESS
+}
+
+variable "GOVERNANCE_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "GOVERNANCE_CONTRACT_ADDRESS" {
+  value = var.GOVERNANCE_CONTRACT_ADDRESS
+}

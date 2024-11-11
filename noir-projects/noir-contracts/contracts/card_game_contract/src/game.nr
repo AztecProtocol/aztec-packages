@@ -1,5 +1,5 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
 use crate::cards::Card;
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;

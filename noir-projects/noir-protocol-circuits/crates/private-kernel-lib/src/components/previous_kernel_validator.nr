@@ -5,7 +5,9 @@ use crate::components::previous_kernel_validator::previous_kernel_validator_hint
 };
 use dep::types::{
     abis::{log_hash::ScopedEncryptedLogHash, private_kernel_data::PrivateKernelData},
-    address::AztecAddress, traits::is_empty, utils::arrays::array_length,
+    address::AztecAddress,
+    traits::is_empty,
+    utils::arrays::array_length,
 };
 
 pub struct PreviousKernelValidator {

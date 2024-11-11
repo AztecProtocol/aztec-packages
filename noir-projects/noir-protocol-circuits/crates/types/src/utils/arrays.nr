@@ -1,18 +1,18 @@
-mod assert_array_appended;
-mod assert_array_prepended;
-mod assert_combined_array;
-mod assert_combined_sorted_transformed_value_array;
-mod assert_combined_transformed_array;
-mod assert_deduped_array;
-mod assert_exposed_sorted_transformed_value_array;
-mod assert_sorted_array;
-mod assert_sorted_transformed_value_array;
-mod assert_split_sorted_transformed_value_arrays;
-mod assert_split_transformed_value_arrays;
-mod get_sorted_result;
-mod get_sorted_tuple;
-mod sort_by;
-mod sort_by_counter;
+pub mod assert_array_appended;
+pub mod assert_array_prepended;
+pub mod assert_combined_array;
+pub mod assert_combined_sorted_transformed_value_array;
+pub mod assert_combined_transformed_array;
+pub mod assert_deduped_array;
+pub mod assert_exposed_sorted_transformed_value_array;
+pub mod assert_sorted_array;
+pub mod assert_sorted_transformed_value_array;
+pub mod assert_split_sorted_transformed_value_arrays;
+pub mod assert_split_transformed_value_arrays;
+pub mod get_sorted_result;
+pub mod get_sorted_tuple;
+pub mod sort_by;
+pub mod sort_by_counter;
 
 // Re-exports.
 pub use assert_array_appended::{
@@ -27,19 +27,19 @@ pub use assert_combined_sorted_transformed_value_array::{
 pub use assert_combined_transformed_array::{
     assert_combined_transformed_array, combine_and_transform_arrays,
 };
+pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
 };
-pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_sorted_array::assert_sorted_array;
+pub use assert_sorted_transformed_value_array::{
+    assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
+};
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
     assert_split_sorted_transformed_value_arrays_desc,
     get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
-};
-pub use assert_sorted_transformed_value_array::{
-    assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size,
 };
 pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};

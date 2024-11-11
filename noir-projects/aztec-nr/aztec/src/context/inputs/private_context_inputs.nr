@@ -1,15 +1,15 @@
 use dep::protocol_types::{
-    transaction::tx_context::TxContext, abis::call_context::CallContext, header::Header,
-    traits::Empty,
+    abis::call_context::CallContext, header::Header, traits::Empty,
+    transaction::tx_context::TxContext,
 };
 
 // PrivateContextInputs are expected to be provided to each private function
 // docs:start:private-context-inputs
 pub struct PrivateContextInputs {
-    call_context: CallContext,
-    historical_header: Header,
-    tx_context: TxContext,
-    start_side_effect_counter: u32,
+    pub call_context: CallContext,
+    pub historical_header: Header,
+    pub tx_context: TxContext,
+    pub start_side_effect_counter: u32,
 }
 // docs:end:private-context-inputs
 

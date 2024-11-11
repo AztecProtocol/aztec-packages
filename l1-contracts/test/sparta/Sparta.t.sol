@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../decoders/Base.sol";
@@ -11,8 +11,9 @@ import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
-import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {Rollup} from "../harnesses/Rollup.sol";
+import {Leonidas} from "../harnesses/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -21,7 +22,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
-
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -45,7 +46,7 @@ contract SpartaTest is DecoderBase {
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
   TestERC20 internal testERC20;
-
+  RewardDistributor internal rewardDistributor;
   SignatureLib.Signature internal emptySignature;
   mapping(address validator => uint256 privateKey) internal privateKeys;
   mapping(address => bool) internal _seenValidators;
@@ -74,8 +75,16 @@ contract SpartaTest is DecoderBase {
     }
 
     testERC20 = new TestERC20();
-    rollup =
-      new Rollup(new MockFeeJuicePortal(), bytes32(0), bytes32(0), address(this), initialValidators);
+    Registry registry = new Registry(address(this));
+    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    rollup = new Rollup(
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      bytes32(0),
+      bytes32(0),
+      address(this),
+      initialValidators
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
@@ -180,7 +189,8 @@ contract SpartaTest is DecoderBase {
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
-      bytes32 digest = keccak256(abi.encode(archive, txHashes));
+      uint8 domainSeperator = uint8(SignatureLib.SignatureDomainSeperator.blockAttestation);
+      bytes32 digest = keccak256(abi.encode(domainSeperator, archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
         signatures[i] = createSignature(validators[i], digest);
       }

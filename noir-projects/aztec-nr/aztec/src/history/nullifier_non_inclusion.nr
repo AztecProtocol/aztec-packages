@@ -1,12 +1,13 @@
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
-use dep::protocol_types::{
-    header::Header, utils::field::{full_field_less_than, full_field_greater_than},
-};
 use crate::{
     context::PrivateContext,
-    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote}},
+    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
+use dep::protocol_types::{
+    header::Header,
+    utils::field::{full_field_greater_than, full_field_less_than},
+};
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 trait ProveNullifierNonInclusion {
     fn prove_nullifier_non_inclusion(header: Header, nullifier: Field);

@@ -8,7 +8,9 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
         log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::is_empty,
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 
@@ -40,7 +42,27 @@ impl TailOutputValidator {
     }
 
     fn validate_propagated_values(self) {
-        assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
+        assert_eq(
+            self.output.constants.historical_header,
+            self.previous_kernel.constants.historical_header,
+            "mismatch historical_header",
+        );
+        assert_eq(
+            self.output.constants.tx_context,
+            self.previous_kernel.constants.tx_context,
+            "mismatch tx_context",
+        );
+        assert_eq(
+            self.output.constants.vk_tree_root,
+            self.previous_kernel.constants.vk_tree_root,
+            "mismatch vk_tree_root",
+        );
+        assert_eq(
+            self.output.constants.protocol_contract_tree_root,
+            self.previous_kernel.constants.protocol_contract_tree_root,
+            "mismatch protocol_contract_tree_root",
+        );
+        assert(is_empty(self.output.constants.global_variables), "global_variables must be empty");
 
         assert_eq(
             self.output.rollup_validation_requests,
@@ -104,10 +126,7 @@ impl TailOutputValidator {
     }
 
     fn validate_gas_used(self) {
-        let gas_used = meter_gas_used(
-            self.output.end,
-            self.output.constants.tx_context.gas_settings,
-        );
+        let gas_used = meter_gas_used(self.output.end);
         assert(self.output.end.gas_used == gas_used, "incorrect metered gas used");
 
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;

@@ -1,6 +1,6 @@
-use std::schnorr::verify_signature;
-use dep::aztec::prelude::AztecAddress;
 use crate::auth_oracle::AuthWitness;
+use dep::aztec::prelude::AztecAddress;
+use std::schnorr::verify_signature;
 
 pub fn recover_address(message_hash: Field, witness: AuthWitness) -> AztecAddress {
     let message_bytes: [u8; 32] = message_hash.to_be_bytes();
@@ -13,5 +13,5 @@ pub fn recover_address(message_hash: Field, witness: AuthWitness) -> AztecAddres
     );
     assert(verification == true);
 
-    AztecAddress::compute(witness.keys.hash(), witness.partial_address)
+    AztecAddress::compute(witness.keys, witness.partial_address)
 }

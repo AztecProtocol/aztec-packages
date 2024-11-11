@@ -60,10 +60,10 @@ export class EncryptedL2NoteLog {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): EncryptedL2NoteLog {
+  public static random(tag: Fr = Fr.random()): EncryptedL2NoteLog {
     const randomEphPubKey = Point.random();
     const randomLogContent = randomBytes(144 - Point.COMPRESSED_SIZE_IN_BYTES);
-    const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toCompressedBuffer()]);
+    const data = Buffer.concat([tag.toBuffer(), randomLogContent, randomEphPubKey.toCompressedBuffer()]);
     return new EncryptedL2NoteLog(data);
   }
 

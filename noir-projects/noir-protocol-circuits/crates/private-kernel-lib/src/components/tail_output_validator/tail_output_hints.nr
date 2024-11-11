@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::ScopedLogHash},
     constants::{MAX_L2_TO_L1_MSGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX},
-    utils::arrays::{OrderHint, sort_by_counter_asc, get_order_hints_asc},
+    utils::arrays::{get_order_hints_asc, OrderHint, sort_by_counter_asc},
 };
 
 pub struct TailOutputHints {

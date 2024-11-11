@@ -9,9 +9,9 @@ use dep::types::{
 };
 
 pub struct NullifierSettledReadHint {
-    read_request_index: u32,
-    membership_witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>,
-    leaf_preimage: NullifierLeafPreimage,
+    pub read_request_index: u32,
+    pub membership_witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>,
+    pub leaf_preimage: NullifierLeafPreimage,
 }
 
 impl ReadValueHint for NullifierSettledReadHint {
@@ -39,9 +39,9 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
 }
 
 pub struct NullifierReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
-    read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
-    settled_read_hints: [NullifierSettledReadHint; NUM_SETTLED_HINTS],
+    pub read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pub pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
+    pub settled_read_hints: [NullifierSettledReadHint; NUM_SETTLED_HINTS],
 }
 
 mod tests {
@@ -51,11 +51,14 @@ mod tests {
         verify_reset_read_requests,
     };
     use dep::types::{
-        address::AztecAddress,
         abis::{
-            nullifier::{Nullifier, ScopedNullifier}, nullifier_leaf_preimage::NullifierLeafPreimage,
+            nullifier::{Nullifier, ScopedNullifier},
+            nullifier_leaf_preimage::NullifierLeafPreimage,
             read_request::{ReadRequest, ScopedReadRequest},
-        }, constants::NULLIFIER_TREE_HEIGHT, hash::compute_siloed_nullifier,
+        },
+        address::AztecAddress,
+        constants::NULLIFIER_TREE_HEIGHT,
+        hash::compute_siloed_nullifier,
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,

@@ -9,6 +9,12 @@ On this section you can learn how to debug your Aztec.nr smart contracts and com
 
 You can log statements from Aztec.nr contracts that will show ups in the Sandbox.
 
+:::info
+
+The Noir standard library `std::println` function will not work in Aztec contracts. You must use the `debug_log` and `debug_log_format` defined below.
+
+:::
+
 ### Import `debug_log`
 
 Import the `debug_log` dependency from Aztec oracles:

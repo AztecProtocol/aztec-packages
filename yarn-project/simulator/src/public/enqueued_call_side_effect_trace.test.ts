@@ -20,6 +20,7 @@ import {
   Nullifier,
   PublicAccumulatedData,
   PublicAccumulatedDataArrayLengths,
+  PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicValidationRequestArrayLengths,
@@ -28,19 +29,28 @@ import {
   SerializableContractInstance,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, computeVarArgsHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
 import { randomBytes, randomInt } from 'crypto';
 
 import { AvmContractCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { initExecutionEnvironment } from '../avm/fixtures/index.js';
-import { PublicEnqueuedCallSideEffectTrace, type TracedContractInstance } from './enqueued_call_side_effect_trace.js';
+import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 
-function randomTracedContractInstance(): TracedContractInstance {
-  const instance = SerializableContractInstance.random();
-  const address = AztecAddress.random();
-  return { exists: true, ...instance, address };
+/**
+ * Helper function to create a public execution request from an AVM execution environment
+ */
+function createPublicCallRequest(avmEnvironment: AvmExecutionEnvironment): PublicCallRequest {
+  return new PublicCallRequest(
+    avmEnvironment.sender,
+    avmEnvironment.address,
+    avmEnvironment.functionSelector,
+    avmEnvironment.isStaticCall,
+    computeVarArgsHash(avmEnvironment.calldata),
+  );
 }
 
 describe('Enqueued-call Side Effect Trace', () => {
@@ -52,7 +62,7 @@ describe('Enqueued-call Side Effect Trace', () => {
   const recipient = Fr.random();
   const content = Fr.random();
   const log = [Fr.random(), Fr.random(), Fr.random()];
-  const contractInstance = SerializableContractInstance.empty().withAddress(new Fr(42));
+  const contractInstance = SerializableContractInstance.default();
 
   const startGasLeft = Gas.fromFields([new Fr(randomInt(10000)), new Fr(randomInt(10000))]);
   const endGasLeft = Gas.fromFields([new Fr(randomInt(10000)), new Fr(randomInt(10000))]);
@@ -85,7 +95,14 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   const toVMCircuitPublicInputs = (trc: PublicEnqueuedCallSideEffectTrace) => {
-    return trc.toVMCircuitPublicInputs(constants, avmEnvironment, startGasLeft, endGasLeft, avmCallResults);
+    return trc.toVMCircuitPublicInputs(
+      constants,
+      createPublicCallRequest(avmEnvironment),
+      startGasLeft,
+      endGasLeft,
+      transactionFee,
+      avmCallResults,
+    );
   };
 
   it('Should trace storage reads', () => {
@@ -95,7 +112,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicValidationRequests.empty().publicDataReads;
-    expectedArray[0] = new PublicDataRead(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataRead(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.validationRequests.publicDataReads).toEqual(expectedArray);
@@ -107,7 +125,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().publicDataUpdateRequests;
-    expectedArray[0] = new PublicDataUpdateRequest(slot, value, startCounter /*contractAddress*/);
+    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    expectedArray[0] = new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.publicDataUpdateRequests).toEqual(expectedArray);
@@ -178,7 +197,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedArray = PublicAccumulatedData.empty().nullifiers;
-    expectedArray[0] = new Nullifier(utxo, startCounter, Fr.ZERO);
+    expectedArray[0] = new Nullifier(siloNullifier(address, utxo), startCounter, Fr.ZERO);
 
     const circuitPublicInputs = toVMCircuitPublicInputs(trace);
     expect(circuitPublicInputs.accumulatedData.nullifiers).toEqual(expectedArray);
@@ -234,18 +253,18 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   it('Should trace get contract instance', () => {
-    const instance = randomTracedContractInstance();
+    const instance = SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
-    trace.traceGetContractInstance(instance);
+    const exists = true;
+    trace.traceGetContractInstance(address, exists, instance);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     //const circuitPublicInputs = toVMCircuitPublicInputs(trace);
-    // TODO(dbanks12): once this emits nullifier read, check here
     expect(trace.getAvmCircuitHints().contractInstances.items).toEqual([
       {
-        // hint omits "version" and has "exists" as an Fr
+        address,
+        exists,
         ...instanceWithoutVersion,
-        exists: new Fr(instance.exists),
       },
     ]);
   });
@@ -348,11 +367,11 @@ describe('Enqueued-call Side Effect Trace', () => {
       for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_TX; i++) {
         trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), true, true);
       }
-      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: true })).toThrow(
+      expect(() => trace.traceGetContractInstance(address, /*exists=*/ true, contractInstance)).toThrow(
         SideEffectLimitReachedError,
       );
       // NOTE: also cannot do a existent check once non-existent checks have filled up
-      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: false })).toThrow(
+      expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -361,11 +380,11 @@ describe('Enqueued-call Side Effect Trace', () => {
       for (let i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX; i++) {
         trace.traceNullifierCheck(new Fr(i), new Fr(i), new Fr(i), false, true);
       }
-      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: false })).toThrow(
+      expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
         SideEffectLimitReachedError,
       );
       // NOTE: also cannot do a existent check once non-existent checks have filled up
-      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: true })).toThrow(
+      expect(() => trace.traceGetContractInstance(address, /*exists=*/ true, contractInstance)).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -417,10 +436,10 @@ describe('Enqueued-call Side Effect Trace', () => {
       expect(() => trace.traceUnencryptedLog(new Fr(42), [new Fr(42), new Fr(42)])).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: false })).toThrow(
+      expect(() => trace.traceGetContractInstance(address, /*exists=*/ false, contractInstance)).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceGetContractInstance({ ...contractInstance, exists: true })).toThrow(
+      expect(() => trace.traceGetContractInstance(address, /*exists=*/ true, contractInstance)).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -454,9 +473,9 @@ describe('Enqueued-call Side Effect Trace', () => {
       testCounter++;
       nestedTrace.traceUnencryptedLog(address, log);
       testCounter++;
-      nestedTrace.traceGetContractInstance({ ...contractInstance, exists: true });
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance);
       testCounter++;
-      nestedTrace.traceGetContractInstance({ ...contractInstance, exists: false });
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
       testCounter++;
 
       trace.traceNestedCall(nestedTrace, avmEnvironment, startGasLeft, endGasLeft, bytecode, callResults);
@@ -468,8 +487,8 @@ describe('Enqueued-call Side Effect Trace', () => {
       const parentSideEffects = trace.getSideEffects();
       const childSideEffects = nestedTrace.getSideEffects();
       if (callResults.reverted) {
-        expect(parentSideEffects.contractStorageReads).toEqual(childSideEffects.contractStorageReads);
-        expect(parentSideEffects.contractStorageUpdateRequests).toEqual(childSideEffects.contractStorageUpdateRequests);
+        expect(parentSideEffects.publicDataReads).toEqual(childSideEffects.publicDataReads);
+        expect(parentSideEffects.publicDataWrites).toEqual(childSideEffects.publicDataWrites);
         expect(parentSideEffects.noteHashReadRequests).toEqual(childSideEffects.noteHashReadRequests);
         expect(parentSideEffects.noteHashes).toEqual([]);
         expect(parentSideEffects.nullifierReadRequests).toEqual(childSideEffects.nullifierReadRequests);

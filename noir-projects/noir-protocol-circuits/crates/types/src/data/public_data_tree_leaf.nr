@@ -1,10 +1,11 @@
 use crate::{
-    abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}}, traits::Empty,
+    abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}},
+    traits::Empty,
 };
 
 pub struct PublicDataTreeLeaf {
-    slot: Field,
-    value: Field,
+    pub slot: Field,
+    pub value: Field,
 }
 
 impl Eq for PublicDataTreeLeaf {

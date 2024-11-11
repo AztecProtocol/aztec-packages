@@ -6,9 +6,10 @@ use crate::components::{
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    }, transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
+    },
+    transaction::tx_request::TxRequest,
 };
 
 // Initialization struct for private inputs to the private kernel

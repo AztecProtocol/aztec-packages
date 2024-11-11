@@ -125,30 +125,37 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
 mod tests {
     use crate::private_kernel_reset::{
-        PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints, ALLOWED_PREVIOUS_CIRCUITS,
+        ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints,
     };
     use dep::reset_kernel_lib::{
+        reset::{
+            key_validation_hint::KeyValidationHint,
+            read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+        },
         tests::{
             note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
             nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        }, TransientDataIndexHint,
-        reset::{
-            read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
-            key_validation_hint::KeyValidationHint,
         },
-    };
-    use dep::types::constants::{
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX,
+        TransientDataIndexHint,
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
             log_hash::{NoteLogHash, ScopedEncryptedLogHash},
-        }, address::AztecAddress, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+            max_block_number::MaxBlockNumber,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+        },
+        address::AztecAddress,
+        hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
+        point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
-        utils::arrays::find_index_hint, traits::is_empty_array, point::Point,
+        traits::is_empty_array,
+        utils::arrays::find_index_hint,
+    };
+    use dep::types::constants::{
+        EMPTY_NESTED_INDEX, GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
     };
 
     struct PrivateKernelResetInputsBuilder<let NUM_INDEX_HINTS: u32> {
@@ -389,7 +396,7 @@ mod tests {
 
         builder.previous_kernel.append_nullifiers(3);
         builder.add_pending_nullifier_read_request(1);
-        let nullifier_being_read = builder.previous_kernel.nullifiers.storage[2];
+        let nullifier_being_read = builder.previous_kernel.nullifiers.get(2);
         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
         read_request.read_request.counter = nullifier_being_read.counter() - 1;
         builder.previous_kernel.nullifier_read_requests.push(read_request);
@@ -411,12 +418,12 @@ mod tests {
         let remaining_note_hash_rr_index =
             builder.previous_kernel.add_read_request_for_pending_note_hash(1);
         let note_hash_rr =
-            builder.previous_kernel.note_hash_read_requests.storage[remaining_note_hash_rr_index];
+            builder.previous_kernel.note_hash_read_requests.get(remaining_note_hash_rr_index);
 
         let remaining_nullifier_rr_index =
             builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr =
-            builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
+            builder.previous_kernel.nullifier_read_requests.get(remaining_nullifier_rr_index);
 
         let key_validation_index = builder.previous_kernel.add_request_for_key_validation(
             Point { x: 1, y: 2, is_infinite: false },
@@ -426,7 +433,7 @@ mod tests {
         let key_validation = builder
             .previous_kernel
             .scoped_key_validation_requests_and_generators
-            .storage[key_validation_index];
+            .get(key_validation_index);
 
         // Check that they have been propagated to the next kernel
         let result = builder.execute();
@@ -446,7 +453,7 @@ mod tests {
         builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
-        let nullifiers = builder.previous_kernel.nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage();
         let public_inputs = builder.execute();
 
         assert(is_empty_array(public_inputs.end.note_hashes));
@@ -463,9 +470,9 @@ mod tests {
         builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
-        let note_hashes = builder.previous_kernel.note_hashes.storage;
-        let nullifiers = builder.previous_kernel.nullifiers.storage;
-        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
+        let note_hashes = builder.previous_kernel.note_hashes.storage();
+        let nullifiers = builder.previous_kernel.nullifiers.storage();
+        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage();
         let public_inputs = builder.execute();
 
         // The 0th hash is chopped.
@@ -487,7 +494,7 @@ mod tests {
         builder.nullify_pending_note_hash(1, 1);
         // The nullifier at index 2 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(2, 0);
-        let nullifiers = builder.previous_kernel.nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage();
         let public_inputs = builder.execute();
 
         assert(is_empty_array(public_inputs.end.note_hashes));
@@ -503,21 +510,17 @@ mod tests {
 
         builder.previous_kernel.append_note_hashes_with_logs(3);
         // Shuffle the note hashes so they will have to be re-ordered.
-        let tmp = builder.previous_kernel.note_hashes.storage[0];
-        builder.previous_kernel.note_hashes.storage[0] =
-            builder.previous_kernel.note_hashes.storage[1];
-        builder.previous_kernel.note_hashes.storage[1] =
-            builder.previous_kernel.note_hashes.storage[2];
-        builder.previous_kernel.note_hashes.storage[2] = tmp;
+        let tmp = builder.previous_kernel.note_hashes.get(0);
+        builder.previous_kernel.note_hashes.set(0, builder.previous_kernel.note_hashes.get(1));
+        builder.previous_kernel.note_hashes.set(1, builder.previous_kernel.note_hashes.get(2));
+        builder.previous_kernel.note_hashes.set(2, tmp);
 
         builder.previous_kernel.append_nullifiers(3);
         // Shuffle the nullifers so they will have to be re-ordered.
-        let tmp = builder.previous_kernel.nullifiers.storage[1];
-        builder.previous_kernel.nullifiers.storage[1] =
-            builder.previous_kernel.nullifiers.storage[3];
-        builder.previous_kernel.nullifiers.storage[3] =
-            builder.previous_kernel.nullifiers.storage[2];
-        builder.previous_kernel.nullifiers.storage[2] = tmp;
+        let tmp = builder.previous_kernel.nullifiers.get(1);
+        builder.previous_kernel.nullifiers.set(1, builder.previous_kernel.nullifiers.get(3));
+        builder.previous_kernel.nullifiers.set(3, builder.previous_kernel.nullifiers.get(2));
+        builder.previous_kernel.nullifiers.set(2, tmp);
 
         // The nullifier at index 1 is nullifying the note hash at index 1;
         builder.nullify_pending_note_hash(1, 1);
@@ -526,7 +529,7 @@ mod tests {
         // The nullifier at index 3 is nullifying the note hash at index 0;
         builder.nullify_pending_note_hash(3, 0);
 
-        let nullifiers = builder.previous_kernel.nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage();
         let public_inputs = builder.execute();
 
         assert(is_empty_array(public_inputs.end.note_hashes));
@@ -583,10 +586,10 @@ mod tests {
         builder.previous_kernel.append_encrypted_log_hashes(3);
         builder.previous_kernel.nullifiers.storage[2].nullifier.note_hash = 9988;
         // Get ordered items before shuffling.
-        let note_hashes = builder.previous_kernel.note_hashes.storage;
-        let nullifiers = builder.previous_kernel.nullifiers.storage;
-        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
-        let encrypted_logs = builder.previous_kernel.encrypted_logs_hashes.storage;
+        let note_hashes = builder.previous_kernel.note_hashes.storage();
+        let nullifiers = builder.previous_kernel.nullifiers.storage();
+        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage();
+        let encrypted_logs = builder.previous_kernel.encrypted_logs_hashes.storage();
         // Shuffle.
         swap_items(&mut builder.previous_kernel.note_hashes, 1, 0);
         swap_items(&mut builder.previous_kernel.note_hashes, 3, 2);
@@ -649,7 +652,7 @@ mod tests {
         // The nullifier at index 1 is siloed.
         builder.previous_kernel.nullifiers.storage[1].contract_address = AztecAddress::zero();
 
-        let nullifiers = builder.previous_kernel.nullifiers.storage;
+        let nullifiers = builder.previous_kernel.nullifiers.storage();
 
         let public_inputs = builder.execute();
 
@@ -665,7 +668,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
         let _res = builder.execute();
     }
 }

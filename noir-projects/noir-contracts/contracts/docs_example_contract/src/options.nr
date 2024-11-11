@@ -1,19 +1,21 @@
 use crate::types::card_note::{CARD_NOTE_LEN, CardNote};
 use dep::aztec::prelude::NoteGetterOptions;
 
-use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 use dep::aztec::{note::note_getter_options::SortOrder, utils::comparison::Comparator};
+use dep::aztec::protocol_types::{
+    address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+};
 
 // Shows how to use NoteGetterOptions and query for notes.
 
 // docs:start:state_vars-NoteGetterOptionsSelectSortOffset
 pub fn create_npk_card_getter_options(
-    account_npk_m_hash: Field,
+    account: AztecAddress,
     offset: u32,
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
     options
-        .select(CardNote::properties().npk_m_hash, Comparator.EQ, account_npk_m_hash)
+        .select(CardNote::properties().owner, Comparator.EQ, account)
         .sort(CardNote::properties().points, SortOrder.DESC)
         .set_offset(offset)
 }
@@ -23,13 +25,13 @@ pub fn create_npk_card_getter_options(
 pub fn create_exact_card_getter_options(
     points: u8,
     secret: Field,
-    account_npk_m_hash: Field,
+    account: AztecAddress,
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
     options
         .select(CardNote::properties().points, Comparator.EQ, points as Field)
         .select(CardNote::properties().randomness, Comparator.EQ, secret)
-        .select(CardNote::properties().npk_m_hash, Comparator.EQ, account_npk_m_hash)
+        .select(CardNote::properties().owner, Comparator.EQ, account)
 }
 // docs:end:state_vars-NoteGetterOptionsMultiSelects
 

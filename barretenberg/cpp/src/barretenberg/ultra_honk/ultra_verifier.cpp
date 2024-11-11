@@ -1,5 +1,4 @@
 #include "./ultra_verifier.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -31,5 +30,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 template class UltraVerifier_<UltraFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
 template class UltraVerifier_<MegaFlavor>;
+template class UltraVerifier_<MegaZKFlavor>;
 
 } // namespace bb

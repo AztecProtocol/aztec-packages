@@ -1,6 +1,7 @@
-use dep::aztec::prelude::{PrivateContext, AztecAddress};
+use dep::aztec::prelude::{AztecAddress, PrivateContext};
 use dep::aztec::protocol_types::{
-    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+    hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},
 };
 
@@ -28,7 +29,7 @@ impl Serialize<DAPP_PAYLOAD_SIZE> for DAppPayload {
             fields.extend_from_array(call.serialize());
         }
         fields.push(self.nonce);
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -48,7 +49,7 @@ impl DAppPayload {
         }
         bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
 
-        bytes.storage
+        bytes.storage()
     }
 
     // Executes all private and public calls

@@ -6,7 +6,7 @@ cd $(dirname $0)/../noir-repo
 BB_VERSION=$(cat ../bb-version)
 
 tmp=$(mktemp)
-BACKEND_BARRETENBERG_PACKAGE_JSON=./tooling/noir_js_backend_barretenberg/package.json
+BACKEND_BARRETENBERG_PACKAGE_JSON=./compiler/integration-tests/package.json
 jq --arg v $BB_VERSION '.dependencies."@aztec/bb.js" = $v' $BACKEND_BARRETENBERG_PACKAGE_JSON > $tmp && mv $tmp $BACKEND_BARRETENBERG_PACKAGE_JSON
 
 # This script runs in CI which enforces immutable installs by default,

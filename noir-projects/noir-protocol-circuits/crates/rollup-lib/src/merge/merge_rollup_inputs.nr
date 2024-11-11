@@ -1,11 +1,15 @@
-use dep::types::{traits::Empty, constants::{BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX}};
-use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{
     BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE,
 };
+use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::components;
+use dep::types::{
+    constants::{MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX},
+    traits::Empty,
+};
 
-global ALLOWED_PREVIOUS_CIRCUITS = [BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS =
+    [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 pub struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
@@ -61,8 +65,10 @@ impl MergeRollupInputs {
 
 mod tests {
     use crate::tests::merge_rollup_inputs::default_merge_rollup_inputs;
+    use dep::types::constants::{
+        MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
+    };
     use dep::types::hash::accumulate_sha256;
-    use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX, ROOT_PARITY_INDEX};
     use types::merkle_tree::merkle_tree::MerkleTree;
     use types::tests::fixtures;
 
@@ -190,10 +196,11 @@ mod tests {
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
 
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(BASE_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BASE_ROLLUP_INDEX as Field;
+            fixtures::vk_tree::generate_fake_honk_vk_for_index(PRIVATE_BASE_ROLLUP_VK_INDEX);
+        inputs.previous_rollup_data[0].vk_witness.leaf_index =
+            PRIVATE_BASE_ROLLUP_VK_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BASE_ROLLUP_INDEX);
+            vk_tree.get_sibling_path(PRIVATE_BASE_ROLLUP_VK_INDEX);
 
         let _outputs = inputs.merge_rollup_circuit();
     }

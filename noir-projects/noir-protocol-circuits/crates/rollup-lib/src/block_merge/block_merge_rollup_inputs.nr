@@ -1,7 +1,7 @@
-use dep::types::{traits::Empty, constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX}};
-use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
+use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
 use crate::components;
+use dep::types::{constants::{BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX}, traits::Empty};
 // TODO(#7346): Currently unused! Will be used when batch rollup circuits are integrated.
 global ALLOWED_PREVIOUS_CIRCUITS = [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX];
 
@@ -62,12 +62,12 @@ impl BlockMergeRollupInputs {
 
 mod tests {
     use crate::tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs;
-    use dep::types::hash::accumulate_sha256;
     use dep::types::constants::{
-        BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, ROOT_PARITY_INDEX,
+        BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX, ROOT_PARITY_INDEX,
     };
-    use types::merkle_tree::merkle_tree::MerkleTree;
+    use dep::types::hash::accumulate_sha256;
     use dep::types::tests::fixtures;
+    use types::merkle_tree::merkle_tree::MerkleTree;
 
     #[test(should_fail_with = "input blocks have different chain id")]
     fn constants_different_chain_id_fails() {

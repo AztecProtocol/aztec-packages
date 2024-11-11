@@ -9,24 +9,20 @@ use crate::components::private_call_data_validator::{
 };
 use dep::types::{
     abis::{
-        call_context::CallContext, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+        call_context::CallContext,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        note_hash::ScopedNoteHash,
+        private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
-        private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered},
-    }, address::AztecAddress, constants::MAX_FIELD_VALUE, transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData,
+        public_call_request::PublicCallRequest,
+        side_effect::{Ordered, RangeOrdered},
+    },
+    address::AztecAddress,
+    constants::MAX_FIELD_VALUE,
+    transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
 };
-
-fn validate_call_context(target_context: CallContext, this_context: CallContext) {
-    assert_eq(
-        target_context.msg_sender,
-        this_context.contract_address,
-        "incorrect msg_sender for call request",
-    );
-    if !target_context.is_static_call {
-        assert(this_context.is_static_call == false, "static call cannot make non-static calls");
-    }
-}
 
 fn validate_incrementing_counters_within_range<T, let N: u32>(
     counter_start: u32,
@@ -105,7 +101,6 @@ impl PrivateCallDataValidator {
         self.validate_call();
         self.validate_private_call_requests();
         self.validate_public_call_requests();
-        self.validate_teardown_call_request();
         self.validate_counters();
         self.validate_note_logs(accumulated_note_hashes);
     }
@@ -238,7 +233,18 @@ impl PrivateCallDataValidator {
         for i in 0..call_requests.len() {
             should_check &= i != num_requests;
             if should_check {
-                validate_call_context(call_requests[i].call_context, public_inputs.call_context);
+                let call_request = call_requests[i];
+                assert_eq(
+                    call_request.call_context.msg_sender,
+                    public_inputs.call_context.contract_address,
+                    "incorrect msg_sender for call request",
+                );
+                if !call_request.call_context.is_static_call {
+                    assert(
+                        public_inputs.call_context.is_static_call == false,
+                        "static call cannot make non-static calls",
+                    );
+                }
             }
         }
 
@@ -268,22 +274,34 @@ impl PrivateCallDataValidator {
 
     fn validate_public_call_requests(self) {
         let public_inputs = self.data.public_inputs;
+
         let call_requests = public_inputs.public_call_requests;
         let num_requests = self.array_lengths.public_call_requests;
         let mut should_check = true;
         for i in 0..call_requests.len() {
             should_check &= i != num_requests;
             if should_check {
-                validate_call_context(call_requests[i].call_context, public_inputs.call_context);
+                self.validate_public_call_request(call_requests[i].inner);
             }
+        }
+
+        if !public_inputs.public_teardown_call_request.contract_address.is_zero() {
+            self.validate_public_call_request(public_inputs.public_teardown_call_request);
         }
     }
 
-    fn validate_teardown_call_request(self) {
-        let public_inputs = self.data.public_inputs;
-        let request = public_inputs.public_teardown_call_request;
-        if request.counter != 0 {
-            validate_call_context(request.call_context, public_inputs.call_context);
+    fn validate_public_call_request(self, call_request: PublicCallRequest) {
+        let this_context = self.data.public_inputs.call_context;
+        assert_eq(
+            call_request.msg_sender,
+            this_context.contract_address,
+            "incorrect msg_sender for call request",
+        );
+        if !call_request.is_static_call {
+            assert(
+                this_context.is_static_call == false,
+                "static call cannot make non-static calls",
+            );
         }
     }
 
@@ -350,20 +368,7 @@ impl PrivateCallDataValidator {
             public_inputs.public_call_requests,
             self.array_lengths.public_call_requests,
         );
-
-        let teardown_call_request_count = if public_inputs.public_teardown_call_request.counter == 0
-             {
-                0
-            } else {
-                1
-            };
-            validate_incrementing_counters_within_range(
-                counter_start,
-                counter_end,
-                [public_inputs.public_teardown_call_request],
-                teardown_call_request_count,
-            );
-        }
+    }
 
     fn validate_note_logs<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
         let note_logs = self.data.public_inputs.note_encrypted_logs_hashes;

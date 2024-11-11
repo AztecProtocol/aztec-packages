@@ -1,6 +1,7 @@
 use crate::{
-    merkle_tree::{merkle_tree, MerkleTree, calculate_empty_tree_root}, traits::Empty,
     hash::merkle_hash,
+    merkle_tree::{calculate_empty_tree_root, merkle_tree, MerkleTree},
+    traits::Empty,
 };
 
 pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
@@ -14,7 +15,7 @@ pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
 }
 
 impl<let N: u32> MerkleTree<N> {
-    fn update_leaf<let K: u32>(&mut self, index: u32, value: Field, _tree_height: [Field; K]) {
+    pub fn update_leaf<let K: u32>(&mut self, index: u32, value: Field, _tree_height: [Field; K]) {
         self.leaves[index] = value;
 
         let mut sibling_index = merkle_tree::sibling_index(index);

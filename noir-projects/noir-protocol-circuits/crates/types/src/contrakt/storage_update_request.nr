@@ -1,11 +1,12 @@
 use crate::{
-    constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize},
+    constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
 };
 
 pub struct StorageUpdateRequest {
-    storage_slot: Field,
-    new_value: Field,
-    counter: u32,
+    pub storage_slot: Field,
+    pub new_value: Field,
+    pub counter: u32,
 }
 
 impl Eq for StorageUpdateRequest {

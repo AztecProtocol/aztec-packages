@@ -1,5 +1,7 @@
 use crate::{
-    abis::side_effect::Scoped, address::aztec_address::AztecAddress, traits::{Empty, is_empty},
+    abis::side_effect::Scoped,
+    address::aztec_address::AztecAddress,
+    traits::{Empty, is_empty},
 };
 
 pub fn assert_array_appended<T, let N: u32, let M: u32>(

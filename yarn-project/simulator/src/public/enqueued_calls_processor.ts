@@ -1,16 +1,17 @@
 import {
+  type AvmProvingRequest,
   type MerkleTreeReadOperations,
   type NestedProcessReturnValues,
-  type ProcessedTx,
-  ProvingRequestType,
   type PublicExecutionRequest,
-  type PublicKernelMergeRequest,
   PublicKernelPhase,
-  type PublicProvingRequest,
   type SimulationError,
   type Tx,
 } from '@aztec/circuit-types';
 import {
+  AvmAccumulatedData,
+  AvmCircuitPublicInputs,
+  type CombinedAccumulatedData,
+  CombinedConstantData,
   EnqueuedCallData,
   Fr,
   Gas,
@@ -18,25 +19,41 @@ import {
   type Header,
   type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateKernelTailCircuitPublicInputs,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+  PublicAccumulatedData,
+  PublicAccumulatedDataArrayLengths,
   type PublicCallRequest,
   PublicKernelCircuitPrivateInputs,
-  type PublicKernelCircuitPublicInputs,
+  PublicKernelCircuitPublicInputs,
   PublicKernelData,
+  PublicValidationRequestArrayLengths,
+  PublicValidationRequests,
+  RevertCode,
+  TreeSnapshots,
   type VMCircuitPublicInputs,
+  VerificationKeyData,
+  countAccumulatedItems,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ProtocolCircuitVks, TubeVk, getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
 import { inspect } from 'util';
 
+import { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import { DualSideEffectTrace } from './dual_side_effect_trace.js';
+import { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 import { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
 import { type PublicExecutor } from './executor.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicKernelTailSimulator } from './public_kernel_tail_simulator.js';
+import { PublicSideEffectTrace } from './side_effect_trace.js';
 
 const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
   [PublicKernelPhase.SETUP]: false,
@@ -45,19 +62,22 @@ const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
 };
 
 type PublicPhaseResult = {
+  avmProvingRequest: AvmProvingRequest;
   /** The output of the public kernel circuit simulation for this phase */
   publicKernelOutput: PublicKernelCircuitPublicInputs;
-  /** The collection of public proving requests */
-  provingRequests: PublicProvingRequest[];
   /** Return values of simulating complete callstack */
   returnValues: NestedProcessReturnValues[];
   /** Gas used during the execution this phase */
   gasUsed: Gas;
   /** Time spent for the execution this phase */
   durationMs: number;
+  /** Reverted */
+  reverted: boolean;
   /** Revert reason, if any */
   revertReason?: SimulationError;
 };
+
+type PublicPhaseGasUsed = Partial<Record<PublicKernelPhase, Gas>>;
 
 export type ProcessedPhase = {
   phase: PublicKernelPhase;
@@ -66,15 +86,13 @@ export type ProcessedPhase = {
 };
 
 export type TxPublicCallsResult = {
-  /** The collection of public proving requests */
-  provingRequests: PublicProvingRequest[];
-  /** The output of the public kernel tail circuit simulation for this tx */
-  tailKernelOutput: KernelCircuitPublicInputs;
+  avmProvingRequest: AvmProvingRequest;
   /** Return values of simulating complete callstack */
   returnValues: NestedProcessReturnValues[];
   /** Gas used during the execution this tx */
-  gasUsed: ProcessedTx['gasUsed'];
+  gasUsed: PublicPhaseGasUsed;
   /** Revert reason, if any */
+  revertCode: RevertCode;
   revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
 };
@@ -99,13 +117,15 @@ export class EnqueuedCallsProcessor {
     globalVariables: GlobalVariables,
     historicalHeader: Header,
     worldStateDB: WorldStateDB,
+    realAvmProvingRequests: boolean = true,
   ) {
     const enqueuedCallSimulator = new EnqueuedCallSimulator(
       db,
+      worldStateDB,
       publicExecutor,
-      publicKernelSimulator,
       globalVariables,
       historicalHeader,
+      realAvmProvingRequests,
     );
 
     const publicKernelTailSimulator = PublicKernelTailSimulator.create(db, publicKernelSimulator);
@@ -158,14 +178,55 @@ export class EnqueuedCallsProcessor {
       PublicKernelPhase.TEARDOWN,
     ];
     const processedPhases: ProcessedPhase[] = [];
-    const provingRequests: PublicProvingRequest[] = [];
-    const gasUsed: ProcessedTx['gasUsed'] = {};
-    let publicKernelOutput = tx.data.toPublicKernelCircuitPublicInputs();
+    const gasUsed: PublicPhaseGasUsed = {};
+    let avmProvingRequest: AvmProvingRequest;
+    let publicKernelOutput = this.getPublicKernelCircuitPublicInputs(tx.data);
     let isFromPrivate = true;
     let returnValues: NestedProcessReturnValues[] = [];
     let revertReason: SimulationError | undefined;
+
+    const nonRevertibleNullifiersFromPrivate = publicKernelOutput.endNonRevertibleData.nullifiers
+      .filter(n => !n.isEmpty())
+      .map(n => n.value);
+    const _revertibleNullifiersFromPrivate = publicKernelOutput.end.nullifiers
+      .filter(n => !n.isEmpty())
+      .map(n => n.value);
+
+    // During SETUP, non revertible side effects from private are our "previous data"
+    const prevAccumulatedData = publicKernelOutput.endNonRevertibleData;
+    const previousValidationRequestArrayLengths = PublicValidationRequestArrayLengths.new(
+      publicKernelOutput.validationRequests,
+    );
+
+    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
+    const innerCallTrace = new PublicSideEffectTrace();
+    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
+      /*startSideEffectCounter=*/ 0,
+      previousValidationRequestArrayLengths,
+      previousAccumulatedDataArrayLengths,
+    );
+    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
+
+    // Transaction level state manager that will be forked for revertible phases.
+    const txStateManager = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
+      this.worldStateDB,
+      trace,
+      nonRevertibleNullifiersFromPrivate,
+    );
+    // TODO(dbanks12): insert all non-revertible side effects from private here.
+
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
+      let stateManagerForPhase: AvmPersistableStateManager;
+      if (phase === PublicKernelPhase.SETUP) {
+        // don't need to fork for setup since it's non-revertible
+        // (if setup fails, transaction is thrown out)
+        stateManagerForPhase = txStateManager;
+      } else {
+        // Fork the state manager so that we can rollback state if a revertible phase reverts.
+        stateManagerForPhase = txStateManager.fork();
+        // NOTE: Teardown is revertible, but will run even if app logic reverts!
+      }
       const callRequests = EnqueuedCallsProcessor.getCallRequestsByPhase(tx, phase);
       if (callRequests.length) {
         const executionRequests = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, phase);
@@ -176,6 +237,7 @@ export class EnqueuedCallsProcessor {
           publicKernelOutput,
           phase,
           isFromPrivate,
+          stateManagerForPhase,
         ).catch(async err => {
           await this.worldStateDB.rollbackToCommit();
           throw err;
@@ -184,9 +246,21 @@ export class EnqueuedCallsProcessor {
         publicKernelOutput = result.publicKernelOutput;
         isFromPrivate = false;
 
-        provingRequests.push(...result.provingRequests);
+        // Propagate only one avmProvingRequest of a function call for now, so that we know it's still provable.
+        // Eventually this will be the proof for the entire public call stack.
+        avmProvingRequest = result.avmProvingRequest;
+
         if (phase === PublicKernelPhase.APP_LOGIC) {
           returnValues = result.returnValues;
+        }
+
+        if (phase !== PublicKernelPhase.SETUP) {
+          txStateManager.mergeStateForPhase(
+            stateManagerForPhase,
+            callRequests,
+            executionRequests.map(req => req.args),
+            /*reverted=*/ result.revertReason ? true : false,
+          );
         }
 
         gasUsed[phase] = result.gasUsed;
@@ -201,23 +275,23 @@ export class EnqueuedCallsProcessor {
       }
     }
 
-    const { output: tailKernelOutput, provingRequest } = await this.publicKernelTailSimulator
-      .simulate(publicKernelOutput)
-      .catch(
-        // the abstract phase manager throws if simulation gives error in non-revertible phase
-        async err => {
-          await this.worldStateDB.rollbackToCommit();
-          throw err;
-        },
-      );
-    provingRequests.push(provingRequest);
+    const tailKernelOutput = await this.publicKernelTailSimulator.simulate(publicKernelOutput).catch(
+      // the abstract phase manager throws if simulation gives error in non-revertible phase
+      async err => {
+        await this.worldStateDB.rollbackToCommit();
+        throw err;
+      },
+    );
+
+    const transactionFee = this.getTransactionFee(tx, publicKernelOutput);
+    avmProvingRequest!.inputs.output = this.generateAvmCircuitPublicInputs(tx, tailKernelOutput, transactionFee);
 
     return {
-      provingRequests: provingRequests,
-      tailKernelOutput,
+      avmProvingRequest: avmProvingRequest!,
       returnValues,
       gasUsed,
       processedPhases,
+      revertCode: tailKernelOutput.revertCode,
       revertReason,
     };
   }
@@ -229,14 +303,16 @@ export class EnqueuedCallsProcessor {
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     phase: PublicKernelPhase,
     isFromPrivate: boolean,
+    txStateManager: AvmPersistableStateManager,
   ): Promise<PublicPhaseResult> {
     this.log.debug(`Beginning processing in phase ${PublicKernelPhase[phase]} for tx ${tx.getTxHash()}`);
 
     const phaseTimer = new Timer();
-    const provingRequests: PublicProvingRequest[] = [];
     const returnValues: NestedProcessReturnValues[] = [];
+    let avmProvingRequest: AvmProvingRequest;
     let publicKernelOutput = previousPublicKernelOutput;
     let gasUsed = Gas.empty();
+    let reverted: boolean = false;
     let revertReason: SimulationError | undefined;
     for (let i = callRequests.length - 1; i >= 0 && !revertReason; i--) {
       const callRequest = callRequests[i];
@@ -251,16 +327,19 @@ export class EnqueuedCallsProcessor {
       await this.worldStateDB.addNewContracts(tx);
 
       const availableGas = this.getAvailableGas(tx, publicKernelOutput, phase);
-      const transactionFee = this.getTransactionFee(tx, publicKernelOutput, phase);
+      const transactionFee =
+        phase !== PublicKernelPhase.TEARDOWN ? Fr.ZERO : this.getTransactionFee(tx, publicKernelOutput);
 
+      // each enqueued call starts with an incremented side effect counter
+      const enqueuedCallStateManager = txStateManager.fork(/*incrementSideEffectCounter=*/ true);
       const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(
         callRequest,
         executionRequest,
-        tx,
         publicKernelOutput,
         availableGas,
         transactionFee,
         phase,
+        enqueuedCallStateManager,
       );
 
       if (enqueuedCallResult.revertReason && !PhaseIsRevertible[phase]) {
@@ -269,43 +348,50 @@ export class EnqueuedCallsProcessor {
         );
         throw enqueuedCallResult.revertReason;
       }
+      await txStateManager.mergeStateForEnqueuedCall(
+        enqueuedCallStateManager,
+        callRequest,
+        executionRequest.args,
+        enqueuedCallResult.reverted!,
+      );
 
-      provingRequests.push(...enqueuedCallResult.provingRequests);
+      avmProvingRequest = enqueuedCallResult.avmProvingRequest;
       returnValues.push(enqueuedCallResult.returnValues);
       gasUsed = gasUsed.add(enqueuedCallResult.gasUsed);
+      reverted = enqueuedCallResult.reverted;
       revertReason ??= enqueuedCallResult.revertReason;
 
+      // Instead of operating on worldStateDB here, do we do AvmPersistableStateManager.revert() or return()?
       if (revertReason) {
         // TODO(#6464): Should we allow emitting contracts in the private setup phase?
         // if so, this is removing contracts deployed in private setup
+        // You can't submit contracts in public, so this is only relevant for private-created
+        // side effects
+        // Are we reverting here back to end of non-revertible insertions?
+        // What are we reverting back to?
         await this.worldStateDB.removeNewContracts(tx);
-        await this.worldStateDB.rollbackToCheckpoint();
         tx.filterRevertedLogs(publicKernelOutput);
       } else {
         // TODO(#6470): we should be adding contracts deployed in those logs to the publicContractsDB
         tx.unencryptedLogs.addFunctionLogs([enqueuedCallResult.newUnencryptedLogs]);
       }
 
-      const { output, provingRequest } = await this.runMergeKernelCircuit(
+      const output = await this.runMergeKernelCircuit(
         publicKernelOutput,
         enqueuedCallResult.kernelOutput,
         isFromPrivate,
       );
       publicKernelOutput = output;
       isFromPrivate = false;
-      provingRequests.push(provingRequest);
-    }
-
-    if (phase === PublicKernelPhase.SETUP) {
-      await this.worldStateDB.checkpoint();
     }
 
     return {
+      avmProvingRequest: avmProvingRequest!,
       publicKernelOutput,
-      provingRequests,
       durationMs: phaseTimer.ms(),
       gasUsed,
-      returnValues: revertReason ? [] : returnValues,
+      returnValues: returnValues,
+      reverted: reverted,
       revertReason,
     };
   }
@@ -325,31 +411,23 @@ export class EnqueuedCallsProcessor {
     }
   }
 
-  private getTransactionFee(
-    tx: Tx,
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    phase: PublicKernelPhase,
-  ): Fr {
-    if (phase !== PublicKernelPhase.TEARDOWN) {
-      return Fr.ZERO;
-    } else {
-      const gasSettings = tx.data.constants.txContext.gasSettings;
-      const gasFees = this.globalVariables.gasFees;
-      // No need to add teardown limits since they are already included in end.gasUsed
-      const gasUsed = previousPublicKernelOutput.end.gasUsed.add(
-        previousPublicKernelOutput.endNonRevertibleData.gasUsed,
-      );
-      const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
-      this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
-      return txFee;
-    }
+  private getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const gasFees = this.globalVariables.gasFees;
+    // No need to add teardown limits since they are already included in end.gasUsed
+    const gasUsed = previousPublicKernelOutput.end.gasUsed
+      .add(previousPublicKernelOutput.endNonRevertibleData.gasUsed)
+      .add(gasSettings.teardownGasLimits);
+    const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
+    this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
+    return txFee;
   }
 
   private async runMergeKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
     enqueuedCallData: VMCircuitPublicInputs,
     isFromPrivate: boolean,
-  ): Promise<{ output: PublicKernelCircuitPublicInputs; provingRequest: PublicKernelMergeRequest }> {
+  ): Promise<PublicKernelCircuitPublicInputs> {
     const previousKernel = this.getPreviousKernelData(previousOutput, isFromPrivate);
 
     // The proof is not used in simulation.
@@ -358,27 +436,102 @@ export class EnqueuedCallsProcessor {
 
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
 
-    const output = await this.publicKernelSimulator.publicKernelCircuitMerge(inputs);
-
-    const provingRequest: PublicKernelMergeRequest = {
-      type: ProvingRequestType.PUBLIC_KERNEL_MERGE,
-      inputs,
-    };
-
-    return { output, provingRequest };
+    return await this.publicKernelSimulator.publicKernelCircuitMerge(inputs);
   }
 
   private getPreviousKernelData(
     previousOutput: PublicKernelCircuitPublicInputs,
-    isFromPrivate: boolean,
+    _isFromPrivate: boolean,
   ): PublicKernelData {
     // The proof is not used in simulation.
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
 
-    const vk = isFromPrivate ? TubeVk : ProtocolCircuitVks.PublicKernelMergeArtifact;
-    const vkIndex = getVKIndex(vk);
+    const vk = VerificationKeyData.makeFakeHonk();
+    const vkIndex = 0;
     const siblingPath = getVKSiblingPath(vkIndex);
 
     return new PublicKernelData(previousOutput, proof, vk, vkIndex, siblingPath);
+  }
+
+  // Temporary hack to create PublicKernelCircuitPublicInputs from PrivateKernelTailCircuitPublicInputs.
+  private getPublicKernelCircuitPublicInputs(data: PrivateKernelTailCircuitPublicInputs) {
+    const constants = CombinedConstantData.combine(data.constants, this.globalVariables);
+
+    const validationRequest = PublicValidationRequests.empty();
+    validationRequest.forRollup = data.rollupValidationRequests;
+
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) => {
+      const to = PublicAccumulatedData.empty();
+      to.noteHashes.forEach((_, i) => (to.noteHashes[i].noteHash.value = from.noteHashes[i]));
+      to.nullifiers.forEach((_, i) => (to.nullifiers[i].value = from.nullifiers[i]));
+      to.l2ToL1Msgs.forEach((_, i) => (to.l2ToL1Msgs[i] = from.l2ToL1Msgs[i]));
+      to.noteEncryptedLogsHashes.forEach((_, i) => (to.noteEncryptedLogsHashes[i] = from.noteEncryptedLogsHashes[i]));
+      to.encryptedLogsHashes.forEach((_, i) => (to.encryptedLogsHashes[i] = from.encryptedLogsHashes[i]));
+      to.unencryptedLogsHashes.forEach((_, i) => (to.unencryptedLogsHashes[i] = from.unencryptedLogsHashes[i]));
+      to.publicCallStack.forEach((_, i) => (to.publicCallStack[i] = from.publicCallRequests[i]));
+      (to.gasUsed as any) = from.gasUsed;
+      return to;
+    };
+
+    return new PublicKernelCircuitPublicInputs(
+      constants,
+      validationRequest,
+      convertAccumulatedData(data.forPublic!.nonRevertibleAccumulatedData),
+      convertAccumulatedData(data.forPublic!.revertibleAccumulatedData),
+      0,
+      data.forPublic!.publicTeardownCallRequest,
+      data.feePayer,
+      RevertCode.OK,
+    );
+  }
+
+  // Temporary hack to create the AvmCircuitPublicInputs from public tail's public inputs.
+  private generateAvmCircuitPublicInputs(tx: Tx, tailOutput: KernelCircuitPublicInputs, transactionFee: Fr) {
+    const startTreeSnapshots = new TreeSnapshots(
+      tailOutput.constants.historicalHeader.state.l1ToL2MessageTree,
+      tailOutput.startState.noteHashTree,
+      tailOutput.startState.nullifierTree,
+      tailOutput.startState.publicDataTree,
+    );
+
+    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedDataArrayLengths(
+        countAccumulatedItems(from.noteHashes),
+        countAccumulatedItems(from.nullifiers),
+        countAccumulatedItems(from.l2ToL1Msgs),
+      );
+
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
+
+    const convertAvmAccumulatedData = (from: CombinedAccumulatedData) =>
+      new AvmAccumulatedData(
+        from.noteHashes,
+        from.nullifiers,
+        from.l2ToL1Msgs,
+        from.unencryptedLogsHashes,
+        from.publicDataWrites,
+      );
+
+    // This is wrong. But this is not used or checked in the rollup at the moment.
+    // Should fetch the updated roots from db.
+    const endTreeSnapshots = startTreeSnapshots;
+
+    return new AvmCircuitPublicInputs(
+      tailOutput.constants.globalVariables,
+      startTreeSnapshots,
+      tx.data.constants.txContext.gasSettings,
+      tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests,
+      tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests,
+      tx.data.forPublic!.publicTeardownCallRequest,
+      getArrayLengths(tx.data.forPublic!.nonRevertibleAccumulatedData),
+      getArrayLengths(tx.data.forPublic!.revertibleAccumulatedData),
+      convertAccumulatedData(tx.data.forPublic!.nonRevertibleAccumulatedData),
+      convertAccumulatedData(tx.data.forPublic!.revertibleAccumulatedData),
+      endTreeSnapshots,
+      convertAvmAccumulatedData(tailOutput.end),
+      transactionFee,
+      !tailOutput.revertCode.equals(RevertCode.OK),
+    );
   }
 }

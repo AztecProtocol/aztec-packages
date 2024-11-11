@@ -24,7 +24,7 @@ class MockKernelTest : public ::testing::Test {
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ivc.trace_settings.structure = TraceStructure::CLIENT_IVC_BENCH;
 
     MockCircuitProducer circuit_producer;
 

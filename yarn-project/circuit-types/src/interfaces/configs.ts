@@ -37,4 +37,8 @@ export interface SequencerConfig {
   maxBlockSizeInBytes?: number;
   /** Whether to require every tx to have a fee payer */
   enforceFees?: boolean;
+  /** Payload address to vote for */
+  governanceProposerPayload?: EthAddress;
+  /** Whether to enforce the time table when building blocks */
+  enforceTimeTable?: boolean;
 }

@@ -1,10 +1,10 @@
-import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, l1ContractsConfigMappings } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
 
 /**
@@ -18,7 +18,7 @@ export interface ValidatorClientConfig {
   disableValidator: boolean;
 
   /** Interval between polling for new attestations from peers */
-  attestationPoolingIntervalMs: number;
+  attestationPollingIntervalMs: number;
 
   /** Wait for attestations timeout */
   attestationWaitTimeoutMs: number;
@@ -35,15 +35,18 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Do not run the validator',
     ...booleanConfigHelper(),
   },
-  attestationPoolingIntervalMs: {
-    env: 'VALIDATOR_ATTESTATIONS_POOLING_INTERVAL_MS',
+  attestationPollingIntervalMs: {
+    env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',
     description: 'Interval between polling for new attestations',
-    ...numberConfigHelper(1000),
+    ...numberConfigHelper(200),
   },
   attestationWaitTimeoutMs: {
     env: 'VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS',
     description: 'Wait for attestations timeout',
-    ...numberConfigHelper(AZTEC_SLOT_DURATION * 1000),
+    ...numberConfigHelper(
+      getConfigFromMappings(pickConfigMappings(l1ContractsConfigMappings, ['aztecSlotDuration'])).aztecSlotDuration *
+        1000,
+    ),
   },
 };
 

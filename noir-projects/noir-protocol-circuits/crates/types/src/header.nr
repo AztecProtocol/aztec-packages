@@ -1,23 +1,26 @@
 use crate::{
     abis::{
-        append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
+        append_only_tree_snapshot::{APPEND_ONLY_TREE_SNAPSHOT_LENGTH, AppendOnlyTreeSnapshot},
         global_variables::GlobalVariables,
     },
     constants::{
-        GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
-        CONTENT_COMMITMENT_LENGTH,
-    }, hash::poseidon2_hash_with_separator, state_reference::StateReference,
-    traits::{Deserialize, Empty, Hash, Serialize}, utils::arr_copy_slice,
+        CONTENT_COMMITMENT_LENGTH, GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH,
+        HEADER_LENGTH, STATE_REFERENCE_LENGTH,
+    },
     content_commitment::ContentCommitment,
+    hash::poseidon2_hash_with_separator,
+    state_reference::StateReference,
+    traits::{Deserialize, Empty, Hash, Serialize},
+    utils::arr_copy_slice,
 };
 
 // docs:start:header
 pub struct Header {
-    last_archive: AppendOnlyTreeSnapshot,
-    content_commitment: ContentCommitment,
-    state: StateReference,
-    global_variables: GlobalVariables,
-    total_fees: Field,
+    pub last_archive: AppendOnlyTreeSnapshot,
+    pub content_commitment: ContentCommitment,
+    pub state: StateReference,
+    pub global_variables: GlobalVariables,
+    pub total_fees: Field,
 }
 // docs:end:header
 
@@ -41,7 +44,7 @@ impl Serialize<HEADER_LENGTH> for Header {
         fields.extend_from_array(self.global_variables.serialize());
         fields.push(self.total_fees);
 
-        fields.storage
+        fields.storage()
     }
 }
 

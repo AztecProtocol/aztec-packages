@@ -4,7 +4,9 @@ From the repo root:
 # one time setup
 ./spartan/scripts/setup_local_k8s.sh
 ./spartan/scripts/create_k8s_dashboard.sh
-./spartan/metrics/install.sh
+
+# Go into spartan/metrics
+./install.sh
 
 # forward ports (in separate terminals)
 ./spartan/scripts/forward_k8s_dashboard.sh

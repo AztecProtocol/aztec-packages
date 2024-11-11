@@ -13,6 +13,7 @@ import {
   BaseParityInputs,
   BlockRootRollupInputs,
   Fr,
+  GasSettings,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -23,11 +24,15 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PreviousRollupData,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
+  TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
+  VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
@@ -43,7 +48,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
-  buildBaseRollupInput,
+  buildBaseRollupHints,
   buildHeaderFromCircuitOutputs,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
@@ -63,7 +68,7 @@ describe('LightBlockBuilder', () => {
   let logger: DebugLogger;
   let globals: GlobalVariables;
   let l1ToL2Messages: Fr[];
-  let vkRoot: Fr;
+  let vkTreeRoot: Fr;
 
   let db: MerkleTreeAdminDatabase;
   let fork: MerkleTreeWriteOperations;
@@ -75,7 +80,7 @@ describe('LightBlockBuilder', () => {
   beforeAll(async () => {
     logger = createDebugLogger('aztec:sequencer-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
-    vkRoot = getVKTreeRoot();
+    vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     db = await NativeWorldStateService.tmp();
   });
@@ -160,7 +165,7 @@ describe('LightBlockBuilder', () => {
   });
 
   it('builds a single tx header', async () => {
-    const txs = times(1, i => makeBloatedProcessedTx(fork, vkRoot, protocolContractTreeRoot, i));
+    const txs = times(1, makeTx);
     const header = await buildHeader(txs, l1ToL2Messages);
 
     const expectedHeader = await buildExpectedHeader(txs, l1ToL2Messages);
@@ -179,7 +184,16 @@ describe('LightBlockBuilder', () => {
 
   // Makes a tx with a non-zero inclusion fee for testing
   const makeTx = (i: number) =>
-    makeBloatedProcessedTx(fork, vkRoot, protocolContractTreeRoot, i, { inclusionFee: new Fr(i) });
+    makeBloatedProcessedTx({
+      header: fork.getInitialHeader(),
+      chainId: globals.chainId,
+      version: globals.version,
+      gasSettings: GasSettings.default({ inclusionFee: new Fr(i + 1) }),
+      vkTreeRoot,
+      protocolContractTreeRoot,
+      seed: i + 1,
+      privateOnly: true,
+    });
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
@@ -210,7 +224,7 @@ describe('LightBlockBuilder', () => {
             expectsFork.getInitialHeader(),
             globals.chainId,
             globals.version,
-            vkRoot,
+            vkTreeRoot,
             protocolContractTreeRoot,
           ),
         ),
@@ -219,7 +233,7 @@ describe('LightBlockBuilder', () => {
       getTopMerges = rollupOutputs => Promise.resolve([rollupOutputs[0], rollupOutputs[1]]);
     }
 
-    const rollupOutputs = await getRollupOutputs(txs);
+    const rollupOutputs = await getPrivateBaseRollupOutputs(txs);
     const [mergeLeft, mergeRight] = await getTopMerges!(rollupOutputs);
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
@@ -250,18 +264,23 @@ describe('LightBlockBuilder', () => {
     return { messageTreeSnapshot, newL1ToL2MessageTreeRootSiblingPath, l1ToL2Messages };
   };
 
-  const getRollupOutputs = async (txs: ProcessedTx[]) => {
+  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
     const rollupOutputs = [];
     for (const tx of txs) {
-      const inputs = await buildBaseRollupInput(tx, emptyProof, globals, expectsFork, TubeVk);
-      const result = await simulator.getBaseRollupProof(inputs);
+      const vkIndex = TUBE_VK_INDEX;
+      const vkPath = getVKSiblingPath(vkIndex);
+      const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
+      const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyProof, vkData);
+      const hints = await buildBaseRollupHints(tx, globals, expectsFork);
+      const inputs = new PrivateBaseRollupInputs(tubeData, hints);
+      const result = await simulator.getPrivateBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
     }
     return rollupOutputs;
   };
 
   const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
-    const baseRollupVk = ProtocolCircuitVks['BaseRollupArtifact'].keyAsFields;
+    const baseRollupVk = ProtocolCircuitVks['PrivateBaseRollupArtifact'].keyAsFields;
     const baseRollupVkWitness = getVkMembershipWitness(baseRollupVk);
     const leftInput = new PreviousRollupData(left, emptyProof, baseRollupVk, baseRollupVkWitness);
     const rightInput = new PreviousRollupData(right, emptyProof, baseRollupVk, baseRollupVkWitness);
@@ -278,7 +297,7 @@ describe('LightBlockBuilder', () => {
     const baseParityVk = ProtocolCircuitVks['BaseParityArtifact'].keyAsFields;
     const baseParityVkWitness = getVkMembershipWitness(baseParityVk);
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
-      const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkRoot);
+      const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkTreeRoot);
       const { publicInputs } = await simulator.getBaseParityProof(input);
       const rootInput = new RootParityInput(emptyProof, baseParityVk, baseParityVkWitness.siblingPath, publicInputs);
       rootParityInputs.push(rootInput);

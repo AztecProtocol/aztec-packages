@@ -3,10 +3,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract EasyPrivateToken {
+    use dep::aztec::macros::{functions::{initializer, private}, storage::storage};
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::value_note::balance_utils;
     use dep::easy_private_state::EasyPrivateUint;
-    use dep::aztec::macros::{storage::storage, functions::{initializer, private}};
+    use dep::value_note::balance_utils;
 
     #[storage]
     struct Storage<Context> {
@@ -21,7 +21,7 @@ contract EasyPrivateToken {
     fn constructor(initial_supply: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(owner).add(initial_supply, owner, outgoing_viewer);
+        balances.at(owner).add(initial_supply, owner, outgoing_viewer, context.msg_sender());
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -29,7 +29,7 @@ contract EasyPrivateToken {
     fn mint(amount: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(owner).add(amount, owner, outgoing_viewer);
+        balances.at(owner).add(amount, owner, outgoing_viewer, context.msg_sender());
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -42,8 +42,8 @@ contract EasyPrivateToken {
     ) {
         let balances = storage.balances;
 
-        balances.at(sender).sub(amount, sender, outgoing_viewer);
-        balances.at(recipient).add(amount, recipient, outgoing_viewer);
+        balances.at(sender).sub(amount, sender, outgoing_viewer, sender);
+        balances.at(recipient).add(amount, recipient, outgoing_viewer, sender);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).

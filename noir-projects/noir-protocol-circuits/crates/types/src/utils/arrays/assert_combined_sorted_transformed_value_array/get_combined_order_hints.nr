@@ -1,14 +1,15 @@
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered,
+    traits::{Empty, is_empty},
     utils::arrays::{
-        array_length, sort_by_counter::compare_by_counter_empty_padded_asc,
-        get_sorted_tuple::get_sorted_tuple,
+        array_length, get_sorted_tuple::get_sorted_tuple,
+        sort_by_counter::compare_by_counter_empty_padded_asc,
     },
 };
 
 pub struct CombinedOrderHint {
-    counter: u32,
-    original_index: u32,
+    pub counter: u32,
+    pub original_index: u32,
 }
 
 impl CombinedOrderHint {

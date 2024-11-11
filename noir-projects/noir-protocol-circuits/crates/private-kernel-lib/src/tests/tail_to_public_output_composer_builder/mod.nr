@@ -4,7 +4,7 @@ mod tail_to_public_output_composer;
 
 use crate::components::tail_to_public_output_composer::TailToPublicOutputComposer;
 use dep::types::{
-    abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -19,7 +19,7 @@ impl TailToPublicOutputComposerBuilder {
         TailToPublicOutputComposerBuilder { previous_kernel }
     }
 
-    pub fn finish(self) -> PublicKernelCircuitPublicInputs {
+    pub fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         unsafe {
             let composer = TailToPublicOutputComposer::new(previous_kernel);

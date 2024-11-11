@@ -1,15 +1,15 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BASE_ROLLUP_TYPE;
 use crate::abis::previous_rollup_data::PreviousRollupData;
-use dep::types::constants::BASE_ROLLUP_INDEX;
-use dep::types::tests::fixtures;
 use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use dep::types::constants::PUBLIC_BASE_ROLLUP_VK_INDEX;
 use dep::types::merkle_tree::MembershipWitness;
+use dep::types::tests::fixtures;
 use types::merkle_tree::merkle_tree::MerkleTree;
 
 pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     let mut previous_rollup_data = [PreviousRollupData::empty(); 2];
 
-    let vk_index = BASE_ROLLUP_INDEX;
+    let vk_index = PUBLIC_BASE_ROLLUP_VK_INDEX;
     let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
         comptime { fixtures::vk_tree::get_vk_merkle_tree() };
     let vk_path = vk_tree.get_sibling_path(vk_index);

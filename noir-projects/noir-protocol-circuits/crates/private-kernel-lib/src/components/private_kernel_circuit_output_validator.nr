@@ -3,11 +3,15 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths,
-        }, max_block_number::MaxBlockNumber,
+        },
+        max_block_number::MaxBlockNumber,
         private_circuit_public_inputs::{
             PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths,
         },
-    }, address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
+    },
+    address::AztecAddress,
+    traits::is_empty,
+    transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
         assert_array_prepended,
@@ -80,10 +84,6 @@ impl PrivateKernelCircuitOutputValidator {
             self.output.constants.historical_header,
             private_call.historical_header,
             "mismatch historical_header",
-        );
-        assert(
-            is_empty(self.output.constants.global_variables),
-            "constants.global_variables must be empty",
         );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(

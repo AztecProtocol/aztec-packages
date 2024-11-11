@@ -7,10 +7,14 @@ use crate::components::{
 use dep::types::{
     abis::{
         accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
+        combined_constant_data::CombinedConstantData,
+        global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
-        log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash},
+        note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
-    }, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
 };
 
 pub struct TailOutputComposer {
@@ -31,7 +35,8 @@ impl TailOutputComposer {
         let mut output = KernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;
         output.end = self.build_combined_accumulated_data();
-        output.constants = source.constants;
+        output.constants =
+            CombinedConstantData::combine(source.constants, GlobalVariables::empty());
         output.fee_payer = source.fee_payer;
         output
     }
@@ -60,10 +65,7 @@ impl TailOutputComposer {
             0,
             |len, l: ScopedLogHash| len + l.log_hash.length,
         );
-        data.gas_used = meter_gas_used(
-            data,
-            self.output_composer.public_inputs.constants.tx_context.gas_settings,
-        );
+        data.gas_used = meter_gas_used(data);
         data
     }
 }

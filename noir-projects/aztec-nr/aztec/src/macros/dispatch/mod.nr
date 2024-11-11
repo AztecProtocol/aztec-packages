@@ -120,7 +120,7 @@ comptime fn size_in_fields(typ: Type) -> u32 {
 comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
     typ.as_array().and_then(|typ: (Type, Type)| {
         let (typ, element_size) = typ;
-        element_size.as_constant().map(|x: u32| { x * size_in_fields(typ) })
+        element_size.as_constant().map(|x: u32| x * size_in_fields(typ))
     })
 }
 

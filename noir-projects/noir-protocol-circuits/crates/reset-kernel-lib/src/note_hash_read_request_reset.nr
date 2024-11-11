@@ -9,9 +9,9 @@ use dep::types::{
 };
 
 pub struct NoteHashSettledReadHint {
-    read_request_index: u32,
-    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
-    leaf_preimage: NoteHashLeafPreimage,
+    pub read_request_index: u32,
+    pub membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
+    pub leaf_preimage: NoteHashLeafPreimage,
 }
 
 impl ReadValueHint for NoteHashSettledReadHint {
@@ -39,9 +39,9 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
 }
 
 pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
-    read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
-    settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
+    pub read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
+    pub settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
 }
 
 mod tests {
@@ -51,11 +51,15 @@ mod tests {
         verify_reset_read_requests,
     };
     use dep::types::{
-        address::AztecAddress, merkle_tree::MembershipWitness,
         abis::{
-            note_hash::{NoteHash, ScopedNoteHash}, note_hash_leaf_preimage::NoteHashLeafPreimage,
+            note_hash::{NoteHash, ScopedNoteHash},
+            note_hash_leaf_preimage::NoteHashLeafPreimage,
             read_request::{ReadRequest, ScopedReadRequest},
-        }, constants::NOTE_HASH_TREE_HEIGHT, hash::compute_siloed_note_hash,
+        },
+        address::AztecAddress,
+        constants::NOTE_HASH_TREE_HEIGHT,
+        hash::compute_siloed_note_hash,
+        merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::is_empty_array,
     };

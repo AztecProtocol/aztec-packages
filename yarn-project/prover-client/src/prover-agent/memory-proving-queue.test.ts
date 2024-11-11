@@ -9,8 +9,9 @@ import {
 } from '@aztec/circuits.js';
 import {
   makeBaseParityInputs,
-  makeBaseRollupInputs,
   makeParityPublicInputs,
+  makePrivateBaseRollupInputs,
+  makePublicBaseRollupInputs,
   makeRootRollupInputs,
 } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
@@ -38,39 +39,39 @@ describe('MemoryProvingQueue', () => {
 
   it('returns jobs in order', async () => {
     void queue.getBaseParityProof(makeBaseParityInputs());
-    void queue.getBaseRollupProof(makeBaseRollupInputs());
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs());
 
     const job1 = await queue.getProvingJob();
     expect(job1?.request.type).toEqual(ProvingRequestType.BASE_PARITY);
 
     const job2 = await queue.getProvingJob();
-    expect(job2?.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect(job2?.request.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
   });
 
   it('returns jobs ordered by priority', async () => {
     // We push base rollup proof requests for a first block
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 1);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 1);
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs(), undefined, 1);
+    void queue.getPublicBaseRollupProof(makePublicBaseRollupInputs(), undefined, 1);
 
     // The agent consumes one of them
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
 
     // A new block comes along with its base rollups, and the orchestrator then pushes a root request for the first one
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
-    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
+    void queue.getPublicBaseRollupProof(makePublicBaseRollupInputs(), undefined, 2);
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs(), undefined, 2);
+    void queue.getPrivateBaseRollupProof(makePrivateBaseRollupInputs(), undefined, 2);
+    void queue.getPublicBaseRollupProof(makePublicBaseRollupInputs(), undefined, 2);
     void queue.getRootRollupProof(makeRootRollupInputs(), undefined, 1);
 
     // The next jobs for the agent should be the ones from block 1, skipping the ones for block 2
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.PUBLIC_BASE_ROLLUP);
     expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.ROOT_ROLLUP);
 
     // And the base rollups for block 2 should go next
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
-    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.PUBLIC_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.PRIVATE_BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.PUBLIC_BASE_ROLLUP);
   });
 
   it('returns undefined when no jobs are available', async () => {

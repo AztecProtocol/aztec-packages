@@ -6,7 +6,8 @@ mod validate_propagated_values;
 use crate::components::{
     tail_output_composer::meter_gas_used::meter_gas_used,
     tail_output_validator::{
-        tail_output_hints::{generate_tail_output_hints, TailOutputHints}, TailOutputValidator,
+        tail_output_hints::{generate_tail_output_hints, TailOutputHints},
+        TailOutputValidator,
     },
 };
 use dep::types::{
@@ -39,7 +40,7 @@ impl TailOutputValidatorBuilder {
 
     pub fn export_output(self) -> KernelCircuitPublicInputs {
         let mut output = self.output.to_kernel_circuit_public_inputs();
-        output.end.gas_used = meter_gas_used(output.end, output.constants.tx_context.gas_settings);
+        output.end.gas_used = meter_gas_used(output.end);
         output
     }
 

@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, PublicDataWrite, SimulationError } from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
   Fr,
   FunctionSelector,
@@ -118,7 +118,7 @@ export class TXEService {
       skipArgsDecoding: true,
       salt: Fr.ONE,
       // TODO: Modify this to allow for passing public keys.
-      publicKeys: PublicKeys.empty(),
+      publicKeys: PublicKeys.default(),
       constructorArtifact: initializerStr ? initializerStr : undefined,
       deployer: AztecAddress.ZERO,
     });
@@ -151,14 +151,14 @@ export class TXEService {
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
       this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-      return new PublicDataWrite(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
+      return new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
     });
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      publicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+      publicDataWrites.map(write => write.toBuffer()),
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
-    return toForeignCallResult([toArray(publicDataWrites.map(write => write.newValue))]);
+    return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
   async createAccount() {
@@ -218,8 +218,9 @@ export class TXEService {
     args: ForeignCallArray,
   ) {
     const parsedAddress = fromSingle(address);
-    const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, parsedSelector, fromArray(args), false);
+    const parsedSelector = fromSingle(functionSelector);
+    const extendedArgs = [parsedSelector, ...fromArray(args)];
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, extendedArgs, false);
     if (!result.reverted) {
       throw new ExpectedFailureError('Public call did not revert');
     }
@@ -599,6 +600,19 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  async getAppTaggingSecret(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
+    const secret = await this.typedOracle.getAppTaggingSecret(
+      AztecAddress.fromField(fromSingle(sender)),
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
+    return toForeignCallResult([toArray(secret.toFields())]);
+  }
+
+  async syncNotes(recipient: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(AztecAddress.fromField(fromSingle(recipient)));
+    return toForeignCallResult([]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
@@ -616,18 +630,30 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeGetContractInstance(address: ForeignCallSingle) {
+  async avmOpcodeGetContractInstanceDeployer(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(fromSingle(address));
     return toForeignCallResult([
-      toArray([
-        // AVM requires an extra boolean indicating the instance was found
-        new Fr(1),
-        instance.salt,
-        instance.deployer,
-        instance.contractClassId,
-        instance.initializationHash,
-        ...instance.publicKeys.toFields(),
-      ]),
+      toSingle(instance.deployer),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
+    ]);
+  }
+
+  async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toSingle(instance.contractClassId),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
+    ]);
+  }
+
+  async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
+    const instance = await this.typedOracle.getContractInstance(fromSingle(address));
+    return toForeignCallResult([
+      toSingle(instance.initializationHash),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
     ]);
   }
 
@@ -684,16 +710,28 @@ export class TXEService {
     return toForeignCallResult([toSingle(version)]);
   }
 
+  avmOpcodeReturndataSize() {
+    const size = (this.typedOracle as TXE).avmOpcodeReturndataSize();
+    return toForeignCallResult([toSingle(new Fr(size))]);
+  }
+
+  avmOpcodeReturndataCopy(rdOffset: ForeignCallSingle, copySize: ForeignCallSingle) {
+    const returndata = (this.typedOracle as TXE).avmOpcodeReturndataCopy(
+      fromSingle(rdOffset).toNumber(),
+      fromSingle(copySize).toNumber(),
+    );
+    // This is a slice, so we need to return the length as well.
+    return toForeignCallResult([toSingle(new Fr(returndata.length)), toArray(returndata)]);
+  }
+
   async avmOpcodeCall(
     _gas: ForeignCallArray,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
-    functionSelector: ForeignCallSingle,
   ) {
     const result = await (this.typedOracle as TXE).avmOpcodeCall(
       fromSingle(address),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ false,
     );
@@ -713,7 +751,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
+    return toForeignCallResult([toSingle(new Fr(!result.reverted))]);
   }
 
   async avmOpcodeStaticCall(
@@ -721,11 +759,9 @@ export class TXEService {
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
-    functionSelector: ForeignCallSingle,
   ) {
     const result = await (this.typedOracle as TXE).avmOpcodeCall(
       fromSingle(address),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ true,
     );
@@ -745,6 +781,6 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(!result.reverted))]);
+    return toForeignCallResult([toSingle(new Fr(!result.reverted))]);
   }
 }

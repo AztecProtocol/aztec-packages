@@ -1,4 +1,4 @@
-use super::traits::{Serialize, Deserialize};
+use super::traits::{Deserialize, Serialize};
 
 pub comptime fn pack_from_fields<N>(
     name: Quoted,
@@ -97,8 +97,11 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
     let mut aux_vars = &[];
 
     if omit.all(|to_omit| to_omit != name) {
-        if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
-            // For field, integer and bool we just cast to Field and add the value to fields
+        if typ.is_field() {
+            // For field we just add the value to fields
+            fields = fields.push_back(name);
+        } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+            // For integer and bool we just cast to Field and add the value to fields
             fields = fields.push_back(quote { $name as Field });
         } else if typ.as_struct().is_some() {
             // For struct we pref

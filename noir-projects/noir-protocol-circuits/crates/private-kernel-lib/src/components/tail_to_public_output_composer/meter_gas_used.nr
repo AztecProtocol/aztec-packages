@@ -1,12 +1,17 @@
 use dep::types::{
-    abis::{accumulated_data::PublicAccumulatedData, gas::Gas, log_hash::{LogHash, ScopedLogHash}},
+    abis::{
+        accumulated_data::PrivateToPublicAccumulatedData,
+        gas::Gas,
+        log_hash::{LogHash, ScopedLogHash},
+    },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE,
-    }, utils::arrays::array_length,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+    },
+    utils::arrays::array_length,
 };
 
-fn meter_gas_used(data: PublicAccumulatedData) -> Gas {
+fn meter_gas_used(data: PrivateToPublicAccumulatedData) -> Gas {
     let mut metered_da_bytes = 0;
     let mut metered_l2_gas = 0;
 
@@ -35,15 +40,15 @@ fn meter_gas_used(data: PublicAccumulatedData) -> Gas {
     metered_da_bytes += unencrypted_log_preimages_length as u32;
     metered_l2_gas += unencrypted_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
-    metered_l2_gas += array_length(data.public_call_stack) * FIXED_AVM_STARTUP_L2_GAS;
+    metered_l2_gas += array_length(data.public_call_requests) * FIXED_AVM_STARTUP_L2_GAS;
 
     Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, metered_l2_gas)
 }
 
-pub fn meter_gas_used_non_revertible(data: PublicAccumulatedData) -> Gas {
+pub fn meter_gas_used_non_revertible(data: PrivateToPublicAccumulatedData) -> Gas {
     meter_gas_used(data) + Gas::tx_overhead()
 }
 
-pub fn meter_gas_used_revertible(data: PublicAccumulatedData, teardown_gas: Gas) -> Gas {
-    meter_gas_used(data) + Gas::new(teardown_gas.da_gas, teardown_gas.l2_gas)
+pub fn meter_gas_used_revertible(data: PrivateToPublicAccumulatedData) -> Gas {
+    meter_gas_used(data)
 }

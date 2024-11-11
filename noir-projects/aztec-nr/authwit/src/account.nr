@@ -1,11 +1,11 @@
 use dep::aztec::{
     context::PrivateContext,
-    protocol_types::constants::{GENERATOR_INDEX__COMBINED_PAYLOAD, GENERATOR_INDEX__TX_NULLIFIER},
     hash::poseidon2_hash_with_separator,
+    protocol_types::constants::{GENERATOR_INDEX__COMBINED_PAYLOAD, GENERATOR_INDEX__TX_NULLIFIER},
 };
 
+use crate::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
-use crate::auth::{IS_VALID_SELECTOR, compute_authwit_message_hash};
 
 pub struct AccountActions<Context> {
     context: Context,

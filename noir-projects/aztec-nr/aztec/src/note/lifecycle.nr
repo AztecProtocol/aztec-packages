@@ -1,8 +1,9 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
-    note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote},
-    utils::{compute_note_hash_for_read_request, compute_note_hash_for_nullify_internal},
     note_emission::NoteEmission,
+    note_header::NoteHeader,
+    note_interface::{NoteInterface, NullifiableNote},
+    utils::{compute_note_hash_for_nullify_internal, compute_note_hash_for_read_request},
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 

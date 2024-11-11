@@ -1,15 +1,18 @@
 use crate::{
-    address::AztecAddress, abis::function_data::FunctionData,
+    abis::function_data::FunctionData,
+    address::AztecAddress,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH},
-    hash::poseidon2_hash_with_separator, traits::{Hash, Serialize, Deserialize, Empty},
-    transaction::tx_context::TxContext, utils::reader::Reader,
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Empty, Hash, Serialize},
+    transaction::tx_context::TxContext,
+    utils::reader::Reader,
 };
 
 pub struct TxRequest {
-    origin: AztecAddress,
-    args_hash: Field,
-    tx_context: TxContext,
-    function_data: FunctionData,
+    pub origin: AztecAddress,
+    pub args_hash: Field,
+    pub tx_context: TxContext,
+    pub function_data: FunctionData,
 }
 
 impl Empty for TxRequest {
@@ -50,7 +53,7 @@ impl Serialize<TX_REQUEST_LENGTH> for TxRequest {
 
         assert_eq(fields.len(), TX_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -73,9 +76,11 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
 mod tests {
     use crate::{
         abis::{
-            function_selector::FunctionSelector, function_data::FunctionData,
-            gas_settings::GasSettings, gas::Gas, gas_fees::GasFees,
-        }, address::AztecAddress, transaction::{tx_request::TxRequest, tx_context::TxContext},
+            function_data::FunctionData, function_selector::FunctionSelector, gas::Gas,
+            gas_fees::GasFees, gas_settings::GasSettings,
+        },
+        address::AztecAddress,
+        transaction::{tx_context::TxContext, tx_request::TxRequest},
     };
 
     #[test]

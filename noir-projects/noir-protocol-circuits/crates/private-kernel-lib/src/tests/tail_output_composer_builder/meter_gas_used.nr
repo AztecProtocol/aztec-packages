@@ -2,14 +2,14 @@ use crate::components::tail_output_composer::meter_gas_used::meter_gas_used;
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        L2_GAS_PER_LOG_BYTE,
-    }, tests::fixture_builder::FixtureBuilder,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 fn new_builder() -> FixtureBuilder {
     let mut builder = FixtureBuilder::new();
-    builder.tx_context.gas_settings.teardown_gas_limits = Gas::new(12, 345);
     builder
 }
 
@@ -17,9 +17,8 @@ fn new_builder() -> FixtureBuilder {
 fn meter_gas_used_empty_succeeds() {
     let builder = new_builder();
     let data = builder.to_combined_accumulated_data();
-    let gas_settings = builder.tx_context.gas_settings;
-    let gas = meter_gas_used(data, gas_settings);
-    assert_eq(gas, Gas::tx_overhead() + gas_settings.teardown_gas_limits);
+    let gas = meter_gas_used(data);
+    assert_eq(gas, Gas::tx_overhead());
 }
 
 #[test]
@@ -64,13 +63,10 @@ fn meter_gas_used_everything_succeeds() {
     computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
 
     let data = builder.to_combined_accumulated_data();
-    let gas_settings = builder.tx_context.gas_settings;
-    let gas = meter_gas_used(data, gas_settings);
+    let gas = meter_gas_used(data);
 
     assert_eq(
         gas,
-        Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, computed_l2_gas)
-            + Gas::tx_overhead()
-            + gas_settings.teardown_gas_limits,
+        Gas::new(metered_da_bytes * DA_GAS_PER_BYTE, computed_l2_gas) + Gas::tx_overhead(),
     );
 }

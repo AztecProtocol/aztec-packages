@@ -1,11 +1,11 @@
-use crate::test::utils;
 use crate::NFT;
+use crate::test::utils;
 
 #[test]
 unconstrained fn access_control() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, recipient) =
-        utils::setup( /* with_account_contracts */ false);
+        utils::setup(/* with_account_contracts */ false);
 
     // Set a new admin
     NFT::at(nft_contract_address).set_admin(recipient).call(&mut env.public());

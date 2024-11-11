@@ -1,5 +1,5 @@
-use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 use crate::value_note::ValueNote;
+use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
 pub fn filter_notes_min_sum(
     notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],

@@ -1,12 +1,16 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Serialize},
 };
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
-    lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
+    lifecycle::{create_note, destroy_note_unsafe},
     note_emission::NoteEmission,
+    note_getter::{get_note, view_notes},
+    note_interface::{NoteInterface, NullifiableNote},
+    note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
@@ -20,7 +24,10 @@ pub struct PrivateMutable<Note, Context> {
 
 mod test;
 
-impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
+impl<T, Context, let N: u32> Storage<T, N> for PrivateMutable<T, Context>
+where
+    T: Serialize<N> + Deserialize<N>,
+{}
 
 impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new

@@ -1,5 +1,8 @@
 use dep::protocol_types::{
-    address::AztecAddress, public_keys::{PublicKeys, IvpkM, ToPoint}, scalar::Scalar, point::Point,
+    address::AztecAddress,
+    point::Point,
+    public_keys::{IvpkM, ToPoint},
+    scalar::Scalar,
 };
 
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
@@ -11,11 +14,11 @@ pub struct EncryptedLogHeader {
 }
 
 impl EncryptedLogHeader {
-    fn new(address: AztecAddress) -> Self {
+    pub fn new(address: AztecAddress) -> Self {
         EncryptedLogHeader { address }
     }
 
-    fn compute_ciphertext<T>(self, secret: Scalar, pk: T) -> [u8; 48]
+    pub fn compute_ciphertext<T>(self, secret: Scalar, pk: T) -> [u8; 48]
     where
         T: ToPoint,
     {

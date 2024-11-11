@@ -81,7 +81,7 @@ class MegaFlavor {
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This
-    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) to much.
+    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
@@ -114,14 +114,14 @@ class MegaFlavor {
                               q_r,                  // column 3
                               q_o,                  // column 4
                               q_4,                  // column 5
-                              q_arith,              // column 6
-                              q_delta_range,        // column 7
-                              q_elliptic,           // column 8
-                              q_aux,                // column 9
-                              q_lookup,             // column 10
-                              q_busread,            // column 11
-                              q_poseidon2_external, // column 12
-                              q_poseidon2_internal, // column 13
+                              q_busread,            // column 6
+                              q_arith,              // column 7
+                              q_delta_range,        // column 8
+                              q_elliptic,           // column 9
+                              q_aux,                // column 10
+                              q_poseidon2_external, // column 11
+                              q_poseidon2_internal, // column 12
+                              q_lookup,             // column 13
                               sigma_1,              // column 14
                               sigma_2,              // column 15
                               sigma_3,              // column 16
@@ -145,8 +145,10 @@ class MegaFlavor {
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
         auto get_gate_selectors()
         {
-            return RefArray{ q_arith,  q_delta_range, q_elliptic,           q_aux,
-                             q_lookup, q_busread,     q_poseidon2_external, q_poseidon2_internal };
+            return RefArray{
+                q_busread, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal,
+                q_lookup
+            };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -540,8 +542,9 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_recursive_proof = proving_key.contains_recursive_proof;
-            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                proving_key.pairing_point_accumulator_public_input_indices;
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
@@ -575,11 +578,9 @@ class MegaFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->contains_recursive_proof, elements);
-            serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
+            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
+            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.contains_app_return_data_commitment, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.contains_kernel_return_data_commitment, elements);
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
@@ -595,8 +596,8 @@ class MegaFlavor {
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
-                        const bool contains_recursive_proof,
-                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
+                        const bool contains_pairing_point_accumulator,
+                        const PairingPointAccumPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,
@@ -604,14 +605,14 @@ class MegaFlavor {
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_busread,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
-                        const Commitment& q_busread,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
+                        const Commitment& q_lookup,
                         const Commitment& sigma_1,
                         const Commitment& sigma_2,
                         const Commitment& sigma_3,
@@ -633,8 +634,8 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_recursive_proof = contains_recursive_proof;
-            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
             this->databus_propagation_data = databus_propagation_data;
             this->q_m = q_m;
             this->q_c = q_c;
@@ -642,14 +643,14 @@ class MegaFlavor {
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_busread = q_busread;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
-            this->q_busread = q_busread;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
+            this->q_lookup = q_lookup;
             this->sigma_1 = sigma_1;
             this->sigma_2 = sigma_2;
             this->sigma_3 = sigma_3;
@@ -671,8 +672,8 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_recursive_proof,
-                       recursive_proof_public_input_indices,
+                       contains_pairing_point_accumulator,
+                       pairing_point_accumulator_public_input_indices,
                        databus_propagation_data,
                        q_m,
                        q_c,
@@ -680,14 +681,14 @@ class MegaFlavor {
                        q_r,
                        q_o,
                        q_4,
+                       q_busread,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
-                       q_busread,
                        q_poseidon2_external,
                        q_poseidon2_internal,
+                       q_lookup,
                        sigma_1,
                        sigma_2,
                        sigma_3,
@@ -786,14 +787,14 @@ class MegaFlavor {
             q_o = "Q_O";
             q_4 = "Q_4";
             q_m = "Q_M";
+            q_busread = "Q_BUSREAD";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
-            q_lookup = "Q_LOOKUP";
-            q_busread = "Q_BUSREAD";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            q_lookup = "Q_LOOKUP";
             sigma_1 = "SIGMA_1";
             sigma_2 = "SIGMA_2";
             sigma_3 = "SIGMA_3";

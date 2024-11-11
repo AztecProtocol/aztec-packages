@@ -1,5 +1,7 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
 use dep::types::address::AztecAddress;
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use types::hash::verification_key_hash;
 
 impl PrivateCallDataValidatorBuilder {
     pub fn new_with_regular_contract() -> Self {
@@ -71,8 +73,8 @@ fn validate_contract_address_incorrect_partial_address_preimage_fails() {
 fn validate_contract_address_incorrect_address_preimage_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    builder.private_call.public_keys.ivpk_m.inner.x =
-        builder.private_call.public_keys.ivpk_m.inner.x + 1;
+    builder.private_call.public_keys.ivpk_m.inner =
+        derive_public_key(EmbeddedCurveScalar::from_field(69));
 
     builder.validate();
 }
@@ -97,6 +99,28 @@ fn validate_contract_address_protocol_contract_wrong_computed_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
 
     builder.private_call.salted_initialization_hash.inner += 1;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "Invalid VK hash")]
+fn validate_contract_address_wrong_vk_hash_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
+
+    // Fake the vk hash so it doesn't match the preimage
+    builder.private_call.client_ivc_vk.hash = 27;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "computed contract address does not match expected one")]
+fn validate_contract_address_wrong_vk_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
+
+    // Change the VK so the address doesn't match anymore
+    builder.private_call.client_ivc_vk.key[0] = 27;
+    builder.private_call.client_ivc_vk.hash =
+        verification_key_hash(builder.private_call.client_ivc_vk.key);
 
     builder.validate();
 }

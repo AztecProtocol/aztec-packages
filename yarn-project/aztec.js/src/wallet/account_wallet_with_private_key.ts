@@ -1,5 +1,5 @@
 import { type PXE } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import { type Fr, computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
 
 import { type Salt } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';
@@ -24,5 +24,16 @@ export class AccountWalletWithSecretKey extends AccountWallet {
   /** Returns the encryption private key associated with this account. */
   public getSecretKey() {
     return this.secretKey;
+  }
+
+  /** Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account
+   * note - this ensures that the address secret always corresponds to an address point with y being positive
+   * dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
+   */
+  public getEncryptionSecret() {
+    return computeAddressSecret(
+      this.getCompleteAddress().getPreaddress(),
+      deriveMasterIncomingViewingSecretKey(this.getSecretKey()),
+    );
   }
 }

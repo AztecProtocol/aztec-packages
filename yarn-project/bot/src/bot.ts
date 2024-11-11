@@ -21,6 +21,9 @@ const TRANSFER_AMOUNT = 1;
 export class Bot {
   private log = createDebugLogger('aztec:bot');
 
+  private attempts: number = 0;
+  private successes: number = 0;
+
   protected constructor(
     public readonly wallet: Wallet,
     public readonly token: TokenContract | EasyPrivateTokenContract,
@@ -39,6 +42,7 @@ export class Bot {
   }
 
   public async run() {
+    this.attempts++;
     const logCtx = { runId: Date.now() * 1000 + Math.floor(Math.random() * 1000) };
     const { privateTransfersPerTx, publicTransfersPerTx, feePaymentMethod, followChain, txMinedWaitSeconds } =
       this.config;
@@ -96,7 +100,11 @@ export class Bot {
       provenTimeout: txMinedWaitSeconds,
       proven: followChain === 'PROVEN',
     });
-    this.log.info(`Tx ${receipt.txHash} mined in block ${receipt.blockNumber}`, logCtx);
+    this.log.info(
+      `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
+      logCtx,
+    );
+    this.successes++;
   }
 
   public async getBalances() {

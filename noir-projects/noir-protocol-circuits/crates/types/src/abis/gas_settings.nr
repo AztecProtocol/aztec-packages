@@ -1,9 +1,11 @@
 use crate::{
     abis::{gas::Gas, gas_fees::GasFees},
     constants::{
-        GAS_SETTINGS_LENGTH, DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_MAX_FEE_PER_GAS,
-        DEFAULT_INCLUSION_FEE,
-    }, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
+        DEFAULT_GAS_LIMIT, DEFAULT_INCLUSION_FEE, DEFAULT_MAX_FEE_PER_GAS,
+        DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH,
+    },
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 pub struct GasSettings {
@@ -57,7 +59,7 @@ impl Serialize<GAS_SETTINGS_LENGTH> for GasSettings {
         serialized.extend_from_array(self.max_fees_per_gas.serialize());
         serialized.push(self.inclusion_fee);
 
-        serialized.storage
+        serialized.storage()
     }
 }
 

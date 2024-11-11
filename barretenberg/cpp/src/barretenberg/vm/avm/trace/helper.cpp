@@ -1,4 +1,5 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include <algorithm>
 #include <cassert>
@@ -73,6 +74,29 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
 std::string to_hex(bb::avm_trace::AvmMemoryTag tag)
 {
     return to_hex(static_cast<uint8_t>(tag));
+}
+
+std::string to_name(bb::avm_trace::AvmMemoryTag tag)
+{
+    switch (tag) {
+    case bb::avm_trace::AvmMemoryTag::FF:
+        return "Field";
+    case bb::avm_trace::AvmMemoryTag::U1:
+        return "Uint1";
+    case bb::avm_trace::AvmMemoryTag::U8:
+        return "Uint8";
+    case bb::avm_trace::AvmMemoryTag::U16:
+        return "Uint16";
+    case bb::avm_trace::AvmMemoryTag::U32:
+        return "Uint32";
+    case bb::avm_trace::AvmMemoryTag::U64:
+        return "Uint64";
+    case bb::avm_trace::AvmMemoryTag::U128:
+        return "Uint128";
+    default:
+        throw std::runtime_error("Invalid memory tag");
+        break;
+    }
 }
 
 /**

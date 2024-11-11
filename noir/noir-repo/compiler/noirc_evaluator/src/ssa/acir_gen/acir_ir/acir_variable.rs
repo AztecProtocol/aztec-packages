@@ -1108,10 +1108,10 @@ impl<F: AcirField> AcirContext<F> {
                 let witness = self.var_to_witness(witness_var)?;
                 self.acir_ir.range_constraint(witness, *bit_size)?;
                 if let Some(message) = message {
-                    self.acir_ir.assertion_payloads.insert(
-                        self.acir_ir.last_acir_opcode_location(),
-                        AssertionPayload::StaticString(message.clone()),
-                    );
+                    let payload = self.generate_assertion_message_payload(message.clone());
+                    self.acir_ir
+                        .assertion_payloads
+                        .insert(self.acir_ir.last_acir_opcode_location(), payload);
                 }
             }
             NumericType::NativeField => {
@@ -2068,6 +2068,13 @@ impl<F: AcirField> AcirContext<F> {
         self.acir_ir.push_opcode(Opcode::Call { id, inputs, outputs, predicate });
         Ok(results)
     }
+
+    pub(crate) fn generate_assertion_message_payload(
+        &mut self,
+        message: String,
+    ) -> AssertionPayload<F> {
+        self.acir_ir.generate_assertion_message_payload(message)
+    }
 }
 
 /// Enum representing the possible values that a
@@ -2195,7 +2202,8 @@ fn execute_brillig<F: AcirField>(
     // We pass a stubbed solver here as a concrete solver implies a field choice which conflicts with this function
     // being generic.
     let solver = acvm::blackbox_solver::StubbedBlackBoxSolver;
-    let mut vm = VM::new(calldata, code, Vec::new(), &solver);
+    let profiling_active = false;
+    let mut vm = VM::new(calldata, code, Vec::new(), &solver, profiling_active);
 
     // Run the Brillig VM on these inputs, bytecode, etc!
     let vm_status = vm.process_opcodes();

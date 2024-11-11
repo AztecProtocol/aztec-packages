@@ -1,13 +1,15 @@
 use crate::{
-    constants::TX_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
     abis::gas_settings::GasSettings,
+    constants::TX_CONTEXT_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
+    utils::reader::Reader,
 };
 
 // docs:start:tx-context
 pub struct TxContext {
-    chain_id: Field,
-    version: Field,
-    gas_settings: GasSettings,
+    pub chain_id: Field,
+    pub version: Field,
+    pub gas_settings: GasSettings,
 }
 // docs:end:tx-context
 
@@ -41,7 +43,7 @@ impl Serialize<TX_CONTEXT_LENGTH> for TxContext {
 
         assert_eq(fields.len(), TX_CONTEXT_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

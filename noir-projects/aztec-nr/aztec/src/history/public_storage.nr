@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, hash::poseidon2_hash_with_separator,
-    address::AztecAddress, header::Header, utils::field::full_field_less_than,
+    address::AztecAddress, constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    hash::poseidon2_hash_with_separator, header::Header, utils::field::full_field_less_than,
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 

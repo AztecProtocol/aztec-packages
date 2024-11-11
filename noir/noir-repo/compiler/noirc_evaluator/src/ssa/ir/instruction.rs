@@ -4,13 +4,10 @@ use std::hash::{Hash, Hasher};
 
 use acvm::{
     acir::AcirField,
-    acir::{
-        circuit::{ErrorSelector, STRING_ERROR_SELECTOR},
-        BlackBoxFunc,
-    },
+    acir::{circuit::ErrorSelector, BlackBoxFunc},
     FieldElement,
 };
-use fxhash::FxHasher;
+use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
@@ -72,6 +69,7 @@ pub(crate) enum Intrinsic {
     AsWitness,
     IsUnconstrained,
     DerivePedersenGenerators,
+    FieldLessThan,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -100,6 +98,7 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::AsWitness => write!(f, "as_witness"),
             Intrinsic::IsUnconstrained => write!(f, "is_unconstrained"),
             Intrinsic::DerivePedersenGenerators => write!(f, "derive_pedersen_generators"),
+            Intrinsic::FieldLessThan => write!(f, "field_less_than"),
         }
     }
 }
@@ -131,7 +130,8 @@ impl Intrinsic {
             | Intrinsic::FromField
             | Intrinsic::AsField
             | Intrinsic::IsUnconstrained
-            | Intrinsic::DerivePedersenGenerators => false,
+            | Intrinsic::DerivePedersenGenerators
+            | Intrinsic::FieldLessThan => false,
 
             // Some black box functions have side-effects
             Intrinsic::BlackBox(func) => matches!(
@@ -169,6 +169,8 @@ impl Intrinsic {
             "as_witness" => Some(Intrinsic::AsWitness),
             "is_unconstrained" => Some(Intrinsic::IsUnconstrained),
             "derive_pedersen_generators" => Some(Intrinsic::DerivePedersenGenerators),
+            "field_less_than" => Some(Intrinsic::FieldLessThan),
+
             other => BlackBoxFunc::lookup(other).map(Intrinsic::BlackBox),
         }
     }
@@ -468,10 +470,13 @@ impl Instruction {
                 let lhs = f(*lhs);
                 let rhs = f(*rhs);
                 let assert_message = assert_message.as_ref().map(|error| match error {
-                    ConstrainError::Dynamic(selector, payload_values) => ConstrainError::Dynamic(
-                        *selector,
-                        payload_values.iter().map(|&value| f(value)).collect(),
-                    ),
+                    ConstrainError::Dynamic(selector, is_string, payload_values) => {
+                        ConstrainError::Dynamic(
+                            *selector,
+                            *is_string,
+                            payload_values.iter().map(|&value| f(value)).collect(),
+                        )
+                    }
                     _ => error.clone(),
                 });
                 Instruction::Constrain(lhs, rhs, assert_message)
@@ -539,7 +544,7 @@ impl Instruction {
             Instruction::Constrain(lhs, rhs, assert_error) => {
                 f(*lhs);
                 f(*rhs);
-                if let Some(ConstrainError::Dynamic(_, values)) = assert_error.as_ref() {
+                if let Some(ConstrainError::Dynamic(_, _, values)) = assert_error.as_ref() {
                     values.iter().for_each(|&val| {
                         f(val);
                     });
@@ -910,18 +915,18 @@ fn try_optimize_array_set_from_previous_get(
     SimplifyResult::None
 }
 
-pub(crate) type ErrorType = HirType;
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum ErrorType {
+    String(String),
+    Dynamic(HirType),
+}
 
-pub(crate) fn error_selector_from_type(typ: &ErrorType) -> ErrorSelector {
-    match typ {
-        ErrorType::String(_) => STRING_ERROR_SELECTOR,
-        _ => {
-            let mut hasher = FxHasher::default();
-            typ.hash(&mut hasher);
-            let hash = hasher.finish();
-            assert!(hash != 0, "ICE: Error type {} collides with the string error type", typ);
-            ErrorSelector::new(hash)
-        }
+impl ErrorType {
+    pub fn selector(&self) -> ErrorSelector {
+        let mut hasher = FxHasher64::default();
+        self.hash(&mut hasher);
+        let hash = hasher.finish();
+        ErrorSelector::new(hash)
     }
 }
 
@@ -930,7 +935,8 @@ pub(crate) enum ConstrainError {
     // Static string errors are not handled inside the program as data for efficiency reasons.
     StaticString(String),
     // These errors are handled by the program as data.
-    Dynamic(ErrorSelector, Vec<ValueId>),
+    // We use a boolean to indicate if the error is a string for printing purposes.
+    Dynamic(ErrorSelector, /* is_string */ bool, Vec<ValueId>),
 }
 
 impl From<String> for ConstrainError {

@@ -1,6 +1,6 @@
 use dep::mock_types::{
-    PrivateKernelPublicInputs, MAX_COMMITMENT_READ_REQUESTS_PER_TX, MAX_COMMITMENTS_PER_TX,
-    PROOF_TYPE_PG, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS
+    CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, MAX_COMMITMENT_READ_REQUESTS_PER_TX,
+    MAX_COMMITMENTS_PER_TX, PrivateKernelPublicInputs, PROOF_TYPE_PG,
 };
 
 // Mock reset kernel that reset read requests.
@@ -8,7 +8,7 @@ use dep::mock_types::{
 fn main(
     mut prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,
     kernel_vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS],
-    commitment_read_hints: [u32; MAX_COMMITMENT_READ_REQUESTS_PER_TX]
+    commitment_read_hints: [u32; MAX_COMMITMENT_READ_REQUESTS_PER_TX],
 ) -> return_data PrivateKernelPublicInputs {
     std::verify_proof_with_type(kernel_vk, [], [], 0, PROOF_TYPE_PG);
 

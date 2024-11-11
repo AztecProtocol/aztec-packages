@@ -4,15 +4,16 @@ use crate::components::tail_to_public_output_composer::meter_gas_used::{
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE,
-    }, tests::fixture_builder::FixtureBuilder,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 #[test]
 fn meter_gas_used_non_revertible_empty_succeeds() {
     let builder = FixtureBuilder::new();
-    let data = builder.to_public_accumulated_data();
+    let data = builder.to_private_to_public_accumulated_data();
     let gas = meter_gas_used_non_revertible(data);
     assert_eq(gas, Gas::tx_overhead());
 }
@@ -33,7 +34,7 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
     builder.append_public_call_requests(2);
     builder.end_setup();
 
-    let data = builder.to_public_accumulated_data();
+    let data = builder.to_private_to_public_accumulated_data();
     let gas = meter_gas_used_non_revertible(data);
 
     let total_num_side_effects = 4 + 3 + 1;
@@ -56,10 +57,9 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
 #[test]
 fn meter_gas_used_revertible_empty_succeeds() {
     let builder = FixtureBuilder::new();
-    let data = builder.to_public_accumulated_data();
-    let teardown_gas = Gas::new(42, 17);
-    let gas = meter_gas_used_revertible(data, teardown_gas);
-    assert_eq(gas, teardown_gas);
+    let data = builder.to_private_to_public_accumulated_data();
+    let gas = meter_gas_used_revertible(data);
+    assert_eq(gas, Gas::empty());
 }
 
 #[test]
@@ -78,9 +78,8 @@ fn meter_gas_used_revertible_everything_succeeds() {
     builder.append_public_call_requests(2);
     builder.end_setup();
 
-    let data = builder.to_public_accumulated_data();
-    let teardown_gas = Gas::new(42, 17);
-    let gas = meter_gas_used_revertible(data, teardown_gas);
+    let data = builder.to_private_to_public_accumulated_data();
+    let gas = meter_gas_used_revertible(data);
 
     let total_num_side_effects = 4 + 3 + 1;
     let total_log_length = 12
@@ -96,5 +95,5 @@ fn meter_gas_used_revertible_everything_succeeds() {
         + total_log_length * L2_GAS_PER_LOG_BYTE
         + 2 * FIXED_AVM_STARTUP_L2_GAS;
 
-    assert_eq(gas, Gas::new(computed_da_gas, computed_l2_gas) + teardown_gas);
+    assert_eq(gas, Gas::new(computed_da_gas, computed_l2_gas));
 }

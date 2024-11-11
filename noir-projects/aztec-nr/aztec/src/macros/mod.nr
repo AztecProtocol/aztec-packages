@@ -1,17 +1,17 @@
-mod dispatch;
-mod functions;
-mod utils;
-mod notes;
-mod storage;
-mod events;
+pub mod dispatch;
+pub mod functions;
+pub mod utils;
+pub mod notes;
+pub mod storage;
+pub mod events;
 
 use functions::interfaces::STUBS;
+use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
-use notes::{NOTES, generate_note_export};
 
+use dispatch::generate_public_dispatch;
 use functions::transform_unconstrained;
 use utils::module_has_storage;
-use dispatch::generate_public_dispatch;
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
@@ -68,7 +68,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     };
 
     quote {
-        struct $module_name {
+        pub struct $module_name {
             target_contract: dep::aztec::protocol_types::address::AztecAddress
         }
 

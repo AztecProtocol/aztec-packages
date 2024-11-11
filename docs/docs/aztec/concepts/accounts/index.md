@@ -37,7 +37,7 @@ A simple example would be Gnosis Safe (see [_Account Abstraction is NOT coming_]
 
 Ethereum is currently following this approach via [EIP4337](https://eips.ethereum.org/EIPS/eip-4337), an evolution of the [GSN](https://opengsn.org/). This EIP defines a standard method for relaying meta-transactions in a decentralized way, including options for delegating payment to other agents (called paymasters). See [this chart](https://x.com/koeppelmann/status/1632257610455089154) on how 4337 relates to other smart contract wallet efforts.
 
-Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (eg the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
+Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (e.g. the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
 
 Now, there have also been multiple proposals for getting AA implemented at the _protocol_ level in Ethereum. This usually implies introducing a new transaction type or set of opcodes where signature verification and fee payment is handled by the EVM. See EIPs [2803](https://eips.ethereum.org/EIPS/eip-2803), [2938](https://eips.ethereum.org/EIPS/eip-2938), or [3074](https://eips.ethereum.org/EIPS/eip-3074). None of these have gained traction due to the efforts involved in implementing while keeping backwards compatibility.
 
@@ -49,7 +49,7 @@ Protocol AA implementations are vulnerable to DoS attacks due to the unrestricte
 
 Application AA implementations face a similar issue: a smart wallet could return that a transaction is valid when a relayer is about to submit it on-chain and pay for its gas, but when the transaction is actually mined it could turn invalid.
 
-All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://era.zksync.io/docs/dev/developer-guides/aa.html#extending-eip4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/validate_and_execute/).
+All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://docs.zksync.io/build/developer-reference/account-abstraction/extending-4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/validate_and_execute/).
 
 ## Accounts in Aztec
 
@@ -76,7 +76,7 @@ Read more about how to write an account contract [here](../../../tutorials/codea
 
 ### Account contracts and wallets
 
-Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (eg "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
+Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
 
 ### Execution requests
 
@@ -107,10 +107,11 @@ Notice that the Signerless wallet doesn't invoke an entrypoint function of an ac
 
 :::info
 Entrypoints for the following cases:
+
 - if no contract entrypoint is used `msg_sender` is set to `Field.max`.
 - in a private to public entrypoint, `msg_sender` is the contract making the private to public call
 - when calling the entrypoint on an account contract, `msg_sender` is set to the account contract address
-:::
+  :::
 
 ### Account initialization
 
@@ -127,12 +128,20 @@ Users will need to pay transaction fees in order to deploy their account contrac
 Account contracts are also expected, though not required by the protocol, to implement a set of methods for authorizing actions on behalf of the user. During a transaction, a contract may call into the account contract and request the user authorization for a given action, identified by a hash. This pattern is used, for instance, for transferring tokens from an account that is not the caller.
 
 When executing a private function, this authorization is checked by requesting an _auth witness_ from the execution oracle, which is usually a signed message.
-The PXE is responsible for storing these auth witnesses and returning them to the requesting account contract.
+The user's Private eXecution Environment (PXE) is responsible for storing these auth witnesses and returning them to the requesting account contract.
 Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
 
 However, during a public function execution, it is not possible to retrieve a value from the local oracle. To support authorizations in public functions, account contracts should save in contract storage what actions have been pre-authorized by their owner.
 
-These two patterns combined allow an account contract to answer whether an action `is_valid` for a given user both in private and public contexts.
+These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
+
+You can read more about authorizing actions with authorization witnesses on [this page](./authwit.md).
+
+:::info
+
+Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. Without simulating simulations, the PXE can't anticipate what authwits a transaction may need, so developers will need to manually request these authwits from users. In the future, transactions requiring authwits will be smart enough to ask the user for the correct authwits automatically.
+
+:::
 
 ### Encryption and nullifying keys
 

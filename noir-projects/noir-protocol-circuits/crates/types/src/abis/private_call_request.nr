@@ -1,15 +1,16 @@
 use crate::{
     abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}},
-    constants::PRIVATE_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
+    constants::PRIVATE_CALL_REQUEST_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
 pub struct PrivateCallRequest {
-    call_context: CallContext,
-    args_hash: Field,
-    returns_hash: Field,
-    start_side_effect_counter: u32,
-    end_side_effect_counter: u32,
+    pub call_context: CallContext,
+    pub args_hash: Field,
+    pub returns_hash: Field,
+    pub start_side_effect_counter: u32,
+    pub end_side_effect_counter: u32,
 }
 
 impl Ordered for PrivateCallRequest {
@@ -61,7 +62,7 @@ impl Serialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
 
         assert_eq(fields.len(), PRIVATE_CALL_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

@@ -3,7 +3,7 @@ use crate::hash::accumulate_sha256;
 // For now we only care about the root
 pub struct VariableMerkleTree {
     // leaves: [Field; N],
-    root: Field,
+    pub root: Field,
 }
 
 unconstrained fn get_height(input: u32, start: u8) -> u8 {
@@ -91,8 +91,8 @@ impl VariableMerkleTree {
 
 mod tests {
     use crate::{
-        merkle_tree::{variable_merkle_tree::VariableMerkleTree, merkle_tree::MerkleTree},
         hash::accumulate_sha256,
+        merkle_tree::{merkle_tree::MerkleTree, variable_merkle_tree::VariableMerkleTree},
     };
 
     fn generate_test_array(non_empty_items: u32) -> [Field; 100] {

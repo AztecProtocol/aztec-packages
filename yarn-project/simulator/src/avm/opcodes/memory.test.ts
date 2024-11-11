@@ -5,7 +5,7 @@ import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_m
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
-import { CalldataCopy, Cast, Mov, Set } from './memory.js';
+import { CalldataCopy, Cast, Mov, ReturndataCopy, ReturndataSize, Set } from './memory.js';
 
 describe('Memory instructions', () => {
   let context: AvmContext;
@@ -416,6 +416,90 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint32(2)); // size
 
       await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+
+      const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
+      expect(actual).toEqual([new Field(2), new Field(3)]);
+    });
+
+    // TODO: check bad cases (i.e., out of bounds)
+  });
+
+  describe('RETURNDATASIZE', () => {
+    it('Should (de)serialize correctly', () => {
+      const buf = Buffer.from([
+        ReturndataSize.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('3456', 'hex'), // dstOffset
+      ]);
+      const inst = new ReturndataSize(/*indirect=*/ 0x01, /*dstOffset=*/ 0x3456);
+
+      expect(ReturndataSize.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Writes size', async () => {
+      context = initContext();
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+
+      await new ReturndataSize(/*indirect=*/ 0, /*dstOffset=*/ 10).execute(context);
+
+      const actual = context.machineState.memory.get(10);
+      expect(actual).toEqual(new Uint32(3));
+    });
+  });
+
+  describe('RETURNDATACOPY', () => {
+    it('Should (de)serialize correctly', () => {
+      const buf = Buffer.from([
+        ReturndataCopy.opcode, // opcode
+        0x01, // indirect
+        ...Buffer.from('1234', 'hex'), // rdOffsetAddress
+        ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
+      ]);
+      const inst = new ReturndataCopy(
+        /*indirect=*/ 0x01,
+        /*cdOffsetAddress=*/ 0x1234,
+        /*copysizeOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      );
+
+      expect(ReturndataCopy.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Writes nothing if size is 0', async () => {
+      context = initContext();
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.memory.set(0, new Uint32(0)); // rdoffset
+      context.machineState.memory.set(1, new Uint32(0)); // size
+      context.machineState.memory.set(3, new Uint16(12)); // not overwritten
+
+      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+
+      const actual = context.machineState.memory.get(3);
+      expect(actual).toEqual(new Uint16(12));
+    });
+
+    it('Copies all returndata', async () => {
+      context = initContext();
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.memory.set(0, new Uint32(0)); // rdoffset
+      context.machineState.memory.set(1, new Uint32(3)); // size
+
+      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+
+      const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
+      expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
+    });
+
+    it('Copies slice of returndata', async () => {
+      context = initContext();
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.memory.set(0, new Uint32(1)); // rdoffset
+      context.machineState.memory.set(1, new Uint32(2)); // size
+
+      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);

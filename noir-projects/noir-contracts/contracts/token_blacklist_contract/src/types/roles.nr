@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Deserialize, FromField, Serialize, ToField};
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;

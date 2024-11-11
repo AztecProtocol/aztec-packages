@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{utils::field::field_from_bytes, traits::{Serialize, Deserialize}};
+use dep::aztec::protocol_types::{traits::{Deserialize, Serialize}, utils::field::field_from_bytes};
 
 // The general Compressed String.
 // Compresses M bytes into N fields.

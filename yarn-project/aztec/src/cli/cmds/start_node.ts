@@ -12,14 +12,13 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
-import { extractL1ContractAddresses, extractNamespacedOptions, extractRelevantOptions } from '../util.js';
+import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 
 export const startNode = async (
   options: any,
   signalHandlers: (() => Promise<void>)[],
   userLog: LogFn,
-  // ): Promise<ServerList> => {
-) => {
+): Promise<ServerList> => {
   // Services that will be started in a single multi-rpc server
   const services: ServerList = [];
 
@@ -28,7 +27,6 @@ export const startNode = async (
   // All options that are relevant to the Aztec Node
   const nodeConfig = {
     ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
-    l1Contracts: extractL1ContractAddresses(options),
   };
 
   if (options.proverNode) {
@@ -102,7 +100,7 @@ export const startNode = async (
   services.push({ node: nodeServer });
 
   // Add node stop function to signal handlers
-  signalHandlers.push(node.stop);
+  signalHandlers.push(node.stop.bind(node));
 
   // Add a PXE client that connects to this node if requested
   let pxe: PXE | undefined;

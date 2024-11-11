@@ -1,11 +1,12 @@
 #pragma once
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
@@ -44,6 +45,8 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
     Polynomial quotient_W;
 
+    ZKSumcheckData<Flavor> zk_sumcheck_data;
+
     SumcheckOutput<Flavor> sumcheck_output;
 
   private:
@@ -52,5 +55,6 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
 using UltraDeciderProver = DeciderProver_<UltraFlavor>;
 using MegaDeciderProver = DeciderProver_<MegaFlavor>;
+using MegaZKDeciderProver = DeciderProver_<MegaZKFlavor>;
 
 } // namespace bb

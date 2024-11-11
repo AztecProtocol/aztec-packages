@@ -97,21 +97,26 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
+    // Receive commitments to Libra masking polynomials
+    std::vector<Commitment> libra_commitments;
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
+    }
+
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;
     }
-
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
-    // unrolled protocol.
 
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -122,6 +127,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                multivariate_challenge,
                                                Commitment::one(),
                                                transcript,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);

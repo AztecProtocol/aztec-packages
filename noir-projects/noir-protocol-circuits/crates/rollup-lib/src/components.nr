@@ -3,22 +3,26 @@ use crate::abis::{
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
 };
 use crate::abis::{
-    previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData,
+    previous_rollup_block_data::PreviousRollupBlockData, previous_rollup_data::PreviousRollupData,
 };
 use dep::types::{
-    hash::{
-        accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
-        compute_tx_note_logs_hash,
-    }, merkle_tree::VariableMerkleTree,
-    constants::{
-        AZTEC_EPOCH_DURATION, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
-    }, utils::arrays::{array_length, array_merge},
     abis::{
         accumulated_data::CombinedAccumulatedData,
-        public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash},
+        log_hash::{LogHash, ScopedLogHash},
+        public_data_write::PublicDataWrite,
     },
+    constants::{
+        AZTEC_MAX_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+    },
+    hash::{
+        accumulate_sha256, compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
+        silo_unencrypted_log_hash,
+    },
+    merkle_tree::VariableMerkleTree,
+    traits::is_empty,
+    utils::arrays::{array_length, array_merge},
 };
 
 /**
@@ -139,11 +143,11 @@ pub fn accumulate_fees(
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
-) -> [FeeRecipient; AZTEC_EPOCH_DURATION] {
+) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
     assert(
-        left_len + right_len <= AZTEC_EPOCH_DURATION,
+        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many fee payment structs accumulated in rollup",
     );
     // TODO(Miranda): combine fees with same recipient depending on rollup structure
@@ -251,7 +255,7 @@ pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     out_hash: Field,
 ) -> Field {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
@@ -300,7 +304,7 @@ pub fn compute_tx_effects_hash(
     // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
-        tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].new_value;
+        tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].value;
     }
     offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
@@ -343,22 +347,22 @@ pub fn compute_tx_effects_hash(
 }
 
 fn get_all_update_requests_for_tx_effects(
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
+    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+    let mut all_update_requests: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> =
         BoundedVec::new();
     for update_request in all_public_data_update_requests {
-        if !update_request.is_empty() {
+        if !is_empty(update_request) {
             all_update_requests.push(update_request);
         }
     }
-    all_update_requests.storage
+    all_update_requests.storage()
 }
 
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     let expected_size = 1 // revert code
-    + 1 // transaction fee
+        + 1 // transaction fee
         + MAX_NOTE_HASHES_PER_TX
         + MAX_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2

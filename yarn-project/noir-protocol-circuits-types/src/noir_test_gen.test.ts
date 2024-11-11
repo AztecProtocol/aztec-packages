@@ -25,7 +25,7 @@ describe('Data generation for noir tests', () => {
   const defaultContract: FixtureContractData = {
     artifactHash: new Fr(12345),
     packedBytecode: Buffer.from([3, 4, 5, 6, 7]),
-    publicKeys: PublicKeys.empty(),
+    publicKeys: PublicKeys.default(),
     salt: new Fr(56789),
     privateFunctions: [
       { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(0) },
@@ -37,7 +37,7 @@ describe('Data generation for noir tests', () => {
   const parentContract: FixtureContractData = {
     artifactHash: new Fr(1212),
     packedBytecode: Buffer.from([3, 4, 3, 4]),
-    publicKeys: PublicKeys.empty(),
+    publicKeys: PublicKeys.default(),
     salt: new Fr(5656),
     privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(0) }],
     toString: () => 'parentContract',

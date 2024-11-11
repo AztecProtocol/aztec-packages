@@ -6,19 +6,21 @@ use crate::{
     },
     constants::{
         MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX, NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS,
         PUBLIC_VALIDATION_REQUESTS_LENGTH,
-    }, traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader},
+    },
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_length, reader::Reader},
 };
 
 pub struct PublicValidationRequests {
-    for_rollup: RollupValidationRequests,
-    note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    nullifier_non_existent_read_requests: [ScopedReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
-    l1_to_l2_msg_read_requests: [TreeLeafReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
-    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
+    pub for_rollup: RollupValidationRequests,
+    pub note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pub nullifier_non_existent_read_requests: [ScopedReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
+    pub l1_to_l2_msg_read_requests: [TreeLeafReadRequest; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
+    pub public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
 }
 
 impl Serialize<PUBLIC_VALIDATION_REQUESTS_LENGTH> for PublicValidationRequests {
@@ -49,7 +51,7 @@ impl Serialize<PUBLIC_VALIDATION_REQUESTS_LENGTH> for PublicValidationRequests {
 
         assert_eq(fields.len(), PUBLIC_VALIDATION_REQUESTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -178,7 +180,7 @@ impl Serialize<NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS> for PublicValidationRequest
         fields.push(self.l1_to_l2_msg_read_requests as Field);
         fields.push(self.public_data_reads as Field);
 
-        fields.storage
+        fields.storage()
     }
 }
 

@@ -3,8 +3,8 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Parent {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     // Private function to call another private function in the target_contract using the provided selector
     #[private]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
@@ -18,14 +18,12 @@ contract Parent {
         target_selector: FunctionSelector,
         init_value: Field,
     ) -> Field {
-        context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [init_value].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.call_public_function(
+            target_contract,
+            target_selector,
+            [init_value].as_slice(),
+            GasOpts::default(),
+        )[0]
     }
     // Same as pub_entry_point, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
     #[public]
@@ -34,22 +32,18 @@ contract Parent {
         target_selector: FunctionSelector,
         init_value: Field,
     ) -> Field {
-        let return_value: Field = context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [init_value].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into();
-        context
-            .call_public_function(
-                target_contract,
-                target_selector,
-                [return_value].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        let return_value: Field = context.call_public_function(
+            target_contract,
+            target_selector,
+            [init_value].as_slice(),
+            GasOpts::default(),
+        )[0];
+        context.call_public_function(
+            target_contract,
+            target_selector,
+            [return_value].as_slice(),
+            GasOpts::default(),
+        )[0]
     }
     // Private function to enqueue a call to the target_contract address using the selector and argument provided
     #[private]
@@ -191,14 +185,12 @@ contract Parent {
         target_selector: FunctionSelector,
         args: [Field; 1],
     ) -> Field {
-        context
-            .static_call_public_function(
-                target_contract,
-                target_selector,
-                args.as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.static_call_public_function(
+            target_contract,
+            target_selector,
+            args.as_slice(),
+            GasOpts::default(),
+        )[0]
     }
     // Public function to set a static context and verify correct propagation for nested public calls
     #[public]
@@ -211,14 +203,12 @@ contract Parent {
         let pub_entry_point_selector =
             FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
         let this_address = context.this_address();
-        context
-            .static_call_public_function(
-                this_address,
-                pub_entry_point_selector,
-                [target_contract.to_field(), target_selector.to_field(), args[0]].as_slice(),
-                GasOpts::default(),
-            )
-            .deserialize_into()
+        context.static_call_public_function(
+            this_address,
+            pub_entry_point_selector,
+            [target_contract.to_field(), target_selector.to_field(), args[0]].as_slice(),
+            GasOpts::default(),
+        )[0]
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
     #[private]
@@ -247,10 +237,10 @@ contract Parent {
         // Call the target private function
         context.static_call_public_function(target_contract, target_selector, args);
     }
-    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
-    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
     use dep::child_contract::Child;
     use dep::value_note::value_note::ValueNote;
     #[test]
