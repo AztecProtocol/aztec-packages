@@ -1,8 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { z } from 'zod';
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
@@ -29,26 +26,6 @@ export class ContentCommitment {
     if (outHash[0] !== 0) {
       throw new Error(`outHash buffer should be truncated and left padded`);
     }
-  }
-
-  static get schema() {
-    return z
-      .object({
-        numTxs: schemas.Fr,
-        blobHash: schemas.BufferHex,
-        inHash: schemas.BufferHex,
-        outHash: schemas.BufferHex,
-      })
-      .transform(({ numTxs, blobHash, inHash, outHash }) => new ContentCommitment(numTxs, blobHash, inHash, outHash));
-  }
-
-  toJSON() {
-    return {
-      numTxs: this.numTxs,
-      blobHash: this.blobHash.toString('hex'),
-      inHash: this.inHash.toString('hex'),
-      outHash: this.outHash.toString('hex'),
-    };
   }
 
   getSize() {

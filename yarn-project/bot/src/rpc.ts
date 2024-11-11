@@ -1,6 +1,9 @@
-import { type ApiHandler, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { TxHash } from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
-import { BotRunnerApiSchema } from './interface.js';
 import { type BotRunner } from './runner.js';
 
 /**
@@ -9,9 +12,5 @@ import { type BotRunner } from './runner.js';
  * @returns An JSON-RPC HTTP server
  */
 export function createBotRunnerRpcServer(botRunner: BotRunner) {
-  createSafeJsonRpcServer(botRunner, BotRunnerApiSchema, botRunner.isHealthy.bind(botRunner));
-}
-
-export function getBotRunnerApiHandler(botRunner: BotRunner): ApiHandler {
-  return [botRunner, BotRunnerApiSchema, botRunner.isHealthy.bind(botRunner)];
+  return new JsonRpcServer(botRunner, { AztecAddress, EthAddress, Fr, TxHash }, {}, [], () => botRunner.isHealthy());
 }

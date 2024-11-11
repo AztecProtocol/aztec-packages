@@ -7,7 +7,6 @@ import {
   type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
@@ -18,28 +17,18 @@ export interface PublicSideEffectTraceInterface {
   fork(incrementSideEffectCounter?: boolean): PublicSideEffectTraceInterface;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
-  tracePublicStorageRead(contractAddress: AztecAddress, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(contractAddress: AztecAddress, slot: Fr, value: Fr): void;
-  traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
-  traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr): void;
-  traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
-    leafIndex: Fr,
-    exists: boolean,
-    isPending: boolean,
-  ): void;
-  traceNewNullifier(contractAddress: AztecAddress, nullifier: Fr): void;
-  traceL1ToL2MessageCheck(contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
-  traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
-  traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]): void;
-  traceGetContractInstance(
-    contractAddress: AztecAddress,
-    exists: boolean,
-    instance?: SerializableContractInstance,
-  ): void;
+  tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
+  tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr): void;
+  traceNoteHashCheck(contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
+  traceNewNoteHash(contractAddress: Fr, noteHash: Fr): void;
+  traceNullifierCheck(contractAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
+  traceNewNullifier(contractAddress: Fr, nullifier: Fr): void;
+  traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
+  traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr): void;
+  traceUnencryptedLog(contractAddress: Fr, log: Fr[]): void;
+  traceGetContractInstance(contractAddress: Fr, exists: boolean, instance?: SerializableContractInstance): void;
   traceGetBytecode(
-    contractAddress: AztecAddress,
+    contractAddress: Fr,
     exists: boolean,
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,

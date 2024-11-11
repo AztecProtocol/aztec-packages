@@ -1,7 +1,12 @@
-import { Archiver, type ArchiverConfig, KVArchiverDataStore, archiverConfigMappings } from '@aztec/archiver';
+import {
+  Archiver,
+  type ArchiverConfig,
+  KVArchiverDataStore,
+  archiverConfigMappings,
+  createArchiverRpcServer,
+} from '@aztec/archiver';
 import { createDebugLogger } from '@aztec/aztec.js';
-import { ArchiverApiSchema } from '@aztec/circuit-types';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { createStore } from '@aztec/kv-store/utils';
 import {
   createAndStartTelemetryClient,
@@ -10,12 +15,9 @@ import {
 
 import { extractRelevantOptions } from '../util.js';
 
-/** Starts a standalone archiver. */
-export async function startArchiver(
-  options: any,
-  signalHandlers: (() => Promise<void>)[],
-  services: NamespacedApiHandlers,
-) {
+export const startArchiver = async (options: any, signalHandlers: (() => Promise<void>)[]) => {
+  const services: ServerList = [];
+  // Start a standalone archiver.
   const archiverConfig = extractRelevantOptions<ArchiverConfig>(options, archiverConfigMappings, 'archiver');
 
   const storeLog = createDebugLogger('aztec:archiver:lmdb');
@@ -24,7 +26,8 @@ export async function startArchiver(
 
   const telemetry = await createAndStartTelemetryClient(getTelemetryClientConfig());
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, telemetry, true);
-  services.archiver = [archiver, ArchiverApiSchema];
+  const archiverServer = createArchiverRpcServer(archiver);
+  services.push({ archiver: archiverServer });
   signalHandlers.push(archiver.stop);
   return services;
-}
+};

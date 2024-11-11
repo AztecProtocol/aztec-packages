@@ -4,14 +4,13 @@ import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
-import { type AddressInfo } from 'net';
-import { format, inspect } from 'util';
+import { format } from 'util';
 import { ZodError } from 'zod';
 
-import { type DebugLogger, createDebugLogger } from '../../log/index.js';
+import { createDebugLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
-import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
-import { jsonStringify } from '../convert.js';
+import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/index.js';
+import { jsonStringify2 } from '../convert.js';
 import { assert } from '../js_utils.js';
 
 export class SafeJsonRpcServer {
@@ -24,15 +23,9 @@ export class SafeJsonRpcServer {
   constructor(
     /** The proxy object to delegate requests to. */
     private readonly proxy: Proxy,
-    /** Health check function */
-    private readonly healthCheck: StatusCheckFn = () => true,
     /** Logger */
     private log = createDebugLogger('json-rpc:server'),
   ) {}
-
-  public isHealthy(): boolean | Promise<boolean> {
-    return this.healthCheck();
-  }
 
   /**
    * Get an express app object.
@@ -46,13 +39,12 @@ export class SafeJsonRpcServer {
       try {
         await next();
       } catch (err: any) {
-        const method = (ctx.request.body as any)?.method ?? 'unknown';
-        this.log.warn(`Error in JSON RPC server call ${method}: ${inspect(err)}`);
+        this.log.error(err);
         if (err instanceof SyntaxError) {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
         } else if (err instanceof ZodError) {
-          const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
+          const message = err.issues.map(e => e.message).join(', ') || 'Validation error';
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32701, message } };
         } else {
@@ -66,7 +58,7 @@ export class SafeJsonRpcServer {
       try {
         await next();
         if (ctx.body && typeof ctx.body === 'object') {
-          ctx.body = jsonStringify(ctx.body);
+          ctx.body = jsonStringify2(ctx.body);
         }
       } catch (err: any) {
         ctx.status = 500;
@@ -158,8 +150,6 @@ export class SafeJsonRpcServer {
   }
 }
 
-export type StatusCheckFn = () => boolean | Promise<boolean>;
-
 interface Proxy {
   hasMethod(methodName: string): boolean;
   call(methodName: string, jsonParams?: any[]): Promise<any>;
@@ -190,7 +180,8 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = parseWithOptionals(jsonParams, this.schema[methodName].parameters());
+
+    const args = this.schema[methodName].parameters().parse(jsonParams);
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
@@ -227,29 +218,10 @@ class NamespacedSafeJsonProxy implements Proxy {
 
 export type NamespacedApiHandlers = Record<string, ApiHandler>;
 
-export type ApiHandler<T extends object = any> = [T, ApiSchemaFor<T>, StatusCheckFn?];
+export type ApiHandler<T extends object = any> = [T, ApiSchemaFor<T>];
 
 export function makeHandler<T extends object>(handler: T, schema: ApiSchemaFor<T>): ApiHandler<T> {
   return [handler, schema];
-}
-
-function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: DebugLogger): StatusCheckFn {
-  return async () => {
-    try {
-      const results = await Promise.all(
-        Object.entries(namedHandlers).map(([name, [, , healthCheck]]) => [name, healthCheck ? healthCheck() : true]),
-      );
-      const failed = results.filter(([_, result]) => !result);
-      if (failed.length > 0) {
-        log?.warn(`Health check failed for ${failed.map(([name]) => name).join(', ')}`);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      log?.error(`Error during health check`, err);
-      return false;
-    }
-  };
 }
 
 /**
@@ -262,75 +234,10 @@ export function createNamespacedSafeJsonRpcServer(
   log = createDebugLogger('json-rpc:server'),
 ): SafeJsonRpcServer {
   const proxy = new NamespacedSafeJsonProxy(handlers);
-  const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, log);
 }
 
-export function createSafeJsonRpcServer<T extends object = any>(
-  handler: T,
-  schema: ApiSchemaFor<T>,
-  healthCheck?: StatusCheckFn,
-) {
+export function createSafeJsonRpcServer<T extends object = any>(handler: T, schema: ApiSchemaFor<T>) {
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, healthCheck);
-}
-
-/**
- * Creates a router for handling a plain status request that will return 200 status when running.
- * @param getCurrentStatus - List of health check functions to run.
- * @param apiPrefix - The prefix to use for all api requests
- * @returns - The router for handling status requests.
- */
-export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = '') {
-  const router = new Router({ prefix: `${apiPrefix}` });
-  router.get('/status', async (ctx: Koa.Context) => {
-    let ok: boolean;
-    try {
-      ok = (await getCurrentStatus()) === true;
-    } catch (err) {
-      ok = false;
-    }
-
-    ctx.status = ok ? 200 : 500;
-  });
-  return router;
-}
-
-/**
- * Wraps a JsonRpcServer in a nodejs http server and starts it.
- * Installs a status router that calls to the isHealthy method to the server.
- * Returns once starts listening unless noWait is set.
- * @returns A running http server.
- */
-export async function startHttpRpcServer(
-  rpcServer: Pick<SafeJsonRpcServer, 'getApp' | 'isHealthy'>,
-  options: {
-    host?: string;
-    port?: number | string;
-    apiPrefix?: string;
-    timeoutMs?: number;
-    noWait?: boolean;
-  } = {},
-): Promise<http.Server & { port: number }> {
-  const app = rpcServer.getApp(options.apiPrefix);
-
-  const statusRouter = createStatusRouter(rpcServer.isHealthy.bind(rpcServer), options.apiPrefix);
-  app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
-
-  const httpServer = http.createServer(app.callback());
-  if (options.timeoutMs) {
-    httpServer.timeout = options.timeoutMs;
-  }
-
-  const { promise, resolve } = promiseWithResolvers<void>();
-  const listenPort = options.port ? (typeof options.port === 'string' ? parseInt(options.port) : options.port) : 0;
-  httpServer.listen(listenPort, options.host, () => resolve());
-
-  // Wait until listen callback is called
-  if (!options.noWait) {
-    await promise;
-  }
-
-  const port = (httpServer.address() as AddressInfo).port;
-  return Object.assign(httpServer, { port });
+  return new SafeJsonRpcServer(proxy);
 }

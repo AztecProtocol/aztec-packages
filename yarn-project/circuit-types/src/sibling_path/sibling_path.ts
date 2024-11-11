@@ -1,6 +1,5 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchema, hexSchemaFor } from '@aztec/foundation/schemas';
 import {
   type Tuple,
   assertLength,
@@ -23,34 +22,6 @@ export class SiblingPath<N extends number> {
   private data: Tuple<Buffer, N>;
 
   /**
-   * Constructor.
-   * @param pathSize - The size of the sibling path.
-   * @param path - The sibling path data.
-   */
-  constructor(
-    /** Size of the sibling path (number of fields it contains). */
-    public pathSize: N,
-    /** The sibling path data. */
-    path: Buffer[],
-  ) {
-    this.data = assertLength(path, pathSize);
-  }
-
-  static get schema() {
-    return hexSchemaFor(SiblingPath);
-  }
-
-  static schemaFor<N extends number>(size: N) {
-    return hexSchema
-      .transform(str => SiblingPath.fromString(str) as SiblingPath<N>)
-      .refine(path => path.pathSize === size, 'Unexpected size');
-  }
-
-  toJSON() {
-    return this.toString();
-  }
-
-  /**
    * Returns sibling path hashed up from the a element.
    * @param size - The number of elements in a given path.
    * @param zeroElement - Value of the zero element.
@@ -67,9 +38,22 @@ export class SiblingPath<N extends number> {
     return new SiblingPath(size, bufs);
   }
 
-  static random<N extends number>(number: N) {
-    const data = Array.from({ length: number }, () => Fr.random().toBuffer());
-    return new SiblingPath(number, data);
+  /**
+   * Constructor.
+   * @param pathSize - The size of the sibling path.
+   * @param path - The sibling path data.
+   */
+  constructor(
+    /**
+     * Size of the sibling path (number of fields it contains).
+     */
+    public pathSize: N,
+    /**
+     * The sibling path data.
+     */
+    path: Buffer[],
+  ) {
+    this.data = assertLength(path, pathSize);
   }
 
   /**

@@ -1,9 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
-
-import { z } from 'zod';
 
 /** A globally unique log id. */
 export class LogId {
@@ -30,32 +27,6 @@ export class LogId {
     if (!Number.isInteger(logIndex)) {
       throw new Error(`Invalid log index: ${logIndex}`);
     }
-  }
-
-  static random() {
-    return new LogId(
-      Math.floor(Math.random() * 1000),
-      Math.floor(Math.random() * 1000),
-      Math.floor(Math.random() * 100),
-    );
-  }
-
-  static get schema() {
-    return z
-      .object({
-        blockNumber: schemas.Integer,
-        txIndex: schemas.Integer,
-        logIndex: schemas.Integer,
-      })
-      .transform(({ blockNumber, txIndex, logIndex }) => new LogId(blockNumber, txIndex, logIndex));
-  }
-
-  toJSON() {
-    return {
-      blockNumber: this.blockNumber,
-      txIndex: this.txIndex,
-      logIndex: this.logIndex,
-    };
   }
 
   /**

@@ -6,7 +6,7 @@ export class TaggingSecret {
   constructor(public secret: Fr, public recipient: AztecAddress) {}
 
   toFields(): Fr[] {
-    return [this.secret, this.recipient.toField()];
+    return [this.secret, this.recipient];
   }
 }
 
@@ -16,7 +16,7 @@ export class IndexedTaggingSecret extends TaggingSecret {
   }
 
   override toFields(): Fr[] {
-    return [this.secret, this.recipient.toField(), new Fr(this.index)];
+    return [this.secret, this.recipient, new Fr(this.index)];
   }
 
   static fromFields(serialized: Fr[]) {

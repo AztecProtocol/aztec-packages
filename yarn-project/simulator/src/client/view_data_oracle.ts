@@ -271,7 +271,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public override async storageRead(
-    contractAddress: AztecAddress,
+    contractAddress: Fr,
     startStorageSlot: Fr,
     blockNumber: number,
     numberOfElements: number,

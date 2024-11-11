@@ -7,7 +7,6 @@ import {
   type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { assert } from 'console';
@@ -37,60 +36,54 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
     return this.innerCallTrace.getCounter();
   }
 
-  public tracePublicStorageRead(contractAddress: AztecAddress, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
+  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
     this.innerCallTrace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
     this.enqueuedCallTrace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
   }
 
-  public tracePublicStorageWrite(contractAddress: AztecAddress, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
     this.innerCallTrace.tracePublicStorageWrite(contractAddress, slot, value);
     this.enqueuedCallTrace.tracePublicStorageWrite(contractAddress, slot, value);
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
     this.innerCallTrace.traceNoteHashCheck(_contractAddress, noteHash, leafIndex, exists);
     this.enqueuedCallTrace.traceNoteHashCheck(_contractAddress, noteHash, leafIndex, exists);
   }
 
-  public traceNewNoteHash(_contractAddress: AztecAddress, noteHash: Fr) {
+  public traceNewNoteHash(_contractAddress: Fr, noteHash: Fr) {
     this.innerCallTrace.traceNewNoteHash(_contractAddress, noteHash);
     this.enqueuedCallTrace.traceNewNoteHash(_contractAddress, noteHash);
   }
 
-  public traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
-    leafIndex: Fr,
-    exists: boolean,
-    isPending: boolean,
-  ) {
+  public traceNullifierCheck(contractAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean) {
     this.innerCallTrace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
     this.enqueuedCallTrace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
   }
 
-  public traceNewNullifier(contractAddress: AztecAddress, nullifier: Fr) {
+  public traceNewNullifier(contractAddress: Fr, nullifier: Fr) {
     this.innerCallTrace.traceNewNullifier(contractAddress, nullifier);
     this.enqueuedCallTrace.traceNewNullifier(contractAddress, nullifier);
   }
 
-  public traceL1ToL2MessageCheck(contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
+  public traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
     this.innerCallTrace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists);
     this.enqueuedCallTrace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists);
   }
 
-  public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
+  public traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
     this.innerCallTrace.traceNewL2ToL1Message(contractAddress, recipient, content);
     this.enqueuedCallTrace.traceNewL2ToL1Message(contractAddress, recipient, content);
   }
 
-  public traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
+  public traceUnencryptedLog(contractAddress: Fr, log: Fr[]) {
     this.innerCallTrace.traceUnencryptedLog(contractAddress, log);
     this.enqueuedCallTrace.traceUnencryptedLog(contractAddress, log);
   }
 
   public traceGetContractInstance(
-    contractAddress: AztecAddress,
+    contractAddress: Fr,
     exists: boolean,
     instance: SerializableContractInstance | undefined,
   ) {
@@ -99,7 +92,7 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceGetBytecode(
-    contractAddress: AztecAddress,
+    contractAddress: Fr,
     exists: boolean,
     bytecode: Buffer,
     contractInstance: SerializableContractInstance | undefined,

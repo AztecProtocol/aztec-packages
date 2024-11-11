@@ -1,4 +1,3 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import * as fs from 'fs/promises';
@@ -64,15 +63,6 @@ export class ClientIvcProof {
       ['ecc_vk', eccVkBuffer],
     ] as const;
     await Promise.all(fileData.map(([fileName, buffer]) => fs.writeFile(path.join(directory, fileName), buffer)));
-  }
-
-  static get schema() {
-    // TODO(palla/schemas): Consider using a b64 schema instead
-    return hexSchemaFor(ClientIvcProof);
-  }
-
-  toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): ClientIvcProof {

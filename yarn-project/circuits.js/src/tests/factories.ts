@@ -1537,14 +1537,14 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    new AztecAddress(new Fr(seed + 0x400)),
+    new Fr(seed + 0x400),
   );
 }
 
 export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
   const salt = new Fr(seed);
   const initializationHash = new Fr(seed + 1);
-  const deployer = new AztecAddress(new Fr(seed + 2));
+  const deployer = new Fr(seed + 2);
   const publicKeys = PublicKeys.random();
 
   const saltedInitializationHash = poseidon2HashWithSeparator(
@@ -1596,10 +1596,10 @@ export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
-    new AztecAddress(new Fr(seed)),
+    new Fr(seed),
     true /* exists */,
     new Fr(seed + 0x2),
-    new AztecAddress(new Fr(seed + 0x3)),
+    new Fr(seed + 0x3),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new PublicKeys(
@@ -1613,7 +1613,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
 
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return AvmEnqueuedCallHint.from({
-    contractAddress: new AztecAddress(new Fr(seed)),
+    contractAddress: new Fr(seed),
     calldata: makeVector((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
   });
 }

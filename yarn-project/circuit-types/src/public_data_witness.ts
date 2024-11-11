@@ -1,9 +1,6 @@
 import { Fr, PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { z } from 'zod';
 
 import { SiblingPath } from './sibling_path/sibling_path.js';
 
@@ -30,16 +27,6 @@ export class PublicDataWitness {
     public readonly siblingPath: SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>,
   ) {}
 
-  static get schema() {
-    return z
-      .object({
-        index: schemas.BigInt,
-        leafPreimage: PublicDataTreeLeafPreimage.schema,
-        siblingPath: SiblingPath.schemaFor(PUBLIC_DATA_TREE_HEIGHT),
-      })
-      .transform(({ index, leafPreimage, siblingPath }) => new PublicDataWitness(index, leafPreimage, siblingPath));
-  }
-
   /**
    * Returns a field array representation of a public data witness.
    * @returns A field array representation of a public data witness.
@@ -64,14 +51,6 @@ export class PublicDataWitness {
    */
   toString(): string {
     return this.toBuffer().toString('hex');
-  }
-
-  static random() {
-    return new PublicDataWitness(
-      BigInt(Math.floor(Math.random() * 1000)),
-      PublicDataTreeLeafPreimage.random(),
-      SiblingPath.random(PUBLIC_DATA_TREE_HEIGHT),
-    );
   }
 
   /**

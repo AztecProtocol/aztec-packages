@@ -113,6 +113,6 @@ describe('e2e_deploy_contract legacy', () => {
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
     // But the bad tx did not deploy
-    await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().contractClassId)).resolves.toBeFalsy();
+    await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().address)).resolves.toBeFalsy();
   });
 });

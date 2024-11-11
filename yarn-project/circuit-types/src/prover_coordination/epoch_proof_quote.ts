@@ -18,14 +18,6 @@ export class EpochProofQuote extends Gossipable {
     super();
   }
 
-  static empty() {
-    return new EpochProofQuote(EpochProofQuotePayload.empty(), Signature.empty());
-  }
-
-  static random() {
-    return new EpochProofQuote(EpochProofQuotePayload.random(), Signature.random());
-  }
-
   static getFields(fields: FieldsOf<EpochProofQuote>) {
     return [fields.payload, fields.signature] as const;
   }

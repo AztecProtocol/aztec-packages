@@ -1,44 +1,35 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AvmCircuitInputs,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
-  KernelCircuitPublicInputs,
-  MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  PrivateBaseRollupInputs,
-  PrivateKernelEmptyInputData,
-  PublicBaseRollupInputs,
-  RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  RootParityInput,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
-  TUBE_PROOF_LENGTH,
-  TubeInputs,
-  VerificationKeyData,
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  type AvmCircuitInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateBaseRollupInputs,
+  type PrivateKernelEmptyInputData,
+  type PublicBaseRollupInputs,
+  type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
+  type RootParityInput,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type TUBE_PROOF_LENGTH,
+  type TubeInputs,
+  type VerificationKeyData,
 } from '@aztec/circuits.js';
-import { type ZodFor } from '@aztec/foundation/schemas';
-
-import { z } from 'zod';
 
 import { type CircuitName } from '../stats/index.js';
 
-export type ProofAndVerificationKey<P> = { proof: P; verificationKey: VerificationKeyData };
-
-function schemaForRecursiveProofAndVerificationKey<N extends number>(
-  proofLength: N,
-): ZodFor<ProofAndVerificationKey<RecursiveProof<N>>> {
-  return z.object({
-    proof: RecursiveProof.schemaFor(proofLength),
-    verificationKey: VerificationKeyData.schema,
-  }) as ZodFor<ProofAndVerificationKey<RecursiveProof<N>>>;
-}
+export type ProofAndVerificationKey<P> = {
+  proof: P;
+  verificationKey: VerificationKeyData;
+};
 
 export function makeProofAndVerificationKey<P>(
   proof: P,
@@ -53,24 +44,23 @@ export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RE
   verificationKey: VerificationKeyData;
 };
 
-function schemaForPublicInputsAndRecursiveProof<T extends object>(
-  inputs: ZodFor<T>,
-): ZodFor<PublicInputsAndRecursiveProof<T>> {
-  const proofSize = NESTED_RECURSIVE_PROOF_LENGTH;
-  return z.object({
-    inputs,
-    proof: RecursiveProof.schemaFor(proofSize),
-    verificationKey: VerificationKeyData.schema,
-  }) as ZodFor<PublicInputsAndRecursiveProof<T>>;
-}
-
 export function makePublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH>(
   inputs: T,
   proof: RecursiveProof<N>,
   verificationKey: VerificationKeyData,
-): PublicInputsAndRecursiveProof<T, N> {
-  return { inputs, proof, verificationKey };
+) {
+  const result: PublicInputsAndRecursiveProof<T, N> = {
+    inputs,
+    proof,
+    verificationKey,
+  };
+  return result;
 }
+
+export type ProvingJob<T extends ProvingRequest> = {
+  id: string;
+  request: T;
+};
 
 export enum ProvingRequestType {
   PRIVATE_KERNEL_EMPTY,
@@ -86,7 +76,7 @@ export enum ProvingRequestType {
 
   BASE_PARITY,
   ROOT_PARITY,
-  /** Recursive Client IVC verification to connect private to public or rollup */
+  // Recursive Client IVC verification to connect private -> public or rollup
   TUBE_PROOF,
 }
 
@@ -121,39 +111,59 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Ci
   }
 }
 
-export type AvmProvingRequest = z.infer<typeof AvmProvingRequestSchema>;
+export type AvmProvingRequest = {
+  type: ProvingRequestType.PUBLIC_VM;
+  inputs: AvmCircuitInputs;
+};
 
-export type ProvingRequest = z.infer<typeof ProvingRequestSchema>;
+export type ProvingRequest =
+  | AvmProvingRequest
+  | {
+      type: ProvingRequestType.BASE_PARITY;
+      inputs: BaseParityInputs;
+    }
+  | {
+      type: ProvingRequestType.ROOT_PARITY;
+      inputs: RootParityInputs;
+    }
+  | {
+      type: ProvingRequestType.PRIVATE_BASE_ROLLUP;
+      inputs: PrivateBaseRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.PUBLIC_BASE_ROLLUP;
+      inputs: PublicBaseRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.MERGE_ROLLUP;
+      inputs: MergeRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.BLOCK_ROOT_ROLLUP;
+      inputs: BlockRootRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP;
+      inputs: EmptyBlockRootRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.BLOCK_MERGE_ROLLUP;
+      inputs: BlockMergeRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.ROOT_ROLLUP;
+      inputs: RootRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.PRIVATE_KERNEL_EMPTY;
+      inputs: PrivateKernelEmptyInputData;
+    }
+  | {
+      type: ProvingRequestType.TUBE_PROOF;
+      inputs: TubeInputs;
+    };
 
-export const AvmProvingRequestSchema = z.object({
-  type: z.literal(ProvingRequestType.PUBLIC_VM),
-  inputs: AvmCircuitInputs.schema,
-});
-
-export const ProvingRequestSchema = z.discriminatedUnion('type', [
-  AvmProvingRequestSchema,
-  z.object({ type: z.literal(ProvingRequestType.BASE_PARITY), inputs: BaseParityInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.ROOT_PARITY), inputs: RootParityInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP), inputs: PrivateBaseRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP), inputs: PublicBaseRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.MERGE_ROLLUP), inputs: MergeRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP), inputs: BlockRootRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP), inputs: EmptyBlockRootRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP), inputs: BlockMergeRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.ROOT_ROLLUP), inputs: RootRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.PRIVATE_KERNEL_EMPTY), inputs: PrivateKernelEmptyInputData.schema }),
-  z.object({ type: z.literal(ProvingRequestType.TUBE_PROOF), inputs: TubeInputs.schema }),
-]);
-
-export type JobId = z.infer<typeof JobIdSchema>;
-
-export const JobIdSchema = z.string();
-
-export type ProvingJob<T extends ProvingRequest> = { id: JobId; request: T };
-
-export const ProvingJobSchema = z.object({ id: JobIdSchema, request: ProvingRequestSchema });
-
-type ProvingRequestResultsMap = {
+export type ProvingRequestResults = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
   [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
   [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
@@ -168,66 +178,33 @@ type ProvingRequestResultsMap = {
   [ProvingRequestType.TUBE_PROOF]: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
 };
 
-export type ProvingRequestResultFor<T extends ProvingRequestType> = { type: T; result: ProvingRequestResultsMap[T] };
+export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestResults[T];
 
-export type ProvingRequestResult = {
-  [K in keyof ProvingRequestResultsMap]: { type: K; result: ProvingRequestResultsMap[K] };
-}[keyof ProvingRequestResultsMap];
+export interface ProvingJobSource {
+  /**
+   * Gets the next proving job. `heartbeat` must be called periodically to keep the job alive.
+   * @returns The proving job, or undefined if there are no jobs available.
+   */
+  getProvingJob(): Promise<ProvingJob<ProvingRequest> | undefined>;
 
-export function makeProvingRequestResult(
-  type: ProvingRequestType,
-  result: ProvingRequestResult['result'],
-): ProvingRequestResult {
-  return { type, result } as ProvingRequestResult;
+  /**
+   * Keeps the job alive. If this isn't called regularly then the job will be
+   * considered abandoned and re-queued for another consumer to pick up
+   * @param jobId The ID of the job to heartbeat.
+   */
+  heartbeat(jobId: string): Promise<void>;
+
+  /**
+   * Resolves a proving job.
+   * @param jobId - The ID of the job to resolve.
+   * @param result - The result of the proving job.
+   */
+  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResult<T>): Promise<void>;
+
+  /**
+   * Rejects a proving job.
+   * @param jobId - The ID of the job to reject.
+   * @param reason - The reason for rejecting the job.
+   */
+  rejectProvingJob(jobId: string, reason: Error): Promise<void>;
 }
-
-export const ProvingRequestResultSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal(ProvingRequestType.PRIVATE_KERNEL_EMPTY),
-    result: schemaForPublicInputsAndRecursiveProof(KernelCircuitPublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: schemaForRecursiveProofAndVerificationKey(AVM_PROOF_LENGTH_IN_FIELDS),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.MERGE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BaseOrMergeRollupPublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(BlockRootOrBlockMergePublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.ROOT_ROLLUP),
-    result: schemaForPublicInputsAndRecursiveProof(RootRollupPublicInputs.schema),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.BASE_PARITY),
-    result: RootParityInput.schemaFor(RECURSIVE_PROOF_LENGTH),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.ROOT_PARITY),
-    result: RootParityInput.schemaFor(NESTED_RECURSIVE_PROOF_LENGTH),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.TUBE_PROOF),
-    result: schemaForRecursiveProofAndVerificationKey(TUBE_PROOF_LENGTH),
-  }),
-]) satisfies ZodFor<ProvingRequestResult>;

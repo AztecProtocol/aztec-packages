@@ -1,10 +1,7 @@
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
-import { z } from 'zod';
-
-import { TxHash } from '../tx/tx_hash.js';
-import { NoteStatus } from './note_status.js';
+import { type TxHash } from '../tx/tx_hash.js';
+import { type NoteStatus } from './note_status.js';
 
 /**
  * A filter used to fetch incoming notes.
@@ -26,13 +23,3 @@ export type IncomingNotesFilter = {
   /** The scopes in which to get incoming notes from. This defaults to all scopes. */
   scopes?: AztecAddress[];
 };
-
-export const IncomingNotesFilterSchema: ZodFor<IncomingNotesFilter> = z.object({
-  txHash: TxHash.schema.optional(),
-  contractAddress: schemas.AztecAddress.optional(),
-  storageSlot: schemas.Fr.optional(),
-  owner: schemas.AztecAddress.optional(),
-  status: z.nativeEnum(NoteStatus).optional(),
-  siloedNullifier: schemas.Fr.optional(),
-  scopes: z.array(schemas.AztecAddress).optional(),
-});

@@ -183,7 +183,7 @@ export abstract class TypedOracle {
   }
 
   storageRead(
-    _contractAddress: AztecAddress,
+    _contractAddress: Fr,
     _startStorageSlot: Fr,
     _blockNumber: number,
     _numberOfElements: number,

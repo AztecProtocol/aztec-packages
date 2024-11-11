@@ -444,8 +444,7 @@ export class AztecCheatCodes {
    * @returns The storage slot of the value in the map
    */
   public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
-    const keyFr = typeof key === 'bigint' ? new Fr(key) : key.toField();
-    return deriveStorageSlotInMap(mapSlot, keyFr);
+    return deriveStorageSlotInMap(mapSlot, new Fr(key));
   }
 
   /**
