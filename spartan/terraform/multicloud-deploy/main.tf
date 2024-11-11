@@ -18,20 +18,20 @@ terraform {
 
 # Define providers for different contexts
 provider "kubernetes" {
-  alias          = "cluster1"
+  alias          = "eks-cluster"
   config_path    = "~/.kube/config"
   config_context = "arn:aws:eks:us-east-1:278380418400:cluster/spartan"
 }
 
 provider "kubernetes" {
-  alias          = "cluster2"
+  alias          = "gke-cluster"
   config_path    = "~/.kube/config"
   config_context = "gke_testnet-440309_us-east1_spartan-provers"
 }
 
 # Helm providers for each cluster
 provider "helm" {
-  alias = "cluster1"
+  alias = "eks-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
     config_context = "arn:aws:eks:us-east-1:278380418400:cluster/spartan"
@@ -39,36 +39,36 @@ provider "helm" {
 }
 
 provider "helm" {
-  alias = "cluster2"
+  alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
     config_context = "gke_testnet-440309_us-east1_spartan-provers"
   }
 }
 
-# Deploy to cluster1
-resource "kubernetes_namespace" "example_cluster1" {
-  provider = kubernetes.cluster1
+# Deploy to eks-cluster
+resource "kubernetes_namespace" "example_eks-cluster" {
+  provider = kubernetes.eks-cluster
   metadata {
-    name = "my-namespace-cluster1"
+    name = var.testnet_name
   }
 }
 
-# Deploy to cluster2
-resource "kubernetes_namespace" "example_cluster2" {
-  provider = kubernetes.cluster2
+# Deploy to gke-cluster
+resource "kubernetes_namespace" "example_gke-cluster" {
+  provider = kubernetes.gke-cluster
   metadata {
-    name = "my-namespace-cluster2"
+    name = var.testnet_name
   }
 }
 
-# Example Helm release for cluster1
-resource "helm_release" "nginx_cluster1" {
-  provider   = helm.cluster1
+# Example Helm release for eks-cluster
+resource "helm_release" "nginx_eks-cluster" {
+  provider   = helm.eks-cluster
   name       = "nginx"
   repository = "https://charts.bitnami.com/bitnami"
   chart      = "nginx"
-  namespace  = kubernetes_namespace.example_cluster1.metadata[0].name
+  namespace  = kubernetes_namespace.example_eks-cluster.metadata[0].name
 
   values = [
     <<-EOT
@@ -79,15 +79,15 @@ resource "helm_release" "nginx_cluster1" {
   ]
 }
 
-# Example Helm release for cluster2
-resource "helm_release" "nginx_cluster2" {
-  provider   = helm.cluster2
+# Example Helm release for gke-cluster
+resource "helm_release" "nginx_gke-cluster" {
+  provider   = helm.gke-cluster
   name       = "nginx"
   repository = "https://charts.bitnami.com/bitnami"
   chart      = "nginx"
-  namespace  = kubernetes_namespace.example_cluster2.metadata[0].name
+  namespace  = kubernetes_namespace.example_gke-cluster.metadata[0].name
 
-  # Different configuration for cluster2
+  # Different configuration for gke-cluster
   values = [
     <<-EOT
     service:
@@ -108,16 +108,7 @@ resource "helm_release" "nginx_cluster2" {
 variable "clusters" {
   type = map(string)
   default = {
-    cluster1 = "cluster1-context"
-    cluster2 = "cluster2-context"
-  }
-}
-
-# Data source remains the same
-data "kubernetes_service" "example" {
-  provider = kubernetes.cluster1
-  metadata {
-    name      = "existing-service"
-    namespace = "default"
+    eks-cluster = "eks-cluster-context"
+    gke-cluster = "gke-cluster-context"
   }
 }
