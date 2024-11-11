@@ -72,7 +72,7 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     a.y.set_origin_tag(challenge_origin_tag);
 
     // The tag of the _is_point_at_infinity member should stay as next_challenge_tag, so the whole thing should be the
-    // merge of all 3
+    // union of all 3
 
     EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
 
@@ -151,6 +151,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     input_b.set_point_at_infinity(true);
     input_d.set_point_at_infinity(true);
 
+    // Assign different tags to all inputs
     input_a.set_origin_tag(submitted_value_origin_tag);
     input_b.set_origin_tag(challenge_origin_tag);
     input_c.set_origin_tag(next_challenge_tag);
@@ -166,6 +167,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_c.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_d.is_point_at_infinity().get_value(), true);
 
+    // Ensure that the tags in the standard from remain the same
     EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(standard_b.get_origin_tag(), challenge_origin_tag);
     EXPECT_EQ(standard_c.get_origin_tag(), next_challenge_tag);
@@ -207,6 +209,7 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     auto lhs = TestFixture::generators[0];
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
     cycle_group_ct b = cycle_group_ct(lhs);
+    // Assign two different tags
     a.set_origin_tag(submitted_value_origin_tag);
     b.set_origin_tag(challenge_origin_tag);
     cycle_group_ct c;
@@ -225,6 +228,7 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 
+    // Ensure the tags stay the same after doubling
     EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(d.get_origin_tag(), challenge_origin_tag);
 }
@@ -238,12 +242,14 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
         [&](const AffineElement& lhs, const AffineElement& rhs, const bool lhs_constant, const bool rhs_constant) {
             cycle_group_ct a = lhs_constant ? cycle_group_ct(lhs) : cycle_group_ct::from_witness(&builder, lhs);
             cycle_group_ct b = rhs_constant ? cycle_group_ct(rhs) : cycle_group_ct::from_witness(&builder, rhs);
+            // Assign two different tags
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
             cycle_group_ct c = a.unconditional_add(b);
             AffineElement expected(Element(lhs) + Element(rhs));
             AffineElement result = c.get_value();
             EXPECT_EQ(result, expected);
+            // Ensure the tags in the result are merged
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
         };
 
@@ -310,12 +316,14 @@ TYPED_TEST(CycleGroupTest, TestAdd)
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+        // Here and in the following cases we assign two different tags
         a.set_origin_tag(submitted_value_origin_tag);
         b.set_origin_tag(challenge_origin_tag);
         cycle_group_ct c = a + b;
         AffineElement expected(Element(lhs) + Element(rhs));
         AffineElement result = c.get_value();
         EXPECT_EQ(result, expected);
+        // We expect the tags to be merged in the result
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
@@ -394,10 +402,11 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
-    auto add =
+    auto subtract =
         [&](const AffineElement& lhs, const AffineElement& rhs, const bool lhs_constant, const bool rhs_constant) {
             cycle_group_ct a = lhs_constant ? cycle_group_ct(lhs) : cycle_group_ct::from_witness(&builder, lhs);
             cycle_group_ct b = rhs_constant ? cycle_group_ct(rhs) : cycle_group_ct::from_witness(&builder, rhs);
+            // Assign two different tags
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
@@ -405,13 +414,14 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
             AffineElement expected(Element(lhs) - Element(rhs));
             AffineElement result = c.get_value();
             EXPECT_EQ(result, expected);
+            // Expect tags to be merged in the result
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
         };
 
-    add(TestFixture::generators[0], TestFixture::generators[1], false, false);
-    add(TestFixture::generators[0], TestFixture::generators[1], false, true);
-    add(TestFixture::generators[0], TestFixture::generators[1], true, false);
-    add(TestFixture::generators[0], TestFixture::generators[1], true, true);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], false, false);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], false, true);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], true, false);
+    subtract(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -473,6 +483,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
     {
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
         cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+        // Here and in the following cases we set 2 different tags to a and b
         a.set_origin_tag(submitted_value_origin_tag);
         b.set_origin_tag(challenge_origin_tag);
 
@@ -480,6 +491,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         AffineElement expected(Element(lhs) - Element(rhs));
         AffineElement result = c.get_value();
         EXPECT_EQ(result, expected);
+        // We expect the tag of the result to be the union of a and b tags
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
@@ -559,6 +571,12 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     auto builder = Builder();
 
     const size_t num_muls = 1;
+    /**
+     * @brief Assign different tags to all points and scalars and return the union of that tag
+     *
+     *@details We assign the tags with the same round index to a (point,scalar) pair, but the point is treated as
+     *submitted value, while scalar as a challenge. Merging these tags should not run into any edgecases
+     */
     auto assign_and_merge_tags = [](auto& points, auto& scalars) {
         OriginTag merged_tag;
         for (size_t i = 0; i < points.size(); i++) {
@@ -601,10 +619,13 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back(cycle_group_ct(element));
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
+
+        // Here and in the following cases assign different tags to points and scalars and get the union of them back
         const auto expected_tag = assign_and_merge_tags(points, scalars);
 
         auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
+        // The tag should the union of all tags
         EXPECT_EQ(result.get_origin_tag(), expected_tag);
     }
 

@@ -1196,7 +1196,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         x_diff.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
 
-    // Set the final accumulator's tag to the merge of all points' and scalars' tags
+    // Set the final accumulator's tag to the union of all points' and scalars' tags
     accumulator.set_origin_tag(tag);
     /**
      * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
@@ -1280,7 +1280,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
      * in `batch_mul` before performing the subtraction.
      */
-    // Set accumulator's origin tag to the merge of all scalars' tags
+    // Set accumulator's origin tag to the union of all scalars' tags
     accumulator.set_origin_tag(tag);
     return { accumulator, offset_generator_accumulator };
 }
@@ -1546,7 +1546,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         // This would be slightly cheaper than operator- as we do not have to evaluate the double edge case.
         result = result - AffineElement(offset_accumulator);
     }
-    // Ensure the tag of the result is a merge of all inputs
+    // Ensure the tag of the result is a union of all inputs
     result.set_origin_tag(result_tag);
     return result;
 }
