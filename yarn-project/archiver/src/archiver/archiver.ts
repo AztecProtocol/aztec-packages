@@ -1,5 +1,4 @@
 import {
-  type EncryptedL2NoteLog,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -15,6 +14,7 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedEncryptedL2NoteLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -161,6 +161,8 @@ export class Archiver implements ArchiveSource {
       rollup.read.GENESIS_TIME(),
     ] as const);
 
+    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
@@ -169,7 +171,7 @@ export class Archiver implements ArchiveSource {
       archiverStore,
       config.archiverPollingIntervalMS ?? 10_000,
       new ArchiverInstrumentation(telemetry),
-      { l1StartBlock, l1GenesisTime },
+      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -270,7 +272,7 @@ export class Archiver implements ArchiveSource {
   private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
 
-    const time = (this.l1Timestamp ?? 0n) + BigInt(ETHEREUM_SLOT_DURATION);
+    const time = (this.l1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
 
     const canPrune =
       localPendingBlockNumber > provenBlockNumber &&
@@ -502,7 +504,7 @@ export class Archiver implements ArchiveSource {
   }
 
   public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
-    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     const blocks: L2Block[] = [];
 
     // Walk the list of blocks backwards and filter by slots matching the requested epoch.
@@ -523,7 +525,7 @@ export class Archiver implements ArchiveSource {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');
     const slot = header?.globalVariables.slotNumber.toBigInt();
-    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber);
+    const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     if (slot && slot >= endSlot) {
       return true;
     }
@@ -637,7 +639,7 @@ export class Archiver implements ArchiveSource {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     return this.store.getLogsByTags(tags);
   }
 
@@ -937,7 +939,7 @@ class ArchiverStoreHelper
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
   }
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]> {
     return this.store.getLogsByTags(tags);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
@@ -990,9 +992,15 @@ class ArchiverStoreHelper
 type L1RollupConstants = {
   l1StartBlock: bigint;
   l1GenesisTime: bigint;
+  slotDuration: number;
+  epochDuration: number;
+  ethereumSlotDuration: number;
 };
 
 const EmptyL1RollupConstants: L1RollupConstants = {
   l1StartBlock: 0n,
   l1GenesisTime: 0n,
+  epochDuration: 0,
+  slotDuration: 0,
+  ethereumSlotDuration: 0,
 };

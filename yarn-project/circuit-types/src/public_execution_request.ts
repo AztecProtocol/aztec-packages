@@ -52,7 +52,11 @@ export class PublicExecutionRequest {
 
   isForCallRequest(callRequest: PublicCallRequest) {
     return (
-      this.callContext.equals(callRequest.callContext) && computeVarArgsHash(this.args).equals(callRequest.argsHash)
+      this.callContext.msgSender.equals(callRequest.msgSender) &&
+      this.callContext.contractAddress.equals(callRequest.contractAddress) &&
+      this.callContext.functionSelector.equals(callRequest.functionSelector) &&
+      this.callContext.isStaticCall == callRequest.isStaticCall &&
+      computeVarArgsHash(this.args).equals(callRequest.argsHash)
     );
   }
 

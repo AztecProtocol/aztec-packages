@@ -1,9 +1,5 @@
 use crate::{
-    components::{
-        previous_kernel_validator::PreviousKernelValidator,
-        public_tail_output_composer::{OutputHints, PublicTailOutputComposer},
-        public_tail_output_validator::PublicTailOutputValidator,
-    },
+    components::public_tail_output_composer::{OutputHints, PublicTailOutputComposer},
     public_kernel_phase::PublicKernelPhase,
 };
 use dep::reset_kernel_lib::{
@@ -28,8 +24,6 @@ use dep::types::{
     data::PublicDataLeafHint,
     partial_state_reference::PartialStateReference,
 };
-
-global ALLOWED_PREVIOUS_CIRCUITS = [];
 
 pub struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -62,9 +56,6 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_phase(PublicKernelPhase.TAIL);
-        // previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
         let (output, output_hints, public_data_read_request_hints) =
             unsafe { self.generate_output_and_hints() };
 
@@ -78,15 +69,6 @@ impl PublicKernelTailCircuitPrivateInputs {
             output_hints.public_data_writes,
             output_hints.public_data_leaves,
             public_data_read_request_hints,
-        )
-            .validate();
-
-        PublicTailOutputValidator::new(
-            output,
-            self.previous_kernel.public_inputs,
-            self.start_state,
-            output_hints,
-            self.public_data_hints,
         )
             .validate();
 
@@ -107,8 +89,7 @@ mod tests {
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs, nullifier::ScopedNullifier,
-            nullifier_leaf_preimage::NullifierLeafPreimage,
-            public_data_update_request::PublicDataUpdateRequest,
+            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         },
         address::AztecAddress,
         constants::{
@@ -593,23 +574,11 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert_array_eq(
-            public_inputs.end.public_data_update_requests,
+            public_inputs.end.public_data_writes,
             [
-                PublicDataUpdateRequest {
-                    leaf_slot: 3333,
-                    new_value: 301,
-                    counter: prev_writes[4].counter,
-                },
-                PublicDataUpdateRequest {
-                    leaf_slot: 11,
-                    new_value: 500,
-                    counter: prev_writes[1].counter,
-                },
-                PublicDataUpdateRequest {
-                    leaf_slot: 22,
-                    new_value: 701,
-                    counter: prev_writes[3].counter,
-                },
+                PublicDataWrite { leaf_slot: 3333, value: 301 },
+                PublicDataWrite { leaf_slot: 11, value: 500 },
+                PublicDataWrite { leaf_slot: 22, value: 701 },
             ],
         );
     }

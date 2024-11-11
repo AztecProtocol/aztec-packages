@@ -62,7 +62,7 @@ impl Serialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
 
         assert_eq(fields.len(), PRIVATE_CALL_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

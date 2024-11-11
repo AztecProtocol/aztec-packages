@@ -1,9 +1,5 @@
 use crate::{
-    abis::{
-        gas::Gas,
-        log_hash::{LogHash, ScopedLogHash},
-        public_data_update_request::PublicDataUpdateRequest,
-    },
+    abis::{gas::Gas, log_hash::{LogHash, ScopedLogHash}, public_data_write::PublicDataWrite},
     constants::{
         COMBINED_ACCUMULATED_DATA_LENGTH, MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
@@ -29,7 +25,7 @@ pub struct CombinedAccumulatedData {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 
     gas_used: Gas,
 }
@@ -46,9 +42,7 @@ impl Empty for CombinedAccumulatedData {
             note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
-            public_data_update_requests: [
-                PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-            ],
+            public_data_writes: [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             gas_used: Gas::empty(),
         }
     }
@@ -77,14 +71,14 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         fields.push(self.unencrypted_log_preimages_length);
 
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            fields.extend_from_array(self.public_data_update_requests[i].serialize());
+            fields.extend_from_array(self.public_data_writes[i].serialize());
         }
 
         fields.extend_from_array(self.gas_used.serialize());
 
         assert_eq(fields.len(), COMBINED_ACCUMULATED_DATA_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -93,8 +87,8 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         let mut reader = Reader::new(fields);
 
         let item = CombinedAccumulatedData {
-            note_hashes: reader.read_array([0; MAX_NOTE_HASHES_PER_TX]),
-            nullifiers: reader.read_array([0; MAX_NULLIFIERS_PER_TX]),
+            note_hashes: reader.read_array(),
+            nullifiers: reader.read_array(),
             l2_to_l1_msgs: reader.read_struct_array(
                 ScopedL2ToL1Message::deserialize,
                 [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
@@ -114,9 +108,9 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
             note_encrypted_log_preimages_length: reader.read(),
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
-            public_data_update_requests: reader.read_struct_array(
-                PublicDataUpdateRequest::deserialize,
-                [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            public_data_writes: reader.read_struct_array(
+                PublicDataWrite::deserialize,
+                [PublicDataWrite::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
             ),
             gas_used: reader.read_struct(Gas::deserialize),
         };
@@ -139,7 +133,7 @@ impl Eq for CombinedAccumulatedData {
             )
             & (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length)
             & (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length)
-            & (self.public_data_update_requests == other.public_data_update_requests)
+            & (self.public_data_writes == other.public_data_writes)
             & (self.gas_used == other.gas_used)
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-        gas_fees::GasFees, validation_requests::RollupValidationRequests,
+        validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
     constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -10,6 +10,7 @@ use crate::{
     utils::reader::Reader,
 };
 
+// TODO: Update it to be specifically for the private_kernel_tail once we remove public_kernel_tail, which also outputs this.
 pub struct KernelCircuitPublicInputs {
     rollup_validation_requests: RollupValidationRequests,
     end: CombinedAccumulatedData,
@@ -17,13 +18,6 @@ pub struct KernelCircuitPublicInputs {
     start_state: PartialStateReference,
     revert_code: u8,
     fee_payer: AztecAddress,
-}
-
-impl KernelCircuitPublicInputs {
-    pub fn compute_transaction_fee(self, gas_fees: GasFees) -> Field {
-        let inclusion_fee = self.constants.tx_context.gas_settings.inclusion_fee;
-        inclusion_fee + self.end.gas_used.compute_fee(gas_fees)
-    }
 }
 
 impl Empty for KernelCircuitPublicInputs {
@@ -63,7 +57,7 @@ impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInput
 
         assert_eq(fields.len(), KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -86,47 +80,10 @@ impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInp
     }
 }
 
-mod tests {
-    use crate::abis::{
-        accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-        gas::Gas, gas_fees::GasFees,
-        kernel_circuit_public_inputs::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        validation_requests::RollupValidationRequests,
-    };
-    use crate::address::AztecAddress;
-    use crate::partial_state_reference::PartialStateReference;
-
-    #[test]
-    unconstrained fn empty_has_zero_gas_and_fee() {
-        let empty = KernelCircuitPublicInputs::empty();
-        assert_eq(empty.compute_transaction_fee(GasFees::empty()), 0);
-    }
-
-    #[test]
-    unconstrained fn non_empty_gas_and_fee() {
-        let mut inputs = KernelCircuitPublicInputs {
-            rollup_validation_requests: RollupValidationRequests::empty(),
-            end: CombinedAccumulatedData::empty(),
-            constants: CombinedConstantData::empty(),
-            start_state: PartialStateReference::empty(),
-            revert_code: 0,
-            fee_payer: AztecAddress::empty(),
-        };
-
-        inputs.end.gas_used = Gas { da_gas: 10, l2_gas: 20 };
-
-        inputs.constants.tx_context.gas_settings.inclusion_fee = 42;
-
-        let gas_fees = GasFees { fee_per_da_gas: 2, fee_per_l2_gas: 3 };
-        let transaction_fee = inputs.compute_transaction_fee(gas_fees);
-        assert_eq(transaction_fee, 42 + 2 * 10 + 3 * 20);
-    }
-
-    #[test]
-    fn serialization_of_empty() {
-        let item = KernelCircuitPublicInputs::empty();
-        let serialized = item.serialize();
-        let deserialized = KernelCircuitPublicInputs::deserialize(serialized);
-        assert(item.eq(deserialized));
-    }
+#[test]
+fn serialization_of_empty_kernel_circuit_public_inputs() {
+    let item = KernelCircuitPublicInputs::empty();
+    let serialized = item.serialize();
+    let deserialized = KernelCircuitPublicInputs::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

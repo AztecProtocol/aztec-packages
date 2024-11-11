@@ -1,7 +1,7 @@
 use crate::{
     abis::{
-        accumulated_data::PrivateAccumulatedData, combined_constant_data::CombinedConstantData,
-        public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequests,
+        accumulated_data::PrivateAccumulatedData, public_call_request::PublicCallRequest,
+        tx_constant_data::TxConstantData, validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
     constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -83,10 +83,10 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
 }
 
 pub struct PrivateKernelCircuitPublicInputs {
+    constants: TxConstantData,
     min_revertible_side_effect_counter: u32,
     validation_requests: PrivateValidationRequests,
     end: PrivateAccumulatedData,
-    constants: CombinedConstantData,
     public_teardown_call_request: PublicCallRequest,
     fee_payer: AztecAddress,
 }
@@ -96,16 +96,16 @@ impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCir
         let mut fields: BoundedVec<Field, PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
             BoundedVec::new();
 
+        fields.extend_from_array(self.constants.serialize());
         fields.push(self.min_revertible_side_effect_counter as Field);
         fields.extend_from_array(self.validation_requests.serialize());
         fields.extend_from_array(self.end.serialize());
-        fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
 
         assert_eq(fields.len(), PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -115,10 +115,10 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
     ) -> PrivateKernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
+            constants: reader.read_struct(TxConstantData::deserialize),
             min_revertible_side_effect_counter: reader.read() as u32,
             validation_requests: reader.read_struct(PrivateValidationRequests::deserialize),
             end: reader.read_struct(PrivateAccumulatedData::deserialize),
-            constants: reader.read_struct(CombinedConstantData::deserialize),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
         };
@@ -130,10 +130,10 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
 
 impl Eq for PrivateKernelCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
-        (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
+        (self.constants.eq(other.constants))
+            & (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
             & (self.validation_requests.eq(other.validation_requests))
             & (self.end.eq(other.end))
-            & (self.constants.eq(other.constants))
             & (self.public_teardown_call_request.eq(other.public_teardown_call_request))
     }
 }
@@ -141,10 +141,10 @@ impl Eq for PrivateKernelCircuitPublicInputs {
 impl Empty for PrivateKernelCircuitPublicInputs {
     fn empty() -> Self {
         Self {
+            constants: TxConstantData::empty(),
             min_revertible_side_effect_counter: 0,
             validation_requests: PrivateValidationRequests::empty(),
             end: PrivateAccumulatedData::empty(),
-            constants: CombinedConstantData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
         }

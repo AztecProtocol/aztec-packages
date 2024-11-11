@@ -1,8 +1,9 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
@@ -39,5 +40,6 @@ template <typename Flavor> class DeciderVerifier_ {
 
 using UltraDeciderVerifier = DeciderVerifier_<UltraFlavor>;
 using MegaDeciderVerifier = DeciderVerifier_<MegaFlavor>;
+using MegaZKDeciderVerifier = DeciderVerifier_<MegaZKFlavor>;
 
 } // namespace bb
