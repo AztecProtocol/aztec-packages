@@ -42,26 +42,18 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    [[maybe_unused]] FF circuit_size = transcript->template receive_from_prover<FF>(domain_separator + "circuit_size");
-    [[maybe_unused]] FF public_input_size =
-        transcript->template receive_from_prover<FF>(domain_separator + "public_input_size");
-    [[maybe_unused]] FF pub_inputs_offset =
-        transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
+    FF circuit_size = transcript->template receive_from_prover<FF>(domain_separator + "circuit_size");
+    FF public_input_size = transcript->template receive_from_prover<FF>(domain_separator + "public_input_size");
+    FF pub_inputs_offset = transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
 
     if (static_cast<uint32_t>(circuit_size.get_value()) != verification_key->verification_key->circuit_size) {
-        info("proof circuit_size = ", circuit_size.get_value());
-        info("VK circuit_size = ", verification_key->verification_key->circuit_size);
-        // throw_or_abort("OinkRecursiveVerifier::verify: proof circuit size does not match verification key");
+        throw_or_abort("OinkRecursiveVerifier::verify: proof circuit size does not match verification key");
     }
     if (static_cast<uint32_t>(public_input_size.get_value()) != verification_key->verification_key->num_public_inputs) {
-        info("proof public input size = ", public_input_size.get_value());
-        info("VK public input size = ", verification_key->verification_key->num_public_inputs);
-        // throw_or_abort("OinkRecursiveVerifier::verify: proof public input size does not match verification key");
+        throw_or_abort("OinkRecursiveVerifier::verify: proof public input size does not match verification key");
     }
     if (static_cast<uint32_t>(pub_inputs_offset.get_value()) != verification_key->verification_key->pub_inputs_offset) {
-        info("proof pub_inputs_offset = ", pub_inputs_offset.get_value());
-        info("VK pub_inputs_offset = ", verification_key->verification_key->pub_inputs_offset);
-        // throw_or_abort("OinkRecursiveVerifier::verify: proof public input offset does not match verification key");
+        throw_or_abort("OinkRecursiveVerifier::verify: proof public input offset does not match verification key");
     }
 
     std::vector<FF> public_inputs;
@@ -112,18 +104,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    if constexpr (!IsSimulator<Builder>) {
-        FF sum = 0;
-        for (auto val : builder->blocks.arithmetic.q_1()) {
-            sum += val;
-        }
-        info("HASH oink a: ", sum);
-    }
-
-    // info("public_inputs.size() = ", public_inputs.size());
-    // info("circuit_size = ", circuit_size);
-    // info("pub_inputs_offset = ", static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset));
-
     // WORKTODO: pub_inputs_offset is native but should prob be a circuit constant somehow
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs,
@@ -131,24 +111,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         gamma,
         circuit_size,
         static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset));
-
-    if constexpr (!IsSimulator<Builder>) {
-        FF sum = 0;
-        for (auto val : builder->blocks.arithmetic.q_1()) {
-            sum += val;
-        }
-        info("HASH oink b: ", sum);
-    }
-    // if constexpr (!IsSimulator<Builder>) {
-    //     FF sum = 0;
-    //     // size_t idx = 0;
-    //     for (auto val : builder->blocks.arithmetic.q_1()) {
-    //         // info("idx: ", idx++);
-    //         // info("val: ", val);
-    //         sum += val;
-    //     }
-    //     info("HASH oink b: ", sum);
-    // }
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);

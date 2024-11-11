@@ -34,11 +34,6 @@ void build_constraints(Builder& builder,
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
         builder.create_poly_gate(constraint);
-        // size_t idx = 0;
-        // for (auto val : builder.blocks.arithmetic.q_c()) {
-        //     info("idx: ", idx++);
-        //     info("val: ", val);
-        // }
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.poly_triple_constraints.at(i));
     }
