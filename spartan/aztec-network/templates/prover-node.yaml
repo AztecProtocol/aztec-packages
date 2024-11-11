@@ -26,7 +26,7 @@ spec:
             - |
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
@@ -102,6 +102,8 @@ spec:
               value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
               value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: P2P_ENABLED
               value: "{{ .Values.proverNode.p2pEnabled }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
