@@ -12,7 +12,7 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
 
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc(const PROOF_TYPE proof_type);
 
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure& trace_structure,
+ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
                                                            const size_t num_public_inputs);
 
 ClientIVC::MergeProof create_dummy_merge_proof();

@@ -19,12 +19,12 @@ using field_ct = stdlib::field_t<Builder>;
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
     for (const auto& constraint : constraints) {
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
             ClientIVC::VerifierInputs oink_entry =
-                acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_structure, constraint.public_inputs.size());
+                acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings, constraint.public_inputs.size());
             ivc.verification_queue.emplace_back(oink_entry);
             ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
             // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
@@ -49,7 +49,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc([[maybe_unused]] c
  * @brief Create an mock proof and VK that have the correct structure but are not necessarily valid
  *
  */
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure& trace_structure,
+ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
                                                            const size_t num_public_inputs = 0)
 {
     using Flavor = MegaFlavor;
@@ -57,7 +57,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure&
     using FF = bb::fr;
 
     MegaArith<FF>::TraceBlocks blocks;
-    blocks.set_fixed_block_sizes(trace_structure);
+    blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t structured_dyadic_size = blocks.get_structured_dyadic_size();
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
@@ -71,7 +71,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure&
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
 
     // Set proof preamble (metadata plus public inputs)
-    size_t total_num_public_inputs = num_public_inputs + bb::AGGREGATION_OBJECT_SIZE;
+    size_t total_num_public_inputs = num_public_inputs + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
     verifier_inputs.proof.emplace_back(structured_dyadic_size);
     verifier_inputs.proof.emplace_back(total_num_public_inputs);
     verifier_inputs.proof.emplace_back(pub_inputs_offset);
@@ -91,7 +91,7 @@ ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceStructure&
     verifier_inputs.honk_verification_key->circuit_size = structured_dyadic_size;
     verifier_inputs.honk_verification_key->num_public_inputs = total_num_public_inputs;
     verifier_inputs.honk_verification_key->pub_inputs_offset = blocks.pub_inputs.trace_offset; // must be set correctly
-    verifier_inputs.honk_verification_key->contains_recursive_proof = true;
+    verifier_inputs.honk_verification_key->contains_pairing_point_accumulator = true;
     for (auto& commitment : verifier_inputs.honk_verification_key->get_all()) {
         commitment = mock_commitment;
     }

@@ -67,7 +67,7 @@ struct ExecutionTraceUsageTracker {
         // The active ranges for the databus and lookup relations (both based on log-deriv lookup argument) must
         // incorporate both the lookup/read gate blocks as well as the rows containing the data that is being read.
         // Update the corresponding ranges accordingly. (Note: tables are constructed at the 'bottom' of the trace).
-        size_t dyadic_circuit_size = circuit.get_circuit_subgroup_size(fixed_sizes.get_total_structured_size());
+        size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
         active_ranges.busread.first = 0; // databus data is stored at the top of the trace
         active_ranges.busread.second = std::max(max_databus_size, active_ranges.busread.second);
         active_ranges.lookup.first = std::min(dyadic_circuit_size - max_tables_size, active_ranges.lookup.first);

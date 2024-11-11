@@ -251,7 +251,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 //     VerifierInputs alternative_verification_queue_entry;
 //     {
 //         ClientIVC ivc;
-//         ivc.trace_structure = TraceStructure::SMALL_TEST;
+//         ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
 //         // construct and accumulate a mock app circuit with a single unique public input
 //         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -273,7 +273,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 //     // valid) witnesses during constraint system construction VS recursive verifier construction.
 
 //     ClientIVC ivc;
-//     ivc.trace_structure = TraceStructure::SMALL_TEST;
+//     ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
 //     // construct and accumulate a mock app circuit with a single unique public input
 //     Builder app_circuit = construct_mock_app_circuit(ivc, /*random_pub_input=*/true);
@@ -299,13 +299,13 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateVK)
 {
-    const TraceStructure trace_structure = TraceStructure::SMALL_TEST;
+    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
 
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
         ClientIVC ivc;
-        ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+        ivc.trace_settings = trace_settings;
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -332,10 +332,10 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
         ClientIVC ivc;
-        ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
+        ivc.trace_settings = trace_settings;
 
         ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
-            trace_structure, num_app_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
+            ivc.trace_settings, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
         ivc.verification_queue.emplace_back(oink_entry);
         ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
         // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
@@ -344,9 +344,9 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, ivc);
         // WORKTODO: this would normally happen in accumulate()
-        kernel.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+        kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
-        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_structure);
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);
         MegaProver prover(proving_key);
         kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
     }
@@ -361,13 +361,13 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
 {
-    const TraceStructure trace_structure = TraceStructure::SMALL_TEST;
+    const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
 
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
         ClientIVC ivc;
-        ivc.trace_structure = trace_structure;
+        ivc.trace_settings = trace_settings;
 
         // Construct and accumulate mock app_circuit
         Builder app_circuit = construct_mock_app_circuit(ivc);
@@ -395,14 +395,14 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
         // program.constraints.num_acir_opcodes = 1;
         // program.constraints.ivc_recursion_constraints.push_back(
         //     create_empty_recursion_constraint(PROOF_TYPE::OINK, num_app_public_inputs -
-        //     bb::AGGREGATION_OBJECT_SIZE));
+        //     bb::PAIRING_POINT_ACCUMULATOR_SIZE));
         // program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
 
         ClientIVC ivc;
-        ivc.trace_structure = trace_structure;
+        ivc.trace_settings = trace_settings;
 
         ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
-            trace_structure, num_app_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
+            ivc.trace_settings, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
         ivc.verification_queue.emplace_back(oink_entry);
         ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
         // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
@@ -416,9 +416,9 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
 
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, mock_ivc);
         // WORKTODO: this would normally happen in accumulate()
-        kernel.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+        kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
-        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_structure);
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, ivc.trace_settings);
         MegaProver prover(proving_key);
         kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
     }
