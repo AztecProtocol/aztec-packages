@@ -26,9 +26,8 @@ import { type BlockStore } from './block_store.js';
  */
 export class LogStore {
   #noteEncryptedLogsByBlock: AztecMap<number, Buffer>;
-  #logsByHash: AztecMap<string, Buffer>;
-  #logHashesByTag: AztecMultiMap<string, string>;
-  #logTagsByBlock: AztecMultiMap<number, string>;
+  #logsByTag: AztecMap<string, Buffer[]>;
+  #logTagsByBlock: AztecMap<number, string[]>;
   #encryptedLogsByBlock: AztecMap<number, Buffer>;
   #unencryptedLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
@@ -36,16 +35,15 @@ export class LogStore {
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#noteEncryptedLogsByBlock = db.openMap('archiver_note_encrypted_logs_by_block');
-    this.#logsByHash = db.openMap('archiver_note_encrypted_logs_by_hash');
-    this.#logHashesByTag = db.openMultiMap('archiver_tagged_note_encrypted_log_hashes_by_tag');
-    this.#logTagsByBlock = db.openMultiMap('archiver_note_encrypted_log_tags_by_block');
+    this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');
+    this.#logTagsByBlock = db.openMap('archiver_log_tags_by_block');
     this.#encryptedLogsByBlock = db.openMap('archiver_encrypted_logs_by_block');
     this.#unencryptedLogsByBlock = db.openMap('archiver_unencrypted_logs_by_block');
-
     this.#logsMaxPageSize = logsMaxPageSize;
   }
 
-  #storeTaggedLogs(block: L2Block, logType: keyof Pick<Body, 'noteEncryptedLogs' | 'unencryptedLogs'>): void {
+  #extractTaggedLogs(block: L2Block, logType: keyof Pick<Body, 'noteEncryptedLogs' | 'unencryptedLogs'>) {
+    const taggedLogs = new Map<string, Buffer[]>();
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
       block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
@@ -80,15 +78,9 @@ export class LogStore {
           } else {
             tag = new Fr(log.data.subarray(0, 32));
           }
-          this.#log.verbose(`Storing tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
-          const hexHash = log.hash().toString('hex');
-          // Ideally we'd store all of the logs for a matching tag in an AztecMultiMap, but this type doesn't
-          // handle storing buffers well. The 'ordered-binary' encoding returns an error trying to decode buffers
-          // ('the number <> cannot be converted to a BigInt because it is not an integer'). We therefore store
-          // instead the hashes of the logs.
-          void this.#logHashesByTag.set(tag.toString(), hexHash);
-          void this.#logsByHash.set(
-            hexHash,
+          this.#log.verbose(`Found tagged (${logType}) log with tag ${tag.toString()} in block ${block.number}`);
+          const currentLogs = taggedLogs.get(tag.toString()) ?? [];
+          currentLogs.push(
             new TxScopedL2Log(
               txHash,
               dataStartIndexForTx,
@@ -97,12 +89,13 @@ export class LogStore {
               log.data,
             ).toBuffer(),
           );
-          void this.#logTagsByBlock.set(block.number, tag.toString());
+          taggedLogs.set(tag.toString(), currentLogs);
         } catch (err) {
           this.#log.warn(`Failed to add tagged log to store: ${err}`);
         }
       });
     });
+    return taggedLogs;
   }
 
   /**
@@ -110,11 +103,39 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2Block[]): Promise<boolean> {
+  async addLogs(blocks: L2Block[]): Promise<boolean> {
+    const taggedLogsToAdd = blocks
+      .flatMap(block => [
+        this.#extractTaggedLogs(block, 'noteEncryptedLogs'),
+        this.#extractTaggedLogs(block, 'unencryptedLogs'),
+      ])
+      .reduce((acc, val) => {
+        for (const [tag, logs] of val.entries()) {
+          const currentLogs = acc.get(tag) ?? [];
+          acc.set(tag, currentLogs.concat(logs));
+        }
+        return acc;
+      });
+    const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
+    const currentTaggedLogs = await this.db.transaction(() =>
+      tagsToUpdate.map(tag => ({ tag, logBuffers: this.#logsByTag.get(tag) })),
+    );
+    currentTaggedLogs.forEach(taggedLogBuffer => {
+      if (taggedLogBuffer.logBuffers?.length! > 0) {
+        taggedLogsToAdd.set(
+          taggedLogBuffer.tag,
+          taggedLogBuffer.logBuffers!.concat(taggedLogsToAdd.get(taggedLogBuffer.tag)!),
+        );
+      }
+    });
     return this.db.transaction(() => {
       blocks.forEach(block => {
-        void this.#storeTaggedLogs(block, 'noteEncryptedLogs');
-        void this.#storeTaggedLogs(block, 'unencryptedLogs');
+        const tagsInBlock = [];
+        for (const [tag, logs] of taggedLogsToAdd.entries()) {
+          void this.#logsByTag.set(tag, logs);
+          tagsInBlock.push(tag);
+        }
+        void this.#logTagsByBlock.set(block.number, tagsInBlock);
         void this.#noteEncryptedLogsByBlock.set(block.number, block.body.noteEncryptedLogs.toBuffer());
         void this.#encryptedLogsByBlock.set(block.number, block.body.encryptedLogs.toBuffer());
         void this.#unencryptedLogsByBlock.set(block.number, block.body.unencryptedLogs.toBuffer());
@@ -126,10 +147,7 @@ export class LogStore {
 
   async deleteLogs(blocks: L2Block[]): Promise<boolean> {
     const tagsToDelete = await this.db.transaction(() => {
-      return blocks.flatMap(block => Array.from(this.#logTagsByBlock.getValues(block.number)));
-    });
-    const logHashesToDelete = await this.db.transaction(() => {
-      return tagsToDelete.flatMap(tag => Array.from(this.#logHashesByTag.getValues(tag)));
+      return blocks.flatMap(block => this.#logTagsByBlock.get(block.number)?.map(tag => tag.toString()) ?? []);
     });
     return this.db.transaction(() => {
       blocks.forEach(block => {
@@ -140,11 +158,7 @@ export class LogStore {
       });
 
       tagsToDelete.forEach(tag => {
-        void this.#logHashesByTag.delete(tag.toString());
-      });
-
-      logHashesToDelete.forEach(hash => {
-        void this.#logsByHash.delete(hash);
+        void this.#logsByTag.delete(tag.toString());
       });
 
       return true;
@@ -198,19 +212,11 @@ export class LogStore {
    * that tag.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.db.transaction(() => {
-      return tags.map(tag => {
-        const logHashes = Array.from(this.#logHashesByTag.getValues(tag.toString()));
-        return (
-          logHashes
-            .map(hash => this.#logsByHash.get(hash))
-            // addLogs should ensure that we never have undefined logs, but we filter them out regardless to protect
-            // ourselves from database corruption
-            .filter(noteLogBuffer => noteLogBuffer != undefined)
-            .map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer!))
-        );
-      });
-    });
+    return this.db.transaction(() =>
+      tags
+        .map(tag => this.#logsByTag.get(tag.toString()))
+        .map(noteLogBuffers => noteLogBuffers?.map(noteLogBuffer => TxScopedL2Log.fromBuffer(noteLogBuffer)) ?? []),
+    );
   }
 
   /**

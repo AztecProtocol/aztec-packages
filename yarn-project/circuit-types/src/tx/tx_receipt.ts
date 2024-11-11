@@ -120,16 +120,4 @@ interface DebugInfo {
    * New L2 to L1 messages created by the transaction.
    */
   l2ToL1Msgs: Fr[];
-  /**
-   * Notes created in this tx which were successfully decoded with the incoming keys of accounts which are registered
-   * in the PXE which was used to submit the tx. You will not get notes of accounts which are not registered in
-   * the PXE here even though they were created in this tx.
-   */
-  visibleIncomingNotes: UniqueNote[];
-  /**
-   * Notes created in this tx which were successfully decoded with the outgoing keys of accounts which are registered
-   * in the PXE which was used to submit the tx. You will not get notes of accounts which are not registered in
-   * the PXE here even though they were created in this tx.
-   */
-  visibleOutgoingNotes: UniqueNote[];
 }
