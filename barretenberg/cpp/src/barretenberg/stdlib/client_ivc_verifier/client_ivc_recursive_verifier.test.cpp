@@ -109,7 +109,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Generate the recursive verification circuit
     verifier.verify(proof);
 
-    tube_builder->add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(*tube_builder));
+    tube_builder->add_pairing_point_accumulator(
+        stdlib::recursion::init_default_agg_obj_indices<Builder>(*tube_builder));
 
     info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
 

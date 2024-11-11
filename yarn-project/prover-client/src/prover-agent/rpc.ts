@@ -25,7 +25,6 @@ import {
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
-  VMCircuitPublicInputs,
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -51,7 +50,6 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       Proof,
       ProvingError,
       PrivateKernelEmptyInputData,
-      VMCircuitPublicInputs,
       PublicKernelCircuitPublicInputs,
       RecursiveProof,
       RootParityInput,
@@ -90,7 +88,6 @@ export function createProvingJobSourceClient(
       Proof,
       ProvingError,
       PrivateKernelEmptyInputData,
-      VMCircuitPublicInputs,
       PublicKernelCircuitPublicInputs,
       RecursiveProof,
       RootParityInput,

@@ -85,10 +85,6 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.historical_header,
             "mismatch historical_header",
         );
-        assert(
-            is_empty(self.output.constants.global_variables),
-            "constants.global_variables must be empty",
-        );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
             self.output.constants.protocol_contract_tree_root,

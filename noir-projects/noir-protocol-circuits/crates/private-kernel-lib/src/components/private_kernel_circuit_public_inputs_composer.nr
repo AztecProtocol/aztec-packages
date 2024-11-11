@@ -1,12 +1,12 @@
 use dep::types::{
     abis::{
-        combined_constant_data::CombinedConstantData,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
         },
         max_block_number::MaxBlockNumber,
         nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
     traits::is_empty,
@@ -31,12 +31,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
-        public_inputs.constants = CombinedConstantData::private(
-            private_call_public_inputs.historical_header,
-            tx_request.tx_context,
+        public_inputs.constants = TxConstantData {
+            historical_header: private_call_public_inputs.historical_header,
+            tx_context: tx_request.tx_context,
             vk_tree_root,
             protocol_contract_tree_root,
-        );
+        };
 
         // Since it's the first iteration, we need to push the tx hash nullifier into the `nullifiers` array
         public_inputs.end.nullifiers.push(create_first_nullifier(tx_request));

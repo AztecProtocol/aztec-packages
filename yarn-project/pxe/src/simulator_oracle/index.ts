@@ -1,11 +1,12 @@
 import {
   type AztecNode,
-  type EncryptedL2NoteLog,
+  L1NotePayload,
   type L2Block,
   MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
+  type TxScopedEncryptedL2NoteLog,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
@@ -19,16 +20,23 @@ import {
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   TaggingSecret,
+  computeAddressSecret,
+  computePoint,
   computeTaggingSecret,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+import { type AcirSimulator, type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
+import { produceNoteDaos } from '../note_processor/utils/produce_note_daos.js';
+import { getAcirSimulator } from '../simulator/index.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -244,7 +252,7 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivpsk_m of the sender must be known.
-   * Includes the last known index used for tagging with this secret.
+   * Includes the next index to be used used for tagging with this secret.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
@@ -288,11 +296,14 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
+   * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
+   * of the syncTaggedLogs and processTaggedLogs methods. However, it is not possible to do so at the moment,
+   * so we're keeping it private for now.
    * @param contractAddress - The contract address to silo the secret for
    * @param recipient - The address receiving the notes
    * @returns A list of siloed tagging secrets
    */
-  public async getAppTaggingSecretsForSenders(
+  async #getAppTaggingSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
@@ -320,7 +331,10 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address of the recipient
    * @returns A list of encrypted logs tagged with the recipient's address
    */
-  public async syncTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<EncryptedL2NoteLog[]> {
+  public async syncTaggedLogs(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<TxScopedEncryptedL2NoteLog[]> {
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
     // This nesting is necessary because for a given set of tags we don't
@@ -328,9 +342,9 @@ export class SimulatorOracle implements DBOracle {
     // length, since we don't really know the note they correspond to until we decrypt them.
 
     // 1. Get all the secrets for the recipient and sender pairs (#9365)
-    let appTaggingSecrets = await this.getAppTaggingSecretsForSenders(contractAddress, recipient);
+    let appTaggingSecrets = await this.#getAppTaggingSecretsForSenders(contractAddress, recipient);
 
-    const logs: EncryptedL2NoteLog[] = [];
+    const logs: TxScopedEncryptedL2NoteLog[] = [];
     while (appTaggingSecrets.length > 0) {
       // 2. Compute tags using the secrets, recipient and index. Obtain logs for each tag (#9380)
       const currentTags = appTaggingSecrets.map(taggingSecret => taggingSecret.computeTag());
@@ -353,5 +367,146 @@ export class SimulatorOracle implements DBOracle {
       appTaggingSecrets = newTaggingSecrets;
     }
     return logs;
+  }
+
+  /**
+   * Decrypts logs tagged for a recipient and returns them.
+   * @param scopedLogs - The logs to decrypt.
+   * @param recipient - The recipient of the logs.
+   * @param simulator - The simulator to use for decryption.
+   * @returns The decrypted notes.
+   */
+  async #decryptTaggedLogs(
+    scopedLogs: TxScopedEncryptedL2NoteLog[],
+    recipient: AztecAddress,
+    simulator: AcirSimulator,
+  ) {
+    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
+    const ivskM = await this.keyStore.getMasterSecretKey(
+      recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
+    );
+    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const ovskM = await this.keyStore.getMasterSecretKey(
+      recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
+    );
+    // Since we could have notes with the same index for different txs, we need
+    // to keep track of them scoping by txHash
+    const excludedIndices: Map<string, Set<number>> = new Map();
+    const incomingNotes: IncomingNoteDao[] = [];
+    const outgoingNotes: OutgoingNoteDao[] = [];
+    const deferredIncomingNotes: DeferredNoteDao[] = [];
+    const deferredOutgoingNotes: DeferredNoteDao[] = [];
+    for (const scopedLog of scopedLogs) {
+      const incomingNotePayload = L1NotePayload.decryptAsIncoming(scopedLog.log.data, addressSecret);
+      const outgoingNotePayload = L1NotePayload.decryptAsOutgoing(scopedLog.log.data, ovskM);
+
+      if (incomingNotePayload || outgoingNotePayload) {
+        if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
+          this.log.warn(
+            `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+              incomingNotePayload,
+            )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
+          );
+        }
+
+        const payload = incomingNotePayload || outgoingNotePayload;
+        const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+
+        if (!txEffect) {
+          this.log.warn(`No tx effect found for ${scopedLog.txHash} while decrypting tagged logs`);
+          continue;
+        }
+        if (!excludedIndices.has(scopedLog.txHash.toString())) {
+          excludedIndices.set(scopedLog.txHash.toString(), new Set());
+        }
+        const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
+          // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
+          // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
+          // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
+          simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+          this.db,
+          incomingNotePayload ? computePoint(recipient) : undefined,
+          outgoingNotePayload ? recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey : undefined,
+          payload!,
+          txEffect.txHash,
+          txEffect.noteHashes,
+          scopedLog.dataStartIndexForTx,
+          excludedIndices.get(scopedLog.txHash.toString())!,
+          this.log,
+          txEffect.unencryptedLogs,
+        );
+
+        if (incomingNote) {
+          incomingNotes.push(incomingNote);
+        }
+        if (outgoingNote) {
+          outgoingNotes.push(outgoingNote);
+        }
+        if (incomingDeferredNote) {
+          deferredIncomingNotes.push(incomingDeferredNote);
+        }
+        if (outgoingDeferredNote) {
+          deferredOutgoingNotes.push(outgoingDeferredNote);
+        }
+      }
+    }
+    if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
+      this.log.warn('Found deferred notes when processing tagged logs. This should not happen.');
+    }
+
+    return { incomingNotes, outgoingNotes };
+  }
+
+  /**
+   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param logs - The logs to process.
+   * @param recipient - The recipient of the logs.
+   */
+  public async processTaggedLogs(
+    logs: TxScopedEncryptedL2NoteLog[],
+    recipient: AztecAddress,
+    simulator?: AcirSimulator,
+  ): Promise<void> {
+    const { incomingNotes, outgoingNotes } = await this.#decryptTaggedLogs(
+      logs,
+      recipient,
+      simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+    );
+    if (incomingNotes.length || outgoingNotes.length) {
+      await this.db.addNotes(incomingNotes, outgoingNotes, recipient);
+      incomingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Added incoming note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } with nullifier ${noteDao.siloedNullifier.toString()}`,
+        );
+      });
+      outgoingNotes.forEach(noteDao => {
+        this.log.verbose(`Added outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`);
+      });
+    }
+    const nullifiedNotes: IncomingNoteDao[] = [];
+    for (const incomingNote of incomingNotes) {
+      // NOTE: this leaks information about the nullifiers I'm interested in to the node.
+      const found = await this.aztecNode.findLeafIndex(
+        'latest',
+        MerkleTreeId.NULLIFIER_TREE,
+        incomingNote.siloedNullifier,
+      );
+      if (found) {
+        nullifiedNotes.push(incomingNote);
+      }
+    }
+    await this.db.removeNullifiedNotes(
+      nullifiedNotes.map(note => note.siloedNullifier),
+      computePoint(recipient),
+    );
+    nullifiedNotes.forEach(noteDao => {
+      this.log.verbose(
+        `Removed note for contract ${noteDao.contractAddress} at slot ${
+          noteDao.storageSlot
+        } with nullifier ${noteDao.siloedNullifier.toString()}`,
+      );
+    });
   }
 }

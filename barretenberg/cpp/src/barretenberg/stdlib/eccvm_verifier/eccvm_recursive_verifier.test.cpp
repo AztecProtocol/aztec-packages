@@ -95,7 +95,6 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         InnerVerifier native_verifier(prover.key);
         bool native_result = native_verifier.verify_proof(proof);
         EXPECT_TRUE(native_result);
-
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {

@@ -1,4 +1,4 @@
-mod interfaces;
+pub mod interfaces;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,

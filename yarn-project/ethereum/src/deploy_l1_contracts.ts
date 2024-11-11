@@ -50,6 +50,7 @@ import {
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { type L1ContractsConfig } from './config.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
@@ -201,30 +202,18 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   },
 };
 
-export interface DeployL1ContractsArgs {
-  /**
-   * The address of the L2 Fee Juice contract.
-   */
+export interface DeployL1ContractsArgs extends L1ContractsConfig {
+  /** The address of the L2 Fee Juice contract. */
   l2FeeJuiceAddress: AztecAddress;
-  /**
-   * The vk tree root.
-   */
+  /** The vk tree root. */
   vkTreeRoot: Fr;
-  /**
-   * The protocol contract tree root.
-   */
+  /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
-  /**
-   * The block number to assume proven through.
-   */
+  /** The block number to assume proven through. */
   assumeProvenThrough?: number;
-  /**
-   * The salt for CREATE2 deployment.
-   */
+  /** The salt for CREATE2 deployment. */
   salt: number | undefined;
-  /**
-   * The initial validators for the rollup contract.
-   */
+  /** The initial validators for the rollup contract. */
   initialValidators?: EthAddress[];
 }
 
@@ -365,6 +354,12 @@ export const deployL1Contracts = async (
     args.protocolContractTreeRoot.toString(),
     account.address.toString(),
     args.initialValidators?.map(v => v.toString()) ?? [],
+    {
+      aztecSlotDuration: args.aztecSlotDuration,
+      aztecEpochDuration: args.aztecEpochDuration,
+      targetCommitteeSize: args.aztecTargetCommitteeSize,
+      aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+    },
   ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 

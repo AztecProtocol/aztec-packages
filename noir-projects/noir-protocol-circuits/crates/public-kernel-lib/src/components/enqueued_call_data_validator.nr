@@ -20,10 +20,6 @@ impl EnqueuedCallDataValidator {
         EnqueuedCallDataValidator { enqueued_call, phase }
     }
 
-    pub fn validate_proof(_self: Self) {
-        // TODO
-    }
-
     pub fn validate(self) {
         self.validate_revert_flag()
     }
@@ -31,19 +27,11 @@ impl EnqueuedCallDataValidator {
     pub fn validate_against_previous_kernel(
         self,
         previous_kernel: PublicKernelCircuitPublicInputs,
-        previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
-        previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
     ) {
         self.validate_global_variables(previous_kernel);
         self.validate_against_call_request(previous_kernel);
         self.validate_start_gas(previous_kernel);
         self.validate_transaction_fee(previous_kernel);
-        self.validate_array_lengths(
-            previous_validation_request_array_lengths,
-            previous_non_revertible_data_array_lengths,
-            previous_revertible_data_array_lengths,
-        );
     }
 
     fn validate_revert_flag(self) {
@@ -123,9 +111,11 @@ impl EnqueuedCallDataValidator {
         if self.phase != PublicKernelPhase.TEARDOWN {
             assert_eq(transaction_fee, 0, "Transaction fee must be zero on setup and app phases");
         } else {
-            // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
-            let total_gas_used =
-                previous_kernel.end.gas_used + previous_kernel.end_non_revertible.gas_used;
+            let teardown_gas =
+                previous_kernel.constants.tx_context.gas_settings.teardown_gas_limits;
+            let total_gas_used = previous_kernel.end.gas_used
+                + previous_kernel.end_non_revertible.gas_used
+                + teardown_gas;
             let block_gas_fees = self.enqueued_call.data.constants.global_variables.gas_fees;
             let inclusion_fee = previous_kernel.constants.tx_context.gas_settings.inclusion_fee;
             let computed_transaction_fee =
@@ -135,28 +125,5 @@ impl EnqueuedCallDataValidator {
                 "Transaction fee on teardown phase does not match expected value",
             );
         }
-    }
-
-    fn validate_array_lengths(
-        self,
-        previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
-        previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
-    ) {
-        assert_eq(
-            self.enqueued_call.data.previous_validation_request_array_lengths,
-            previous_validation_request_array_lengths,
-            "mismatch previous_validation_request_array_lengths",
-        );
-        let prev_lengths = if self.phase == PublicKernelPhase.SETUP {
-            previous_non_revertible_data_array_lengths
-        } else {
-            previous_revertible_data_array_lengths
-        };
-        assert_eq(
-            self.enqueued_call.data.previous_accumulated_data_array_lengths,
-            prev_lengths,
-            "mismatch previous_accumulated_data_array_lengths",
-        );
     }
 }

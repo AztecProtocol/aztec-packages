@@ -23,7 +23,7 @@ fn split_to_public_succeeds() {
     builder.append_unencrypted_log_hashes(1);
     builder.append_public_call_requests(2);
 
-    let combined_data = builder.to_exposed_public_accumulated_data();
+    let combined_data = builder.to_private_to_public_accumulated_data();
     let (non_revertible, revertible) = unsafe {
         split_to_public(
             builder.to_private_accumulated_data_builder(),
@@ -70,8 +70,11 @@ fn split_to_public_succeeds() {
     assert_array_eq(non_revertible.unencrypted_logs_hashes, [expected[0]]);
     assert_array_eq(revertible.unencrypted_logs_hashes, [expected[1]]);
 
-    // public_call_stack
-    let expected = combined_data.public_call_stack;
-    assert_array_eq(non_revertible.public_call_stack, [expected[0]]);
-    assert_array_eq(revertible.public_call_stack, [expected[1], expected[2]]);
+    // public_call_requests
+    let call_requests = combined_data.public_call_requests;
+    assert_array_eq(non_revertible.public_call_requests, [call_requests[0]]);
+    assert_array_eq(
+        revertible.public_call_requests,
+        [call_requests[1], call_requests[2]],
+    );
 }

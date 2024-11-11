@@ -49,6 +49,10 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
                                                  uint8_t const* witness_buf,
                                                  bool* result);
 
+WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* constraint_system_buf,
+                                                    uint8_t const* witness_buf,
+                                                    bool* result);
+
 /**
  * @brief Fold and verify a set of circuits using ClientIvc
  *
@@ -94,3 +98,5 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* r
 WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out);
 
 WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey);
+
+WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey);
