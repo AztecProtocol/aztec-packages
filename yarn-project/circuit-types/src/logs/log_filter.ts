@@ -1,10 +1,7 @@
 import { type AztecAddress } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
 
-import { z } from 'zod';
-
-import { TxHash } from '../tx/tx_hash.js';
-import { LogId } from './log_id.js';
+import { type TxHash } from '../tx/tx_hash.js';
+import { type LogId } from './log_id.js';
 
 /**
  * Log filter used to fetch L2 logs.
@@ -22,11 +19,3 @@ export type LogFilter = {
   /** The contract address to filter logs by. */
   contractAddress?: AztecAddress;
 };
-
-export const LogFilterSchema = z.object({
-  txHash: TxHash.schema.optional(),
-  fromBlock: schemas.Integer.optional(),
-  toBlock: schemas.Integer.optional(),
-  afterLog: LogId.schema.optional(),
-  contractAddress: schemas.AztecAddress.optional(),
-});

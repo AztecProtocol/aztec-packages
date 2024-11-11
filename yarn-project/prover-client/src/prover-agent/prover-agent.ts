@@ -1,23 +1,23 @@
 import {
-  type ProverAgentApi,
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
-  type ProvingRequestResultFor,
+  type ProvingRequestResult,
   ProvingRequestType,
   type ServerCircuitProver,
-  makeProvingRequestResult,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
+
+import { ProvingError } from './proving-error.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
  */
-export class ProverAgent implements ProverAgentApi {
+export class ProverAgent {
   private inFlightPromises = new Map<
     string,
     {
@@ -38,12 +38,11 @@ export class ProverAgent implements ProverAgentApi {
     private log = createDebugLogger('aztec:prover-client:prover-agent'),
   ) {}
 
-  setMaxConcurrency(maxConcurrency: number): Promise<void> {
+  setMaxConcurrency(maxConcurrency: number): void {
     if (maxConcurrency < 1) {
       throw new Error('Concurrency must be at least 1');
     }
     this.maxConcurrency = maxConcurrency;
-    return Promise.resolve();
   }
 
   setCircuitProver(circuitProver: ServerCircuitProver): void {
@@ -51,17 +50,11 @@ export class ProverAgent implements ProverAgentApi {
   }
 
   isRunning() {
-    return Promise.resolve(this.#isRunning());
-  }
-
-  #isRunning() {
     return this.runningPromise?.isRunning() ?? false;
   }
 
-  getCurrentJobs(): Promise<{ id: string; type: string }[]> {
-    return Promise.resolve(
-      Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] })),
-    );
+  getCurrentJobs(): { id: string; type: string }[] {
+    return Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] }));
   }
 
   start(jobSource: ProvingJobSource): void {
@@ -130,17 +123,15 @@ export class ProverAgent implements ProverAgentApi {
     this.log.info('Agent stopped');
   }
 
-  private async work<TRequest extends ProvingRequest>(
-    jobSource: ProvingJobSource,
-    job: ProvingJob<TRequest>,
-  ): Promise<void> {
+  private async work(jobSource: ProvingJobSource, job: ProvingJob<ProvingRequest>): Promise<void> {
     try {
       this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
-      const type: TRequest['type'] = job.request.type;
       const [time, result] = await elapsed(this.getProof(job.request));
-      if (this.#isRunning()) {
-        this.log.verbose(`Processed proving job id=${job.id} type=${ProvingRequestType[type]} duration=${time}ms`);
-        await jobSource.resolveProvingJob(job.id, makeProvingRequestResult(type, result));
+      if (this.isRunning()) {
+        this.log.verbose(
+          `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
+        );
+        await jobSource.resolveProvingJob(job.id, result);
       } else {
         this.log.verbose(
           `Dropping proving job id=${job.id} type=${
@@ -150,24 +141,20 @@ export class ProverAgent implements ProverAgentApi {
       }
     } catch (err) {
       const type = ProvingRequestType[job.request.type];
-      if (this.#isRunning()) {
+      if (this.isRunning()) {
         if (job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
           this.log.warn(`Expected error processing VM proving job id=${job.id} type=${type}: ${err}`);
         } else {
           this.log.error(`Error processing proving job id=${job.id} type=${type}: ${err}`, err);
         }
-        const reason = (err as any)?.message ?? String(err);
-        await jobSource.rejectProvingJob(job.id, reason);
+        await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       } else {
         this.log.verbose(`Dropping proving job id=${job.id} type=${type}: agent stopped: ${(err as any).stack || err}`);
       }
     }
   }
 
-  private getProof<TRequest extends ProvingRequest>(
-    request: TRequest,
-  ): Promise<ProvingRequestResultFor<TRequest['type']>['result']>;
-  private getProof(request: ProvingRequest): Promise<ProvingRequestResultFor<typeof type>['result']> {
+  private getProof(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {

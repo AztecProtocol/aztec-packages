@@ -1,6 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PrivateValidationRequests } from '../private_validation_requests.js';
@@ -38,14 +37,6 @@ export class PrivateKernelCircuitPublicInputs {
      */
     public feePayer: AztecAddress,
   ) {}
-
-  static get schema() {
-    return hexSchemaFor(PrivateKernelCircuitPublicInputs);
-  }
-
-  toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
-  }
 
   toBuffer() {
     return serializeToBuffer(

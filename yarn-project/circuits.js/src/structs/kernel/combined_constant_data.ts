@@ -1,9 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
-
-import { z } from 'zod';
 
 import { GlobalVariables } from '../global_variables.js';
 import { Header } from '../header.js';
@@ -46,19 +43,6 @@ export class CombinedConstantData {
       TxConstantData.protocolContractTreeRoot,
       globalVariables,
     );
-  }
-
-  static get schema() {
-    return z
-      .object({
-        historicalHeader: Header.schema,
-        txContext: TxContext.schema,
-        vkTreeRoot: schemas.Fr,
-        protocolContractTreeRoot: schemas.Fr,
-        globalVariables: GlobalVariables.schema,
-      })
-      .transform(CombinedConstantData.from)
-      .or(hexSchemaFor(CombinedConstantData));
   }
 
   toBuffer() {

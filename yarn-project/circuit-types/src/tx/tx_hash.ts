@@ -1,13 +1,14 @@
 import { Fr } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { schemas } from '@aztec/foundation/schemas';
 
 /**
  * A class representing hash of Aztec transaction.
  */
 export class TxHash extends Buffer32 {
   constructor(
-    /** The buffer containing the hash. */
+    /**
+     * The buffer containing the hash.
+     */
     hash: Buffer,
   ) {
     super(hash);
@@ -20,13 +21,5 @@ export class TxHash extends Buffer32 {
    */
   static override random() {
     return new TxHash(Fr.random().toBuffer());
-  }
-
-  static get schema() {
-    return schemas.BufferHex.transform(value => new TxHash(value));
-  }
-
-  static zero() {
-    return new TxHash(Buffer32.ZERO.toBuffer());
   }
 }

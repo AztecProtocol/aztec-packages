@@ -1,6 +1,6 @@
 import {
   type AuthWitness,
-  type EventMetadataDefinition,
+  type EventType,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
@@ -33,7 +33,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
+import type { AbiType, ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -152,7 +152,7 @@ export abstract class BaseWallet implements Wallet {
     args: any[],
     to: AztecAddress,
     from?: AztecAddress | undefined,
-  ): Promise<AbiDecoded> {
+  ): Promise<any> {
     return this.pxe.simulateUnconstrained(functionName, args, to, from);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
@@ -197,8 +197,16 @@ export abstract class BaseWallet implements Wallet {
   getPXEInfo(): Promise<PXEInfo> {
     return this.pxe.getPXEInfo();
   }
-  getEncryptedEvents<T>(
-    event: EventMetadataDefinition,
+  getEvents<T>(
+    type: EventType,
+    event: {
+      /** The event selector */
+      eventSelector: EventSelector;
+      /** The event's abi type */
+      abiType: AbiType;
+      /** The field names */
+      fieldNames: string[];
+    },
     from: number,
     limit: number,
     vpks: Point[] = [
@@ -206,10 +214,7 @@ export abstract class BaseWallet implements Wallet {
       this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
     ],
   ): Promise<T[]> {
-    return this.pxe.getEncryptedEvents(event, from, limit, vpks);
-  }
-  getUnencryptedEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    return this.pxe.getUnencryptedEvents(event, from, limit);
+    return this.pxe.getEvents(type, event, from, limit, vpks);
   }
   public getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,

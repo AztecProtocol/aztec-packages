@@ -1,13 +1,11 @@
 import { deployInitialTestAccounts } from '@aztec/accounts/testing';
-import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types';
-import {
-  type NamespacedApiHandlers,
-  createNamespacedSafeJsonRpcServer,
-  startHttpRpcServer,
-} from '@aztec/foundation/json-rpc/server';
+import { createAztecNodeRpcServer } from '@aztec/aztec-node';
+import { type ServerList, createNamespacedJsonRpcServer, createStatusRouter } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { createPXERpcServer } from '@aztec/pxe';
 
 import { Command } from 'commander';
+import http from 'http';
 
 import { setupConsoleJsonLog } from '../logging.js';
 import { createSandbox } from '../sandbox.js';
@@ -46,7 +44,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
     // list of 'stop' functions to call when process ends
     const signalHandlers: Array<() => Promise<void>> = [];
-    const services: NamespacedApiHandlers = {};
+    let services: ServerList = [];
 
     if (options.sandbox) {
       const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
@@ -71,37 +69,38 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       }
 
       // Start Node and PXE JSON-RPC server
+      const nodeServer = createAztecNodeRpcServer(node);
+      const pxeServer = createPXERpcServer(pxe);
       signalHandlers.push(stop);
-      services.node = [node, AztecNodeApiSchema];
-      services.pxe = [pxe, PXESchema];
+      services = [{ node: nodeServer }, { pxe: pxeServer }];
     } else {
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');
-        await startNode(options, signalHandlers, services, userLog);
+        services = await startNode(options, signalHandlers, userLog);
       } else if (options.proofVerifier) {
         const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
-        await startProofVerifier(options, signalHandlers, userLog);
+        services = await startProofVerifier(options, signalHandlers, userLog);
       } else if (options.bot) {
         const { startBot } = await import('./cmds/start_bot.js');
-        await startBot(options, signalHandlers, services, userLog);
+        services = await startBot(options, signalHandlers, userLog);
       } else if (options.proverNode) {
         const { startProverNode } = await import('./cmds/start_prover_node.js');
-        await startProverNode(options, signalHandlers, services, userLog);
+        services = await startProverNode(options, signalHandlers, userLog);
       } else if (options.pxe) {
         const { startPXE } = await import('./cmds/start_pxe.js');
-        await startPXE(options, signalHandlers, services, userLog);
+        services = await startPXE(options, signalHandlers, userLog);
       } else if (options.archiver) {
         const { startArchiver } = await import('./cmds/start_archiver.js');
-        await startArchiver(options, signalHandlers, services);
+        services = await startArchiver(options, signalHandlers);
       } else if (options.p2pBootstrap) {
         const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
         await startP2PBootstrap(options, userLog, debugLogger);
       } else if (options.prover) {
         const { startProverAgent } = await import('./cmds/start_prover_agent.js');
-        await startProverAgent(options, signalHandlers, services, userLog);
+        services = await startProverAgent(options, signalHandlers, userLog);
       } else if (options.txe) {
         const { startTXE } = await import('./cmds/start_txe.js');
-        await startTXE(options, debugLogger);
+        startTXE(options, debugLogger);
       } else if (options.sequencer) {
         userLog(`Cannot run a standalone sequencer without a node`);
         process.exit(1);
@@ -113,10 +112,17 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
     installSignalHandlers(debugLogger.info, signalHandlers);
 
-    if (Object.entries(services).length > 0) {
-      const rpcServer = createNamespacedSafeJsonRpcServer(services, debugLogger);
-      const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
-      debugLogger.info(`Aztec Server listening on port ${port}`);
+    if (services.length) {
+      const rpcServer = createNamespacedJsonRpcServer(services, debugLogger);
+
+      const app = rpcServer.getApp(options.apiPrefix);
+      // add status route
+      const statusRouter = createStatusRouter(() => rpcServer.isHealthy(), options.apiPrefix);
+      app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
+
+      const httpServer = http.createServer(app.callback());
+      httpServer.listen(options.port);
+      debugLogger.info(`Aztec Server listening on port ${options.port}`);
     }
   });
 

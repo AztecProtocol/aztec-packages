@@ -47,7 +47,7 @@ export class GetContractInstance extends Instruction {
     const [addressOffset, dstOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 
-    const address = memory.get(addressOffset).toAztecAddress();
+    const address = memory.get(addressOffset).toFr();
     const instance = await context.persistableState.getContractInstance(address);
     const exists = instance !== undefined;
 

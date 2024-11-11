@@ -1,9 +1,6 @@
 import { AztecAddress, Fr, FunctionData, FunctionSelector, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
-
-import { z } from 'zod';
 
 import { AuthWitness } from './auth_witness.js';
 import { PackedValues } from './packed_values.js';
@@ -42,19 +39,6 @@ export class TxExecutionRequest {
      */
     public authWitnesses: AuthWitness[],
   ) {}
-
-  static get schema() {
-    return z
-      .object({
-        origin: schemas.AztecAddress,
-        functionSelector: schemas.FunctionSelector,
-        firstCallArgsHash: schemas.Fr,
-        txContext: TxContext.schema,
-        argsOfCalls: z.array(PackedValues.schema),
-        authWitnesses: z.array(AuthWitness.schema),
-      })
-      .transform(TxExecutionRequest.from);
-  }
 
   toTxRequest(): TxRequest {
     return new TxRequest(
@@ -128,16 +112,5 @@ export class TxExecutionRequest {
    */
   static fromString(str: string): TxExecutionRequest {
     return TxExecutionRequest.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static random() {
-    return new TxExecutionRequest(
-      AztecAddress.random(),
-      FunctionSelector.random(),
-      Fr.random(),
-      TxContext.empty(),
-      [PackedValues.random()],
-      [AuthWitness.random()],
-    );
   }
 }

@@ -1,10 +1,12 @@
-import { ProverNodeApiSchema, ProvingJobSourceSchema, createAztecNodeClient } from '@aztec/circuit-types';
+import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
+import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
 import {
   type ProverNodeConfig,
   createProverNode,
+  createProverNodeRpcServer,
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
@@ -14,12 +16,14 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { extractRelevantOptions } from '../util.js';
 
-export async function startProverNode(
+export const startProverNode = async (
   options: any,
   signalHandlers: (() => Promise<void>)[],
-  services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<ServerList> => {
+  // Services that will be started in a single multi-rpc server
+  const services: ServerList = [];
+
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
@@ -69,14 +73,17 @@ export async function startProverNode(
   );
   const proverNode = await createProverNode(proverConfig, { telemetry });
 
-  services.proverNode = [proverNode, ProverNodeApiSchema];
+  services.push({ node: createProverNodeRpcServer(proverNode) });
 
   if (!options.prover) {
-    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobSourceSchema];
+    const provingJobSource = createProvingJobSourceServer(proverNode.getProver().getProvingJobSource());
+    services.push({ provingJobSource });
   }
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
   // Automatically start proving unproven blocks
   await proverNode.start();
-}
+
+  return services;
+};

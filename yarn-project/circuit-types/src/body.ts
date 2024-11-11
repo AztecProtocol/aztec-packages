@@ -8,7 +8,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
-import { z } from 'zod';
 
 export class Body {
   constructor(public txEffects: TxEffect[]) {
@@ -17,18 +16,6 @@ export class Body {
         throw new Error('Empty tx effect not allowed in Body');
       }
     });
-  }
-
-  static get schema() {
-    return z
-      .object({
-        txEffects: z.array(TxEffect.schema),
-      })
-      .transform(({ txEffects }) => new Body(txEffects));
-  }
-
-  toJSON() {
-    return { txEffects: this.txEffects };
   }
 
   /**

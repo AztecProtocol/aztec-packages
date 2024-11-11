@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -17,7 +16,7 @@ describe('avm nullifier caching', () => {
 
   describe('Nullifier caching and existence checks', () => {
     it('Reading a non-existent nullifier works (gets zero & DNE)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2);
       // never written!
       const [exists, isPending, gotIndex] = await nullifiers.checkExists(contractAddress, nullifier);
@@ -27,7 +26,7 @@ describe('avm nullifier caching', () => {
       expect(gotIndex).toEqual(Fr.ZERO);
     });
     it('Should cache nullifier, existence check works after creation', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2);
 
       // Write to cache
@@ -39,7 +38,7 @@ describe('avm nullifier caching', () => {
       expect(gotIndex).toEqual(Fr.ZERO);
     });
     it('Existence check works on fallback to host (gets index, exists, not-pending)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2);
       const storedLeafIndex = BigInt(420);
 
@@ -52,7 +51,7 @@ describe('avm nullifier caching', () => {
       expect(gotIndex).toEqual(gotIndex);
     });
     it('Existence check works on fallback to parent (gets value, exists, is pending)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2);
       const childNullifiers = nullifiers.fork();
 
@@ -66,7 +65,7 @@ describe('avm nullifier caching', () => {
       expect(gotIndex).toEqual(Fr.ZERO);
     });
     it('Existence check works on fallback to grandparent (gets value, exists, is pending)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2);
       const childNullifiers = nullifiers.fork();
       const grandChildNullifiers = childNullifiers.fork();
@@ -84,7 +83,7 @@ describe('avm nullifier caching', () => {
 
   describe('Nullifier collision failures', () => {
     it('Cant append nullifier that already exists in cache', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2); // same nullifier for both!
 
       // Append a nullifier to cache
@@ -95,7 +94,7 @@ describe('avm nullifier caching', () => {
       );
     });
     it('Cant append nullifier that already exists in parent cache', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2); // same nullifier for both!
 
       // Append a nullifier to parent
@@ -107,7 +106,7 @@ describe('avm nullifier caching', () => {
       );
     });
     it('Cant append nullifier that already exist in host', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2); // same nullifier for both!
       const storedLeafIndex = BigInt(420);
 
@@ -122,7 +121,7 @@ describe('avm nullifier caching', () => {
 
   describe('Nullifier cache merging', () => {
     it('Should be able to merge two nullifier caches together', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier0 = new Fr(2);
       const nullifier1 = new Fr(3);
 
@@ -143,7 +142,7 @@ describe('avm nullifier caching', () => {
       expect(results1).toEqual([/*exists=*/ true, /*isPending=*/ true, /*leafIndex=*/ Fr.ZERO]);
     });
     it('Cant merge two nullifier caches with colliding entries', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = new Fr(1);
       const nullifier = new Fr(2);
 
       // Append a nullifier to parent

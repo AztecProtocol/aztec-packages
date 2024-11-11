@@ -1,4 +1,3 @@
-import { schemas } from '../schemas/schemas.js';
 import { updateInlineTestData } from '../testing/test_data.js';
 import { Fr } from './fields.js';
 import { Point } from './point.js';
@@ -75,12 +74,5 @@ describe('Point', () => {
       'expected_compressed_point_negative_sign',
       byteArrayString,
     );
-  });
-
-  it('serializes from and to JSON', () => {
-    const p = Point.random();
-    const p2 = schemas.Point.parse(JSON.parse(JSON.stringify(p)));
-    expect(p).toEqual(p2);
-    expect(p2).toBeInstanceOf(Point);
   });
 });

@@ -1,6 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { Note } from '../logs/l1_payload/payload.js';
@@ -49,14 +48,6 @@ export class ExtendedNote {
     return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
-  toJSON() {
-    return this.toString();
-  }
-
-  static get schema() {
-    return hexSchemaFor(ExtendedNote);
-  }
-
   toString() {
     return '0x' + this.toBuffer().toString('hex');
   }
@@ -64,17 +55,6 @@ export class ExtendedNote {
   static fromString(str: string) {
     const hex = str.replace(/^0x/, '');
     return ExtendedNote.fromBuffer(Buffer.from(hex, 'hex'));
-  }
-
-  static random() {
-    return new ExtendedNote(
-      Note.random(),
-      AztecAddress.random(),
-      AztecAddress.random(),
-      Fr.random(),
-      NoteSelector.random(),
-      TxHash.random(),
-    );
   }
 }
 
@@ -98,10 +78,6 @@ export class UniqueNote extends ExtendedNote {
     super(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
-  static override get schema() {
-    return hexSchemaFor(UniqueNote);
-  }
-
   override toBuffer(): Buffer {
     return Buffer.concat([
       this.note.toBuffer(),
@@ -112,18 +88,6 @@ export class UniqueNote extends ExtendedNote {
       this.txHash.buffer,
       this.nonce.toBuffer(),
     ]);
-  }
-
-  static override random() {
-    return new UniqueNote(
-      Note.random(),
-      AztecAddress.random(),
-      AztecAddress.random(),
-      Fr.random(),
-      NoteSelector.random(),
-      TxHash.random(),
-      Fr.random(),
-    );
   }
 
   static override fromBuffer(buffer: Buffer | BufferReader) {

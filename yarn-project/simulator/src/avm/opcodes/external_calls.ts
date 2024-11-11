@@ -64,7 +64,7 @@ abstract class ExternalCall extends Instruction {
     context.machineState.consumeGas(allocatedGas);
 
     const nestedContext = context.createNestedContractCallContext(
-      callAddress.toAztecAddress(),
+      callAddress.toFr(),
       calldata,
       allocatedGas,
       callType,
