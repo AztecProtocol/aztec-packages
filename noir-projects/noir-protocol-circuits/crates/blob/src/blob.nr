@@ -19,7 +19,6 @@ use crate::{
         D, D_INV, F, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, LOG_FIELDS_PER_BLOB,
         NOIR_FIELDS_PER_BLOB, ROOTS,
     },
-    negative_roots::NEGATIVE_ROOTS,
 };
 
 //*********************************************************************************
@@ -60,7 +59,7 @@ unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
 unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     let mut denoms: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__add(NEGATIVE_ROOTS[i]); // (z - omega^i)
+        denoms[i] = z.__add(ROOTS[i].neg()); // (z - omega^i)
     }
     let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
     let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
@@ -247,7 +246,7 @@ fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> F
 // we haven't implemented Fq; only Fr, and we don't actually need to operate on it;
 // we just need the bits of data. So we've simply encoded it as fitting inside a
 // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
-// New:
+// See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
 pub fn evaluate_blob(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: [Field; 2],
@@ -370,7 +369,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     let mut fracs: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB]; // y_i / (z - omega^i), for all i
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__add(NEGATIVE_ROOTS[i]); // (z - omega^i)
+        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
     }
 
     // If you're seeing a `bug` warning for this line, I think it's fine.
@@ -392,7 +391,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         BigNum::evaluate_quadratic_expression(
             [[fracs[i]]],
             [[false]],
-            [[z, NEGATIVE_ROOTS[i]]],
+            [[z, ROOTS[i].neg()]],
             [[false, false]],
             [ys[i]],
             [true],
