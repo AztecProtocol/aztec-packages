@@ -52,15 +52,17 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     // Build the main_trace, and add any new rows with specific clks that line up with lookup reads
 
     // Is there a "spread-like" operator in cpp or can I make it generic of the first param of the unordered map
-    std::vector<std::unordered_map<uint8_t, uint32_t>> u8_rng_chks = { alu_trace_builder.u8_range_chk_counters[0],
-                                                                       alu_trace_builder.u8_range_chk_counters[1],
-                                                                       alu_trace_builder.u8_pow_2_counters[0],
-                                                                       alu_trace_builder.u8_pow_2_counters[1],
-                                                                       rng_chk_trace_builder.powers_of_2_counts };
+    std::vector<std::unordered_map<uint8_t, uint32_t>> u8_rng_chks = {
+        alu_trace_builder.u8_range_chk_counters[0], alu_trace_builder.u8_range_chk_counters[1],
+        alu_trace_builder.u8_pow_2_counters[0],     alu_trace_builder.u8_pow_2_counters[1],
+        rng_chk_trace_builder.powers_of_2_counts,   mem_trace_builder.mem_rng_chk_u8_counts,
+    };
 
     std::vector<std::reference_wrapper<std::unordered_map<uint16_t, uint32_t> const>> u16_rng_chks;
 
     u16_rng_chks.emplace_back(rng_chk_trace_builder.dyn_diff_counts);
+    u16_rng_chks.emplace_back(mem_trace_builder.mem_rng_chk_u16_0_counts);
+    u16_rng_chks.emplace_back(mem_trace_builder.mem_rng_chk_u16_1_counts);
     u16_rng_chks.insert(u16_rng_chks.end(),
                         rng_chk_trace_builder.u16_range_chk_counters.begin(),
                         rng_chk_trace_builder.u16_range_chk_counters.end());
@@ -3669,18 +3671,28 @@ std::vector<Row> AvmTraceBuilder::finalize()
             }
             dest.mem_sel_rng_chk = FF(1);
 
-            // Decomposition of diff
-            dest.mem_diff = uint64_t(diff);
-            // It's not great that this happens here, but we can clean it up after we extract the range checks
             // Mem Address row differences are range checked to 40 bits, and the inter-trace index is the timestamp
-            range_check_builder.assert_range(uint128_t(diff), 40, EventEmitter::MEMORY, uint64_t(dest.mem_tsp));
+            // Decomposition of diff
+            dest.mem_diff = diff;
+            auto diff_u64 = static_cast<uint64_t>(diff);
+            // 16 bit decomposition
+            auto mem_u16_r0 = static_cast<uint16_t>(diff_u64);
+            dest.mem_u16_r0 = FF(mem_u16_r0);
+            mem_trace_builder.mem_rng_chk_u16_0_counts[mem_u16_r0]++;
+            // Next 16 bits
+            auto mem_u16_r1 = static_cast<uint16_t>(diff_u64 >> 16);
+            dest.mem_u16_r1 = FF(mem_u16_r1);
+            mem_trace_builder.mem_rng_chk_u16_1_counts[mem_u16_r1]++;
+            // Final 8 bits
+            auto mem_u8_r0 = static_cast<uint8_t>(diff_u64 >> 32);
+            dest.mem_u8_r0 = FF(mem_u8_r0);
+            mem_trace_builder.mem_rng_chk_u8_counts[mem_u8_r0]++;
 
         } else {
             dest.mem_lastAccess = FF(1);
             dest.mem_last = FF(1);
         }
     }
-
     /**********************************************************************************************
      * ALU TRACE INCLUSION
      **********************************************************************************************/
@@ -3854,6 +3866,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
             auto counter_u8 = static_cast<uint8_t>(counter);
             r.lookup_pow_2_0_counts = alu_trace_builder.u8_pow_2_counters[0][counter_u8];
             r.lookup_pow_2_1_counts = alu_trace_builder.u8_pow_2_counters[1][counter_u8];
+            r.lookup_mem_rng_chk_2_counts = mem_trace_builder.mem_rng_chk_u8_counts[counter_u8];
             r.main_sel_rng_8 = FF(1);
             r.lookup_rng_chk_pow_2_counts = range_check_builder.powers_of_2_counts[counter_u8];
 
@@ -3873,6 +3886,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_rng_chk_6_counts = range_check_builder.u16_range_chk_counters[6][uint16_t(counter)];
             r.lookup_rng_chk_7_counts = range_check_builder.u16_range_chk_counters[7][uint16_t(counter)];
             r.lookup_rng_chk_diff_counts = range_check_builder.dyn_diff_counts[uint16_t(counter)];
+            r.lookup_mem_rng_chk_0_counts = mem_trace_builder.mem_rng_chk_u16_0_counts[uint16_t(counter)];
+            r.lookup_mem_rng_chk_1_counts = mem_trace_builder.mem_rng_chk_u16_1_counts[uint16_t(counter)];
             r.main_sel_rng_16 = FF(1);
         }
     }
