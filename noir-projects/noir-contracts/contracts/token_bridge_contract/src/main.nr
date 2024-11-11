@@ -114,9 +114,16 @@ contract TokenBridge {
         // Read the token address from storage
         let token_address = storage.token.read_private();
 
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "msg_sender: {0}",
+            [context.msg_sender().to_field()],
+        );
+
         // At last we mint the tokens
         // docs:start:call_mint_on_token
-        Token::at(token_address).mint_to_private(recipient, amount).call(&mut context);
+        Token::at(token_address).mint_to_private(context.msg_sender(), recipient, amount).call(
+            &mut context,
+        );
         // docs:end:call_mint_on_token
     }
     // docs:end:claim_private

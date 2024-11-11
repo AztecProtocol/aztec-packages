@@ -478,7 +478,7 @@ contract Token {
         let token = Token::at(context.this_address());
 
         // We prepare the transfer.
-        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+        let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
@@ -491,7 +491,8 @@ contract Token {
     /// finalized by calling `finalize_transfer_to_private`. Returns a hiding point slot.
     #[private]
     fn prepare_transfer_to_private(to: AztecAddress) -> Field {
-        _prepare_transfer_to_private(to, &mut context, storage)
+        let from = context.msg_sender();
+        _prepare_transfer_to_private(from, to, &mut context, storage)
     }
 
     /// This function exists separately from `prepare_transfer_to_private` solely as an optimization as it allows
@@ -501,6 +502,7 @@ contract Token {
     /// function.
     #[contract_library_method]
     fn _prepare_transfer_to_private(
+        from: AztecAddress, // recipient of the outgoing: TODO(#9887): this is not great?
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -514,8 +516,7 @@ contract Token {
         let note_setup_payload = UintNote::setup_payload().new(to, note_randomness, to_note_slot);
 
         // We get the keys and encrypt the log of the note
-        let from = context.msg_sender();
-        let from_ovpk = get_public_keys(context.msg_sender()).ovpk_m;
+        let from_ovpk = get_public_keys(from).ovpk_m;
         let setup_log = note_setup_payload.encrypt_log(context, from_ovpk, to, from);
 
         // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
@@ -590,12 +591,15 @@ contract Token {
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
     /// in the enqueud call).
     #[private]
-    fn mint_to_private(to: AztecAddress, amount: Field) {
-        let from = context.msg_sender();
+    fn mint_to_private(
+        from: AztecAddress, // recipient of the outgoing: TODO(#9887): this is not great?
+        to: AztecAddress,
+        amount: Field,
+    ) {
         let token = Token::at(context.this_address());
 
         // We prepare the transfer.
-        let hiding_point_slot = _prepare_transfer_to_private(to, &mut context, storage);
+        let hiding_point_slot = _prepare_transfer_to_private(from, to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that only a message sender with minter permissions
