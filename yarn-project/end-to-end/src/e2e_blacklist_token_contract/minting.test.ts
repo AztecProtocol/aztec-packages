@@ -83,13 +83,10 @@ describe('e2e_blacklist_token_contract mint', () => {
     });
 
     describe('Mint flow', () => {
-      it('mint_private as minter', async () => {
+      it('mint_private as minter and redeem as recipient', async () => {
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
-        tokenSim.mintPrivate(wallets[0].getAddress(), amount);
         txHash = receipt.txHash;
-      });
 
-      it('redeem as recipient', async () => {
         await t.addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
 
         const receiptClaim = await asset.methods
