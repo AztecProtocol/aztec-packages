@@ -20,13 +20,13 @@ terraform {
 provider "kubernetes" {
   alias          = "eks-cluster"
   config_path    = "~/.kube/config"
-  config_context = "arn:aws:eks:us-east-1:278380418400:cluster/spartan"
+  config_context = var.eks_cluster_context
 }
 
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
-  config_context = "gke_testnet-440309_us-east1_spartan-provers"
+  config_context = var.gke_cluster_context
 }
 
 # Helm providers for each cluster
@@ -34,7 +34,7 @@ provider "helm" {
   alias = "eks-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = "arn:aws:eks:us-east-1:278380418400:cluster/spartan"
+    config_context = var.eks_cluster_context
   }
 }
 
@@ -42,73 +42,38 @@ provider "helm" {
   alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = "gke_testnet-440309_us-east1_spartan-provers"
+    config_context = var.gke_cluster_context
   }
 }
 
-# Deploy to eks-cluster
-resource "kubernetes_namespace" "example_eks-cluster" {
-  provider = kubernetes.eks-cluster
-  metadata {
-    name = var.testnet_name
-  }
+# Aztec Helm release for eks-cluster
+resource "helm_release" "aztec-eks-cluster" {
+  provider         = helm.eks-cluster
+  name             = var.testnet_name
+  repository       = "../../"
+  chart            = "aztec-network"
+  namespace        = var.testnet_name
+  create_namespace = true
+  values           = [file("../../aztec-network/values/${var.eks-values-file}")]
+
+  # Setting timeout and wait conditions
+  timeout       = 1800 # 30 minutes in seconds
+  wait          = true
+  wait_for_jobs = true
 }
 
-# Deploy to gke-cluster
-resource "kubernetes_namespace" "example_gke-cluster" {
-  provider = kubernetes.gke-cluster
-  metadata {
-    name = var.testnet_name
-  }
-}
+# Aztec Helm release for gke-cluster
+resource "helm_release" "aztec-gke-cluster" {
+  provider         = helm.gke-cluster
+  name             = var.testnet_name
+  repository       = "../../"
+  chart            = "aztec-network"
+  namespace        = var.testnet_name
+  create_namespace = true
+  values           = [file("../../aztec-network/values/${var.gke-values-file}")]
 
-# Example Helm release for eks-cluster
-resource "helm_release" "nginx_eks-cluster" {
-  provider   = helm.eks-cluster
-  name       = "nginx"
-  repository = "https://charts.bitnami.com/bitnami"
-  chart      = "nginx"
-  namespace  = kubernetes_namespace.example_eks-cluster.metadata[0].name
-
-  values = [
-    <<-EOT
-    service:
-      type: ClusterIP
-    replicaCount: 2
-    EOT
-  ]
-}
-
-# Example Helm release for gke-cluster
-resource "helm_release" "nginx_gke-cluster" {
-  provider   = helm.gke-cluster
-  name       = "nginx"
-  repository = "https://charts.bitnami.com/bitnami"
-  chart      = "nginx"
-  namespace  = kubernetes_namespace.example_gke-cluster.metadata[0].name
-
-  # Different configuration for gke-cluster
-  values = [
-    <<-EOT
-    service:
-      type: ClusterIP
-    replicaCount: 3
-    resources:
-      limits:
-        cpu: 200m
-        memory: 256Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    EOT
-  ]
-}
-
-# Variables remain the same
-variable "clusters" {
-  type = map(string)
-  default = {
-    eks-cluster = "eks-cluster-context"
-    gke-cluster = "gke-cluster-context"
-  }
+  # Setting timeout and wait conditions
+  timeout       = 1800 # 30 minutes in seconds
+  wait          = true
+  wait_for_jobs = true
 }

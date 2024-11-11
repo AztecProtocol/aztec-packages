@@ -11,8 +11,8 @@ telemetry:
 
 images:
   aztec:
-    image: aztecprotocol/aztec
-    pullPolicy: IfNotPresent
+    image: aztecprotocol/aztec:master
+    pullPolicy: Always
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
