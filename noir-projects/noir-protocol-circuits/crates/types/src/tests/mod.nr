@@ -1,5 +1,5 @@
-mod fixture_builder;
+pub mod fixture_builder;
 pub mod fixtures;
-mod merkle_tree_utils;
-mod types;
-mod utils;
+pub mod merkle_tree_utils;
+pub mod types;
+pub mod utils;

@@ -9,12 +9,11 @@ use crate::{
     address::{AztecAddress, EthAddress},
     constants::{
         FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__VK,
+        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    proof::verification_key::VerificationKey,
     traits::{is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
@@ -148,7 +147,7 @@ pub fn compute_l2_to_l1_hash(
         }
     }
 
-    sha256_to_field(bytes.storage)
+    sha256_to_field(bytes.storage())
 }
 
 pub fn silo_l2_to_l1_message(

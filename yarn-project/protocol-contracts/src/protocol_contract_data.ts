@@ -50,14 +50,14 @@ export const ProtocolContractAddress: Record<ProtocolContractName, AztecAddress>
 };
 
 export const ProtocolContractLeaf = {
-  AuthRegistry: Fr.fromString('0x0e85b3514938c3b0e0dbde3e0166112fbdf8be52d785d7f16343ff8811a6aa61'),
-  ContractInstanceDeployer: Fr.fromString('0x01058a68733f2faef2e88d5f68119205ea278d24ff1580b6eadb786612d9fe1f'),
-  ContractClassRegisterer: Fr.fromString('0x05974f2c180fea4efc59300e797651d291d12a0d3e06ab42d311fbc9081a9c77'),
-  MultiCallEntrypoint: Fr.fromString('0x2af59baec3ef89c8b260ce3a25c3914ba8eca26c630263cd55effc5d4b094645'),
-  FeeJuice: Fr.fromString('0x1e6566e9888d8a90b57b65e6c1213465aa3f99ce6e78f00c9ad1ae9b44a87269'),
-  Router: Fr.fromString('0x2cceafcc64b7cac13036654ef4659796a6989c16a222095033f3c069dd8584f8'),
+  AuthRegistry: Fr.fromString('0x0931f3bf89563f3898ae9650851083cd560ad800c2e3c561c3853eec4dd7ea8b'),
+  ContractInstanceDeployer: Fr.fromString('0x266ea4c9917455daa905c1dd1a10753714c6d0369b6f2fe23feeca6de556d164'),
+  ContractClassRegisterer: Fr.fromString('0x1ccb7a219f72a851089e956d527997b01068d5a28c9ae96b35ebeb45f068af23'),
+  MultiCallEntrypoint: Fr.fromString('0x000b94baf1a8eebc1b280aa1f162f88ef4fa9da6bf4ebbe5bbb2a40386a91314'),
+  FeeJuice: Fr.fromString('0x1e47caab3dd90f26b91e14e003a5ceab8d069b654174f6d698cdec9b1a6d19d5'),
+  Router: Fr.fromString('0x00827d5a8aedb9627d9e5de04735600a4dbb817d4a2f51281aab991699f5de99'),
 };
 
 export const protocolContractTreeRoot = Fr.fromString(
-  '0x03af2136fa5e00fc3ad4dfdd880cd13d28b5fd2dec5f06e47cb91b3613c28178',
+  '0x23b9c035580b52d82ff309cd3c70acf754be2070d861572faf90fa403001ac24',
 );

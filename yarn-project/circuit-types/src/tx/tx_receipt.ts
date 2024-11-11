@@ -1,7 +1,11 @@
-import { type PublicDataWrite, RevertCode } from '@aztec/circuits.js';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { type UniqueNote } from '../notes/extended_note.js';
+import { z } from 'zod';
+
+import { UniqueNote } from '../notes/extended_note.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -24,35 +28,25 @@ export enum TxStatus {
  */
 export class TxReceipt {
   constructor(
-    /**
-     * A unique identifier for a transaction.
-     */
+    /** A unique identifier for a transaction. */
     public txHash: TxHash,
-    /**
-     * The transaction's status.
-     */
+    /** The transaction's status. */
     public status: TxStatus,
-    /**
-     * Description of transaction error, if any.
-     */
+    /** Description of transaction error, if any. */
     public error: string,
-    /**
-     * The transaction fee paid for the transaction.
-     */
+    /** The transaction fee paid for the transaction. */
     public transactionFee?: bigint,
-    /**
-     * The hash of the block containing the transaction.
-     */
+    /** The hash of the block containing the transaction. */
     public blockHash?: Buffer,
-    /**
-     * The block number in which the transaction was included.
-     */
+    /** The block number in which the transaction was included. */
     public blockNumber?: number,
-    /**
-     * Information useful for testing/debugging, set when test flag is set to true in `waitOpts`.
-     */
+    /** Information useful for testing/debugging, set when test flag is set to true in `waitOpts`. */
     public debugInfo?: DebugInfo,
   ) {}
+
+  static empty() {
+    return new TxReceipt(TxHash.zero(), TxStatus.DROPPED, '');
+  }
 
   /**
    * Convert a Tx class object to a plain JSON object.
@@ -66,7 +60,34 @@ export class TxReceipt {
       blockHash: this.blockHash?.toString('hex'),
       blockNumber: this.blockNumber,
       transactionFee: this.transactionFee?.toString(),
+      ...(this.debugInfo && { debugInfo: this.debugInfo }),
     };
+  }
+
+  static get schema() {
+    return z
+      .object({
+        txHash: TxHash.schema,
+        status: z.nativeEnum(TxStatus),
+        error: z.string(),
+        blockHash: schemas.BufferHex.optional(),
+        blockNumber: z.number().optional(),
+        transactionFee: schemas.BigInt.optional(),
+        debugInfo: DebugInfoSchema.optional(),
+      })
+      .transform(TxReceipt.from);
+  }
+
+  static from(fields: FieldsOf<TxReceipt>) {
+    return new TxReceipt(
+      fields.txHash,
+      fields.status,
+      fields.error,
+      fields.transactionFee,
+      fields.blockHash,
+      fields.blockNumber,
+      fields.debugInfo,
+    );
   }
 
   /**
@@ -133,3 +154,12 @@ interface DebugInfo {
    */
   visibleOutgoingNotes: UniqueNote[];
 }
+
+const DebugInfoSchema = z.object({
+  noteHashes: z.array(schemas.Fr),
+  nullifiers: z.array(schemas.Fr),
+  publicDataWrites: z.array(PublicDataWrite.schema),
+  l2ToL1Msgs: z.array(schemas.Fr),
+  visibleIncomingNotes: z.array(UniqueNote.schema),
+  visibleOutgoingNotes: z.array(UniqueNote.schema),
+});

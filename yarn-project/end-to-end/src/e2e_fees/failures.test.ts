@@ -330,7 +330,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
             caller: this.paymentContract,
             action: {
               name: 'transfer_public',
-              args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
               selector: FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
@@ -347,7 +347,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
         selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [tooMuchFee, this.asset, nonce],
+        args: [tooMuchFee, this.asset.toField(), nonce],
         returnTypes: [],
       },
     ]);

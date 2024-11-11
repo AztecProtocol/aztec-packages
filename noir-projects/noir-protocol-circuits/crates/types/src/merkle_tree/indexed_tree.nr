@@ -1,4 +1,4 @@
-mod check_valid_low_leaf;
+pub mod check_valid_low_leaf;
 
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,

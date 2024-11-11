@@ -4,8 +4,8 @@ use dep::types::{
 };
 
 pub struct TransientDataIndexHint {
-    nullifier_index: u32,
-    note_hash_index: u32,
+    pub nullifier_index: u32,
+    pub note_hash_index: u32,
 }
 
 impl TransientDataIndexHint {

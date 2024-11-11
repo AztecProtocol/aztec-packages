@@ -1,4 +1,4 @@
-import { SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress, SerializableContractInstance } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -16,7 +16,7 @@ import {
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
-  const address = Fr.random();
+  const address = AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -168,7 +168,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 2
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);
@@ -301,7 +301,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 1
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);

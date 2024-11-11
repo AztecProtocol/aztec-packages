@@ -9,10 +9,10 @@ use crate::{
 };
 
 pub struct TxRequest {
-    origin: AztecAddress,
-    args_hash: Field,
-    tx_context: TxContext,
-    function_data: FunctionData,
+    pub origin: AztecAddress,
+    pub args_hash: Field,
+    pub tx_context: TxContext,
+    pub function_data: FunctionData,
 }
 
 impl Empty for TxRequest {

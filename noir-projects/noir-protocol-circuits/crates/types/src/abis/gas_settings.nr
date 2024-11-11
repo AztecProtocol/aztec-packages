@@ -49,7 +49,7 @@ impl Serialize<GAS_SETTINGS_LENGTH> for GasSettings {
         serialized.extend_from_array(self.teardown_gas_limits.serialize());
         serialized.extend_from_array(self.max_fees_per_gas.serialize());
 
-        serialized.storage
+        serialized.storage()
     }
 }
 

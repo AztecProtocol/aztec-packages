@@ -66,7 +66,7 @@ describe('GasTxValidator', () => {
     patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      args: [selector.toField(), payer, new Fr(1n)],
+      args: [selector.toField(), payer.toField(), new Fr(1n)],
       msgSender: ProtocolContractAddress.FeeJuice,
     });
     await expectValidateSuccess(tx);
@@ -85,7 +85,7 @@ describe('GasTxValidator', () => {
     mockBalance(feeLimit - 1n);
     patchRevertibleFn(tx, 0, {
       selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-      args: [payer, new Fr(1n)],
+      args: [payer.toField(), new Fr(1n)],
     });
     await expectValidateFail(tx);
   });

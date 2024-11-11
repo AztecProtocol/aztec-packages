@@ -83,12 +83,12 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
 }
 
 pub struct PrivateKernelCircuitPublicInputs {
-    constants: TxConstantData,
-    min_revertible_side_effect_counter: u32,
-    validation_requests: PrivateValidationRequests,
-    end: PrivateAccumulatedData,
-    public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress,
+    pub constants: TxConstantData,
+    pub min_revertible_side_effect_counter: u32,
+    pub validation_requests: PrivateValidationRequests,
+    pub end: PrivateAccumulatedData,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub fee_payer: AztecAddress,
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
