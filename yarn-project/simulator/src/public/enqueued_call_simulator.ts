@@ -4,7 +4,7 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
-  PublicKernelPhase,
+  type PublicKernelPhase,
   type SimulationError,
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
@@ -34,8 +34,6 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
-  PublicAccumulatedDataArrayLengths,
-  PublicCallData,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
   PublicInnerCallRequest,
@@ -44,7 +42,6 @@ import {
   RevertCode,
   TreeLeafReadRequest,
   type VMCircuitPublicInputs,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -155,8 +152,8 @@ export class EnqueuedCallSimulator {
         avmCallResult,
         fnName,
       );
-      const callData = await this.getPublicCallData(deprecatedFunctionCallResult);
-      avmProvingRequest = makeAvmProvingRequest(callData.publicInputs, deprecatedFunctionCallResult);
+      const publicInputs = await this.getPublicCircuitPublicInputs(deprecatedFunctionCallResult);
+      avmProvingRequest = makeAvmProvingRequest(publicInputs, deprecatedFunctionCallResult);
     } else {
       avmProvingRequest = emptyAvmProvingRequest();
     }
@@ -176,18 +173,6 @@ export class EnqueuedCallSimulator {
       transactionFee,
       avmCallResult,
     );
-    // FIXME(dbanks12): For now, override this because there is a disconnect with how the TS/simulator
-    // tracks "previous lengths" versus the kernel. The kernel uses "non revertible lengths" in SETUP
-    // and "revertible lengths" otherwise. TS also uses "non revertible lengths" in SETUP, but then
-    // uses _total_/combined lengths otherwise.
-    const prevAccumulatedData =
-      phase === PublicKernelPhase.SETUP
-        ? previousPublicKernelOutput.endNonRevertibleData
-        : previousPublicKernelOutput.end;
-    const previousAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.new(prevAccumulatedData);
-    vmCircuitPublicInputs.previousAccumulatedDataArrayLengths = previousAccumulatedDataArrayLengths;
-    // END TEMPORARY
-    ///////////////////////////////////////////////////////////////////////////
 
     const gasUsed = allocatedGas.sub(Gas.from(result.endGasLeft));
 
@@ -205,18 +190,6 @@ export class EnqueuedCallSimulator {
   /** Returns all pending private and public nullifiers. */
   private getSiloedPendingNullifiers(ko: PublicKernelCircuitPublicInputs) {
     return [...ko.end.nullifiers, ...ko.endNonRevertibleData.nullifiers].filter(n => !n.isEmpty());
-  }
-
-  /**
-   * Calculates the PublicCircuitOutput for this execution result along with its proof,
-   * and assembles a PublicCallData object from it.
-   * @param result - The execution result.
-   * @returns A corresponding PublicCallData object.
-   */
-  private async getPublicCallData(result: PublicFunctionCallResult) {
-    const bytecodeHash = await this.getBytecodeHash(result);
-    const publicInputs = await this.getPublicCircuitPublicInputs(result);
-    return new PublicCallData(publicInputs, makeEmptyProof(), bytecodeHash);
   }
 
   private async getPublicCircuitPublicInputs(result: PublicFunctionCallResult) {

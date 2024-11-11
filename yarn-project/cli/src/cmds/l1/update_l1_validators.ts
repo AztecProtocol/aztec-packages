@@ -1,6 +1,7 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
+
 import { ETHEREUM_SLOT_DURATION, type EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain, isAnvilTestChain } from '@aztec/ethereum';
+import { createEthereumChain, isAnvilTestChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
@@ -144,6 +145,7 @@ export async function fastForwardEpochs({
 }
 
 export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
+  const config = getL1ContractsConfigEnvVars();
   const publicClient = getPublicClient(rpcUrl, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
@@ -169,7 +171,7 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Current slot: ${slot}`);
   const proposerDuringPrevL1Block = await rollup.read.getCurrentProposer();
   log(`Proposer during previous L1 block: ${proposerDuringPrevL1Block}`);
-  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(config.ethereumSlotDuration));
   const proposer = await rollup.read.getProposerAt([nextBlockTS]);
   log(`Proposer NOW: ${proposer.toString()}`);
 }

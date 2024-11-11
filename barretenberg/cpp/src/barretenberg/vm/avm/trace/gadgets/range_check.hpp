@@ -92,7 +92,6 @@ class AvmRangeCheckBuilder {
         row.range_check_u16_r7 = entry.dynamic_slice_register;
 
         row.range_check_alu_rng_chk = entry.is_alu_sel;
-        row.range_check_mem_rng_chk = entry.is_mem_sel;
         row.range_check_gas_l2_rng_chk = entry.is_gas_l2_sel;
         row.range_check_gas_da_rng_chk = entry.is_gas_da_sel;
         row.range_check_cmp_lo_bits_rng_chk = entry.is_cmp_lo;

@@ -12,11 +12,11 @@ use crate::{
     utils::reader::Reader,
 };
 
+// TODO(#9594): To be deprecated.
 pub struct VMCircuitPublicInputs {
     constants: CombinedConstantData,
     call_request: PublicCallRequest,
 
-    // TODO(#7124): To be deprecated.
     public_call_stack: [PublicInnerCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
 
     previous_validation_request_array_lengths: PublicValidationRequestArrayLengths, // Lengths of the validation requests before the enqueued call.

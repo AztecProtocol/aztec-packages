@@ -545,6 +545,18 @@ export class BarretenbergApi {
     return out as any;
   }
 
+  async acirProveAndVerifyAztecClient(acirVec: Uint8Array[], witnessVec: Uint8Array[]): Promise<boolean> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_and_verify_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirProveUltraHonk(acirVec: Uint8Array, recursive: boolean, witnessVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, recursive, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
