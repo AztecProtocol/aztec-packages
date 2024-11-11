@@ -6,6 +6,7 @@ SCRIPT_NAME=$(basename "$0" .sh)
 
 # Set the token contract to use
 export BOT_TOKEN_CONTRACT=${BOT_TOKEN_CONTRACT:-"TokenContract"}
+export BOT_PXE_URL=${BOT_PXE_URL:-"http://127.0.0.1:8079"}
 
 # Redirect stdout and stderr to <script_name>.log while also printing to the console
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
@@ -20,7 +21,7 @@ done
 echo "Waiting for PXE service..."
 until curl -s -X POST -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-  http://127.0.0.1:8079 | grep -q '"enr:-'; do
+  $BOT_PXE_URL | grep -q '"enr:-'; do
   sleep 1
 done
 
@@ -49,4 +50,5 @@ export PXE_PROVER_ENABLED="false"
 export PROVER_REAL_PROOFS="false"
 
 # Start the bot
-node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js start --port=8077 --pxe --bot
+
+node --no-warnings $REPO/yarn-project/aztec/dest/bin/index.js start --port=8077 --bot --pxe

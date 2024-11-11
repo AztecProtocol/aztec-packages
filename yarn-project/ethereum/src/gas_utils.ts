@@ -1,5 +1,6 @@
 import { type DebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 
 import {
   type Address,
@@ -143,9 +144,9 @@ export class GasUtils {
       gasLimit: bigint;
       maxFeePerGas: bigint;
     },
-    config?: TransactionMonitorConfig,
+    txMonitorConfig?: TransactionMonitorConfig,
   ): Promise<TransactionReceipt> {
-    const cfg = { ...this.monitorConfig, ...config };
+    const config = { ...this.monitorConfig, ...txMonitorConfig };
     let attempts = 0;
     let lastSeen = Date.now();
     let currentTxHash = txHash;
@@ -155,24 +156,26 @@ export class GasUtils {
         // Check transaction status
         const receipt = await this.publicClient.getTransactionReceipt({ hash: currentTxHash });
         if (receipt) {
+          this.logger?.info(`Transaction ${currentTxHash} confirmed`);
           return receipt;
         }
 
         // Check if transaction is pending
         const tx = await this.publicClient.getTransaction({ hash: currentTxHash });
+        this.logger?.info(`Transaction ${currentTxHash} pending`);
         if (tx) {
           lastSeen = Date.now();
-          await new Promise(resolve => setTimeout(resolve, cfg.checkIntervalMs));
+          await new Promise(resolve => setTimeout(resolve, config.checkIntervalMs));
           continue;
         }
 
         // Transaction not found and enough time has passed - might be stuck
-        if (Date.now() - lastSeen > cfg.stallTimeMs && attempts < cfg.maxAttempts) {
+        if (Date.now() - lastSeen > config.stallTimeMs && attempts < config.maxAttempts) {
           attempts++;
-          const newGasPrice = (originalTx.maxFeePerGas * (100n + cfg.gasPriceIncrease)) / 100n;
+          const newGasPrice = (originalTx.maxFeePerGas * (100n + config.gasPriceIncrease)) / 100n;
 
           this.logger?.info(
-            `Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${cfg.maxAttempts} ` +
+            `Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${config.maxAttempts} ` +
               `with new gas price ${formatGwei(newGasPrice)} gwei`,
           );
 
@@ -191,10 +194,11 @@ export class GasUtils {
           lastSeen = Date.now();
         }
 
-        await new Promise(resolve => setTimeout(resolve, cfg.checkIntervalMs));
+        // await new Promise(resolve => setTimeout(resolve, cfg.checkIntervalMs));
+        await sleep(config.checkIntervalMs);
       } catch (err: any) {
         this.logger?.warn(`Error monitoring transaction ${currentTxHash}:`, err);
-        await new Promise(resolve => setTimeout(resolve, cfg.checkIntervalMs));
+        await new Promise(resolve => setTimeout(resolve, config.checkIntervalMs));
       }
     }
   }
