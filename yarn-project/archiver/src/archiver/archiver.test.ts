@@ -6,8 +6,9 @@ import {
   LogType,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { ETHEREUM_SLOT_DURATION, GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { Blob } from '@aztec/foundation/blob';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -61,7 +62,7 @@ describe('Archiver', () => {
     now = +new Date();
     publicClient = mock<PublicClient<HttpTransport, Chain>>({
       getBlock: ((args: any) => ({
-        timestamp: args.blockNumber * BigInt(ETHEREUM_SLOT_DURATION) + BigInt(now),
+        timestamp: args.blockNumber * BigInt(DefaultL1ContractsConfig.ethereumSlotDuration) + BigInt(now),
       })) as any,
     });
 
@@ -99,7 +100,10 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    blocks.forEach((b, i) => (b.header.globalVariables.timestamp = new Fr(now + ETHEREUM_SLOT_DURATION * (i + 1))));
+    blocks.forEach(
+      (b, i) =>
+        (b.header.globalVariables.timestamp = new Fr(now + DefaultL1ContractsConfig.ethereumSlotDuration * (i + 1))),
+    );
     const rollupTxs = blocks.map(makeRollupTx);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);

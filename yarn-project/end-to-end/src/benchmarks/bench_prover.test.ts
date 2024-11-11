@@ -66,6 +66,10 @@ describe('benchmarks/proving', () => {
     schnorrWalletSalt = Fr.random();
     schnorrWalletEncKey = Fr.random();
     schnorrWalletSigningKey = Fq.random();
+
+    feeRecipient = CompleteAddress.random();
+    recipient = CompleteAddress.random();
+
     const initialSchnorrWallet = await getSchnorrAccount(
       ctx.pxe,
       schnorrWalletEncKey,
@@ -113,9 +117,6 @@ describe('benchmarks/proving', () => {
       initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
       initialTokenContract.methods.mint_to_private(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
     ]);
-
-    recipient = CompleteAddress.random();
-    feeRecipient = CompleteAddress.random();
   });
 
   // remove the fake prover and setup the real one

@@ -2,6 +2,7 @@ import { L2Block } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -115,7 +116,8 @@ describe('L1Publisher', () => {
         rollupAddress: rollupContract.address,
       },
       l1PublishRetryIntervalMS: 1,
-    } as unknown as TxSenderConfig & PublisherConfig;
+      ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
+    } as unknown as TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
 
     publisher = new L1Publisher(config, new NoopTelemetryClient());
 

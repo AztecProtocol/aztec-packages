@@ -48,8 +48,9 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
+import { ExtendedNote, L2Block, LogType, Note, type TxHash, tryStop } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -69,7 +70,7 @@ const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-
+const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -402,6 +403,7 @@ describe('e2e_synching', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       },
       new NoopTelemetryClient(),
     );
@@ -573,7 +575,7 @@ describe('e2e_synching', () => {
             .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
-          await archiver.stop();
+          await tryStop(archiver);
           await worldState.stop();
         },
         ASSUME_PROVEN_THROUGH,

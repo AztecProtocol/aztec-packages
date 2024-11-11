@@ -60,12 +60,18 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32[2] c;
   }
 
+  struct Config {
+    uint256 aztecSlotDuration;
+    uint256 aztecEpochDuration;
+    uint256 targetCommitteeSize;
+    uint256 aztecEpochProofClaimWindowInL2Slots;
+  }
+
   // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
   // for justification of CLAIM_DURATION_IN_L2_SLOTS.
-  uint256 public constant CLAIM_DURATION_IN_L2_SLOTS =
-    Constants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS;
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
 
+  uint256 public immutable CLAIM_DURATION_IN_L2_SLOTS;
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
@@ -74,6 +80,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
   IRewardDistributor public immutable REWARD_DISTRIBUTOR;
   IERC20 public immutable ASSET;
+
   IVerifier public epochProofVerifier;
 
   ChainTips public tips;
@@ -105,19 +112,30 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
     address _ares,
-    address[] memory _validators
-  ) Leonidas(_ares) {
+    address[] memory _validators,
+    Config memory _config
+  )
+    Leonidas(
+      _ares,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.targetCommitteeSize
+    )
+  {
     epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     REWARD_DISTRIBUTOR = _rewardDistributor;
     ASSET = _fpcJuicePortal.UNDERLYING();
-    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(ASSET, address(this));
+    PROOF_COMMITMENT_ESCROW = new ProofCommitmentEscrow(
+      ASSET, address(this), _config.aztecSlotDuration, _config.aztecEpochDuration
+    );
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
     protocolContractTreeRoot = _protocolContractTreeRoot;
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
+    CLAIM_DURATION_IN_L2_SLOTS = _config.aztecEpochProofClaimWindowInL2Slots;
 
     // Genesis block
     blocks[0] = BlockLog({
@@ -685,7 +703,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     // out_hash: root of this epoch's l2 to l1 message tree
     publicInputs[8] = _args[5];
 
-    uint256 feesLength = Constants.AZTEC_EPOCH_DURATION * 2;
+    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
     for (uint256 i = 0; i < feesLength; i++) {
       publicInputs[9 + i] = _fees[i];
@@ -757,8 +775,8 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     );
 
     require(
-      currentSlot.positionInEpoch() < CLAIM_DURATION_IN_L2_SLOTS,
-      Errors.Rollup__NotInClaimPhase(currentSlot.positionInEpoch(), CLAIM_DURATION_IN_L2_SLOTS)
+      positionInEpoch(currentSlot) < CLAIM_DURATION_IN_L2_SLOTS,
+      Errors.Rollup__NotInClaimPhase(positionInEpoch(currentSlot), CLAIM_DURATION_IN_L2_SLOTS)
     );
 
     // if the epoch to prove is not the one that has been claimed,
@@ -849,16 +867,16 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
 
     Slot currentSlot = getSlotAt(_ts);
     Epoch oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
-    Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
+    Slot startSlotOfPendingEpoch = toSlots(oldestPendingEpoch);
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
     // we prune the pending chain back to the end of epoch 1 if:
     // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
     // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
     bool inClaimPhase = currentSlot
-      < startSlotOfPendingEpoch + Epoch.wrap(1).toSlots() + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
+      < startSlotOfPendingEpoch + toSlots(Epoch.wrap(1)) + Slot.wrap(CLAIM_DURATION_IN_L2_SLOTS);
 
-    bool claimExists = currentSlot < startSlotOfPendingEpoch + Epoch.wrap(2).toSlots()
+    bool claimExists = currentSlot < startSlotOfPendingEpoch + toSlots(Epoch.wrap(2))
       && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0);
 
     if (inClaimPhase || claimExists) {

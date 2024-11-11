@@ -4,6 +4,8 @@ import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { z } from 'zod';
+
 import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge.js';
 
 /**
@@ -18,6 +20,24 @@ export class L2Block {
     /** L2 block body. */
     public body: Body,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        archive: AppendOnlyTreeSnapshot.schema,
+        header: Header.schema,
+        body: Body.schema,
+      })
+      .transform(({ archive, header, body }) => new L2Block(archive, header, body));
+  }
+
+  toJSON() {
+    return {
+      archive: this.archive,
+      header: this.header,
+      body: this.body,
+    };
+  }
 
   /**
    * Deserializes a block from a buffer

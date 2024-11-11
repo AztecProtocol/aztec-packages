@@ -10,7 +10,6 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  ETHEREUM_SLOT_DURATION,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   GasFees,
@@ -65,7 +64,7 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 const logger = createDebugLogger('aztec:integration_l1_publisher');
 
 const config = getConfigEnvVars();
-config.l1RpcUrl = config.l1RpcUrl || 'http://localhost:8545';
+config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
 
 const numberOfConsecutiveBlocks = 2;
 
@@ -161,6 +160,7 @@ describe('L1Publisher integration', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: config.ethereumSlotDuration,
       },
       new NoopTelemetryClient(),
     );
@@ -340,7 +340,7 @@ describe('L1Publisher integration', () => {
         ];
 
         const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -454,7 +454,7 @@ describe('L1Publisher integration', () => {
         const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
         const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(config.version),
@@ -533,7 +533,7 @@ describe('L1Publisher integration', () => {
 
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
       const ts = (await publicClient.getBlock()).timestamp;
-      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
+      const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),

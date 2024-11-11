@@ -10,7 +10,13 @@ import {
 } from '@aztec/circuit-types';
 import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
+import { times } from '@aztec/foundation/collection';
+import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { type ZodFor, hexSchemaFor, mapSchema, schemas } from '@aztec/foundation/schemas';
+import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 /**
  * The contents of a new note.
@@ -24,6 +30,20 @@ export class NoteAndSlot {
     /** The note type identifier. */
     public noteTypeId: NoteSelector,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        note: Note.schema,
+        storageSlot: schemas.Fr,
+        noteTypeId: schemas.NoteSelector,
+      })
+      .transform(NoteAndSlot.from);
+  }
+
+  static from(fields: FieldsOf<NoteAndSlot>) {
+    return new NoteAndSlot(fields.note, fields.storageSlot, fields.noteTypeId);
+  }
 
   toJSON() {
     return {
@@ -40,10 +60,39 @@ export class NoteAndSlot {
       NoteSelector.fromString(json.noteTypeId),
     );
   }
+
+  static random() {
+    return new NoteAndSlot(Note.random(), Fr.random(), NoteSelector.random());
+  }
 }
 
 export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> implements IsEmpty {
   constructor(public log: TLog, public counter: number) {}
+
+  static get schema(): ZodFor<CountedLog<UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>> {
+    return z
+      .object({
+        log: z.union([EncryptedL2Log.schema, EncryptedL2NoteLog.schema, UnencryptedL2Log.schema]),
+        counter: schemas.Integer,
+      })
+      .transform(CountedLog.from);
+  }
+
+  static schemaFor<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(log: { schema: ZodFor<TLog> }) {
+    return z
+      .object({
+        log: log.schema,
+        counter: schemas.Integer,
+      })
+      .transform(({ log, counter }) => new CountedLog(log!, counter) as CountedLog<TLog>) as ZodFor<CountedLog<TLog>>;
+  }
+
+  static from<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log>(fields: {
+    log: TLog;
+    counter: number;
+  }): CountedLog<TLog> {
+    return new CountedLog(fields.log, fields.counter);
+  }
 
   isEmpty(): boolean {
     return !this.log.data.length && !this.counter;
@@ -53,6 +102,16 @@ export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | Enc
 export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
   constructor(log: EncryptedL2NoteLog, counter: number, public noteHashCounter: number) {
     super(log, counter);
+  }
+
+  static override get schema(): ZodFor<CountedNoteLog> {
+    return z
+      .object({
+        log: EncryptedL2NoteLog.schema,
+        counter: schemas.Integer,
+        noteHashCounter: schemas.Integer,
+      })
+      .transform(({ log, counter, noteHashCounter }) => new CountedNoteLog(log, counter, noteHashCounter));
   }
 
   toJSON() {
@@ -66,10 +125,27 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
   static fromJSON(json: any) {
     return new CountedNoteLog(EncryptedL2NoteLog.fromJSON(json.log), json.counter, json.noteHashCounter);
   }
+
+  static random() {
+    return new CountedNoteLog(EncryptedL2NoteLog.random(), randomInt(10), randomInt(10));
+  }
 }
 
 export class CountedPublicExecutionRequest {
   constructor(public request: PublicExecutionRequest, public counter: number) {}
+
+  static get schema() {
+    return z
+      .object({
+        request: hexSchemaFor(PublicExecutionRequest), // TODO(palla/schema) Use PublicExecutionRequest.schema,
+        counter: schemas.Integer,
+      })
+      .transform(CountedPublicExecutionRequest.from);
+  }
+
+  static from(fields: FieldsOf<CountedPublicExecutionRequest>) {
+    return new CountedPublicExecutionRequest(fields.request, fields.counter);
+  }
 
   isEmpty(): boolean {
     return this.request.isEmpty() && !this.counter;
@@ -87,6 +163,10 @@ export class CountedPublicExecutionRequest {
       PublicExecutionRequest.fromBuffer(Buffer.from(json.request, 'hex')),
       json.counter,
     );
+  }
+
+  static random() {
+    return new CountedPublicExecutionRequest(PublicExecutionRequest.random(), 0);
   }
 }
 
@@ -136,6 +216,46 @@ export class PrivateExecutionResult {
     public unencryptedLogs: CountedLog<UnencryptedL2Log>[],
   ) {}
 
+  static get schema(): ZodFor<PrivateExecutionResult> {
+    return z
+      .object({
+        acir: schemas.BufferHex,
+        vk: schemas.BufferHex,
+        partialWitness: mapSchema(z.coerce.number(), z.string()),
+        publicInputs: PrivateCircuitPublicInputs.schema,
+        noteHashLeafIndexMap: mapSchema(schemas.BigInt, schemas.BigInt),
+        newNotes: z.array(NoteAndSlot.schema),
+        noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
+        returnValues: z.array(schemas.Fr),
+        nestedExecutions: z.array(z.lazy(() => PrivateExecutionResult.schema)),
+        enqueuedPublicFunctionCalls: z.array(CountedPublicExecutionRequest.schema),
+        publicTeardownFunctionCall: hexSchemaFor(PublicExecutionRequest), // TODO(palla/schema) Use PublicExecutionRequest.schema
+        noteEncryptedLogs: z.array(CountedNoteLog.schema),
+        encryptedLogs: z.array(CountedLog.schemaFor(EncryptedL2Log)),
+        unencryptedLogs: z.array(CountedLog.schemaFor(UnencryptedL2Log)),
+      })
+      .transform(PrivateExecutionResult.from);
+  }
+
+  static from(fields: FieldsOf<PrivateExecutionResult>) {
+    return new PrivateExecutionResult(
+      fields.acir,
+      fields.vk,
+      fields.partialWitness,
+      fields.publicInputs,
+      fields.noteHashLeafIndexMap,
+      fields.newNotes,
+      fields.noteHashNullifierCounterMap,
+      fields.returnValues,
+      fields.nestedExecutions,
+      fields.enqueuedPublicFunctionCalls,
+      fields.publicTeardownFunctionCall,
+      fields.noteEncryptedLogs,
+      fields.encryptedLogs,
+      fields.unencryptedLogs,
+    );
+  }
+
   toJSON(): any {
     return {
       acir: this.acir.toString('hex'),
@@ -162,6 +282,25 @@ export class PrivateExecutionResult {
         counter: countedLog.counter,
       })),
     };
+  }
+
+  static random(nested = 1): PrivateExecutionResult {
+    return new PrivateExecutionResult(
+      randomBytes(4),
+      randomBytes(4),
+      new Map([[1, 'one']]),
+      PrivateCircuitPublicInputs.empty(),
+      new Map([[1n, 1n]]),
+      [NoteAndSlot.random()],
+      new Map([[0, 0]]),
+      [Fr.random()],
+      times(nested, () => PrivateExecutionResult.random(0)),
+      [CountedPublicExecutionRequest.random()],
+      PublicExecutionRequest.random(),
+      [CountedNoteLog.random()],
+      [new CountedLog(EncryptedL2Log.random(), randomInt(10))],
+      [new CountedLog(UnencryptedL2Log.random(), randomInt(10))],
+    );
   }
 
   static fromJSON(json: any): PrivateExecutionResult {

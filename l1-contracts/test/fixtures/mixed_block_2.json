@@ -120,7 +120,7 @@
       "stateReference": {
         "l1ToL2MessageTree": {
           "nextAvailableLeafIndex": 32,
-          "root": "0x2cd1079160767e99ff3e43a4e56a0b79c7d28239245ac3240935dfb98a4eee29"
+          "root": "0x026efb6c2a517de2448119d0f1255757265dbec7cdd2952df929ede666e10944"
         },
         "partialStateReference": {
           "noteHashTree": {

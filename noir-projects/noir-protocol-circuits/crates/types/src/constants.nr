@@ -43,14 +43,14 @@ pub global MAX_ENCRYPTED_LOGS_PER_CALL: u32 = 4;
 pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
 
 // TREES RELATED CONSTANTS
-pub global ARCHIVE_HEIGHT: u32 = 16;
+pub global ARCHIVE_HEIGHT: u32 = 29;
 pub global VK_TREE_HEIGHT: u32 = 6;
 pub global PROTOCOL_CONTRACT_TREE_HEIGHT: u32 = 3;
 pub global FUNCTION_TREE_HEIGHT: u32 = 5;
-pub global NOTE_HASH_TREE_HEIGHT: u32 = 32;
+pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
-pub global NULLIFIER_TREE_HEIGHT: u32 = 20;
-pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 16;
+pub global NULLIFIER_TREE_HEIGHT: u32 = 40;
+pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 39;
 pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = 5;
 pub global NULLIFIER_TREE_ID = 0;
 pub global NOTE_HASH_TREE_ID = 1;
@@ -135,17 +135,11 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global PRIVATE_LOG_SIZE_IN_BYTES: u32 = 576; // This is currently defined by aztec-nr/aztec/src/encrypted_logs/payload.nr. See the comment there for how this value is calculated.
-pub global ETHEREUM_SLOT_DURATION: u32 = 12;
-// AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
-pub global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 2;
-pub global AZTEC_EPOCH_DURATION: u32 = 16;
-pub global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
-// The number of AZTEC_SLOTS that we can wait for a proof of an epoch to be produced.
-pub global AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS: u32 = 13;
+pub global AZTEC_MAX_EPOCH_DURATION: u32 = 32;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
+    0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 pub global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
@@ -514,16 +508,16 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* end_block_hash */
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
-    + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
-    + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
+    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
 // + 8 for previous_block_hash, end_block_hash, end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 8
-    + AZTEC_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + AZTEC_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
+    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS;
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;

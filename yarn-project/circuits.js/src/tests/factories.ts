@@ -19,7 +19,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
-  AZTEC_EPOCH_DURATION,
+  AZTEC_MAX_EPOCH_DURATION,
   AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   AvmContractInstanceHint,
@@ -1039,7 +1039,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x501),
     globalVariables ?? makeGlobalVariables(seed + 0x502),
     fr(seed + 0x600),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
     fr(seed + 0x801),
     fr(seed + 0x900),
@@ -1189,7 +1189,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x600),
     fr(seed + 0x700),
     fr(seed + 0x800),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
     fr(seed + 0x101),
     fr(seed + 0x200),
@@ -1537,14 +1537,14 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    new Fr(seed + 0x400),
+    new AztecAddress(new Fr(seed + 0x400)),
   );
 }
 
 export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
   const salt = new Fr(seed);
   const initializationHash = new Fr(seed + 1);
-  const deployer = new Fr(seed + 2);
+  const deployer = new AztecAddress(new Fr(seed + 2));
   const publicKeys = PublicKeys.random();
 
   const saltedInitializationHash = poseidon2HashWithSeparator(
@@ -1596,10 +1596,10 @@ export function makeAvmBytecodeHints(seed = 0): AvmContractBytecodeHints {
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
-    new Fr(seed),
+    new AztecAddress(new Fr(seed)),
     true /* exists */,
     new Fr(seed + 0x2),
-    new Fr(seed + 0x3),
+    new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new PublicKeys(
@@ -1613,7 +1613,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
 
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return AvmEnqueuedCallHint.from({
-    contractAddress: new Fr(seed),
+    contractAddress: new AztecAddress(new Fr(seed)),
     calldata: makeVector((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
   });
 }

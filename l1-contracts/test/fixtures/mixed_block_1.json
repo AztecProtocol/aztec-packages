@@ -83,12 +83,12 @@
       },
       "lastArchive": {
         "nextAvailableLeafIndex": 1,
-        "root": "0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e"
+        "root": "0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860"
       },
       "stateReference": {
         "l1ToL2MessageTree": {
           "nextAvailableLeafIndex": 16,
-          "root": "0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"
+          "root": "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
         },
         "partialStateReference": {
           "noteHashTree": {

@@ -1,3 +1,4 @@
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
@@ -14,6 +15,8 @@ export async function deployL1Contracts(
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
+  const config = getL1ContractsConfigEnvVars();
+
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrl,
     chainId,
@@ -21,6 +24,7 @@ export async function deployL1Contracts(
     mnemonic,
     salt,
     initialValidators,
+    config,
     debugLogger,
   );
 

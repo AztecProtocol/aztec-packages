@@ -33,21 +33,21 @@
       },
       "lastArchive": {
         "nextAvailableLeafIndex": 1,
-        "root": "0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e"
+        "root": "0x2a05cb8aeefe9b9797f90650eae072f5ab7437807e62f9724ce1900467779860"
       },
       "stateReference": {
         "l1ToL2MessageTree": {
           "nextAvailableLeafIndex": 16,
-          "root": "0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"
+          "root": "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
         },
         "partialStateReference": {
           "noteHashTree": {
             "nextAvailableLeafIndex": 128,
-            "root": "0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d"
+            "root": "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb"
           },
           "nullifierTree": {
             "nextAvailableLeafIndex": 256,
-            "root": "0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"
+            "root": "0x0c499b373a1f0fe1b510a63563546d2d39e206895056a5af0143c5f30d639073"
           },
           "publicDataTree": {
             "nextAvailableLeafIndex": 256,
