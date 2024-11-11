@@ -54,8 +54,9 @@ fn build_abi_error_type(context: &Context, typ: ErrorType) -> AbiErrorType {
     match typ {
         ErrorType::Dynamic(typ) => {
             if let Type::FmtString(len, item_types) = typ {
-                let length =
-                    len.evaluate_to_u32(Span::default()).expect("Cannot evaluate fmt length");
+                let length = len
+                    .evaluate_to_u32(get_main_function_span(context))
+                    .expect("Cannot evaluate fmt length");
                 let Type::Tuple(item_types) = item_types.as_ref() else {
                     unreachable!("FmtString items must be a tuple")
                 };
