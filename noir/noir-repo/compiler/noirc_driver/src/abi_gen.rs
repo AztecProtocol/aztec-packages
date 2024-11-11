@@ -7,6 +7,7 @@ use noirc_abi::{
     Abi, AbiErrorType, AbiParameter, AbiReturnType, AbiType, AbiValue, AbiVisibility, Sign,
 };
 use noirc_errors::Span;
+use noirc_evaluator::ErrorType;
 use noirc_frontend::ast::{Signedness, Visibility};
 use noirc_frontend::TypeBinding;
 use noirc_frontend::{
@@ -49,17 +50,21 @@ fn get_main_function_span(context: &Context) -> Span {
     }
 }
 
-fn build_abi_error_type(context: &Context, typ: &Type) -> AbiErrorType {
+fn build_abi_error_type(context: &Context, typ: ErrorType) -> AbiErrorType {
     match typ {
-        Type::FmtString(len, item_types) => {
-            let span = get_main_function_span(context);
-            let length = len.evaluate_to_u32(span).expect("Cannot evaluate fmt length");
-            let Type::Tuple(item_types) = item_types.as_ref() else {
-                unreachable!("FmtString items must be a tuple")
-            };
-            let item_types =
-                item_types.iter().map(|typ| abi_type_from_hir_type(context, typ)).collect();
-            AbiErrorType::FmtString { length, item_types }
+        ErrorType::Dynamic(typ) => {
+            if let Type::FmtString(len, item_types) = typ {
+                let length =
+                    len.evaluate_to_u32(Span::default()).expect("Cannot evaluate fmt length");
+                let Type::Tuple(item_types) = item_types.as_ref() else {
+                    unreachable!("FmtString items must be a tuple")
+                };
+                let item_types =
+                    item_types.iter().map(|typ| abi_type_from_hir_type(context, typ)).collect();
+                AbiErrorType::FmtString { length, item_types }
+            } else {
+                AbiErrorType::Custom(abi_type_from_hir_type(context, &typ))
+            }
         }
         ErrorType::String(string) => AbiErrorType::String { string },
     }
