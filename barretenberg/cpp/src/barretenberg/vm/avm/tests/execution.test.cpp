@@ -2248,6 +2248,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     // Calldata for l2_gas, da_gas, contract_address, nested_call_args (4 elements),
     std::vector<FF> calldata = { 17, 10, 34802342, 1, 2, 3, 4 };
     std::string bytecode_preamble;
+
     // Set up Gas offsets
     bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for gas offset indirect
                          "00"                    // Indirect flag
@@ -2267,11 +2268,16 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                          "03"  // val 3 (the start of the args array)
                          "13"; // dst_offset 19
     // Set up args size offset
-    bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for ret offset indirect
+    bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET for args size indirect
                          "00"                    // Indirect flag
                          + to_hex(AvmMemoryTag::U32) +
-                         "04"  // val 4 (the length of the args array)
-                         "14"; // dst_offset 20
+                         "04"                          // val 4 - resolved address
+                         "14";                         // dst_offset 20
+    bytecode_preamble += to_hex(OpCode::SET_8) +       // opcode SET
+                         "00"                          // Indirect flag
+                         + to_hex(AvmMemoryTag::U32) + //
+                         "00"                          // val 0 (args size)
+                         "04";                         // dst_offset 4
     // Set up the ret offset
     bytecode_preamble += to_hex(OpCode::SET_16) + // opcode SET for ret offset indirect
                          "00"                     // Indirect flag
@@ -2279,7 +2285,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
                          "0100"  // val 256 (the start of where to write the return data)
                          "0015"; // dst_offset 21
     // Set up the success offset
-    bytecode_preamble += to_hex(OpCode::SET_16) + // opcode SET for ret offset indirect
+    bytecode_preamble += to_hex(OpCode::SET_16) + // opcode SET for success offset indirect
                          "00"                     // Indirect flag
                          + to_hex(AvmMemoryTag::U32) +
                          "0102"  // val 258 (write the success flag at ret_offset + ret_size)
@@ -2372,8 +2378,8 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
 
     std::string bytecode_hex = to_hex(OpCode::SET_8) +                             // opcode SET
                                "00"                                                // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) + to_hex(address_byte) + // val
-                               "01"                                                // dst_offset 0
+                               + to_hex(AvmMemoryTag::FF) + to_hex(address_byte) + // val
+                               "01"                                                // dst_offset 1
                                + to_hex(OpCode::GETCONTRACTINSTANCE) +             // opcode GETCONTRACTINSTANCE
                                "00"                                                // Indirect flag
                                + to_hex(static_cast<uint8_t>(ContractInstanceMember::DEPLOYER)) + // member enum
