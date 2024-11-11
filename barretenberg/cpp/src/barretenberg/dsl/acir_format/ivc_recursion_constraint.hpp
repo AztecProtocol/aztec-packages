@@ -10,8 +10,7 @@ using namespace bb;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints);
 
-void mock_ivc_oink_accumulation(ClientIVC& ivc,
-                                size_t total_num_public_inputs_app = bb::PAIRING_POINT_ACCUMULATOR_SIZE);
+void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app = 0);
 
 ClientIVC::VerifierInputs create_dummy_vkey_and_proof_oink(const TraceSettings& trace_settings,
                                                            const size_t num_public_inputs);

@@ -21,11 +21,7 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
 
     for (const auto& constraint : constraints) {
         if (static_cast<uint32_t>(PROOF_TYPE::OINK) == constraint.proof_type) {
-            ClientIVC::VerifierInputs oink_entry =
-                acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings, constraint.public_inputs.size());
-            ivc.verification_queue.emplace_back(oink_entry);
-            ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
-            // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
+            mock_ivc_oink_accumulation(ivc, constraint.public_inputs.size());
         } else if (static_cast<uint32_t>(PROOF_TYPE::PG) == constraint.proof_type) {
             // do other stuff
         }
@@ -34,10 +30,10 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
     return ivc;
 }
 
-void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t total_num_public_inputs_app)
+void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t num_public_inputs_app)
 {
-    ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
-        ivc.trace_settings, total_num_public_inputs_app - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
+    ClientIVC::VerifierInputs oink_entry =
+        acir_format::create_dummy_vkey_and_proof_oink(ivc.trace_settings, num_public_inputs_app);
     ivc.verification_queue.emplace_back(oink_entry);
     ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc.initialized = true;
