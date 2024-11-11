@@ -23,7 +23,6 @@ import {
   type ContractDataSource,
   ContractInstanceDeployedEvent,
   type ContractInstanceWithAddress,
-  ETHEREUM_SLOT_DURATION,
   type ExecutablePrivateFunctionWithMembershipProof,
   type FunctionSelector,
   type Header,
