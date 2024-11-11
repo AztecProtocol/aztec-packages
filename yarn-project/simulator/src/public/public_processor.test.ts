@@ -249,9 +249,9 @@ describe('public_processor', () => {
       const txFee = new Fr(567);
       const pendingBalance = new Fr(2000);
       const pendingWrites = [
-        new PublicDataWrite(AztecAddress.fromBigInt(888n), new Fr(999)),
+        new PublicDataWrite(new Fr(888n), new Fr(999)),
         new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), pendingBalance),
-        new PublicDataWrite(AztecAddress.fromBigInt(666n), new Fr(777)),
+        new PublicDataWrite(new Fr(666n), new Fr(777)),
       ];
       mockedAvmOutput.transactionFee = txFee;
       mockedAvmOutput.accumulatedData.publicDataWrites[0] = pendingWrites[0];
