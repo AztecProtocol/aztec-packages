@@ -44,10 +44,10 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using HashPathCallback = std::function<void(const TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(const TypedResponse<FindLeafIndexResponse>&)>;
     using GetLeafCallback = std::function<void(const TypedResponse<GetLeafResponse>&)>;
-    using CommitCallback = std::function<void(const TypedResponse<CommitResponse&>)>;
+    using CommitCallback = std::function<void(const TypedResponse<CommitResponse>&)>;
     using RollbackCallback = std::function<void(const Response&)>;
-    using RemoveHistoricBlockCallback = std::function<void(const TypedResponse<RemoveHistoricResponse&>)>;
-    using UnwindBlockCallback = std::function<void(const TypedResponse<UnwindResponse&>)>;
+    using RemoveHistoricBlockCallback = std::function<void(const TypedResponse<RemoveHistoricResponse>&)>;
+    using UnwindBlockCallback = std::function<void(const TypedResponse<UnwindResponse>&)>;
     using FinaliseBlockCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves

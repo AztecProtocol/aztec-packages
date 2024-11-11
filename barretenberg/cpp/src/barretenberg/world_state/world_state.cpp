@@ -418,7 +418,7 @@ std::pair<bool, std::string> WorldState::commit()
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &success, &message](auto&& wrapper) {
-                wrapper.tree->commit([&](const Response& response) {
+                wrapper.tree->commit([&](const TypedResponse<CommitResponse>& response) {
                     bool expected = true;
                     if (!response.success && success.compare_exchange_strong(expected, false)) {
                         message = response.message;
@@ -656,7 +656,7 @@ bool WorldState::unwind_block(const index_t& blockNumber)
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &success, blockNumber](auto&& wrapper) {
-                wrapper.tree->unwind_block(blockNumber, [&signal, &success](const Response& resp) {
+                wrapper.tree->unwind_block(blockNumber, [&signal, &success](const TypedResponse<UnwindResponse>& resp) {
                     success = success && resp.success;
                     signal.signal_decrement();
                 });
@@ -675,10 +675,11 @@ bool WorldState::remove_historical_block(const index_t& blockNumber)
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &success, blockNumber](auto&& wrapper) {
-                wrapper.tree->remove_historic_block(blockNumber, [&signal, &success](const Response& resp) {
-                    success = success && resp.success;
-                    signal.signal_decrement();
-                });
+                wrapper.tree->remove_historic_block(
+                    blockNumber, [&signal, &success](const TypedResponse<RemoveHistoricResponse>& resp) {
+                        success = success && resp.success;
+                        signal.signal_decrement();
+                    });
             },
             tree);
     }
