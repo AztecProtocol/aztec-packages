@@ -243,6 +243,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
     auto y3 = lambda * (x1 - x3) - y1;
     if (is_constant()) {
         auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
+        // We need to manually propagate the origin tag
         result.set_origin_tag(get_origin_tag());
         return result;
     }
@@ -253,6 +254,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
     });
+
+    // We need to manually propagate the origin tag
     result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     return result;
@@ -303,11 +306,13 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     const bool rhs_constant = other.is_constant();
     if (lhs_constant && !rhs_constant) {
         auto lhs = cycle_group::from_constant_witness(context, get_value());
+        // We need to manually propagate the origin tag
         lhs.set_origin_tag(get_origin_tag());
         return lhs.unconditional_add(other);
     }
     if (!lhs_constant && rhs_constant) {
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
+        // We need to manually propagate the origin tag
         rhs.set_origin_tag(other.get_origin_tag());
         return unconditional_add(rhs);
     }
@@ -317,6 +322,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     AffineElement p3(Element(p1) + Element(p2));
     if (lhs_constant && rhs_constant) {
         auto result = cycle_group(p3);
+        // We need to manually propagate the origin tag
         result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return result;
     }
@@ -335,6 +341,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     };
     context->create_ecc_add_gate(add_gate);
 
+    // We need to manually propagate the origin tag (merging the tag of two inputs)
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
@@ -361,11 +368,13 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
 
         if (lhs_constant && !rhs_constant) {
             auto lhs = cycle_group<Builder>::from_constant_witness(context, get_value());
+            // We need to manually propagate the origin tag
             lhs.set_origin_tag(get_origin_tag());
             return lhs.unconditional_subtract(other);
         }
         if (!lhs_constant && rhs_constant) {
             auto rhs = cycle_group<Builder>::from_constant_witness(context, other.get_value());
+            // We need to manually propagate the origin tag
             rhs.set_origin_tag(other.get_origin_tag());
             return unconditional_subtract(rhs);
         }
@@ -374,6 +383,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
         AffineElement p3(Element(p1) - Element(p2));
         if (lhs_constant && rhs_constant) {
             auto result = cycle_group(p3);
+            // We need to manually propagate the origin tag
             result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
             return result;
         }
@@ -392,6 +402,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
         };
         context->create_ecc_add_gate(add_gate);
 
+        // We need to manually propagate the origin tag (merging the tag of two inputs)
         result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return result;
     }
@@ -609,6 +620,7 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(con
         // bb::fq modulus otherwise we could have two representations for in
         validate_scalar_is_in_field();
     }
+    // We need to manually propagate the origin tag
     lo.set_origin_tag(in.get_origin_tag());
     hi.set_origin_tag(in.get_origin_tag());
 }
@@ -682,6 +694,7 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     field_t hi = witness_t(in.get_context(), hi_v);
     lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
 
+    // We need to manually propagate the origin tag
     lo.set_origin_tag(in.get_origin_tag());
     hi.set_origin_tag(in.get_origin_tag());
 
@@ -805,6 +818,7 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         // construct *this.hi out of limb2, limb3 and the remaining term from limb1 not contributing to `lo`
         hi = limb_1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
     }
+    // We need to manually propagate the origin tag
     lo.set_origin_tag(scalar.get_origin_tag());
     hi.set_origin_tag(scalar.get_origin_tag());
 };
@@ -900,6 +914,7 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
                 result.push_back(field_t(slice_v));
                 raw_value = raw_value >> table_bits;
             }
+
             return result;
         }
         if constexpr (IS_ULTRA) {
@@ -933,10 +948,6 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
             }
             field_t::accumulate(linear_elements).assert_equal(scalar);
         }
-        auto tag = scalar.get_origin_tag();
-        for (auto& element : result) {
-            element.set_origin_tag(tag);
-        }
         return result;
     };
 
@@ -947,6 +958,11 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
 
     std::copy(lo_slices.begin(), lo_slices.end(), std::back_inserter(slices));
     std::copy(hi_slices.begin(), hi_slices.end(), std::back_inserter(slices));
+    const auto tag = scalar.get_origin_tag();
+    for (auto& element : slices) {
+        // All slices need to have the same origin tag
+        element.set_origin_tag(tag);
+    }
 }
 
 /**
@@ -1049,10 +1065,15 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
         auto output_indices = _context->read_ROM_array_pair(rom_id, index.get_witness_index());
         field_t x = field_t::from_witness_index(_context, output_indices[0]);
         field_t y = field_t::from_witness_index(_context, output_indices[1]);
+        // Merge tag of table with tag of index
+        x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
+        y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
         return cycle_group(x, y, false);
     }
     field_t x = _index * (point_table[1].x - point_table[0].x) + point_table[0].x;
     field_t y = _index * (point_table[1].y - point_table[0].y) + point_table[0].y;
+
+    // Merge tag of table with tag of index
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     return cycle_group(x, y, false);
@@ -1119,6 +1140,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<straus_lookup_table> point_tables;
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
+        // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
         scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
         point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
@@ -1174,6 +1196,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         x_diff.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
 
+    // Set the final accumulator's tag to the merge of all points' and scalars' tags
     accumulator.set_origin_tag(tag);
     /**
      * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
@@ -1214,6 +1237,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
+        // Merge all tags of scalars (we don't have to account for CircuitSimulator in cycle_group yet, because it
+        // breaks)
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
@@ -1255,6 +1280,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
      * in `batch_mul` before performing the subtraction.
      */
+    // Set accumulator's origin tag to the merge of all scalars' tags
     accumulator.set_origin_tag(tag);
     return { accumulator, offset_generator_accumulator };
 }
@@ -1392,6 +1418,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     std::vector<cycle_scalar> fixed_base_scalars;
     std::vector<AffineElement> fixed_base_points;
 
+    // Merge all tags
     OriginTag result_tag;
     for (auto [point, scalar] : zip_view(base_points, scalars)) {
         result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
@@ -1519,6 +1546,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         // This would be slightly cheaper than operator- as we do not have to evaluate the double edge case.
         result = result - AffineElement(offset_accumulator);
     }
+    // Ensure the tag of the result is a merge of all inputs
     result.set_origin_tag(result_tag);
     return result;
 }

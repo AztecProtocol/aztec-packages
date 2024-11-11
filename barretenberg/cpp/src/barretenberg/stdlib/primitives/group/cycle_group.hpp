@@ -108,7 +108,17 @@ template <typename Builder> class cycle_group {
         void validate_scalar_is_in_field() const;
 
         explicit cycle_scalar(BigScalarField&);
+        /**
+         * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
+         *
+         * @return OriginTag
+         */
         OriginTag get_origin_tag() const { return OriginTag(lo.get_origin_tag(), hi.get_origin_tag()); }
+        /**
+         * @brief Set the origin tag of lo and hi members of cycle scalar
+         *
+         * @param tag
+         */
         void set_origin_tag(const OriginTag& tag)
         {
             lo.set_origin_tag(tag);
@@ -232,12 +242,22 @@ template <typename Builder> class cycle_group {
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
 
+    /**
+     * @brief Set the origin tag for x, y and _is_infinity members of cycle_group
+     *
+     * @param tag
+     */
     void set_origin_tag(OriginTag tag)
     {
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
     }
+    /**
+     * @brief Get the origin tag of cycle_group (a merege of origin tags of x, y and _is_infinity members)
+     *
+     * @return OriginTag
+     */
     OriginTag get_origin_tag() const
     {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
