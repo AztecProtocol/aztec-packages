@@ -105,7 +105,7 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
             }
         }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
         std::sort(lookup_gates.begin(), lookup_gates.end());
 #else
         std::sort(std::execution::par_unseq, lookup_gates.begin(), lookup_gates.end());

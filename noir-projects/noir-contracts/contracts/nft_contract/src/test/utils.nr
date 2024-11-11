@@ -1,7 +1,6 @@
 use crate::{NFT, types::nft_note::NFTNote};
 use dep::aztec::{
     hash::pedersen_hash,
-    keys::getters::get_public_keys,
     oracle::{
         execution::{get_block_number, get_contract_address},
         random::random,
@@ -74,14 +73,13 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
 
     // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
     // is not called and we don't have a `NoteProcessor` in TXE.
-    let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
     let private_nfts_owner_slot =
         derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, owner);
 
     env.add_note(
         &mut NFTNote {
             token_id: minted_token_id,
-            npk_m_hash: owner_npk_m_hash,
+            owner,
             randomness: note_randomness,
             header: NoteHeader::empty(),
         },

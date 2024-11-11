@@ -5,10 +5,8 @@ use crate::{
     note::{note_emission::NoteEmission, note_interface::NoteInterface},
 };
 use dep::protocol_types::{
-    abis::note_hash::NoteHash,
-    address::AztecAddress,
-    hash::sha256_to_field,
-    public_keys::{OvpkM, PublicKeys},
+    abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_BYTES,
+    hash::sha256_to_field, public_keys::OvpkM,
 };
 
 /// Computes private note log payload and a log hash
@@ -18,7 +16,8 @@ fn compute_payload_and_hash<Note, let N: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> (u32, [u8; 417 + N * 32], Field)
+    sender: AztecAddress,
+) -> (u32, [u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
 where
     Note: NoteInterface<N>,
 {
@@ -27,16 +26,22 @@ where
     let storage_slot = note_header.storage_slot;
 
     // TODO(#8589): use typesystem to skip this check when not needed
-    let note_exists = context.note_hashes.storage.any(|n: NoteHash| n.counter == note_hash_counter);
+    let note_exists =
+        context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
     assert(note_exists, "Can only emit a note log for an existing note.");
 
     let contract_address: AztecAddress = context.this_address();
 
     let plaintext = note.to_be_bytes(storage_slot);
 
-    // For note logs we always include public values prefix
-    let encrypted_log: [u8; 417 + N * 32] =
-        compute_private_log_payload(contract_address, ovsk_app, ovpk, recipient, plaintext, true);
+    let encrypted_log = compute_private_log_payload(
+        contract_address,
+        ovsk_app,
+        ovpk,
+        recipient,
+        sender,
+        plaintext,
+    );
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
@@ -47,12 +52,13 @@ unconstrained fn compute_payload_and_hash_unconstrained<Note, let N: u32>(
     note: Note,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> (u32, [u8; 417 + N * 32], Field)
+    sender: AztecAddress,
+) -> (u32, [u8; PRIVATE_LOG_SIZE_IN_BYTES], Field)
 where
     Note: NoteInterface<N>,
 {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_payload_and_hash(context, note, ovsk_app, ovpk, recipient)
+    compute_payload_and_hash(context, note, ovsk_app, ovpk, recipient, sender)
 }
 
 // This function seems to be affected by the following Noir bug:
@@ -62,7 +68,9 @@ pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, OvpkM, AztecAddress)](NoteEmission<Note>) -> ()
+    // TODO: We need this because to compute a tagging secret, we require a sender. Should we have the tagging secret oracle take a ovpk_m as input instead of the address?
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteInterface<N>,
 {
@@ -70,7 +78,7 @@ where
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
 
         let (note_hash_counter, encrypted_log, log_hash) =
-            compute_payload_and_hash(*context, e.note, ovsk_app, ovpk, recipient);
+            compute_payload_and_hash(*context, e.note, ovsk_app, ovpk, recipient, sender);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -79,7 +87,9 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, OvpkM, AztecAddress)](NoteEmission<Note>) -> ()
+    // TODO: We need this because to compute a tagging secret, we require a sender. Should we have the tagging secret oracle take a ovpk_m as input instead of the address?
+    sender: AztecAddress,
+) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteInterface<N>,
 {
@@ -103,8 +113,9 @@ where
         // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
         // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
         // for a note that doesn't exist).
-        let (note_hash_counter, encrypted_log, log_hash) =
-            unsafe { compute_payload_and_hash_unconstrained(*context, e.note, ovpk, recipient) };
+        let (note_hash_counter, encrypted_log, log_hash) = unsafe {
+            compute_payload_and_hash_unconstrained(*context, e.note, ovpk, recipient, sender)
+        };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }

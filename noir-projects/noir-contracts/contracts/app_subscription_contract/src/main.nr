@@ -53,6 +53,7 @@ contract AppSubscription {
             &mut context,
             keys.ovpk_m,
             user_address,
+            user_address,
         ));
 
         context.set_as_fee_payer();
@@ -111,13 +112,17 @@ contract AppSubscription {
             &mut context,
         );
 
-        let subscriber_keys = get_public_keys(subscriber);
         let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
         let mut subscription_note =
-            SubscriptionNote::new(subscriber_keys.npk_m.hash(), expiry_block_number, tx_count);
+            SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
-            encode_and_encrypt_note(&mut context, msg_sender_ovpk_m, subscriber),
+            encode_and_encrypt_note(
+                &mut context,
+                msg_sender_ovpk_m,
+                subscriber,
+                context.msg_sender(),
+            ),
         );
     }
 

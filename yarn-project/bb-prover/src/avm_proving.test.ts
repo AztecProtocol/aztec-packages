@@ -1,5 +1,6 @@
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -8,6 +9,7 @@ import {
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
@@ -78,7 +80,7 @@ const proveAndVerifyAvmTestContract = async (
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
-    deployer: new Fr(0x456),
+    deployer: new AztecAddress(new Fr(0x456)),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeys: new PublicKeys(
@@ -131,10 +133,12 @@ const proveAndVerifyAvmTestContract = async (
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
     expect(avmResult.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!, avmResult.output)).toContain(
+      assertionErrString,
+    );
   }
 
-  const pxResult = trace.toPublicExecutionResult(
+  const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
     /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
@@ -148,6 +152,7 @@ const proveAndVerifyAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    /*output*/ AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

@@ -203,24 +203,19 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    let nullifierIndex: bigint | undefined;
-    let messageIndex: bigint | undefined;
-    let startIndex = 0n;
-
-    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
-    // for nullifiers because messages can have duplicates.
     const timer = new Timer();
-    do {
-      messageIndex = (await this.db.findLeafIndexAfter(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash, startIndex))!;
-      if (messageIndex === undefined) {
-        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
-      }
 
-      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
-      nullifierIndex = await this.getNullifierIndex(messageNullifier);
+    const messageIndex = await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash);
+    if (messageIndex === undefined) {
+      throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
+    }
 
-      startIndex = messageIndex + 1n;
-    } while (nullifierIndex !== undefined);
+    const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
+    const nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+    if (nullifierIndex !== undefined) {
+      throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+    }
 
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,

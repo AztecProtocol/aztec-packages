@@ -1,7 +1,6 @@
 import {
   type AuthWitness,
-  type EventMetadata,
-  type EventType,
+  type EventMetadataDefinition,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
@@ -34,7 +33,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -82,20 +81,20 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
-  registerRecipient(account: CompleteAddress): Promise<void> {
-    return this.pxe.registerRecipient(account);
-  }
   getRegisteredAccounts(): Promise<CompleteAddress[]> {
     return this.pxe.getRegisteredAccounts();
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
   }
-  getRecipients(): Promise<CompleteAddress[]> {
-    return this.pxe.getRecipients();
+  registerContact(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerContact(address);
   }
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.pxe.getRecipient(address);
+  getContacts(): Promise<AztecAddress[]> {
+    return this.pxe.getContacts();
+  }
+  async removeContact(address: AztecAddress): Promise<void> {
+    await this.pxe.removeContact(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -117,8 +116,9 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, profile, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -152,7 +152,7 @@ export abstract class BaseWallet implements Wallet {
     args: any[],
     to: AztecAddress,
     from?: AztecAddress | undefined,
-  ): Promise<any> {
+  ): Promise<AbiDecoded> {
     return this.pxe.simulateUnconstrained(functionName, args, to, from);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
@@ -197,17 +197,19 @@ export abstract class BaseWallet implements Wallet {
   getPXEInfo(): Promise<PXEInfo> {
     return this.pxe.getPXEInfo();
   }
-  getEvents<T>(
-    type: EventType,
-    eventMetadata: EventMetadata<T>,
+  getEncryptedEvents<T>(
+    event: EventMetadataDefinition,
     from: number,
     limit: number,
     vpks: Point[] = [
       this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
       this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
     ],
-  ) {
-    return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
+  ): Promise<T[]> {
+    return this.pxe.getEncryptedEvents(event, from, limit, vpks);
+  }
+  getUnencryptedEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+    return this.pxe.getUnencryptedEvents(event, from, limit);
   }
   public getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,

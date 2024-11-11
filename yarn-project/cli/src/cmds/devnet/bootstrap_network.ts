@@ -1,5 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { BatchCall, type PXE, type Wallet, createCompatibleClient } from '@aztec/aztec.js';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
 import { type AztecAddress, type EthAddress, Fq, Fr } from '@aztec/circuits.js';
 import {
   type ContractArtifacts,
@@ -12,8 +13,6 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-
-import { FeeJuicePortalManager } from '../../utils/portal_manager.js';
 
 type ContractDeploymentInfo = {
   address: AztecAddress;
@@ -49,7 +48,8 @@ export async function bootstrapNetwork(
 
   await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridge.address);
 
-  const fpc = await deployFPC(wallet, token.address);
+  const feeRecipient = wallet.getAddress();
+  const fpc = await deployFPC(wallet, token.address, feeRecipient);
 
   const counter = await deployCounter(wallet);
   // NOTE: Disabling for now in order to get devnet running
@@ -194,11 +194,15 @@ async function initPortal(
   await publicClient.waitForTransactionReceipt({ hash });
 }
 
-async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<ContractDeploymentInfo> {
+async function deployFPC(
+  wallet: Wallet,
+  tokenAddress: AztecAddress,
+  feeRecipient: AztecAddress,
+): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js');
-  const fpc = await FPCContract.deploy(wallet, tokenAddress)
+  const fpc = await FPCContract.deploy(wallet, tokenAddress, feeRecipient)
     .send({ universalDeploy: true })
     .deployed({ proven: true, provenTimeout: 600 });
   const info: ContractDeploymentInfo = {
@@ -241,7 +245,7 @@ async function fundFPC(
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await FeeJuicePortalManager.new(
+  const feeJuicePortal = await L1FeeJuicePortalManager.new(
     wallet,
     l1Clients.publicClient,
     l1Clients.walletClient,
@@ -249,7 +253,11 @@ async function fundFPC(
   );
 
   const amount = 10n ** 21n;
-  const { claimAmount, claimSecret } = await feeJuicePortal.bridgeTokensPublic(fpcAddress, amount, true);
+  const { claimAmount, claimSecret, messageLeafIndex } = await feeJuicePortal.bridgeTokensPublic(
+    fpcAddress,
+    amount,
+    true,
+  );
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
@@ -265,7 +273,7 @@ async function fundFPC(
     .wait({ proven: true, provenTimeout: 600 });
 
   await feeJuiceContract.methods
-    .claim(fpcAddress, claimAmount, claimSecret)
+    .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
     .send()
     .wait({ proven: true, provenTimeout: 600 });
 }

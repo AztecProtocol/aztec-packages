@@ -1,10 +1,10 @@
-mod append_only_tree;
-mod indexed_tree;
-mod leaf_preimage;
-mod membership;
+pub mod append_only_tree;
+pub mod indexed_tree;
+pub mod leaf_preimage;
+pub mod membership;
 pub mod merkle_tree;
-mod root;
-mod variable_merkle_tree;
+pub mod root;
+pub mod variable_merkle_tree;
 
 pub use leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage};
 pub use membership::{

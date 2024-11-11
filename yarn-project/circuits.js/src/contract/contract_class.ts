@@ -1,7 +1,9 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { PUBLIC_DISPATCH_SELECTOR } from '../constants.gen.js';
+import { hashVK } from '../hash/hash.js';
 import { computeArtifactHash } from './artifact_hash.js';
 import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
 import { type ContractClass, type ContractClassWithId, type PublicFunction } from './interfaces/index.js';
@@ -60,15 +62,16 @@ export function getContractClassPrivateFunctionFromArtifact(
 ): ContractClass['privateFunctions'][number] {
   return {
     selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-    vkHash: computeVerificationKeyHash(f.verificationKey!),
+    vkHash: computeVerificationKeyHash(f),
   };
 }
 
 /**
- * Calculates the hash of a verification key.
- * Returns zero for consistency with Noir.
+ * For a given private function, computes the hash of its vk.
  */
-export function computeVerificationKeyHash(_verificationKeyInBase64: string) {
-  // return Fr.fromBuffer(hashVK(Buffer.from(verificationKeyInBase64, 'hex')));
-  return Fr.ZERO;
+export function computeVerificationKeyHash(f: FunctionArtifact) {
+  if (!f.verificationKey) {
+    throw new Error(`Private function ${f.name} must have a verification key`);
+  }
+  return hashVK(vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
 }

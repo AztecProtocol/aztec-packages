@@ -102,14 +102,14 @@ contract Test {
             "this storage slot is reserved for example_constant",
         );
 
-        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
-        let owner_keys = get_public_keys(owner);
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
-        let mut note = ValueNote::new(value, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(value, owner);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_keys.ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner,
+            outgoing_viewer,
         ));
     }
 
@@ -304,6 +304,7 @@ contract Test {
             5,
             outgoing_viewer_ovpk_m,
             owner,
+            outgoing_viewer,
         ));
 
         // this contract has reached max number of functions, so using this one fn
@@ -321,6 +322,7 @@ contract Test {
                 0,
                 outgoing_viewer_ovpk_m,
                 owner,
+                outgoing_viewer,
             ));
         }
     }
@@ -337,14 +339,14 @@ contract Test {
             .call(&mut context);
         storage_slot += 1;
 
-        let msg_sender_keys = get_public_keys(context.msg_sender());
-        let owner_keys = get_public_keys(owner);
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
-        let mut note = ValueNote::new(value + 1, owner_keys.npk_m.hash());
+        let mut note = ValueNote::new(value + 1, owner);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_keys.ovpk_m,
+            msg_sender_ovpk_m,
             owner,
+            outgoing_viewer,
         ));
         storage_slot += 1;
         Test::at(context.this_address())
@@ -388,6 +390,7 @@ contract Test {
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
+        message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash =
@@ -396,6 +399,7 @@ contract Test {
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             portal_address,
+            message_leaf_index,
         );
     }
 
@@ -415,9 +419,10 @@ contract Test {
         content: Field,
         secret: Field,
         sender: EthAddress,
+        message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
     #[private]

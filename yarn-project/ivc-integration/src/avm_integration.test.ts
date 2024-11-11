@@ -8,6 +8,8 @@ import {
 } from '@aztec/bb-prover';
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AztecAddress,
   Gas,
   GlobalVariables,
   type PublicFunction,
@@ -66,12 +68,13 @@ describe('AVM Integration', () => {
   async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
     const witnessFileName = path.join(bbWorkingDirectory, 'witnesses.gz');
     await fs.writeFile(witnessFileName, witness);
-
+    const recursive = false;
     const provingResult = await generateProof(
       bbBinaryPath,
       bbWorkingDirectory,
       'mock-public-kernel',
       Buffer.from(bytecode, 'base64'),
+      recursive,
       witnessFileName,
       'ultra_honk',
       logger.info,
@@ -170,7 +173,7 @@ const proveAvmTestContract = async (
   const instanceGet = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
-    deployer: new Fr(0x456),
+    deployer: AztecAddress.fromNumber(0x456),
     contractClassId: new Fr(0x789),
     initializationHash: new Fr(0x101112),
     publicKeys: new PublicKeys(
@@ -221,10 +224,12 @@ const proveAvmTestContract = async (
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
     expect(avmResult.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!, avmResult.output)).toContain(
+      assertionErrString,
+    );
   }
 
-  const pxResult = trace.toPublicExecutionResult(
+  const pxResult = trace.toPublicFunctionCallResult(
     environment,
     startGas,
     /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
@@ -238,6 +243,7 @@ const proveAvmTestContract = async (
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,
+    AvmCircuitPublicInputs.empty(),
   );
 
   // Then we prove.

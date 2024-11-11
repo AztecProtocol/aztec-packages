@@ -69,7 +69,7 @@ impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItem
 
         assert_eq(fields.len(), PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 

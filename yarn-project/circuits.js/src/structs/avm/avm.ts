@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -8,6 +9,77 @@ import { PublicKeys } from '../../types/public_keys.js';
 import { Gas } from '../gas.js';
 import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
 import { Vector } from '../shared.js';
+import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
+
+export class AvmEnqueuedCallHint {
+  public readonly contractAddress: AztecAddress;
+  public readonly calldata: Vector<Fr>;
+
+  constructor(contractAddress: AztecAddress, calldata: Fr[]) {
+    this.contractAddress = contractAddress;
+    this.calldata = new Vector(calldata);
+  }
+
+  /* Serializes the inputs to a buffer.
+   * @returns - The inputs serialized to a buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(...AvmEnqueuedCallHint.getFields(this));
+  }
+
+  /**
+   * Serializes the inputs to a hex string.
+   * @returns The instance serialized to a hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Is the struct empty?
+   * @returns whether all members are empty.
+   */
+  isEmpty(): boolean {
+    return this.contractAddress.isZero() && this.calldata.items.length == 0;
+  }
+
+  /**
+   * Creates a new instance from fields.
+   * @param fields - Fields to create the instance from.
+   * @returns A new AvmExecutionHints instance.
+   */
+  static from(fields: FieldsOf<AvmEnqueuedCallHint>): AvmEnqueuedCallHint {
+    return new AvmEnqueuedCallHint(fields.contractAddress, fields.calldata.items);
+  }
+
+  /**
+   * Extracts fields from an instance.
+   * @param fields - Fields to create the instance from.
+   * @returns An array of fields.
+   */
+  static getFields(fields: FieldsOf<AvmEnqueuedCallHint>) {
+    return [fields.contractAddress, fields.calldata] as const;
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buff: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buff);
+    return new AvmEnqueuedCallHint(AztecAddress.fromBuffer(reader), reader.readVector(Fr));
+  }
+
+  /**
+   * Deserializes from a hex string.
+   * @param str - Hex string to read from.
+   * @returns The deserialized instance.
+   */
+  static fromString(str: string): AvmEnqueuedCallHint {
+    return AvmEnqueuedCallHint.fromBuffer(Buffer.from(str, 'hex'));
+  }
+}
 
 // TODO: Consider just using Tuple.
 export class AvmKeyValueHint {
@@ -177,10 +249,10 @@ export class AvmExternalCallHint {
 
 export class AvmContractInstanceHint {
   constructor(
-    public readonly address: Fr,
+    public readonly address: AztecAddress,
     public readonly exists: boolean,
     public readonly salt: Fr,
-    public readonly deployer: Fr,
+    public readonly deployer: AztecAddress,
     public readonly contractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
@@ -251,10 +323,10 @@ export class AvmContractInstanceHint {
   static fromBuffer(buff: Buffer | BufferReader): AvmContractInstanceHint {
     const reader = BufferReader.asReader(buff);
     return new AvmContractInstanceHint(
-      Fr.fromBuffer(reader),
+      AztecAddress.fromBuffer(reader),
       reader.readBoolean(),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      AztecAddress.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       PublicKeys.fromBuffer(reader),
@@ -364,8 +436,8 @@ export class AvmContractBytecodeHints {
   }
 }
 
-// TODO(dbanks12): rename AvmCircuitHints
 export class AvmExecutionHints {
+  public readonly enqueuedCalls: Vector<AvmEnqueuedCallHint>;
   public readonly storageValues: Vector<AvmKeyValueHint>;
   public readonly noteHashExists: Vector<AvmKeyValueHint>;
   public readonly nullifierExists: Vector<AvmKeyValueHint>;
@@ -375,6 +447,7 @@ export class AvmExecutionHints {
   public readonly contractBytecodeHints: Vector<AvmContractBytecodeHints>;
 
   constructor(
+    enqueuedCalls: AvmEnqueuedCallHint[],
     storageValues: AvmKeyValueHint[],
     noteHashExists: AvmKeyValueHint[],
     nullifierExists: AvmKeyValueHint[],
@@ -383,6 +456,7 @@ export class AvmExecutionHints {
     contractInstances: AvmContractInstanceHint[],
     contractBytecodeHints: AvmContractBytecodeHints[],
   ) {
+    this.enqueuedCalls = new Vector(enqueuedCalls);
     this.storageValues = new Vector(storageValues);
     this.noteHashExists = new Vector(noteHashExists);
     this.nullifierExists = new Vector(nullifierExists);
@@ -397,7 +471,7 @@ export class AvmExecutionHints {
    * @returns an empty instance.
    */
   empty() {
-    return new AvmExecutionHints([], [], [], [], [], [], []);
+    return new AvmExecutionHints([], [], [], [], [], [], [], []);
   }
 
   /**
@@ -422,6 +496,7 @@ export class AvmExecutionHints {
    */
   isEmpty(): boolean {
     return (
+      this.enqueuedCalls.items.length == 0 &&
       this.storageValues.items.length == 0 &&
       this.noteHashExists.items.length == 0 &&
       this.nullifierExists.items.length == 0 &&
@@ -439,6 +514,8 @@ export class AvmExecutionHints {
    */
   static from(fields: FieldsOf<AvmExecutionHints>): AvmExecutionHints {
     return new AvmExecutionHints(
+      // omit enqueued call hints until they're implemented in C++
+      new Array<AvmEnqueuedCallHint>(),
       fields.storageValues.items,
       fields.noteHashExists.items,
       fields.nullifierExists.items,
@@ -456,6 +533,8 @@ export class AvmExecutionHints {
    */
   static getFields(fields: FieldsOf<AvmExecutionHints>) {
     return [
+      // omit enqueued call hints until they're implemented in C++
+      //fields.enqueuedCalls,
       fields.storageValues,
       fields.noteHashExists,
       fields.nullifierExists,
@@ -474,6 +553,8 @@ export class AvmExecutionHints {
   static fromBuffer(buff: Buffer | BufferReader): AvmExecutionHints {
     const reader = BufferReader.asReader(buff);
     return new AvmExecutionHints(
+      // omit enqueued call hints until they're implemented in C++
+      new Array<AvmEnqueuedCallHint>(),
       reader.readVector(AvmKeyValueHint),
       reader.readVector(AvmKeyValueHint),
       reader.readVector(AvmKeyValueHint),
@@ -498,7 +579,7 @@ export class AvmExecutionHints {
    * @returns The empty instance.
    */
   static empty() {
-    return new AvmExecutionHints([], [], [], [], [], [], []);
+    return new AvmExecutionHints([], [], [], [], [], [], [], []);
   }
 }
 
@@ -508,6 +589,7 @@ export class AvmCircuitInputs {
     public readonly calldata: Fr[],
     public readonly publicInputs: PublicCircuitPublicInputs,
     public readonly avmHints: AvmExecutionHints,
+    public output: AvmCircuitPublicInputs, // This should replace the above `publicInputs` eventually.
   ) {}
 
   /**
@@ -523,6 +605,7 @@ export class AvmCircuitInputs {
       this.calldata,
       this.publicInputs.toBuffer(),
       this.avmHints.toBuffer(),
+      this.output,
     );
   }
 
@@ -534,16 +617,13 @@ export class AvmCircuitInputs {
     return this.toBuffer().toString('hex');
   }
 
-  /**
-   * Is the struct empty?
-   * @returns whether all members are empty.
-   */
-  isEmpty(): boolean {
-    return (
-      this.functionName.length == 0 &&
-      this.calldata.length == 0 &&
-      this.publicInputs.isEmpty() &&
-      this.avmHints.isEmpty()
+  static empty(): AvmCircuitInputs {
+    return new AvmCircuitInputs(
+      '',
+      [],
+      PublicCircuitPublicInputs.empty(),
+      AvmExecutionHints.empty(),
+      AvmCircuitPublicInputs.empty(),
     );
   }
 
@@ -562,7 +642,7 @@ export class AvmCircuitInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmCircuitInputs>) {
-    return [fields.functionName, fields.calldata, fields.publicInputs, fields.avmHints] as const;
+    return [fields.functionName, fields.calldata, fields.publicInputs, fields.avmHints, fields.output] as const;
   }
 
   /**
@@ -577,6 +657,7 @@ export class AvmCircuitInputs {
       /*calldata=*/ reader.readVector(Fr),
       PublicCircuitPublicInputs.fromBuffer(reader),
       AvmExecutionHints.fromBuffer(reader),
+      AvmCircuitPublicInputs.fromBuffer(reader),
     );
   }
 
@@ -587,5 +668,15 @@ export class AvmCircuitInputs {
    */
   static fromString(str: string): AvmCircuitInputs {
     return AvmCircuitInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(AvmCircuitInputs);
   }
 }

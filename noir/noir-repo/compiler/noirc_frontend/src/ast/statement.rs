@@ -327,6 +327,7 @@ pub enum PathKind {
 pub struct UseTree {
     pub prefix: Path,
     pub kind: UseTreeKind,
+    pub span: Span,
 }
 
 impl Display for UseTree {
@@ -407,7 +408,7 @@ pub struct AsTraitPath {
 pub struct TypePath {
     pub typ: UnresolvedType,
     pub item: Ident,
-    pub turbofish: GenericTypeArgs,
+    pub turbofish: Option<GenericTypeArgs>,
 }
 
 // Note: Path deliberately doesn't implement Recoverable.

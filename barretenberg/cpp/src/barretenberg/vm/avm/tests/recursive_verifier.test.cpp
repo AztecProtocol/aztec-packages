@@ -120,7 +120,7 @@ TEST_F(AvmRecursiveTests, recursion)
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
     auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-        outer_circuit, TraceStructure::NONE, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
+        outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);

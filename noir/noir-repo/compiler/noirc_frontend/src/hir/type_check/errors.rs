@@ -174,8 +174,6 @@ pub enum TypeCheckError {
     StringIndexAssign { span: Span },
     #[error("Macro calls may only return `Quoted` values")]
     MacroReturningNonExpr { typ: Type, span: Span },
-    #[error("turbofish (`::<_>`) usage at this position isn't supported yet")]
-    UnsupportedTurbofishUsage { span: Span },
     #[error("`{name}` has already been specified")]
     DuplicateNamedTypeArg { name: Ident, prev_span: Span },
     #[error("`{item}` has no associated type named `{name}`")]
@@ -434,14 +432,14 @@ impl<'a> From<&'a TypeCheckError> for Diagnostic {
                 let msg = format!("Expected {expected_count} generic{expected_plural} from this function, but {actual_count} {actual_plural} provided");
                 Diagnostic::simple_error(msg, "".into(), *span)
             },
-            TypeCheckError::MacroReturningNonExpr { typ, span } => Diagnostic::simple_error(
-                format!("Expected macro call to return a `Quoted` but found a(n) `{typ}`"),
-                "Macro calls must return quoted values, otherwise there is no code to insert".into(),
-                *span,
-            ),
-            TypeCheckError::UnsupportedTurbofishUsage { span } => {
-                let msg = "turbofish (`::<_>`)  usage at this position isn't supported yet";
-                Diagnostic::simple_error(msg.to_string(), "".to_string(), *span)
+            TypeCheckError::MacroReturningNonExpr { typ, span } =>  {
+                let mut error = Diagnostic::simple_error(
+                    format!("Expected macro call to return a `Quoted` but found a(n) `{typ}`"),
+                    "Macro calls must return quoted values, otherwise there is no code to insert.".into(),
+                    *span,
+                );
+                error.add_secondary("Hint: remove the `!` from the end of the function name.".to_string(), *span);
+                error
             },
             TypeCheckError::DuplicateNamedTypeArg { name, prev_span } => {
                 let msg = format!("`{name}` has already been specified");

@@ -1,7 +1,11 @@
 #pragma once
 
+#include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 
 namespace bb {
 
@@ -24,31 +28,71 @@ template <typename FF_> class MegaArith {
     template <typename T> struct MegaTraceBlocks {
         T ecc_op;
         T pub_inputs;
+        T busread;
         T arithmetic;
         T delta_range;
         T elliptic;
         T aux;
-        T lookup;
-        T busread;
         T poseidon2_external;
         T poseidon2_internal;
+        T lookup;
+        T overflow; // block gates of arbitrary type that overflow their designated block
 
         auto get()
         {
-            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,        elliptic,
-                             aux,    lookup,     busread,    poseidon2_external, poseidon2_internal };
+            return RefArray{ ecc_op,
+                             pub_inputs,
+                             busread,
+                             arithmetic,
+                             delta_range,
+                             elliptic,
+                             aux,
+                             poseidon2_external,
+                             poseidon2_internal,
+                             lookup,
+                             overflow };
+        }
+        auto get() const
+        {
+            return RefArray{ ecc_op,
+                             pub_inputs,
+                             busread,
+                             arithmetic,
+                             delta_range,
+                             elliptic,
+                             aux,
+                             poseidon2_external,
+                             poseidon2_internal,
+                             lookup,
+                             overflow };
         }
 
         auto get_gate_blocks()
         {
-            return RefArray{ arithmetic, delta_range, elliptic,           aux,
-                             lookup,     busread,     poseidon2_external, poseidon2_internal };
+            return RefArray{ busread, arithmetic,         delta_range,        elliptic,
+                             aux,     poseidon2_external, poseidon2_internal, lookup };
         }
 
         bool operator==(const MegaTraceBlocks& other) const = default;
     };
 
-  private:
+    // A tiny structuring (for testing without recursive verifications only)
+    struct TinyTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        TinyTestStructuredBlockSizes()
+        {
+            this->ecc_op = 18;
+            this->pub_inputs = 1;
+            this->busread = 3;
+            this->arithmetic = 1 << 14;
+            this->delta_range = 5;
+            this->elliptic = 2;
+            this->aux = 10;
+            this->poseidon2_external = 2;
+            this->poseidon2_internal = 2;
+            this->lookup = 2;
+            this->overflow = 0;
+        }
+    };
     // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
     struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
@@ -56,14 +100,15 @@ template <typename FF_> class MegaArith {
             const uint32_t FIXED_SIZE = 1 << 14;
             this->ecc_op = FIXED_SIZE;
             this->pub_inputs = FIXED_SIZE;
+            this->busread = FIXED_SIZE;
             this->arithmetic = 1 << 15;
             this->delta_range = FIXED_SIZE;
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;
-            this->lookup = FIXED_SIZE;
-            this->busread = FIXED_SIZE;
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = 1 << 15;
+            this->lookup = FIXED_SIZE;
+            this->overflow = 0;
         }
     };
 
@@ -71,16 +116,45 @@ template <typename FF_> class MegaArith {
     struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         ClientIvcBenchStructuredBlockSizes()
         {
+            // 2^19
             this->ecc_op = 1 << 10;
             this->pub_inputs = 1 << 7;
-            this->arithmetic = 201000;
+            this->busread = 1 << 7;
+            this->arithmetic = 198000;
             this->delta_range = 90000;
             this->elliptic = 9000;
-            this->aux = 137000;
-            this->lookup = 72000;
-            this->busread = 1 << 7;
+            this->aux = 136000;
             this->poseidon2_external = 2500;
-            this->poseidon2_internal = 11500;
+            this->poseidon2_internal = 14000;
+            this->lookup = 72000;
+            this->overflow = 0;
+
+            // Additional structurings for testing
+            // // 2^18 (Only viable if no 2^19 circuit is used!)
+            // this->ecc_op = 1 << 10;
+            // this->pub_inputs = 1 << 6;
+            // this->busread = 1 << 6;
+            // this->arithmetic = 84000;
+            // this->delta_range = 45000;
+            // this->elliptic = 9000;
+            // this->aux = 68000;
+            // this->poseidon2_external = 2500;
+            // this->poseidon2_internal = 14000;
+            // this->lookup = 36000;
+            // this->overflow = 0;
+
+            // // 2^20
+            // this->ecc_op = 1 << 11;
+            // this->pub_inputs = 1 << 8;
+            // this->busread = 1 << 8;
+            // this->arithmetic = 396000;
+            // this->delta_range = 180000;
+            // this->elliptic = 18000;
+            // this->aux = 272000;
+            // this->poseidon2_external = 5000;
+            // this->poseidon2_internal = 28000;
+            // this->lookup = 144000;
+            // this->overflow = 0;
         }
     };
 
@@ -90,24 +164,26 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 4000;
+            this->busread = 6000;
             this->arithmetic = 200000;
             this->delta_range = 25000;
             this->elliptic = 80000;
             this->aux = 100000;
+            this->poseidon2_external = 30128;
+            this->poseidon2_internal = 172000;
             this->lookup = 200000;
-            this->busread = 6000;
-            this->poseidon2_external = 30000;
-            this->poseidon2_internal = 150000;
+            this->overflow = 0;
         }
     };
 
-  public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
 
     using FF = FF_;
 
     class MegaTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+        using SelectorType = ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS>::SelectorType;
+
       public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -132,14 +208,26 @@ template <typename FF_> class MegaArith {
         auto& q_2() { return this->selectors[3]; };
         auto& q_3() { return this->selectors[4]; };
         auto& q_4() { return this->selectors[5]; };
-        auto& q_arith() { return this->selectors[6]; };
-        auto& q_delta_range() { return this->selectors[7]; };
-        auto& q_elliptic() { return this->selectors[8]; };
-        auto& q_aux() { return this->selectors[9]; };
-        auto& q_lookup_type() { return this->selectors[10]; };
-        auto& q_busread() { return this->selectors[11]; };
-        auto& q_poseidon2_external() { return this->selectors[12]; };
-        auto& q_poseidon2_internal() { return this->selectors[13]; };
+        auto& q_busread() { return this->selectors[6]; };
+        auto& q_arith() { return this->selectors[7]; };
+        auto& q_delta_range() { return this->selectors[8]; };
+        auto& q_elliptic() { return this->selectors[9]; };
+        auto& q_aux() { return this->selectors[10]; };
+        auto& q_poseidon2_external() { return this->selectors[11]; };
+        auto& q_poseidon2_internal() { return this->selectors[12]; };
+        auto& q_lookup_type() { return this->selectors[13]; };
+
+        RefVector<SelectorType> get_gate_selectors()
+        {
+            return { q_busread(),
+                     q_arith(),
+                     q_delta_range(),
+                     q_elliptic(),
+                     q_aux(),
+                     q_poseidon2_external(),
+                     q_poseidon2_internal(),
+                     q_lookup_type() };
+        }
 
         /**
          * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
@@ -160,6 +248,8 @@ template <typename FF_> class MegaArith {
 
     struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
 
+        bool has_overflow = false; // indicates whether the overflow block has non-zero fixed or actual size
+
         TraceBlocks()
         {
             this->aux.has_ram_rom = true;
@@ -167,12 +257,15 @@ template <typename FF_> class MegaArith {
         }
 
         // Set fixed block sizes for use in structured trace
-        void set_fixed_block_sizes(TraceStructure setting)
+        void set_fixed_block_sizes(TraceSettings settings)
         {
             MegaTraceBlocks<uint32_t> fixed_block_sizes{}; // zero initialized
 
-            switch (setting) {
+            switch (settings.structure) {
             case TraceStructure::NONE:
+                break;
+            case TraceStructure::TINY_TEST:
+                fixed_block_sizes = TinyTestStructuredBlockSizes();
                 break;
             case TraceStructure::SMALL_TEST:
                 fixed_block_sizes = SmallTestStructuredBlockSizes();
@@ -187,6 +280,8 @@ template <typename FF_> class MegaArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
+            // Set the size of overflow block containing the overflow from all other blocks
+            this->overflow.set_fixed_size(settings.overflow_capacity);
         }
 
         void compute_offsets(bool is_structured)
@@ -203,14 +298,15 @@ template <typename FF_> class MegaArith {
             info("Gate blocks summary: (actual gates / fixed capacity)");
             info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
             info("pub inputs    :\t", this->pub_inputs.size(), "/", this->pub_inputs.get_fixed_size());
+            info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
             info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
             info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
             info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
             info("auxiliary     :\t", this->aux.size(), "/", this->aux.get_fixed_size());
-            info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
-            info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
             info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
             info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
+            info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
+            info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
             info("");
         }
 
@@ -226,18 +322,6 @@ template <typename FF_> class MegaArith {
                 ++log2_n;
             }
             return 1UL << log2_n;
-        }
-
-        void check_within_fixed_sizes()
-        {
-            for (auto block : this->get()) {
-                if (block.size() > block.get_fixed_size()) {
-                    info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
-                         "not be constructed correctly!");
-                    summarize();
-                    ASSERT(false);
-                }
-            }
         }
 
         bool operator==(const TraceBlocks& other) const = default;

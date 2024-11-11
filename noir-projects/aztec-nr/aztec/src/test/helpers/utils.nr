@@ -1,28 +1,23 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector,
     address::AztecAddress,
     contract_instance::ContractInstance,
     public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
     traits::{Deserialize, Serialize},
 };
 
-use crate::context::call_interfaces::{CallInterface, PublicCallInterface};
-use crate::context::{
-    inputs::PrivateContextInputs, PrivateContext, PublicContext, UnconstrainedContext,
-};
+use crate::context::call_interfaces::CallInterface;
+use crate::context::{PrivateContext, PublicContext};
 use crate::test::helpers::cheatcodes;
 
-use crate::context::call_interfaces::PublicVoidCallInterface;
 use crate::context::gas::GasOpts;
 use crate::hash::hash_args;
 use crate::oracle::arguments::pack_arguments;
-use crate::oracle::execution::{get_block_number, get_contract_address};
-use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
+use crate::oracle::execution::get_block_number;
 
 pub struct Deployer<let N: u32, let M: u32> {
-    path: str<N>,
-    name: str<M>,
-    public_keys_hash: Field,
+    pub path: str<N>,
+    pub name: str<M>,
+    pub public_keys_hash: Field,
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
@@ -74,14 +69,13 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 
         let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        public_context
-            .call_public_function(
-                instance.to_address(),
-                call_interface.get_selector(),
-                call_interface.get_args(),
-                GasOpts::default(),
-            )
-            .assert_empty();
+        let results = public_context.call_public_function(
+            instance.to_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            GasOpts::default(),
+        );
+        assert(results.len() == 0);
 
         instance
     }
@@ -105,14 +99,12 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 
         let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        let _: T = public_context
-            .call_public_function(
-                instance.to_address(),
-                call_interface.get_selector(),
-                call_interface.get_args(),
-                GasOpts::default(),
-            )
-            .deserialize_into();
+        let _ = public_context.call_public_function(
+            instance.to_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            GasOpts::default(),
+        );
 
         instance
     }
@@ -126,8 +118,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 global TEST_ACCOUNT_LENGTH = PUBLIC_KEYS_LENGTH + 1;
 
 pub struct TestAccount {
-    address: AztecAddress,
-    keys: PublicKeys,
+    pub address: AztecAddress,
+    pub keys: PublicKeys,
 }
 
 impl Serialize<TEST_ACCOUNT_LENGTH> for TestAccount {

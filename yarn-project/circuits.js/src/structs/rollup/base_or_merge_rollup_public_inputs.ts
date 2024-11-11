@@ -1,8 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PartialStateReference } from '../partial_state_reference.js';
-import { type RollupTypes } from '../shared.js';
+import { RollupTypes } from '../shared.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
@@ -46,6 +47,20 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public accumulatedFees: Fr,
   ) {}
+
+  /** Returns an empty instance. */
+  static empty() {
+    return new BaseOrMergeRollupPublicInputs(
+      RollupTypes.Base,
+      0,
+      ConstantRollupData.empty(),
+      PartialStateReference.empty(),
+      PartialStateReference.empty(),
+      Fr.zero(),
+      Fr.zero(),
+      Fr.zero(),
+    );
+  }
 
   /**
    * Deserializes from a buffer or reader.
@@ -103,5 +118,15 @@ export class BaseOrMergeRollupPublicInputs {
    */
   static fromString(str: string) {
     return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  /** Returns a hex representation for JSON serialization. */
+  toJSON() {
+    return this.toString();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return hexSchemaFor(BaseOrMergeRollupPublicInputs);
   }
 }

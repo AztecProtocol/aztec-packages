@@ -241,11 +241,9 @@ impl Kind {
     /// during monomorphization.
     pub(crate) fn default_type(&self) -> Option<Type> {
         match self {
-            Kind::Any => None,
             Kind::IntegerOrField => Some(Type::default_int_or_field_type()),
             Kind::Integer => Some(Type::default_int_type()),
-            Kind::Normal => None,
-            Kind::Numeric(typ) => Some(*typ.clone()),
+            Kind::Any | Kind::Normal | Kind::Numeric(..) => None,
         }
     }
 
@@ -589,6 +587,11 @@ impl TypeAlias {
             .collect();
 
         self.typ.substitute(&substitutions)
+    }
+
+    pub fn instantiate(&self, interner: &NodeInterner) -> Type {
+        let args = vecmap(&self.generics, |_| interner.next_type_variable());
+        self.get_type(&args)
     }
 }
 
@@ -1355,23 +1358,24 @@ impl Type {
                 TypeBinding::Unbound(_, ref type_var_kind) => type_var_kind.clone(),
             },
             Type::InfixExpr(lhs, _op, rhs) => lhs.infix_kind(rhs),
+            Type::Alias(def, generics) => def.borrow().get_type(generics).kind(),
+            // This is a concrete FieldElement, not an IntegerOrField
             Type::FieldElement
+            | Type::Integer(..)
             | Type::Array(..)
             | Type::Slice(..)
-            | Type::Integer(..)
             | Type::Bool
             | Type::String(..)
             | Type::FmtString(..)
             | Type::Unit
             | Type::Tuple(..)
             | Type::Struct(..)
-            | Type::Alias(..)
             | Type::TraitAsType(..)
             | Type::Function(..)
             | Type::MutableReference(..)
             | Type::Forall(..)
-            | Type::Quoted(..)
-            | Type::Error => Kind::Normal,
+            | Type::Quoted(..) => Kind::Normal,
+            Type::Error => Kind::Any,
         }
     }
 
