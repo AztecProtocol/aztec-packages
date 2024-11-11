@@ -15,7 +15,7 @@ import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
 import { type GasUsed } from './gas_used.js';
 
-export enum PublicKernelPhase {
+export enum TxExecutionPhase {
   SETUP,
   APP_LOGIC,
   TEARDOWN,

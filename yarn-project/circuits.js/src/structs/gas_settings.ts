@@ -110,21 +110,6 @@ export class GasSettings {
   }
 
   static getFields(fields: FieldsOf<GasSettings>) {
-    return [fields.gasLimits, fields.teardownGasLimits, fields.maxFeesPerGas, fields.inclusionFee] as const;
-  }
-
-  /** Returns total gas limits. */
-  getLimits(): Gas {
-    return this.gasLimits;
-  }
-
-  /** Returns how much gas is available for execution of setup and app phases (ie total limit minus teardown). */
-  getInitialAvailable(): Gas {
-    return this.gasLimits.sub(this.teardownGasLimits);
-  }
-
-  /** Returns how much gas is available for execution of teardown phase. */
-  getTeardownLimits(): Gas {
-    return this.teardownGasLimits;
+    return [fields.gasLimits, fields.teardownGasLimits, fields.maxFeesPerGas] as const;
   }
 }

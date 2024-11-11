@@ -1,8 +1,5 @@
 use crate::{
-    components::{
-        enqueued_call_data_validator::EnqueuedCallDataValidator,
-        public_kernel_output_composer::PublicKernelOutputComposer,
-    },
+    components::public_kernel_output_composer::PublicKernelOutputComposer,
     public_kernel_phase::PublicKernelPhase,
 };
 use dep::types::abis::{
@@ -33,12 +30,6 @@ impl PublicKernelMergeCircuitPrivateInputs {
 
     fn execute(self) -> PublicKernelCircuitPublicInputs {
         let phase = self.get_phase();
-
-        let enqueued_call_data_validator =
-            EnqueuedCallDataValidator::new(self.enqueued_call, phase);
-        enqueued_call_data_validator.validate_against_previous_kernel(
-            self.previous_kernel.public_inputs,
-        );
 
         PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
             .remove_top_call_request(phase)

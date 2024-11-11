@@ -21,14 +21,14 @@ import { PublicCallRequest } from '../public_call_request.js';
 
 export class PrivateToPublicAccumulatedData {
   constructor(
-    public readonly noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
-    public readonly nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
-    public readonly l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
-    public readonly noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    public readonly encryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
-    public readonly unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
-    public readonly publicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
-    public readonly gasUsed: Gas,
+    public noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
+    public nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
+    public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    public noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    public encryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
+    public gasUsed: Gas,
   ) {}
 
   getSize() {
