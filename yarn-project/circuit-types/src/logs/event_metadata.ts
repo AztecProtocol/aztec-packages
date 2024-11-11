@@ -1,9 +1,11 @@
-import { L1EventPayload, type UnencryptedL2Log } from '@aztec/circuit-types';
 import { type AbiType, AbiTypeSchema, EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
+
+import { L1EventPayload } from './l1_payload/l1_event_payload.js';
+import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Represents metadata for an event decoder, including all information needed to reconstruct it.

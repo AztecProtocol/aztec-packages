@@ -1,13 +1,3 @@
-import {
-  EncryptedFunctionL2Logs,
-  EncryptedL2Log,
-  EncryptedL2NoteLog,
-  EncryptedNoteFunctionL2Logs,
-  Note,
-  PublicExecutionRequest,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
-} from '@aztec/circuit-types';
 import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
@@ -17,6 +7,17 @@ import { type ZodFor, hexSchemaFor, mapSchema, schemas } from '@aztec/foundation
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
+
+import {
+  EncryptedFunctionL2Logs,
+  EncryptedL2Log,
+  EncryptedL2NoteLog,
+  EncryptedNoteFunctionL2Logs,
+  Note,
+  UnencryptedFunctionL2Logs,
+  UnencryptedL2Log,
+} from './logs/index.js';
+import { PublicExecutionRequest } from './public_execution_request.js';
 
 /**
  * The contents of a new note.

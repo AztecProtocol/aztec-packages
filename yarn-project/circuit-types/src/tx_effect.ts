@@ -1,4 +1,3 @@
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import {
   Fr,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -15,6 +14,9 @@ import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+
+import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
+import { TxHash } from './tx/tx_hash.js';
 
 export class TxEffect {
   constructor(

@@ -1,14 +1,11 @@
-import {
-  EncryptedL2BlockL2Logs,
-  EncryptedNoteL2BlockL2Logs,
-  TxEffect,
-  UnencryptedL2BlockL2Logs,
-} from '@aztec/circuit-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 import { z } from 'zod';
+
+import { EncryptedL2BlockL2Logs, EncryptedNoteL2BlockL2Logs, UnencryptedL2BlockL2Logs } from './logs/index.js';
+import { TxEffect } from './tx_effect.js';
 
 export class Body {
   constructor(public txEffects: TxEffect[]) {

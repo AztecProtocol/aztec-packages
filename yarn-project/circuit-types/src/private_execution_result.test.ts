@@ -1,4 +1,3 @@
-import { PublicExecutionRequest } from '@aztec/circuit-types';
 import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -8,6 +7,7 @@ import {
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from './private_execution_result.js';
+import { PublicExecutionRequest } from './public_execution_request.js';
 
 function emptyExecutionResult(): PrivateExecutionResult {
   return new PrivateExecutionResult(
