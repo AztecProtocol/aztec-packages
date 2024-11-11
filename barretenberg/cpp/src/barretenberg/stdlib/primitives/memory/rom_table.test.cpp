@@ -4,6 +4,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include "rom_table.hpp"
 
 using namespace bb;
@@ -17,8 +18,46 @@ using rom_table_ct = stdlib::rom_table<Builder>;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
+STANDARD_TESTING_TAGS
 
-TEST(rom_table, rom_table_read_write_consistency)
+/**
+ * @brief Ensure the tags of elements initializing the ROM table are correctly propagated
+ *
+ */
+TEST(RomTable, TagCorrectness)
+{
+
+    Builder builder;
+    std::vector<field_ct> table_values;
+    // Create random witness elements
+    field_ct entry_1 = witness_ct(&builder, bb::fr::random_element());
+    field_ct entry_2 = witness_ct(&builder, bb::fr::random_element());
+    field_ct entry_3 = witness_ct(&builder, bb::fr::random_element());
+
+    // Tag all 3 with different tags
+    entry_1.set_origin_tag(submitted_value_origin_tag);
+    entry_2.set_origin_tag(challenge_origin_tag);
+    // The last one is "poisoned" (calculating with this element should result in runtime error)
+    entry_3.set_origin_tag(instant_death_tag);
+
+    table_values.emplace_back(entry_1);
+    table_values.emplace_back(entry_2);
+    table_values.emplace_back(entry_3);
+
+    // Initialize the table with them
+    rom_table_ct table(table_values);
+
+    // Check that the tags of the first two are preserved
+    EXPECT_EQ(table[field_ct(witness_ct(&builder, 0))].get_origin_tag(), submitted_value_origin_tag);
+    EXPECT_EQ(table[field_ct(witness_ct(&builder, 1))].get_origin_tag(), challenge_origin_tag);
+
+#ifndef NDEBUG
+    // Check that computing the sum with the last once crashes the program
+    EXPECT_THROW(table[0] + table[2], std::runtime_error);
+#endif
+}
+
+TEST(RomTable, RomTableReadWriteConsistency)
 {
     Builder builder;
 

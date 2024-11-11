@@ -5,6 +5,18 @@ import { type FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
 /**
+ * An error could be a custom error of any regular type or a string error.
+ */
+export type AbiErrorType =
+  | { error_kind: 'string'; string: string }
+  | {
+      error_kind: 'fmtstring';
+      length: number;
+      item_types: AbiType[];
+    }
+  | ({ error_kind: 'custom' } & AbiType);
+
+/**
  * A basic value.
  */
 export interface BasicValue<T extends string, V> {
@@ -195,6 +207,10 @@ export interface FunctionAbi {
    */
   returnTypes: AbiType[];
   /**
+   * The types of the errors that the function can throw.
+   */
+  errorTypes: Partial<Record<string, AbiErrorType>>;
+  /**
    * Whether the function is flagged as an initializer.
    */
   isInitializer: boolean;
@@ -206,14 +222,10 @@ export interface FunctionAbi {
 export interface FunctionArtifact extends FunctionAbi {
   /** The ACIR bytecode of the function. */
   bytecode: Buffer;
-  /** The verification key of the function. */
+  /** The verification key of the function, base64 encoded, if it's a private fn. */
   verificationKey?: string;
   /** Maps opcodes to source code pointers */
   debugSymbols: string;
-  /**
-   * Public functions store their static assertion messages externally to the bytecode.
-   */
-  assertMessages?: Record<number, string>;
   /** Debug metadata for the function. */
   debug?: FunctionDebugMetadata;
 }
@@ -387,10 +399,6 @@ export interface FunctionDebugMetadata {
    * Maps the file IDs to the file contents to resolve pointers
    */
   files: DebugFileMap;
-  /**
-   * Public functions store their static assertion messages externally to the bytecode.
-   */
-  assertMessages?: Record<number, string>;
 }
 
 /**
@@ -432,7 +440,6 @@ export function getFunctionDebugMetadata(
     return {
       debugSymbols: programDebugSymbols.debug_infos[0],
       files: contractArtifact.fileMap,
-      assertMessages: functionArtifact.assertMessages,
     };
   }
   return undefined;

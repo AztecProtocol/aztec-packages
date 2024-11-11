@@ -16,12 +16,12 @@ import type { Fr } from '@aztec/foundation/fields';
 
 import type { L2Block } from '../l2_block.js';
 import type {
-  EncryptedL2NoteLog,
   FromLogType,
   GetUnencryptedLogsResponse,
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  TxScopedEncryptedL2NoteLog,
 } from '../logs/index.js';
 import type { MerkleTreeId } from '../merkle_tree_id.js';
 import type { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
@@ -75,13 +75,11 @@ export interface AztecNode extends ProverCoordination {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @param startIndex - The index to start searching from.
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
-    startIndex: bigint,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
   /**
@@ -257,10 +255,10 @@ export interface AztecNode extends ProverCoordination {
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
+   * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
+   array implies no logs match that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedEncryptedL2NoteLog[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.

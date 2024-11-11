@@ -34,7 +34,7 @@ where
             deduped.push(original.inner());
         }
     }
-    deduped.storage
+    deduped.storage()
 }
 
 mod tests {

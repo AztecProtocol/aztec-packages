@@ -159,7 +159,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         PublicDataTreeLeaf.empty(),
       );
       for (const [i, write] of txEffect.publicDataWrites.entries()) {
-        batch[i] = new PublicDataTreeLeaf(write.leafIndex, write.newValue);
+        batch[i] = new PublicDataTreeLeaf(write.leafSlot, write.value);
       }
 
       batchesOfPaddedPublicDataWrites.push(batch);

@@ -67,7 +67,7 @@ contract UniswapPortal {
     bool _withCaller,
     // Avoiding stack too deep
     PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
-  ) public returns (bytes32) {
+  ) public returns (bytes32, uint256) {
     LocalSwapVars memory vars;
 
     vars.inputAsset = TokenPortal(_inputTokenPortal).underlying();
@@ -174,7 +174,7 @@ contract UniswapPortal {
     bool _withCaller,
     // Avoiding stack too deep
     PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
-  ) public returns (bytes32) {
+  ) public returns (bytes32, uint256) {
     LocalSwapVars memory vars;
 
     vars.inputAsset = TokenPortal(_inputTokenPortal).underlying();

@@ -18,8 +18,7 @@ export const startNode = async (
   options: any,
   signalHandlers: (() => Promise<void>)[],
   userLog: LogFn,
-  // ): Promise<ServerList> => {
-) => {
+): Promise<ServerList> => {
   // Services that will be started in a single multi-rpc server
   const services: ServerList = [];
 
@@ -101,7 +100,7 @@ export const startNode = async (
   services.push({ node: nodeServer });
 
   // Add node stop function to signal handlers
-  signalHandlers.push(node.stop);
+  signalHandlers.push(node.stop.bind(node));
 
   // Add a PXE client that connects to this node if requested
   let pxe: PXE | undefined;

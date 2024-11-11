@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm/avm/trace/instructions.hpp"
+#include "barretenberg/vm/avm/trace/opcode.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -17,7 +18,9 @@ class Deserialization {
   public:
     Deserialization() = default;
 
-    static std::vector<Instruction> parse(std::vector<uint8_t> const& bytecode);
+    static Instruction parse(const std::vector<uint8_t>& bytecode, size_t pos);
+    static std::vector<Instruction> parse_bytecode_statically(const std::vector<uint8_t>& bytecode);
+    static uint32_t get_pc_increment(OpCode opcode);
 };
 
 } // namespace bb::avm_trace

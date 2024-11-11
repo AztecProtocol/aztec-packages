@@ -1,2 +1,2 @@
-mod mock_note;
-mod mock_struct;
+pub(crate) mod mock_note;
+pub(crate) mod mock_struct;

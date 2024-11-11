@@ -18,6 +18,7 @@ import {
   Fr,
   type GlobalVariables,
   Header,
+  MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
@@ -41,7 +42,7 @@ import {
   PublicDataHint,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   type RecursiveProof,
   RootRollupInputs,
   StateDiffHints,
@@ -97,18 +98,15 @@ export async function buildBaseRollupHints(
 
   // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
-  // If there is already a public data write for this slot, also skip the read hint
   const hintsBuilder = new HintsBuilder(db);
   const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-  const existingBalanceWrite = tx.data.end.publicDataUpdateRequests.find(write => write.leafSlot.equals(leafSlot));
-  const feePayerFeeJuiceBalanceReadHint =
-    leafSlot.isZero() || existingBalanceWrite
-      ? PublicDataHint.empty()
-      : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
+  const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
+    ? PublicDataHint.empty()
+    : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-  const noteHashes = tx.data.end.noteHashes;
+  const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
   await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
 
   // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
@@ -123,7 +121,7 @@ export async function buildBaseRollupHints(
     sortedNewLeavesIndexes,
   } = await db.batchInsert(
     MerkleTreeId.NULLIFIER_TREE,
-    tx.data.end.nullifiers.map(n => n.toBuffer()),
+    padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
   if (nullifierWitnessLeaves === undefined) {
@@ -162,7 +160,7 @@ export async function buildBaseRollupHints(
     publicDataSiblingPath,
   });
 
-  const blockHash = tx.data.constants.historicalHeader.hash();
+  const blockHash = tx.constants.historicalHeader.hash();
   const archiveRootMembershipWitness = await getMembershipWitnessFor(
     blockHash,
     MerkleTreeId.ARCHIVE,
@@ -398,15 +396,15 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
   );
 }
 
-export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
+async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWriteOperations) {
   const allPublicDataUpdateRequests = padArrayEnd(
-    tx.finalPublicDataUpdateRequests,
-    PublicDataUpdateRequest.empty(),
+    tx.txEffect.publicDataWrites,
+    PublicDataWrite.empty(),
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 
   const allPublicDataWrites = allPublicDataUpdateRequests.map(
-    ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
+    ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
   const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
     MerkleTreeId.PUBLIC_DATA_TREE,
@@ -509,7 +507,7 @@ export function validatePartialState(
 }
 
 // Helper for comparing two trees snapshots
-export function validateSimulatedTree(
+function validateSimulatedTree(
   localTree: AppendOnlyTreeSnapshot,
   simulatedTree: AppendOnlyTreeSnapshot,
   name: TreeNames,
@@ -528,7 +526,7 @@ export function validateSimulatedTree(
 }
 
 export function validateTx(tx: ProcessedTx) {
-  const txHeader = tx.data.constants.historicalHeader;
+  const txHeader = tx.constants.historicalHeader;
   if (txHeader.state.l1ToL2MessageTree.isZero()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }

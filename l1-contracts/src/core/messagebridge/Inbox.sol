@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
-import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 
 /**
  * @title Inbox
@@ -57,13 +56,13 @@ contract Inbox is IInbox {
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
    *
-   * @return Hash of the sent message.
+   * @return Hash of the sent message and its leaf index in the tree.
    */
   function sendL2Message(
     DataStructures.L2Actor memory _recipient,
     bytes32 _content,
     bytes32 _secretHash
-  ) external override(IInbox) returns (bytes32) {
+  ) external override(IInbox) returns (bytes32, uint256) {
     require(
       uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
       Errors.Inbox__ActorTooLarge(_recipient.actor)
@@ -81,23 +80,25 @@ contract Inbox is IInbox {
       currentTree = trees[inProgress];
     }
 
+    // this is the global leaf index and not index in the l2Block subtree
+    // such that users can simply use it and don't need access to a node if they are to consume it in public.
+    // trees are constant size so global index = tree number * size + subtree index
+    uint256 index = (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
+
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(msg.sender, block.chainid),
       recipient: _recipient,
       content: _content,
-      secretHash: _secretHash
+      secretHash: _secretHash,
+      index: index
     });
 
     bytes32 leaf = message.sha256ToField();
-    // this is the global leaf index and not index in the l2Block subtree
-    // such that users can simply use it and don't need access to a node if they are to consume it in public.
-    // trees are constant size so global index = tree number * size + subtree index
-    uint256 index =
-      (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.insertLeaf(leaf);
+    currentTree.insertLeaf(leaf);
     totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 
-    return leaf;
+    return (leaf, index);
   }
 
   /**

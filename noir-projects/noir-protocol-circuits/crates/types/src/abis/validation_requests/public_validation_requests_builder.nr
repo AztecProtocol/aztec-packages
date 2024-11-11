@@ -44,11 +44,11 @@ impl PublicValidationRequestsBuilder {
     pub fn finish(self) -> PublicValidationRequests {
         PublicValidationRequests {
             for_rollup: self.for_rollup(),
-            note_hash_read_requests: self.note_hash_read_requests.storage,
-            nullifier_read_requests: self.nullifier_read_requests.storage,
-            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
-            public_data_reads: self.public_data_reads.storage,
-            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage(),
+            nullifier_read_requests: self.nullifier_read_requests.storage(),
+            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage(),
+            public_data_reads: self.public_data_reads.storage(),
+            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage(),
         }
     }
 

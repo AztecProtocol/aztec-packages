@@ -76,7 +76,7 @@ export class FeeOpts implements IFeeOpts {
 
   static paymentMethodOption() {
     return new Option(
-      '--payment <method=name,asset=address,fpc=address,claimSecret=string,claimAmount=string,rebateSecret=string>',
+      '--payment <method=name,asset=address,fpc=address,claimSecret=string,claimAmount=string,feeRecipient=string>',
       'Fee payment method and arguments. Valid methods are: none, fee_juice, fpc-public, fpc-private.',
     );
   }
@@ -141,10 +141,15 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
+    if (!parsed.feeRecipient) {
+      // Recipient of a fee in the refund flow
+      throw new Error('Missing "feeRecipient" in payment option');
+    }
 
     const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
+    const feeRecipient = AztecAddress.fromString(parsed.feeRecipient);
 
-    return [AztecAddress.fromString(parsed.asset), fpc];
+    return [AztecAddress.fromString(parsed.asset), fpc, feeRecipient];
   };
 
   return async (sender: AccountWallet) => {
@@ -153,19 +158,23 @@ export function parsePaymentMethod(
         log('Using no fee payment');
         return new NoFeePaymentMethod();
       case 'native':
-        if (parsed.claim || (parsed.claimSecret && parsed.claimAmount)) {
-          let claimAmount, claimSecret;
+        if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
+          let claimAmount, claimSecret, messageLeafIndex;
           if (parsed.claim && db) {
-            ({ amount: claimAmount, secret: claimSecret } = await db.popBridgedFeeJuice(sender.getAddress(), log));
+            ({
+              amount: claimAmount,
+              secret: claimSecret,
+              leafIndex: messageLeafIndex,
+            } = await db.popBridgedFeeJuice(sender.getAddress(), log));
           } else {
-            ({ claimAmount, claimSecret } = parsed);
+            ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
-          return new FeeJuicePaymentMethodWithClaim(
-            sender.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret),
-          );
+          return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
+            claimAmount: typeof claimAmount === 'string' ? Fr.fromString(claimAmount) : new Fr(claimAmount),
+            claimSecret: Fr.fromString(claimSecret),
+            messageLeafIndex: BigInt(messageLeafIndex),
+          });
         } else {
           log(`Using Fee Juice for fee payment`);
           return new FeeJuicePaymentMethod(sender.getAddress());
@@ -176,12 +185,11 @@ export function parsePaymentMethod(
         return new PublicFeePaymentMethod(asset, fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc] = getFpcOpts(parsed, db);
-        const rebateSecret = parsed.rebateSecret ? Fr.fromString(parsed.rebateSecret) : Fr.random();
+        const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
         log(
-          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${rebateSecret.toString()}`,
+          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient.toString()}`,
         );
-        return new PrivateFeePaymentMethod(asset, fpc, sender, rebateSecret);
+        return new PrivateFeePaymentMethod(asset, fpc, sender, feeRecipient);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');

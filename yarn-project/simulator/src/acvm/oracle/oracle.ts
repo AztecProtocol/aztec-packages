@@ -417,8 +417,14 @@ export class Oracle {
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
-    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
+  async incrementAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecret(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+  }
+
+  async syncNotes([recipient]: ACVMField[]) {
+    await this.typedOracle.syncNotes(AztecAddress.fromString(recipient));
   }
 }

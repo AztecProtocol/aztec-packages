@@ -135,13 +135,13 @@ describe('aztec node', () => {
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
       };
 
-      validMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
+      validMaxBlockNumberMetadata.data.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),

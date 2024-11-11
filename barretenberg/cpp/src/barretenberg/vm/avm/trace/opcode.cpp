@@ -95,10 +95,10 @@ std::string to_string(OpCode opcode)
         return "CALLDATACOPY";
     // Machine State
     // Machine State - Internal Control Flow
-    case OpCode::JUMP_16:
-        return "JUMP_16";
-    case OpCode::JUMPI_16:
-        return "JUMPI_16";
+    case OpCode::JUMP_32:
+        return "JUMP_32";
+    case OpCode::JUMPI_32:
+        return "JUMPI_32";
     case OpCode::INTERNALCALL:
         return "INTERNALCALL";
     case OpCode::INTERNALRETURN:
