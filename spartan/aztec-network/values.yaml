@@ -25,7 +25,7 @@ bootNode:
   externalUdpHost: ""
   replicas: 1
   service:
-    p2pTcpPort: 40500
+    p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
@@ -67,7 +67,7 @@ validator:
   validatorAddresses:
     - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
-    p2pTcpPort: 40500
+    p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
@@ -98,7 +98,7 @@ proverNode:
   replicas: 1
   p2pEnabled: true
   service:
-    p2pTcpPort: 40500
+    p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug"
