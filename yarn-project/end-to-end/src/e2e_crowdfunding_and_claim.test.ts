@@ -164,9 +164,9 @@ describe('e2e_crowdfunding_and_claim', () => {
         });
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
-      const notes = donateTxReceipt.debugInfo?.visibleIncomingNotes.filter(x =>
-        x.contractAddress.equals(crowdfundingContract.address),
-      );
+      await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
+      const incomingNotes = await donorWallets[0].getIncomingNotes({ txHash: donateTxReceipt.txHash });
+      const notes = incomingNotes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(notes!.length).toEqual(1);
 
       // Set the value note in a format which can be passed to claim function
@@ -235,9 +235,9 @@ describe('e2e_crowdfunding_and_claim', () => {
       });
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
-    const notes = donateTxReceipt.debugInfo?.visibleIncomingNotes.filter(x =>
-      x.contractAddress.equals(crowdfundingContract.address),
-    );
+    await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
+    const incomingNotes = await donorWallets[0].getIncomingNotes({ txHash: donateTxReceipt.txHash });
+    const notes = incomingNotes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(notes!.length).toEqual(1);
 
     // Set the value note in a format which can be passed to claim function
@@ -291,9 +291,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     let note: any;
     {
       const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
-      const { visibleIncomingNotes } = receipt.debugInfo!;
-      expect(visibleIncomingNotes.length).toEqual(1);
-      note = processUniqueNote(visibleIncomingNotes![0]);
+      await inclusionsProofsContract.methods.sync_notes().simulate();
+      const incomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
+      expect(incomingNotes.length).toEqual(1);
+      note = processUniqueNote(incomingNotes[0]);
     }
 
     // 3) Test the note was included

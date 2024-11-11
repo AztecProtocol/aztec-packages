@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 
 namespace bb {
@@ -23,11 +24,12 @@ template <typename FF_> class UltraArith {
         T lookup;
         T poseidon2_external;
         T poseidon2_internal;
+        T overflow;
 
         auto get()
         {
-            return RefArray{ pub_inputs, arithmetic, delta_range,        elliptic,
-                             aux,        lookup,     poseidon2_external, poseidon2_internal };
+            return RefArray{ pub_inputs, arithmetic,         delta_range,        elliptic, aux,
+                             lookup,     poseidon2_external, poseidon2_internal, overflow };
         }
 
         auto get_gate_blocks()
@@ -51,6 +53,7 @@ template <typename FF_> class UltraArith {
             this->lookup = FIXED_SIZE;
             this->poseidon2_external = FIXED_SIZE;
             this->poseidon2_internal = FIXED_SIZE;
+            this->overflow = 0;
         }
     };
 
@@ -60,6 +63,8 @@ template <typename FF_> class UltraArith {
     using FF = FF_;
 
     class UltraTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+        using SelectorType = ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS>::SelectorType;
+
       public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -91,9 +96,18 @@ template <typename FF_> class UltraArith {
         auto& q_lookup_type() { return this->selectors[10]; };
         auto& q_poseidon2_external() { return this->selectors[11]; };
         auto& q_poseidon2_internal() { return this->selectors[12]; };
+
+        RefVector<SelectorType> get_gate_selectors()
+        {
+            return { q_arith(),      q_delta_range(),        q_elliptic(),
+                     q_aux(),        q_poseidon2_external(), q_poseidon2_internal(),
+                     q_lookup_type() };
+        }
     };
 
     struct TraceBlocks : public UltraTraceBlocks<UltraTraceBlock> {
+
+        bool has_overflow = false;
 
         TraceBlocks()
         {
@@ -102,14 +116,15 @@ template <typename FF_> class UltraArith {
         }
 
         // Set fixed block sizes for use in structured trace
-        void set_fixed_block_sizes(TraceStructure setting)
+        void set_fixed_block_sizes(TraceSettings settings)
         {
             UltraTraceBlocks<uint32_t> fixed_block_sizes{}; // zero initialized
 
-            switch (setting) {
+            switch (settings.structure) {
             case TraceStructure::NONE:
                 break;
             // We don't use Ultra in ClientIvc so no need for anything other than sizing for simple unit tests
+            case TraceStructure::TINY_TEST:
             case TraceStructure::SMALL_TEST:
             case TraceStructure::CLIENT_IVC_BENCH:
             case TraceStructure::E2E_FULL_TEST:
@@ -119,6 +134,7 @@ template <typename FF_> class UltraArith {
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes.get())) {
                 block.set_fixed_size(size);
             }
+            this->overflow.set_fixed_size(settings.overflow_capacity);
         }
 
         void compute_offsets(bool is_structured)
@@ -133,7 +149,8 @@ template <typename FF_> class UltraArith {
         auto get()
         {
             return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,        this->elliptic,
-                             this->aux,        this->lookup,     this->poseidon2_external, this->poseidon2_internal };
+                             this->aux,        this->lookup,     this->poseidon2_external, this->poseidon2_internal,
+                             this->overflow };
         }
 
         void summarize() const
@@ -147,6 +164,7 @@ template <typename FF_> class UltraArith {
             info("lookups    :\t", this->lookup.size());
             info("poseidon ext  :\t", this->poseidon2_external.size());
             info("poseidon int  :\t", this->poseidon2_internal.size());
+            info("overflow :\t", this->overflow.size());
         }
 
         size_t get_total_structured_size()
@@ -156,22 +174,6 @@ template <typename FF_> class UltraArith {
                 total_size += block.get_fixed_size();
             }
             return total_size;
-        }
-
-        /**
-         * @brief Check that the number of rows populated in each block does not exceed the specified fixed size
-         * @note This check is only applicable when utilizing a structured trace
-         *
-         */
-        void check_within_fixed_sizes()
-        {
-            for (auto block : this->get()) {
-                if (block.size() > block.get_fixed_size()) {
-                    info("WARNING: Num gates in circuit block exceeds the specified fixed size - execution trace will "
-                         "not be constructed correctly!");
-                    ASSERT(false);
-                }
-            }
         }
 
         bool operator==(const TraceBlocks& other) const = default;

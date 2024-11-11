@@ -245,14 +245,16 @@ describe('e2e_2_pxes', () => {
       const receipt = await testContract.methods
         .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
         .send()
-        .wait({ debug: true });
-      const { visibleIncomingNotes, visibleOutgoingNotes } = receipt.debugInfo!;
-      expect(visibleIncomingNotes).toHaveLength(1);
-      note = visibleIncomingNotes![0];
+        .wait();
+      await testContract.methods.sync_notes();
+      const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
+      const outgoingNotes = await walletA.getOutgoingNotes({ txHash: receipt.txHash });
+      expect(incomingNotes).toHaveLength(1);
+      note = incomingNotes[0];
 
       // Since owner is the same as outgoing viewer the incoming and outgoing notes should be the same
-      expect(visibleOutgoingNotes).toHaveLength(1);
-      expect(visibleOutgoingNotes![0]).toEqual(note);
+      expect(outgoingNotes).toHaveLength(1);
+      expect(outgoingNotes[0]).toEqual(note);
     }
 
     // 3. Nullify the note

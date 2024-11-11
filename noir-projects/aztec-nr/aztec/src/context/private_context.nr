@@ -48,41 +48,41 @@ use dep::protocol_types::{
 // When finished, one can call .finish() to convert back to the abi
 pub struct PrivateContext {
     // docs:start:private-context
-    inputs: PrivateContextInputs,
-    side_effect_counter: u32,
+    pub inputs: PrivateContextInputs,
+    pub side_effect_counter: u32,
 
-    min_revertible_side_effect_counter: u32,
-    is_fee_payer: bool,
+    pub min_revertible_side_effect_counter: u32,
+    pub is_fee_payer: bool,
 
-    args_hash: Field,
-    return_hash: Field,
+    pub args_hash: Field,
+    pub return_hash: Field,
 
-    max_block_number: MaxBlockNumber,
+    pub max_block_number: MaxBlockNumber,
 
-    note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
-    nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
+    pub note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
+    pub nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
 
-    private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
-    public_teardown_call_request: PublicCallRequest,
-    l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    historical_header: Header,
+    pub historical_header: Header,
 
-    note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
-    encrypted_logs_hashes: BoundedVec<EncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
-    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    pub note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
+    pub encrypted_logs_hashes: BoundedVec<EncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
+    pub unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
     // The index of the array corresponds to the key type (0 nullifier, 1 incoming, 2 outgoing, 3 tagging).
-    last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
+    pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
 impl PrivateContext {
@@ -181,22 +181,22 @@ impl PrivateContext {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: self.note_hash_read_requests.storage,
-            nullifier_read_requests: self.nullifier_read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage(),
+            nullifier_read_requests: self.nullifier_read_requests.storage(),
             key_validation_requests_and_generators: self
                 .key_validation_requests_and_generators
-                .storage,
-            note_hashes: self.note_hashes.storage,
-            nullifiers: self.nullifiers.storage,
-            private_call_requests: self.private_call_requests.storage,
-            public_call_requests: self.public_call_requests.storage,
+                .storage(),
+            note_hashes: self.note_hashes.storage(),
+            nullifiers: self.nullifiers.storage(),
+            private_call_requests: self.private_call_requests.storage(),
+            public_call_requests: self.public_call_requests.storage(),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage(),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
         }
@@ -252,17 +252,21 @@ impl PrivateContext {
             // We get a match so the cached request is the latest one
             cached_request.sk_app
         } else {
-            // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
-            // protocol circuits to validate them by storing the validation request in context.
-            let request = get_key_validation_request(pk_m_hash, key_index);
-            let request_and_generator = KeyValidationRequestAndGenerator {
-                request,
-                sk_app_generator: sk_generators[key_index],
-            };
-            // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
-            // valid key request and not the one corresponding to pk_m_hash).
+            // We didn't get a match meaning the cached result is stale
+            // Typically we'd validate keys by showing that they are the preimage of `pk_m_hash`, but that'd require
+            // the oracle returning the master secret keys, which could cause malicious contracts to leak it or learn
+            // about secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to
+            // validate that we siloed secret key corresponds to correct siloing of the master secret key that hashes
+            // to `pk_m_hash`.
+            let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert(request.pk_m.hash() == pk_m_hash);
-            self.key_validation_requests_and_generators.push(request_and_generator);
+
+            self.key_validation_requests_and_generators.push(
+                KeyValidationRequestAndGenerator {
+                    request,
+                    sk_app_generator: sk_generators[key_index],
+                },
+            );
             self.last_key_validation_requests[key_index] = Option::some(request);
             request.sk_app
         }
@@ -389,15 +393,36 @@ impl PrivateContext {
     ) -> PackedReturns {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
-        let (end_side_effect_counter, returns_hash) = call_private_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            start_side_effect_counter,
-            is_static_call,
-        );
 
-        self.side_effect_counter = end_side_effect_counter + 1;
+        // The oracle simulates the private call and returns the value of the side effects counter after execution of
+        // the call (which means that end_side_effect_counter - start_side_effect_counter is the number of side effects
+        // that took place), along with the hash of the return values. We validate these by requesting a private kernel
+        // iteration in which the return values are constrained to hash to `returns_hash` and the side effects counter
+        // to increment from start to end.
+        let (end_side_effect_counter, returns_hash) = unsafe {
+            call_private_function_internal(
+                contract_address,
+                function_selector,
+                args_hash,
+                start_side_effect_counter,
+                is_static_call,
+            )
+        };
+
+        self.private_call_requests.push(
+            PrivateCallRequest {
+                call_context: CallContext {
+                    msg_sender: self.this_address(),
+                    contract_address,
+                    function_selector,
+                    is_static_call,
+                },
+                args_hash,
+                returns_hash,
+                start_side_effect_counter,
+                end_side_effect_counter,
+            },
+        );
 
         // TODO (fees) figure out why this crashes the prover and enable it
         // we need this in order to pay fees inside child call contexts
@@ -410,23 +435,7 @@ impl PrivateContext {
         //     > self.min_revertible_side_effect_counter {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
-        let call_context = CallContext {
-            msg_sender: self.this_address(),
-            contract_address,
-            function_selector,
-            is_static_call,
-        };
-
-        self.private_call_requests.push(
-            PrivateCallRequest {
-                call_context,
-                args_hash,
-                returns_hash,
-                start_side_effect_counter,
-                end_side_effect_counter,
-            },
-        );
-
+        self.side_effect_counter = end_side_effect_counter + 1;
         PackedReturns::new(returns_hash)
     }
 

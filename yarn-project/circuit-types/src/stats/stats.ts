@@ -1,3 +1,7 @@
+import { type ZodFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
 /** Stats associated with an ACIR proof generation.*/
 export type ProofConstructed = {
   /** Name of the event for metrics purposes */

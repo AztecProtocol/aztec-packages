@@ -1,23 +1,25 @@
 import { Fr } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { TxHash } from '../index.js';
-import { type ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
+import { z } from 'zod';
 
-/**
- * It provides documentation for the GetUnencryptedLogsResponse type.
- */
+import { TxHash } from '../tx/tx_hash.js';
+import { EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
+import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
+
+/** Response for the getUnencryptedLogs archiver call. */
 export type GetUnencryptedLogsResponse = {
-  /**
-   * An array of ExtendedUnencryptedL2Log elements.
-   */
+  /** An array of ExtendedUnencryptedL2Log elements. */
   logs: ExtendedUnencryptedL2Log[];
-
-  /**
-   * Indicates if a limit has been reached.
-   */
+  /** Indicates if a limit has been reached. */
   maxLogsHit: boolean;
 };
+
+export const GetUnencryptedLogsResponseSchema = z.object({
+  logs: z.array(ExtendedUnencryptedL2Log.schema),
+  maxLogsHit: z.boolean(),
+}) satisfies ZodFor<GetUnencryptedLogsResponse>;
 
 export class TxScopedL2Log {
   constructor(
@@ -44,6 +46,21 @@ export class TxScopedL2Log {
     public logData: Buffer,
   ) {}
 
+  static get schema() {
+    return z
+      .object({
+        txHash: TxHash.schema,
+        dataStartIndexForTx: z.number(),
+        blockNumber: z.number(),
+        isFromPublic: z.boolean(),
+        log: schemas.BufferHex,
+      })
+      .transform(
+        ({ txHash, dataStartIndexForTx, blockNumber, isFromPublic, log }) =>
+          new TxScopedL2Log(txHash, dataStartIndexForTx, blockNumber, isFromPublic, log),
+      );
+  }
+
   toBuffer() {
     return Buffer.concat([
       this.txHash.toBuffer(),
@@ -63,5 +80,9 @@ export class TxScopedL2Log {
       reader.readBoolean(),
       reader.readToEnd(),
     );
+  }
+
+  static random() {
+    return new TxScopedL2Log(TxHash.random(), 1, 1, false, Fr.random().toBuffer());
   }
 }

@@ -205,7 +205,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
-        .map(|(name, _): (Quoted, Type)| quote { $name: $property_selector_type })
+        .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
@@ -220,7 +220,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let properties = properties_list.join(quote {,});
 
     quote {
-        struct $struct_name {
+        pub struct $struct_name {
             $properties_types
         }
 
@@ -284,8 +284,8 @@ pub(crate) comptime fn generate_note_export(
     let note_field_constructors = note_field_constructors.join(quote {,});
 
     quote {
-        struct $note_fields_name {
-            $note_fields
+        pub struct $note_fields_name {
+            pub $note_fields
         }
 
         #[abi(notes)]
@@ -448,13 +448,13 @@ comptime fn generate_setup_payload(
 
     (
         quote {
-        struct $setup_payload_name {
-            log_plaintext: [u8; $log_plaintext_length],
-            hiding_point: aztec::protocol_types::point::Point
+        pub struct $setup_payload_name {
+            pub log_plaintext: [u8; $log_plaintext_length],
+            pub hiding_point: aztec::protocol_types::point::Point
         }
 
         impl $setup_payload_name {
-            fn new($new_args) -> $setup_payload_name {
+            pub fn new($new_args) -> $setup_payload_name {
                 $new_aux_vars
                 let hiding_point = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],
@@ -468,7 +468,7 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
+            pub fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
                 let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
                 let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
@@ -674,15 +674,15 @@ comptime fn generate_finalization_payload(
 
     (
         quote {
-        struct $finalization_payload_name {
-            context: &mut aztec::prelude::PublicContext,
-            hiding_point_slot: Field,
-            setup_log_slot: Field,
-            public_values: [Field; $public_values_length],
+        pub struct $finalization_payload_name {
+            pub context: &mut aztec::prelude::PublicContext,
+            pub hiding_point_slot: Field,
+            pub setup_log_slot: Field,
+            pub public_values: [Field; $public_values_length],
         }
 
         impl $finalization_payload_name {
-            fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, $args) -> $finalization_payload_name {
+            pub fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, $args) -> $finalization_payload_name {
                 self.context = context;
 
                 self.hiding_point_slot = slot;
@@ -694,12 +694,12 @@ comptime fn generate_finalization_payload(
                 self
             }
 
-            fn emit(self) {
+            pub fn emit(self) {
                 self.emit_note_hash();
                 self.emit_log();
             }
 
-            fn emit_note_hash(self) {
+            pub fn emit_note_hash(self) {
                 // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
                 let hiding_point: aztec::prelude::Point = self.context.storage_read(self.hiding_point_slot);
                 assert(!aztec::protocol_types::traits::is_empty(hiding_point), "transfer not prepared");
@@ -720,7 +720,7 @@ comptime fn generate_finalization_payload(
                 // self.context.storage_write(self.hiding_point_slot, [0; aztec::protocol_types::point::POINT_LENGTH]);
             }
 
-            fn emit_log(self) {
+            pub fn emit_log(self) {
                 // We load the setup log from storage
                 let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 

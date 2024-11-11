@@ -18,8 +18,8 @@ use dep::protocol_types::{
 
 // docs:start:struct
 pub struct PrivateSet<Note, Context> {
-    context: Context,
-    storage_slot: Field,
+    pub context: Context,
+    pub storage_slot: Field,
 }
 // docs:end:struct
 

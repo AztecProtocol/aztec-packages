@@ -3,8 +3,9 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { Bot } from './bot.js';
 import { type BotConfig } from './config.js';
+import { type BotRunnerApi } from './interface.js';
 
-export class BotRunner {
+export class BotRunner implements BotRunnerApi {
   private log = createDebugLogger('aztec:bot');
   private bot?: Promise<Bot>;
   private pxe?: PXE;
@@ -112,7 +113,7 @@ export class BotRunner {
 
   /** Returns the current configuration for the bot. */
   public getConfig() {
-    return this.config;
+    return Promise.resolve(this.config);
   }
 
   async #createBot() {

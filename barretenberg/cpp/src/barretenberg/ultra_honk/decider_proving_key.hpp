@@ -46,9 +46,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     FF target_sum;
 
     DeciderProvingKey_(Circuit& circuit,
-                       TraceStructure trace_structure = TraceStructure::NONE,
+                       TraceSettings trace_settings = TraceSettings{},
                        std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
-        : is_structured(trace_structure != TraceStructure::NONE)
+        : is_structured(trace_settings.structure != TraceStructure::NONE)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
@@ -58,8 +58,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if (is_structured) {
-            circuit.blocks.set_fixed_block_sizes(trace_structure); // set the fixed sizes for each block
-            circuit.blocks.check_within_fixed_sizes();             // ensure that no block exceeds its fixed size
+            circuit.blocks.set_fixed_block_sizes(trace_settings); // set the fixed sizes for each block
+            circuit.blocks.summarize();
+            move_structured_trace_overflow_to_overflow_block(circuit);
             dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
         } else {
             dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
@@ -85,7 +86,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
-            if (IsGoblinFlavor<Flavor> && !is_structured) {
+            // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
+            // use), allocate full size polys
+            if ((IsGoblinFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             } else { // Allocate only a correct amount of memory for each polynomial
@@ -322,6 +325,8 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
+
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
 };
 
 } // namespace bb

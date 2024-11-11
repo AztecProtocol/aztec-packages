@@ -19,6 +19,9 @@ images:
   foundry:
     image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
     pullPolicy: IfNotPresent
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
 
 bootNode:
   externalTcpHost: ""
@@ -163,13 +166,11 @@ bot:
 ethereum:
   externalHost: ""
   replicas: 1
-  chainId: 31337
-  blockTime: 12
+  chainId: 1337
+  blockTime: 12sec
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
-  forkUrl: ""
-  forkBlockNumber: ""
   args: ""
   service:
     type: ClusterIP

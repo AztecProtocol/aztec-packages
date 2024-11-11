@@ -8,8 +8,8 @@ use crate::{
 };
 
 pub struct CombinedOrderHint {
-    counter: u32,
-    original_index: u32,
+    pub counter: u32,
+    pub original_index: u32,
 }
 
 impl CombinedOrderHint {

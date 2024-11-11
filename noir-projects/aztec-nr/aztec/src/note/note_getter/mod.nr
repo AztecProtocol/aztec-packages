@@ -51,7 +51,7 @@ fn check_note_fields<let N: u32>(
     serialized_note: [Field; N],
     selects: BoundedVec<Option<Select>, N>,
 ) {
-    for i in 0..selects.len {
+    for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field =
             extract_property_value_from_selector(serialized_note, select.property_selector);
@@ -68,7 +68,7 @@ fn check_notes_order<let N: u32>(
     fields_1: [Field; N],
     sorts: BoundedVec<Option<Sort>, N>,
 ) {
-    for i in 0..sorts.len {
+    for i in 0..sorts.len() {
         let sort = sorts.get_unchecked(i).unwrap_unchecked();
         let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
         let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
@@ -293,7 +293,7 @@ unconstrained fn flatten_options<let N: u32>(
     let mut select_values = [0; N];
     let mut select_comparators = [0; N];
 
-    for i in 0..selects.len {
+    for i in 0..selects.len() {
         let select = selects.get(i);
         if select.is_some() {
             select_by_indexes[num_selects] = select.unwrap_unchecked().property_selector.index;
@@ -309,7 +309,7 @@ unconstrained fn flatten_options<let N: u32>(
     let mut sort_by_offsets = [0; N];
     let mut sort_by_lengths = [0; N];
     let mut sort_order = [0; N];
-    for i in 0..sorts.len {
+    for i in 0..sorts.len() {
         let sort = sorts.get(i);
         if sort.is_some() {
             sort_by_indexes[i] = sort.unwrap_unchecked().property_selector.index;

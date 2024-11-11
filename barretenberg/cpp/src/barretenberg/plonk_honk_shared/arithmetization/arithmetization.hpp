@@ -30,7 +30,14 @@ struct StackTraces {
 // A set of fixed block size conigurations to be used with the structured execution trace. The actual block sizes
 // corresponding to these settings are defined in the corresponding arithmetization classes (Ultra/Mega). For efficiency
 // it is best to use the smallest possible block sizes to accommodate a given situation.
-enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
+enum class TraceStructure { NONE, TINY_TEST, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
+
+struct TraceSettings {
+    TraceStructure structure = TraceStructure::NONE;
+    // The size of the overflow block. Specified separately because it is allowed to be determined at runtime in the
+    // context of VK computation
+    uint32_t overflow_capacity = 0;
+};
 
 /**
  * @brief Basic structure for storing gate data in a builder
