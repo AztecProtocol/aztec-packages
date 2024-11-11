@@ -8,12 +8,9 @@ import {
   type DebugLogger,
   type DeployL1Contracts,
   EthAddress,
-  ExtendedNote,
   type Fq,
   Fr,
-  Note,
   type PXE,
-  type TxHash,
   createDebugLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
@@ -325,19 +322,6 @@ export class FullProverTest {
 
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
-  }
-
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.fakeProofsAsset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
   }
 
   async applyMintSnapshot() {

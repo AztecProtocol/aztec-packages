@@ -1,14 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  type CompleteAddress,
-  type DebugLogger,
-  ExtendedNote,
-  Fr,
-  Note,
-  type TxHash,
-  createDebugLogger,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type CompleteAddress, type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -121,19 +112,6 @@ export class TokenContractTest {
 
   async teardown() {
     await this.snapshotManager.teardown();
-  }
-
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.asset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
   }
 
   async applyMintSnapshot() {
