@@ -34,6 +34,15 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
     return ivc;
 }
 
+void mock_ivc_oink_accumulation(ClientIVC& ivc, size_t total_num_public_inputs_app)
+{
+    ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
+        ivc.trace_settings, total_num_public_inputs_app - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
+    ivc.verification_queue.emplace_back(oink_entry);
+    ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
+    ivc.initialized = true;
+}
+
 /**
  * @brief Create an mock proof and VK that have the correct structure but are not necessarily valid
  *

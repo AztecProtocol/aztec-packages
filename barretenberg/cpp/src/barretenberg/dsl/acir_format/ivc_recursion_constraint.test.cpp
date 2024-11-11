@@ -77,22 +77,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         };
     }
 
-    static RecursionConstraint create_empty_recursion_constraint(PROOF_TYPE proof_type, const size_t num_public_inputs)
-    {
-        // Assemble simple vectors of witnesses for vkey and proof
-        const size_t CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
-        std::vector<uint32_t> key_indices(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS);
-        std::vector<uint32_t> public_inputs_indices(num_public_inputs);
-
-        return RecursionConstraint{
-            .key = key_indices,
-            .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
-            .public_inputs = public_inputs_indices,
-            .key_hash = 0, // not used
-            .proof_type = proof_type,
-        };
-    }
-
     /**
      * @brief Generate an acir program {constraints, witness} for a mock kernel
      * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
@@ -223,17 +207,13 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         expected_kernel_vk = ivc.verification_queue.back().honk_verification_key;
     }
 
-    // Now, construct the kernel VK by mocking the state of the IVC after accumulation of the app circuit
+    // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
         ClientIVC ivc;
         ivc.trace_settings = trace_settings;
 
-        ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
-            ivc.trace_settings, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
-        ivc.verification_queue.emplace_back(oink_entry);
-        ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
-        // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
+        acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs);
 
         // Construct kernel consisting only of the kernel completion logic
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
@@ -258,6 +238,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
 {
     const TraceSettings trace_settings{ TraceStructure::SMALL_TEST };
 
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<ClientIVC::VerificationKey> expected_kernel_vk;
     size_t num_app_public_inputs = 0;
     {
@@ -277,42 +258,26 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
         expected_kernel_vk = ivc.verification_queue.back().honk_verification_key;
     }
 
+    // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<ClientIVC::VerificationKey> kernel_vk;
     {
-        // WORKTODO: I was trying to just construct a mock program like this but it seems like for some reason varnum
-        // must be known/correct? The witness does not have to be populated tho. I'm not sure whether varnum is set
-        // correctly in the porgrams sent to write_ivc but plausibly since it is a member of "constraints".
-
-        // // Construct kernel consisting only of the kernel completion logic
-        // AcirProgram program;
-        // program.constraints.varnum = 0;
-        // program.constraints.recursive = false;
-        // program.constraints.num_acir_opcodes = 1;
-        // program.constraints.ivc_recursion_constraints.push_back(
-        //     create_empty_recursion_constraint(PROOF_TYPE::OINK, num_app_public_inputs -
-        //     bb::PAIRING_POINT_ACCUMULATOR_SIZE));
-        // program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
-
         ClientIVC ivc;
         ivc.trace_settings = trace_settings;
 
-        ClientIVC::VerifierInputs oink_entry = acir_format::create_dummy_vkey_and_proof_oink(
-            ivc.trace_settings, num_app_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE);
-        ivc.verification_queue.emplace_back(oink_entry);
-        ivc.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
-        // ivc.initialized = true; // WORKTODO: prob needed if we do another round, i.e. PG?
-
         // Construct kernel consisting only of the kernel completion logic
+        acir_format::mock_ivc_oink_accumulation(ivc, num_app_public_inputs);
         AcirProgram program = construct_mock_kernel_program(ivc.verification_queue, { num_app_public_inputs });
-        // program.constraints.varnum = 0; // NOTE: this cannot be overwritten to zero
-        program.witness = {};
+        program.witness = {}; // erase witness to mimic VK construction context
 
+        // Create a mock IVC instance from the IVC recursion constraints in the kernel program
         ClientIVC mock_ivc = create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints);
 
+        // Create a kernel circuit from the kernel program and the mocked IVC
         Builder kernel = acir_format::create_kernel_circuit(program.constraints, mock_ivc);
-        // WORKTODO: this would normally happen in accumulate()
+        // Note: adding pairing point normally happens in accumulate()
         kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
 
+        // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, ivc.trace_settings);
         MegaProver prover(proving_key);
         kernel_vk = std::make_shared<ClientIVC::VerificationKey>(prover.proving_key->proving_key);
@@ -322,5 +287,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateVKFromConstraints)
     kernel_vk->pcs_verification_key = nullptr;
     expected_kernel_vk->pcs_verification_key = nullptr;
 
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
