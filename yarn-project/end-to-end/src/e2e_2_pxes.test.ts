@@ -246,7 +246,7 @@ describe('e2e_2_pxes', () => {
         .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
         .send()
         .wait();
-      await testContract.methods.sync_notes();
+      await testContract.methods.sync_notes().simulate();
       const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
       const outgoingNotes = await walletA.getOutgoingNotes({ txHash: receipt.txHash });
       expect(incomingNotes).toHaveLength(1);

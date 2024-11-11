@@ -5,7 +5,6 @@ import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/ser
 import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
 import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
 /** Response for the getUnencryptedLogs archiver call. */

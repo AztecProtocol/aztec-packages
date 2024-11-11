@@ -17,7 +17,7 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type BlockStore } from './block_store.js';
 
@@ -121,7 +121,7 @@ export class LogStore {
       tagsToUpdate.map(tag => ({ tag, logBuffers: this.#logsByTag.get(tag) })),
     );
     currentTaggedLogs.forEach(taggedLogBuffer => {
-      if (taggedLogBuffer.logBuffers?.length! > 0) {
+      if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
         taggedLogsToAdd.set(
           taggedLogBuffer.tag,
           taggedLogBuffer.logBuffers!.concat(taggedLogsToAdd.get(taggedLogBuffer.tag)!),

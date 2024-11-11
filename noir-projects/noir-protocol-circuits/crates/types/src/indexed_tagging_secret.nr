@@ -12,8 +12,6 @@ pub struct IndexedTaggingSecret {
 
 impl IndexedTaggingSecret {
     pub fn compute_tag(self, recipient: AztecAddress) -> Field {
-        poseidon2_hash(
-            [self.secret, recipient.to_field(), self.index as Field],
-        )
+        poseidon2_hash([self.secret, recipient.to_field(), self.index as Field])
     }
 }
