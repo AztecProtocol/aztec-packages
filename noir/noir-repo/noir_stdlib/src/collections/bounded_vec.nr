@@ -517,7 +517,7 @@ mod bounded_vec_tests {
             let expected = BoundedVec::from_array([5, 1]);
 
             assert_eq(result, expected);
-            assert_eq(result.get(2), 0);
+            assert_eq(result.get_unchecked(2), 0);
         }
     }
 
