@@ -519,19 +519,10 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
-    return this.jobQueue
-      .put(async () => {
-        const { publicInputs, clientIvcProof } = await this.#prove(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-        );
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
-      })
-      .catch(err => {
-        this.log.error(err);
-        throw err;
-      });
+    return this.jobQueue.put(async () => {
+      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
+      return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
+    });
   }
 
   // TODO(#7456) Prevent msgSender being defined here for the first call
@@ -543,52 +534,47 @@ export class PXEService implements PXE {
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
-    return await this.jobQueue
-      .put(async () => {
-        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
+    return await this.jobQueue.put(async () => {
+      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-        let publicInputs: PrivateKernelTailCircuitPublicInputs;
-        let profileResult;
-        if (profile) {
-          ({ publicInputs, profileResult } = await this.#profileKernelProver(
-            txRequest,
-            this.proofCreator,
-            privateExecutionResult,
-          ));
-        } else {
-          publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
-        }
+      let publicInputs: PrivateKernelTailCircuitPublicInputs;
+      let profileResult;
+      if (profile) {
+        ({ publicInputs, profileResult } = await this.#profileKernelProver(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+        ));
+      } else {
+        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
+      }
 
-        const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-        const simulatedTx = privateSimulationResult.toSimulatedTx();
-        let publicOutput: PublicSimulationOutput | undefined;
-        if (simulatePublic) {
-          publicOutput = await this.#simulatePublicCalls(simulatedTx);
-        }
+      const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
+      const simulatedTx = privateSimulationResult.toSimulatedTx();
+      let publicOutput: PublicSimulationOutput | undefined;
+      if (simulatePublic) {
+        publicOutput = await this.#simulatePublicCalls(simulatedTx);
+      }
 
-        if (!skipTxValidation) {
-          if (!(await this.node.isValidTx(simulatedTx, true))) {
-            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
-          }
+      if (!skipTxValidation) {
+        if (!(await this.node.isValidTx(simulatedTx, true))) {
+          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
+      }
 
-        // We log only if the msgSender is undefined, as simulating with a different msgSender
-        // is unlikely to be a real transaction, and likely to be only used to read data.
-        // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
-        // If we log, the `getTxHash` function will throw.
-        if (!msgSender) {
-          this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
-        }
-        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
-          privateSimulationResult,
-          publicOutput,
-          profileResult,
-        );
-      })
-      .catch(err => {
-        this.log.error(err);
-        throw err;
-      });
+      // We log only if the msgSender is undefined, as simulating with a different msgSender
+      // is unlikely to be a real transaction, and likely to be only used to read data.
+      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+      // If we log, the `getTxHash` function will throw.
+      if (!msgSender) {
+        this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
+      }
+      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+        privateSimulationResult,
+        publicOutput,
+        profileResult,
+      );
+    });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
@@ -597,10 +583,7 @@ export class PXEService implements PXE {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.info(`Sending transaction ${txHash}`);
-    await this.node.sendTx(tx).catch(err => {
-      this.log.error(err);
-      throw err;
-    });
+    await this.node.sendTx(tx);
     this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
@@ -613,19 +596,14 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
     // all simulations must be serialized w.r.t. the synchronizer
-    return await this.jobQueue
-      .put(async () => {
-        // TODO - Should check if `from` has the permission to call the view function.
-        const functionCall = await this.#getFunctionCall(functionName, args, to);
-        const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
+    return await this.jobQueue.put(async () => {
+      // TODO - Should check if `from` has the permission to call the view function.
+      const functionCall = await this.#getFunctionCall(functionName, args, to);
+      const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
 
-        // TODO - Return typed result based on the function artifact.
-        return executionResult;
-      })
-      .catch(err => {
-        this.log.error(err);
-        throw err;
-      });
+      // TODO - Return typed result based on the function artifact.
+      return executionResult;
+    });
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
