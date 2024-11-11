@@ -5,8 +5,8 @@ use crate::{
 };
 
 pub struct FunctionData {
-    selector: FunctionSelector,
-    is_private: bool,
+    pub selector: FunctionSelector,
+    pub is_private: bool,
 }
 
 impl Eq for FunctionData {

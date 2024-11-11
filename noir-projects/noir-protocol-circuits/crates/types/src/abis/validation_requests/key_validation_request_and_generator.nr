@@ -10,8 +10,8 @@ use crate::{
 };
 
 pub struct KeyValidationRequestAndGenerator {
-    request: KeyValidationRequest,
-    sk_app_generator: Field,
+    pub request: KeyValidationRequest,
+    pub sk_app_generator: Field,
 }
 
 impl Eq for KeyValidationRequestAndGenerator {

@@ -6,9 +6,9 @@ global LEAF_PREIMAGE_LENGTH: u32 = 4;
 global PUBLIC_DATA_WITNESS: u32 = 45;
 
 pub struct PublicDataWitness {
-    index: Field,
-    leaf_preimage: PublicDataTreeLeafPreimage,
-    path: [Field; PUBLIC_DATA_TREE_HEIGHT],
+    pub index: Field,
+    pub leaf_preimage: PublicDataTreeLeafPreimage,
+    pub path: [Field; PUBLIC_DATA_TREE_HEIGHT],
 }
 
 #[oracle(getPublicDataTreeWitness)]

@@ -8,31 +8,31 @@ use crate::{
 };
 
 pub struct PrivateCallData {
-    public_inputs: PrivateCircuitPublicInputs,
+    pub public_inputs: PrivateCircuitPublicInputs,
 
-    vk: ClientIVCVerificationKey,
+    pub vk: ClientIVCVerificationKey,
 
-    salted_initialization_hash: SaltedInitializationHash,
-    public_keys: PublicKeys,
-    contract_class_artifact_hash: Field,
-    contract_class_public_bytecode_commitment: Field,
-    function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
+    pub salted_initialization_hash: SaltedInitializationHash,
+    pub public_keys: PublicKeys,
+    pub contract_class_artifact_hash: Field,
+    pub contract_class_public_bytecode_commitment: Field,
+    pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
+    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
-    acir_hash: Field,
+    pub acir_hash: Field,
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {
-    vk: ClientIVCVerificationKey,
+    pub vk: ClientIVCVerificationKey,
 
-    salted_initialization_hash: SaltedInitializationHash,
-    public_keys: PublicKeys,
-    contract_class_artifact_hash: Field,
-    contract_class_public_bytecode_commitment: Field,
-    function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
+    pub salted_initialization_hash: SaltedInitializationHash,
+    pub public_keys: PublicKeys,
+    pub contract_class_artifact_hash: Field,
+    pub contract_class_public_bytecode_commitment: Field,
+    pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
+    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
-    acir_hash: Field,
+    pub acir_hash: Field,
 }
 
 impl PrivateCallDataWithoutPublicInputs {

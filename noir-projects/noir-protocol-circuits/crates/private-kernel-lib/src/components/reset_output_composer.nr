@@ -1,4 +1,4 @@
-mod reset_output_hints;
+pub mod reset_output_hints;
 
 pub use reset_output_hints::ResetOutputHints;
 
@@ -21,12 +21,12 @@ use dep::types::{
 };
 
 pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
-    previous_kernel: PrivateKernelCircuitPublicInputs,
-    validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
-    note_hash_siloing_amount: u32,
-    nullifier_siloing_amount: u32,
-    encrypted_log_siloing_amount: u32,
-    hints: ResetOutputHints,
+    pub previous_kernel: PrivateKernelCircuitPublicInputs,
+    pub validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+    pub note_hash_siloing_amount: u32,
+    pub nullifier_siloing_amount: u32,
+    pub encrypted_log_siloing_amount: u32,
+    pub hints: ResetOutputHints,
 }
 
 impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {

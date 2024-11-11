@@ -1,17 +1,16 @@
 use crate::{
     abis::function_selector::FunctionSelector,
     address::{
-        partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
-        salted_initialization_hash::SaltedInitializationHash,
+        partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
     constants::{
         AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        GENERATOR_INDEX__PUBLIC_KEYS_HASH, MAX_FIELD_VALUE,
+        MAX_FIELD_VALUE,
     },
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
+    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils,
 };
@@ -27,7 +26,7 @@ use std::{
 
 // Aztec address
 pub struct AztecAddress {
-    inner: Field,
+    pub inner: Field,
 }
 
 impl Eq for AztecAddress {

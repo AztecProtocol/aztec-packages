@@ -10,11 +10,11 @@ use crate::{
 };
 
 pub struct PublicKernelData {
-    public_inputs: PublicKernelCircuitPublicInputs,
-    proof: NestedRecursiveProof,
-    vk: HonkVerificationKey,
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
+    pub public_inputs: PublicKernelCircuitPublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub vk: HonkVerificationKey,
+    pub vk_index: u32,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
 }
 
 impl Verifiable for PublicKernelData {
