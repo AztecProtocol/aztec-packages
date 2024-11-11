@@ -20,6 +20,11 @@ images:
     image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
     pullPolicy: IfNotPresent
 
+aztec:
+  slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
+  epochDuration: 16 # how many L2 slots in an epoch
+  epochProofClaimWindow: 13 # in L2 slots
+
 bootNode:
   externalTcpHost: ""
   externalUdpHost: ""
