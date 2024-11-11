@@ -27,7 +27,7 @@ spec:
             - |
               until curl -s -X POST -H 'Content-Type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q anvil; do
+                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
                 echo "Waiting for Ethereum node..."
                 sleep 5
               done
@@ -121,6 +121,8 @@ spec:
               value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
             - name: SEQ_ENFORCE_TIME_TABLE
               value: "{{ .Values.validator.sequencer.enforceTimeTable }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               {{- if .Values.validator.externalTcpHost }}
               value: "{{ .Values.validator.externalTcpHost }}:{{ .Values.validator.service.p2pTcpPort }}"

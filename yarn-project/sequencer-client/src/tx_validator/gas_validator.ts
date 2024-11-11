@@ -66,7 +66,7 @@ export class GasTxValidator implements TxValidator<Tx> {
         fn.args.length > 2 &&
         // Public functions get routed through the dispatch function, whose first argument is the target function selector.
         fn.args[0].equals(FunctionSelector.fromSignature('_increase_public_balance((Field),Field)').toField()) &&
-        fn.args[1].equals(feePayer) &&
+        fn.args[1].equals(feePayer.toField()) &&
         !fn.callContext.isStaticCall,
     );
 

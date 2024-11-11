@@ -4,7 +4,10 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
 } from '@aztec/circuits.js';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
+
+import { z } from 'zod';
 
 import { EncryptedL2Log } from './encrypted_l2_log.js';
 import { EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
@@ -15,9 +18,7 @@ import { UnencryptedL2Log } from './unencrypted_l2_log.js';
  */
 export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> {
   constructor(
-    /**
-     * An array of logs.
-     */
+    /** An array of logs. */
     public readonly logs: TLog[],
   ) {}
 
@@ -67,13 +68,17 @@ export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2
    * @returns A plain object with FunctionL2Logs properties.
    */
   public toJSON() {
-    return {
-      logs: this.logs.map(log => log.toJSON()),
-    };
+    return { logs: this.logs };
   }
 }
 
 export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteLog> {
+  static get schema() {
+    return z
+      .object({ logs: z.array(EncryptedL2NoteLog.schema) })
+      .transform(({ logs }) => new EncryptedNoteFunctionL2Logs(logs));
+  }
+
   /**
    * Creates an empty L2Logs object with no logs.
    * @returns A new FunctionL2Logs object with no logs.
@@ -126,6 +131,12 @@ export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteL
 }
 
 export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
+  static get schema(): ZodFor<EncryptedFunctionL2Logs> {
+    return z
+      .object({ logs: z.array(EncryptedL2Log.schema) })
+      .transform(({ logs }) => new EncryptedFunctionL2Logs(logs));
+  }
+
   /**
    * Creates an empty L2Logs object with no logs.
    * @returns A new FunctionL2Logs object with no logs.
@@ -178,6 +189,12 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
 }
 
 export class UnencryptedFunctionL2Logs extends FunctionL2Logs<UnencryptedL2Log> {
+  static get schema() {
+    return z
+      .object({ logs: z.array(UnencryptedL2Log.schema) })
+      .transform(({ logs }) => new UnencryptedFunctionL2Logs(logs));
+  }
+
   /**
    * Creates an empty L2Logs object with no logs.
    * @returns A new FunctionL2Logs object with no logs.

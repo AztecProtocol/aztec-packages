@@ -73,7 +73,8 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
-    "@aztec/world-state": "workspace:^"
+    "@aztec/world-state": "workspace:^",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
