@@ -459,8 +459,7 @@ contract Token {
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
     #[private]
     fn transfer_to_private(to: AztecAddress, amount: Field) {
-        // We check the minter permissions in the enqueued call as that allows us to avoid the need for `SharedMutable`
-        // which is less efficient.
+        // `from` is the owner of the public balance from which we'll subtract the `amount`.
         let from = context.msg_sender();
         let token = Token::at(context.this_address());
 

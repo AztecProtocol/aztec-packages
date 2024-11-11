@@ -166,7 +166,7 @@ export class LendingSimulator {
 
   mintStableCoinOutsideLoan(recipient: AztecAddress, amount: bigint, priv = false) {
     if (priv) {
-      this.stableCoin.mintPrivate(amount);
+      this.stableCoin.mintPrivate(recipient, amount);
     } else {
       this.stableCoin.mintPublic(recipient, amount);
     }

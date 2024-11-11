@@ -85,7 +85,7 @@ describe('e2e_blacklist_token_contract mint', () => {
     describe('Mint flow', () => {
       it('mint_private as minter', async () => {
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
-        tokenSim.mintPrivate(amount);
+        tokenSim.mintPrivate(wallets[0].getAddress(), amount);
         txHash = receipt.txHash;
       });
 
@@ -97,7 +97,7 @@ describe('e2e_blacklist_token_contract mint', () => {
           .send()
           .wait({ debug: true });
 
-        tokenSim.redeemShield(wallets[0].getAddress(), amount);
+        tokenSim.mintPrivate(wallets[0].getAddress(), amount);
         // 1 note should be created containing `amount` of tokens
         const { visibleIncomingNotes } = receiptClaim.debugInfo!;
         expect(visibleIncomingNotes.length).toBe(1);
