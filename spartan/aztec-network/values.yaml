@@ -111,6 +111,7 @@ proverNode:
   storage: "8Gi"
 
 pxe:
+  proverEnabled: false
   externalHost: ""
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"

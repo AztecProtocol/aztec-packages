@@ -6,6 +6,7 @@ TAG=$1
 VALUES=$2
 NAMESPACE=${3:-spartan}
 PROD=${4:-true}
+IMAGE_REPO=${5:-aztecprotocol}
 PROD_ARGS=""
 if [ "$PROD" = "true" ] ; then
   PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
@@ -45,8 +46,8 @@ log_stern &
 
 function upgrade() {
   # pull and resolve the image just to be absolutely sure k8s gets the latest image in the tag we want
-  docker pull --platform linux/amd64 aztecprotocol/aztec:$TAG
-  IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$TAG)
+  docker pull --platform linux/amd64 $IMAGE_REPO/aztec:$TAG
+  IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_REPO/aztec:$TAG)
   if ! [ -z "${PRINT_ONLY:-}" ] ; then
     helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
           --namespace $NAMESPACE \
