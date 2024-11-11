@@ -8,7 +8,7 @@ import {
   createPXEClient,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -49,6 +49,8 @@ export class BotFactory {
   public async setup() {
     const recipient = await this.registerRecipient();
     const wallet = await this.setupAccount();
+    // Register the recipient in the wallet's scopes so balances can be checked
+    wallet.setScopes([wallet.getAddress(), recipient]);
     const token = await this.setupToken(wallet);
     await this.mintTokens(token);
     return { wallet, token, pxe: this.pxe, recipient };

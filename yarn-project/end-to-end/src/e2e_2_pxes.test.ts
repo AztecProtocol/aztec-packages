@@ -47,6 +47,9 @@ describe('e2e_2_pxes', () => {
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
      What is a more robust solution? */
     await sleep(5000);
+
+    await walletA.registerContact(walletB.getAddress());
+    await walletB.registerContact(walletA.getAddress());
   });
 
   afterEach(async () => {
@@ -189,9 +192,13 @@ describe('e2e_2_pxes', () => {
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
 
+    await sharedWalletOnA.registerContact(walletA.getAddress());
+
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
+
+    await sharedWalletOnB.registerContact(sharedWalletOnA.getAddress());
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, initialBalance, logger);
