@@ -604,7 +604,9 @@ contract Token {
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that only a message sender with minter permissions
         // can successfully execute the function.
-        token._finalize_mint_to_private_unsafe(from, amount, hiding_point_slot).enqueue(&mut context);
+        token
+            ._finalize_mint_to_private_unsafe(context.msg_sender(), amount, hiding_point_slot)
+            .enqueue(&mut context);
     }
 
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling
