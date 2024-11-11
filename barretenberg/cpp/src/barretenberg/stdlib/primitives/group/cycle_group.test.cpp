@@ -167,7 +167,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_c.is_point_at_infinity().get_value(), false);
     EXPECT_EQ(standard_d.is_point_at_infinity().get_value(), true);
 
-    // Ensure that the tags in the standard from remain the same
+    // Ensure that the tags in the standard form remain the same
     EXPECT_EQ(standard_a.get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(standard_b.get_origin_tag(), challenge_origin_tag);
     EXPECT_EQ(standard_c.get_origin_tag(), next_challenge_tag);
