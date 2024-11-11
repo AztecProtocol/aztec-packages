@@ -1,12 +1,18 @@
 import { type AllowedElement } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import {
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  l1ContractsConfigMappings,
+  l1ReaderConfigMappings,
+} from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -31,7 +37,12 @@ type ChainConfig = {
 /**
  * Configuration settings for the SequencerClient.
  */
-export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig & L1ReaderConfig & ChainConfig;
+export type SequencerClientConfig = PublisherConfig &
+  TxSenderConfig &
+  SequencerConfig &
+  L1ReaderConfig &
+  ChainConfig &
+  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -132,6 +143,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**

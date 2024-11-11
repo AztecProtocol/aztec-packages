@@ -49,6 +49,10 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
                                                  uint8_t const* witness_buf,
                                                  bool* result);
 
+WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* constraint_system_buf,
+                                                    uint8_t const* witness_buf,
+                                                    bool* result);
+
 /**
  * @brief Fold and verify a set of circuits using ClientIvc
  *

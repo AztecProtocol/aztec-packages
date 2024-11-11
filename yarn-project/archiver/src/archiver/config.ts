@@ -1,4 +1,10 @@
-import { type L1ContractAddresses, type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  l1ContractsConfigMappings,
+  l1ReaderConfigMappings,
+} from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /**
@@ -39,7 +45,8 @@ export type ArchiverConfig = {
 
   /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
   maxLogs?: number;
-} & L1ReaderConfig;
+} & L1ReaderConfig &
+  L1ContractsConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   archiverUrl: {
@@ -67,6 +74,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'The polling interval viem uses in ms',
     ...numberConfigHelper(1000),
   },
+  ...l1ContractsConfigMappings,
 };
 
 /**

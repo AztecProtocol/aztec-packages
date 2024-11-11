@@ -5,7 +5,7 @@ use crate::{
     utils::reader::Reader,
 };
 
-// TODO(#7124): To be deprecated.
+// TODO(#9594): To be deprecated.
 pub struct PublicInnerCallRequest {
     item: PublicCallStackItemCompressed,
     counter: u32,

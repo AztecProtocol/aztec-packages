@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
+import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
@@ -44,7 +44,7 @@ export class BlockRootOrBlockMergePublicInputs {
     /**
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
-    public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     /**
      * Root of the verification key tree.
      */
@@ -74,7 +74,7 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
