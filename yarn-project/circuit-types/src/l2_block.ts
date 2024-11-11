@@ -1,4 +1,3 @@
-import { Body } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -6,6 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
+import { Body } from './body.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge.js';
 
 /**
