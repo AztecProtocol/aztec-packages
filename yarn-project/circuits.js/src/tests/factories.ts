@@ -106,7 +106,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicAccumulatedData,
-  PublicCallData,
   PublicCallRequest,
   PublicCallStackItemCompressed,
   PublicCircuitPublicInputs,
@@ -171,8 +170,6 @@ import {
   PublicDataWrite,
   PublicInnerCallRequest,
   PublicKernelCircuitPrivateInputs,
-  PublicKernelInnerCircuitPrivateInputs,
-  PublicKernelInnerData,
   PublicTubeData,
   PublicValidationRequestArrayLengths,
   PublicValidationRequests,
@@ -767,33 +764,6 @@ function makeCountedPublicCallRequest(seed = 1) {
 
 function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
   return new PublicInnerCallRequest(makePublicCallStackItemCompressed(seed), seed + 0x60);
-}
-
-/**
- * Makes arbitrary public call data.
- * @param seed - The seed to use for generating the public call data.
- * @returns A public call data.
- */
-export function makePublicCallData(seed = 1, full = false): PublicCallData {
-  const publicCallData = new PublicCallData(
-    makePublicCircuitPublicInputs(seed, undefined, full),
-    makeProof(),
-    fr(seed + 1),
-  );
-
-  return publicCallData;
-}
-
-function makePublicKernelInnerData(seed = 1) {
-  return new PublicKernelInnerData(
-    makeVMCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
-    VerificationKeyData.makeFakeHonk(),
-  );
-}
-
-export function makePublicKernelInnerCircuitPrivateInputs(seed = 1) {
-  return new PublicKernelInnerCircuitPrivateInputs(makePublicKernelInnerData(seed), makePublicCallData(seed + 0x1000));
 }
 
 function makeEnqueuedCallData(seed = 1) {
