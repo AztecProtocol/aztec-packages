@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <optional>
 
 namespace bb::stdlib {
@@ -107,6 +108,12 @@ template <typename Builder> class cycle_group {
         void validate_scalar_is_in_field() const;
 
         explicit cycle_scalar(BigScalarField&);
+        OriginTag get_origin_tag() const { return OriginTag(lo.get_origin_tag(), hi.get_origin_tag()); }
+        void set_origin_tag(const OriginTag& tag)
+        {
+            lo.set_origin_tag(tag);
+            hi.set_origin_tag(tag);
+        }
     };
 
     /**
@@ -158,6 +165,7 @@ template <typename Builder> class cycle_group {
         Builder* _context;
         std::vector<cycle_group> point_table;
         size_t rom_id = 0;
+        OriginTag tag{};
     };
 
   private:
@@ -223,6 +231,18 @@ template <typename Builder> class cycle_group {
     void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
+
+    void set_origin_tag(OriginTag tag)
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
+    }
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
     field_t x;
     field_t y;
 
