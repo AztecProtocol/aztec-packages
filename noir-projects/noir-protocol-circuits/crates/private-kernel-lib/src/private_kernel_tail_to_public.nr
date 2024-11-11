@@ -333,23 +333,22 @@ mod tests {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_unencrypted_log_hash(42, 5);
+        builder.previous_kernel.add_contract_class_log_hash(42, 12);
         builder.previous_kernel.end_setup();
         builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
-        builder.previous_kernel.add_unencrypted_log_hash(42, 7);
 
         let public_inputs = builder.execute();
 
         assert_eq(
-            Gas::new(13 * DA_GAS_PER_BYTE, 13 * L2_GAS_PER_LOG_BYTE),
+            Gas::new(6 * DA_GAS_PER_BYTE, 6 * L2_GAS_PER_LOG_BYTE),
             public_inputs.revertible_accumulated_data.gas_used,
         );
 
         assert_eq(
             Gas::tx_overhead()
                 + Gas::new(
-                    (1 * DA_BYTES_PER_FIELD + 12) * DA_GAS_PER_BYTE,
-                    FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER + 12 * L2_GAS_PER_LOG_BYTE,
+                    (1 * DA_BYTES_PER_FIELD + 19) * DA_GAS_PER_BYTE,
+                    FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER + 19 * L2_GAS_PER_LOG_BYTE,
                 ),
             public_inputs.non_revertible_accumulated_data.gas_used,
         );

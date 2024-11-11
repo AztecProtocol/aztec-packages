@@ -218,9 +218,9 @@ impl PrivateCallDataValidator {
                 "encrypted_logs_hashes must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.unencrypted_logs_hashes,
+                self.array_lengths.contract_class_logs_hashes,
                 0,
-                "unencrypted_logs_hashes must be empty for static calls",
+                "contract_class_logs_hashes must be empty for static calls",
             );
         }
     }
@@ -348,11 +348,12 @@ impl PrivateCallDataValidator {
             public_inputs.encrypted_logs_hashes,
             self.array_lengths.encrypted_logs_hashes,
         );
+        // TODO(Miranda): remove below as we only have 1 bytecode log?
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            public_inputs.unencrypted_logs_hashes,
-            self.array_lengths.unencrypted_logs_hashes,
+            public_inputs.contract_class_logs_hashes,
+            self.array_lengths.contract_class_logs_hashes,
         );
         validate_incrementing_counter_ranges_within_range(
             counter_start,

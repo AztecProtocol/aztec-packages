@@ -126,14 +126,15 @@ impl TailToPublicOutputValidator {
             hints.sorted_l2_to_l1_msg_hints,
         );
 
-        // unencrypted_logs_hashes
+        // TODO(Miranda): remove below as we only have 1 bytecode log?
+        // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.unencrypted_logs_hashes,
-            prev_data.unencrypted_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+            prev_data.contract_class_logs_hashes,
+            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
             split_counter,
-            output_non_revertible.unencrypted_logs_hashes,
-            output_revertible.unencrypted_logs_hashes,
-            hints.sorted_unencrypted_log_hash_hints,
+            output_non_revertible.contract_class_logs_hashes,
+            output_revertible.contract_class_logs_hashes,
+            hints.sorted_contract_class_log_hash_hints,
         );
 
         // public_call_requests

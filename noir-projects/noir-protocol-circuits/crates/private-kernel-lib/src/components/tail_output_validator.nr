@@ -116,12 +116,12 @@ impl TailOutputValidator {
             self.hints.sorted_l2_to_l1_msg_hints,
         );
 
-        // unencrypted_log_hashes
+        // TODO(Miranda): remove below as we only have 1 bytecode log?
         assert_exposed_sorted_transformed_value_array(
-            self.previous_kernel.end.unencrypted_logs_hashes,
-            self.output.end.unencrypted_logs_hashes,
+            self.previous_kernel.end.contract_class_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
             |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
-            self.hints.sorted_unencrypted_log_hash_hints,
+            self.hints.sorted_contract_class_log_hash_hints,
         );
     }
 

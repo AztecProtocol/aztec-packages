@@ -53,15 +53,15 @@ impl TailOutputComposer {
         data.encrypted_logs_hashes = source.encrypted_logs_hashes.storage.map(
             |l: ScopedEncryptedLogHash| l.expose_to_public(),
         );
-        data.unencrypted_logs_hashes =
-            source.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public());
+        data.contract_class_logs_hashes =
+            source.contract_class_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public());
         data.note_encrypted_log_preimages_length =
             source.note_encrypted_logs_hashes.storage.fold(0, |len, l: NoteLogHash| len + l.length);
         data.encrypted_log_preimages_length = source.encrypted_logs_hashes.storage.fold(
             0,
             |len, l: ScopedEncryptedLogHash| len + l.log_hash.length,
         );
-        data.unencrypted_log_preimages_length = source.unencrypted_logs_hashes.storage.fold(
+        data.contract_class_log_preimages_length = source.contract_class_logs_hashes.storage.fold(
             0,
             |len, l: ScopedLogHash| len + l.log_hash.length,
         );

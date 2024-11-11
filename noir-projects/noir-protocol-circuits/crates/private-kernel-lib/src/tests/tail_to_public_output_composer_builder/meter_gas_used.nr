@@ -30,7 +30,7 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
     builder.add_note_encrypted_log_hash(1003, 20, 0);
     builder.add_encrypted_log_hash(2001, 2);
     builder.add_encrypted_log_hash(2002, 6);
-    builder.add_unencrypted_log_hash(3001, 51);
+    builder.add_contract_class_log_hash(3001, 51);
     builder.append_public_call_requests(2);
     builder.end_setup();
 
@@ -43,7 +43,7 @@ fn meter_gas_used_non_revertible_everything_succeeds() {
         + 20 // note_encrypted_log_hash
         + 2
         + 6 // encrypted_log_hash
-        + 51; // unencrypted_log_hash
+        + 51; // contract_class_log_hash
     let computed_da_gas =
         (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
@@ -74,7 +74,7 @@ fn meter_gas_used_revertible_everything_succeeds() {
     builder.add_note_encrypted_log_hash(1003, 20, 0);
     builder.add_encrypted_log_hash(2001, 2);
     builder.add_encrypted_log_hash(2002, 6);
-    builder.add_unencrypted_log_hash(3001, 51);
+    builder.add_contract_class_log_hash(3001, 51);
     builder.append_public_call_requests(2);
     builder.end_setup();
 
@@ -87,7 +87,7 @@ fn meter_gas_used_revertible_everything_succeeds() {
         + 20 // note_encrypted_log_hash
         + 2
         + 6 // encrypted_log_hash
-        + 51; // unencrypted_log_hash
+        + 51; // contract_class_log_hash
     let computed_da_gas =
         (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_length) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH

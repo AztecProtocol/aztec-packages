@@ -57,11 +57,11 @@ fn validate_call_is_static_creating_encrypted_logs_hashes_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "unencrypted_logs_hashes must be empty for static calls")]
+#[test(should_fail_with = "contract_class_logs_hashes must be empty for static calls")]
 fn validate_call_is_static_creating_unencrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.append_unencrypted_log_hashes(1);
+    builder.private_call.add_contract_class_log_hash(1, 2);
 
     builder.validate();
 }

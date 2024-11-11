@@ -100,7 +100,7 @@ contract ContractClassRegisterer {
                 public_bytecode_commitment,
             ],
         );
-        emit_contract_class_unencrypted_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize());
     }
 
     #[private]
@@ -143,7 +143,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_unencrypted_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize());
     }
 
     #[private]
@@ -179,11 +179,11 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_unencrypted_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize());
     }
 
     #[contract_library_method]
-    fn emit_contract_class_unencrypted_log<let N: u32>(
+    fn emit_contract_class_log<let N: u32>(
         context: &mut PrivateContext,
         log: [Field; N],
     ) {
@@ -203,7 +203,7 @@ contract ContractClassRegisterer {
         let log_hash = emit_contract_class_unencrypted_log_private(contract_address, log, counter);
 
         // 40 = addr (32) + raw log len (4) + processed log len (4)
-        context.unencrypted_logs_hashes.push(
+        context.contract_class_logs_hashes.push(
             LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 },
         );
     }

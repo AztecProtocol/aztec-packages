@@ -241,10 +241,11 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.end.encrypted_logs_hashes,
             array_lengths.encrypted_logs_hashes,
         );
+        // TODO(Miranda): remove below as we only have 1 bytecode log?
         assert_array_prepended(
-            self.output.end.unencrypted_logs_hashes,
-            previous_kernel.end.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
+            previous_kernel.end.contract_class_logs_hashes,
+            array_lengths.contract_class_logs_hashes,
         );
         assert_array_prepended(
             self.output.end.public_call_requests,
@@ -323,11 +324,12 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.encrypted_logs_hashes,
             contract_address,
         );
+        // TODO(Miranda): remove below as we only have 1 bytecode log?
         assert_array_appended_scoped(
-            self.output.end.unencrypted_logs_hashes,
-            private_call.unencrypted_logs_hashes,
-            array_lengths.unencrypted_logs_hashes,
-            offsets.unencrypted_logs_hashes,
+            self.output.end.contract_class_logs_hashes,
+            private_call.contract_class_logs_hashes,
+            array_lengths.contract_class_logs_hashes,
+            offsets.contract_class_logs_hashes,
             contract_address,
         );
         assert_array_appended(
