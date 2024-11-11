@@ -1,4 +1,11 @@
-import { type AccountWalletWithSecretKey, type AztecNode, EventMetadata, Fr, L1EventPayload } from '@aztec/aztec.js';
+import {
+  type AccountWalletWithSecretKey,
+  AztecAddress,
+  type AztecNode,
+  EventMetadata,
+  Fr,
+  L1EventPayload,
+} from '@aztec/aztec.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -74,7 +81,7 @@ describe('Logs', () => {
       expect(decryptedEvent1.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent1((Field),u8)'));
 
       // We expect the fields to have been populated correctly
-      expect(event1?.value2).toStrictEqual(preimage[2]);
+      expect(event1?.value2).toStrictEqual(new AztecAddress(preimage[2]));
       // We get the last byte here because value3 is of type u8
       expect(event1?.value3).toStrictEqual(BigInt(preimage[3].toBuffer().subarray(31).readUint8()));
 
@@ -170,7 +177,7 @@ describe('Logs', () => {
       expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
         preimage
           .map(preimage => ({
-            value2: preimage[2],
+            value2: new AztecAddress(preimage[2]),
             // We get the last byte here because value3 is of type u8
             value3: BigInt(preimage[3].toBuffer().subarray(31).readUint8()),
           }))
@@ -214,7 +221,7 @@ describe('Logs', () => {
       expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
         preimage
           .map(preimage => ({
-            value2: preimage[2],
+            value2: new AztecAddress(preimage[2]),
             // We get the last byte here because value3 is of type u8
             value3: BigInt(preimage[3].toBuffer().subarray(31).readUint8()),
           }))
