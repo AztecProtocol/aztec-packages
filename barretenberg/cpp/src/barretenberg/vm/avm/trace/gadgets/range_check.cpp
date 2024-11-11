@@ -102,6 +102,9 @@ std::vector<AvmRangeCheckBuilder::RangeCheckEntry> AvmRangeCheckBuilder::finaliz
         case EventEmitter::CMP_HI:
             entry.is_cmp_hi = true;
             break;
+        case EventEmitter::NON_FF_GT:
+            entry.is_cmp_non_ff = true;
+            break;
         }
         entries.push_back(entry);
     }

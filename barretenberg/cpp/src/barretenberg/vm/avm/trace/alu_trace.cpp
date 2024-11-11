@@ -267,7 +267,7 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
             static_cast<uint128_t>(c_u256), mem_tag_bits(in_tag), EventEmitter::ALU, clk);
     }
     // Also check the remainder < divisor (i.e. remainder < b)
-    bool is_gt = cmp_builder.constrained_gt(b, rem_u256, clk, EventEmitter::ALU);
+    bool is_gt = cmp_builder.constrained_non_ff_gt(uint128_t(b), uint128_t(rem_u256), clk, EventEmitter::ALU);
 
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
@@ -348,7 +348,12 @@ FF AvmAluTraceBuilder::op_eq(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
 FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     // Note: This is counter-intuitive, to show that a < b we use the GT gadget with the inputs swapped
-    bool result = cmp_builder.constrained_gt(b, a, clk, EventEmitter::ALU);
+    bool result = false;
+    if (in_tag == AvmMemoryTag::FF) {
+        result = cmp_builder.constrained_gt(b, a, clk, EventEmitter::ALU);
+    } else {
+        result = cmp_builder.constrained_non_ff_gt(uint128_t(b), uint128_t(a), clk, EventEmitter::ALU);
+    }
     bool c = result;
 
     // The subtlety is here that the circuit is designed as a GT(x,y) circuit, therefore we swap the inputs a & b
@@ -383,7 +388,12 @@ FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
 FF AvmAluTraceBuilder::op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     // Note: This is counter-intuitive, to show that a <= b we actually show that a > b and then invert the answer
-    bool result = cmp_builder.constrained_gt(a, b, clk, EventEmitter::ALU);
+    bool result = false;
+    if (in_tag == AvmMemoryTag::FF) {
+        result = cmp_builder.constrained_gt(a, b, clk, EventEmitter::ALU);
+    } else {
+        result = cmp_builder.constrained_non_ff_gt(uint128_t(a), uint128_t(b), clk, EventEmitter::ALU);
+    }
     bool c = !result;
 
     // Construct the row that performs the lte check
@@ -465,7 +475,7 @@ FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     auto [a_lo, a_hi] = decompose(a, num_bits - b_u8);
 
     // Check if this is a trivial shift - i.e. we shift more than the max bits of our input
-    bool zero_shift = cmp_builder.constrained_gt(b, num_bits - 1, clk, EventEmitter::ALU);
+    bool zero_shift = cmp_builder.constrained_non_ff_gt(uint128_t(b), num_bits - 1, clk, EventEmitter::ALU);
     if (!zero_shift) {
         u8_pow_2_counters[0][b_u8]++;
         u8_pow_2_counters[1][num_bits - b_u8]++;
@@ -524,7 +534,7 @@ FF AvmAluTraceBuilder::op_shr(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     FF c = cast_to_mem_tag(c_u256, in_tag);
 
     uint8_t num_bits = mem_tag_bits(in_tag);
-    bool zero_shift = cmp_builder.constrained_gt(b, num_bits - 1, clk, EventEmitter::ALU);
+    bool zero_shift = cmp_builder.constrained_non_ff_gt(uint128_t(b), num_bits - 1, clk, EventEmitter::ALU);
     if (!zero_shift) {
         // Add counters for the pow of two lookups
         u8_pow_2_counters[0][b_u8]++;
@@ -706,8 +716,9 @@ void AvmAluTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         dest.alu_cmp_gadget_input_a = src.cmp_input_a;
         dest.alu_cmp_gadget_input_b = src.cmp_input_b;
         dest.alu_cmp_gadget_result = src.cmp_result;
-        dest.alu_cmp_gadget_gt = FF(static_cast<uint8_t>(src.cmp_op_is_gt));
-        dest.alu_cmp_gadget_sel = dest.alu_cmp_gadget_gt + dest.alu_op_eq;
+        dest.alu_cmp_gadget_gt = FF(static_cast<uint8_t>(src.cmp_op_is_gt && src.tag == AvmMemoryTag::FF));
+        dest.alu_cmp_gadget_non_ff_gt = FF(static_cast<uint8_t>(src.cmp_op_is_gt && src.tag != AvmMemoryTag::FF));
+        dest.alu_cmp_gadget_sel = dest.alu_cmp_gadget_gt + dest.alu_op_eq + dest.alu_cmp_gadget_non_ff_gt;
     }
     reset();
 }
