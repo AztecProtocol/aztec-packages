@@ -17,9 +17,23 @@ export async function setupCanonicalL2FeeJuice(
   const { FeeJuiceContract } = await import('@aztec/noir-contracts.js');
 
   const feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, deployer);
+
   log('setupCanonicalL2FeeJuice: Calling initialize on fee juice contract...');
-  await feeJuiceContract.methods
-    .initialize(feeJuicePortalAddress)
-    .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
-    .wait(waitOpts);
+
+  try {
+    const provenTx = await feeJuiceContract.methods
+      .initialize(feeJuicePortalAddress)
+      .prove({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } });
+
+    await provenTx.send().wait(waitOpts);
+    log('setupCanonicalL2FeeJuice: Fee juice contract initialized');
+  } catch (e: any) {
+    // TODO: make this less brittle, e.g. using a 204 http code
+    if (e instanceof Error && e.message.includes('(method pxe_simulateTx) (code 400) Assertion failed')) {
+      log('setupCanonicalL2FeeJuice: Fee juice contract already initialized');
+    } else {
+      log('setupCanonicalL2FeeJuice: Error initializing fee juice contract', e);
+      throw e;
+    }
+  }
 }
