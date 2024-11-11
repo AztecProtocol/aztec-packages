@@ -28,6 +28,7 @@ export async function setupCanonicalL2FeeJuice(
     await provenTx.send().wait(waitOpts);
     log('setupCanonicalL2FeeJuice: Fee juice contract initialized');
   } catch (e: any) {
+    // TODO: make this less brittle, e.g. using a 204 http code
     if (e instanceof Error && e.message.includes('(method pxe_simulateTx) (code 400) Assertion failed')) {
       log('setupCanonicalL2FeeJuice: Fee juice contract already initialized');
     } else {
