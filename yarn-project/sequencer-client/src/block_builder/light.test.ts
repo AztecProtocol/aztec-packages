@@ -65,7 +65,7 @@ jest.setTimeout(50_000);
 describe('LightBlockBuilder', () => {
   let simulator: ServerCircuitProver;
   let logger: DebugLogger;
-  let globals: GlobalVariables;
+  let globalVariables: GlobalVariables;
   let l1ToL2Messages: Fr[];
   let vkTreeRoot: Fr;
 
@@ -85,7 +85,7 @@ describe('LightBlockBuilder', () => {
   });
 
   beforeEach(async () => {
-    globals = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
+    globalVariables = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
     fork = await db.fork();
     expectsFork = await db.fork();
@@ -184,8 +184,7 @@ describe('LightBlockBuilder', () => {
   const makeTx = (i: number) =>
     makeBloatedProcessedTx({
       header: fork.getInitialHeader(),
-      chainId: globals.chainId,
-      version: globals.version,
+      globalVariables,
       vkTreeRoot,
       protocolContractTreeRoot,
       seed: i + 1,
@@ -195,7 +194,7 @@ describe('LightBlockBuilder', () => {
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     const txCount = Math.max(2, txs.length);
-    await builder.startNewBlock(txCount, globals, l1ToL2Messages);
+    await builder.startNewBlock(txCount, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
@@ -219,8 +218,8 @@ describe('LightBlockBuilder', () => {
         ...times(2 - txs.length, () =>
           makeEmptyProcessedTx(
             expectsFork.getInitialHeader(),
-            globals.chainId,
-            globals.version,
+            globalVariables.chainId,
+            globalVariables.version,
             vkTreeRoot,
             protocolContractTreeRoot,
           ),
@@ -268,7 +267,7 @@ describe('LightBlockBuilder', () => {
       const vkPath = getVKSiblingPath(vkIndex);
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
       const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyProof, vkData);
-      const hints = await buildBaseRollupHints(tx, globals, expectsFork);
+      const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
       rollupOutputs.push(result.inputs);
