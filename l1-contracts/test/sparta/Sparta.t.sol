@@ -165,7 +165,6 @@ contract SpartaTest is DecoderBase {
     bool _invalidaProposer
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
 
     StructToAvoidDeepStacks memory ree;
@@ -209,6 +208,8 @@ contract SpartaTest is DecoderBase {
         // @todo Handle Leonidas__InsufficientAttestations case
       }
 
+      // 20 is the slot of checkBlob. We force it to be false (=0):
+      vm.store(address(rollup), bytes32(uint256(20)), 0);
       if (_expectRevert && _invalidaProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
@@ -219,11 +220,9 @@ contract SpartaTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
-      // 20 is the slot of checkBlob. We force it to be false (=0):
-      vm.store(address(rollup), bytes32(uint256(20)), 0);
       vm.prank(ree.proposer);
       rollup.propose(
-        header,
+        full.block.header,
         archive,
         bytes32(0),
         txHashes,
@@ -237,10 +236,8 @@ contract SpartaTest is DecoderBase {
       }
     } else {
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
-      // 20 is the slot of checkBlob. We force it to be false (=0):
-      vm.store(address(rollup), bytes32(uint256(20)), 0);
       rollup.propose(
-        header,
+        full.block.header,
         archive,
         bytes32(0),
         txHashes,

@@ -35,19 +35,17 @@ export class ContentCommitment {
     return z
       .object({
         numTxs: schemas.Fr,
-        txsEffectsHash: schemas.BufferHex,
+        blobHash: schemas.BufferHex,
         inHash: schemas.BufferHex,
         outHash: schemas.BufferHex,
       })
-      .transform(
-        ({ numTxs, txsEffectsHash, inHash, outHash }) => new ContentCommitment(numTxs, txsEffectsHash, inHash, outHash),
-      );
+      .transform(({ numTxs, blobHash, inHash, outHash }) => new ContentCommitment(numTxs, blobHash, inHash, outHash));
   }
 
   toJSON() {
     return {
       numTxs: this.numTxs,
-      txsEffectsHash: this.txsEffectsHash.toString('hex'),
+      blobHash: this.blobHash.toString('hex'),
       inHash: this.inHash.toString('hex'),
       outHash: this.outHash.toString('hex'),
     };

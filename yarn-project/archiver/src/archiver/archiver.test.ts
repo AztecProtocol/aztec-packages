@@ -6,9 +6,9 @@ import {
   LogType,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Blob } from '@aztec/foundation/blob';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { Blob } from '@aztec/foundation/blob';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';

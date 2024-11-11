@@ -1,8 +1,8 @@
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';

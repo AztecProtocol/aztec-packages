@@ -31,13 +31,13 @@ import { makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
   serializeArrayOfBufferableToVector,
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 
 import { inspect } from 'util';
 

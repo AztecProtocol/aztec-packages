@@ -4,8 +4,8 @@ import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
+import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
@@ -62,7 +62,7 @@ export class BlockRootOrBlockMergePublicInputs {
     /**
      * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p())
      */
-    public blobPublicInputs: Tuple<BlobPublicInputs, typeof AZTEC_EPOCH_DURATION>,
+    public blobPublicInputs: Tuple<BlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
   ) {}
 
   /**
@@ -84,7 +84,7 @@ export class BlockRootOrBlockMergePublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_EPOCH_DURATION, BlobPublicInputs),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlobPublicInputs),
     );
   }
 

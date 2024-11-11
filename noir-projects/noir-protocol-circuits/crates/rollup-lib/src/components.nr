@@ -12,9 +12,9 @@ use dep::types::{
         sponge_blob::SpongeBlob,
     },
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        AZTEC_MAX_EPOCH_DURATION, ENCRYPTED_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_UNENCRYPTED_LOGS_PER_TX, NOTE_ENCRYPTED_LOGS_PREFIX, NOTES_PREFIX, NULLIFIERS_PREFIX,
         PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
         UNENCRYPTED_LOGS_PREFIX,
@@ -169,11 +169,11 @@ pub fn accumulate_blocks_fees(
 pub fn accumulate_blob_public_inputs(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
-) -> [BlobPublicInputs; AZTEC_EPOCH_DURATION] {
+) -> [BlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
     let left_len = array_length(left.blob_public_inputs);
     let right_len = array_length(right.blob_public_inputs);
     assert(
-        left_len + right_len <= AZTEC_EPOCH_DURATION,
+        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
         "too many blob public input structs accumulated in rollup",
     );
     array_merge(left.blob_public_inputs, right.blob_public_inputs)

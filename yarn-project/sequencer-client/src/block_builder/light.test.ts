@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  AZTEC_EPOCH_DURATION,
+  AZTEC_MAX_EPOCH_DURATION,
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -394,11 +394,11 @@ describe('LightBlockBuilder', () => {
         rollupLeft.baseOrMergeRollupPublicInputs.outHash,
         rollupRight.baseOrMergeRollupPublicInputs.outHash,
       ]),
-      padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), AZTEC_EPOCH_DURATION),
+      padArrayEnd(fees, new FeeRecipient(EthAddress.ZERO, Fr.ZERO), AZTEC_MAX_EPOCH_DURATION),
       rollupLeft.baseOrMergeRollupPublicInputs.constants.vkTreeRoot,
       rollupLeft.baseOrMergeRollupPublicInputs.constants.protocolContractTreeRoot,
       inputs.proverId,
-      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), AZTEC_EPOCH_DURATION),
+      padArrayEnd(blobPublicInputs, BlobPublicInputs.empty(), AZTEC_MAX_EPOCH_DURATION),
     );
 
     return outputs;

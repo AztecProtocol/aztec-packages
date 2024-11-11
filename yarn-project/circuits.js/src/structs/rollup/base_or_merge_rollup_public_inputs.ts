@@ -3,7 +3,7 @@ import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PartialStateReference } from '../partial_state_reference.js';
-import { type RollupTypes } from '../shared.js';
+import { RollupTypes } from '../shared.js';
 import { SpongeBlob } from '../sponge_blob.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 
@@ -59,7 +59,8 @@ export class BaseOrMergeRollupPublicInputs {
       ConstantRollupData.empty(),
       PartialStateReference.empty(),
       PartialStateReference.empty(),
-      Fr.zero(),
+      SpongeBlob.empty(),
+      SpongeBlob.empty(),
       Fr.zero(),
       Fr.zero(),
     );

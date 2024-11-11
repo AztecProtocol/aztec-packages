@@ -94,11 +94,7 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant FIELDS_PER_BLOB = 4096;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_BYTES = 576;
-  uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 24;
-  uint256 internal constant AZTEC_EPOCH_DURATION = 16;
-  uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
-  uint256 internal constant AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS = 13;
+  uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 32;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     19007378675971183768036762391356802220352606103602592933942074152320327194720;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
@@ -239,8 +235,8 @@ library Constants {
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 601;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 51;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 154;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 140;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 282;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 268;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

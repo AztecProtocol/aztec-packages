@@ -667,11 +667,11 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Leonidas, IRollup, ITestRollup {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
-    //   fees: [FeeRecipient; Constants.AZTEC_EPOCH_DURATION],
+    //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: [BlobPublicInputs; Constants.AZTEC_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
+    //   blob_public_inputs: [BlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
     // }
 
     // previous_archive.root: the previous archive tree root

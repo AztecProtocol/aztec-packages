@@ -1043,7 +1043,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     fr(seed + 0x800),
     fr(seed + 0x801),
     fr(seed + 0x900),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeBlobPublicInputs(seed), 0x100),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlobPublicInputs(seed), 0x100),
   );
 }
 
@@ -1193,7 +1193,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x100),
     fr(seed + 0x101),
     fr(seed + 0x200),
-    makeTuple(AZTEC_EPOCH_DURATION, () => makeBlobPublicInputs(seed), 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlobPublicInputs(seed), 0x300),
   );
 }
 

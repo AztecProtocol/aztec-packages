@@ -130,7 +130,7 @@ impl BlockRootRollupInputs {
         fee_arr[0] =
             FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_EPOCH_DURATION];
+        let mut blob_public_inputs = [BlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
         blob_public_inputs[0] =
             evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
 
