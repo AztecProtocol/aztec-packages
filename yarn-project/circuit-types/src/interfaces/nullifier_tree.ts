@@ -1,4 +1,7 @@
-import { Fr, type NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage } from '@aztec/circuits.js';
+import { Fr, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage } from '@aztec/circuits.js';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 import { SiblingPath } from '../sibling_path/index.js';
 
@@ -23,6 +26,26 @@ export class NullifierMembershipWitness {
      */
     public readonly siblingPath: SiblingPath<typeof NULLIFIER_TREE_HEIGHT>,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        index: schemas.BigInt,
+        leafPreimage: NullifierLeafPreimage.schema,
+        siblingPath: SiblingPath.schemaFor(NULLIFIER_TREE_HEIGHT),
+      })
+      .transform(
+        ({ index, leafPreimage, siblingPath }) => new NullifierMembershipWitness(index, leafPreimage, siblingPath),
+      );
+  }
+
+  static random() {
+    return new NullifierMembershipWitness(
+      BigInt(Math.floor(Math.random() * 1000)),
+      NullifierLeafPreimage.random(),
+      SiblingPath.random(NULLIFIER_TREE_HEIGHT),
+    );
+  }
 
   /**
    * Returns a field array representation of a nullifier witness.
