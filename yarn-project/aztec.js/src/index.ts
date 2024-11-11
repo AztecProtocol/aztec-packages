@@ -62,7 +62,7 @@ export {
   type FunctionSelectorLike,
   type L2AmountClaim,
   type L2Claim,
-  type L2AmountClaimWithRecipient as L2RedeemableAmountClaim,
+  type L2AmountClaimWithRecipient,
   type WrappedFieldLike,
 } from './utils/index.js';
 

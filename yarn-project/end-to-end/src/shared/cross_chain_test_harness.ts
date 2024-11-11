@@ -10,7 +10,7 @@ import {
   type L1TokenManager,
   L1TokenPortalManager,
   type L2AmountClaim,
-  type L2RedeemableAmountClaim,
+  type L2AmountClaimWithRecipient,
   Note,
   type PXE,
   type SiblingPath,
@@ -256,7 +256,7 @@ export class CrossChainTestHarness {
   }
 
   async consumeMessageOnAztecAndMintPrivately(
-    claim: Pick<L2RedeemableAmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'recipient'>,
+    claim: Pick<L2AmountClaimWithRecipient, 'claimAmount' | 'claimSecret' | 'messageLeafIndex' | 'recipient'>,
   ) {
     this.logger.info('Consuming messages on L2 privately');
     const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
