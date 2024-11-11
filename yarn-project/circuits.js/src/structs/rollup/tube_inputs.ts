@@ -1,4 +1,3 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -55,15 +54,5 @@ export class TubeInputs {
 
   static empty() {
     return new TubeInputs(ClientIvcProof.empty());
-  }
-
-  /** Returns a hex representation for JSON serialization. */
-  toJSON() {
-    return this.toString();
-  }
-
-  /** Creates an instance from a hex string. */
-  static get schema() {
-    return hexSchemaFor(TubeInputs);
   }
 }

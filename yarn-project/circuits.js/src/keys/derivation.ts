@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
@@ -46,7 +46,7 @@ export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
   return poseidon2HashWithSeparator([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
 }
 
-export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): AztecAddress {
+export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr) {
   // Given public keys and a partial address, we can compute our address in the following steps.
   // 1. preaddress = poseidon2([publicKeysHash, partialAddress], GeneratorIndex.CONTRACT_ADDRESS_V1);
   // 2. addressPoint = (preaddress * G) + ivpk_m
@@ -57,7 +57,7 @@ export function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): Azte
     publicKeys.masterIncomingViewingPublicKey,
   );
 
-  return new AztecAddress(address.x);
+  return address.x;
 }
 
 export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
@@ -83,7 +83,7 @@ export function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
 }
 
 export function computePoint(address: AztecAddress) {
-  return Point.fromXAndSign(address.toField(), true);
+  return Point.fromXAndSign(address, true);
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {

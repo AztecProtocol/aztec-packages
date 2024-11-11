@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   CompleteAddress,
+  EventType,
   Fr,
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,
@@ -40,7 +41,12 @@ describe('e2e_token_contract transfer private', () => {
     const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
-    const events = await wallets[1].getEncryptedEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getEvents<Transfer>(
+      EventType.Encrypted,
+      TokenContract.events.Transfer,
+      tx.blockNumber!,
+      1,
+    );
 
     expect(events[0]).toEqual({
       from: accounts[0].address,

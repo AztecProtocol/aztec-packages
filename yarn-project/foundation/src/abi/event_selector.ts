@@ -81,11 +81,4 @@ export class EventSelector extends Selector {
   static random() {
     return EventSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
-
-  toJSON() {
-    return {
-      type: 'EventSelector',
-      value: this.toString(),
-    };
-  }
 }

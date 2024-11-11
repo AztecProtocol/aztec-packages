@@ -1,10 +1,7 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-
-import { z } from 'zod';
 
 /**
  * Class containing the data of a preimage of a single leaf in the nullifier tree.
@@ -25,26 +22,6 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
      */
     public nextIndex: bigint,
   ) {}
-
-  static get schema() {
-    return z
-      .object({
-        nullifier: schemas.Fr,
-        nextNullifier: schemas.Fr,
-        nextIndex: schemas.BigInt,
-      })
-      .transform(
-        ({ nullifier, nextNullifier, nextIndex }) => new NullifierLeafPreimage(nullifier, nextNullifier, nextIndex),
-      );
-  }
-
-  toJSON() {
-    return {
-      nullifier: this.nullifier.toString(),
-      nextNullifier: this.nextNullifier.toString(),
-      nextIndex: '0x' + this.nextIndex.toString(16),
-    };
-  }
 
   getKey(): bigint {
     return this.nullifier.toBigInt();
@@ -82,8 +59,12 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
     return new NullifierLeafPreimage(this.nullifier, this.nextNullifier, this.nextIndex);
   }
 
-  static random() {
-    return new NullifierLeafPreimage(Fr.random(), Fr.random(), BigInt(Math.floor(Math.random() * 1000)));
+  toJSON() {
+    return {
+      nullifier: this.nullifier.toString(),
+      nextNullifier: this.nextNullifier.toString(),
+      nextIndex: '0x' + this.nextIndex.toString(16),
+    };
   }
 
   static empty(): NullifierLeafPreimage {

@@ -1,7 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
@@ -98,15 +97,6 @@ export class VerificationKeyAsFields {
     return this.key[CIRCUIT_RECURSIVE_INDEX].equals(Fr.ONE);
   }
 
-  static get schema() {
-    // TODO(palla/schemas): Should we verify the hash matches the key when deserializing?
-    return hexSchemaFor(VerificationKeyAsFields);
-  }
-
-  toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
-  }
-
   /**
    * Serialize as a buffer.
    * @returns The buffer.
@@ -114,7 +104,6 @@ export class VerificationKeyAsFields {
   toBuffer() {
     return serializeToBuffer(...this.toFields());
   }
-
   toFields() {
     return [this.key.length, ...this.key, this.hash];
   }
@@ -240,10 +229,6 @@ export class VerificationKeyData {
     return this.keyAsFields.isRecursive;
   }
 
-  static empty() {
-    return new VerificationKeyData(VerificationKeyAsFields.makeEmpty(0), Buffer.alloc(0));
-  }
-
   static makeFakeHonk(): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }
@@ -278,15 +263,5 @@ export class VerificationKeyData {
 
   public clone() {
     return VerificationKeyData.fromBuffer(this.toBuffer());
-  }
-
-  /** Returns a hex representation for JSON serialization. */
-  toJSON() {
-    return this.toString();
-  }
-
-  /** Creates an instance from a hex string. */
-  static get schema() {
-    return hexSchemaFor(VerificationKeyData);
   }
 }

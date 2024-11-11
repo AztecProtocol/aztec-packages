@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../ethereum"
-    },
-    {
       "path": "../foundation"
     },
     {

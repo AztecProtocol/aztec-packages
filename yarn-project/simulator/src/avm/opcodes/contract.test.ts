@@ -1,4 +1,4 @@
-import { AztecAddress, type Fr, SerializableContractInstance } from '@aztec/circuits.js';
+import { Fr, SerializableContractInstance } from '@aztec/circuits.js';
 
 import { mock } from 'jest-mock-extended';
 
@@ -12,7 +12,7 @@ import { mockGetContractInstance } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
-  const address = AztecAddress.random();
+  const address = Fr.random();
   const contractInstance = SerializableContractInstance.random();
   const deployer = contractInstance.deployer;
   const contractClassId = contractInstance.contractClassId;
@@ -60,7 +60,7 @@ describe('Contract opcodes', () => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
 
-        context.machineState.memory.set(0, new Field(address.toField()));
+        context.machineState.memory.set(0, new Field(address));
         await new GetContractInstance(
           /*indirect=*/ 0,
           memberEnum,
@@ -92,7 +92,7 @@ describe('Contract opcodes', () => {
       'GETCONTRACTINSTANCE member instruction works when contract does not exist',
       (memberEnum: ContractInstanceMember) => {
         it(`'${ContractInstanceMember[memberEnum]}' should be 0 when contract does not exist `, async () => {
-          context.machineState.memory.set(0, new Field(address.toField()));
+          context.machineState.memory.set(0, new Field(address));
           await new GetContractInstance(
             /*indirect=*/ 0,
             memberEnum,

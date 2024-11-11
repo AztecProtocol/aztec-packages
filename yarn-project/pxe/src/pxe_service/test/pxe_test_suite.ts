@@ -69,7 +69,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
         pxe.registerContract({
           instance: {
             ...instance,
-            address: AztecAddress.random(),
+            address: Fr.random(),
           },
           artifact,
         }),

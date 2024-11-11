@@ -21,7 +21,6 @@ import {
   PublicDataWitness,
   PublicSimulationOutput,
   type SequencerConfig,
-  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
@@ -31,7 +30,6 @@ import {
   TxStatus,
   type TxValidator,
   type WorldStateSynchronizer,
-  tryStop,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -91,7 +89,7 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
-    protected readonly blockSource: L2BlockSource & Partial<Service>,
+    protected readonly blockSource: L2BlockSource,
     protected readonly encryptedLogsSource: L2LogsSource,
     protected readonly unencryptedLogsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
@@ -375,7 +373,7 @@ export class AztecNodeService implements AztecNode {
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
-    await tryStop(this.blockSource);
+    await this.blockSource.stop();
     await this.telemetry.stop();
     this.log.info(`Stopped`);
   }

@@ -1,7 +1,7 @@
-import { aztecNodeConfigMappings } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, type PXE } from '@aztec/circuit-types';
+import { aztecNodeConfigMappings, createAztecNodeRpcServer } from '@aztec/aztec-node';
+import { type PXE } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
   type TelemetryClientConfig,
@@ -14,12 +14,14 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 
-export async function startNode(
+export const startNode = async (
   options: any,
   signalHandlers: (() => Promise<void>)[],
-  services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<ServerList> => {
+  // Services that will be started in a single multi-rpc server
+  const services: ServerList = [];
+
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
   // All options that are relevant to the Aztec Node
@@ -90,11 +92,12 @@ export async function startNode(
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
   const telemetryClient = await createAndStartTelemetryClient(telemetryConfig);
 
-  // Create and start Aztec Node
+  // Create and start Aztec Node.
   const node = await createAztecNode(nodeConfig, telemetryClient);
+  const nodeServer = createAztecNodeRpcServer(node);
 
   // Add node to services list
-  services.node = [node, AztecNodeApiSchema];
+  services.push({ node: nodeServer });
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));
@@ -103,12 +106,14 @@ export async function startNode(
   let pxe: PXE | undefined;
   if (options.pxe) {
     const { addPXE } = await import('./start_pxe.js');
-    pxe = await addPXE(options, signalHandlers, services, userLog, { node });
+    pxe = await addPXE(options, services, signalHandlers, userLog, { node });
   }
 
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    await addBot(options, signalHandlers, services, { pxe, node });
+    await addBot(options, services, signalHandlers, { pxe, node });
   }
-}
+
+  return services;
+};

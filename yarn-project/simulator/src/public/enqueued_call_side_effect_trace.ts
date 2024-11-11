@@ -6,7 +6,7 @@ import {
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
-  type AztecAddress,
+  AztecAddress,
   type CombinedConstantData,
   type ContractClassIdPreimage,
   EthAddress,
@@ -159,13 +159,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(
-    contractAddress: AztecAddress,
-    slot: Fr,
-    value: Fr,
-    _exists: boolean,
-    _cached: boolean,
-  ) {
+  public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     if (
       this.publicDataReads.length + this.previousValidationRequestArrayLengths.publicDataReads >=
@@ -183,7 +177,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(contractAddress: AztecAddress, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(contractAddress: Fr, slot: Fr, value: Fr) {
     if (
       this.publicDataWrites.length + this.previousAccumulatedDataArrayLengths.publicDataUpdateRequests >=
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -201,7 +195,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(_contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean) {
+  public traceNoteHashCheck(_contractAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
     // NOTE: contractAddress is unused because noteHash is an already-siloed leaf
     if (
       this.noteHashReadRequests.length + this.previousValidationRequestArrayLengths.noteHashReadRequests >=
@@ -218,32 +212,28 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr) {
+  public traceNewNoteHash(contractAddress: Fr, noteHash: Fr) {
     if (this.noteHashes.length + this.previousAccumulatedDataArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
     // TODO(dbanks12): make unique and silo instead of scoping
     //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
-    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
+    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(AztecAddress.fromField(contractAddress)));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
-    _leafIndex: Fr,
-    exists: boolean,
-    _isPending: boolean,
-  ) {
+  public traceNullifierCheck(contractAddress: Fr, nullifier: Fr, _leafIndex: Fr, exists: boolean, _isPending: boolean) {
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     this.enforceLimitOnNullifierChecks();
 
     // TODO(dbanks12): use siloed nullifier instead of scoped once public kernel stops siloing
     // and once VM public inputs are meant to contain siloed nullifiers.
     //const siloedNullifier = siloNullifier(contractAddress, nullifier);
-    const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(contractAddress);
+    const readRequest = new ReadRequest(nullifier, this.sideEffectCounter).scope(
+      AztecAddress.fromField(contractAddress),
+    );
     if (exists) {
       this.nullifierReadRequests.push(readRequest);
     } else {
@@ -256,7 +246,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(contractAddress: AztecAddress, nullifier: Fr) {
+  public traceNewNullifier(contractAddress: Fr, nullifier: Fr) {
     if (this.nullifiers.length + this.previousAccumulatedDataArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
@@ -268,7 +258,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceL1ToL2MessageCheck(_contractAddress: AztecAddress, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
+  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
     // NOTE: contractAddress is unused because msgHash is an already-siloed leaf
     if (
       this.l1ToL2MsgReadRequests.length + this.previousValidationRequestArrayLengths.l1ToL2MsgReadRequests >=
@@ -283,20 +273,22 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
   }
 
-  public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
+  public traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
     if (this.l2ToL1Messages.length + this.previousAccumulatedDataArrayLengths.l2ToL1Msgs >= MAX_L2_TO_L1_MSGS_PER_TX) {
       throw new SideEffectLimitReachedError('l2 to l1 message', MAX_L2_TO_L1_MSGS_PER_TX);
     }
 
     const recipientAddress = EthAddress.fromField(recipient);
     this.l2ToL1Messages.push(
-      new L2ToL1Message(recipientAddress, content, this.sideEffectCounter).scope(contractAddress),
+      new L2ToL1Message(recipientAddress, content, this.sideEffectCounter).scope(
+        AztecAddress.fromField(contractAddress),
+      ),
     );
     this.log.debug(`NEW_L2_TO_L1_MSG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
+  public traceUnencryptedLog(contractAddress: Fr, log: Fr[]) {
     if (
       this.unencryptedLogs.length + this.previousAccumulatedDataArrayLengths.unencryptedLogsHashes >=
       MAX_UNENCRYPTED_LOGS_PER_TX
@@ -304,20 +296,25 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       throw new SideEffectLimitReachedError('unencrypted log', MAX_UNENCRYPTED_LOGS_PER_TX);
     }
 
-    const ulog = new UnencryptedL2Log(contractAddress, Buffer.concat(log.map(f => f.toBuffer())));
+    const ulog = new UnencryptedL2Log(
+      AztecAddress.fromField(contractAddress),
+      Buffer.concat(log.map(f => f.toBuffer())),
+    );
     const basicLogHash = Fr.fromBuffer(ulog.hash());
     this.unencryptedLogs.push(ulog);
     // This length is for charging DA and is checked on-chain - has to be length of log preimage + 4 bytes.
     // The .length call also has a +4 but that is unrelated
     this.unencryptedLogsHashes.push(
-      new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)).scope(contractAddress),
+      new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)).scope(
+        AztecAddress.fromField(contractAddress),
+      ),
     );
     this.log.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
   public traceGetContractInstance(
-    contractAddress: AztecAddress,
+    contractAddress: Fr,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
   ) {
@@ -342,7 +339,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   // This happens both when starting a new top-level trace and the start of every nested trace
   // We use this to collect the AvmContractBytecodeHints
   public traceGetBytecode(
-    contractAddress: AztecAddress,
+    contractAddress: Fr,
     exists: boolean,
     bytecode: Buffer = Buffer.alloc(0),
     contractInstance: SerializableContractInstance = SerializableContractInstance.default(),

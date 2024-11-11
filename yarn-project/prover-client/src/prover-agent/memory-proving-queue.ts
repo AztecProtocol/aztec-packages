@@ -3,7 +3,7 @@ import {
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
-  type ProvingRequestResultFor,
+  type ProvingRequestResult,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -42,7 +42,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { ProvingQueueMetrics } from './queue_metrics.js';
 
 type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = ProvingJob<T> &
-  PromiseWithResolvers<ProvingRequestResultFor<T['type']>> & {
+  PromiseWithResolvers<ProvingRequestResult<T['type']>> & {
     signal?: AbortSignal;
     epochNumber?: number;
     attempts: number;
@@ -131,7 +131,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     }
   }
 
-  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResultFor<T>): Promise<void> {
+  resolveProvingJob<T extends ProvingRequestType>(jobId: string, result: ProvingRequestResult<T>): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running.');
     }
@@ -150,7 +150,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return Promise.resolve();
   }
 
-  rejectProvingJob(jobId: string, reason: string): Promise<void> {
+  rejectProvingJob(jobId: string, err: any): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running.');
     }
@@ -171,7 +171,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     if (job.attempts < MAX_RETRIES && job.request.type !== ProvingRequestType.PUBLIC_VM) {
       job.attempts++;
       this.log.warn(
-        `Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${reason}. Retry ${
+        `Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${err}. Retry ${
           job.attempts
         }/${MAX_RETRIES}`,
       );
@@ -181,8 +181,8 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
         job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT
           ? this.log.warn
           : this.log.error;
-      logFn(`Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${reason}`);
-      job.reject(new Error(reason));
+      logFn(`Job id=${job.id} type=${ProvingRequestType[job.request.type]} failed with error: ${err}`);
+      job.reject(err);
     }
     return Promise.resolve();
   }
@@ -228,12 +228,12 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     request: T,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProvingRequestResultFor<T['type']>['result']> {
+  ): Promise<ProvingRequestResult<T['type']>> {
     if (!this.runningPromise.isRunning()) {
       return Promise.reject(new Error('Proving queue is not running.'));
     }
 
-    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResultFor<T['type']>>();
+    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResult<T['type']>>();
     const item: ProvingJobWithResolvers<T> = {
       id: this.generateId(),
       request,
@@ -261,7 +261,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     const byteSize = serializeToBuffer(item.request.inputs).length;
     this.metrics.recordNewJob(item.request.type, byteSize);
 
-    return promise.then(({ result }) => result);
+    return promise;
   }
 
   getEmptyPrivateKernelProof(

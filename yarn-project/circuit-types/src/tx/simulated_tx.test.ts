@@ -8,11 +8,11 @@ describe('simulated_tx', () => {
   });
   describe('json', () => {
     it('convert to and from json', () => {
-      expect(TxSimulationResult.fromJSON(JSON.parse(JSON.stringify(simulatedTx.toJSON())))).toEqual(simulatedTx);
+      expect(TxSimulationResult.fromJSON(simulatedTx.toJSON())).toEqual(simulatedTx);
     });
     it('convert undefined effects to and from json', () => {
       simulatedTx.publicOutput = undefined;
-      expect(TxSimulationResult.fromJSON(JSON.parse(JSON.stringify(simulatedTx.toJSON())))).toEqual(simulatedTx);
+      expect(TxSimulationResult.fromJSON(simulatedTx.toJSON())).toEqual(simulatedTx);
     });
   });
 });

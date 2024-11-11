@@ -1,9 +1,7 @@
-import { L1EventPayload, type UnencryptedL2Log } from '@aztec/circuit-types';
-import { type AbiType, AbiTypeSchema, EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
+import { EventType, L1EventPayload, type UnencryptedL2Log } from '@aztec/circuit-types';
+import { type AbiType } from '@aztec/foundation/abi';
+import { EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
-
-import { z } from 'zod';
 
 /**
  * Represents metadata for an event decoder, including all information needed to reconstruct it.
@@ -15,7 +13,10 @@ export class EventMetadata<T> {
   public readonly abiType: AbiType;
   public readonly fieldNames: string[];
 
-  constructor(event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] }) {
+  constructor(
+    public readonly eventType: EventType,
+    event: { eventSelector: EventSelector; abiType: AbiType; fieldNames: string[] },
+  ) {
     this.eventSelector = event.eventSelector;
     this.abiType = event.abiType;
     this.fieldNames = event.fieldNames;
@@ -52,29 +53,22 @@ export class EventMetadata<T> {
    */
   public toJSON() {
     return {
-      type: 'event_metadata', // TODO(palla/schemas): Remove this type property
-      eventSelector: this.eventSelector,
-      abiType: this.abiType,
+      type: 'event_metadata',
+      eventSelector: this.eventSelector.toString(),
+      eventType: this.eventType,
       fieldNames: this.fieldNames,
     };
-  }
-
-  static get schema() {
-    return z
-      .object({
-        eventSelector: schemas.EventSelector,
-        abiType: AbiTypeSchema,
-        fieldNames: z.array(z.string()),
-        type: z.literal('event_metadata').optional(),
-      })
-      .transform(obj => new EventMetadata(obj));
   }
 
   /**
    * Creates an EventMetadata instance from a JSON representation
    */
   public static fromJSON(json: any): EventMetadata<any> {
-    return new EventMetadata({
+    if (json?.type !== 'event_metadata') {
+      throw new Error('Invalid event metadata format');
+    }
+
+    return new EventMetadata(EventType.Encrypted, {
       eventSelector: EventSelector.fromString(json.eventSelector),
       abiType: json.abiType,
       fieldNames: json.fieldNames,

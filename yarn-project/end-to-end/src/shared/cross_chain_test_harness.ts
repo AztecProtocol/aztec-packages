@@ -383,8 +383,13 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
     const frMsgHash = typeof msgHash === 'string' ? Fr.fromString(msgHash) : msgHash;
+    const currentL2BlockNumber = await this.aztecNode.getBlockNumber();
     // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
+    await retryUntil(
+      async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash, currentL2BlockNumber),
+      'message sync',
+      10,
+    );
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

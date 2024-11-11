@@ -1,8 +1,5 @@
 import { Fr, Point } from '@aztec/circuits.js';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
-import { schemas } from '@aztec/foundation/schemas';
-
-import { z } from 'zod';
 
 /**
  * Represents an individual encrypted event log entry.
@@ -21,12 +18,6 @@ export class EncryptedL2Log {
    */
   public toBuffer(): Buffer {
     return Buffer.concat([this.maskedContractAddress.toBuffer(), this.data]);
-  }
-
-  static get schema() {
-    return z
-      .object({ data: schemas.BufferHex, maskedContractAddress: schemas.Fr })
-      .transform(({ data, maskedContractAddress }) => new EncryptedL2Log(data, maskedContractAddress));
   }
 
   /** Returns a JSON-friendly representation of the log. */

@@ -293,7 +293,7 @@ export class Oracle {
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(
-      new AztecAddress(fromACVMField(contractAddress)),
+      fromACVMField(contractAddress),
       fromACVMField(startStorageSlot),
       +blockNumber,
       +numberOfElements,

@@ -182,7 +182,9 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
   return new f(buffer);
 }
 
-/** Branding to ensure fields are not interchangeable types. */
+/**
+ * Branding to ensure fields are not interchangeable types.
+ */
 export interface Fr {
   /** Brand. */
   _branding: 'Fr';
@@ -300,7 +302,6 @@ export class Fr extends BaseField {
     return Fr.fromBuffer(rootBuf);
   }
 
-  // TODO(palla/schemas): Use toString instead of structured type
   toJSON() {
     return {
       type: 'Fr',

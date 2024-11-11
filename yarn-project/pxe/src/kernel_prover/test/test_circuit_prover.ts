@@ -122,9 +122,10 @@ export class TestPrivateKernelProver implements PrivateKernelProver {
     return Promise.resolve(appCircuitProofOutput);
   }
 
-  private makeEmptyKernelSimulateOutput<
-    PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
-  >(publicInputs: PublicInputsType, circuitType: ProtocolArtifact) {
+  private makeEmptyKernelSimulateOutput<PublicInputsType>(
+    publicInputs: PublicInputsType,
+    circuitType: ProtocolArtifact,
+  ) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
       verificationKey: ProtocolCircuitVks[circuitType].keyAsFields,

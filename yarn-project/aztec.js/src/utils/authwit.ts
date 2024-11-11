@@ -57,7 +57,7 @@ export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction
   if ('caller' in intent) {
     const action = intent.action instanceof ContractFunctionInteraction ? intent.action.request() : intent.action;
     return computeOuterAuthWitHash(
-      action.to,
+      action.to.toField(),
       chainId,
       version,
       computeInnerAuthWitHashFromAction(intent.caller, action),
