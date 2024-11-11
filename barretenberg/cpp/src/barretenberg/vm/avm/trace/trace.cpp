@@ -3124,6 +3124,7 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
         pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
         return ReturnDataError{
+            .return_data = {},
             .error = op_valid ? AvmError::NO_ERROR : AvmError::TAG_ERROR,
         };
     }

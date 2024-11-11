@@ -116,6 +116,9 @@ std::string to_name(AvmError error)
         return "ENVIRONMENT VARIABLE UNKNOWN";
     case AvmError::CONTRACT_INST_MEM_UNKNOWN:
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
+    default:
+        throw std::runtime_error("Invalid error type");
+        break;
     }
 }
 
