@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -63,6 +64,21 @@ struct GetLowIndexedLeafResponse {
     {
         return is_already_present == other.is_already_present && index == other.index;
     }
+};
+
+struct CommitResponse {
+    TreeMeta meta;
+    TreeDBStats stats;
+};
+
+struct UnwindResponse {
+    TreeMeta meta;
+    TreeDBStats stats;
+};
+
+struct RemoveHistoricResponse {
+    TreeMeta meta;
+    TreeDBStats stats;
 };
 
 template <typename ResponseType> struct TypedResponse {

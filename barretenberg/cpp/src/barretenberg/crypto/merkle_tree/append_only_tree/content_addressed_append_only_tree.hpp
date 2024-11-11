@@ -44,10 +44,10 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using HashPathCallback = std::function<void(const TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(const TypedResponse<FindLeafIndexResponse>&)>;
     using GetLeafCallback = std::function<void(const TypedResponse<GetLeafResponse>&)>;
-    using CommitCallback = std::function<void(const Response&)>;
+    using CommitCallback = std::function<void(const TypedResponse<CommitResponse&>)>;
     using RollbackCallback = std::function<void(const Response&)>;
-    using RemoveHistoricBlockCallback = std::function<void(const Response&)>;
-    using UnwindBlockCallback = std::function<void(const Response&)>;
+    using RemoveHistoricBlockCallback = std::function<void(const TypedResponse<RemoveHistoricResponse&>)>;
+    using UnwindBlockCallback = std::function<void(const TypedResponse<UnwindResponse&>)>;
     using FinaliseBlockCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
@@ -739,7 +739,13 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() { store_->commit(); }, on_completion); };
+    auto job = [=, this]() {
+        execute_and_report<CommitResponse>(
+            [=, this](TypedResponse<CommitResponse>& response) {
+                store_->commit(response.inner.meta, response.inner.stats);
+            },
+            on_completion);
+    };
     workers_->enqueue(job);
 }
 
@@ -755,12 +761,12 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
     const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
 {
     auto job = [=, this]() {
-        execute_and_report(
-            [=, this]() {
+        execute_and_report<RemoveHistoricResponse>(
+            [=, this](TypedResponse<RemoveHistoricResponse>& response) {
                 if (blockNumber == 0) {
                     throw std::runtime_error("Unable to remove historic block 0");
                 }
-                store_->remove_historical_block(blockNumber);
+                store_->remove_historical_block(blockNumber, response.inner.meta, response.inner.stats);
             },
             on_completion);
     };
@@ -768,16 +774,16 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
-    const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(const index_t& blockNumber,
+                                                                        const UnwindBlockCallback& on_completion)
 {
     auto job = [=, this]() {
-        execute_and_report(
-            [=, this]() {
+        execute_and_report<UnwindResponse>(
+            [=, this](TypedResponse<UnwindResponse>& response) {
                 if (blockNumber == 0) {
                     throw std::runtime_error("Unable to unwind block 0");
                 }
-                store_->unwind_block(blockNumber);
+                store_->unwind_block(blockNumber, response.inner.meta, response.inner.stats);
             },
             on_completion);
     };

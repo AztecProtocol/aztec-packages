@@ -167,7 +167,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Commits the uncommitted data to the underlying store
      */
-    void commit(bool asBlock = true);
+    void commit(TreeMeta& finalMeta, TreeDBStats& dbStats, bool asBlock = true);
 
     /**
      * @brief Rolls back the uncommitted state
@@ -196,9 +196,9 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const;
 
-    void remove_historical_block(const index_t& blockNumber);
+    void remove_historical_block(const index_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
 
-    void unwind_block(const index_t& blockNumber);
+    void unwind_block(const index_t& blockNumber, TreeMeta& finalMeta, TreeDBStats& dbStats);
 
     std::optional<index_t> get_fork_block() const;
 
@@ -260,6 +260,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void remove_leaf_indices(const fr& key, const index_t& maxIndex, WriteTransaction& tx);
 
     void remove_leaf_indices_after_or_equal_index(const index_t& maxIndex, WriteTransaction& tx);
+
+    void extract_db_stats(TreeDBStats& stats);
 
     index_t constrain_tree_size(const RequestContext& requestContext, ReadTransaction& tx) const;
 
@@ -622,7 +624,8 @@ fr ContentAddressedCachedTreeStore<LeafValueType>::get_current_root(ReadTransact
 // It is assumed that when these operations are being executed that no other state accessing operations
 // are in progress, hence no data synchronisation is used.
 
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit(bool asBlock)
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta, TreeDBStats& dbStats, bool asBlock)
 {
     bool dataPresent = false;
     TreeMeta uncommittedMeta;
@@ -683,9 +686,22 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
                 (std::stringstream() << "Unable to commit data to tree: " << name_ << " Error: " << e.what()).str());
         }
     }
+    finalMeta = uncommittedMeta;
 
     // rolling back destroys all cache stores and also refreshes the cached meta_ from persisted state
     rollback();
+
+    extract_db_stats(dbStats);
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::extract_db_stats(TreeDBStats& stats)
+{
+    try {
+        ReadTransactionPtr tx = create_read_transaction();
+        dataStore_->get_stats(stats, *tx);
+    } catch (std::exception&) {
+    }
 }
 
 template <typename LeafValueType>
@@ -862,7 +878,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t& blockNumber)
+void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t& blockNumber,
+                                                                  TreeMeta& finalMeta,
+                                                                  TreeDBStats& dbStats)
 {
     TreeMeta uncommittedMeta;
     TreeMeta committedMeta;
@@ -946,10 +964,15 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const index_t&
 
     // now update the uncommitted meta
     put_meta(uncommittedMeta);
+    finalMeta = uncommittedMeta;
+
+    extract_db_stats(dbStats);
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(const index_t& blockNumber)
+void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(const index_t& blockNumber,
+                                                                             TreeMeta& finalMeta,
+                                                                             TreeDBStats& dbStats)
 {
     TreeMeta committedMeta;
     TreeMeta uncommittedMeta;
@@ -1008,6 +1031,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
     // commit was successful, update the uncommitted meta
     uncommittedMeta.oldestHistoricBlock = committedMeta.oldestHistoricBlock;
     put_meta(uncommittedMeta);
+    finalMeta = uncommittedMeta;
+
+    extract_db_stats(dbStats);
 }
 
 template <typename LeafValueType>
