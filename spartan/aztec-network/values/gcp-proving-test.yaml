@@ -26,6 +26,11 @@ bootNode:
   realProofs: true
   validator:
     disabled: true
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "8"
+  storage: "128Gi"
 
 proverNode:
   realProofs: true
@@ -52,7 +57,7 @@ pxe:
   proverEnabled: true
 
 bot:
-  replicas: 8
+  replicas: 16
   enabled: true
   pxeProverEnabled: true
   txIntervalSeconds: 1
