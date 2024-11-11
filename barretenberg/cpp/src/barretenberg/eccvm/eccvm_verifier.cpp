@@ -65,6 +65,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        vinfo("eccvm sumcheck failed");
         return false;
     }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
@@ -127,7 +128,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
-
+    vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
+    vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_verified.value() && batched_opening_verified;
 }
 } // namespace bb

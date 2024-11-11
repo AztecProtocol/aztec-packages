@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "@aztec/core/Rollup.sol";
+import {Rollup} from "../harnesses/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";

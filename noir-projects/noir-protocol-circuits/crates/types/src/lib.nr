@@ -4,8 +4,6 @@ pub mod debug_log;
 pub mod public_keys;
 pub mod point;
 pub mod scalar;
-// This is intentionally spelled like this since contract is a reserved keyword, so it cannot be used as an ident.
-mod contrakt;
 pub mod transaction;
 pub mod abis;
 pub mod constants;

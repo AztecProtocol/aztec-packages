@@ -1,12 +1,7 @@
 use crate::{
     abis::side_effect::Ordered,
-    address::AztecAddress,
     constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
-    contrakt::storage_update_request::StorageUpdateRequest,
-    data::{
-        hash::{compute_public_data_tree_index, compute_public_data_tree_value},
-        public_data_tree_leaf::PublicDataTreeLeaf,
-    },
+    data::public_data_tree_leaf::PublicDataTreeLeaf,
     traits::{Deserialize, Empty, Serialize},
 };
 
@@ -15,22 +10,6 @@ pub struct PublicDataUpdateRequest {
     pub leaf_slot: Field,
     pub new_value: Field,
     pub counter: u32,
-}
-
-impl PublicDataUpdateRequest {
-    pub fn from_contract_storage_update_request(
-        contract_address: AztecAddress,
-        update_request: StorageUpdateRequest,
-    ) -> PublicDataUpdateRequest {
-        PublicDataUpdateRequest {
-            leaf_slot: compute_public_data_tree_index(
-                contract_address,
-                update_request.storage_slot,
-            ),
-            new_value: compute_public_data_tree_value(update_request.new_value),
-            counter: update_request.counter,
-        }
-    }
 }
 
 impl Ordered for PublicDataUpdateRequest {
