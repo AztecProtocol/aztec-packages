@@ -288,36 +288,35 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                 auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
                 vinfo("time to construct proving key: ", diff.count(), " ms.");
             }
+        }
+    }
 
-            DeciderProvingKey_() = default;
-            ~DeciderProvingKey_() = default;
+    DeciderProvingKey_() = default;
+    ~DeciderProvingKey_() = default;
 
-            bool get_is_structured()
-            {
-                return is_structured;
-            }
+    bool get_is_structured() { return is_structured; }
 
-          private:
-            static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
-            static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
-            size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
+  private:
+    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
+    static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
+    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
 
-            size_t compute_dyadic_size(Circuit&);
+    size_t compute_dyadic_size(Circuit&);
 
-            /**
-             * @brief Compute dyadic size based on a structured trace with fixed block size
-             *
-             */
-            size_t compute_structured_dyadic_size(Circuit & circuit)
-            {
-                size_t minimum_size = circuit.blocks.get_total_structured_size();
-                return circuit.get_circuit_subgroup_size(minimum_size);
-            }
+    /**
+     * @brief Compute dyadic size based on a structured trace with fixed block size
+     *
+     */
+    size_t compute_structured_dyadic_size(Circuit& circuit)
+    {
+        size_t minimum_size = circuit.blocks.get_total_structured_size();
+        return circuit.get_circuit_subgroup_size(minimum_size);
+    }
 
-            void construct_databus_polynomials(Circuit&)
-                requires IsGoblinFlavor<Flavor>;
+    void construct_databus_polynomials(Circuit&)
+        requires IsGoblinFlavor<Flavor>;
 
-            static void move_structured_trace_overflow_to_overflow_block(Circuit & circuit);
-        };
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
+};
 
-    } // namespace bb
+} // namespace bb

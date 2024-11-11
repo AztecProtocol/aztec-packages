@@ -407,11 +407,10 @@ std::vector<bb::fr> construct_dummy_proof_for_ivc(uint32_t proof_type, bb::Datab
     }
 
     // Construct a dummy circuit with the correct number of public inputs according to the databus propagation data
-    auto construct_dummy_circuit = [](bb::DatabusPropagationData propagation_data) {
+    auto construct_dummy_circuit = []([[maybe_unused]] bb::DatabusPropagationData propagation_data) {
         Builder dummy_circuit;
         uint32_t num_pub_inputs_to_add = 0;
-        num_pub_inputs_to_add += 8 * static_cast<uint32_t>(propagation_data.contains_app_return_data_commitment);
-        num_pub_inputs_to_add += 8 * static_cast<uint32_t>(propagation_data.contains_kernel_return_data_commitment);
+        num_pub_inputs_to_add += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
         for (size_t i = 0; i < num_pub_inputs_to_add; ++i) {
             dummy_circuit.add_public_variable(0);
         }

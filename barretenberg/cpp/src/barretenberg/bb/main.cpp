@@ -433,7 +433,7 @@ void client_ivc_prove_output_all_msgpack_no_auto_verify(const std::string& bytec
     }
     // TODO(#7371) dedupe this with the rest of the similar code
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+    ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
     for (Program& program : folding_stack) {
@@ -447,7 +447,8 @@ void client_ivc_prove_output_all_msgpack_no_auto_verify(const std::string& bytec
             circuit = create_kernel_circuit(program.constraints, ivc, program.witness);
         } else {
             info("Creating circuit of type: APP");
-            circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+            circuit = create_circuit<Builder>(
+                program.constraints, /*recursive=*/false, 0, program.witness, false, ivc.goblin.op_queue);
         }
 
         ivc.accumulate(circuit);
@@ -466,7 +467,7 @@ void client_ivc_prove_output_all_msgpack_no_auto_verify(const std::string& bytec
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
     auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
+    vinfo("ensure valid proof: ", ivc.verify(proof));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
@@ -1327,7 +1328,7 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& witnes
         // if its a kernel, need to populate an ivc with a verification queue corresponding to the ivc recursion
         // constraints present in the program
         ClientIVC ivc;
-        ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
+        ivc.trace_settings.structure = TraceStructure::E2E_FULL_TEST;
         for (const auto& constraint : constraint_system.ivc_recursion_constraints) {
 
             // WORKTODO: I need the VKs from the constraints in order to construct the corresponding dummy proofs. Right
@@ -1349,7 +1350,8 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& witnes
         }
         builder = acir_format::create_kernel_circuit(constraint_system, ivc, witness);
     } else {
-        builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, /*honk_recursion=*/false);
+        builder = acir_format::create_circuit<Builder>(
+            constraint_system, /*recursive=*/false, 0, witness, /*honk_recursion=*/false);
     }
 
     // Construct the verification key via the prover-constructed proving key
