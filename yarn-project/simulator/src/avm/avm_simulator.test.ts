@@ -134,7 +134,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const instanceGet = new SerializableContractInstance({
       version: 1,
       salt: new Fr(0x123),
-      deployer: new Fr(0x456),
+      deployer: AztecAddress.fromNumber(0x456),
       contractClassId: new Fr(0x789),
       initializationHash: new Fr(0x101112),
       publicKeys: new PublicKeys(
@@ -163,7 +163,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       calldata,
       globals,
       address: contractInstance.address,
-      sender: new Fr(42),
+      sender: AztecAddress.fromNumber(42),
     });
     const context = initContext({ env: environment, persistableState });
 
@@ -500,8 +500,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Side effects, world state, nested calls', () => {
-    const address = new Fr(1);
-    const sender = new Fr(42);
+    const address = AztecAddress.fromNumber(1);
+    const sender = AztecAddress.fromNumber(42);
     const leafIndex = new Fr(7);
     const slotNumber = 1; // must update Noir contract if changing this
     const slot = new Fr(slotNumber);
@@ -824,7 +824,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
 
       it('Should set a value in storage (map)', async () => {
-        const calldata = [address, value0];
+        const calldata = [address.toField(), value0];
 
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('set_storage_map');
@@ -843,7 +843,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
 
       it('Should read-add-set a value in storage (map)', async () => {
-        const calldata = [address, value0];
+        const calldata = [address.toField(), value0];
 
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('add_storage_map');
@@ -870,7 +870,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
 
       it('Should read value in storage (map)', async () => {
-        const calldata = [address];
+        const calldata = [address.toField()];
 
         const context = createContext(calldata);
         mockStorageRead(worldStateDB, value0);
@@ -894,7 +894,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     describe('Contract Instance Retrieval', () => {
       it(`Can getContractInstance`, async () => {
-        const calldata = [address];
+        const calldata = [address.toField()];
         const context = createContext(calldata);
         // Contract instance must match noir
         const contractInstance = new SerializableContractInstance({

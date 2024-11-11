@@ -48,7 +48,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
+import { ExtendedNote, L2Block, LogType, Note, type TxHash, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
@@ -575,7 +575,7 @@ describe('e2e_synching', () => {
             .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
-          await archiver.stop();
+          await tryStop(archiver);
           await worldState.stop();
         },
         ASSUME_PROVEN_THROUGH,

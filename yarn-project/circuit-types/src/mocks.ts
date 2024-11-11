@@ -174,7 +174,7 @@ export const mockTx = (
                 // +4 for encoding the length of the buffer
                 new Fr(log.length + 4),
               ),
-              log.maskedContractAddress,
+              new AztecAddress(log.maskedContractAddress),
             );
             // make the first log non-revertible
             if (functionCount === 0) {
@@ -224,7 +224,10 @@ export const mockTx = (
         .unrollLogs()
         .map(
           log =>
-            new ScopedLogHash(new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)), log.maskedContractAddress),
+            new ScopedLogHash(
+              new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
+              new AztecAddress(log.maskedContractAddress),
+            ),
         ),
       ScopedLogHash.empty(),
       MAX_ENCRYPTED_LOGS_PER_TX,
