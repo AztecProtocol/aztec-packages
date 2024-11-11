@@ -2,7 +2,7 @@ use crate::{
     abis::{gas::Gas, log_hash::{LogHash, ScopedLogHash}, public_call_request::PublicCallRequest},
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_length, reader::Reader},
+    utils::reader::Reader,
 };
 use crate::constants::{
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -11,14 +11,14 @@ use crate::constants::{
 };
 
 pub struct PrivateToPublicAccumulatedData {
-    note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
-    nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
-    note_encrypted_logs_hashes: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
-    public_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
-    gas_used: Gas,
+    pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub note_encrypted_logs_hashes: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    pub encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    pub unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    pub public_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+    pub gas_used: Gas,
 }
 
 impl Empty for PrivateToPublicAccumulatedData {

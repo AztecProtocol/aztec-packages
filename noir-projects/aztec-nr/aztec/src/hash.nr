@@ -78,7 +78,7 @@ pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) ->
 }
 
 pub struct ArgsHasher {
-    fields: [Field],
+    pub fields: [Field],
 }
 
 impl Hash for ArgsHasher {

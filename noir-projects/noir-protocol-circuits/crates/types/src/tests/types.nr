@@ -1,8 +1,8 @@
 use crate::{abis::side_effect::Ordered, traits::Empty};
 
 pub(crate) struct TestValue {
-    value: Field,
-    counter: u32,
+    pub(crate) value: Field,
+    pub(crate) counter: u32,
 }
 
 impl Empty for TestValue {
@@ -24,9 +24,9 @@ impl Ordered for TestValue {
 }
 
 pub(crate) struct TestTwoValues {
-    value_1: Field,
-    value_2: Field,
-    counter: u32,
+    pub(crate) value_1: Field,
+    pub(crate) value_2: Field,
+    pub(crate) counter: u32,
 }
 
 impl Empty for TestTwoValues {
@@ -50,7 +50,7 @@ impl Ordered for TestTwoValues {
 }
 
 pub(crate) struct TestCombinedValue {
-    value: Field,
+    pub(crate) value: Field,
 }
 
 impl Empty for TestCombinedValue {
@@ -65,18 +65,18 @@ impl Eq for TestCombinedValue {
     }
 }
 
-pub fn sum_two_values(from: TestTwoValues) -> TestValue {
+pub(crate) fn sum_two_values(from: TestTwoValues) -> TestValue {
     TestValue { value: from.value_1 + from.value_2, counter: from.counter }
 }
 
-pub fn is_summed_from_two_values(from: TestTwoValues, to: TestValue) -> bool {
+pub(crate) fn is_summed_from_two_values(from: TestTwoValues, to: TestValue) -> bool {
     ((from.value_1 + from.value_2) == to.value) & (from.counter == to.counter)
 }
 
-pub fn combine_two_values(from: TestTwoValues) -> TestCombinedValue {
+pub(crate) fn combine_two_values(from: TestTwoValues) -> TestCombinedValue {
     TestCombinedValue { value: from.value_1 + from.value_2 }
 }
 
-pub fn is_combined_from_two_values(from: TestTwoValues, to: TestCombinedValue) -> bool {
+pub(crate) fn is_combined_from_two_values(from: TestTwoValues, to: TestCombinedValue) -> bool {
     ((from.value_1 + from.value_2) == to.value)
 }

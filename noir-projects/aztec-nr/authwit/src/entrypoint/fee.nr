@@ -51,7 +51,7 @@ impl FeePayload {
         bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
         bytes.push(self.is_fee_payer as u8);
 
-        bytes.storage
+        bytes.storage()
     }
 
     fn execute_calls(self, context: &mut PrivateContext) {

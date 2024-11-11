@@ -79,8 +79,8 @@ impl Nullifier {
 }
 
 pub struct ScopedNullifier {
-    nullifier: Nullifier,
-    contract_address: AztecAddress,
+    pub nullifier: Nullifier,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<Nullifier> for ScopedNullifier {

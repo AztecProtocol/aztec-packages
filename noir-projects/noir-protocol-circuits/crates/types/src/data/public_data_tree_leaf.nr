@@ -4,8 +4,8 @@ use crate::{
 };
 
 pub struct PublicDataTreeLeaf {
-    slot: Field,
-    value: Field,
+    pub slot: Field,
+    pub value: Field,
 }
 
 impl Eq for PublicDataTreeLeaf {
