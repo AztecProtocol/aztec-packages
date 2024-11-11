@@ -358,7 +358,16 @@ export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   aztecNrVersion: z.string().optional(),
   functions: z.array(FunctionArtifactSchema),
   outputs: z.object({
-    structs: z.record(z.array(AbiTypeSchema)),
+    structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
+      for (const [key, value] of Object.entries(structs)) {
+        // We are manually ordering events and functions in the abi by path.
+        // The path ordering is arbitrary, and only needed to ensure deterministic order.
+        if (key === 'events' || key === 'functions') {
+          structs[key] = (value as StructType[]).sort((a, b) => (a.path > b.path ? -1 : 1));
+        }
+      }
+      return structs;
+    }),
     globals: z.record(z.array(AbiValueSchema)),
   }),
   storageLayout: z.record(z.object({ slot: schemas.Fr })),
