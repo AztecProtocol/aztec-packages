@@ -98,7 +98,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec,
 
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_settings.structure = TraceStructure::SMALL_TEST;
 
     bool is_kernel = false;
     while (!program_stack.empty()) {
