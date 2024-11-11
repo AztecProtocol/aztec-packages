@@ -13,8 +13,6 @@ namespace acir_format {
 
 using namespace bb;
 using field_ct = stdlib::field_t<Builder>;
-// using bn254 = stdlib::bn254<Builder>;
-// using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
 ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
@@ -34,15 +32,6 @@ ClientIVC create_mock_ivc_from_constraints(const std::vector<RecursionConstraint
     }
 
     return ivc;
-}
-
-ClientIVC::VerifierInputs create_dummy_vkey_and_proof_for_ivc([[maybe_unused]] const PROOF_TYPE proof_type,
-                                                              [[maybe_unused]] size_t num_public_inputs = 0)
-{
-    ClientIVC::VerifierInputs verifier_inputs;
-    // verifier_inputs.type = proof_type;
-
-    return verifier_inputs;
 }
 
 /**
@@ -109,6 +98,8 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     auto mock_commitment = curve::BN254::AffineElement::one() * mock_val;
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
 
+    // There are 12 entities in the merge protocol (4 columns x 3 components; aggregate transcript, previous aggregate
+    // transcript, current transcript contribution)
     const size_t NUM_TRANSCRIPT_ENTITIES = 12;
 
     // Transcript poly commitments
