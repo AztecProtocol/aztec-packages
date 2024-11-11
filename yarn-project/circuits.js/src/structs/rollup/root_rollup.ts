@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
+import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
@@ -95,7 +95,7 @@ export class RootRollupPublicInputs {
     public endTimestamp: Fr,
     public endBlockNumber: Fr,
     public outHash: Fr,
-    public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     public vkTreeRoot: Fr,
     public protocolContractTreeRoot: Fr,
     public proverId: Fr,
@@ -144,7 +144,7 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),

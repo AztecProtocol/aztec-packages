@@ -257,20 +257,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           await store.getL1ToL2Messages(l2BlockNumber);
         }).rejects.toThrow(`L1 to L2 message gap found in block ${l2BlockNumber}`);
       });
-
-      it('correctly handles duplicate messages', async () => {
-        const messageHash = Fr.random();
-        const msgs = [new InboxLeaf(0n, messageHash), new InboxLeaf(16n, messageHash)];
-
-        await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
-
-        const index1 = (await store.getL1ToL2MessageIndex(messageHash, 0n))!;
-        expect(index1).toBe(0n);
-        const index2 = await store.getL1ToL2MessageIndex(messageHash, index1 + 1n);
-        expect(index2).toBeDefined();
-        expect(index2).toBeGreaterThan(index1);
-        expect(index2).toBe(16n);
-      });
     });
 
     describe('contractInstances', () => {
@@ -415,8 +401,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         logsByTags.forEach((logsByTag, logIndex) => {
           expect(logsByTag).toHaveLength(1);
-          const [log] = logsByTag;
-          expect(log).toEqual(
+          const [scopedLog] = logsByTag;
+          expect(scopedLog.txHash).toEqual(blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash);
+          expect(scopedLog.log).toEqual(
             blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex],
           );
         });
@@ -441,7 +428,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         logsByTags.forEach(logsByTag => {
           expect(logsByTag).toHaveLength(2);
-          const [tag0, tag1] = logsByTag.map(log => new Fr(log.data.subarray(0, 32)));
+          const [tag0, tag1] = logsByTag.map(scopedLog => new Fr(scopedLog.log.data.subarray(0, 32)));
           expect(tag0).toEqual(tag1);
         });
       });
@@ -464,8 +451,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         populatedLogsByTags.forEach((logsByTag, logIndex) => {
           expect(logsByTag).toHaveLength(1);
-          const [log] = logsByTag;
-          expect(log).toEqual(
+          const [scopedLog] = logsByTag;
+          expect(scopedLog.txHash).toEqual(blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash);
+          expect(scopedLog.log).toEqual(
             blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex + 1],
           );
         });

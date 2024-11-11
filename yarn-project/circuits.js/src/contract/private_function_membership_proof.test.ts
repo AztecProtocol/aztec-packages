@@ -21,7 +21,7 @@ describe('private_function_membership_proof', () => {
     artifact = getBenchmarkContractArtifact();
     contractClass = getContractClassFromArtifact(artifact);
     privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.PRIVATE)!;
-    vkHash = computeVerificationKeyHash(privateFunction.verificationKey!);
+    vkHash = computeVerificationKeyHash(privateFunction);
     selector = FunctionSelector.fromNameAndParameters(privateFunction);
   });
 

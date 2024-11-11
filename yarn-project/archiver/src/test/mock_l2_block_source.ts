@@ -1,5 +1,6 @@
 import { L2Block, type L2BlockSource, type L2Tips, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { getSlotRangeForEpoch } from '../archiver/epoch_helpers.js';
@@ -67,8 +68,8 @@ export class MockL2BlockSource implements L2BlockSource {
     return Promise.resolve(this.l2Blocks.length);
   }
 
-  public async getProvenBlockNumber(): Promise<number> {
-    return this.provenBlockNumber ?? (await this.getBlockNumber());
+  public getProvenBlockNumber(): Promise<number> {
+    return Promise.resolve(this.provenBlockNumber);
   }
 
   public getProvenL2EpochNumber(): Promise<number | undefined> {
@@ -103,7 +104,8 @@ export class MockL2BlockSource implements L2BlockSource {
   }
 
   getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
-    const [start, end] = getSlotRangeForEpoch(epochNumber);
+    const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
+    const [start, end] = getSlotRangeForEpoch(epochNumber, { epochDuration });
     const blocks = this.l2Blocks.filter(b => {
       const slot = b.header.globalVariables.slotNumber.toBigInt();
       return slot >= start && slot <= end;

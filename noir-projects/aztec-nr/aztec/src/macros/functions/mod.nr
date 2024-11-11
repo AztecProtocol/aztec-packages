@@ -1,4 +1,4 @@
-mod interfaces;
+pub mod interfaces;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
@@ -213,7 +213,6 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     };
     let modified_body = modify_fn_body(body, to_prepend, to_append);
     f.set_body(modified_body);
-    f.add_attribute("recursive");
     f.set_return_type(
         quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }
             .as_type(),

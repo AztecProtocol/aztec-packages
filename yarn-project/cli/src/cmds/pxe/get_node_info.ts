@@ -15,10 +15,10 @@ export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log:
   log(` L2 -> L1 Outbox Address: ${info.l1ContractAddresses.outboxAddress.toString()}`);
   log(` Fee Juice Address: ${info.l1ContractAddresses.feeJuiceAddress.toString()}`);
   log(` Fee Juice Portal Address: ${info.l1ContractAddresses.feeJuicePortalAddress.toString()}`);
-  log(` Nomismatokopio Address: ${info.l1ContractAddresses.nomismatokopioAddress.toString()}`);
-  log(` Sysstia Address: ${info.l1ContractAddresses.sysstiaAddress.toString()}`);
-  log(` Gerousia Address: ${info.l1ContractAddresses.gerousiaAddress.toString()}`);
-  log(` Apella Address: ${info.l1ContractAddresses.apellaAddress.toString()}`);
+  log(` CoinIssuer Address: ${info.l1ContractAddresses.coinIssuerAddress.toString()}`);
+  log(` RewardDistributor Address: ${info.l1ContractAddresses.rewardDistributorAddress.toString()}`);
+  log(` GovernanceProposer Address: ${info.l1ContractAddresses.governanceProposerAddress.toString()}`);
+  log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
 
   log(`L2 Contract Addresses:`);
   log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);

@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - master
+      - release/testnet*
       - "*/release-master*"
-      - ludamad-patch-2
   workflow_dispatch:
     inputs:
       tag:

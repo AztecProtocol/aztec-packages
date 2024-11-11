@@ -2003,9 +2003,9 @@ fn numeric_generic_u16_array_size() {
 fn numeric_generic_field_larger_than_u32() {
     let src = r#"
         global A: Field = 4294967297;
-        
+
         fn foo<let A: Field>() { }
-        
+
         fn main() {
             let _ = foo::<A>();
         }
@@ -2035,14 +2035,14 @@ fn numeric_generic_field_arithmetic_larger_than_u32() {
                 F
             }
         }
-        
+
         // 2^32 - 1
         global A: Field = 4294967295;
-        
+
         fn foo<let A: Field>() -> Foo<A + A> {
             Foo {}
         }
-        
+
         fn main() {
             let _ = foo::<A>().size();
         }
@@ -3470,7 +3470,7 @@ fn unconditional_recursion_fail() {
         fn main() -> pub u64 {
             foo(1, main())
         }
-        fn foo(a: u64, b: u64) -> u64 { 
+        fn foo(a: u64, b: u64) -> u64 {
             a + b
         }
         "#,

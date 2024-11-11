@@ -57,6 +57,7 @@ const makeMockPools = () => {
       getPendingTxHashes: jest.fn().mockReturnValue([]),
       getTxStatus: jest.fn().mockReturnValue(undefined),
       markAsMined: jest.fn(),
+      markMinedAsPending: jest.fn(),
     },
     attestationPool: {
       addAttestations: jest.fn(),

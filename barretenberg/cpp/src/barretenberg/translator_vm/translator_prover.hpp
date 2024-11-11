@@ -2,6 +2,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
@@ -47,6 +48,8 @@ class TranslatorProver {
     std::shared_ptr<ProvingKey> key;
 
     CommitmentLabels commitment_labels;
+
+    ZKSumcheckData<Flavor> zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
 

@@ -2,7 +2,7 @@ import { type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/c
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { attachedFixedDataToLogger, createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type P2P } from '@aztec/p2p';
 import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
@@ -37,10 +37,12 @@ export class ValidatorClient extends WithTracer implements Validator {
   constructor(
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
-    private attestationPoolingIntervalMs: number,
+    private attestationPollingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
     telemetry: TelemetryClient,
-    private log = createDebugLogger('aztec:validator', { validatorAddress: keyStore.getAddress().toString() }),
+    private log = attachedFixedDataToLogger(createDebugLogger('aztec:validator'), {
+      validatorAddress: keyStore.getAddress().toString(),
+    }),
   ) {
     // Instantiate tracer
     super(telemetry, 'Validator');
@@ -61,7 +63,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const validator = new ValidatorClient(
       localKeyStore,
       p2pClient,
-      config.attestationPoolingIntervalMs,
+      config.attestationPollingIntervalMs,
       config.attestationWaitTimeoutMs,
       telemetry,
     );
@@ -170,9 +172,9 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
 
       this.log.verbose(
-        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPoolingIntervalMs}ms for more...`,
+        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPollingIntervalMs}ms for more...`,
       );
-      await sleep(this.attestationPoolingIntervalMs);
+      await sleep(this.attestationPollingIntervalMs);
     }
   }
 }

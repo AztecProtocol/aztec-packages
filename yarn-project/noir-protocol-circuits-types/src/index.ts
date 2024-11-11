@@ -21,12 +21,10 @@ import {
   type PublicBaseRollupInputs,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
-  type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelTailCircuitPrivateInputs,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -40,7 +38,6 @@ import {
   ClientCircuitArtifacts,
   ServerCircuitArtifacts,
   SimulatedClientCircuitArtifacts,
-  SimulatedPublicKernelInnerArtifact,
   SimulatedPublicKernelMergeArtifact,
   SimulatedPublicKernelTailArtifact,
   SimulatedServerCircuitArtifacts,
@@ -70,13 +67,11 @@ import {
   mapPublicBaseRollupInputsToNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
-  mapPublicKernelInnerCircuitPrivateInputsToNoir,
   mapPublicKernelTailCircuitPrivateInputsToNoir,
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
   mapTxRequestToNoir,
-  mapVMCircuitPublicInputsFromNoir,
 } from './type_conversion.js';
 import {
   type ParityBaseReturnType,
@@ -87,7 +82,6 @@ import {
   type PrivateKernelResetReturnType,
   type PrivateKernelTailReturnType,
   type PrivateKernelTailToPublicReturnType,
-  type PublicKernelInnerSimulatedReturnType,
   type PublicKernelMergeSimulatedReturnType,
   type PublicKernelTailSimulatedReturnType,
   type RollupBasePrivateReturnType,
@@ -108,7 +102,6 @@ export * from './artifacts.js';
 export { maxPrivateKernelResetDimensions, privateKernelResetDimensionsConfig } from './private_kernel_reset_data.js';
 export * from './utils/private_kernel_reset.js';
 export * from './vks.js';
-export { hashVk } from './utils/vk_json.js';
 
 /* eslint-disable camelcase */
 
@@ -549,21 +542,6 @@ export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): W
 }
 
 /**
- * Converts the inputs of the public inner circuit into a witness map
- * @param inputs - The public kernel inputs.
- * @returns The witness map
- */
-export function convertSimulatedPublicInnerInputsToWitnessMap(
-  inputs: PublicKernelInnerCircuitPrivateInputs,
-): WitnessMap {
-  const mapped = mapPublicKernelInnerCircuitPrivateInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(SimulatedPublicKernelInnerArtifact.abi, {
-    input: mapped as any,
-  });
-  return initialWitnessMap;
-}
-
-/**
  * Converts the inputs of the public merge circuit into a witness map
  * @param inputs - The public kernel inputs.
  * @returns The witness map
@@ -780,21 +758,6 @@ export function convertRootParityOutputsFromWitnessMap(outputs: WitnessMap): Par
   const returnType = decodedInputs.return_value as ParityRootReturnType;
 
   return mapParityPublicInputsFromNoir(returnType);
-}
-
-/**
- * Converts the outputs of the public inner circuit from a witness map.
- * @param outputs - The public kernel outputs as a witness map.
- * @returns The public inputs.
- */
-export function convertSimulatedPublicInnerOutputFromWitnessMap(outputs: WitnessMap): VMCircuitPublicInputs {
-  // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(SimulatedPublicKernelInnerArtifact.abi, outputs);
-
-  // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicKernelInnerSimulatedReturnType;
-
-  return mapVMCircuitPublicInputsFromNoir(returnType);
 }
 
 /**

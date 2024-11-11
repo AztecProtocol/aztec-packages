@@ -8,9 +8,10 @@ using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 
-AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
-                                                           const RecursionConstraint& input,
-                                                           AggregationObjectIndices input_aggregation_object,
-                                                           bool has_valid_witness_assignments = false);
+PairingPointAccumulatorIndices create_honk_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object,
+    bool has_valid_witness_assignments = false);
 
 } // namespace acir_format

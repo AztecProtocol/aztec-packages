@@ -9,6 +9,5 @@ RUN apt-get update && apt-get install -y git
 RUN ./scripts/bootstrap_native.sh
 
 FROM ubuntu:noble
-COPY --from=0 /usr/src/avm-transpiler/scripts/compile_then_transpile.sh /usr/src/avm-transpiler/scripts/compile_then_transpile.sh
 COPY --from=0 /usr/src/avm-transpiler/target/release/avm-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler
 ENTRYPOINT ["/usr/src/avm-transpiler/target/release/avm-transpiler"]

@@ -6,6 +6,7 @@ use crate::hir::def_collector::dc_crate::CompilationError;
 
 use crate::locations::ReferencesTracker;
 use crate::usage_tracker::UsageTracker;
+use crate::Type;
 
 use std::collections::BTreeMap;
 

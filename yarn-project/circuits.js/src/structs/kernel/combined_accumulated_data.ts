@@ -17,7 +17,7 @@ import {
 import { Gas } from '../gas.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
-import { PublicDataUpdateRequest } from '../public_data_update_request.js';
+import { PublicDataWrite } from '../public_data_write.js';
 
 /**
  * Data that is accumulated during the execution of the transaction.
@@ -64,7 +64,7 @@ export class CombinedAccumulatedData {
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 
     /** Gas used during this transaction */
     public gasUsed: Gas,
@@ -81,7 +81,7 @@ export class CombinedAccumulatedData {
       this.noteEncryptedLogPreimagesLength.size +
       this.encryptedLogPreimagesLength.size +
       this.unencryptedLogPreimagesLength.size +
-      arraySerializedSizeOfNonEmpty(this.publicDataUpdateRequests) +
+      arraySerializedSizeOfNonEmpty(this.publicDataWrites) +
       this.gasUsed.toBuffer().length
     );
   }
@@ -97,7 +97,7 @@ export class CombinedAccumulatedData {
       fields.noteEncryptedLogPreimagesLength,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
-      fields.publicDataUpdateRequests,
+      fields.publicDataWrites,
       fields.gasUsed,
     ] as const;
   }
@@ -131,7 +131,7 @@ export class CombinedAccumulatedData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
       reader.readObject(Gas),
     );
   }
@@ -156,7 +156,7 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
       Gas.empty(),
     );
   }
@@ -190,7 +190,7 @@ export class CombinedAccumulatedData {
       noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
       encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
       unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
-      publicDataUpdateRequests: [${this.publicDataUpdateRequests
+      publicDataWrites: [${this.publicDataWrites
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],

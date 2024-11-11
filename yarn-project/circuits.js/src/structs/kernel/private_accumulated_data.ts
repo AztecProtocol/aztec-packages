@@ -3,12 +3,12 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
@@ -16,7 +16,7 @@ import { NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash } from '../log_hash.
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import { PrivateCallRequest } from '../private_call_request.js';
-import { PublicCallRequest } from '../public_call_request.js';
+import { CountedPublicCallRequest } from '../public_call_request.js';
 
 /**
  * Specific accumulated data structure for the final ordering private kernel circuit. It is included
@@ -54,7 +54,7 @@ export class PrivateAccumulatedData {
     /**
      * Accumulated public call requests from all the previous kernel iterations.
      */
-    public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public publicCallRequests: Tuple<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     /**
      * Current private call stack.
      */
@@ -92,7 +92,7 @@ export class PrivateAccumulatedData {
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
+      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest),
     );
   }
@@ -114,7 +114,7 @@ export class PrivateAccumulatedData {
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
+      makeTuple(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest.empty),
     );
   }

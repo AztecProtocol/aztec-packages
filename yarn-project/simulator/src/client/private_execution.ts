@@ -13,7 +13,7 @@ import { Timer } from '@aztec/foundation/timer';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, acvm, extractCallStack } from '../acvm/index.js';
-import { ExecutionError } from '../common/errors.js';
+import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 
 /**
@@ -33,6 +33,7 @@ export async function executePrivateFunction(
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
   const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+    err.message = resolveAssertionMessageFromError(err, artifact);
     throw new ExecutionError(
       err.message,
       {
@@ -75,7 +76,7 @@ export async function executePrivateFunction(
 
   return new PrivateExecutionResult(
     acir,
-    Buffer.from(artifact.verificationKey!, 'hex'),
+    Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
     noteHashLeafIndexMap,

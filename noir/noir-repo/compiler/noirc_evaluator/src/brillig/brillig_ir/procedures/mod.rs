@@ -4,6 +4,7 @@ mod check_max_stack_depth;
 mod mem_copy;
 mod prepare_vector_insert;
 mod prepare_vector_push;
+mod revert_with_string;
 mod vector_copy;
 mod vector_pop_back;
 mod vector_pop_front;
@@ -45,6 +46,64 @@ pub enum ProcedureId {
     PrepareVectorInsert,
     VectorRemove,
     CheckMaxStackDepth,
+    RevertWithString(String),
+}
+
+impl ProcedureId {
+    pub(crate) fn to_debug_id(&self) -> ProcedureDebugId {
+        ProcedureDebugId(match self {
+            ProcedureId::ArrayCopy => 0,
+            ProcedureId::ArrayReverse => 1,
+            ProcedureId::VectorCopy => 2,
+            ProcedureId::MemCopy => 3,
+            ProcedureId::PrepareVectorPush(true) => 4,
+            ProcedureId::PrepareVectorPush(false) => 5,
+            ProcedureId::VectorPopFront => 6,
+            ProcedureId::VectorPopBack => 7,
+            ProcedureId::PrepareVectorInsert => 8,
+            ProcedureId::VectorRemove => 9,
+            ProcedureId::CheckMaxStackDepth => 10,
+            ProcedureId::RevertWithString(_) => 11,
+        })
+    }
+
+    pub fn from_debug_id(debug_id: ProcedureDebugId) -> Self {
+        let inner = debug_id.0;
+        match inner {
+            0 => ProcedureId::ArrayCopy,
+            1 => ProcedureId::ArrayReverse,
+            2 => ProcedureId::VectorCopy,
+            3 => ProcedureId::MemCopy,
+            4 => ProcedureId::PrepareVectorPush(true),
+            5 => ProcedureId::PrepareVectorPush(false),
+            6 => ProcedureId::VectorPopFront,
+            7 => ProcedureId::VectorPopBack,
+            8 => ProcedureId::PrepareVectorInsert,
+            9 => ProcedureId::VectorRemove,
+            10 => ProcedureId::CheckMaxStackDepth,
+            // TODO: what to do here?
+            11 => ProcedureId::RevertWithString("".to_string()),
+            _ => panic!("Unsupported procedure debug ID of {inner} was supplied"),
+        }
+    }
+}
+
+impl std::fmt::Display for ProcedureId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProcedureId::ArrayCopy => write!(f, "ArrayCopy"),
+            ProcedureId::ArrayReverse => write!(f, "ArrayReverse"),
+            ProcedureId::VectorCopy => write!(f, "VectorCopy"),
+            ProcedureId::MemCopy => write!(f, "MemCopy"),
+            ProcedureId::PrepareVectorPush(flag) => write!(f, "PrepareVectorPush({flag})"),
+            ProcedureId::VectorPopFront => write!(f, "VectorPopFront"),
+            ProcedureId::VectorPopBack => write!(f, "VectorPopBack"),
+            ProcedureId::PrepareVectorInsert => write!(f, "PrepareVectorInsert"),
+            ProcedureId::VectorRemove => write!(f, "VectorRemove"),
+            ProcedureId::CheckMaxStackDepth => write!(f, "CheckMaxStackDepth"),
+            ProcedureId::RevertWithString(_) => write!(f, "RevertWithString"),
+        }
+    }
 }
 
 impl ProcedureId {
@@ -126,6 +185,9 @@ pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
         ProcedureId::VectorRemove => compile_vector_remove_procedure(&mut brillig_context),
         ProcedureId::CheckMaxStackDepth => {
             compile_check_max_stack_depth_procedure(&mut brillig_context);
+        }
+        ProcedureId::RevertWithString(revert_string) => {
+            compile_revert_with_string_procedure(&mut brillig_context, revert_string);
         }
     };
 

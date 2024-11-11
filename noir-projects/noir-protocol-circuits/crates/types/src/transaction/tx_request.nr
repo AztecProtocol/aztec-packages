@@ -53,7 +53,7 @@ impl Serialize<TX_REQUEST_LENGTH> for TxRequest {
 
         assert_eq(fields.len(), TX_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
