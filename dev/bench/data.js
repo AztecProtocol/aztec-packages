@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731348867368,
+  "lastUpdate": 1731406238940,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8658abd46612d3fdf8c8b54902c201c790a52345",
-          "message": "feat: fixed number of pub inputs for databus commitment propagation (#9336)\n\nThis work is motivated by the need to have a \"write vk\" method for\r\nkernel circuits that depends only on acir constraints (no witness data\r\nor historical data about the previously accumulated circuits). This is\r\nmade difficult by the inter-circuit databus consistency check mechanism\r\nwhich, until now, added structure to a present circuit based on the\r\nstructure of previous circuits. This PR makes updates to the mechanism\r\nso that the constraints associated with the databus consistency checks\r\nare consistent across all kernel circuits. There are two components to\r\nthis:\r\n\r\n(1) Every kernel propagates 2 commitments worth of data (one for app\r\nreturn data, one for kernel return data) on its public inputs.\r\n(Previously this was allowed to be 0, 1 or 2 depending on the number of\r\nrecursive verifications performed by the kernel). If data does not exist\r\nfor either of these (e.g. if the kernel is only verifying a proof of one\r\nor the other), a default value is propagated. (This value is set to\r\nmatch the commitment to the \"empty\" calldata that will correspond to the\r\nmissing return data).\r\n\r\n(2) Every kernel performs two commitment consistency checks: one that\r\nchecks that the app `return_data` is equal to the `secondary_calldata`\r\nand one that checks that the previous kernel `return_data` is equal to\r\nthe `calldata`. (Previously there could be 0, 1, or 2 such checks\r\ndepending on the data propagated on the public inputs of the kernel\r\nbeing recursively verified - hence the need for knowledge of history /\r\nwitness data).\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1125 (had to\r\ndo with dynamically determining the number of public inputs associated\r\nwith databus commitments which is now fixed in size to 16).",
-          "timestamp": "2024-10-28T07:42:16-07:00",
-          "tree_id": "ba603d89606afceb8d617f12a28cec086931da61",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8658abd46612d3fdf8c8b54902c201c790a52345"
-        },
-        "date": 1730128864710,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 30866.215102000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 29142.921290000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5351.697946000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 5064.016449999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91351.84189,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91351844000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15169.656309999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15169656000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2686004829,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2686004829 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125664065,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125664065 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2992,6 +2932,66 @@ window.BENCHMARK_DATA = {
             "value": 144173219,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144173219 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "52ae4e1710d07aca497de723294f7b7c0100b479",
+          "message": "feat: Stop with HeapVector (#9810)\n\nUpdates the Brillig stop opcode to return a HeapVector (pointer +\r\ndynamic size). Also changes the transpiler, simulator and witness gen of\r\nthe AVM to support it.",
+          "timestamp": "2024-11-12T10:48:00+01:00",
+          "tree_id": "803e7af38f86d95af4f08cec3ac224d3ca1c2e33",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/52ae4e1710d07aca497de723294f7b7c0100b479"
+        },
+        "date": 1731406229347,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 29101.755018000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 27303.958217000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5378.694405000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5080.480593000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85260.90027400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85260901000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15206.629582,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15206629000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3121214461,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3121214461 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143752589,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143752589 ns\nthreads: 1"
           }
         ]
       }
