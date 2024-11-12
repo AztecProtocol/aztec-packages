@@ -342,16 +342,9 @@ void process_plonk_recursion_constraints(Builder& builder,
     // inputs.
     if (!constraint_system.recursion_constraints.empty()) {
 
-        // First add the output aggregation object as public inputs
-        // Set the indices as public inputs because they are no longer being
-        // created in ACIR
-        for (const auto& idx : current_output_aggregation_object) {
-            builder.set_public_input(idx);
-        }
-
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.set_pairing_point_accumulator(current_output_aggregation_object);
+        builder.add_pairing_point_accumulator(current_output_aggregation_object);
     }
 }
 

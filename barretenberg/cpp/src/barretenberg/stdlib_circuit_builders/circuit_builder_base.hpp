@@ -42,6 +42,8 @@ template <typename FF_> class CircuitBuilderBase {
 
     // Public input indices which contain the output IPA opening claim
     IPAClaimPubInputIndices ipa_claim_public_input_indices;
+    bool contains_ipa_claim = false;
+
     uint32_t ipa_verifier_count = 0;
 
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
@@ -210,18 +212,9 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_output_witness_indices);
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
 
-    /**
-     * TODO: We can remove this and use `add_pairing_point_accumulator` once my question has been addressed
-     * TODO: using `add_pairing_point_accumulator` also means that we will need to remove the cde which is
-     * TODO: adding the public_inputs
-     * @brief Update pairing_point_accumulator_public_input_indices with existing public inputs that represent a
-     * recursive proof
-     *
-     * @param proof_output_witness_indices
-     */
-    void set_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_output_witness_indices);
+    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
 
     bool failed() const;
     const std::string& err() const;

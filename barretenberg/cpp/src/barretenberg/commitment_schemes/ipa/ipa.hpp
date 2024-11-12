@@ -822,6 +822,10 @@ template <typename Curve_> class IPA {
         for (Fr u_inv_i : pair_2.u_challenges_inv) {
             native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
+        // Add IPA Claim to public inputs of circuit
+        Builder* builder = r.get_context();
+        builder->add_ipa_claim(output_claim.get_witness_indices());
+        
         return {output_claim, create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()))};
     }
 };
