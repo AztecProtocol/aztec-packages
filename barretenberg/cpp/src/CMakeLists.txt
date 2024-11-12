@@ -49,7 +49,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLU
 # and there currently isn't an easy way to inherit the DDISABLE_ASM parameter.
 if(DISABLE_ASM)
     message("Using fallback non-assembly methods for field multiplications.")
-    add_definitions(-DDISABLE_ASM=1)
+    add_compile_definitions(DISABLE_ASM=1)
 else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
