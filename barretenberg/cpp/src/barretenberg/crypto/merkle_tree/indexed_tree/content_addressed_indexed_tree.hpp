@@ -318,7 +318,8 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(s
     meta.initialRoot = result.inner.root;
     meta.initialSize = result.inner.size;
     store_->put_meta(meta);
-    store_->commit(false);
+    TreeDBStats stats;
+    store_->commit(meta, stats, false);
 }
 
 template <typename Store, typename HashingPolicy>

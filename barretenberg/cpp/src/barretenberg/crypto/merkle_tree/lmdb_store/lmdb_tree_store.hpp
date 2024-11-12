@@ -63,58 +63,6 @@ struct NodePayload {
         return left == other.left && right == other.right && ref == other.ref;
     }
 };
-const std::string BLOCKS_DB = "blocks";
-const std::string NODES_DB = "nodes";
-const std::string LEAF_PREIMAGES_DB = "leaf preimages";
-const std::string LEAF_KEYS_DB = "leaf keys";
-const std::string LEAF_INDICES_DB = "leaf indices";
-
-struct DBStats {
-    std::string name;
-    uint64_t mapSize;
-    uint64_t numDataItems;
-    uint64_t totalUsedSize;
-
-    DBStats() = default;
-    DBStats(const DBStats& other) = default;
-    DBStats(DBStats&& other) noexcept
-        : name(std::move(other.name))
-        , mapSize(other.mapSize)
-        , numDataItems(other.numDataItems)
-        , totalUsedSize(other.totalUsedSize)
-    {}
-    ~DBStats() = default;
-    DBStats(std::string name, MDB_envinfo& env, MDB_stat& stat)
-        : name(std::move(name))
-        , mapSize(env.me_mapsize)
-        , numDataItems(stat.ms_entries)
-        , totalUsedSize(stat.ms_psize * (stat.ms_branch_pages + stat.ms_leaf_pages + stat.ms_overflow_pages))
-    {}
-
-    MSGPACK_FIELDS(name, mapSize, numDataItems, totalUsedSize)
-
-    bool operator==(const DBStats& other) const
-    {
-        return name == other.name && mapSize == other.mapSize && numDataItems == other.numDataItems &&
-               totalUsedSize == other.totalUsedSize;
-    }
-
-    DBStats& operator=(const DBStats& other) = default;
-
-    friend std::ostream& operator<<(std::ostream& os, const DBStats& stats)
-    {
-        os << "DB " << stats.name << ", map size: " << stats.mapSize << ", num items: " << stats.numDataItems
-           << ", total used size: " << stats.totalUsedSize;
-        return os;
-    }
-};
-
-using TreeDBStats = std::unordered_map<std::string, DBStats>;
-
-using WorldStateDBStats = std::unordered_map<world_state::MerkleTreeId, TreeDBStats>;
-
-std::ostream& operator<<(std::ostream& os, const TreeDBStats& stats);
-
 /**
  * Creates an abstraction against a collection of LMDB databases within a single environment used to store merkle tree
  * data

@@ -67,8 +67,6 @@ void inline print_store_data(LMDBTreeStore::SharedPtr db, std::ostream& os)
     TreeDBStats stats;
     db->get_stats(stats, *tx);
 
-    for (const auto& m : stats) {
-        os << m.first << m.second << std::endl;
-    }
+    os << stats;
 }
 } // namespace bb::crypto::merkle_tree

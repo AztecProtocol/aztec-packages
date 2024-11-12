@@ -24,7 +24,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 
-import { type WorldStateStatus } from '../native/message.js';
+import { type WorldStateStatusSummary } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateConfig } from './config.js';
 
@@ -225,7 +225,7 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus> {
+  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusSummary> {
     // First we check that the L1 to L2 messages hash to the block inHash.
     // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
     // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that

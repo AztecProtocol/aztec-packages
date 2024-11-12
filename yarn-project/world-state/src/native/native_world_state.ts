@@ -32,7 +32,8 @@ import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-sta
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
-  type WorldStateStatus,
+  WorldStateStatusFull,
+  type WorldStateStatusSummary,
   blockStateReference,
   treeStateReferenceToSnapshot,
   worldStateRevision,
@@ -71,7 +72,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     const instance = new NativeWorldState(dataDir, dbMapSizeKb);
     const worldState = new this(instance, log, cleanup);
-    await worldState.init();
+    try {
+      await worldState.init();
+    } catch(e) {
+      log.error(`Error initialising world state: ${e}`);
+      throw e;
+    }
+
     return worldState;
   }
 
@@ -97,7 +104,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected async init() {
     const status = await this.getStatus();
     if (!status.treesAreSynched) {
-      throw new Error("World state trees are out of sync");
+      throw new Error("World state trees are out of sync, please delete your data directory and re-sync");
     }
     this.initialHeader = await this.buildInitialHeader();
     const committed = this.getCommitted();
@@ -134,7 +141,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatus> {
+  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusSummary> {
     // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
     // by circuits.
     const paddedTxEffects = padArrayEnd(
@@ -174,7 +181,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       batchesOfPaddedPublicDataWrites: batchesOfPaddedPublicDataWrites.map(batch => batch.map(serializeLeaf)),
       blockStateRef: blockStateReference(l2Block.header.state),
     });
-    return response.status;
+    return response.summary;
   }
 
   public async close(): Promise<void> {

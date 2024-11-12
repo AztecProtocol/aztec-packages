@@ -193,7 +193,7 @@ struct SyncBlockRequest {
 };
 
 struct SyncBlockResponse {
-    WorldStateStatus status;
+    WorldStateStatusSummary status;
     MSGPACK_FIELDS(status);
 };
 

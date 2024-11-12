@@ -1,10 +1,12 @@
 #pragma once
 
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
+#include <utility>
 #include <variant>
 
 namespace bb::world_state {
@@ -38,26 +40,131 @@ struct WorldStateRevision {
     static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
 };
 
-struct WorldStateStatus {
+struct WorldStateStatusSummary {
     index_t unfinalisedBlockNumber;
     index_t finalisedBlockNumber;
     index_t oldestHistoricalBlock;
     bool treesAreSynched;
     MSGPACK_FIELDS(unfinalisedBlockNumber, finalisedBlockNumber, oldestHistoricalBlock, treesAreSynched);
 
-    bool operator==(const WorldStateStatus& other) const
+    WorldStateStatusSummary() = default;
+    WorldStateStatusSummary(const index_t& unfinalisedBlockNumber,
+                            const index_t& finalisedBlockNumber,
+                            const index_t& oldestHistoricBlock,
+                            bool treesAreSynched)
+        : unfinalisedBlockNumber(unfinalisedBlockNumber)
+        , finalisedBlockNumber(finalisedBlockNumber)
+        , oldestHistoricalBlock(oldestHistoricBlock)
+        , treesAreSynched(treesAreSynched)
+    {}
+    WorldStateStatusSummary(const WorldStateStatusSummary& other) = default;
+    WorldStateStatusSummary(WorldStateStatusSummary&& other) noexcept { *this = std::move(other); }
+
+    WorldStateStatusSummary& operator=(WorldStateStatusSummary&& other) noexcept
+    {
+        if (this != &other) {
+            *this = other;
+        }
+        return *this;
+    }
+
+    ~WorldStateStatusSummary() = default;
+
+    WorldStateStatusSummary& operator=(const WorldStateStatusSummary& other) = default;
+
+    bool operator==(const WorldStateStatusSummary& other) const
     {
         return unfinalisedBlockNumber == other.unfinalisedBlockNumber &&
                finalisedBlockNumber == other.finalisedBlockNumber &&
                oldestHistoricalBlock == other.oldestHistoricalBlock && treesAreSynched == other.treesAreSynched;
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const WorldStateStatus& status)
+    friend std::ostream& operator<<(std::ostream& os, const WorldStateStatusSummary& status)
     {
         os << "unfinalisedBlockNumber: " << status.unfinalisedBlockNumber
            << ", finalisedBlockNumber: " << status.finalisedBlockNumber
            << ", oldestHistoricalBlock: " << status.oldestHistoricalBlock
            << ", treesAreSynched: " << status.treesAreSynched;
+        return os;
+    }
+};
+
+struct WorldStateDBStats {
+    TreeDBStats noteHashTreeStats;
+    TreeDBStats messageTreeStats;
+    TreeDBStats archiveTreeStats;
+    TreeDBStats publicDataTreeStats;
+    TreeDBStats nullifierTreeStats;
+
+    MSGPACK_FIELDS(noteHashTreeStats, messageTreeStats, archiveTreeStats, publicDataTreeStats, nullifierTreeStats);
+
+    WorldStateDBStats() = default;
+    WorldStateDBStats(const WorldStateDBStats& other) = default;
+    WorldStateDBStats(WorldStateDBStats&& other) noexcept { *this = std::move(other); }
+
+    WorldStateDBStats& operator=(WorldStateDBStats&& other) noexcept
+    {
+        if (this != &other) {
+            noteHashTreeStats = std::move(other.noteHashTreeStats);
+            messageTreeStats = std::move(other.messageTreeStats);
+            archiveTreeStats = std::move(other.archiveTreeStats);
+            publicDataTreeStats = std::move(other.publicDataTreeStats);
+            nullifierTreeStats = std::move(other.nullifierTreeStats);
+        }
+        return *this;
+    }
+
+    ~WorldStateDBStats() = default;
+
+    bool operator==(const WorldStateDBStats& other) const
+    {
+        return noteHashTreeStats == other.noteHashTreeStats && messageTreeStats == other.messageTreeStats &&
+               archiveTreeStats == other.archiveTreeStats && publicDataTreeStats == other.publicDataTreeStats &&
+               nullifierTreeStats == other.nullifierTreeStats;
+    }
+
+    WorldStateDBStats& operator=(const WorldStateDBStats& other) = default;
+
+    friend std::ostream& operator<<(std::ostream& os, const WorldStateDBStats& stats)
+    {
+        os << "Note hash tree stats " << stats.noteHashTreeStats << ", Message tree stats " << stats.messageTreeStats
+           << ", Archive tree stats " << stats.archiveTreeStats << ", Public Data tree stats "
+           << stats.publicDataTreeStats << ", Nullifier tree stats " << stats.nullifierTreeStats;
+        return os;
+    }
+};
+
+struct WorldStateStatusFull {
+    WorldStateStatusSummary summary;
+    WorldStateDBStats dbStats;
+
+    MSGPACK_FIELDS(summary, dbStats);
+
+    WorldStateStatusFull() = default;
+    WorldStateStatusFull(const WorldStateStatusFull& other) = default;
+    WorldStateStatusFull(WorldStateStatusFull&& other) noexcept { *this = std::move(other); }
+
+    WorldStateStatusFull& operator=(WorldStateStatusFull&& other) noexcept
+    {
+        if (this != &other) {
+            summary = std::move(other.summary);
+            dbStats = std::move(other.dbStats);
+        }
+        return *this;
+    }
+
+    ~WorldStateStatusFull() = default;
+
+    WorldStateStatusFull& operator=(const WorldStateStatusFull& other) = default;
+
+    bool operator==(const WorldStateStatusFull& other) const
+    {
+        return summary == other.summary && dbStats == other.dbStats;
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const WorldStateStatusFull& status)
+    {
+        os << "Summary: " << status.summary << ", DB Stats " << status.dbStats;
         return os;
     }
 };

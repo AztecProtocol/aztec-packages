@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, TreeLeafReadRequest, type StateReference, type UInt32 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export type MessageHeaderInit = {
@@ -84,7 +84,7 @@ interface WithTreeId {
   treeId: MerkleTreeId;
 }
 
-export interface WorldStateStatus {
+export interface WorldStateStatusSummary {
   /** Last block number that can still be unwound. */
   unfinalisedBlockNumber: bigint;
   /** Last block number that is finalised and cannot be unwound. */
@@ -93,6 +93,48 @@ export interface WorldStateStatus {
   oldestHistoricalBlock: bigint;
   /** Whether the trees are in sync with each other */
   treesAreSynched: boolean;
+}
+
+export interface DBStats {
+  /** The name of the DB */
+  name: string;
+  /** The total number of key/value pairs in the DB */
+  numDataItems: bigint;
+  /** The current mapped size of the DB */
+  totalUsedSize: bigint;
+}
+
+export interface TreeDBStats {
+  /** The configured max size of the DB mapping file (effectively the max possible size of the DB) */
+  mapSize: bigint;
+  /** Stats for the 'blocks' DB */
+  blocksDBStats: DBStats;
+  /** Stats for the 'nodes' DB */
+  nodesDBStats: DBStats;
+  /** Stats for the 'leaf pre-images' DB */
+  leafPreimagesDBStats: DBStats;
+  /** Stats for the 'leaf keys' DB */
+  leafKeysDBStats: DBStats;
+  /** Stats for the 'leaf indices' DB */
+  leafIndicesDBStats: DBStats;
+}
+
+export interface WorldStateDBStats {
+  /** Full stats for the note hash tree */
+  noteHashTreeStats: TreeDBStats;
+  /** Full stats for the message tree */
+  messageTreeStats: TreeDBStats;
+  /** Full stats for the archive tree */
+  archiveTreeStats: TreeDBStats;
+  /** Full stats for the public data tree */
+  publicDataTreeStats: TreeDBStats;
+  /** Full stats for the nullifier tree */
+  nullifierTreeStats: TreeDBStats;
+}
+
+export interface WorldStateStatusFull {
+  summary: WorldStateStatusSummary;
+  dbStats: WorldStateDBStats;
 }
 
 interface WithForkId {
@@ -195,10 +237,6 @@ interface SyncBlockRequest {
   batchesOfPaddedPublicDataWrites: readonly SerializedLeafValue[][];
 }
 
-interface SyncBlockResponse {
-  status: WorldStateStatus;
-}
-
 interface CreateForkRequest {
   latest: boolean;
   blockNumber: number;
@@ -274,16 +312,16 @@ export type WorldStateResponse = {
   [WorldStateMessageType.COMMIT]: void;
   [WorldStateMessageType.ROLLBACK]: void;
 
-  [WorldStateMessageType.SYNC_BLOCK]: SyncBlockResponse;
+  [WorldStateMessageType.SYNC_BLOCK]: WorldStateStatusFull;
 
   [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
   [WorldStateMessageType.DELETE_FORK]: void;
 
-  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatus;
-  [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatus;
-  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatus;
+  [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatusFull;
+  [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatusFull;
+  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusFull;
 
-  [WorldStateMessageType.GET_STATUS]: WorldStateStatus;
+  [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.CLOSE]: void;
 };

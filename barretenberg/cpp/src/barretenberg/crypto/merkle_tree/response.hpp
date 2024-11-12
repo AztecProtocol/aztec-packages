@@ -94,7 +94,7 @@ struct Response {
 
 template <typename ResponseType>
 void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>& f,
-                        const std::function<void(const TypedResponse<ResponseType>&)>& on_completion)
+                        const std::function<void(TypedResponse<ResponseType>&)>& on_completion)
 {
     TypedResponse<ResponseType> response;
     try {

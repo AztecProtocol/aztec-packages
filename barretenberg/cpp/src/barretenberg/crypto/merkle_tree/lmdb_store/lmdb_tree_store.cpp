@@ -47,14 +47,6 @@ int index_key_cmp(const MDB_val* a, const MDB_val* b)
     return value_cmp<uint64_t>(a, b);
 }
 
-std::ostream& operator<<(std::ostream& os, const TreeDBStats& stats)
-{
-    for (const auto& it : stats) {
-        os << it.second << std::endl;
-    }
-    return os;
-}
-
 LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
     : _name(std::move(name))
     , _directory(std::move(directory))
@@ -113,16 +105,17 @@ void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
     MDB_stat stat;
     MDB_envinfo info;
     call_lmdb_func(mdb_env_info, _environment->underlying(), &info);
+    stats.mapSize = info.me_mapsize;
     call_lmdb_func(mdb_stat, tx.underlying(), _blockDatabase->underlying(), &stat);
-    stats[BLOCKS_DB] = DBStats(BLOCKS_DB, info, stat);
+    stats.blocksDBStats = DBStats(BLOCKS_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafHashToPreImageDatabase->underlying(), &stat);
-    stats[LEAF_PREIMAGES_DB] = DBStats(LEAF_PREIMAGES_DB, info, stat);
+    stats.leafPreimagesDBStats = DBStats(LEAF_PREIMAGES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafValueToIndexDatabase->underlying(), &stat);
-    stats[LEAF_INDICES_DB] = DBStats(LEAF_INDICES_DB, info, stat);
+    stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
-    stats[NODES_DB] = DBStats(NODES_DB, info, stat);
+    stats.nodesDBStats = DBStats(NODES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _leafIndexToKeyDatabase->underlying(), &stat);
-    stats[LEAF_KEYS_DB] = DBStats(LEAF_KEYS_DB, info, stat);
+    stats.leafKeysDBStats = DBStats(LEAF_KEYS_DB, stat);
 }
 
 void LMDBTreeStore::write_block_data(uint64_t blockNumber,

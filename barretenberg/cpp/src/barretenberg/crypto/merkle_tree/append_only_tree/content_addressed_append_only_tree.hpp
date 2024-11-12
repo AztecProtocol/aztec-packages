@@ -44,10 +44,10 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using HashPathCallback = std::function<void(const TypedResponse<GetSiblingPathResponse>&)>;
     using FindLeafCallback = std::function<void(const TypedResponse<FindLeafIndexResponse>&)>;
     using GetLeafCallback = std::function<void(const TypedResponse<GetLeafResponse>&)>;
-    using CommitCallback = std::function<void(const TypedResponse<CommitResponse>&)>;
+    using CommitCallback = std::function<void(TypedResponse<CommitResponse>&)>;
     using RollbackCallback = std::function<void(const Response&)>;
-    using RemoveHistoricBlockCallback = std::function<void(const TypedResponse<RemoveHistoricResponse>&)>;
-    using UnwindBlockCallback = std::function<void(const TypedResponse<UnwindResponse>&)>;
+    using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
+    using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
     using FinaliseBlockCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
@@ -280,7 +280,8 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
     meta.initialRoot = meta.root = current;
     meta.initialSize = meta.size = 0;
     store_->put_meta(meta);
-    store_->commit(false);
+    TreeDBStats stats;
+    store_->commit(meta, stats, false);
 
     // if we were given initial values to insert then we do that now
     if (!initial_values.empty()) {
@@ -305,7 +306,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         meta.initialSize = meta.size = result.inner.size;
 
         store_->put_meta(meta);
-        store_->commit(false);
+        store_->commit(meta, stats, false);
     }
 }
 

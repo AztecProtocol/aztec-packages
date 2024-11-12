@@ -336,7 +336,7 @@ template <typename TypeOfTree> void check_unfinalised_block_height(TypeOfTree& t
 template <typename TypeOfTree> void commit_tree(TypeOfTree& tree, bool expectedSuccess = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<CommitResponse>& response) -> void {
         EXPECT_EQ(response.success, expectedSuccess);
         signal.signal_level();
     };
@@ -387,7 +387,7 @@ template <typename TypeOfTree>
 void remove_historic_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<RemoveHistoricResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -411,7 +411,7 @@ template <typename TypeOfTree>
 void unwind_block(TypeOfTree& tree, const index_t& blockNumber, bool expected_success = true)
 {
     Signal signal;
-    auto completion = [&](const Response& response) -> void {
+    auto completion = [&](const TypedResponse<UnwindResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
@@ -1211,7 +1211,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
         Signal signal(1 + num_reads);
 
         auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>&) {
-            auto commit_completion = [&](const Response&) { signal.signal_decrement(); };
+            auto commit_completion = [&](const TypedResponse<CommitResponse>&) { signal.signal_decrement(); };
             tree.commit(commit_completion);
         };
         tree.add_or_update_value(VALUES[0], add_completion);
