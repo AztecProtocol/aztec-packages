@@ -276,7 +276,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -329,7 +329,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -406,7 +406,7 @@ TEST_F(UltraRelationCorrectnessTests, TruncatedPermutation)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters);
 
     auto& prover_polynomials = decider_pk->proving_key.polynomials;
     auto params = decider_pk->relation_parameters;

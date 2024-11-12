@@ -232,8 +232,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
-    // Compute the permutation and lookup grand product polynomials
-    proving_key->proving_key.compute_grand_product_polynomials(proving_key->relation_parameters);
+    // Compute the permutation grand product polynomial
+    proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters);
 
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");
