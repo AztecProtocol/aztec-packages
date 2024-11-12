@@ -42,6 +42,9 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputComposer<NUM_PUBLIC_DATA_L
             output_hints,
         );
 
+        let gas_used =
+            self.previous_kernel.end_non_revertible.gas_used + self.previous_kernel.end.gas_used;
+
         (
             KernelCircuitPublicInputs {
                 rollup_validation_requests: self.previous_kernel.validation_requests.for_rollup,
@@ -49,6 +52,7 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputComposer<NUM_PUBLIC_DATA_L
                 constants: self.previous_kernel.constants,
                 start_state: self.start_state,
                 revert_code: self.previous_kernel.revert_code,
+                gas_used,
                 fee_payer: self.previous_kernel.fee_payer,
             }, output_hints,
         )

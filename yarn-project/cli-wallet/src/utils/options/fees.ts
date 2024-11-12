@@ -19,7 +19,6 @@ import { aliasedAddressParser } from './index.js';
 
 export type CliFeeArgs = {
   estimateGasOnly: boolean;
-  inclusionFee?: bigint;
   gasLimits?: string;
   payment?: string;
   estimateGas?: boolean;
@@ -36,9 +35,8 @@ export function printGasEstimates(
   gasEstimates: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
   log: LogFn,
 ) {
-  const inclusionFee = feeOpts.gasSettings.inclusionFee;
-  log(`Maximum total tx fee:   ${getEstimatedCost(gasEstimates, inclusionFee, GasSettings.default().maxFeesPerGas)}`);
-  log(`Estimated total tx fee: ${getEstimatedCost(gasEstimates, inclusionFee, GasFees.default())}`);
+  log(`Maximum total tx fee:   ${getEstimatedCost(gasEstimates, GasSettings.default().maxFeesPerGas)}`);
+  log(`Estimated total tx fee: ${getEstimatedCost(gasEstimates, GasFees.default())}`);
   log(`Estimated gas usage:    ${formatGasEstimate(gasEstimates)}`);
 }
 
@@ -46,12 +44,8 @@ function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGa
   return `da=${estimate.gasLimits.daGas},l2=${estimate.gasLimits.l2Gas},teardownDA=${estimate.teardownGasLimits.daGas},teardownL2=${estimate.teardownGasLimits.l2Gas}`;
 }
 
-function getEstimatedCost(
-  estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
-  inclusionFee: Fr,
-  fees: GasFees,
-) {
-  return GasSettings.from({ ...GasSettings.default(), ...estimate, inclusionFee, maxFeesPerGas: fees })
+function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, fees: GasFees) {
+  return GasSettings.from({ ...GasSettings.default(), ...estimate, maxFeesPerGas: fees })
     .getFeeLimit()
     .toBigInt();
 }
@@ -93,13 +87,12 @@ export class FeeOpts implements IFeeOpts {
 
   static fromCli(args: CliFeeArgs, log: LogFn, db?: WalletDB) {
     const estimateOnly = args.estimateGasOnly;
-    if (!args.inclusionFee && !args.gasLimits && !args.payment) {
+    if (!args.gasLimits && !args.payment) {
       return new NoFeeOpts(estimateOnly);
     }
     const gasSettings = GasSettings.from({
       ...GasSettings.default(),
       ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
-      ...(args.inclusionFee ? { inclusionFee: new Fr(args.inclusionFee) } : {}),
       maxFeesPerGas: GasFees.default(),
     });
     return new FeeOpts(
