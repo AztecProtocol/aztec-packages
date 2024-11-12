@@ -12,8 +12,11 @@
 
 namespace bb {
 
-ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
+ECCVMProver::ECCVMProver(CircuitBuilder& builder,
+                         const std::shared_ptr<Transcript>& transcript,
+                         const std::shared_ptr<Transcript>& ipa_transcript)
     : transcript(transcript)
+    , ipa_transcript(ipa_transcript)
 {
     PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 

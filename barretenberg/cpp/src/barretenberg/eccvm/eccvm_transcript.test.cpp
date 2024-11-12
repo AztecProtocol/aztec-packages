@@ -205,6 +205,19 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
+        manifest_expected.add_challenge(round, "Translation:batching_challenge");
+
+        return manifest_expected;
+    }
+
+    TranscriptManifest construct_eccvm_ipa_manifest()
+    {
+        TranscriptManifest manifest_expected;
+        // Size of types is number of bb::frs needed to represent the type
+        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
+        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
+        size_t round = 0;
         manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_uint32);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
@@ -220,8 +233,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         round++;
         manifest_expected.add_entry(round, "IPA:G_0", frs_per_G);
         manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fr);
-        manifest_expected.add_challenge(round, "Translation:batching_challenge");
-
         return manifest_expected;
     }
 
@@ -280,6 +291,15 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
+    }
+
+    auto ipa_manifest_expected = this->construct_eccvm_ipa_manifest();
+    auto prover_ipa_manifest = prover.ipa_transcript->get_manifest();
+
+    // Note: a manifest can be printed using manifest.print()
+    for (size_t round = 0; round < ipa_manifest_expected.size(); ++round) {
+        ASSERT_EQ(prover_ipa_manifest[round], ipa_manifest_expected[round])
+            << "IPA prover manifest discrepency in round " << round;
     }
 }
 

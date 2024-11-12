@@ -27,7 +27,8 @@ class ECCVMProver {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                         const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();

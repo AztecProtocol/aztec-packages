@@ -128,7 +128,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
     const bool batched_opening_verified =
-        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, transcript);
+        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
     vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
     vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_verified.value() && batched_opening_verified;
