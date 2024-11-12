@@ -54,8 +54,12 @@ class MegaFlavor {
 
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
 
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
+    static constexpr size_t NUM_SHIFTED_TABLES = 4;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
+                                NUM_SHIFTED_WITNESSES);
 
     using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
 
@@ -297,7 +301,7 @@ class MegaFlavor {
     template <typename DataType>
     class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedWitnessEntities<DataType>, ShiftedTables<DataType>)
+        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
 
         auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
         auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
@@ -335,9 +339,9 @@ class MegaFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return concatenate(WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted(),
-                               PrecomputedEntities<DataType>::get_table_polynomials());
+            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
+                               WitnessEntities<DataType>::get_wires(),
+                               WitnessEntities<DataType>::get_to_be_shifted());
         };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // getter for shifted witnesses

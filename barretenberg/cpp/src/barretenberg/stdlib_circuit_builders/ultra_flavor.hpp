@@ -52,9 +52,14 @@ class UltraFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The index of the shift of the first unshifted witness
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
+
+    static constexpr size_t NUM_SHIFTED_TABLES = 4;
+
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
+                                NUM_SHIFTED_WITNESSES);
 
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
@@ -218,7 +223,7 @@ class UltraFlavor {
     template <typename DataType>
     class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedWitnessEntities<DataType>, ShiftedTables<DataType>)
+        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
 
         auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
         auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
@@ -255,9 +260,9 @@ class UltraFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return concatenate(WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted(),
-                               PrecomputedEntities<DataType>::get_table_polynomials());
+            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
+                               WitnessEntities<DataType>::get_wires(),
+                               WitnessEntities<DataType>::get_to_be_shifted());
         };
 
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
