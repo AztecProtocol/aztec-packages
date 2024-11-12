@@ -248,7 +248,7 @@ mod tests {
                 DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1,
                 L2_GAS_PER_NULLIFIER * 1,
             );
-        assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
+        assert_eq(public_inputs.gas_used, expected_gas_consumed);
     }
 
     #[test]
@@ -268,7 +268,7 @@ mod tests {
                     4 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
                     1 * L2_GAS_PER_NULLIFIER,
                 ),
-            public_inputs.end.gas_used,
+            public_inputs.gas_used,
         );
     }
 
@@ -290,7 +290,7 @@ mod tests {
                     (1 * DA_BYTES_PER_FIELD + 25) * DA_GAS_PER_BYTE,
                     1 * L2_GAS_PER_NULLIFIER + 25 * L2_GAS_PER_LOG_BYTE,
                 ),
-            public_inputs.end.gas_used,
+            public_inputs.gas_used,
         );
     }
 

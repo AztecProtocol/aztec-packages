@@ -29,23 +29,20 @@ pub fn get_mint_public_content_hash(owner: AztecAddress, amount: Field) -> Field
 // Computes a content hash of a deposit/mint_private message.
 // Refer TokenPortal.sol for reference on L1.
 pub fn get_mint_private_content_hash(
-    secret_hash_for_redeeming_minted_notes: Field,
     amount: Field
 ) -> Field {
-    let mut hash_bytes = [0; 68];
-    let secret_hash_bytes:[u8; 32] = secret_hash_for_redeeming_minted_notes.to_be_bytes();
+    let mut hash_bytes = [0; 36];
     let amount_bytes:[u8; 32] = amount.to_be_bytes();
 
     for i in 0..32 {
-        hash_bytes[i + 4] = secret_hash_bytes[i];
-        hash_bytes[i + 36] = amount_bytes[i];
+        hash_bytes[i + 4] = amount_bytes[i];
     }
 
-    // Function selector: 0xefa012c1 keccak256('mint_private(bytes32,uint256)')
-    hash_bytes[0] = 0xef;
-    hash_bytes[1] = 0xa0;
-    hash_bytes[2] = 0x12;
-    hash_bytes[3] = 0xc1;
+    // Function selector: 0xb81559e2 keccak256('mint_private(uint256)')
+    hash_bytes[0] = 0xb8;
+    hash_bytes[1] = 0x15;
+    hash_bytes[2] = 0x59;
+    hash_bytes[3] = 0xe2;
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash

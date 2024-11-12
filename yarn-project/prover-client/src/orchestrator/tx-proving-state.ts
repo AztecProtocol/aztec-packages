@@ -17,7 +17,6 @@ import {
   PrivateTubeData,
   PublicBaseRollupInputs,
   PublicTubeData,
-  type RecursiveProof,
   type TUBE_PROOF_LENGTH,
   TUBE_VK_INDEX,
   TubeInputs,
@@ -31,8 +30,8 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
  * Also stores the inputs to the base rollup for this transaction and the tree snapshots
  */
 export class TxProvingState {
-  private tube?: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
-  private avm?: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
+  private tube?: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  private avm?: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -96,11 +95,11 @@ export class TxProvingState {
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
-  public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>) {
+  public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) {
     this.tube = tubeProofAndVk;
   }
 
-  public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>) {
+  public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>) {
     this.avm = avmProofAndVk;
   }
 

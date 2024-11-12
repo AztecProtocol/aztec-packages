@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { Gas } from '../gas.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -32,6 +33,10 @@ export class KernelCircuitPublicInputs {
      */
     public revertCode: RevertCode,
     /**
+     * Gas used during this transaction
+     */
+    public gasUsed: Gas,
+    /**
      * The address of the fee payer for the transaction.
      */
     public feePayer: AztecAddress,
@@ -48,6 +53,7 @@ export class KernelCircuitPublicInputs {
       this.constants,
       this.startState,
       this.revertCode,
+      this.gasUsed,
       this.feePayer,
     );
   }
@@ -65,6 +71,7 @@ export class KernelCircuitPublicInputs {
       reader.readObject(CombinedConstantData),
       reader.readObject(PartialStateReference),
       reader.readObject(RevertCode),
+      reader.readObject(Gas),
       reader.readObject(AztecAddress),
     );
   }
@@ -76,6 +83,7 @@ export class KernelCircuitPublicInputs {
       CombinedConstantData.empty(),
       PartialStateReference.empty(),
       RevertCode.OK,
+      Gas.empty(),
       AztecAddress.ZERO,
     );
   }
